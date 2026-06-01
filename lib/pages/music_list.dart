@@ -79,14 +79,15 @@ Future<void> loadSongs() async {
                         borderRadius: BorderRadius.circular(10.0),
                       ),
                     ),
-                    child: CachedNetworkImage(
-                      placeholder: (context, url) => const CircularProgressIndicator(),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                      imageUrl: song[index]['image'],
-                      height: 180,
-                      width: 180,
-                      fit: BoxFit.cover,
-                    ),
+                    child: QueryArtworkWidget(
+  controller: audioQuery,
+  id: songs[index].id,
+  type: ArtworkType.AUDIO,
+  nullArtworkWidget: const Icon(
+    Icons.music_note,
+    size: 100,
+  ),
+),
                   ),
                   const SizedBox(
                     height: 10,
