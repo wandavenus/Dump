@@ -1,3 +1,4 @@
+import 'package:on_audio_query/on_audio_query.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,9 @@ class MusicList extends StatefulWidget {
 }
 
 class _MusicListState extends State<MusicList> {
-@override
+final OnAudioQuery audioQuery = OnAudioQuery();
+List<SongModel> songs = [];
+  @override
 void initState() {
   super.initState();
   loadSongs();
@@ -31,7 +34,7 @@ Future<void> loadSongs() async {
     setState(() {});
   }
  }    
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,7 +51,7 @@ Future<void> loadSongs() async {
         ),
       ),
       body: GridView.builder(
-        itemCount: song.length,
+        itemCount: songs.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, // number of Rows in the grid
           childAspectRatio: .750, // ratio of Row width to row height
