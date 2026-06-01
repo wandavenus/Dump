@@ -2,7 +2,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-
+import 'package:on_audio_query/on_audio_query.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 class MusicPlayer extends StatefulWidget {
@@ -527,8 +527,14 @@ class _MusicPlayerState extends State<MusicPlayer> {
     });
 
     try {
-      await audioPlayer.stop();
-      await audioPlayer.setUrl(song[index]['source']);
+      final routes =
+    ModalRoute.of(context)?.settings.arguments
+        as Map<String, dynamic>;
+
+final SongModel selectedSong = routes['song'];
+		
+			await audioPlayer.stop();
+      await audioPlayer.setFilePath(selectedSong.data);
       await audioPlayer.play();
       await _updatePaletteGenerator(index);
     } catch (e) {
