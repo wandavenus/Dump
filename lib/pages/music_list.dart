@@ -100,7 +100,7 @@ Future<void> loadSongs() async {
                         child: SizedBox(
                           width: 300,
                           child: Text(
-                            song[index]['title'],
+                            songs[index].title,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -112,7 +112,7 @@ Future<void> loadSongs() async {
                       SizedBox(
                         width: 190,
                         child: Text(
-                          song[index]['artist'],
+  songs[index].artist ?? "Unknown Artist",
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Color.fromARGB(255, 182, 182, 182), fontSize: 13),
                         ),
