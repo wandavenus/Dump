@@ -11,6 +11,26 @@ class MusicList extends StatefulWidget {
 }
 
 class _MusicListState extends State<MusicList> {
+@override
+void initState() {
+  super.initState();
+  loadSongs();
+}
+
+Future<void> loadSongs() async {
+  bool permission = await audioQuery.permissionsRequest();
+
+  if (permission) {
+    songs = await audioQuery.querySongs(
+      sortType: SongSortType.TITLE,
+      orderType: OrderType.ASC_OR_SMALLER,
+      uriType: UriType.EXTERNAL,
+      ignoreCase: true,
+    );
+
+    setState(() {});
+  }
+}
   List song = [
     {
       "id": "wake_up_01",
