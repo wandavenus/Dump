@@ -58,9 +58,14 @@ Future<void> loadSongs() async {
         itemBuilder: (context, index) {
           return InkWell(
             onTap: () async {
-              Navigator.pushNamed(context, '/player', arguments: {
-                'index': index
-              });
+              Navigator.pushNamed(
+  context,
+  '/player',
+  arguments: {
+    'index': index,
+    'song': songs[index],
+  },
+);
             },
             child: Container(
               margin: const EdgeInsets.all(10),
