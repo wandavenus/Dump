@@ -1,3 +1,4 @@
+import '../services/audio_service.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ class MusicList extends StatefulWidget {
 class _MusicListState extends State<MusicList> {
 final OnAudioQuery audioQuery = OnAudioQuery();
 List<SongModel> songs = [];
+bool refreshMiniPlayer = false;
   @override
 void initState() {
   super.initState();
