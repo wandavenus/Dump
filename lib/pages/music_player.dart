@@ -528,12 +528,10 @@ final routes =
     ModalRoute.of(context)?.settings.arguments
         as Map<String, dynamic>?;
 
-if (routes != null && routes.containsKey('song')) {
-  selectedSong = routes['song'];
-  AudioService.currentSong = selectedSong;
-} else {
-  selectedSong = AudioService.currentSong!;
-}	
+final List<SongModel> allSongs = routes!['songs'];
+
+selectedSong = allSongs[index];
+AudioService.currentSong = selectedSong;
     try {
   await audioPlayer.stop();
   await audioPlayer.setFilePath(selectedSong.data);
