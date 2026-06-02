@@ -57,7 +57,18 @@ Future<void> loadSongs() async {
           crossAxisCount: 2, // number of Rows in the grid
           childAspectRatio: .750, // ratio of Row width to row height
         ),
-      bottomNavigationBar: AudioService.currentSong != null
+      
+        itemBuilder: (context, index) {
+          return InkWell(
+            onTap: () async {
+              Navigator.pushNamed(
+  context,
+  '/player',
+  arguments: {
+    'index': index,
+    'song': songs[index],
+  },
+ bottomNavigationBar: AudioService.currentSong != null
     ? Container(
         height: 65,
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -94,17 +105,7 @@ Future<void> loadSongs() async {
         ),
       )
     : null,
-        itemBuilder: (context, index) {
-          return InkWell(
-            onTap: () async {
-              Navigator.pushNamed(
-  context,
-  '/player',
-  arguments: {
-    'index': index,
-    'song': songs[index],
-  },
-);
+              );
             },
             child: Container(
               margin: const EdgeInsets.all(10),
