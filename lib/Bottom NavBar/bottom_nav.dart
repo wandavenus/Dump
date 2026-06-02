@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
 import '../services/audio_service.dart';
+import 'package:musicplayer/widgets/mini_player.dart';
 import 'package:flutter/material.dart';
 import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -41,7 +42,12 @@ class _FirstPageState extends State<FirstPage> {
   index: _selected_index,
   children: _pages.cast<Widget>(),
 ),
-      bottomNavigationBar: SizedBox(
+      bottomNavigationBar: Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    const MiniPlayer(),
+
+    SizedBox(
         height: 80,
 
         // padding: EdgeInsets.only(bottom: 0),
@@ -100,6 +106,8 @@ class _FirstPageState extends State<FirstPage> {
           ),
         ),
       ),
-    );
+   ],
+),
+ );
   }
 }
