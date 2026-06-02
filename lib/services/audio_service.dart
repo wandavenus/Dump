@@ -5,4 +5,5 @@ class AudioService {
   static final AudioPlayer player = AudioPlayer();
 
   static SongModel? currentSong;
+  static bool isPlaying = false;
 }
