@@ -37,7 +37,10 @@ class _FirstPageState extends State<FirstPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selected_index],
+      body: IndexedStack(
+  index: _selected_index,
+  children: _pages.cast<Widget>(),
+),
       bottomNavigationBar: SizedBox(
         height: 80,
 
