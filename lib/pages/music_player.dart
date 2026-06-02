@@ -526,7 +526,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
         as Map<String, dynamic>;
 
 final SongModel selectedSong = routes['song'];
-		
+	AudioService.currentSong = selectedSong;	
 			await audioPlayer.stop();
       await audioPlayer.setFilePath(selectedSong.data);
       await audioPlayer.play();
