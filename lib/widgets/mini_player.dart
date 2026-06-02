@@ -28,7 +28,14 @@ void initState() {
       return const SizedBox();
     }
 
-    return Container(
+    return GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(
+      context,
+      '/player',
+    );
+  },
+  child: Container(
       height: 70,
       margin: const EdgeInsets.all(8),
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -97,6 +104,8 @@ void initState() {
           ),
         ],
       ),
-    );
+     ),
+   );
+   );
   }
 }
