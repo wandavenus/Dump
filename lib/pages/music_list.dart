@@ -65,9 +65,10 @@ Future<void> loadSongs() async {
   context,
   '/player',
   arguments: {
-    'index': index,
-    'song': songs[index],
-  },
+  'index': index,
+  'song': songs[index],
+  'songs': songs,
+},
  
               );
             },
