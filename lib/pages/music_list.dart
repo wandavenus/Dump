@@ -51,11 +51,7 @@ Future<void> loadSongs() async {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
-  
-      body: Column(
-  children: [
-    Expanded(
-      child: GridView.builder(
+      body: GridView.builder(
         itemCount: songs.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, // number of Rows in the grid
@@ -126,12 +122,15 @@ Future<void> loadSongs() async {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Color.fromARGB(255, 182, 182, 182), fontSize: 13),
                         ),
-        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
-    ),
-    ),
-  ],
-),
     );
   }
 }
