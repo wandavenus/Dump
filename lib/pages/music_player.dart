@@ -676,8 +676,10 @@ if (routes != null && routes.containsKey('song')) {
                             const SizedBox(
                               height: 3,
                             ),
-                            AudioService.currentSong?.artist ?? 'Unknown Artist',
-                          ],
+                      Text(    
+  AudioService.currentSong?.artist ?? 'Unknown Artist',
+              )       
+     ],
                         ),
                       ),
                       Container(
