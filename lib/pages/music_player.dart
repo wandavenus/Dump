@@ -647,7 +647,7 @@ if (routes != null && routes.containsKey('song')) {
                     child: CachedNetworkImage(
                       placeholder: (context, url) => const CircularProgressIndicator(),
                       errorWidget: (context, url, error) => const Icon(Icons.error),
-                      imageUrl: song[currentIndex ?? 0]['image'],
+                      imageUrl: 'https://via.placeholder.com/350',
                       height: 350,
                       width: 350,
                       fit: BoxFit.cover,
@@ -670,13 +670,13 @@ if (routes != null && routes.containsKey('song')) {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              song[currentIndex ?? 0]['title'],
+                              AudioService.currentSong?.title ?? 'Unknown Song',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, overflow: TextOverflow.ellipsis),
                             ),
                             const SizedBox(
                               height: 3,
                             ),
-                            Text(song[currentIndex ?? 0]['artist']),
+                            AudioService.currentSong?.artist ?? 'Unknown Artist',
                           ],
                         ),
                       ),
@@ -775,14 +775,7 @@ if (routes != null && routes.containsKey('song')) {
                         size: 70,
                         color: Color.fromARGB(255, 255, 255, 255),
                       ),
-                      onPressed: currentIndex > 0
-                          ? () {
-                              setState(() {
-                                currentIndex--;
-                              });
-                              _loadSong(currentIndex);
-                            }
-                          : null,
+                      onPressed: null,
                     ),
                     IconButton(
                       icon: Icon(
@@ -804,14 +797,8 @@ if (routes != null && routes.containsKey('song')) {
                         size: 70,
                         color: Color.fromARGB(255, 255, 255, 255),
                       ),
-                      onPressed: currentIndex < song.length - 1
-                          ? () {
-                              setState(() {
-                                currentIndex++;
-                              });
-                              _loadSong(currentIndex);
-                            }
-                          : null,
+                      onPressed: null,
+                          
                     ),
                   ],
                 ),
