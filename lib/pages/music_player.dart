@@ -475,7 +475,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
     _loadSong(currentIndex);
   }
 });
-
+ }
   void setupAudioPlayer() {
     // Listen to player state changes
     audioPlayer.playerStateStream.listen((PlayerState state) {
