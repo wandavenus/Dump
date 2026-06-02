@@ -12,6 +12,16 @@ class MiniPlayer extends StatefulWidget {
 class _MiniPlayerState extends State<MiniPlayer> {
   final OnAudioQuery audioQuery = OnAudioQuery();
 
+@override
+void initState() {
+  super.initState();
+ AudioService.player.playerStateStream.listen((event) {
+    if (mounted) {
+      setState(() {});
+    }
+  });
+}
+
   @override
   Widget build(BuildContext context) {
     if (AudioService.currentSong == null) {
