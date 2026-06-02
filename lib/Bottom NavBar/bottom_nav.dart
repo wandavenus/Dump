@@ -133,6 +133,7 @@ class _FirstPageState extends State<FirstPage> {
           backgroundColor: Colors.transparent,
           unselectedFontSize: 13.0,
           selectedFontSize: 13.0,
+          ),
         ),
       ),
     ),
