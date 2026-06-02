@@ -57,6 +57,43 @@ Future<void> loadSongs() async {
           crossAxisCount: 2, // number of Rows in the grid
           childAspectRatio: .750, // ratio of Row width to row height
         ),
+      bottomNavigationBar: AudioService.currentSong != null
+    ? Container(
+        height: 65,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.music_note),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: Text(
+                AudioService.currentSong!.title,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            IconButton(
+              icon: Icon(
+                AudioService.isPlaying
+                    ? Icons.pause
+                    : Icons.play_arrow,
+              ),
+              onPressed: () async {
+                if (AudioService.isPlaying) {
+                  await AudioService.player.pause();
+                } else {
+                  await AudioService.player.play();
+                }
+
+                setState(() {});
+              },
+            ),
+          ],
+        ),
+      )
+    : null,
         itemBuilder: (context, index) {
           return InkWell(
             onTap: () async {
