@@ -522,18 +522,24 @@ class _MusicPlayerState extends State<MusicPlayer> {
       currentIndex = index;
     });
 
-    try {
-      final routes =
-    ModalRoute.of(context)?.settings.arguments
-        as Map<String, dynamic>;
+    SongModel selectedSong;
 
-final SongModel selectedSong = routes['song'];
-	AudioService.currentSong = selectedSong;	
-			await audioPlayer.stop();
-      await audioPlayer.setFilePath(selectedSong.data);
-      await audioPlayer.play();
-      await _updatePaletteGenerator(index);
-    } catch (e) {
+final routes =
+    ModalRoute.of(context)?.settings.arguments
+        as Map<String, dynamic>?;
+
+if (routes != null && routes.containsKey('song')) {
+  selectedSong = routes['song'];
+  AudioService.currentSong = selectedSong;
+} else {
+  selectedSong = AudioService.currentSong!;
+}	
+    try {
+  await audioPlayer.stop();
+  await audioPlayer.setFilePath(selectedSong.data);
+  await audioPlayer.play();
+  await _updatePaletteGenerator(index);
+} catch (e) {
       print('Error loading song: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error playing song: ${e.toString()}')),
