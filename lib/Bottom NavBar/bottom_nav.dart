@@ -41,12 +41,19 @@ class _FirstPageState extends State<FirstPage> {
   index: _selected_index,
   children: _pages.cast<Widget>(),
 ),
-      bottomNavigationBar: SizedBox(
-        height: 80,
+      bottomNavigationBar: Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
 
-        // padding: EdgeInsets.only(bottom: 0),
-        // color: Colors.amber,
-        child: Theme(
+    Container(
+  height: 55,
+  alignment: Alignment.center,
+  child: const Text("Mini Player"),
+),
+    
+    SizedBox(
+  height: 80,
+  child: Theme(
           data: Theme.of(context).copyWith(
             // Apply transparent color to both splashColor and highlightColor
             splashColor: Colors.transparent,
