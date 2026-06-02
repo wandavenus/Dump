@@ -52,6 +52,10 @@ Future<void> loadSongs() async {
         ),
       ),
       body: GridView.builder(
+      body: Column(
+  children: [
+    Expanded(
+      child: GridView.builder(
         itemCount: songs.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, // number of Rows in the grid
@@ -129,8 +133,11 @@ Future<void> loadSongs() async {
               ),
             ),
           );
-        },
+         },
+        ),
       ),
-    );
+ ),
+ ],
+ ),
   }
 }
