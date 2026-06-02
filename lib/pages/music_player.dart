@@ -777,7 +777,15 @@ if (routes != null && routes.containsKey('song')) {
                         size: 70,
                         color: Color.fromARGB(255, 255, 255, 255),
                       ),
-                      onPressed: null,
+                      onPressed: () {
+  if (currentIndex > 0) {
+    setState(() {
+      currentIndex--;
+    });
+
+    _loadSong(currentIndex);
+  }
+},
                     ),
                     IconButton(
                       icon: Icon(
@@ -799,7 +807,13 @@ if (routes != null && routes.containsKey('song')) {
                         size: 70,
                         color: Color.fromARGB(255, 255, 255, 255),
                       ),
-                      onPressed: null,
+                      onPressed: () {
+  setState(() {
+    currentIndex++;
+  });
+
+  _loadSong(currentIndex);
+},
                           
                     ),
                   ],
