@@ -184,27 +184,7 @@ Future<void> loadSongs() async {
                 ],
               ),
             ),
-            IconButton(
-              onPressed: () async {
-                if (AudioService.player.playing) {
-                  await AudioService.player.pause();
-                } else {
-                  await AudioService.player.play();
-                }
-
-                setState(() {});
-              },
-              icon: Icon(
-                AudioService.player.playing
-                    ? Icons.pause
-                    : Icons.play_arrow,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      )
-    : null,
+            
     );
   }
 }
