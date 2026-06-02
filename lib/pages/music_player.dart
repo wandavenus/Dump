@@ -479,10 +479,12 @@ class _MusicPlayerState extends State<MusicPlayer> {
   void setupAudioPlayer() {
     // Listen to player state changes
     audioPlayer.playerStateStream.listen((PlayerState state) {
-      setState(() {
-        isPlaying = state.playing;
-      });
-    });
+  setState(() {
+    isPlaying = state.playing;
+  });
+
+  AudioService.isPlaying = state.playing;
+});
 
     // Listen to duration changes
     audioPlayer.durationStream.listen((newDuration) {
