@@ -463,18 +463,18 @@ class _MusicPlayerState extends State<MusicPlayer> {
     changeImage(currentIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final routes = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (routes != null && routes.containsKey('index')) {
-        setState(() {
-          currentIndex = routes['index'] as int;
-        });
-        _loadSong(currentIndex);
-      } else {
-        // Load the first song by default
-        _loadSong(currentIndex);
-      }
+  final routes =
+      ModalRoute.of(context)?.settings.arguments
+          as Map<String, dynamic>?;
+
+  if (routes != null && routes.containsKey('index')) {
+    setState(() {
+      currentIndex = routes['index'] as int;
     });
+
+    _loadSong(currentIndex);
   }
+});
 
   void setupAudioPlayer() {
     // Listen to player state changes
