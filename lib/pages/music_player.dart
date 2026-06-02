@@ -1,4 +1,5 @@
 // import 'package:audioplayers/audioplayers.dart';
+import '../services/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -446,7 +447,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   ];
 
   //variable for music audioPlayer
-  late final AudioPlayer audioPlayer;
+  final AudioPlayer audioPlayer = AudioService.player;
   bool isPlaying = false;
   Duration duration = Duration.zero;
   Duration position = Duration.zero;
@@ -457,7 +458,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
   void initState() {
     super.initState();
     // Initialize audio player
-    audioPlayer = AudioPlayer();
     setupAudioPlayer();
     _updatePaletteGenerator(currentIndex);
     changeImage(currentIndex);
@@ -512,12 +512,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
         }
       }
     });
-  }
-
-  @override
-  void dispose() {
-    audioPlayer.dispose();
-    super.dispose();
   }
 
   Future<void> _loadSong(int index) async {
