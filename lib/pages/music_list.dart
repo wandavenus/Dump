@@ -125,20 +125,12 @@ Future<void> loadSongs() async {
   songs[index].artist ?? "Unknown Artist",
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Color.fromARGB(255, 182, 182, 182), fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-         },
+                        },
         ),
       ),
- ),
- ],
- ),
-);
-      }
-}
+    ),
+  ],
+),
+    );
+  }
+                  }
