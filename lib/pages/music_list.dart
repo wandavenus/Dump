@@ -139,6 +139,6 @@ Future<void> loadSongs() async {
  ),
  ],
  ),
-):
+);
       }
 }
