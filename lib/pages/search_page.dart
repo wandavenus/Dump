@@ -200,13 +200,7 @@ class _SearchPageState extends State<SearchPage> {
               ],
             ),
           ),
-          Container(
-            margin: const EdgeInsets.only(left: 10, top: 17),
-            child: const Text(
-              "Browse Catogories",
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ),
+          
           SizedBox(
             height: 566.952 - 85, //may need to adjust acordingly
             child: GridView.builder(
