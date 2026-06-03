@@ -47,7 +47,7 @@ class _FirstPageState extends State<FirstPage> {
   children: [
     const MiniPlayer(),
 Container(
-  height: 1.0,
+  height: 1,
   color: const Color(0xFF38383A),
 ),
     SizedBox(
