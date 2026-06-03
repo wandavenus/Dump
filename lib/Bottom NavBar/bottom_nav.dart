@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
 import '../services/audio_service.dart';
 import 'package:musicplayer/widgets/mini_player.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -68,36 +69,40 @@ Container(
             onTap: _navgateBottomBar,
             items: [
               const BottomNavigationBarItem(
-                icon: Icon(
-                  Icons.home_filled,
-                  size: 26,
-                ),
-                label: 'Beranda',
-              ),
+  icon: Icon(
+    CupertinoIcons.house_fill,
+    size: 26,
+  ),
+  label: 'Beranda',
+),
               const BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.grid_view_rounded,
-                    size: 26,
-                  ),
-                  label: 'Baru'),
+  icon: Icon(
+    CupertinoIcons.square_grid_2x2_fill,
+    size: 26,
+  ),
+  label: 'Baru',
+),
               const BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.sensors,
-                    size: 26,
-                  ),
-                  label: 'Radio'),
+  icon: Icon(
+    CupertinoIcons.dot_radiowaves_left_right,
+    size: 26,
+  ),
+  label: 'Radio',
+),
               const BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.subscriptions_rounded,
-                    size: 26,
-                  ),
-                  label: 'Perpustakaan'),
+  icon: Icon(
+    CupertinoIcons.music_note_list,
+    size: 26,
+  ),
+  label: 'Perpustakaan',
+),
               const BottomNavigationBarItem(
-                  icon: Icon(
-                    Icons.search,
-                    size: 26,
-                  ),
-                  label: 'Cari'),
+  icon: Icon(
+    CupertinoIcons.search,
+    size: 26,
+  ),
+  label: 'Cari',
+),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
