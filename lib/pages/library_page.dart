@@ -452,21 +452,28 @@ class _LibraryPageState extends State<LibraryPage> {
       appBar: AppBar(
         toolbarHeight: 100,
         title: const Text(
-          "Library",
+  "Perpustakaan",
+  style: TextStyle(
+    fontWeight: FontWeight.bold,
+    fontSize: 40,
+  ),
+),
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
         ),
         actions: [
-          Container(
-            // color: Colors.amber,
-            padding: const EdgeInsets.only(right: 5),
-            child: IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.account_circle_rounded,
-                  size: 40,
-                )),
-          )
-        ],
+  Padding(
+    padding: const EdgeInsets.only(right: 16),
+    child: Center(
+      child: Text(
+        'Edit',
+        style: TextStyle(
+          color: Color(0xFFF92D48),
+          fontSize: 20,
+        ),
+      ),
+    ),
+  ),
+],
       ),
       body: SingleChildScrollView(
         child: Container(
@@ -482,14 +489,14 @@ class _LibraryPageState extends State<LibraryPage> {
                         children: [
                           Icon(
                             Icons.queue_music_rounded,
-                            color: Colors.red,
-                            size: 40,
+                            color: Color(0xFFF92D48),
+                            size: 30,
                           ),
                           SizedBox(
                             width: 10,
                           ),
                           Text(
-                            "Playlist",
+                            "Daftar Putar",
                             style: TextStyle(
                                 color: Colors.white,
                                 // fontWeight: FontWeight.bold,
@@ -497,15 +504,14 @@ class _LibraryPageState extends State<LibraryPage> {
                           ),
                         ],
                       ),
-                      Icon(Icons.arrow_forward_ios_rounded)
+                      
                     ],
                   ),
                   Divider(
-                    color: Color.fromARGB(255, 103, 103, 103),
-                    thickness: .4,
-                    indent: 50,
-                    endIndent: 0,
-                  ),
+  color: const Color(0xFF38383A),
+  thickness: 0.7,
+  indent: 80,
+),
                 ],
               ),
               const Column(
@@ -517,14 +523,14 @@ class _LibraryPageState extends State<LibraryPage> {
                         children: [
                           Icon(
                             Icons.mic_external_on,
-                            color: Colors.red,
-                            size: 40,
+                            color: Color(0xFFF92D48),
+                            size: 30,
                           ),
                           SizedBox(
                             width: 10,
                           ),
                           Text(
-                            "Artist",
+                            "Artis",
                             style: TextStyle(
                                 color: Colors.white,
                                 // fontWeight: FontWeight.bold,
@@ -532,15 +538,14 @@ class _LibraryPageState extends State<LibraryPage> {
                           ),
                         ],
                       ),
-                      Icon(Icons.arrow_forward_ios_rounded)
+                      
                     ],
                   ),
                   Divider(
-                    color: Color.fromARGB(255, 103, 103, 103),
-                    thickness: .4,
-                    indent: 50,
-                    endIndent: 0,
-                  ),
+  color: const Color(0xFF38383A),
+  thickness: 0.7,
+  indent: 80,
+),
                 ],
               ),
               const Column(
@@ -552,8 +557,8 @@ class _LibraryPageState extends State<LibraryPage> {
                         children: [
                           Icon(
                             Icons.subscriptions_rounded,
-                            color: Colors.red,
-                            size: 40,
+                            color: Color(0xFFF92D48),
+                            size: 30,
                           ),
                           SizedBox(
                             width: 10,
@@ -567,15 +572,14 @@ class _LibraryPageState extends State<LibraryPage> {
                           ),
                         ],
                       ),
-                      Icon(Icons.arrow_forward_ios_rounded)
+                      
                     ],
                   ),
                   Divider(
-                    color: Color.fromARGB(255, 103, 103, 103),
-                    thickness: .4,
-                    indent: 50,
-                    endIndent: 0,
-                  ),
+  color: const Color(0xFF38383A),
+  thickness: 0.7,
+  indent: 80,
+),
                 ],
               ),
               GestureDetector(
@@ -591,14 +595,14 @@ class _LibraryPageState extends State<LibraryPage> {
                           children: [
                             Icon(
                               Icons.music_note,
-                              color: Colors.red,
-                              size: 40,
+                              color: Color(0xFFF92D48),
+                              size: 30,
                             ),
                             SizedBox(
                               width: 10,
                             ),
                             Text(
-                              "Songs",
+                              "Lagu",
                               style: TextStyle(
                                   color: Colors.white,
                                   // fontWeight: FontWeight.bold,
@@ -606,90 +610,14 @@ class _LibraryPageState extends State<LibraryPage> {
                             ),
                           ],
                         ),
-                        Icon(Icons.arrow_forward_ios_rounded)
+                        
                       ],
                     ),
                     const Divider(
-                      color: Color.fromARGB(255, 103, 103, 103),
-                      thickness: .4,
-                      indent: 50,
-                      endIndent: 0,
-                    ),
-                    Container(
-                      // color: Colors.amber,
-                      margin: const EdgeInsets.only(top: 20),
-                      height: 30,
-                      padding: const EdgeInsets.only(left: 15),
-                      child: const Row(
-                        children: [
-                          Text(
-                            "Recently Added",
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      // color: Color.fromARGB(255, 5, 69, 68),
-                      height: 250,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.all(10),
-                        itemCount: 10,
-                        itemBuilder: (context, index) {
-                          int randomIndex = Random().nextInt(song.length);
-
-                          return Container(
-                            // color: Colors.amber,
-                            margin: const EdgeInsets.only(right: 10, left: 6),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(
-                                  height: 10,
-                                ),
-                                ClipPath(
-                                  clipper: ShapeBorderClipper(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  child: CachedNetworkImage(
-                                    placeholder: (context, url) => const CircularProgressIndicator(),
-                                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                                    imageUrl: song[randomIndex]['image'],
-                                    height: 170,
-                                    width: 170,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Padding(padding: EdgeInsets.only(top: 2.5)),
-                                    SizedBox(
-                                      width: 165,
-                                      // color: Colors.amberAccent,
-                                      child: Text(
-                                        song[randomIndex]['title'],
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 15, color: Colors.white),
-                                      ),
-                                    ),
-                                    Text(
-                                      song[randomIndex]['artist'],
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12, color: Colors.grey),
-                                    ),
-                                  ],
-                                )
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+  color: const Color(0xFF38383A),
+  thickness: 0.7,
+  indent: 80,
+                   ),               
                   ],
                 ),
               ),
