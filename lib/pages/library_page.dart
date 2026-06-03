@@ -450,8 +450,35 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 135,
-        title: const Text(
+        toolbarHeight: 115,
+      
+      flexibleSpace: Padding(
+  padding: const EdgeInsets.only(
+    top: 18,
+    right: 18,
+  ),
+  child: Align(
+    alignment: Alignment.topRight,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: const [
+        Icon(
+          Icons.cast_outlined,
+          color: Color(0xFFF92D48),
+          size: 24,
+        ),
+        SizedBox(width: 16),
+        Icon(
+          Icons.more_vert,
+          color: Color(0xFFF92D48),
+          size: 24,
+        ),
+      ],
+    ),
+  ),
+),
+      
+  title: const Text(
   "Perpustakaan",
   style: TextStyle(
     fontWeight: FontWeight.bold,
@@ -482,32 +509,11 @@ Padding(
           margin: const EdgeInsets.only(left: 18, right: 10),
           child: Column(
             children: [
-        Padding(
-  padding: const EdgeInsets.only(
-    right: 18,
-    bottom: 24,
-  ),
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.end,
-    children: const [
-      Icon(
-        Icons.cast_outlined,
-        color: Color(0xFFF92D48),
-        size: 24,
-      ),
-      SizedBox(width: 16),
-      Icon(
-        Icons.more_vert,
-        color: Color(0xFFF92D48),
-        size: 24,
-      ),
-    ],
-  ),
-),
+
       Padding(
   padding: const EdgeInsets.only(
-    left: 18,
-    right: 18,
+    left: 12,
+    right: 12,
   ),
   child: const Divider(
     color: Color(0xFF2C2C2E),
@@ -545,7 +551,7 @@ Padding(
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 78,
+  indent: 68,
   endIndent: 18,
 ),
                 ],
@@ -580,7 +586,7 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 78,
+  indent: 68,
   endIndent: 18,
 ),
                 ],
@@ -615,7 +621,7 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 78,
+  indent: 68,
   endIndent: 18,
 ),
                 ],
@@ -654,7 +660,7 @@ Padding(
                     const Divider(
   color: const Color(0xFF38383A),
   thickness: 0.5,
-  indent: 78,
+  indent: 68,
   endIndent: 18,
                    ),               
                   ],
