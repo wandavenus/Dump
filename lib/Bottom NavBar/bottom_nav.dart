@@ -38,7 +38,8 @@ class _FirstPageState extends State<FirstPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
+     extendBody: true,
+ body: IndexedStack(
   index: _selected_index,
   children: _pages.cast<Widget>(),
 ),
@@ -51,7 +52,7 @@ Container(
   color: const Color(0xFF38383A),
 ),
     SizedBox(
-        height: 65,
+        height: 80,
 
         // padding: EdgeInsets.only(bottom: 0),
         // color: Colors.amber,
