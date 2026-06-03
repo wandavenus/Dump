@@ -52,7 +52,7 @@ Container(
   color: const Color(0xFF38383A),
 ),
     SizedBox(
-        height: 75,
+        height: 73,
 
         // padding: EdgeInsets.only(bottom: 0),
         // color: Colors.amber,
