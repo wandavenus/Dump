@@ -16,11 +16,11 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 125,
+        toolbarHeight: 155,
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
-    top: 45,
+    top: 49,
     right: 7,
   ),
   child: Align(
@@ -56,7 +56,7 @@ class _LibraryPageState extends State<LibraryPage> {
   "Perpustakaan",
   style: TextStyle(
     fontWeight: FontWeight.bold,
-    fontSize: 38,
+    fontSize: 36,
   ),
 ),
 
@@ -86,8 +86,8 @@ Padding(
 
       Padding(
   padding: const EdgeInsets.only(
-    left: 7,
-    right: 15,
+    left: 0,
+    right: 0,
   ),
   child: const Divider(
     color: Color(0xFF2C2C2E),
@@ -240,7 +240,36 @@ Padding(
                   ],
                 ),
               ),
-            ],
+        Column(
+  children: [
+    Row(
+      children: [
+        Icon(
+          CupertinoIcons.tv,
+          color: Color(0xFFF92D48),
+          size: 28,
+        ),
+        SizedBox(
+          width: 8,
+        ),
+        Text(
+          "TV & Film",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+          ),
+        ),
+      ],
+    ),
+    Divider(
+      color: Color(0xFF38383A),
+      thickness: 0.5,
+      indent: 52,
+      endIndent: 18,
+    ),
+  ],
+),          
+ ],
           ),
         ),
       ),
