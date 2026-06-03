@@ -169,11 +169,7 @@ class _SearchPageState extends State<SearchPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               // crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.search,
-                  size: 30,
-                  color: Color.fromARGB(255, 157, 157, 157),
-                ),
+                
                 SizedBox(
                   // color: Colors.amber,
                   // margin: EdgeInsets.only(top: 10),
@@ -186,17 +182,13 @@ class _SearchPageState extends State<SearchPage> {
                     ),
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Artits, Song, Lyrics and More',
-                      hintStyle: TextStyle(color: Colors.grey, fontSize: 20, fontWeight: FontWeight.normal),
+                      hintText: 'Artis, Lagu, Lirik and lainnya',
+                      hintStyle: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.normal),
                       floatingLabelBehavior: FloatingLabelBehavior.never,
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.mic,
-                  size: 30,
-                  color: Colors.grey,
-                ),
+                
               ],
             ),
           ),
