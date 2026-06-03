@@ -23,7 +23,7 @@ class WebView extends StatelessWidget {
     this.shadowSpreadRadius = 2.0,
     this.innerContainerColor = Colors.black87,
     this.borderRadius = 15.0,
-    this.padding = const EdgeInsets.all(8.0),
+    this.padding = EdgeInsets.zero,
     this.gradientColors = const [
       Color(0xff536976),
       Color(0xff292e49),
