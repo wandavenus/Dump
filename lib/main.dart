@@ -15,7 +15,9 @@ import 'package:flutter/services.dart';
 import 'pages/library_page.dart';
 
 void main() {
-  SystemChrome.setEnabledSystemUIMode(
+  
+  WidgetsFlutterBinding.ensureInitialized();
+SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
   );
 
