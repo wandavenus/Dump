@@ -1,4 +1,5 @@
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 // import 'package:icons_flutter/icons_flutter.dart';
 
@@ -15,12 +16,12 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 145,
+        toolbarHeight: 125,
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
-    top: 50,
-    right: 9,
+    top: 45,
+    right: 7,
   ),
   child: Align(
     alignment: Alignment.topRight,
@@ -63,7 +64,7 @@ class _LibraryPageState extends State<LibraryPage> {
 Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    top: 15,
+    top: 13,
   ),
     child: Center(
       child: Text(
@@ -102,19 +103,19 @@ Padding(
                       Row(
                         children: [
                           Icon(
-                            Icons.queue_music_rounded,
-                            color: Color(0xFFF92D48),
-                            size: 30,
-                          ),
+  CupertinoIcons.music_note_list,
+  color: Color(0xFFF92D48),
+  size: 28,
+),
                           SizedBox(
-                            width: 12,
+                            width: 8,
                           ),
                           Text(
                             "Daftar Putar",
                             style: TextStyle(
                                 color: Colors.white,
                                 // fontWeight: FontWeight.bold,
-                                fontSize: 20),
+                                fontSize: 18),
                           ),
                         ],
                       ),
@@ -124,7 +125,7 @@ Padding(
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 68,
+  indent: 52,
   endIndent: 18,
 ),
                 ],
@@ -137,19 +138,19 @@ Padding(
                       Row(
                         children: [
                           Icon(
-                            Icons.mic_external_on,
-                            color: Color(0xFFF92D48),
-                            size: 30,
-                          ),
+  CupertinoIcons.mic,
+  color: Color(0xFFF92D48),
+  size: 30,
+),
                           SizedBox(
-                            width: 10,
+                            width: 8,
                           ),
                           Text(
                             "Artis",
                             style: TextStyle(
                                 color: Colors.white,
                                 // fontWeight: FontWeight.bold,
-                                fontSize: 20),
+                                fontSize: 18),
                           ),
                         ],
                       ),
@@ -159,7 +160,7 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 68,
+  indent: 52,
   endIndent: 18,
 ),
                 ],
@@ -171,20 +172,20 @@ Padding(
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.subscriptions_rounded,
-                            color: Color(0xFFF92D48),
-                            size: 30,
-                          ),
+    Icon(
+  CupertinoIcons.square_stack,
+  color: Color(0xFFF92D48),
+  size: 28,
+),
                           SizedBox(
-                            width: 10,
+                            width: 8,
                           ),
                           Text(
                             "Album",
                             style: TextStyle(
                                 color: Colors.white,
                                 // fontWeight: FontWeight.bold,
-                                fontSize: 20),
+                                fontSize: 18),
                           ),
                         ],
                       ),
@@ -194,7 +195,7 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 68,
+  indent: 52,
   endIndent: 18,
 ),
                 ],
@@ -211,19 +212,19 @@ Padding(
                         Row(
                           children: [
                             Icon(
-                              Icons.music_note,
-                              color: Color(0xFFF92D48),
-                              size: 30,
-                            ),
+  CupertinoIcons.music_note,
+  color: Color(0xFFF92D48),
+  size: 30,
+),
                             SizedBox(
-                              width: 10,
+                              width: 8,
                             ),
                             Text(
                               "Lagu",
                               style: TextStyle(
                                   color: Colors.white,
                                   // fontWeight: FontWeight.bold,
-                                  fontSize: 20),
+                                  fontSize: 18),
                             ),
                           ],
                         ),
@@ -233,7 +234,7 @@ Padding(
                     const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 68,
+  indent: 52,
   endIndent: 18,
                    ),               
                   ],
