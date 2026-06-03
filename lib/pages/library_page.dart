@@ -15,12 +15,12 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 185,
+        toolbarHeight: 145,
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
-    top: 65,
-    right: 18,
+    top: 50,
+    right: 9,
   ),
   child: Align(
     alignment: Alignment.topRight,
@@ -63,7 +63,7 @@ class _LibraryPageState extends State<LibraryPage> {
 Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    top: 10,
+    top: 15,
   ),
     child: Center(
       child: Text(
@@ -79,7 +79,7 @@ Padding(
       ),
       body: SingleChildScrollView(
         child: Container(
-          margin: const EdgeInsets.only(left: 18, right: 10),
+          margin: const EdgeInsets.only(left: 25, right: 10),
           child: Column(
             children: [
 
