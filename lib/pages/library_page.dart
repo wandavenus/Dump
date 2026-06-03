@@ -108,7 +108,7 @@ Padding(
   size: 28,
 ),
                           SizedBox(
-                            width: 8,
+                            width: 9,
                           ),
                           Text(
                             "Daftar Putar",
@@ -125,8 +125,8 @@ Padding(
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 52,
-  endIndent: 18,
+  indent: 42,
+  endIndent: 15,
 ),
                 ],
               ),
@@ -143,7 +143,7 @@ Padding(
   size: 30,
 ),
                           SizedBox(
-                            width: 8,
+                            width: 9,
                           ),
                           Text(
                             "Artis",
@@ -160,8 +160,8 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 52,
-  endIndent: 18,
+  indent: 42,
+  endIndent: 15,
 ),
                 ],
               ),
@@ -178,7 +178,7 @@ Padding(
   size: 28,
 ),
                           SizedBox(
-                            width: 8,
+                            width: 9,
                           ),
                           Text(
                             "Album",
@@ -195,8 +195,8 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 52,
-  endIndent: 18,
+  indent: 42,
+  endIndent: 15,
 ),
                 ],
               ),
@@ -217,7 +217,7 @@ Padding(
   size: 30,
 ),
                             SizedBox(
-                              width: 8,
+                              width: 9,
                             ),
                             Text(
                               "Lagu",
@@ -234,8 +234,8 @@ Padding(
                     const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 52,
-  endIndent: 18,
+  indent: 42,
+  endIndent: 15,
                    ),               
                   ],
                 ),
@@ -250,7 +250,7 @@ Padding(
           size: 28,
         ),
         SizedBox(
-          width: 8,
+          width: 9,
         ),
         Text(
           "TV & Film",
@@ -264,8 +264,8 @@ Padding(
     Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 52,
-      endIndent: 18,
+      indent: 42,
+      endIndent: 15,
     ),
   ],
 ),          
