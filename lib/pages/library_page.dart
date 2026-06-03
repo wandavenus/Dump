@@ -16,11 +16,11 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 155,
+        toolbarHeight: 100,
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
-    top: 49,
+    top: 45,
     right: 7,
   ),
   child: Align(
@@ -64,7 +64,7 @@ class _LibraryPageState extends State<LibraryPage> {
 Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    top: 13,
+    top: 12,
   ),
     child: Center(
       child: Text(
