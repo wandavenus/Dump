@@ -16,7 +16,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 110,
+        toolbarHeight: 120,
       
        flexibleSpace: Stack(
   children: [
@@ -65,7 +65,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
     Positioned(
       right: 18,
-      top: 125,
+      top: 130,
       child: Text(
         "Edit",
         style: TextStyle(
@@ -91,7 +91,7 @@ class _LibraryPageState extends State<LibraryPage> {
   child: const Divider(
     color: Color(0xFF2C2C2E),
     thickness: 0.5,
-    height: 1,
+    height: 2,
   ),
 ),
              const Column(
@@ -124,8 +124,8 @@ class _LibraryPageState extends State<LibraryPage> {
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 40,
-  endIndent: 15,
+  indent: 39,
+  endIndent: 10,
 ),
                 ],
               ),
@@ -159,7 +159,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 40,
+  indent: 39,
   endIndent: 10,
 ),
                 ],
@@ -194,7 +194,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 40,
+  indent: 39,
   endIndent: 10,
 ),
                 ],
@@ -233,7 +233,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 40,
+  indent: 39,
   endIndent: 10,
                    ),               
                   ],
@@ -263,7 +263,7 @@ class _LibraryPageState extends State<LibraryPage> {
     Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 40,
+      indent: 39,
       endIndent: 10,
     ),
   ],
