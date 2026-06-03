@@ -642,14 +642,19 @@ AudioService.currentSong = selectedSong;
                         borderRadius: BorderRadius.circular(10.0),
                       ),
                     ),
-                    child: CachedNetworkImage(
-                      placeholder: (context, url) => const CircularProgressIndicator(),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                      imageUrl: 'https://via.placeholder.com/350',
-                      height: 350,
-                      width: 350,
-                      fit: BoxFit.cover,
-                    ),
+                    child: QueryArtworkWidget(
+  controller: OnAudioQuery(),
+  id: AudioService.currentSong!.id,
+  type: ArtworkType.AUDIO,
+  artworkHeight: 350,
+  artworkWidth: 350,
+  artworkFit: BoxFit.cover,
+  nullArtworkWidget: const Icon(
+    Icons.music_note,
+    size: 150,
+    color: Colors.white,
+  ),
+),
                   ),
                 ),
                 const SizedBox(
