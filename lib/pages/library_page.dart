@@ -51,8 +51,8 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
 
     Positioned(
-      left: 25,
-      top: 90,
+      left: 15,
+      top: 115,
       child: Text(
         "Perpustakaan",
         style: TextStyle(
@@ -65,7 +65,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
     Positioned(
       right: 18,
-      top: 105,
+      top: 115,
       child: Text(
         "Edit",
         style: TextStyle(
