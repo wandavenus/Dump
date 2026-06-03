@@ -16,67 +16,66 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
+        toolbarHeight: 200,
       
-      flexibleSpace: Padding(
-  padding: const EdgeInsets.only(
-    top: 45,
-    right: 7,
-  ),
-  child: Align(
-    alignment: Alignment.topRight,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.cast_outlined,
-          color: Color(0xFFF92D48),
-          size: 24,
-        ),
-        SizedBox(width: 16),
-        PopupMenuButton(
-  icon: const Icon(
-    Icons.more_vert,
-    color: Color(0xFFF92D48),
-    size: 24,
-  ),
-  itemBuilder: (context) => [
-    const PopupMenuItem(
-      value: 'settings',
-      child: Text('Pengaturan'),
-    ),
-  ],
-),
-      ],
-    ),
-  ),
-),
-      
-  title: const Text(
-  "Perpustakaan",
-  style: TextStyle(
-    fontWeight: FontWeight.bold,
-    fontSize: 36,
-  ),
-),
+       flexibleSpace: Stack(
+  children: [
 
-     actions: [
-Padding(
-  padding: const EdgeInsets.only(
-    right: 18,
-    top: 12,
-  ),
-    child: Center(
+    Positioned(
+      top: 45,
+      right: 7,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.cast_outlined,
+            color: Color(0xFFF92D48),
+            size: 24,
+          ),
+          SizedBox(width: 16),
+          PopupMenuButton(
+            icon: Icon(
+              Icons.more_vert,
+              color: Color(0xFFF92D48),
+              size: 24,
+            ),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'settings',
+                child: Text('Pengaturan'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+
+    Positioned(
+      left: 25,
+      top: 90,
       child: Text(
-        'Edit',
+        "Perpustakaan",
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 36,
+          color: Colors.white,
+        ),
+      ),
+    ),
+
+    Positioned(
+      right: 18,
+      top: 105,
+      child: Text(
+        "Edit",
         style: TextStyle(
           color: Color(0xFFF92D48),
           fontSize: 18,
         ),
       ),
     ),
-  ),
-],
+  ],
+),      
       ),
       body: SingleChildScrollView(
         child: Container(
@@ -125,7 +124,7 @@ Padding(
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 42,
+  indent: 40,
   endIndent: 15,
 ),
                 ],
@@ -160,8 +159,8 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 42,
-  endIndent: 15,
+  indent: 40,
+  endIndent: 10,
 ),
                 ],
               ),
@@ -195,8 +194,8 @@ Padding(
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 42,
-  endIndent: 15,
+  indent: 40,
+  endIndent: 10,
 ),
                 ],
               ),
@@ -234,8 +233,8 @@ Padding(
                     const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 42,
-  endIndent: 15,
+  indent: 40,
+  endIndent: 10,
                    ),               
                   ],
                 ),
@@ -264,8 +263,8 @@ Padding(
     Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 42,
-      endIndent: 15,
+      indent: 40,
+      endIndent: 10,
     ),
   ],
 ),          
