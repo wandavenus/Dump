@@ -47,8 +47,8 @@ class _FirstPageState extends State<FirstPage> {
   children: [
     const MiniPlayer(),
 Container(
-  height: 0.5,
-  color: const Color(0xFF3A3A3C),
+  height: 1.0,
+  color: const Color(0xFF38383A),
 ),
     SizedBox(
         height: 65,
@@ -69,32 +69,32 @@ Container(
               const BottomNavigationBarItem(
                 icon: Icon(
                   Icons.home_filled,
-                  size: 28,
+                  size: 26,
                 ),
                 label: 'Beranda',
               ),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.grid_view_rounded,
-                    size: 28,
+                    size: 26,
                   ),
                   label: 'Baru'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.sensors,
-                    size: 28,
+                    size: 26,
                   ),
                   label: 'Radio'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.subscriptions_rounded,
-                    size: 28,
+                    size: 26,
                   ),
                   label: 'Perpustakaan'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.search,
-                    size: 28,
+                    size: 26,
                   ),
                   label: 'Cari'),
             ],
