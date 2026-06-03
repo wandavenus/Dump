@@ -36,26 +36,29 @@ void initState() {
     );
   },
   child: Container(
-      height: 70,
-      margin: const EdgeInsets.all(8),
+      height: 60,
+      margin: EdgeInsets.zero,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
-        borderRadius: BorderRadius.circular(15),
+        color: const Color(0xFF38383A),
+        borderRadius: BorderRadius.circular(0),
       ),
       child: Row(
         children: [
-          QueryArtworkWidget(
-            controller: audioQuery,
-            id: AudioService.currentSong!.id,
-            type: ArtworkType.AUDIO,
-            artworkWidth: 50,
-            artworkHeight: 50,
-            nullArtworkWidget: const Icon(
-              Icons.music_note,
-              color: Colors.white,
-            ),
-          ),
+          ClipRRect(
+  borderRadius: BorderRadius.circular(8),
+  child: QueryArtworkWidget(
+    controller: audioQuery,
+    id: AudioService.currentSong!.id,
+    type: ArtworkType.AUDIO,
+    artworkWidth: 50,
+    artworkHeight: 50,
+    nullArtworkWidget: const Icon(
+      Icons.music_note,
+      color: Colors.white,
+    ),
+  ),
+),
 
           const SizedBox(width: 10),
 
@@ -71,16 +74,7 @@ void initState() {
                   style: const TextStyle(color: Colors.white),
                 ),
 
-                Text(
-                  AudioService.currentSong!.artist ??
-                      "Unknown Artist",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
+               
               ],
             ),
           ),
@@ -99,7 +93,8 @@ void initState() {
               AudioService.player.playing
                   ? Icons.pause
                   : Icons.play_arrow,
-              color: Colors.white,
+             size: 34,
+ color: Colors.white,
             ),
           ),
         ],
