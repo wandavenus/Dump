@@ -450,7 +450,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 115,
+        toolbarHeight: 135,
         title: const Text(
   "Perpustakaan",
   style: TextStyle(
@@ -485,7 +485,7 @@ Padding(
         Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    bottom: 12,
+    bottom: 24,
   ),
   child: Row(
     mainAxisAlignment: MainAxisAlignment.end,
