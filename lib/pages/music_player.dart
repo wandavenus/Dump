@@ -496,15 +496,13 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
     // Listen to position changes
     audioPlayer.positionStream.listen((newPosition) {
-      setState(() {
-        position = newPosition;
-      });
-    });
+  position = newPosition;
+});
 
     // Listen to sequence state for completion
     audioPlayer.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
-        {
+        setState(() {
           position = Duration.zero;
           isPlaying = false;
         });
