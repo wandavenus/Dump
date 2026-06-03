@@ -46,7 +46,7 @@ void initState() {
       child: Row(
         children: [
           ClipRRect(
-  borderRadius: BorderRadius.circular(3),
+  borderRadius: BorderRadius.circular(0),
   child: QueryArtworkWidget(
     controller: audioQuery,
     id: AudioService.currentSong!.id,
