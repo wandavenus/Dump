@@ -454,7 +454,7 @@ class _LibraryPageState extends State<LibraryPage> {
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
-    top: 18,
+    top: 65,
     right: 18,
   ),
   child: Align(
@@ -468,11 +468,19 @@ class _LibraryPageState extends State<LibraryPage> {
           size: 24,
         ),
         SizedBox(width: 16),
-        Icon(
-          Icons.more_vert,
-          color: Color(0xFFF92D48),
-          size: 24,
-        ),
+        PopupMenuButton(
+  icon: const Icon(
+    Icons.more_vert,
+    color: Color(0xFFF92D48),
+    size: 24,
+  ),
+  itemBuilder: (context) => [
+    const PopupMenuItem(
+      value: 'settings',
+      child: Text('Pengaturan'),
+    ),
+  ],
+),
       ],
     ),
   ),
@@ -490,7 +498,7 @@ class _LibraryPageState extends State<LibraryPage> {
 Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    top: 55,
+    top: 8,
   ),
     child: Center(
       child: Text(
@@ -512,8 +520,8 @@ Padding(
 
       Padding(
   padding: const EdgeInsets.only(
-    left: 12,
-    right: 12,
+    left: 7,
+    right: 15,
   ),
   child: const Divider(
     color: Color(0xFF2C2C2E),
