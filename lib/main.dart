@@ -11,10 +11,22 @@ import 'package:musicplayer/pages/music_player.dart';
 import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
-
+import 'package:flutter/services.dart';
 import 'pages/library_page.dart';
 
 void main() {
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+  );
+
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
+
   runApp(const MyApp());
 }
 
