@@ -15,7 +15,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 145,
+        toolbarHeight: 185,
       
       flexibleSpace: Padding(
   padding: const EdgeInsets.only(
