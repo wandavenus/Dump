@@ -46,7 +46,10 @@ class _FirstPageState extends State<FirstPage> {
   mainAxisSize: MainAxisSize.min,
   children: [
     const MiniPlayer(),
-
+Container(
+  height: 0.5,
+  color: const Color(0xFF3A3A3C),
+),
     SizedBox(
         height: 65,
 
@@ -68,14 +71,14 @@ class _FirstPageState extends State<FirstPage> {
                   Icons.home_filled,
                   size: 28,
                 ),
-                label: 'Home',
+                label: 'Beranda',
               ),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.grid_view_rounded,
                     size: 28,
                   ),
-                  label: 'Browse'),
+                  label: 'Baru'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.sensors,
@@ -87,20 +90,20 @@ class _FirstPageState extends State<FirstPage> {
                     Icons.subscriptions_rounded,
                     size: 28,
                   ),
-                  label: 'Library'),
+                  label: 'Perpustakaan'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.search,
                     size: 28,
                   ),
-                  label: 'Search'),
+                  label: 'Cari'),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
             selectedItemColor: const Color(0xFFFF2D55),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: const Color(0xFF1C1C1E),
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
