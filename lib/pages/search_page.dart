@@ -140,8 +140,8 @@ class _SearchPageState extends State<SearchPage> {
       appBar: AppBar(
         toolbarHeight: 100,
         title: const Text(
-          "Search",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
+          "Cari",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
         ),
         actions: [
           Container(
