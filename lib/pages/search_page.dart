@@ -138,7 +138,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 150,
+        toolbarHeight: 140,
         title: const Text(
           "Cari",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
