@@ -461,7 +461,7 @@ class _LibraryPageState extends State<LibraryPage> {
     alignment: Alignment.topRight,
     child: Row(
       mainAxisSize: MainAxisSize.min,
-      children: const [
+      children: [
         Icon(
           Icons.cast_outlined,
           color: Color(0xFFF92D48),
