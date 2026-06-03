@@ -63,7 +63,7 @@ class _LibraryPageState extends State<LibraryPage> {
 Padding(
   padding: const EdgeInsets.only(
     right: 18,
-    top: 8,
+    top: 10,
   ),
     child: Center(
       child: Text(
