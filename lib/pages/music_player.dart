@@ -448,6 +448,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
   //variable for music audioPlayer
   final AudioPlayer audioPlayer = AudioService.player;
+  final OnAudioQuery audioQuery = OnAudioQuery();
   bool isPlaying = false;
   Duration duration = Duration.zero;
   Duration position = Duration.zero;
@@ -634,16 +635,16 @@ AudioService.currentSong = selectedSong;
                       ),
                     ],
                     shape: BoxShape.rectangle,
-                    borderRadius: BorderRadius.circular(10.0),
+                    borderRadius: BorderRadius.circular(18.0),
                   ),
                   child: ClipPath(
                     clipper: ShapeBorderClipper(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.0),
+                        borderRadius: BorderRadius.circular(18.0),
                       ),
                     ),
                     child: QueryArtworkWidget(
-  controller: OnAudioQuery(),
+  controller: audioQuery,
   id: AudioService.currentSong!.id,
   type: ArtworkType.AUDIO,
   artworkHeight: 350,
