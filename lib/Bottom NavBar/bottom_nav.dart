@@ -48,7 +48,7 @@ class _FirstPageState extends State<FirstPage> {
     const MiniPlayer(),
 
     SizedBox(
-        height: 80,
+        height: 65,
 
         // padding: EdgeInsets.only(bottom: 0),
         // color: Colors.amber,
@@ -66,43 +66,43 @@ class _FirstPageState extends State<FirstPage> {
               const BottomNavigationBarItem(
                 icon: Icon(
                   Icons.home_filled,
-                  size: 35,
+                  size: 28,
                 ),
                 label: 'Home',
               ),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.grid_view_rounded,
-                    size: 35,
+                    size: 28,
                   ),
                   label: 'Browse'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.sensors,
-                    size: 35,
+                    size: 28,
                   ),
                   label: 'Radio'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.subscriptions_rounded,
-                    size: 35,
+                    size: 28,
                   ),
                   label: 'Library'),
               const BottomNavigationBarItem(
                   icon: Icon(
                     Icons.search,
-                    size: 35,
+                    size: 28,
                   ),
                   label: 'Search'),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
-            selectedItemColor: const Color.fromARGB(255, 255, 17, 0),
+            selectedItemColor: const Color(0xFFFF2D55),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
             backgroundColor: Colors.transparent,
-            unselectedFontSize: 13.0,
-            selectedFontSize: 13.0,
+            unselectedFontSize: 11.0,
+            selectedFontSize: 11.0,
           ),
         ),
       ),
