@@ -458,7 +458,7 @@ class _LibraryPageState extends State<LibraryPage> {
     fontSize: 40,
   ),
 ),
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
+          
         ),
         actions: [
   Padding(
