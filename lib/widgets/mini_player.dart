@@ -40,13 +40,13 @@ void initState() {
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF38383A),
-        borderRadius: BorderRadius.circular(0),
+        color: const Color(0xFF1C1C1E), 
+ borderRadius: BorderRadius.circular(0),
       ),
       child: Row(
         children: [
           ClipRRect(
-  borderRadius: BorderRadius.circular(8),
+  borderRadius: BorderRadius.circular(3),
   child: QueryArtworkWidget(
     controller: audioQuery,
     id: AudioService.currentSong!.id,
