@@ -458,8 +458,7 @@ class _LibraryPageState extends State<LibraryPage> {
     fontSize: 40,
   ),
 ),
-          
-        ),
+ 
         actions: [
   Padding(
     padding: const EdgeInsets.only(right: 16),
@@ -508,7 +507,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     ],
                   ),
                   Divider(
-  color: const Color(0xFF38383A),
+  color: Color(0xFF38383A),
   thickness: 0.7,
   indent: 80,
 ),
@@ -542,7 +541,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     ],
                   ),
                   Divider(
-  color: const Color(0xFF38383A),
+  color: Color(0xFF38383A),
   thickness: 0.7,
   indent: 80,
 ),
@@ -614,7 +613,7 @@ class _LibraryPageState extends State<LibraryPage> {
                       ],
                     ),
                     const Divider(
-  color: const Color(0xFF38383A),
+  color: Color(0xFF38383A),
   thickness: 0.7,
   indent: 80,
                    ),               
