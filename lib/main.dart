@@ -26,7 +26,8 @@ SystemChrome.setEnabledSystemUIMode(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-    ),
+   systemNavigationBarContrastEnforced: false,
+ ),
   );
 
   runApp(const MyApp());
