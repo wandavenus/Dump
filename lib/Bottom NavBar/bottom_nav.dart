@@ -49,7 +49,7 @@ class _FirstPageState extends State<FirstPage> {
   children: [
     const MiniPlayer(),
 Container(
-  height: 2.0,
+  height: 1.5,
   color: const Color(0xFF38383A),
 ),
     SizedBox(
@@ -69,40 +69,36 @@ Container(
             onTap: _navgateBottomBar,
             items: [
               const BottomNavigationBarItem(
-  icon: Icon(
-    CupertinoIcons.house_fill,
-    size: 26,
-  ),
-  label: 'Beranda',
-),
+                icon: Icon(
+                  Icons.home_filled,
+                  size: 26,
+                ),
+                label: 'Beranda',
+              ),
               const BottomNavigationBarItem(
-  icon: Icon(
-    CupertinoIcons.square_grid_2x2_fill,
-    size: 26,
-  ),
-  label: 'Baru',
-),
+                  icon: Icon(
+                    Icons.grid_view_rounded,
+                    size: 26,
+                  ),
+                  label: 'Baru'),
               const BottomNavigationBarItem(
-  icon: Icon(
-    CupertinoIcons.dot_radiowaves_left_right,
-    size: 26,
-  ),
-  label: 'Radio',
-),
+                  icon: Icon(
+                    Icons.sensors,
+                    size: 26,
+                  ),
+                  label: 'Radio'),
               const BottomNavigationBarItem(
-  icon: Icon(
-    CupertinoIcons.music_note_list,
-    size: 26,
-  ),
-  label: 'Perpustakaan',
-),
+                  icon: Icon(
+                    Icons.subscriptions_rounded,
+                    size: 26,
+                  ),
+                  label: 'Perpustakaan'),
               const BottomNavigationBarItem(
-  icon: Icon(
-    CupertinoIcons.search,
-    size: 26,
-  ),
-  label: 'Cari',
-),
+                  icon: Icon(
+                    Icons.search,
+                    size: 26,
+                  ),
+                  label: 'Cari'),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
