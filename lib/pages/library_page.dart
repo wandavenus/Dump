@@ -450,24 +450,27 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
+        toolbarHeight: 115,
         title: const Text(
   "Perpustakaan",
   style: TextStyle(
     fontWeight: FontWeight.bold,
-    fontSize: 40,
+    fontSize: 38,
   ),
 ),
- 
-        actions: [
-  Padding(
-    padding: const EdgeInsets.only(right: 16),
+
+     actions: [
+Padding(
+  padding: const EdgeInsets.only(
+    right: 16,
+    top: 8,
+  ),
     child: Center(
       child: Text(
         'Edit',
         style: TextStyle(
           color: Color(0xFFF92D48),
-          fontSize: 20,
+          fontSize: 18,
         ),
       ),
     ),
@@ -476,11 +479,44 @@ class _LibraryPageState extends State<LibraryPage> {
       ),
       body: SingleChildScrollView(
         child: Container(
-          margin: const EdgeInsets.only(left: 10, right: 10),
+          margin: const EdgeInsets.only(left: 18, right: 10),
           child: Column(
             children: [
-              const Column(
-                children: [
+        Padding(
+  padding: const EdgeInsets.only(
+    right: 18,
+    bottom: 12,
+  ),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: const [
+      Icon(
+        Icons.cast_outlined,
+        color: Color(0xFFF92D48),
+        size: 24,
+      ),
+      SizedBox(width: 16),
+      Icon(
+        Icons.more_vert,
+        color: Color(0xFFF92D48),
+        size: 24,
+      ),
+    ],
+  ),
+),
+      Padding(
+  padding: const EdgeInsets.only(
+    left: 18,
+    right: 18,
+  ),
+  child: const Divider(
+    color: Color(0xFF2C2C2E),
+    thickness: 0.5,
+    height: 1,
+  ),
+),
+             const Column(
+               children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -492,7 +528,7 @@ class _LibraryPageState extends State<LibraryPage> {
                             size: 30,
                           ),
                           SizedBox(
-                            width: 10,
+                            width: 12,
                           ),
                           Text(
                             "Daftar Putar",
@@ -506,10 +542,11 @@ class _LibraryPageState extends State<LibraryPage> {
                       
                     ],
                   ),
-                  Divider(
+              const Divider(
   color: Color(0xFF38383A),
-  thickness: 0.7,
-  indent: 80,
+  thickness: 0.5,
+  indent: 78,
+  endIndent: 18,
 ),
                 ],
               ),
@@ -540,10 +577,11 @@ class _LibraryPageState extends State<LibraryPage> {
                       
                     ],
                   ),
-                  Divider(
+                  const Divider(
   color: Color(0xFF38383A),
-  thickness: 0.7,
-  indent: 80,
+  thickness: 0.5,
+  indent: 78,
+  endIndent: 18,
 ),
                 ],
               ),
@@ -574,10 +612,11 @@ class _LibraryPageState extends State<LibraryPage> {
                       
                     ],
                   ),
-                  Divider(
-  color: const Color(0xFF38383A),
-  thickness: 0.7,
-  indent: 80,
+                  const Divider(
+  color: Color(0xFF38383A),
+  thickness: 0.5,
+  indent: 78,
+  endIndent: 18,
 ),
                 ],
               ),
@@ -613,9 +652,10 @@ class _LibraryPageState extends State<LibraryPage> {
                       ],
                     ),
                     const Divider(
-  color: Color(0xFF38383A),
-  thickness: 0.7,
-  indent: 80,
+  color: const Color(0xFF38383A),
+  thickness: 0.5,
+  indent: 78,
+  endIndent: 18,
                    ),               
                   ],
                 ),
