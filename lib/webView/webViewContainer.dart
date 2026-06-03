@@ -20,9 +20,9 @@ class WebView extends StatelessWidget {
     this.innerContainerWidth = 400,
     this.shadowColor = Colors.black54,
     this.shadowBlurRadius = 10.0,
-    this.shadowSpreadRadius = 2.0,
+    this.shadowSpreadRadius = 0.0,
     this.innerContainerColor = Colors.black87,
-    this.borderRadius = 15.0,
+    this.borderRadius = 0.0,
     this.padding = EdgeInsets.zero,
     this.gradientColors = const [
       Color(0xff536976),
@@ -52,22 +52,14 @@ class WebView extends StatelessWidget {
           child: Padding(
             padding: padding,
             child: Container(
-              height: innerContainerHeight,
-              width: innerContainerWidth,
+              height: double.infinity,
+width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.all(
                   Radius.circular(borderRadius),
                 ),
                 color: innerContainerColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: shadowColor,
-                    blurRadius: shadowBlurRadius,
-                    spreadRadius: shadowSpreadRadius,
-                    offset: const Offset(0, 4), // Adds a slight downward shadow
-                  ),
-                ],
-              ),
+                ),
               child: ClipRRect(
                   borderRadius: BorderRadius.all(
                     Radius.circular(borderRadius),
