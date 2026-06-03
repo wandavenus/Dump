@@ -16,7 +16,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
+        toolbarHeight: 110,
       
        flexibleSpace: Stack(
   children: [
@@ -52,7 +52,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
     Positioned(
       left: 15,
-      top: 115,
+      top: 110,
       child: Text(
         "Perpustakaan",
         style: TextStyle(
@@ -65,12 +65,12 @@ class _LibraryPageState extends State<LibraryPage> {
 
     Positioned(
       right: 18,
-      top: 115,
+      top: 125,
       child: Text(
         "Edit",
         style: TextStyle(
           color: Color(0xFFF92D48),
-          fontSize: 18,
+          fontSize: 17,
         ),
       ),
     ),
