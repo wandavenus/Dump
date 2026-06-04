@@ -155,16 +155,16 @@ List<Map<String, dynamic>> BrowseCat = [
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
   centerTitle: true,
-  title: AnimatedOpacity(
-    duration: const Duration(milliseconds: 180),
-    opacity: _scrollOffset > 55 ? 0 : 1,
-    child: const Text(
-      "Cari",
-      style: TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-      ),
+  title: Opacity(
+  opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
+  child: const Text(
+    "Cari",
+    style: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
     ),
+  ),
+),
   ),
 actions: [
   IconButton(
@@ -187,9 +187,8 @@ actions: [
 ),
 
 SliverToBoxAdapter(
-  child: AnimatedOpacity(
-    duration: const Duration(milliseconds: 180),
-    opacity: _scrollOffset > 55 ? 0 : 1,
+  child: Opacity(
+  opacity: (1 - (_scrollOffset / 90)).clamp(0.0, 1.0),
     child: const Padding(
       padding: EdgeInsets.fromLTRB(
         16,
