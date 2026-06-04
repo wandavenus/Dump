@@ -231,15 +231,62 @@ SliverToBoxAdapter(
     delegate: _SearchBarDelegate(),
   ),
 
-SliverList(
-  delegate: SliverChildBuilderDelegate(
-    (context, index) => ListTile(
-      title: Text(
-        "Genre $index",
-        style: const TextStyle(color: Colors.white),
-      ),
+SliverPadding(
+  padding: const EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 8,
+  ),
+  sliver: SliverGrid(
+    delegate: SliverChildBuilderDelegate(
+      (context, index) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CachedNetworkImage(
+                imageUrl: BrowseCat[index]["image"],
+                fit: BoxFit.cover,
+              ),
+
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.6),
+                    ],
+                  ),
+                ),
+              ),
+
+              Positioned(
+                left: 10,
+                bottom: 10,
+                child: Text(
+                  BrowseCat[index]["title"],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      childCount: BrowseCat.length,
     ),
-    childCount: 30,
+    gridDelegate:
+        const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.65,
+    ),
   ),
 ),
 
