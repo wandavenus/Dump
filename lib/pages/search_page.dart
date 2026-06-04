@@ -11,7 +11,10 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  List<Map<String, dynamic>> BrowseCat = [
+  
+double _scrollOffset = 0;
+
+List<Map<String, dynamic>> BrowseCat = [
     {
       "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
       "title": "Pop"
@@ -137,13 +140,30 @@ class _SearchPageState extends State<SearchPage> {
 @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
+      body: NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    setState(() {
+      _scrollOffset = notification.metrics.pixels;
+    });
+    return false;
+  },
+  child: CustomScrollView(
         slivers: [
   SliverAppBar(
   pinned: true,
   backgroundColor: Colors.black,
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
+  title: AnimatedOpacity(
+    duration: const Duration(milliseconds: 150),
+    opacity: _scrollOffset > 40 ? 1 : 0,
+    child: const Text(
+      "Cari",
+      style: TextStyle(
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
 ),
 
 SliverToBoxAdapter(
@@ -232,7 +252,8 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
           ],
         ),
       ),
-    );
+    ),
+);
   }
 
   @override
