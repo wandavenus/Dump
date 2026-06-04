@@ -28,6 +28,18 @@ List<Map<String, dynamic>> BrowseCat = [
       "title": "Hits"
     },
     {
+      "image": "assets/images/search/kpop.webp",
+      "title": "K-Pop"
+    },
+    {
+      "image": "assets/images/search/pop.webp",
+      "title": "Pop"
+    },
+    {
+      "image": "assets/images/search/indie.webp",
+      "title": "Indie"
+    },
+    {
       "image": "assets/images/search/klasik.webp",
       "title": "Classical"
     }, 
@@ -52,10 +64,6 @@ List<Map<String, dynamic>> BrowseCat = [
       "title": "Dj Mixes"
     },
     {
-      "image": "assets/images/search/pop.webp",
-      "title": "Pop"
-    },
-    {
       "image": "assets/images/search/hiphop.webp",
       "title": "Hip-Hop"
     },
@@ -68,10 +76,6 @@ List<Map<String, dynamic>> BrowseCat = [
       "title": "Rock"
     },
     {
-      "image": "assets/images/search/kpop.webp",
-      "title": "K-Pop"
-    },
-    {
       "image": "assets/images/search/electronic.webp",
       "title": "Electronic"
     },
@@ -79,10 +83,7 @@ List<Map<String, dynamic>> BrowseCat = [
       "image": "assets/images/search/dance.webp",
       "title": "Dance"
     },
-    {
-      "image": "assets/images/search/indie.webp",
-      "title": "Indie"
-    },
+   
    ];
 
 @override
@@ -175,8 +176,8 @@ SliverPersistentHeader(
 
 SliverPadding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 12,
-    vertical: 8,
+    horizontal: 16,
+    vertical: 10,
   ),
   sliver: SliverGrid(
     delegate: SliverChildBuilderDelegate(
@@ -227,7 +228,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 1.65,
+      childAspectRatio: 1.80,
     ),
   ),
 ),
@@ -263,7 +264,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFF2C2C2E),
+          color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Row(
