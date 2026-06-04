@@ -66,10 +66,8 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
     // Listen to position changes
     audioPlayer.positionStream.listen((newPosition) {
-  if (mounted) {
-    setState(() {
-      position = newPosition;
-    });
+  position = newPosition;
+});
   }
 });
 
@@ -194,9 +192,16 @@ AudioService.currentSong = selectedSong;
   controller: audioQuery,
   id: AudioService.currentSong?.id ?? 0,
   type: ArtworkType.AUDIO,
+
+  keepOldArtwork: true,
+
+  artworkQuality: FilterQuality.high,
+  quality: 100,
+
   artworkHeight: coverSize,
   artworkWidth: coverSize,
   artworkFit: BoxFit.cover,
+
   nullArtworkWidget: const Icon(
     Icons.music_note,
     size: 150,
