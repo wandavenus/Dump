@@ -154,7 +154,6 @@ List<Map<String, dynamic>> BrowseCat = [
   backgroundColor: Colors.black,
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
-  centerTitle: true,
   title: Opacity(
   opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
   child: const Text(
@@ -164,7 +163,6 @@ List<Map<String, dynamic>> BrowseCat = [
       fontWeight: FontWeight.w600,
     ),
   ),
-),
   ),
 actions: [
   IconButton(
@@ -185,7 +183,12 @@ actions: [
   ),
 ],
 ),
-
+SliverToBoxAdapter(
+  child: Container(
+    height: 0.5,
+    color: Color(0xFF38383A),
+  ),
+),
 SliverToBoxAdapter(
   child: Opacity(
   opacity: (1 - (_scrollOffset / 90)).clamp(0.0, 1.0),
@@ -261,7 +264,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
           children: [
             SizedBox(width: 12),
             
-            SizedBox(width: 8),
+            
             Text(
               "Artis, Lagu, Lirik, dan lainnya",
               style: TextStyle(
