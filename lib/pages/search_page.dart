@@ -157,7 +157,7 @@ List<Map<String, dynamic>> BrowseCat = [
   centerTitle: true,
   title: AnimatedOpacity(
     duration: const Duration(milliseconds: 180),
-    opacity: _scrollOffset > 25 ? 1 : 0,
+    opacity: _scrollOffset > 55 ? 0 : 1,
     child: const Text(
       "Cari",
       style: TextStyle(
@@ -171,7 +171,7 @@ List<Map<String, dynamic>> BrowseCat = [
 SliverToBoxAdapter(
   child: AnimatedOpacity(
     duration: const Duration(milliseconds: 180),
-    opacity: _scrollOffset > 25 ? 0 : 1,
+    opacity: _scrollOffset > 55 ? 0 : 1,
     child: const Padding(
       padding: EdgeInsets.fromLTRB(
         16,
