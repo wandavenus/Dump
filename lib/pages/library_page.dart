@@ -91,7 +91,7 @@ class _LibraryPageState extends State<LibraryPage> {
   child: const Divider(
     color: Color(0xFF2C2C2E),
     thickness: 0.5,
-    height: 2,
+    height: 5,
   ),
 ),
              const Column(
