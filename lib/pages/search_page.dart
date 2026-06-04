@@ -154,7 +154,7 @@ SliverToBoxAdapter(
   child: Padding(
     padding: const EdgeInsets.fromLTRB(
       16,
-      8,
+      14,
       16,
       6,
     ),
@@ -228,7 +228,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 1.80,
+      childAspectRatio: 1.79,
     ),
   ),
 ),
