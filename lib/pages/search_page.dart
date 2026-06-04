@@ -170,7 +170,6 @@ List<Map<String, dynamic>> BrowseCat = [
     ),
   ),
 ),
-  ),
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
@@ -225,8 +224,8 @@ SliverToBoxAdapter(
     ),
   ),
 ),
-
-  SliverPersistentHeader(
+  
+SliverPersistentHeader(
     pinned: true,
     delegate: _SearchBarDelegate(),
   ),
