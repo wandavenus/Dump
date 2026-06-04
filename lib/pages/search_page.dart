@@ -309,7 +309,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       padding: const EdgeInsets.only(
   left: 16,
   right: 16,
-  top: 5,
+  top: 3,
   bottom: 18,
 ),
       child: Container(
