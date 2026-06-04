@@ -157,10 +157,11 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 90).clamp(0.0, 1.0)) * 16,
+    (1 - (_scrollOffset / 50).clamp(0.0, 1.0)) * 24,
   ),
   child: Opacity(
-    opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
+    opacity: (0.4 + (_scrollOffset / 60))
+    .clamp(0.0, 1.0),
     child: const Text(
       "Cari",
       style: TextStyle(
@@ -208,18 +209,12 @@ SliverToBoxAdapter(
       16,
       6,
     ),
-    child: Transform.translate(
-      offset: Offset(
-        0,
-        -(_scrollOffset * 0.35),
-      ),
-      child: const Text(
-        "Cari",
-        style: TextStyle(
-          fontSize: 34,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
+    child: const Text(
+      "Cari",
+      style: TextStyle(
+        fontSize: 34,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
       ),
     ),
   ),
