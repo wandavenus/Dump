@@ -27,7 +27,9 @@ jobs:
           key: pub-cache-${{ hashFiles('**/pubspec.lock') }}
   
       - run: flutter pub get
-
+       
+      - run: dart run flutter_launcher_icons
+  
       - run: flutter build apk --release --split-per-abi
 
       - uses: actions/upload-artifact@v4
