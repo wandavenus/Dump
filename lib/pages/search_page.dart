@@ -16,35 +16,35 @@ double _scrollOffset = 0;
 
 List<Map<String, dynamic>> BrowseCat = [
     {
-      "image": "assets/images/search/pop.jpg",
+      "image": "assets/images/search/pop.webp",
       "title": "Pop"
     },
     {
-      "image": "assets/images/search/hiphop.jpg",
+      "image": "assets/images/search/hiphop.webp",
       "title": "Hip-Hop"
     },
     {
-      "image": "assets/images/search/rnb.jpg",
+      "image": "assets/images/search/rnb.webp",
       "title": "RnB"
     },
     {
-      "image": "assets/images/search/rock.jpg",
+      "image": "assets/images/search/rock.webp",
       "title": "Rock"
     },
     {
-      "image": "assets/images/search/kpop.jpg",
+      "image": "assets/images/search/kpop.webp",
       "title": "K-Pop"
     },
     {
-      "image": "assets/images/search/electronic.jpg",
+      "image": "assets/images/search/electronic.webp",
       "title": "Electronic"
     },
     {
-      "image": "assets/images/search/dance.jpg",
+      "image": "assets/images/search/dance.webp",
       "title": "Dance"
     },
     {
-      "image": "assets/images/search/indie.jpg",
+      "image": "assets/images/search/indie.webp",
       "title": "Indie"
     },
    ];
