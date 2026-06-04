@@ -78,7 +78,8 @@ flutter:
 
   assets:
     - assets/
- 
+    - assets/images/
+    - assets/images/search/
   fonts:
     - family: SF Pro Display
       fonts:
