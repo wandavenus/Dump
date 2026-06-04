@@ -154,12 +154,14 @@ List<Map<String, dynamic>> BrowseCat = [
   backgroundColor: Colors.black,
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
+  centerTitle: true,
   title: AnimatedOpacity(
-    duration: const Duration(milliseconds: 150),
-    opacity: _scrollOffset > 40 ? 1 : 0,
+    duration: const Duration(milliseconds: 180),
+    opacity: _scrollOffset > 25 ? 1 : 0,
     child: const Text(
       "Cari",
       style: TextStyle(
+        fontSize: 17,
         fontWeight: FontWeight.w600,
       ),
     ),
@@ -167,19 +169,23 @@ List<Map<String, dynamic>> BrowseCat = [
 ),
 
 SliverToBoxAdapter(
-  child: Padding(
-    padding: const EdgeInsets.fromLTRB(
-      16,
-      0,
-      16,
-      12,
-    ),
-    child: Text(
-      "Cari",
-      style: TextStyle(
-        fontSize: 34,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+  child: AnimatedOpacity(
+    duration: const Duration(milliseconds: 180),
+    opacity: _scrollOffset > 25 ? 0 : 1,
+    child: const Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        6,
+      ),
+      child: Text(
+        "Cari",
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
       ),
     ),
   ),
@@ -237,17 +243,13 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
         child: const Row(
           children: [
             SizedBox(width: 12),
-            Icon(
-              Icons.search,
-              color: Colors.grey,
-              size: 18,
-            ),
+            
             SizedBox(width: 8),
             Text(
               "Artis, Lagu, Lirik, dan lainnya",
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: 15,
+                fontSize: 17,
               ),
             ),
           ],
