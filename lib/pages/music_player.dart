@@ -140,7 +140,8 @@ AudioService.currentSong = selectedSong;
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+   final coverSize = MediaQuery.of(context).size.width * 0.8;
+ return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leadingWidth: 500,
@@ -191,8 +192,8 @@ AudioService.currentSong = selectedSong;
   controller: audioQuery,
   id: AudioService.currentSong?.id ?? 0,
   type: ArtworkType.AUDIO,
-  artworkHeight: 350,
-  artworkWidth: 350,
+  artworkHeight: coverSize,
+  artworkWidth: coverSize,
   artworkFit: BoxFit.cover,
   nullArtworkWidget: const Icon(
     Icons.music_note,
@@ -356,11 +357,20 @@ AudioService.currentSong = selectedSong;
                         color: Color.fromARGB(255, 255, 255, 255),
                       ),
                       onPressed: () {
-  setState(() {
-    currentIndex++;
-  });
+  final routes =
+      ModalRoute.of(context)?.settings.arguments
+          as Map<String, dynamic>?;
 
-  _loadSong(currentIndex);
+  final List<SongModel> allSongs =
+      routes?['songs'] ?? [];
+
+  if (currentIndex < allSongs.length - 1) {
+    setState(() {
+      currentIndex++;
+    });
+
+    _loadSong(currentIndex);
+  }
 },
                           
                     ),
