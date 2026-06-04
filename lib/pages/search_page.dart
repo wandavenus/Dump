@@ -164,6 +164,16 @@ List<Map<String, dynamic>> BrowseCat = [
     ),
   ),
   ),
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Opacity(
+    opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
+    child: Container(
+      height: 0.5,
+      color: const Color(0xFF38383A),
+    ),
+  ),
+),
 actions: [
   IconButton(
     onPressed: () {},
@@ -183,12 +193,7 @@ actions: [
   ),
 ],
 ),
-SliverToBoxAdapter(
-  child: Container(
-    height: 0.5,
-    color: Color(0xFF38383A),
-  ),
-),
+
 SliverToBoxAdapter(
   child: Opacity(
   opacity: (1 - (_scrollOffset / 90)).clamp(0.0, 1.0),
@@ -237,10 +242,10 @@ SliverList(
 
 class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
-  double get minExtent => 60;
+  double get minExtent => 64;
 
   @override
-  double get maxExtent => 60;
+  double get maxExtent => 64;
 
   @override
   Widget build(
@@ -252,17 +257,17 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       color: Colors.black,
       padding: const EdgeInsets.symmetric(
         horizontal: 16,
-        vertical: 10,
+        vertical: 12,
       ),
       child: Container(
-        height: 40,
+        height: 44,
         decoration: BoxDecoration(
           color: const Color(0xFF2C2C2E),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Row(
           children: [
-            SizedBox(width: 12),
+            SizedBox(width: 9),
             
             
             Text(
