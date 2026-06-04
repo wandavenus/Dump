@@ -154,23 +154,30 @@ List<Map<String, dynamic>> BrowseCat = [
   backgroundColor: Colors.black,
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
-  title: Opacity(
-  opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
-  child: const Text(
-    "Cari",
-    style: TextStyle(
-      fontSize: 17,
-      fontWeight: FontWeight.w600,
+  title: Transform.translate(
+  offset: Offset(
+    0,
+    (1 - (_scrollOffset / 90).clamp(0.0, 1.0)) * 16,
+  ),
+  child: Opacity(
+    opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
+    child: const Text(
+      "Cari",
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   ),
+),
   ),
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
     opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
     child: Container(
-      height: 0.5,
-      color: const Color(0xFF38383A),
+      height: 0.9,
+      color: const Color(0xFF48484A),
     ),
   ),
 ),
@@ -195,16 +202,19 @@ actions: [
 ),
 
 SliverToBoxAdapter(
-  child: Opacity(
-  opacity: (1 - (_scrollOffset / 90)).clamp(0.0, 1.0),
-    child: const Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        6,
+  child: Padding(
+    padding: const EdgeInsets.fromLTRB(
+      16,
+      8,
+      16,
+      6,
+    ),
+    child: Transform.translate(
+      offset: Offset(
+        0,
+        -(_scrollOffset * 0.35),
       ),
-      child: Text(
+      child: const Text(
         "Cari",
         style: TextStyle(
           fontSize: 34,
