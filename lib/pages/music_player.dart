@@ -1,6 +1,6 @@
 // import 'package:audioplayers/audioplayers.dart';
 import '../services/audio_service.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
@@ -81,10 +81,16 @@ class _MusicPlayerState extends State<MusicPlayer> {
           isPlaying = false;
         });
         // Automatically play next song
-        if (currentIndex < song.length - 1) {
-          currentIndex++;
-          _loadSong(currentIndex);
-        }
+        final routes =
+    ModalRoute.of(context)?.settings.arguments
+        as Map<String, dynamic>?;
+
+final List<SongModel> allSongs = routes?['songs'] ?? [];
+
+if (currentIndex < allSongs.length - 1) {
+  currentIndex++;
+  _loadSong(currentIndex);
+}
       }
     });
   }
@@ -109,7 +115,7 @@ AudioService.currentSong = selectedSong;
   await audioPlayer.stop();
   await audioPlayer.setFilePath(selectedSong.data);
   await audioPlayer.play();
-  await _updatePaletteGenerator(index);
+  
 } catch (e) {
       print('Error loading song: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -183,7 +189,7 @@ AudioService.currentSong = selectedSong;
                     ),
                     child: QueryArtworkWidget(
   controller: audioQuery,
-  id: AudioService.currentSong!.id,
+  id: AudioService.currentSong?.id ?? 0,
   type: ArtworkType.AUDIO,
   artworkHeight: 350,
   artworkWidth: 350,
