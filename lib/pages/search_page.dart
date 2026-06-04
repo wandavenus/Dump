@@ -274,7 +274,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
               "Artis, Lagu, Lirik, dan lainnya",
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: 17,
+                fontSize: 18,
               ),
             ),
           ],
