@@ -134,119 +134,106 @@ class _SearchPageState extends State<SearchPage> {
     },
   ];
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 140,
-        title: const Text(
-          "Cari",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
-        ),
-        actions: [
-          Container(
-            // color: Colors.amber,
-            padding: const EdgeInsets.only(right: 5),
-            child: IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.account_circle_rounded,
-                  size: 40,
-                )),
-          )
-        ],
+      body: CustomScrollView(
+        slivers: [
+  SliverAppBar(
+    floating: false,
+    pinned: true,
+    expandedHeight: 120,
+    backgroundColor: Colors.black,
+    automaticallyImplyLeading: false,
+    surfaceTintColor: Colors.transparent,
+    flexibleSpace: const FlexibleSpaceBar(
+      titlePadding: EdgeInsets.only(
+        left: 16,
+        bottom: 16,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(left: 10, right: 10),
-            padding: const EdgeInsets.only(left: 10, right: 10),
-            height: 50,
-            width: 400,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: const Color.fromARGB(255, 31, 31, 31)),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              // crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                
-                SizedBox(
-                  // color: Colors.amber,
-                  // margin: EdgeInsets.only(top: 10),
-                  width: 280,
-                  // height: 50,
-                  child: TextField(
-                    style: TextStyle(
-                      color: Color.fromARGB(255, 255, 255, 255),
-                      fontSize: 20,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'Artis, Lagu, Lirik and lainnya',
-                      hintStyle: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.normal),
-                      floatingLabelBehavior: FloatingLabelBehavior.never,
-                    ),
-                  ),
-                ),
-                
-              ],
+      title: Text(
+        "Cari",
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+  ),
+
+  SliverPersistentHeader(
+    pinned: true,
+    delegate: _SearchBarDelegate(),
+  ),
+
+SliverList(
+  delegate: SliverChildBuilderDelegate(
+    (context, index) => ListTile(
+      title: Text(
+        "Genre $index",
+        style: const TextStyle(color: Colors.white),
+      ),
+    ),
+    childCount: 30,
+  ),
+),
+
+],
+),
+    );
+  }
+}
+
+class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
+  @override
+  double get minExtent => 60;
+
+  @override
+  double get maxExtent => 60;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 10,
+      ),
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C2C2E),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(width: 12),
+            Icon(
+              Icons.search,
+              color: Colors.grey,
+              size: 18,
             ),
-          ),
-          
-          SizedBox(
-            height: 566.952 - 85, //may need to adjust acordingly
-            child: GridView.builder(
-              itemCount: BrowseCat.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // number of Rows in the grid
-                childAspectRatio: 1.6, // ratio of Row width to row height
+            SizedBox(width: 8),
+            Text(
+              "Artis, Lagu, Lirik, dan lainnya",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 15,
               ),
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.only(left: 10, right: 10),
-                  // color: Colors.amber,
-                  // height: 100,
-                  // width: 200,
-                  // padding: EdgeInsets.only(top: 5, left: 10),
-                  child: Stack(
-                    // mainAxisAlignment: MainAxisAlignment.center,
-                    // crossAxisAlignment: CrossAxisAlignment.center,
-                    alignment: Alignment.bottomLeft,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 10, left: 0, right: 0),
-                        child: ClipPath(
-                          clipper: ShapeBorderClipper(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10.0),
-                            ),
-                          ),
-                          child: CachedNetworkImage(
-                            placeholder: (context, url) => const CircularProgressIndicator(),
-                            errorWidget: (context, url, error) => const Icon(Icons.error),
-                            imageUrl: BrowseCat[index]['image'],
-                            height: 130,
-                            width: 190,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.all(10),
-                        child: Text(
-                          BrowseCat[index]['title'],
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
             ),
-          )
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  @override
+  bool shouldRebuild(
+    covariant SliverPersistentHeaderDelegate oldDelegate,
+  ) {
+    return false;
   }
 }
