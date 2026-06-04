@@ -106,10 +106,10 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 50).clamp(0.0, 1.0)) * 24,
+    (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 12,
   ),
   child: Opacity(
-    opacity: (0.4 + (_scrollOffset / 60))
+    opacity: ((_scrollOffset - 25) / 45)
     .clamp(0.0, 1.0),
     child: const Text(
       "Cari",
