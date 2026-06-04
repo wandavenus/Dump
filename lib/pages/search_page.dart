@@ -16,6 +16,42 @@ double _scrollOffset = 0;
 
 List<Map<String, dynamic>> BrowseCat = [
     {
+      "image": "assets/images/search/radio.webp",
+      "title": "Apple Music Radio"
+    },
+    {
+      "image": "assets/images/search/konser.webp",
+      "title": "Concerts"
+    },
+    {
+      "image": "assets/images/search/hits.webp",
+      "title": "Hits"
+    },
+    {
+      "image": "assets/images/search/klasik.webp",
+      "title": "Classical"
+    }, 
+    {
+      "image": "assets/images/search/metal.webp",
+      "title": "Metal"
+    },
+    {
+      "image": "assets/images/search/akustik.webp",
+      "title": "Acoustic"
+    },
+    {
+      "image": "assets/images/search/jazz.webp",
+      "title": "Jazz"
+    },
+    {
+      "image": "assets/images/search/blues.webp",
+      "title": "Blues"
+    },
+    {
+      "image": "assets/images/search/dj.webp",
+      "title": "Dj Mixes"
+    },
+    {
       "image": "assets/images/search/pop.webp",
       "title": "Pop"
     },
