@@ -293,10 +293,10 @@ SliverPadding(
 
 class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
-  double get minExtent => 64;
+  double get minExtent => 67;
 
   @override
-  double get maxExtent => 64;
+  double get maxExtent => 67;
 
   @override
   Widget build(
@@ -306,19 +306,21 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return Container(
       color: Colors.black,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.only(
+  left: 16,
+  right: 16,
+  top: 5,
+  bottom: 18,
+),
       child: Container(
-        height: 44,
+        height: 48,
         decoration: BoxDecoration(
           color: const Color(0xFF2C2C2E),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Row(
           children: [
-            SizedBox(width: 10),
+            SizedBox(width: 12),
             
             
             Text(
