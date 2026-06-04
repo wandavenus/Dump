@@ -204,7 +204,8 @@ SliverList(
 
 ],
 ),
-    );
+),
+);
   }
 }
 
@@ -252,7 +253,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
           ],
         ),
       ),
-    ),
+    
 );
   }
 
