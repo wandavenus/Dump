@@ -16,70 +16,38 @@ double _scrollOffset = 0;
 
 List<Map<String, dynamic>> BrowseCat = [
     {
-      "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
-      "title": "Hits"
-    },
-    {
-      "image": "https://images.saymedia-content.com/.image/t_share/MTgzNjE1MzI5MDYxMTE5NzA1/best-modern-rock-bands.jpg",
-      "title": "Charts"
-    },
-    {
-      "image": "https://neonmusic.online/wp-content/uploads/2023/04/music-3264716_1280.jpg",
-      "title": "Apple Music Radio"
-    },
-    {
-      "image": "https://uproxx.com/wp-content/uploads/2018/02/hip-hop-grid-uproxx.jpg",
-      "title": "Hip Hop"
-    },
-    {
-      "image": "https://www.wideopencountry.com/wp-content/uploads/sites/4/2017/04/eric.jpg?fit=798%2C526",
+      "image": "assets/images/search/pop.jpg",
       "title": "Pop"
     },
     {
-      "image": "https://c02.purpledshub.com/uploads/sites/43/2021/06/What-is-blues-music--1def93e.jpg",
-      "title": "R&B"
+      "image": "assets/images/search/hiphop.jpg",
+      "title": "Hip-Hop"
     },
     {
-      "image": "https://images.unsplash.com/photo-1624703307604-744ec383cbf4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-      "title": "Dance"
+      "image": "assets/images/search/rnb.jpg",
+      "title": "RnB"
     },
     {
-      "image": "https://i.guim.co.uk/img/media/b34325085c62cb49ec9b528b5586696100cecfa9/0_0_4000_2667/master/4000.jpg?width=700&quality=85&auto=format&fit=max&s=c7d68dd52e6cefddb7df03822e2d7759",
-      "title": "Chill"
+      "image": "assets/images/search/rock.jpg",
+      "title": "Rock"
     },
     {
-      "image": "https://cdn.britannica.com/73/101873-050-D341E939/Bob-Marley-1978.jpg",
+      "image": "assets/images/search/kpop.jpg",
       "title": "K-Pop"
     },
     {
-      "image": "https://ichef.bbci.co.uk/images/ic/480xn/p06y1mg4.jpg",
-      "title": "Fitness"
-    },
-    {
-      "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
-      "title": "Focus"
-    },
-    {
-      "image": "https://images.saymedia-content.com/.image/t_share/MTgzNjE1MzI5MDYxMTE5NzA1/best-modern-rock-bands.jpg",
-      "title": "Sleep"
-    },
-    {
-      "image": "https://neonmusic.online/wp-content/uploads/2023/04/music-3264716_1280.jpg",
-      "title": "Dj Mixes"
-    },
-    {
-      "image": "https://uproxx.com/wp-content/uploads/2018/02/hip-hop-grid-uproxx.jpg",
+      "image": "assets/images/search/electronic.jpg",
       "title": "Electronic"
     },
     {
-      "image": "https://www.wideopencountry.com/wp-content/uploads/sites/4/2017/04/eric.jpg?fit=798%2C526",
-      "title": "Classical"
+      "image": "assets/images/search/dance.jpg",
+      "title": "Dance"
     },
     {
-      "image": "https://c02.purpledshub.com/uploads/sites/43/2021/06/What-is-blues-music--1def93e.jpg",
-      "title": "Rock"
+      "image": "assets/images/search/indie.jpg",
+      "title": "Indie"
     },
-  ];
+   ];
 
 @override
   Widget build(BuildContext context) {
@@ -182,10 +150,10 @@ SliverPadding(
           child: Stack(
             fit: StackFit.expand,
             children: [
-              CachedNetworkImage(
-                imageUrl: BrowseCat[index]["image"],
-                fit: BoxFit.cover,
-              ),
+              Image.asset(
+  BrowseCat[index]["image"],
+  fit: BoxFit.cover,
+),
 
               Container(
                 decoration: BoxDecoration(
