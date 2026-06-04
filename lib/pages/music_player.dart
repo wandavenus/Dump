@@ -1,391 +1,293 @@
-// import 'package:audioplayers/audioplayers.dart';
-import '../services/audio_service.dart';
-import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:on_audio_query/on_audio_query.dart';
+import 'package:flutter/widgets.dart';
 
-
-class MusicPlayer extends StatefulWidget {
-  const MusicPlayer({super.key});
+class SearchPage extends StatefulWidget {
+  const SearchPage({super.key});
 
   @override
-  State<MusicPlayer> createState() => _MusicPlayerState();
+  State<SearchPage> createState() => _SearchPageState();
 }
 
-class _MusicPlayerState extends State<MusicPlayer> {
+class _SearchPageState extends State<SearchPage> {
   
-      
+double _scrollOffset = 0;
 
-  //variable for music audioPlayer
-  final AudioPlayer audioPlayer = AudioService.player;
-  final OnAudioQuery audioQuery = OnAudioQuery();
-  bool isPlaying = false;
-  Duration duration = Duration.zero;
-  Duration position = Duration.zero;
-  int currentIndex = 0;
-  bool isLoading = false;
+List<Map<String, dynamic>> BrowseCat = [
+    {
+      "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
+      "title": "Pop"
+    },
+    {
+      "image": "https://images.saymedia-content.com/.image/t_share/MTgzNjE1MzI5MDYxMTE5NzA1/best-modern-rock-bands.jpg",
+      "title": "Rock"
+    },
+    {
+      "image": "https://neonmusic.online/wp-content/uploads/2023/04/music-3264716_1280.jpg",
+      "title": "Jazz"
+    },
+    {
+      "image": "https://uproxx.com/wp-content/uploads/2018/02/hip-hop-grid-uproxx.jpg",
+      "title": "Hip Hop"
+    },
+    {
+      "image": "https://www.wideopencountry.com/wp-content/uploads/sites/4/2017/04/eric.jpg?fit=798%2C526",
+      "title": "Country"
+    },
+    {
+      "image": "https://c02.purpledshub.com/uploads/sites/43/2021/06/What-is-blues-music--1def93e.jpg",
+      "title": "Blues"
+    },
+    {
+      "image": "https://images.unsplash.com/photo-1624703307604-744ec383cbf4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      "title": "Electronic"
+    },
+    {
+      "image": "https://i.guim.co.uk/img/media/b34325085c62cb49ec9b528b5586696100cecfa9/0_0_4000_2667/master/4000.jpg?width=700&quality=85&auto=format&fit=max&s=c7d68dd52e6cefddb7df03822e2d7759",
+      "title": "Classical"
+    },
+    {
+      "image": "https://cdn.britannica.com/73/101873-050-D341E939/Bob-Marley-1978.jpg",
+      "title": "Reggae"
+    },
+    {
+      "image": "https://ichef.bbci.co.uk/images/ic/480xn/p06y1mg4.jpg",
+      "title": "Folk"
+    },
+    {
+      "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
+      "title": "Pop"
+    },
+    {
+      "image": "https://images.saymedia-content.com/.image/t_share/MTgzNjE1MzI5MDYxMTE5NzA1/best-modern-rock-bands.jpg",
+      "title": "Rock"
+    },
+    {
+      "image": "https://neonmusic.online/wp-content/uploads/2023/04/music-3264716_1280.jpg",
+      "title": "Jazz"
+    },
+    {
+      "image": "https://uproxx.com/wp-content/uploads/2018/02/hip-hop-grid-uproxx.jpg",
+      "title": "Hip Hop"
+    },
+    {
+      "image": "https://www.wideopencountry.com/wp-content/uploads/sites/4/2017/04/eric.jpg?fit=798%2C526",
+      "title": "Country"
+    },
+    {
+      "image": "https://c02.purpledshub.com/uploads/sites/43/2021/06/What-is-blues-music--1def93e.jpg",
+      "title": "Blues"
+    },
+    {
+      "image": "https://images.unsplash.com/photo-1624703307604-744ec383cbf4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      "title": "Electronic"
+    },
+    {
+      "image": "https://i.guim.co.uk/img/media/b34325085c62cb49ec9b528b5586696100cecfa9/0_0_4000_2667/master/4000.jpg?width=700&quality=85&auto=format&fit=max&s=c7d68dd52e6cefddb7df03822e2d7759",
+      "title": "Classical"
+    },
+    {
+      "image": "https://cdn.britannica.com/73/101873-050-D341E939/Bob-Marley-1978.jpg",
+      "title": "Reggae"
+    },
+    {
+      "image": "https://ichef.bbci.co.uk/images/ic/480xn/p06y1mg4.jpg",
+      "title": "Folk"
+    },
+    {
+      "image": "https://pyxis.nymag.com/v1/imgs/3a3/b1f/2141226b8ab1ae07afe4b541ee0d2b0825-11-yic-pop-essay.rsocial.w1200.jpg",
+      "title": "Pop"
+    },
+    {
+      "image": "https://images.saymedia-content.com/.image/t_share/MTgzNjE1MzI5MDYxMTE5NzA1/best-modern-rock-bands.jpg",
+      "title": "Rock"
+    },
+    {
+      "image": "https://neonmusic.online/wp-content/uploads/2023/04/music-3264716_1280.jpg",
+      "title": "Jazz"
+    },
+    {
+      "image": "https://uproxx.com/wp-content/uploads/2018/02/hip-hop-grid-uproxx.jpg",
+      "title": "Hip Hop"
+    },
+    {
+      "image": "https://www.wideopencountry.com/wp-content/uploads/sites/4/2017/04/eric.jpg?fit=798%2C526",
+      "title": "Country"
+    },
+    {
+      "image": "https://c02.purpledshub.com/uploads/sites/43/2021/06/What-is-blues-music--1def93e.jpg",
+      "title": "Blues"
+    },
+    {
+      "image": "https://images.unsplash.com/photo-1624703307604-744ec383cbf4?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      "title": "Electronic"
+    },
+    {
+      "image": "https://i.guim.co.uk/img/media/b34325085c62cb49ec9b528b5586696100cecfa9/0_0_4000_2667/master/4000.jpg?width=700&quality=85&auto=format&fit=max&s=c7d68dd52e6cefddb7df03822e2d7759",
+      "title": "Classical"
+    },
+    {
+      "image": "https://cdn.britannica.com/73/101873-050-D341E939/Bob-Marley-1978.jpg",
+      "title": "Reggae"
+    },
+    {
+      "image": "https://ichef.bbci.co.uk/images/ic/480xn/p06y1mg4.jpg",
+      "title": "Folk"
+    },
+  ];
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialize audio player
-    setupAudioPlayer();
-    
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-  final routes =
-      ModalRoute.of(context)?.settings.arguments
-          as Map<String, dynamic>?;
-
-  if (routes != null && routes.containsKey('index')) {
-    setState(() {
-      currentIndex = routes['index'] as int;
-    });
-
-    _loadSong(currentIndex);
-  }
-});
- }
-  void setupAudioPlayer() {
-    // Listen to player state changes
-    audioPlayer.playerStateStream.listen((PlayerState state) {
-  setState(() {
-    isPlaying = state.playing;
-  });
-
-  AudioService.isPlaying = state.playing;
-});
-
-    // Listen to duration changes
-    audioPlayer.durationStream.listen((newDuration) {
-      setState(() {
-        duration = newDuration ?? Duration.zero;
-      });
-    });
-
-    // Listen to position changes
-    audioPlayer.positionStream.listen((newPosition) {
-  position = newPosition;
-});
-  }
-});
-
-    // Listen to sequence state for completion
-    audioPlayer.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        setState(() {
-          position = Duration.zero;
-          isPlaying = false;
-        });
-        // Automatically play next song
-        final routes =
-    ModalRoute.of(context)?.settings.arguments
-        as Map<String, dynamic>?;
-
-final List<SongModel> allSongs = routes?['songs'] ?? [];
-
-if (currentIndex < allSongs.length - 1) {
-  currentIndex++;
-  _loadSong(currentIndex);
-}
-      }
-    });
-  }
-
-  Future<void> _loadSong(int index) async {
-    setState(() {
-      isLoading = true;
-      currentIndex = index;
-    });
-
-    SongModel selectedSong;
-
-final routes =
-    ModalRoute.of(context)?.settings.arguments
-        as Map<String, dynamic>?;
-
-final List<SongModel> allSongs = routes!['songs'];
-
-selectedSong = allSongs[index];
-AudioService.currentSong = selectedSong;
-    try {
-  await audioPlayer.stop();
-  await audioPlayer.setFilePath(selectedSong.data);
-  await audioPlayer.play();
-  
-} catch (e) {
-      print('Error loading song: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error playing song: ${e.toString()}')),
-      );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  String formatTime(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-////////////
-  
-
-  
-  @override
+@override
   Widget build(BuildContext context) {
-   final coverSize = MediaQuery.of(context).size.width * 0.8;
- return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        leadingWidth: 500,
-        leading: GestureDetector(
-          onVerticalDragUpdate: (details) {
-  if (details.primaryDelta! > 15) {
-    Navigator.pop(context);
-  }
-},
-          child: const Icon(
-            Icons.horizontal_rule_rounded,
-            size: 70,
-            color: Colors.white,
-          ),
-        ),
-      ),
-      body: Center(
-        child: Container(
-            decoration: const BoxDecoration(
-  color: Color(0xFF1C1C1E),
-),
-
-            // height: 500,
-            // width: 500,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(
-                  height: 60,
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(97, 0, 0, 0),
-                        blurRadius: 10.0,
-                        spreadRadius: 2.0,
-                      ),
-                    ],
-                    shape: BoxShape.rectangle,
-                    borderRadius: BorderRadius.circular(18.0),
-                  ),
-                  child: ClipPath(
-                    clipper: ShapeBorderClipper(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18.0),
-                      ),
-                    ),
-                    child: QueryArtworkWidget(
-  controller: audioQuery,
-  id: AudioService.currentSong?.id ?? 0,
-  type: ArtworkType.AUDIO,
-
-  keepOldArtwork: true,
-
-  artworkQuality: FilterQuality.high,
-  quality: 100,
-
-  artworkHeight: coverSize,
-  artworkWidth: coverSize,
-  artworkFit: BoxFit.cover,
-
-  nullArtworkWidget: const Icon(
-    Icons.music_note,
-    size: 150,
-    color: Colors.white,
+    return Scaffold(
+      body: NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    setState(() {
+      _scrollOffset = notification.metrics.pixels;
+    });
+    return false;
+  },
+  child: CustomScrollView(
+        slivers: [
+  SliverAppBar(
+  pinned: true,
+  backgroundColor: Colors.black,
+  automaticallyImplyLeading: false,
+  surfaceTintColor: Colors.transparent,
+  title: Opacity(
+  opacity: (_scrollOffset / 90).clamp(0.0, 1.0),
+  child: const Text(
+    "Cari",
+    style: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+  ),
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Opacity(
+    opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
+    child: Container(
+      height: 0.5,
+      color: const Color(0xFF38383A),
+    ),
   ),
 ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 60,
-                ),
-                Container(
-                  // color: Color.fromARGB(255, 13, 0, 132),
-                  padding: const EdgeInsets.only(left: 25),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      SizedBox(
-                        // color: Colors.blue,
-                        width: 270,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AudioService.currentSong?.title ?? 'Unknown Song',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, overflow: TextOverflow.ellipsis),
-                            ),
-                            const SizedBox(
-                              height: 3,
-                            ),
-                      Text(    
-  AudioService.currentSong?.artist ?? 'Unknown Artist',
-              )       
-     ],
-                        ),
-                      ),
-                      Container(
-                        // color: Colors.amber,
-                        margin: const EdgeInsets.only(right: 22),
-                        child: Row(
-                          children: [
-                            // Padding(padding: EdgeInsets.only(right: 10)),
-                            const Icon(
-                              Icons.stars,
-                              size: 33,
-                              color: Color.fromARGB(223, 228, 228, 228),
-                            ),
-                            const SizedBox(
-                              width: 5,
-                            ),
-                            Container(
-                              // ignore: prefer_const_constructors
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: const Color.fromARGB(158, 136, 136, 136)),
-                              // color: Colors.black12,
-                              child: const Icon(
-                                Icons.more_horiz_rounded,
-                                size: 29,
-                                color: Color.fromARGB(255, 255, 255, 255),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(
-                  height: 20,
-                ),
-                SizedBox(
-                  height: 20,
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 5.0,
-                      trackShape: const RoundedRectSliderTrackShape(),
-                      activeTrackColor: const Color.fromARGB(255, 233, 233, 233),
-                      inactiveTrackColor: const Color.fromARGB(255, 80, 80, 80),
-                      thumbShape: const RoundSliderThumbShape(
-                        elevation: 0,
-                        pressedElevation: 0,
-                      ),
-                      thumbColor: Colors.transparent,
-                      overlayColor: Colors.transparent,
-                      activeTickMarkColor: Colors.transparent,
-                      disabledThumbColor: Colors.transparent,
-                      valueIndicatorColor: Colors.transparent,
-                      inactiveTickMarkColor: Colors.transparent,
-                      disabledActiveTrackColor: Colors.transparent,
-                      secondaryActiveTrackColor: Colors.transparent,
-                      valueIndicatorStrokeColor: Colors.transparent,
-                      disabledInactiveTrackColor: Colors.transparent,
-                      disabledActiveTickMarkColor: Colors.transparent,
-                      overlappingShapeStrokeColor: Colors.transparent,
-                      disabledInactiveTickMarkColor: Colors.transparent,
-                      disabledSecondaryActiveTrackColor: Colors.transparent,
-                    ),
-                    child: Slider(
-                      min: 0,
-                      max: duration.inSeconds.toDouble(),
-                      value: position.inSeconds.clamp(0, duration.inSeconds).toDouble(),
-                      onChanged: (value) async {
-                        final newPosition = Duration(seconds: value.toInt());
-                        await audioPlayer.seek(newPosition);
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.only(left: 22, right: 22),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        formatTime(position),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      Text(formatTime(duration - position), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.fast_rewind_rounded,
-                        size: 70,
-                        color: Color.fromARGB(255, 255, 255, 255),
-                      ),
-                      onPressed: () {
-  if (currentIndex > 0) {
-    setState(() {
-      currentIndex--;
-    });
+actions: [
+  IconButton(
+    onPressed: () {},
+    icon: const Icon(
+      Icons.cast_outlined,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+  ),
+  PopupMenuButton(
+    icon: const Icon(
+      Icons.more_vert,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+    itemBuilder: (context) => [],
+  ),
+],
+),
 
-    _loadSong(currentIndex);
-  }
-},
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 70,
-                        color: const Color.fromARGB(255, 255, 255, 255),
-                      ),
-                      onPressed: () {
-                        if (isPlaying) {
-                          audioPlayer.pause();
-                        } else {
-                          audioPlayer.play();
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.fast_forward_rounded,
-                        size: 70,
-                        color: Color.fromARGB(255, 255, 255, 255),
-                      ),
-                      onPressed: () {
-  final routes =
-      ModalRoute.of(context)?.settings.arguments
-          as Map<String, dynamic>?;
-
-  final List<SongModel> allSongs =
-      routes?['songs'] ?? [];
-
-  if (currentIndex < allSongs.length - 1) {
-    setState(() {
-      currentIndex++;
-    });
-
-    _loadSong(currentIndex);
-  }
-},
-                          
-                    ),
-                  ],
-                ),
-              ],
-            )),
+SliverToBoxAdapter(
+  child: Opacity(
+  opacity: (1 - (_scrollOffset / 90)).clamp(0.0, 1.0),
+    child: const Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        6,
       ),
-    );
+      child: Text(
+        "Cari",
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ),
+  ),
+),
+
+  SliverPersistentHeader(
+    pinned: true,
+    delegate: _SearchBarDelegate(),
+  ),
+
+SliverList(
+  delegate: SliverChildBuilderDelegate(
+    (context, index) => ListTile(
+      title: Text(
+        "Genre $index",
+        style: const TextStyle(color: Colors.white),
+      ),
+    ),
+    childCount: 30,
+  ),
+),
+
+],
+),
+),
+);
+  }
+}
+
+class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
+  @override
+  double get minExtent => 64;
+
+  @override
+  double get maxExtent => 64;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2C2C2E),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(width: 9),
+            
+            
+            Text(
+              "Artis, Lagu, Lirik, dan lainnya",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    
+);
+  }
+
+  @override
+  bool shouldRebuild(
+    covariant SliverPersistentHeaderDelegate oldDelegate,
+  ) {
+    return false;
   }
 }
