@@ -1,6 +1,6 @@
 // import 'package:audioplayers/audioplayers.dart';
 import '../services/audio_service.dart';
-
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
@@ -146,9 +146,11 @@ AudioService.currentSong = selectedSong;
       appBar: AppBar(
         leadingWidth: 500,
         leading: GestureDetector(
-          onVerticalDragDown: (details) {
-            Navigator.pop(context);
-          },
+          onVerticalDragUpdate: (details) {
+  if (details.primaryDelta! > 15) {
+    Navigator.pop(context);
+  }
+},
           child: const Icon(
             Icons.horizontal_rule_rounded,
             size: 70,
