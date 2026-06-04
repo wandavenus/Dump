@@ -140,25 +140,30 @@ class _SearchPageState extends State<SearchPage> {
       body: CustomScrollView(
         slivers: [
   SliverAppBar(
-    floating: false,
-    pinned: true,
-    expandedHeight: 120,
-    backgroundColor: Colors.black,
-    automaticallyImplyLeading: false,
-    surfaceTintColor: Colors.transparent,
-    flexibleSpace: const FlexibleSpaceBar(
-      titlePadding: EdgeInsets.only(
-        left: 16,
-        bottom: 16,
-      ),
-      title: Text(
-        "Cari",
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-        ),
+  pinned: true,
+  backgroundColor: Colors.black,
+  automaticallyImplyLeading: false,
+  surfaceTintColor: Colors.transparent,
+),
+
+SliverToBoxAdapter(
+  child: Padding(
+    padding: const EdgeInsets.fromLTRB(
+      16,
+      0,
+      16,
+      12,
+    ),
+    child: Text(
+      "Cari",
+      style: TextStyle(
+        fontSize: 34,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
       ),
     ),
   ),
+),
 
   SliverPersistentHeader(
     pinned: true,
