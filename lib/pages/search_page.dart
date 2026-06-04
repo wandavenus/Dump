@@ -106,11 +106,9 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 12,
+    (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 0,
   ),
-  child: Opacity(
-    opacity: ((_scrollOffset - 45) / 45)
-    .clamp(0.0, 1.0),
+  
     child: const Text(
       "Cari",
       style: TextStyle(
@@ -119,7 +117,7 @@ List<Map<String, dynamic>> BrowseCat = [
       ),
     ),
   ),
-),
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
@@ -228,7 +226,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 1.79,
+      childAspectRatio: 1.90,
     ),
   ),
 ),
@@ -258,7 +256,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       padding: const EdgeInsets.only(
   left: 16,
   right: 16,
-  top: 3,
+  top: 8,
   bottom: 18,
 ),
       child: Container(
@@ -269,14 +267,14 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
         ),
         child: const Row(
           children: [
-            SizedBox(width: 12),
+            SizedBox(width: 13),
             
             
             Text(
               "Artis, Lagu, Lirik, dan lainnya",
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: 18,
+                fontSize: 17,
               ),
             ),
           ],
