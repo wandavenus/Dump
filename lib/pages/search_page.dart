@@ -324,7 +324,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
         ),
         child: const Row(
           children: [
-            SizedBox(width: 9),
+            SizedBox(width: 10),
             
             
             Text(
@@ -336,9 +336,8 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ],
         ),
-      ),
-    
-);
+      ),  
+    );
   }
 
   @override
