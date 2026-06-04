@@ -109,7 +109,7 @@ List<Map<String, dynamic>> BrowseCat = [
     (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 12,
   ),
   child: Opacity(
-    opacity: ((_scrollOffset - 25) / 45)
+    opacity: ((_scrollOffset - 45) / 45)
     .clamp(0.0, 1.0),
     child: const Text(
       "Cari",
