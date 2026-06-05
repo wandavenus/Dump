@@ -79,7 +79,7 @@ class _LibraryPageState extends State<LibraryPage> {
       ),
       body: SingleChildScrollView(
         child: Container(
-          margin: const EdgeInsets.only(left: 25, right: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
 
@@ -89,9 +89,9 @@ class _LibraryPageState extends State<LibraryPage> {
     right: 0,
   ),
   child: const Divider(
-    color: Color(0xFF2C2C2E),
+    color: Color(0xFF38383A),
     thickness: 0.5,
-    height: 5,
+    height: 16,
   ),
 ),
              const Column(
@@ -124,8 +124,8 @@ class _LibraryPageState extends State<LibraryPage> {
               const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 39,
-  endIndent: 10,
+  indent: 38,
+  endIndent: 8,
 ),
                 ],
               ),
@@ -139,7 +139,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           Icon(
   CupertinoIcons.mic,
   color: Color(0xFFF92D48),
-  size: 30,
+  size: 28,
 ),
                           SizedBox(
                             width: 9,
@@ -159,8 +159,8 @@ class _LibraryPageState extends State<LibraryPage> {
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 39,
-  endIndent: 10,
+  indent: 38,
+  endIndent: 8,
 ),
                 ],
               ),
@@ -194,8 +194,8 @@ class _LibraryPageState extends State<LibraryPage> {
                   const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 39,
-  endIndent: 10,
+  indent: 38,
+  endIndent: 8,
 ),
                 ],
               ),
@@ -213,7 +213,7 @@ class _LibraryPageState extends State<LibraryPage> {
                             Icon(
   CupertinoIcons.music_note,
   color: Color(0xFFF92D48),
-  size: 30,
+  size: 28,
 ),
                             SizedBox(
                               width: 9,
@@ -233,8 +233,8 @@ class _LibraryPageState extends State<LibraryPage> {
                     const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
-  indent: 39,
-  endIndent: 10,
+  indent: 38,
+  endIndent: 8,
                    ),               
                   ],
                 ),
@@ -263,8 +263,8 @@ class _LibraryPageState extends State<LibraryPage> {
     Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 39,
-      endIndent: 10,
+      indent: 38,
+      endIndent: 8,
     ),
   ],
 ),          
