@@ -80,17 +80,23 @@ class _RadioPageState extends State<RadioPage> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
         ),
         actions: [
-          Container(
-            // color: Colors.amber,
-            padding: const EdgeInsets.only(right: 5),
-            child: IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.account_circle_rounded,
-                  size: 40,
-                )),
-          )
-        ],
+  IconButton(
+    onPressed: () {},
+    icon: const Icon(
+      Icons.cast_outlined,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+  ),
+  PopupMenuButton(
+    icon: const Icon(
+      Icons.more_vert,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+    itemBuilder: (context) => [],
+  ),
+],
       ),
       body: SingleChildScrollView(
           child: Column(
@@ -134,18 +140,18 @@ class _RadioPageState extends State<RadioPage> {
                               ],
                             ),
                             Container(
-                              margin: const EdgeInsets.only(right: 15),
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(150),
-                                color: const Color.fromARGB(84, 110, 110, 110),
-                              ),
-                              child: const Icon(
-                                Icons.calendar_month_rounded,
-                                color: Colors.red,
-                                size: 25,
-                              ),
-                            ),
+  margin: const EdgeInsets.only(right: 15),
+  padding: const EdgeInsets.all(5),
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(150),
+    color: const Color.fromARGB(84, 110, 110, 110),
+  ),
+  child: const Icon(
+    Icons.calendar_month_rounded,
+    color: Colors.red,
+    size: 25,
+  ),
+),
                           ],
                         ),
                         Container(
