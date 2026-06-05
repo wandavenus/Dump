@@ -625,19 +625,18 @@ class _HomePageState extends State<HomePage> {
     onPressed: () {},
     icon: const Icon(
       Icons.cast_outlined,
-      color: Color(0xFFFF2D55),
-      size: 28,
+      color: Color(0xFFF92D48),
+      size: 24,
     ),
   ),
-  IconButton(
-    onPressed: () {},
+  PopupMenuButton(
     icon: const Icon(
       Icons.more_vert,
-      color: Color(0xFFFF2D55),
-      size: 28,
+      color: Color(0xFFF92D48),
+      size: 24,
     ),
+    itemBuilder: (context) => [],
   ),
-  const SizedBox(width: 8),
 ],
       ),
       body: SingleChildScrollView(
