@@ -106,7 +106,7 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 10,
+    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 20,
   ),
 child: Opacity(
  opacity: ((_scrollOffset - 30) / 25)
@@ -184,7 +184,7 @@ SliverPadding(
     delegate: SliverChildBuilderDelegate(
       (context, index) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(9),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -200,7 +200,7 @@ SliverPadding(
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.2),
+                      Colors.black.withOpacity(0.1),
                     ],
                   ),
                 ),
@@ -229,7 +229,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 2.2,
+      childAspectRatio: 2.3,
     ),
   ),
 ),
@@ -263,7 +263,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
   bottom: 18,
 ),
       child: Container(
-        height: 58,
+        height: 70,
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(10),
