@@ -177,7 +177,7 @@ SliverPersistentHeader(
 
 SliverPadding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 16,
+    horizontal: 20,
     vertical: 10,
   ),
   sliver: SliverGrid(
@@ -229,7 +229,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 2.4,
+      childAspectRatio: 2,
     ),
   ),
 ),
