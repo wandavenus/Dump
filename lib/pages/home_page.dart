@@ -618,7 +618,7 @@ class _HomePageState extends State<HomePage> {
         toolbarHeight: 100,
         title: const Text(
           "Beranda",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
         ),
         actions: [
   IconButton(
