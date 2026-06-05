@@ -301,7 +301,16 @@ class _HomePageState extends State<HomePage> {
       itemBuilder: (context) => [],
     ),
   ],
-),
+
+bottom: const PreferredSize(
+  preferredSize: Size.fromHeight(0.5),
+  child: Divider(
+    color: Color(0xFF2C2C2E),
+    thickness: 0.5,
+    height: 0,
+   ),
+  ),
+ ),
   
  body: SingleChildScrollView(
         child: Column(
@@ -323,7 +332,19 @@ class _HomePageState extends State<HomePage> {
     ),
   ),
 ),
-          Container(
+   
+ const Padding(
+  padding: EdgeInsets.symmetric(
+    horizontal: 16,
+  ),
+  child: Divider(
+    color: Color(0xFF2C2C2E),
+    thickness: 0.5,
+    height: 0,
+  ),
+),    
+  
+      Container(
               // color: Colors.amber,
               padding: const EdgeInsets.only(left: 16),
               child: const Text(
