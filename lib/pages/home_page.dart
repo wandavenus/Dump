@@ -617,7 +617,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         toolbarHeight: 100,
         title: const Text(
-          "Home",
+          "Beranda",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
         ),
         actions: [
