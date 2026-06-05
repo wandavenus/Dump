@@ -156,7 +156,7 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      margin: const EdgeInsets.only(left: 10),
+                                      margin: const EdgeInsets.only(left: 16),
                                       // padding: EdgeInsets.all(5),
                                       child: const Icon(
                                         Icons.apple,
@@ -171,7 +171,7 @@ Container(
                               ],
                             ),
                             const Padding(
-  padding: EdgeInsets.only(right: 15),
+  padding: EdgeInsets.only(right: 16),
   child: Icon(
     Icons.calendar_month_rounded,
     color: Colors.red,
@@ -182,7 +182,12 @@ Container(
                         ),
                         Container(
                           // color: Colors.amber,
-                          margin: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.fromLTRB(
+  16,
+  10,
+  16,
+  10,
+),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -294,7 +299,7 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      margin: const EdgeInsets.only(left: 10),
+                                      margin: const EdgeInsets.only(left: 16),
                                       // padding: EdgeInsets.all(5),
                                       child: const Icon(
                                         Icons.apple,
@@ -309,7 +314,7 @@ Container(
                               ],
                             ),
                             const Padding(
-  padding: EdgeInsets.only(right: 15),
+  padding: EdgeInsets.only(right: 16),
   child: Icon(
     Icons.calendar_month_rounded,
     color: Colors.red,
