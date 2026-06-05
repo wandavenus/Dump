@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -109,7 +109,9 @@ List<Map<String, dynamic>> BrowseCat = [
     (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
   ),
 child: Opacity(
- opacity: ((_scrollOffset - 30) / 25)
+ opacity: ((((_scrollOffset - 25) / 25)
+          .clamp(0.0, 1.0)) *
+        1.5)
     .clamp(0.0, 1.0),
  child: const Text(
     "Cari",
