@@ -303,7 +303,7 @@ double _scrollOffset = 0;
     ),
   ),
 ),
-centerTitle: true,
+centerTitle: false,
 
   actions: [
     IconButton(
@@ -369,7 +369,7 @@ bottom: PreferredSize(
     horizontal: 16,
   ),
   child: Divider(
-    color: Color(0xFF2C2C2E),
+    color: Color(0xFF48484A),
     thickness: 0.5,
     height: 0,
   ),
