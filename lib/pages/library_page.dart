@@ -137,8 +137,7 @@ Padding(
   indent: 38,
   endIndent: 8,
 ),
-                ],
-              ),
+                           
               Column(
   children: [
     Padding(
@@ -179,8 +178,8 @@ const Divider(
   indent: 38,
   endIndent: 8,
 ),
-                ],
-              ),
+                
+              
               Column(
   children: [
     Padding(
@@ -220,13 +219,13 @@ const Divider(
   indent: 38,
   endIndent: 8,
 ),
-                ],
-              ),
+                
+              
               GestureDetector(
                 onTap: () {
                   Navigator.pushNamed(context, "/musiclist");
                 },
-                Column(
+              child: Column(
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
@@ -296,8 +295,8 @@ const Divider(
         ),
       ],
     ),
-   ),
-  ),
+   
+  
    Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
