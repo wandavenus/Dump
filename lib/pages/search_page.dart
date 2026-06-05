@@ -109,7 +109,7 @@ List<Map<String, dynamic>> BrowseCat = [
     (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 6,
   ),
 child: Opacity(
- opacity: ((_scrollOffset - 50) / 25)
+ opacity: ((_scrollOffset - 30) / 25)
     .clamp(0.0, 1.0),
  child: const Text(
     "Cari",
@@ -229,7 +229,7 @@ SliverPadding(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 2,
+      childAspectRatio: 2.2,
     ),
   ),
 ),
