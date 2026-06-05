@@ -621,17 +621,24 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
         ),
         actions: [
-          Container(
-            // color: Colors.amber,
-            padding: const EdgeInsets.only(right: 5),
-            child: IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.account_circle_rounded,
-                  size: 40,
-                )),
-          )
-        ],
+  IconButton(
+    onPressed: () {},
+    icon: const Icon(
+      Icons.cast_outlined,
+      color: Color(0xFFFF2D55),
+      size: 28,
+    ),
+  ),
+  IconButton(
+    onPressed: () {},
+    icon: const Icon(
+      Icons.more_vert,
+      color: Color(0xFFFF2D55),
+      size: 28,
+    ),
+  ),
+  const SizedBox(width: 8),
+],
       ),
       body: SingleChildScrollView(
         child: Column(
