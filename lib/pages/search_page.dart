@@ -106,7 +106,7 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 6,
+    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 10,
   ),
 child: Opacity(
  opacity: ((_scrollOffset - 30) / 25)
