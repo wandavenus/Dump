@@ -92,6 +92,10 @@ class _BrowsePageState extends State<BrowsePage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 100,
+        title: const Text(
+          "Baru",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
+        ),
         actions: [
   IconButton(
     onPressed: () {},
@@ -114,39 +118,9 @@ class _BrowsePageState extends State<BrowsePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-          const Padding(
-  padding: EdgeInsets.fromLTRB(
-    16,
-    14,
-    16,
-    6,
-  ),
-  child: Text(
-    "Baru",
-    style: TextStyle(
-      fontSize: 34,
-      fontWeight: FontWeight.bold,
-      color: Colors.white,
-    ),
-  ),
-),
-
-const Padding(
-  padding: EdgeInsets.symmetric(
-    horizontal: 16,
-  ),
-  child: Divider(
-    color: Color(0xFF48484A),
-    thickness: 0.5,
-    height: 0,
-  ),
-),
-  
-Container(
-  padding: const EdgeInsets.only(
-    top: 9,
-    left: 16,
-  ),
+            Container(
+                padding: const EdgeInsets.only(top: 10, left: 0, right: 0),
+                height: 350,
                 // width: 1080 / 2.5,
                 // color: const Color.fromARGB(255, 80, 71, 37),
                 child: ListView.builder(
