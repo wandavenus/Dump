@@ -77,7 +77,7 @@ Padding(
         ),
       ),
       Padding(
-  padding: const EdgeInsets.only(top: 4),
+  padding: const EdgeInsets.only(top: 8),
   child: GestureDetector(
     onTap: () {},
     child: const Text(
@@ -105,13 +105,13 @@ Padding(
   ),
 ),
         
-const SizedBox(height: 10),
+const SizedBox(height: 9),
 
      Column(
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 6,
+        vertical: 4,
       ),
       child: Row(
         children: [
@@ -120,7 +120,7 @@ const SizedBox(height: 10),
             color: Color(0xFFF92D48),
             size: 28,
           ),
-          SizedBox(width: 9),
+          SizedBox(width: 11),
           Text(
             "Daftar Putar",
             style: TextStyle(
@@ -134,8 +134,8 @@ const SizedBox(height: 10),
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 37,
-      endIndent: 5,
+      indent: 38,
+      endIndent: 3,
     ),
   ],
 ),                      
@@ -144,7 +144,7 @@ const SizedBox(height: 10),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 6,
+        vertical: 4,
       ),
       child: Row(
         children: [
@@ -153,7 +153,7 @@ const SizedBox(height: 10),
             color: Color(0xFFF92D48),
             size: 28,
           ),
-          SizedBox(width: 9),
+          SizedBox(width: 11),
           Text(
             "Artis",
             style: TextStyle(
@@ -167,8 +167,8 @@ const SizedBox(height: 10),
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 37,
-      endIndent: 5,
+      indent: 38,
+      endIndent: 3,
     ),
   ],
 ),
@@ -178,7 +178,7 @@ const SizedBox(height: 10),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 6,
+        vertical: 4,
       ),
       child: Row(
         children: [
@@ -187,7 +187,7 @@ const SizedBox(height: 10),
             color: Color(0xFFF92D48),
             size: 28,
           ),
-          SizedBox(width: 9),
+          SizedBox(width: 11),
           Text(
             "Album",
             style: TextStyle(
@@ -201,8 +201,8 @@ const SizedBox(height: 10),
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 37,
-      endIndent: 5,
+      indent: 38,
+      endIndent: 3,
     ),
   ],
 ),
@@ -216,7 +216,7 @@ const SizedBox(height: 10),
     children: [
       Padding(
         padding: const EdgeInsets.symmetric(
-          vertical: 6,
+          vertical: 4,
         ),
         child: Row(
           children: [
@@ -225,7 +225,7 @@ const SizedBox(height: 10),
               color: Color(0xFFF92D48),
               size: 28,
             ),
-            SizedBox(width: 9),
+            SizedBox(width: 11),
             Text(
               "Lagu",
               style: TextStyle(
@@ -239,8 +239,8 @@ const SizedBox(height: 10),
       const Divider(
         color: Color(0xFF38383A),
         thickness: 0.5,
-        indent: 37,
-        endIndent: 5,
+        indent: 38,
+        endIndent: 3,
       ),
     ],
   ),
@@ -249,7 +249,7 @@ const SizedBox(height: 10),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 6,
+        vertical: 4,
       ),
       child: Row(
         children: [
@@ -258,7 +258,7 @@ const SizedBox(height: 10),
             color: Color(0xFFF92D48),
             size: 28,
           ),
-          SizedBox(width: 9),
+          SizedBox(width: 11),
           Text(
             "TV & Film",
             style: TextStyle(
@@ -272,8 +272,8 @@ const SizedBox(height: 10),
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 37,
-      endIndent: 5,
+      indent: 38,
+      endIndent: 3,
     ),
   ],
 ),         
