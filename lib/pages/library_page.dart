@@ -61,7 +61,7 @@ actions: [
 
 Padding(
   padding: const EdgeInsets.only(
-    top: 8,
+    top: 14,
     bottom: 6,
   ),
 
@@ -76,16 +76,19 @@ Padding(
           color: Colors.white,
         ),
       ),
-      GestureDetector(
-        onTap: () {},
-        child: const Text(
-          "Edit",
-          style: TextStyle(
-            color: Color(0xFFF92D48),
-            fontSize: 17,
-          ),
-        ),
+      Padding(
+  padding: const EdgeInsets.only(top: 4),
+  child: GestureDetector(
+    onTap: () {},
+    child: const Text(
+      "Edit",
+      style: TextStyle(
+        color: Color(0xFFF92D48),
+        fontSize: 17,
       ),
+    ),
+  ),
+),
     ],
   ),
 ),
@@ -101,7 +104,10 @@ Padding(
     height: 0,
   ),
 ),
-             Column(
+        
+const SizedBox(height: 10),
+
+     Column(
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
