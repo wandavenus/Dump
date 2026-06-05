@@ -139,14 +139,9 @@ class _RadioPageState extends State<RadioPage> {
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            Container(
-  margin: const EdgeInsets.only(right: 15),
-  padding: const EdgeInsets.all(5),
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(150),
-    color: const Color.fromARGB(84, 110, 110, 110),
-  ),
-  child: const Icon(
+                            const Padding(
+  padding: EdgeInsets.only(right: 15),
+  child: Icon(
     Icons.calendar_month_rounded,
     color: Colors.red,
     size: 25,
@@ -171,7 +166,7 @@ class _RadioPageState extends State<RadioPage> {
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[0]['image'],
                                   height: 280,
-                                  width: 380,
+                                  width: 370,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -282,19 +277,14 @@ class _RadioPageState extends State<RadioPage> {
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            Container(
-                              margin: const EdgeInsets.only(right: 15),
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(150),
-                                color: const Color.fromARGB(84, 110, 110, 110),
-                              ),
-                              child: const Icon(
-                                Icons.calendar_month_rounded,
-                                color: Colors.red,
-                                size: 25,
-                              ),
-                            ),
+                            const Padding(
+  padding: EdgeInsets.only(right: 15),
+  child: Icon(
+    Icons.calendar_month_rounded,
+    color: Colors.red,
+    size: 25,
+  ),
+),
                           ],
                         ),
                         Container(
@@ -425,19 +415,14 @@ class _RadioPageState extends State<RadioPage> {
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            Container(
-                              margin: const EdgeInsets.only(right: 15),
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(150),
-                                color: const Color.fromARGB(84, 110, 110, 110),
-                              ),
-                              child: const Icon(
-                                Icons.calendar_month_rounded,
-                                color: Colors.red,
-                                size: 25,
-                              ),
-                            ),
+                            const Padding(
+  padding: EdgeInsets.only(right: 15),
+  child: Icon(
+    Icons.calendar_month_rounded,
+    color: Colors.red,
+    size: 25,
+  ),
+),
                           ],
                         ),
                         Container(
