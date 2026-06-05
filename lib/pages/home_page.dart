@@ -280,10 +280,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 100,
-        title: const Text(
-          "Beranda",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
-        ),
+        
         actions: [
   IconButton(
     onPressed: () {},
