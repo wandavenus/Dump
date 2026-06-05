@@ -106,17 +106,16 @@ List<Map<String, dynamic>> BrowseCat = [
   title: Transform.translate(
   offset: Offset(
     0,
-    (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 0,
+    (1 - (_scrollOffset / 70).clamp(0.0, 1.0)) * 4,
   ),
-  
-    child: const Text(
-      "Cari",
-      style: TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-      ),
+  child: const Text(
+    "Cari",
+    style: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
     ),
   ),
+),
 
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
@@ -256,11 +255,11 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       padding: const EdgeInsets.only(
   left: 16,
   right: 16,
-  top: 8,
+  top: 10,
   bottom: 18,
 ),
       child: Container(
-        height: 48,
+        height: 58,
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(10),
