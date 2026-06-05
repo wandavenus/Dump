@@ -105,78 +105,63 @@ Padding(
         vertical: 6,
       ),
       child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-  CupertinoIcons.music_note_list,
-  color: Color(0xFFF92D48),
-  size: 28,
-),
-                          SizedBox(
-                            width: 9,
-                          ),
-                          Text(
-                            "Daftar Putar",
-                            style: TextStyle(
-                                color: Colors.white,
-                                // fontWeight: FontWeight.bold,
-                                fontSize: 18),
-                          ),
-                        ],
-                      ),
-                      
-                    ],
-                  ),
-               ),
-             ),
- const Divider(
-  color: Color(0xFF38383A),
-  thickness: 0.5,
-  indent: 38,
-  endIndent: 8,
-),
-                           
-              Column(
+        children: [
+          Icon(
+            CupertinoIcons.music_note_list,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+          SizedBox(width: 9),
+          Text(
+            "Daftar Putar",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    ),
+    const Divider(
+      color: Color(0xFF38383A),
+      thickness: 0.5,
+      indent: 38,
+      endIndent: 8,
+    ),
+  ],
+),                      
+         
+           Column(
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
         vertical: 6,
       ),
       child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-  CupertinoIcons.mic,
-  color: Color(0xFFF92D48),
-  size: 28,
-),
-                          SizedBox(
-                            width: 9,
-                          ),
-                          Text(
-                            "Artis",
-                            style: TextStyle(
-                                color: Colors.white,
-                                // fontWeight: FontWeight.bold,
-                                fontSize: 18),
-                          ),
-                        ],
-                      ),
-                      
-                    ],
-                  ),
-                ),
-              ),
-
-const Divider(
-  color: Color(0xFF38383A),
-  thickness: 0.5,
-  indent: 38,
-  endIndent: 8,
+        children: [
+          Icon(
+            CupertinoIcons.mic,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+          SizedBox(width: 9),
+          Text(
+            "Artis",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    ),
+    const Divider(
+      color: Color(0xFF38383A),
+      thickness: 0.5,
+      indent: 38,
+      endIndent: 8,
+    ),
+  ],
 ),
                 
               
@@ -187,86 +172,70 @@ const Divider(
         vertical: 6,
       ),
       child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-  CupertinoIcons.square_stack,
-  color: Color(0xFFF92D48),
-  size: 28,
-),
-                          SizedBox(
-                            width: 9,
-                          ),
-                          Text(
-                            "Album",
-                            style: TextStyle(
-                                color: Colors.white,
-                                // fontWeight: FontWeight.bold,
-                                fontSize: 18),
-                          ),
-                        ],
-                      ),
-                      
-                    ],
-                  ),
-                 ),
-                ),            
-  const Divider(
-  color: Color(0xFF38383A),
-  thickness: 0.5,
-  indent: 38,
-  endIndent: 8,
+        children: [
+          Icon(
+            CupertinoIcons.square_stack,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+          SizedBox(width: 9),
+          Text(
+            "Album",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    ),
+    const Divider(
+      color: Color(0xFF38383A),
+      thickness: 0.5,
+      indent: 38,
+      endIndent: 8,
+    ),
+  ],
 ),
                 
               
               GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(context, "/musiclist");
-                },
-              child: Column(
-  children: [
-    Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 6,
-      ),
-      child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-  CupertinoIcons.music_note,
-  color: Color(0xFFF92D48),
-  size: 28,
-),
-                            SizedBox(
-                              width: 9,
-                            ),
-                            Text(
-                              "Lagu",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  // fontWeight: FontWeight.bold,
-                                  fontSize: 18),
-                            ),
-                          ],
-                        ),
-                        
-                      ],
-                    ),
-                   ),    
-                  ),
-      const Divider(
-  color: Color(0xFF38383A),
-  thickness: 0.5,
-  indent: 38,
-  endIndent: 8,
-                   ),               
-                  ],
-                ),
+  onTap: () {
+    Navigator.pushNamed(context, "/musiclist");
+  },
+  child: Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: 6,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              CupertinoIcons.music_note,
+              color: Color(0xFFF92D48),
+              size: 28,
+            ),
+            SizedBox(width: 9),
+            Text(
+              "Lagu",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
               ),
+            ),
+          ],
+        ),
+      ),
+      const Divider(
+        color: Color(0xFF38383A),
+        thickness: 0.5,
+        indent: 38,
+        endIndent: 8,
+      ),
+    ],
+  ),
+),
         Column(
   children: [
     Padding(
@@ -274,37 +243,31 @@ const Divider(
         vertical: 6,
       ),
       child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-          CupertinoIcons.tv,
-          color: Color(0xFFF92D48),
-          size: 28,
-        ),
-        SizedBox(
-          width: 9,
-        ),
-        Text(
-          "TV & Film",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
+        children: [
+          Icon(
+            CupertinoIcons.tv,
+            color: Color(0xFFF92D48),
+            size: 28,
           ),
-        ),
-      ],
+          SizedBox(width: 9),
+          Text(
+            "TV & Film",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
     ),
-   
-  
-   Divider(
+    const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
       endIndent: 8,
     ),
   ],
-),          
+),         
  ],
           ),
         ),
