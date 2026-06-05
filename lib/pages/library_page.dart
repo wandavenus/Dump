@@ -18,35 +18,34 @@ class _LibraryPageState extends State<LibraryPage> {
       appBar: AppBar(
         toolbarHeight: 125,
       
+actions: [
+  IconButton(
+    onPressed: () {},
+    icon: const Icon(
+      Icons.cast_outlined,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+  ),
+  PopupMenuButton(
+    icon: const Icon(
+      Icons.more_vert,
+      color: Color(0xFFF92D48),
+      size: 24,
+    ),
+    itemBuilder: (context) => [
+      const PopupMenuItem(
+        value: 'settings',
+        child: Text('Pengaturan'),
+      ),
+    ],
+  ),
+],
+
        flexibleSpace: Stack(
   children: [
 
-    
-
-    Positioned(
-      left: 16,
-      top: 110,
-      child: Text(
-        "Perpustakaan",
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 34,
-          color: Colors.white,
-        ),
-      ),
-    ),
-
-    Positioned(
-      right: 18,
-      top: 130,
-      child: Text(
-        "Edit",
-        style: TextStyle(
-          color: Color(0xFFF92D48),
-          fontSize: 17,
-        ),
-      ),
-    ),
+     
   ],
 ),      
       ),
@@ -55,6 +54,38 @@ class _LibraryPageState extends State<LibraryPage> {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
+
+Padding(
+  padding: const EdgeInsets.fromLTRB(
+    0,
+    14,
+    0,
+    6,
+  ),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      const Text(
+        "Perpustakaan",
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+      GestureDetector(
+        onTap: () {},
+        child: const Text(
+          "Edit",
+          style: TextStyle(
+            color: Color(0xFFF92D48),
+            fontSize: 17,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
 
       Padding(
   padding: const EdgeInsets.only(
