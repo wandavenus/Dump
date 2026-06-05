@@ -51,13 +51,13 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
 
     Positioned(
-      left: 15,
+      left: 16,
       top: 110,
       child: Text(
         "Perpustakaan",
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: 36,
+          fontSize: 34,
           color: Colors.white,
         ),
       ),
