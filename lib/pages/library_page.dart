@@ -16,7 +16,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 125,
+        toolbarHeight: 100,
       
 actions: [
   IconButton(
@@ -125,8 +125,8 @@ Padding(
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 38,
-      endIndent: 8,
+      indent: 37,
+      endIndent: 5,
     ),
   ],
 ),                      
@@ -158,8 +158,8 @@ Padding(
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 38,
-      endIndent: 8,
+      indent: 37,
+      endIndent: 5,
     ),
   ],
 ),
@@ -192,8 +192,8 @@ Padding(
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 38,
-      endIndent: 8,
+      indent: 37,
+      endIndent: 5,
     ),
   ],
 ),
@@ -230,8 +230,8 @@ Padding(
       const Divider(
         color: Color(0xFF38383A),
         thickness: 0.5,
-        indent: 38,
-        endIndent: 8,
+        indent: 37,
+        endIndent: 5,
       ),
     ],
   ),
@@ -263,8 +263,8 @@ Padding(
     const Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
-      indent: 38,
-      endIndent: 8,
+      indent: 37,
+      endIndent: 5,
     ),
   ],
 ),         
