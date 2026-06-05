@@ -94,7 +94,7 @@ class _BrowsePageState extends State<BrowsePage> {
         toolbarHeight: 100,
         title: const Text(
           "Baru",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
         ),
         actions: [
   IconButton(
