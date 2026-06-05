@@ -12,7 +12,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List TopPicks = [
+ 
+double _scrollOffset = 0;
+
+ List TopPicks = [
     {
       //here i mentioned the color in hexadecimal format should start with 0xFF
       "topMsg": "Made for you",
@@ -283,6 +286,25 @@ class _HomePageState extends State<HomePage> {
   backgroundColor: Colors.black,
   surfaceTintColor: Colors.transparent,
 
+ title: Transform.translate(
+  offset: Offset(
+    0,
+    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
+  ),
+  child: Opacity(
+    opacity: ((_scrollOffset - 30) / 25)
+        .clamp(0.0, 1.0),
+    child: const Text(
+      "Beranda",
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+),
+centerTitle: true,
+
   actions: [
     IconButton(
       onPressed: () {},
@@ -302,18 +324,27 @@ class _HomePageState extends State<HomePage> {
     ),
   ],
 
-bottom: const PreferredSize(
-  preferredSize: Size.fromHeight(0.5),
-  child: Divider(
-    color: Color(0xFF2C2C2E),
-    thickness: 0.5,
-    height: 0,
-   ),
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Opacity(
+    opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
+    child: Container(
+      height: 0.9,
+      color: const Color(0xFF48484A),
+    ),
   ),
+),
  ),
   
- body: SingleChildScrollView(
-        child: Column(
+ body: NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    setState(() {
+      _scrollOffset = notification.metrics.pixels;
+    });
+    return false;
+  },
+  child: SingleChildScrollView(
+    child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
            const Padding(
@@ -610,7 +641,8 @@ bottom: const PreferredSize(
                           ],
                         ),
                       ),
-                    );
+                   ),
+                   );
                   },
                 ))
           ],
