@@ -33,12 +33,20 @@ SystemChrome.setEnabledSystemUIMode(
   runApp(const MyApp());
 }
 
+class MyScrollBehavior extends MaterialScrollBehavior {
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const ClampingScrollPhysics();
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+  scrollBehavior: MyScrollBehavior(),
       theme: ThemeData(colorScheme: const ColorScheme.dark(), scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0), appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0, scrolledUnderElevation: 0)),
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
