@@ -292,8 +292,10 @@ double _scrollOffset = 0;
     (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
   ),
   child: Opacity(
-    opacity: ((_scrollOffset - 30) / 25)
-        .clamp(0.0, 1.0),
+    opacity: ((((_scrollOffset - 25) / 25)
+          .clamp(0.0, 1.0)) *
+        1.5)
+    .clamp(0.0, 1.0),
     child: const Text(
       "Beranda",
       style: TextStyle(
@@ -378,7 +380,7 @@ bottom: PreferredSize(
       Container(
               // color: Colors.amber,
               padding: const EdgeInsets.only(left: 16,
-                top: 8,
+                top: 9,
                ),
               child: const Text(
                 "Top Picks For You",
