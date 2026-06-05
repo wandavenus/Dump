@@ -77,7 +77,7 @@ class _RadioPageState extends State<RadioPage> {
         toolbarHeight: 100,
         title: const Text(
           "Radio",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 35),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
         ),
         actions: [
   IconButton(
