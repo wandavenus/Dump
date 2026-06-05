@@ -279,26 +279,29 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
-        
-        actions: [
-  IconButton(
-    onPressed: () {},
-    icon: const Icon(
-      Icons.cast_outlined,
-      color: Color(0xFFF92D48),
-      size: 24,
+  automaticallyImplyLeading: false,
+  backgroundColor: Colors.black,
+  surfaceTintColor: Colors.transparent,
+
+  actions: [
+    IconButton(
+      onPressed: () {},
+      icon: const Icon(
+        Icons.cast_outlined,
+        color: Color(0xFFF92D48),
+        size: 24,
+      ),
     ),
-  ),
-  PopupMenuButton(
-    icon: const Icon(
-      Icons.more_vert,
-      color: Color(0xFFF92D48),
-      size: 24,
+    PopupMenuButton(
+      icon: const Icon(
+        Icons.more_vert,
+        color: Color(0xFFF92D48),
+        size: 24,
+      ),
+      itemBuilder: (context) => [],
     ),
-    itemBuilder: (context) => [],
-  ),
-],
+  ],
+),
       ),
       body: SingleChildScrollView(
         child: Column(
