@@ -307,9 +307,25 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+           const Padding(
+  padding: EdgeInsets.fromLTRB(
+    16,
+    14,
+    16,
+    6,
+  ),
+  child: Text(
+    "Beranda",
+    style: TextStyle(
+      fontSize: 34,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+    ),
+  ),
+),
+          Container(
               // color: Colors.amber,
-              padding: const EdgeInsets.only(left: 15),
+              padding: const EdgeInsets.only(left: 16),
               child: const Text(
                 "Top Picks For You",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
