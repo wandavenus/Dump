@@ -377,7 +377,9 @@ bottom: PreferredSize(
   
       Container(
               // color: Colors.amber,
-              padding: const EdgeInsets.only(left: 16),
+              padding: const EdgeInsets.only(left: 16,
+                top: 8,
+               ),
               child: const Text(
                 "Top Picks For You",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
