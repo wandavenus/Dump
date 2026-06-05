@@ -98,11 +98,13 @@ Padding(
     height: 16,
   ),
 ),
-             const Column(
-               children: [
-   padding: const EdgeInsets.symmetric(
-    vertical: 6,              
- Row(
+             Column(
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 6,
+      ),
+      child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
@@ -127,7 +129,9 @@ Padding(
                       
                     ],
                   ),
-              const Divider(
+               ),
+             ),
+ const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
   indent: 38,
@@ -135,9 +139,13 @@ Padding(
 ),
                 ],
               ),
-              const Column(
-                children: [
-                  Row(
+              Column(
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 6,
+      ),
+      child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
@@ -162,7 +170,10 @@ Padding(
                       
                     ],
                   ),
-                  const Divider(
+                ),
+              ),
+
+const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
   indent: 38,
@@ -170,14 +181,18 @@ Padding(
 ),
                 ],
               ),
-              const Column(
-                children: [
-                  Row(
+              Column(
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 6,
+      ),
+      child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-    Icon(
+                          Icon(
   CupertinoIcons.square_stack,
   color: Color(0xFFF92D48),
   size: 28,
@@ -197,7 +212,9 @@ Padding(
                       
                     ],
                   ),
-                  const Divider(
+                 ),
+                ),            
+  const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
   indent: 38,
@@ -209,14 +226,18 @@ Padding(
                 onTap: () {
                   Navigator.pushNamed(context, "/musiclist");
                 },
-                child: Column(
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
+                Column(
+  children: [
+    Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 6,
+      ),
+      child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
   CupertinoIcons.music_note,
   color: Color(0xFFF92D48),
   size: 28,
@@ -236,7 +257,9 @@ Padding(
                         
                       ],
                     ),
-                    const Divider(
+                   ),    
+                  ),
+      const Divider(
   color: Color(0xFF38383A),
   thickness: 0.5,
   indent: 38,
@@ -247,9 +270,16 @@ Padding(
               ),
         Column(
   children: [
-    Row(
-      children: [
-        Icon(
+    Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 6,
+      ),
+      child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
           CupertinoIcons.tv,
           color: Color(0xFFF92D48),
           size: 28,
@@ -266,7 +296,9 @@ Padding(
         ),
       ],
     ),
-    Divider(
+   ),
+  ),
+   Divider(
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
