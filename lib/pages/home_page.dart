@@ -649,7 +649,6 @@ bottom: PreferredSize(
           ),
          ),
        ),
-      ),
     );
   }
 }
