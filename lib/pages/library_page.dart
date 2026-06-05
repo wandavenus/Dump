@@ -21,34 +21,7 @@ class _LibraryPageState extends State<LibraryPage> {
        flexibleSpace: Stack(
   children: [
 
-    Positioned(
-      top: 45,
-      right: 7,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.cast_outlined,
-            color: Color(0xFFF92D48),
-            size: 24,
-          ),
-          SizedBox(width: 16),
-          PopupMenuButton(
-            icon: Icon(
-              Icons.more_vert,
-              color: Color(0xFFF92D48),
-              size: 24,
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'settings',
-                child: Text('Pengaturan'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
+    
 
     Positioned(
       left: 16,
@@ -96,7 +69,9 @@ class _LibraryPageState extends State<LibraryPage> {
 ),
              const Column(
                children: [
-                  Row(
+   padding: const EdgeInsets.symmetric(
+    vertical: 6,              
+ Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
