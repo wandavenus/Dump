@@ -12,12 +12,16 @@ class LibraryPage extends StatefulWidget {
 
 class _LibraryPageState extends State<LibraryPage> {
 
+double _scrollOffset = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 100,
-      
+       automaticallyImplyLeading: false,
+backgroundColor: Colors.black,
+surfaceTintColor: Colors.transparent, 
+    
 actions: [
   IconButton(
     onPressed: () {},
@@ -56,12 +60,11 @@ actions: [
             children: [
 
 Padding(
-  padding: const EdgeInsets.fromLTRB(
-    0,
-    14,
-    0,
-    6,
+  padding: const EdgeInsets.only(
+    top: 8,
+    bottom: 6,
   ),
+
   child: Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
@@ -95,7 +98,7 @@ Padding(
   child: const Divider(
     color: Color(0xFF38383A),
     thickness: 0.5,
-    height: 16,
+    height: 0,
   ),
 ),
              Column(
