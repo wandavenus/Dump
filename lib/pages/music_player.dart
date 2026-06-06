@@ -416,7 +416,7 @@ AudioService.currentSong = selectedSong;
 const SizedBox(height: 45),
 
 Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 35),
+  padding: EdgeInsets.symmetric(horizontal: 35),
   child: Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
@@ -462,7 +462,7 @@ Padding(
       },
     );
   },
-  icon: const Icon(
+  icon: Icon(
     CupertinoIcons.quote_bubble,
     size: 26,
   ),
@@ -473,11 +473,11 @@ Padding(
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Color(0xFF1C1C1E),
       builder: (context) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.75,
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           child: Column(
             children: [
               const SizedBox(height: 10),
@@ -514,7 +514,7 @@ Padding(
                       trailing:
                           index ==
                                   AudioService.currentIndex
-                              ? const Icon(
+                              ? Icon(
                                   Icons.equalizer,
                                 )
                               : null,
@@ -528,7 +528,7 @@ Padding(
       },
     );
   },
-  icon: const Icon(
+  icon: Icon(
     CupertinoIcons.list_bullet,
     size: 26,
   ),
