@@ -36,7 +36,7 @@ void initState() {
     );
   },
   child: Container(
-      height: 60,
+      height: 55,
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -46,16 +46,21 @@ void initState() {
       child: Row(
         children: [
           ClipRRect(
-  borderRadius: BorderRadius.circular(0),
-  child: QueryArtworkWidget(
-    controller: audioQuery,
-    id: AudioService.currentSong!.id,
-    type: ArtworkType.AUDIO,
-    artworkWidth: 50,
-    artworkHeight: 50,
-    nullArtworkWidget: const Icon(
-      Icons.music_note,
-      color: Colors.white,
+  borderRadius: BorderRadius.circular(2),
+  child: SizedBox(
+    width: 50,
+    height: 50,
+    child: QueryArtworkWidget(
+      controller: audioQuery,
+      id: AudioService.currentSong!.id,
+      type: ArtworkType.AUDIO,
+      artworkWidth: 44,
+      artworkHeight: 44,
+      artworkFit: BoxFit.cover,
+      nullArtworkWidget: const Icon(
+        Icons.music_note,
+        color: Colors.white,
+      ),
     ),
   ),
 ),
