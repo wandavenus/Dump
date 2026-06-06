@@ -65,98 +65,68 @@ Future<void> loadSongs() async {
     ),
   ),
 ],
-Divider(
-  height: 1,
-  thickness: 0.3,
-  color: Colors.white24,
-)
+bottom: const PreferredSize(
+  preferredSize: Size.fromHeight(1),
+  child: Divider(
+    height: 1,
+    thickness: 0.3,
+    color: Colors.white24,
+  ),
+),
 ),
       body: ListView.builder(
   itemCount: songs.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // number of Rows in the grid
-          childAspectRatio: .750, // ratio of Row width to row height
-        ),
+        
       
         itemBuilder: (context, index) {
-          return InkWell(
-            onTap: () async {
-              Navigator.pushNamed(
-  context,
-  '/player',
-  arguments: {
-  'index': index,
-  'song': songs[index],
-  'songs': songs,
-},
- 
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.all(10),
-              // color: Colors.amber,
-              // height: 100,
-              // width: 200,
-              padding: const EdgeInsets.only(top: 5, left: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  ClipRRect(
-  borderRadius: BorderRadius.circular(5),
-  child: SizedBox(
-    width: 55,
-    height: 55,
-    child: QueryArtworkWidget(
-      controller: audioQuery,
-      id: songs[index].id,
-      type: ArtworkType.AUDIO,
-      artworkFit: BoxFit.cover,
-      nullArtworkWidget: const Icon(
-        Icons.music_note,
-        size: 30,
+  return InkWell(
+    onTap: () async {
+      Navigator.pushNamed(
+        context,
+        '/player',
+        arguments: {
+          'index': index,
+          'song': songs[index],
+          'songs': songs,
+        },
+      );
+    },
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 2,
+      ),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: SizedBox(
+          width: 55,
+          height: 55,
+          child: QueryArtworkWidget(
+            controller: audioQuery,
+            id: songs[index].id,
+            type: ArtworkType.AUDIO,
+            artworkFit: BoxFit.cover,
+            nullArtworkWidget: const Icon(
+              Icons.music_note,
+              size: 30,
+            ),
+          ),
+        ),
+      ),
+      title: Text(
+        songs[index].title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        songs[index].artist ?? "Unknown Artist",
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     ),
-  ),
+  );
+},
 ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: SizedBox(
-                          width: 300,
-                          child: Text(
-                            songs[index].title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 5,
-                      ),
-                      SizedBox(
-                        width: 190,
-                        child: Text(
-  songs[index].artist ?? "Unknown Artist",
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color.fromARGB(255, 182, 182, 182), fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-  
-      ),
- 
-    );
-  }
+);
+}
 }
