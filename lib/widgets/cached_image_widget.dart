@@ -32,11 +32,10 @@ class CachedImageWidget extends StatelessWidget {
       ),
     );
 
-    if (borderRadius != null) {
-      return ClipRRect(
-        borderRadius: borderRadius,
-        child: image,
-      );
+    return ClipRRect(
+  borderRadius: borderRadius!,
+  child: image,
+);
     }
 
     return image;
