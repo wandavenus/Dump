@@ -164,9 +164,15 @@ AudioService.currentSong = selectedSong;
       });
     }
   },
-  child: Transform.translate(
-    offset: Offset(0, dragOffset),
-    child: Center(
+  child: AnimatedContainer(
+  duration: const Duration(milliseconds: 250),
+  curve: Curves.easeOutCubic,
+  transform: Matrix4.translationValues(
+    0,
+    dragOffset,
+    0,
+  ),
+  child: Center(
         child: Container(
             decoration: const BoxDecoration(
   color: Color(0xFF1C1C1E),
