@@ -238,7 +238,7 @@ Container(
                                                 ),
                                                 Text(
                                                   radio[0]['artist'],
-                                                  style: const TextStyle(color: Colors.grey, fontSize: 18),
+                                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ],
@@ -357,7 +357,7 @@ Container(
                                                 ),
                                                 Text(
                                                   radio[1]['artist'],
-                                                  style: const TextStyle(color: Colors.grey, fontSize: 18),
+                                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ],
@@ -476,7 +476,7 @@ Container(
                                                 ),
                                                 Text(
                                                   radio[2]['artist'],
-                                                  style: const TextStyle(color: Colors.grey, fontSize: 18),
+                                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ],
