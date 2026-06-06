@@ -6,6 +6,8 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 
+
+
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
 
@@ -41,7 +43,8 @@ class _MusicPlayerState extends State<MusicPlayer> {
     setState(() {
       currentIndex = routes['index'] as int;
     });
-
+AudioService.currentIndex = currentIndex;
+AudioService.currentPlaylist = routes['songs'];
     _loadSong(currentIndex);
   }
 });
@@ -95,12 +98,14 @@ if (currentIndex < allSongs.length - 1) {
   }
 
   Future<void> _loadSong(int index) async {
-    setState(() {
-      isLoading = true;
-      currentIndex = index;
-    });
+  setState(() {
+    isLoading = true;
+    currentIndex = index;
+  });
 
-    SongModel selectedSong;
+  AudioService.currentIndex = currentIndex;
+
+  SongModel selectedSong;
 
 final routes =
     ModalRoute.of(context)?.settings.arguments
@@ -224,7 +229,6 @@ AudioService.currentSong = selectedSong;
 
   keepOldArtwork: true,
 
-  quality: 100,
   artworkQuality: FilterQuality.high,
 
   artworkHeight: coverSize,
