@@ -470,12 +470,70 @@ Lorem ipsum...
   ),
 ),
       IconButton(
-        onPressed: () {},
-        icon: const Icon(
-          CupertinoIcons.list_bullet,
-          size: 26,
-        ),
-      ),
+  onPressed: () {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1C1E),
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+
+              const Text(
+                'Queue',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Expanded(
+                child: ListView.builder(
+                  itemCount:
+                      AudioService.currentPlaylist.length,
+                  itemBuilder: (context, index) {
+                    final song =
+                        AudioService.currentPlaylist[index];
+
+                    return ListTile(
+                      title: Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        song.artist ?? 'Unknown Artist',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing:
+                          index ==
+                                  AudioService.currentIndex
+                              ? const Icon(
+                                  Icons.equalizer,
+                                )
+                              : null,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  },
+  icon: const Icon(
+    CupertinoIcons.list_bullet,
+    size: 26,
+  ),
+),
     ],
   ),
 ),
