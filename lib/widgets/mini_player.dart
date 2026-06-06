@@ -84,8 +84,7 @@ void initState() {
               ],
             ),
           ),
-
-          IconButton(
+IconButton(
   onPressed: () async {
     if (AudioService.player.playing) {
       await AudioService.player.pause();
@@ -104,33 +103,33 @@ void initState() {
   ),
 ),
 
+
+        
 IconButton(
   onPressed: () async {
-    onPressed: () async {
-  if (AudioService.currentPlaylist.isEmpty) return;
+    if (AudioService.currentPlaylist.isEmpty) return;
 
-  if (AudioService.currentIndex <
-      AudioService.currentPlaylist.length - 1) {
+    if (AudioService.currentIndex <
+        AudioService.currentPlaylist.length - 1) {
 
-    AudioService.currentIndex++;
+      AudioService.currentIndex++;
 
-    final nextSong =
-        AudioService.currentPlaylist[
-            AudioService.currentIndex];
+      final nextSong =
+          AudioService.currentPlaylist[
+              AudioService.currentIndex];
 
-    AudioService.currentSong = nextSong;
+      AudioService.currentSong = nextSong;
 
-    await AudioService.player.stop();
+      await AudioService.player.stop();
 
-    await AudioService.player.setAudioSource(
-      AudioSource.file(nextSong.data),
-    );
+      await AudioService.player.setAudioSource(
+        AudioSource.file(nextSong.data),
+      );
 
-    await AudioService.player.play();
+      await AudioService.player.play();
 
-    setState(() {});
-  }
-},
+      setState(() {});
+    }
   },
   icon: const Icon(
     Icons.skip_next,
