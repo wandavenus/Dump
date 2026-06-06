@@ -340,11 +340,14 @@ bottom: PreferredSize(
   
  body: NotificationListener<ScrollNotification>(
   onNotification: (notification) {
+  if (notification is ScrollUpdateNotification &&
+      notification.metrics.axis == Axis.vertical) {
     setState(() {
       _scrollOffset = notification.metrics.pixels;
     });
-    return false;
-  },
+  }
+  return false;
+},
   child: SingleChildScrollView(
     child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
