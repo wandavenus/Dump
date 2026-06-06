@@ -427,45 +427,47 @@ Padding(
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1C1C1E),
       builder: (context) {
-  return Container(
-    height: MediaQuery.of(context).size.height * 0.75,
-    padding: const EdgeInsets.all(20),
-    child: const Column(
-      children: [
-        SizedBox(height: 10),
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
 
-        Text(
-          'Lyrics',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
+              const Text(
+                'Lyrics',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    lyrics,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      height: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-
-        SizedBox(height: 20),
-
-        Expanded(
-          child: SingleChildScrollView(
-  child: Text(
-    lyrics,
-    textAlign: TextAlign.center,
-    style: const TextStyle(
-      fontSize: 20,
-      height: 2,
-    ),
-  ),
-),
-          ),
-        ),
-      ],
-    ),
-  );
-},
+        );
+      },
+    );
+  },
   icon: const Icon(
     CupertinoIcons.quote_bubble,
     size: 26,
   ),
 ),
+
       IconButton(
   onPressed: () {
     showModalBottomSheet(
