@@ -58,7 +58,33 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
   scrollBehavior: MyScrollBehavior(),
-      theme: ThemeData(colorScheme: const ColorScheme.dark(), scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0), appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0, scrolledUnderElevation: 0)),
+      theme: ThemeData(
+        colorScheme: const ColorScheme.dark(),
+        scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        fontFamily: 'SF Pro Display',
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          displayMedium: TextStyle(fontFamily: 'SF Pro Display'),
+          displaySmall: TextStyle(fontFamily: 'SF Pro Display'),
+          headlineLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          headlineMedium: TextStyle(fontFamily: 'SF Pro Display'),
+          headlineSmall: TextStyle(fontFamily: 'SF Pro Display'),
+          titleLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          titleMedium: TextStyle(fontFamily: 'SF Pro Display'),
+          titleSmall: TextStyle(fontFamily: 'SF Pro Display'),
+          bodyLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          bodyMedium: TextStyle(fontFamily: 'SF Pro Display'),
+          bodySmall: TextStyle(fontFamily: 'SF Pro Display'),
+          labelLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          labelMedium: TextStyle(fontFamily: 'SF Pro Display'),
+          labelSmall: TextStyle(fontFamily: 'SF Pro Display'),
+        ),
+      ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
       routes: {
