@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 
-
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
 
@@ -14,9 +13,7 @@ class MusicPlayer extends StatefulWidget {
 }
 
 class _MusicPlayerState extends State<MusicPlayer> {
-  
       
-
   //variable for music audioPlayer
   final AudioPlayer audioPlayer = AudioService.player;
   final OnAudioQuery audioQuery = OnAudioQuery();
@@ -140,7 +137,9 @@ AudioService.currentSong = selectedSong;
   
   @override
   Widget build(BuildContext context) {
-   final coverSize = MediaQuery.of(context).size.width * 0.8;
+   final coverSize =
+    MediaQuery.of(context).size.width -
+    (22 * 2);
  return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -175,34 +174,32 @@ AudioService.currentSong = selectedSong;
                 DecoratedBox(
                   decoration: BoxDecoration(
                     boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromARGB(97, 0, 0, 0),
-                        blurRadius: 10.0,
-                        spreadRadius: 2.0,
-                      ),
-                    ],
+  BoxShadow(
+    color: Color.fromARGB(30, 0, 0, 0),
+    blurRadius: 4,
+    spreadRadius: 0,
+  ),
+],
                     shape: BoxShape.rectangle,
                     borderRadius: BorderRadius.circular(18.0),
                   ),
                   child: ClipPath(
                     clipper: ShapeBorderClipper(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18.0),
-                      ),
+  borderRadius: BorderRadius.circular(8.0),
+)
                     ),
                     child: QueryArtworkWidget(
   controller: audioQuery,
   id: AudioService.currentSong?.id ?? 0,
   type: ArtworkType.AUDIO,
+
+  keepOldArtwork: true,
+
   artworkHeight: coverSize,
   artworkWidth: coverSize,
   artworkFit: BoxFit.cover,
-  nullArtworkWidget: const Icon(
-    Icons.music_note,
-    size: 150,
-    color: Colors.white,
-  ),
-),
+)
                   ),
                 ),
                 const SizedBox(
@@ -221,15 +218,25 @@ AudioService.currentSong = selectedSong;
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              AudioService.currentSong?.title ?? 'Unknown Song',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, overflow: TextOverflow.ellipsis),
-                            ),
+  AudioService.currentSong?.title ?? 'Unknown Song',
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+  style: const TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 24,
+  ),
+),
                             const SizedBox(
                               height: 3,
                             ),
-                      Text(    
+                      Text(
   AudioService.currentSong?.artist ?? 'Unknown Artist',
-              )       
+  style: const TextStyle(
+    color: Colors.white70,
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+  ),
+)       
      ],
                         ),
                       ),
@@ -239,11 +246,7 @@ AudioService.currentSong = selectedSong;
                         child: Row(
                           children: [
                             // Padding(padding: EdgeInsets.only(right: 10)),
-                            const Icon(
-                              Icons.stars,
-                              size: 33,
-                              color: Color.fromARGB(223, 228, 228, 228),
-                            ),
+                            
                             const SizedBox(
                               width: 5,
                             ),
