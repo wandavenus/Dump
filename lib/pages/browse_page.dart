@@ -83,17 +83,24 @@ double _scrollOffset = 0;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      title: Opacity(
-  opacity: (((_scrollOffset - 25) / 25)
-      .clamp(0.0, 1.0)),
-  child: const Text(
-    "Baru",
-    style: TextStyle(
-      fontSize: 17,
-      fontWeight: FontWeight.w600,
+      title: Transform.translate(
+  offset: Offset(
+    0,
+    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
+  ),
+  child: Opacity(
+    opacity: ((((_scrollOffset - 25) / 25)
+          .clamp(0.0, 1.0)) *
+        1.5)
+    .clamp(0.0, 1.0),
+    child: const Text(
+      "Baru",
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   ),
-),
      
 centerTitle: false,
 
@@ -115,7 +122,18 @@ centerTitle: false,
     itemBuilder: (context) => [],
   )
 ],
-      ),
+   
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Opacity(
+    opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
+    child: Container(
+      height: 0.9,
+      color: const Color(0xFF48484A),
+    ),
+  ),
+),
+  ),
       body: NotificationListener<ScrollNotification>(
   onNotification: (notification) {
     setState(() {
@@ -751,7 +769,7 @@ const SizedBox(height: 12),
         ),
        ),
       ),
-     ),
+     
   );
   }
 }
