@@ -161,10 +161,7 @@ AudioService.currentSong = selectedSong;
     (22 * 2);
  return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        leadingWidth: 500,
-        
-      ),
+      
       body: GestureDetector(
   onVerticalDragUpdate: (details) {
     setState(() {
@@ -228,8 +225,6 @@ AudioService.currentSong = selectedSong;
   type: ArtworkType.AUDIO,
 
   keepOldArtwork: true,
-
-  artworkQuality: FilterQuality.high,
 
   artworkHeight: coverSize,
   artworkWidth: coverSize,
