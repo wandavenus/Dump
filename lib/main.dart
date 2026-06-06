@@ -19,12 +19,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await JustAudioBackground.init(
-    androidNotificationChannelId:
-        'com.musicplayer.channel.audio',
-    androidNotificationChannelName:
-        'Music Playback',
-    androidNotificationOngoing: true,
-  );
+  androidNotificationChannelId:
+      'com.musicplayer.channel.audio',
+  androidNotificationChannelName:
+      'Music Playback',
+  androidNotificationIcon:
+      'drawable/ic_notification',
+  androidNotificationOngoing: true,
+);
 
 SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
