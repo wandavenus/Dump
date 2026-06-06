@@ -156,7 +156,7 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
@@ -280,7 +280,7 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
@@ -399,7 +399,7 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
