@@ -26,8 +26,6 @@ Future<void> main() async {
     androidNotificationOngoing: true,
   );
 
-  
-  WidgetsFlutterBinding.ensureInitialized();
 SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
   );
