@@ -186,7 +186,7 @@ Container(
                                   placeholder: (context, url) => const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[0]['image'],
-                                  height: 280,
+                                  height: 180,
                                   width: 370,
                                   fit: BoxFit.cover,
                                 ),
@@ -199,7 +199,7 @@ Container(
                                 ),
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
-                                  height: 100,
+                                  height: 80,
                                   width: 380,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
@@ -305,7 +305,7 @@ Container(
                                   placeholder: (context, url) => const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[1]['image'],
-                                  height: 280,
+                                  height: 180,
                                   width: 380,
                                   fit: BoxFit.cover,
                                 ),
@@ -318,7 +318,7 @@ Container(
                                 ),
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
-                                  height: 100,
+                                  height: 80,
                                   width: 380,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
@@ -424,7 +424,7 @@ Container(
                                   placeholder: (context, url) => const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[2]['image'],
-                                  height: 280,
+                                  height: 180,
                                   width: 380,
                                   fit: BoxFit.cover,
                                 ),
@@ -437,7 +437,7 @@ Container(
                                 ),
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
-                                  height: 100,
+                                  height: 80,
                                   width: 380,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
