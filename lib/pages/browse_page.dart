@@ -769,7 +769,7 @@ const SizedBox(height: 12),
                   );
                 },
               ),
-            
+            ),
           ],
         ),
        ),
