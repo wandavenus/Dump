@@ -77,7 +77,7 @@ Padding(
         ),
       ),
       Padding(
-  padding: const EdgeInsets.only(top: 10),
+  padding: const EdgeInsets.only(top: 12),
   child: GestureDetector(
     onTap: () {},
     child: const Text(
