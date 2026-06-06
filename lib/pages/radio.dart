@@ -121,7 +121,18 @@ centerTitle: false,
     itemBuilder: (context) => [],
   ),
 ],
-      ),
+    
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Opacity(
+    opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
+    child: Container(
+      height: 0.9,
+      color: const Color(0xFF48484A),
+    ),
+  ),
+),
+ ),
       body: NotificationListener<ScrollNotification>(
   onNotification: (notification) {
     setState(() {
