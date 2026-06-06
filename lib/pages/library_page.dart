@@ -24,7 +24,7 @@ surfaceTintColor: Colors.transparent,
     
 actions: [
   Transform.translate(
-    offset: const Offset(0, -3),
+    offset: const Offset(0, -2),
     child: IconButton(
       onPressed: () {},
       icon: const Icon(
@@ -35,7 +35,7 @@ actions: [
     ),
   ),
   Transform.translate(
-    offset: const Offset(0, -3),
+    offset: const Offset(0, -2),
     child: PopupMenuButton(
       icon: const Icon(
         Icons.more_vert,
@@ -83,7 +83,7 @@ Padding(
         ),
       ),
       Padding(
-  padding: const EdgeInsets.only(top: 11),
+  padding: const EdgeInsets.only(top: 17),
   child: GestureDetector(
     onTap: () {},
     child: const Text(
