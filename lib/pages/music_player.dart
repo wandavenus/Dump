@@ -416,7 +416,7 @@ AudioService.currentSong = selectedSong;
 const SizedBox(height: 45),
 
 Padding(
-  padding: EdgeInsets.symmetric(horizontal: 35),
+  padding: const EdgeInsets.symmetric(horizontal: 35),
   child: Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
@@ -533,17 +533,18 @@ Padding(
     size: 26,
   ),
 ),
-    ],
+   
+   ],
   ),
 ),
+
                   ],
                 ),
-              
+              ),
             ),
           ),
         ),
       ),
-     ),
-   );
+    );
   }
 }
