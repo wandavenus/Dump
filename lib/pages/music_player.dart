@@ -400,35 +400,35 @@ AudioService.currentSong = selectedSong;
       routes?['songs'] ?? [];
 
   if (currentIndex < allSongs.length - 1) {
-    setState(() {
-      currentIndex++;
-    });
+  setState(() {
+    currentIndex++;
+  });
 
-    _loadSong(currentIndex);
-  ),
+  _loadSong(currentIndex);
+}
+},
+),
 ],
 ),
-
 const SizedBox(height: 45),
 
 Row(
   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
   children: [
-    Column(
-      children: const [
-        Icon(
-          Icons.chat_bubble_outline,
-          size: 26,
-        ),
-      ],
+    IconButton(
+      onPressed: () {},
+      icon: const Icon(
+        CupertinoIcons.quote_bubble,
+        size: 26,
+      ),
     ),
-    Column(
-      children: const [
-        Icon(
-          CupertinoIcons.list_bullet,
-          size: 26,
-        ),
-      ],
+
+    IconButton(
+      onPressed: () {},
+      icon: const Icon(
+        CupertinoIcons.list_bullet,
+        size: 26,
+      ),
     ),
   ],
 ),
