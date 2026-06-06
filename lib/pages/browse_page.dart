@@ -83,11 +83,15 @@ double _scrollOffset = 0;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      title: const Text(
-  "Baru",
-  style: TextStyle(
-    fontSize: 17,
-    fontWeight: FontWeight.w600,
+      title: Opacity(
+  opacity: (((_scrollOffset - 25) / 25)
+      .clamp(0.0, 1.0)),
+  child: const Text(
+    "Baru",
+    style: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+    ),
   ),
 ),
      
@@ -112,7 +116,14 @@ centerTitle: false,
   )
 ],
       ),
-      body: SingleChildScrollView(
+      body: NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    setState(() {
+      _scrollOffset = notification.metrics.pixels;
+    });
+    return false;
+  },
+  child: SingleChildScrollView(
         child: Column(
           children: [
           
@@ -738,6 +749,7 @@ const SizedBox(height: 12),
             ),
           ],
         ),
+       ),
       ),
     );
   }
