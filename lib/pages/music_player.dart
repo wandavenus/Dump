@@ -410,27 +410,30 @@ AudioService.currentSong = selectedSong;
 ),
 ],
 ),
+
 const SizedBox(height: 45),
 
-Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-    IconButton(
-      onPressed: () {},
-      icon: const Icon(
-        CupertinoIcons.quote_bubble,
-        size: 26,
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 35),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      IconButton(
+        onPressed: () {},
+        icon: const Icon(
+          CupertinoIcons.quote_bubble,
+          size: 26,
+        ),
       ),
-    ),
-
-    IconButton(
-      onPressed: () {},
-      icon: const Icon(
-        CupertinoIcons.list_bullet,
-        size: 26,
+      IconButton(
+        onPressed: () {},
+        icon: const Icon(
+          CupertinoIcons.list_bullet,
+          size: 26,
+        ),
       ),
-    ),
-  ],
+    ],
+  ),
 ),
                   ],
                 ),
