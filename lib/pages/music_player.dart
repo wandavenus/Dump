@@ -419,12 +419,56 @@ Padding(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
       IconButton(
-        onPressed: () {},
-        icon: const Icon(
-          CupertinoIcons.quote_bubble,
-          size: 26,
+  onPressed: () {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1C1E),
+      builder: (context) {
+  return Container(
+    height: MediaQuery.of(context).size.height * 0.75,
+    padding: const EdgeInsets.all(20),
+    child: const Column(
+      children: [
+        SizedBox(height: 10),
+
+        Text(
+          'Lyrics',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
+
+        SizedBox(height: 20),
+
+        Expanded(
+          child: SingleChildScrollView(
+            child: Text(
+              '''
+Lorem ipsum...
+Lorem ipsum...
+Lorem ipsum...
+Lorem ipsum...
+Lorem ipsum...
+              ''',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                height: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+},
+  icon: const Icon(
+    CupertinoIcons.quote_bubble,
+    size: 26,
+  ),
+),
       IconButton(
         onPressed: () {},
         icon: const Icon(
