@@ -22,6 +22,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   Duration position = Duration.zero;
   int currentIndex = 0;
   bool isLoading = false;
+  double dragOffset = 0;
 
   @override
   void initState() {
@@ -150,14 +151,29 @@ AudioService.currentSong = selectedSong;
     Navigator.pop(context);
   }
 },
-          child: const Icon(
-            Icons.horizontal_rule_rounded,
-            size: 70,
-            color: Colors.white,
-          ),
+          
         ),
       ),
-      body: Center(
+      body: GestureDetector(
+  onVerticalDragUpdate: (details) {
+    setState(() {
+      dragOffset =
+          (dragOffset + details.delta.dy)
+              .clamp(0.0, 500.0);
+    });
+  },
+  onVerticalDragEnd: (details) {
+    if (dragOffset > 150) {
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        dragOffset = 0;
+      });
+    }
+  },
+  child: Transform.translate(
+    offset: Offset(0, dragOffset),
+    child: Center(
         child: Container(
             decoration: const BoxDecoration(
   color: Color(0xFF1C1C1E),
@@ -181,12 +197,12 @@ AudioService.currentSong = selectedSong;
   ),
 ],
                     shape: BoxShape.rectangle,
-                    borderRadius: BorderRadius.circular(18.0),
+                    borderRadius: BorderRadius.circular(3.0),
                   ),
                   child: ClipPath(
                     clipper: ShapeBorderClipper(
                       shape: RoundedRectangleBorder(
-  borderRadius: BorderRadius.circular(8.0),
+  borderRadius: BorderRadius.circular(3.0),
 )
                     ),
                     child: QueryArtworkWidget(
