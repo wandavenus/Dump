@@ -12,7 +12,10 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage> {
-  List ban = [
+ 
+double _scrollOffset = 0;
+
+ List ban = [
     {
       't1': 'WOMENS HISTORY MONTH',
       't2': 'Alpha',
@@ -80,13 +83,17 @@ class _BrowsePageState extends State<BrowsePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 100,
-        title: const Text(
-          "Baru",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 34),
-        ),
-        actions: [
+      title: const Text(
+  "Baru",
+  style: TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+  ),
+),
+     
+centerTitle: false,
+
+   actions: [
   IconButton(
     onPressed: () {},
     icon: const Icon(
@@ -108,8 +115,43 @@ class _BrowsePageState extends State<BrowsePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-                padding: const EdgeInsets.only(top: 10, left: 0, right: 0),
+          
+const Padding(
+  padding: EdgeInsets.fromLTRB(
+    16,
+    14,
+    16,
+    6,
+  ),
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      "Baru",
+      style: TextStyle(
+        fontSize: 34,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+
+const Padding(
+  padding: EdgeInsets.symmetric(
+    horizontal: 16,
+  ),
+  child: Divider(
+    color: Color(0xFF48484A),
+    thickness: 0.5,
+    height: 0,
+  ),
+),
+
+const SizedBox(height: 12),
+
+  Container(
+                padding: const EdgeInsets.only(
+  top: 0,
+),
                 height: 350,
                 // width: 1080 / 2.5,
                 // color: const Color.fromARGB(255, 80, 71, 37),
