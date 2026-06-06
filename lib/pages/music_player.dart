@@ -2,6 +2,7 @@
 import '../services/audio_service.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 
@@ -111,7 +112,16 @@ selectedSong = allSongs[index];
 AudioService.currentSong = selectedSong;
     try {
   await audioPlayer.stop();
-  await audioPlayer.setFilePath(selectedSong.data);
+  await audioPlayer.setAudioSource(
+  AudioSource.file(
+    selectedSong.data,
+    tag: MediaItem(
+      id: selectedSong.id.toString(),
+      title: selectedSong.title,
+      artist: selectedSong.artist ?? 'Unknown Artist',
+    ),
+  ),
+);
   await audioPlayer.play();
   
 } catch (e) {
@@ -211,7 +221,6 @@ AudioService.currentSong = selectedSong;
 
   keepOldArtwork: true,
 
-  size: 5000,
   quality: 100,
   artworkQuality: FilterQuality.high,
 
