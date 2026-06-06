@@ -145,14 +145,7 @@ AudioService.currentSong = selectedSong;
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leadingWidth: 500,
-        leading: GestureDetector(
-          onVerticalDragUpdate: (details) {
-  if (details.primaryDelta! > 15) {
-    Navigator.pop(context);
-  }
-},
-          
-        ),
+        
       ),
       body: GestureDetector(
   onVerticalDragUpdate: (details) {
@@ -163,7 +156,7 @@ AudioService.currentSong = selectedSong;
     });
   },
   onVerticalDragEnd: (details) {
-    if (dragOffset > 150) {
+    if (dragOffset > 200) {
       Navigator.pop(context);
     } else {
       setState(() {
@@ -211,6 +204,10 @@ AudioService.currentSong = selectedSong;
   type: ArtworkType.AUDIO,
 
   keepOldArtwork: true,
+
+  size: 5000,
+  quality: 100,
+  artworkQuality: FilterQuality.high,
 
   artworkHeight: coverSize,
   artworkWidth: coverSize,
@@ -398,7 +395,9 @@ AudioService.currentSong = selectedSong;
                   ],
                 ),
               ],
-            )),
+            ),
+          ),
+        ),
       ),
     );
   }
