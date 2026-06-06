@@ -77,7 +77,7 @@ Padding(
         ),
       ),
       Padding(
-  padding: const EdgeInsets.only(top: 12),
+  padding: const EdgeInsets.only(top: 14),
   child: GestureDetector(
     onTap: () {},
     child: const Text(
@@ -111,7 +111,7 @@ const SizedBox(height: 9),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 4,
+        vertical: 2,
       ),
       child: Row(
         children: [
@@ -135,7 +135,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 3,
+      endIndent: 2,
     ),
   ],
 ),                      
@@ -144,7 +144,7 @@ const SizedBox(height: 9),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 4,
+        vertical: 2,
       ),
       child: Row(
         children: [
@@ -168,7 +168,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 3,
+      endIndent: 2,
     ),
   ],
 ),
@@ -178,7 +178,7 @@ const SizedBox(height: 9),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 4,
+        vertical: 2,
       ),
       child: Row(
         children: [
@@ -202,7 +202,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 3,
+      endIndent: 2,
     ),
   ],
 ),
@@ -216,7 +216,7 @@ const SizedBox(height: 9),
     children: [
       Padding(
         padding: const EdgeInsets.symmetric(
-          vertical: 4,
+          vertical: 2,
         ),
         child: Row(
           children: [
@@ -240,7 +240,7 @@ const SizedBox(height: 9),
         color: Color(0xFF38383A),
         thickness: 0.5,
         indent: 38,
-        endIndent: 3,
+        endIndent: 2,
       ),
     ],
   ),
@@ -249,7 +249,7 @@ const SizedBox(height: 9),
   children: [
     Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: 4,
+        vertical: 2,
       ),
       child: Row(
         children: [
@@ -273,7 +273,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 3,
+      endIndent: 2,
     ),
   ],
 ),         
