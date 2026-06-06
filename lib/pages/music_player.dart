@@ -462,7 +462,7 @@ Padding(
       },
     );
   },
-  icon: Icon(
+  icon: const Icon(
     CupertinoIcons.quote_bubble,
     size: 26,
   ),
@@ -473,11 +473,11 @@ Padding(
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Color(0xFF1C1C1E),
+      backgroundColor: const Color(0xFF1C1C1E),
       builder: (context) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.75,
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Column(
             children: [
               const SizedBox(height: 10),
@@ -514,7 +514,7 @@ Padding(
                       trailing:
                           index ==
                                   AudioService.currentIndex
-                              ? Icon(
+                              ? const Icon(
                                   Icons.equalizer,
                                 )
                               : null,
@@ -528,7 +528,7 @@ Padding(
       },
     );
   },
-  icon: Icon(
+  icon: const Icon(
     CupertinoIcons.list_bullet,
     size: 26,
   ),
