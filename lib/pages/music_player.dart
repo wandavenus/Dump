@@ -6,7 +6,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:flutter/cupertino.dart';
-
+import 'package:flutter_audio_tagger/flutter_audio_tagger.dart';
 
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
@@ -23,6 +23,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
   bool isPlaying = false;
   Duration duration = Duration.zero;
   Duration position = Duration.zero;
+  String lyrics = 'Loading lyrics...';
   int currentIndex = 0;
   bool isLoading = false;
   double dragOffset = 0;
@@ -115,7 +116,14 @@ final List<SongModel> allSongs = routes!['songs'];
 
 selectedSong = allSongs[index];
 AudioService.currentSong = selectedSong;
-    try {
+  final tagger = FlutterAudioTagger();
+
+final tag = await tagger.getAllTags(
+  selectedSong.data,
+);
+
+lyrics = tag?.lyrics ?? 'No lyrics found';
+   try {
   await audioPlayer.stop();
   await audioPlayer.setAudioSource(
   AudioSource.file(
@@ -444,20 +452,15 @@ Padding(
 
         Expanded(
           child: SingleChildScrollView(
-            child: Text(
-              '''
-Lorem ipsum...
-Lorem ipsum...
-Lorem ipsum...
-Lorem ipsum...
-Lorem ipsum...
-              ''',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                height: 2,
-              ),
-            ),
+  child: Text(
+    lyrics,
+    textAlign: TextAlign.center,
+    style: const TextStyle(
+      fontSize: 20,
+      height: 2,
+    ),
+  ),
+),
           ),
         ),
       ],
