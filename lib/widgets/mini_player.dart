@@ -85,23 +85,36 @@ void initState() {
           ),
 
           IconButton(
-            onPressed: () async {
-              if (AudioService.player.playing) {
-                await AudioService.player.pause();
-              } else {
-                await AudioService.player.play();
-              }
+  onPressed: () async {
+    if (AudioService.player.playing) {
+      await AudioService.player.pause();
+    } else {
+      await AudioService.player.play();
+    }
 
-              setState(() {});
-            },
-            icon: Icon(
-              AudioService.player.playing
-                  ? Icons.pause
-                  : Icons.play_arrow,
-             size: 34,
- color: Colors.white,
-            ),
-          ),
+    setState(() {});
+  },
+  icon: Icon(
+    AudioService.player.playing
+        ? Icons.pause
+        : Icons.play_arrow,
+    size: 34,
+    color: Colors.white,
+  ),
+),
+
+IconButton(
+  onPressed: () async {
+    await AudioService.player.seekToNext();
+  },
+  icon: const Icon(
+    Icons.skip_next,
+    size: 30,
+    color: Colors.white,
+  ),
+),
+            
+         
         ],
       ),
      ),
