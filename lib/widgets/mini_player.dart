@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../services/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class MiniPlayer extends StatefulWidget {
   const MiniPlayer({super.key});
@@ -105,7 +106,31 @@ void initState() {
 
 IconButton(
   onPressed: () async {
-    await AudioService.player.seekToNext();
+    onPressed: () async {
+  if (AudioService.currentPlaylist.isEmpty) return;
+
+  if (AudioService.currentIndex <
+      AudioService.currentPlaylist.length - 1) {
+
+    AudioService.currentIndex++;
+
+    final nextSong =
+        AudioService.currentPlaylist[
+            AudioService.currentIndex];
+
+    AudioService.currentSong = nextSong;
+
+    await AudioService.player.stop();
+
+    await AudioService.player.setAudioSource(
+      AudioSource.file(nextSong.data),
+    );
+
+    await AudioService.player.play();
+
+    setState(() {});
+  }
+},
   },
   icon: const Icon(
     Icons.skip_next,
