@@ -187,10 +187,10 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
-                                Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
+                                Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
                             
@@ -200,7 +200,7 @@ Container(
                           // color: Colors.amber,
                           margin: const EdgeInsets.fromLTRB(
   16,
-  10,
+  4,
   16,
   10,
 ),
@@ -229,7 +229,7 @@ Container(
                                   ),
                                 ),
                                 child: Container(
-                                  padding: const EdgeInsets.only(left: 10, right: 10),
+                                  padding: const EdgeInsets.only(left: 16, right: 16),
                                   height: 80,
                                   width: double.infinity,
                                   decoration: const BoxDecoration(
@@ -311,10 +311,10 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
-                                Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
+                                Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
                             
@@ -348,7 +348,7 @@ Container(
                                   ),
                                 ),
                                 child: Container(
-                                  padding: const EdgeInsets.only(left: 10, right: 10),
+                                  padding: const EdgeInsets.only(left: 16, right: 16),
                                   height: 80,
                                   width: double.infinity,
                                   decoration: const BoxDecoration(
@@ -430,10 +430,10 @@ Container(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     
-                                    Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                                    Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
-                                Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
+                                Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
                             
@@ -467,7 +467,7 @@ Container(
                                   ),
                                 ),
                                 child: Container(
-                                  padding: const EdgeInsets.only(left: 10, right: 10),
+                                  padding: const EdgeInsets.only(left: 16, right: 16),
                                   height: 80,
                                   width: double.infinity,
                                   decoration: const BoxDecoration(
