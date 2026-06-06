@@ -155,29 +155,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 16),
-                                      // padding: EdgeInsets.all(5),
-                                      child: const Icon(
-                                        Icons.apple,
-                                        size: 25,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    
                                     Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            const Padding(
-  padding: EdgeInsets.only(right: 16),
-  child: Icon(
-    Icons.calendar_month_rounded,
-    color: Colors.red,
-    size: 25,
-  ),
-),
+                            
                           ],
                         ),
                         Container(
@@ -258,11 +243,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            const Icon(
-                                              Icons.play_circle_fill_rounded,
-                                              size: 35,
-                                              color: Colors.white,
-                                            ),
+                                            
                                           ],
                                         ),
                                       )
@@ -288,7 +269,7 @@ Container(
                       children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,29 +279,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 16),
-                                      // padding: EdgeInsets.all(5),
-                                      child: const Icon(
-                                        Icons.apple,
-                                        size: 25,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    
                                     Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            const Padding(
-  padding: EdgeInsets.only(right: 16),
-  child: Icon(
-    Icons.calendar_month_rounded,
-    color: Colors.red,
-    size: 25,
-  ),
-),
+                            
                           ],
                         ),
                         Container(
@@ -396,11 +362,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            const Icon(
-                                              Icons.play_circle_fill_rounded,
-                                              size: 35,
-                                              color: Colors.white,
-                                            ),
+                                            
                                           ],
                                         ),
                                       )
@@ -426,7 +388,7 @@ Container(
                       children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,29 +398,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 10),
-                                      // padding: EdgeInsets.all(5),
-                                      child: const Icon(
-                                        Icons.apple,
-                                        size: 25,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    
                                     Container(margin: const EdgeInsets.only(left: 1), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 10), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            const Padding(
-  padding: EdgeInsets.only(right: 15),
-  child: Icon(
-    Icons.calendar_month_rounded,
-    color: Colors.red,
-    size: 25,
-  ),
-),
+                            
                           ],
                         ),
                         Container(
@@ -534,11 +481,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            const Icon(
-                                              Icons.play_circle_fill_rounded,
-                                              size: 35,
-                                              color: Colors.white,
-                                            ),
+                                            
                                           ],
                                         ),
                                       )
@@ -560,7 +503,7 @@ Container(
             // color: Colors.amber,
             margin: const EdgeInsets.only(top: 20),
             height: 30,
-            padding: const EdgeInsets.only(left: 15),
+            padding: const EdgeInsets.only(left: 16),
             child: InkWell(
               onTap: () {
                 Navigator.pushNamed(context, '/musiclist');
@@ -581,7 +524,7 @@ Container(
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.all(10),
-              itemCount: 10,
+              itemCount: 4,
               itemBuilder: (context, index) {
                 return InkWell(
                   onTap: () {
