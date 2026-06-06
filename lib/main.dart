@@ -13,8 +13,19 @@ import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
 import 'package:flutter/services.dart';
 import 'pages/library_page.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId:
+        'com.musicplayer.channel.audio',
+    androidNotificationChannelName:
+        'Music Playback',
+    androidNotificationOngoing: true,
+  );
+
   
   WidgetsFlutterBinding.ensureInitialized();
 SystemChrome.setEnabledSystemUIMode(
@@ -30,8 +41,8 @@ SystemChrome.setEnabledSystemUIMode(
  ),
   );
 
-  runApp(const MyApp());
-}
+   runApp(const MyApp());
+ }
 
 class MyScrollBehavior extends MaterialScrollBehavior {
   @override
