@@ -24,7 +24,7 @@ surfaceTintColor: Colors.transparent,
     
 actions: [
   Transform.translate(
-    offset: const Offset(0, -20),
+    offset: const Offset(0, -5),
     child: IconButton(
       onPressed: () {},
       icon: const Icon(
@@ -35,7 +35,7 @@ actions: [
     ),
   ),
   Transform.translate(
-    offset: const Offset(0, -20),
+    offset: const Offset(0, -5),
     child: PopupMenuButton(
       icon: const Icon(
         Icons.more_vert,
@@ -83,7 +83,7 @@ Padding(
         ),
       ),
       Padding(
-  padding: const EdgeInsets.only(top: 13),
+  padding: const EdgeInsets.only(top: 11),
   child: GestureDetector(
     onTap: () {},
     child: const Text(
@@ -141,7 +141,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 2,
+      endIndent: 1,
     ),
   ],
 ),                      
@@ -174,7 +174,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 2,
+      endIndent: 1,
     ),
   ],
 ),
@@ -208,7 +208,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 2,
+      endIndent: 1,
     ),
   ],
 ),
@@ -246,7 +246,7 @@ const SizedBox(height: 9),
         color: Color(0xFF38383A),
         thickness: 0.5,
         indent: 38,
-        endIndent: 2,
+        endIndent: 1,
       ),
     ],
   ),
@@ -279,7 +279,7 @@ const SizedBox(height: 9),
       color: Color(0xFF38383A),
       thickness: 0.5,
       indent: 38,
-      endIndent: 2,
+      endIndent: 1,
     ),
   ],
 ),         
