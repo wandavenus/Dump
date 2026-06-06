@@ -349,7 +349,8 @@ bottom: PreferredSize(
   return false;
 },
   child: SingleChildScrollView(
-    child: Column(
+   physics: const ClampingScrollPhysics(),
+ child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
            const Padding(
