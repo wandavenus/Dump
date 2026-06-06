@@ -83,7 +83,12 @@ double _scrollOffset = 0;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      title: Transform.translate(
+      appBar: AppBar(
+    automaticallyImplyLeading: false,
+    backgroundColor: Colors.black,
+    surfaceTintColor: Colors.transparent,
+
+title: Transform.translate(
   offset: Offset(
     0,
     (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
@@ -101,7 +106,7 @@ double _scrollOffset = 0;
       ),
     ),
   ),
-     
+ ),    
 centerTitle: false,
 
    actions: [
@@ -122,7 +127,7 @@ centerTitle: false,
     itemBuilder: (context) => [],
   )
 ],
-   
+ 
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
