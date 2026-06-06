@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
 
+double _scrollOffset = 0;
+
   @override
   State<RadioPage> createState() => _RadioPageState();
 }
@@ -78,6 +80,28 @@ class _RadioPageState extends State<RadioPage> {
   backgroundColor: Colors.black,
   surfaceTintColor: Colors.transparent,
 
+title: Transform.translate(
+  offset: Offset(
+    0,
+    (1 - (_scrollOffset / 100).clamp(0.0, 1.0)) * 40,
+  ),
+  child: Opacity(
+    opacity: ((((_scrollOffset - 25) / 25)
+          .clamp(0.0, 1.0)) *
+        1.5)
+    .clamp(0.0, 1.0),
+    child: const Text(
+      "Radio",
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+),
+
+centerTitle: false,
+
   actions: [
   IconButton(
     onPressed: () {},
@@ -97,7 +121,14 @@ class _RadioPageState extends State<RadioPage> {
   ),
 ],
       ),
-      body: SingleChildScrollView(
+      body: NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    setState(() {
+      _scrollOffset = notification.metrics.pixels;
+    });
+    return false;
+  },
+  child: SingleChildScrollView(
           child: Column(
        children: [
      const Padding(
@@ -118,7 +149,8 @@ class _RadioPageState extends State<RadioPage> {
     ),
   ),
 ),
-
+),
+),
 const Padding(
   padding: EdgeInsets.symmetric(
     horizontal: 16,
@@ -187,7 +219,7 @@ Container(
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[0]['image'],
                                   height: 180,
-                                  width: 370,
+                                  width: double.infinity,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -200,7 +232,7 @@ Container(
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
                                   height: 80,
-                                  width: 380,
+                                  width: double.infinity,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
                                     colors: [
@@ -306,7 +338,7 @@ Container(
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[1]['image'],
                                   height: 180,
-                                  width: 380,
+                                  width: double.infinity,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -319,7 +351,7 @@ Container(
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
                                   height: 80,
-                                  width: 380,
+                                  width: double.infinity,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
                                     colors: [
@@ -425,7 +457,7 @@ Container(
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
                                   imageUrl: radio[2]['image'],
                                   height: 180,
-                                  width: 380,
+                                  width: double.infinity,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -438,7 +470,7 @@ Container(
                                 child: Container(
                                   padding: const EdgeInsets.only(left: 10, right: 10),
                                   height: 80,
-                                  width: 380,
+                                  width: double.infinity,
                                   decoration: const BoxDecoration(
                                       gradient: LinearGradient(
                                     colors: [
