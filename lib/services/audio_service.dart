@@ -6,4 +6,7 @@ class AudioService {
 
   static SongModel? currentSong;
   static bool isPlaying = false;
+
+  static int currentIndex = 0;
+  static List<SongModel> currentPlaylist = [];
 }
