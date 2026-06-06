@@ -116,10 +116,13 @@ AudioService.currentSong = selectedSong;
   AudioSource.file(
     selectedSong.data,
     tag: MediaItem(
-      id: selectedSong.id.toString(),
-      title: selectedSong.title,
-      artist: selectedSong.artist ?? 'Unknown Artist',
-    ),
+  id: selectedSong.id.toString(),
+  title: selectedSong.title,
+  artist: selectedSong.artist ?? 'Unknown Artist',
+  artUri: Uri.parse(
+    'content://media/external/audio/albumart/${selectedSong.albumId}',
+  ),
+),
   ),
 );
   await audioPlayer.play();
