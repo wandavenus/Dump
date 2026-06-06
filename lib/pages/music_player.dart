@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:audiotags/audiotags.dart';
 import 'package:flutter/cupertino.dart';
 
 class MusicPlayer extends StatefulWidget {
