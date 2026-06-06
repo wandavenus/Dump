@@ -6,7 +6,6 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_audio_tagger/flutter_audio_tagger.dart';
 
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
@@ -116,13 +115,7 @@ final List<SongModel> allSongs = routes!['songs'];
 
 selectedSong = allSongs[index];
 AudioService.currentSong = selectedSong;
-  final tagger = FlutterAudioTagger();
-
-final tag = await tagger.getAllTags(
-  selectedSong.data,
-);
-
-lyrics = tag?.lyrics ?? 'No lyrics found';
+  
    try {
   await audioPlayer.stop();
   await audioPlayer.setAudioSource(
