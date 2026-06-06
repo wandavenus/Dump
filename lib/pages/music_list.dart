@@ -2,7 +2,7 @@ import '../services/audio_service.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// import 'package:musicplayer/audioManager.dart';
+
 
 class MusicList extends StatefulWidget {
   const MusicList({super.key});
@@ -40,19 +40,39 @@ Future<void> loadSongs() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.red),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          "         Recently Played",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-      ),
-      body: GridView.builder(
-        itemCount: songs.length,
+  automaticallyImplyLeading: false,
+  titleSpacing: 16,
+  title: const Text(
+    "Unduhan",
+    style: TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 20,
+    ),
+  ),
+  actions: [
+  Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: IconButton(
+      onPressed: () {},
+      icon: const Icon(CupertinoIcons.airplayaudio),
+    ),
+  ),
+  Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: IconButton(
+      onPressed: () {},
+      icon: const Icon(Icons.more_horiz),
+    ),
+  ),
+],
+Divider(
+  height: 1,
+  thickness: 0.3,
+  color: Colors.white24,
+)
+),
+      body: ListView.builder(
+  itemCount: songs.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, // number of Rows in the grid
           childAspectRatio: .750, // ratio of Row width to row height
@@ -82,22 +102,23 @@ Future<void> loadSongs() async {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipPath(
-                    clipper: ShapeBorderClipper(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                    ),
-                    child: QueryArtworkWidget(
-  controller: audioQuery,
-  id: songs[index].id,
-  type: ArtworkType.AUDIO,
-  nullArtworkWidget: const Icon(
-    Icons.music_note,
-    size: 100,
+                  ClipRRect(
+  borderRadius: BorderRadius.circular(5),
+  child: SizedBox(
+    width: 55,
+    height: 55,
+    child: QueryArtworkWidget(
+      controller: audioQuery,
+      id: songs[index].id,
+      type: ArtworkType.AUDIO,
+      artworkFit: BoxFit.cover,
+      nullArtworkWidget: const Icon(
+        Icons.music_note,
+        size: 30,
+      ),
+    ),
   ),
 ),
-                  ),
                   const SizedBox(
                     height: 10,
                   ),
