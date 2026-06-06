@@ -25,24 +25,14 @@ class _BrowsePageState extends State<BrowsePage> {
       't3': 'Apple Music',
       'img': 'assets/2.jpg',
     },
-    {
-      't1': 'JUST UPDATED',
-      't2': 'Soundtrack your wedding with songs',
-      't3': 'Apple Music',
-      'img': 'assets/3.jpg',
-    },
+    
     {
       't1': 'ADD TO YOUR LIBRARY',
       't2': 'Soul Revival',
       't3': 'Apple Music R&B',
       'img': 'assets/4.jpg',
-    },
-    {
-      't1': 'NEW PLAYLIST',
-      't2': 'Punjabi Workout',
-      't3': 'Apple Music Punjabi',
-      'img': 'assets/5.jpg',
     }
+    
   ];
   List song = [
     {
