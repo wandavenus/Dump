@@ -24,7 +24,7 @@ surfaceTintColor: Colors.transparent,
     
 actions: [
   Transform.translate(
-    offset: const Offset(0, -1),
+    offset: const Offset(0, -3),
     child: IconButton(
       onPressed: () {},
       icon: const Icon(
@@ -35,7 +35,7 @@ actions: [
     ),
   ),
   Transform.translate(
-    offset: const Offset(0, -1),
+    offset: const Offset(0, -3),
     child: PopupMenuButton(
       icon: const Icon(
         Icons.more_vert,
