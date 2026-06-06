@@ -4,14 +4,15 @@ import 'package:flutter/material.dart';
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
 
-double _scrollOffset = 0;
-
   @override
   State<RadioPage> createState() => _RadioPageState();
 }
 
 class _RadioPageState extends State<RadioPage> {
-  List radio = [  
+ 
+double _scrollOffset = 0;
+
+ List radio = [  
   
     {
       'text1': 'Music Hits',
@@ -148,8 +149,6 @@ centerTitle: false,
       ),
     ),
   ),
-),
-),
 ),
 const Padding(
   padding: EdgeInsets.symmetric(
@@ -617,7 +616,8 @@ Container(
             ),
           ),
         ],
-      )),
+      ),
+    ),
     );
   }
 }
