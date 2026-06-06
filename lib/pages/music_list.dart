@@ -54,7 +54,7 @@ Future<void> loadSongs() async {
     padding: const EdgeInsets.only(right: 4),
     child: IconButton(
       onPressed: () {},
-      icon: const Icon(CupertinoIcons.airplayaudio),
+      icon: const Icon(Icons.cast),
     ),
   ),
   Padding(
