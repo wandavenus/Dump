@@ -405,10 +405,33 @@ AudioService.currentSong = selectedSong;
     });
 
     _loadSong(currentIndex);
-  }
-},
-                          
-                    ),
+  ),
+],
+),
+
+const SizedBox(height: 45),
+
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    Column(
+      children: const [
+        Icon(
+          Icons.chat_bubble_outline,
+          size: 26,
+        ),
+      ],
+    ),
+    Column(
+      children: const [
+        Icon(
+          CupertinoIcons.list_bullet,
+          size: 26,
+        ),
+      ],
+    ),
+  ],
+),
                   ],
                 ),
               ],
