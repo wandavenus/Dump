@@ -13,6 +13,7 @@ import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/themes/theme_controller.dart';
 import 'pages/library_page.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
@@ -20,16 +21,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await JustAudioBackground.init(
-  androidNotificationChannelId:
-      'com.musicplayer.channel.audio',
-  androidNotificationChannelName:
-      'Music Playback',
-  androidNotificationIcon:
-      'drawable/ic_notification',
-  androidNotificationOngoing: true,
-);
+    androidNotificationChannelId: 'com.musicplayer.channel.audio',
+    androidNotificationChannelName: 'Music Playback',
+    androidNotificationIcon: 'drawable/ic_notification',
+    androidNotificationOngoing: true,
+  );
 
-SystemChrome.setEnabledSystemUIMode(
+  SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
   );
 
@@ -38,12 +36,14 @@ SystemChrome.setEnabledSystemUIMode(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-   systemNavigationBarContrastEnforced: false,
- ),
+      systemNavigationBarContrastEnforced: false,
+    ),
   );
 
-   runApp(const MyApp());
- }
+  await ThemeController.init();
+
+  runApp(const MyApp());
+}
 
 class MyScrollBehavior extends MaterialScrollBehavior {
   @override
@@ -58,7 +58,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-  scrollBehavior: MyScrollBehavior(),
+      scrollBehavior: MyScrollBehavior(),
       theme: ThemeData(
         colorScheme: const ColorScheme.dark(),
         scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
@@ -89,7 +89,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
       routes: {
-  '/settings': (context) => const SettingsPage(),
+        '/settings': (context) => const SettingsPage(),
         '/list_test': (context) => const WebView(child: ListTest()),
         '/firstpage': (context) => const WebView(child: FirstPage()),
         '/browse': (context) => const WebView(child: BrowsePage()),
@@ -101,7 +101,7 @@ class MyApp extends StatelessWidget {
         '/artist': (context) => const WebView(child: ArtistPage()),
         '/artistlist': (context) => const WebView(child: ArtistList()),
         '/musiclist': (context) => const WebView(child: MusicList()),
-        '/player': (context) => const WebView(child: MusicPlayer())
+        '/player': (context) => const WebView(child: MusicPlayer()),
       },
     );
   }
