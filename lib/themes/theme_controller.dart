@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ThemeController {
-  static bool glassTheme = false;
+  static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
 }
