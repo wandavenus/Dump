@@ -5,7 +5,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../widgets/song_artwork.dart';
-import 'package:audiotags/audiotags.dart';
+
 
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
