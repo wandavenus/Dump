@@ -1,5 +1,6 @@
 package com.example.musicplayer
 
+import android.net.Uri
 import android.provider.MediaStore
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -16,9 +17,22 @@ class MainActivity : AudioServiceActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getSongs" -> result.success(getSongs())
+                    "getArtwork" -> {
+                        val albumId = call.argument<Int>("albumId")
+                        result.success(getArtwork(albumId ?: 0))
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun getArtwork(albumId: Int): ByteArray? {
+        return try {
+            val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun getSongs(): List<Map<String, Any?>> {
