@@ -1,4 +1,4 @@
-
+import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -133,24 +133,11 @@ bottom: PreferredSize(
     ),
   ),
 ),
-actions: [
-  IconButton(
-    onPressed: () {},
-    icon: const Icon(
-      Icons.cast_outlined,
-      color: Color(0xFFF92D48),
-      size: 24,
-    ),
-  ),
-  PopupMenuButton(
-    icon: const Icon(
-      Icons.more_vert,
-      color: Color(0xFFF92D48),
-      size: 24,
-    ),
-    itemBuilder: (context) => [],
-  ),
+
+actions: const [
+  CommonActions(),
 ],
+
 ),
 
 SliverToBoxAdapter(
