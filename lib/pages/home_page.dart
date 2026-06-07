@@ -284,7 +284,7 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.blue,
+  backgroundColor: Colors.black,
   surfaceTintColor: Colors.transparent,
 
  title: Transform.translate(
