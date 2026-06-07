@@ -86,6 +86,9 @@ class MyApp extends StatelessWidget {
         ),
       ),
       debugShowCheckedModeBanner: false,
+     routes: {
+  '/settings': (context) => const SettingsPage(),
+},
       initialRoute: '/firstpage',
       routes: {
         '/list_test': (context) => const WebView(child: ListTest()),
