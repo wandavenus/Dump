@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:on_audio_query/on_audio_query.dart';
 import '../services/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import 'song_artwork.dart';
 
 class MiniPlayer extends StatefulWidget {
   const MiniPlayer({super.key});
@@ -11,17 +11,15 @@ class MiniPlayer extends StatefulWidget {
 }
 
 class _MiniPlayerState extends State<MiniPlayer> {
-  final OnAudioQuery audioQuery = OnAudioQuery();
-
-@override
-void initState() {
-  super.initState();
- AudioService.player.playerStateStream.listen((event) {
-    if (mounted) {
-      setState(() {});
-    }
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    AudioService.player.playerStateStream.listen((event) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,118 +28,99 @@ void initState() {
     }
 
     return GestureDetector(
-  onTap: () {
-    Navigator.pushNamed(
-      context,
-      '/player',
-    );
-  },
-  child: Container(
-      height: 55,
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E), 
- borderRadius: BorderRadius.circular(0),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-  borderRadius: BorderRadius.circular(2),
-  child: SizedBox(
-    width: 50,
-    height: 50,
-    child: QueryArtworkWidget(
-      controller: audioQuery,
-      id: AudioService.currentSong!.id,
-      type: ArtworkType.AUDIO,
-      artworkWidth: 44,
-      artworkHeight: 44,
-      artworkFit: BoxFit.cover,
-      nullArtworkWidget: const Icon(
-        Icons.music_note,
-        color: Colors.white,
-      ),
-    ),
-  ),
-),
-
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AudioService.currentSong!.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white),
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          '/player',
+        );
+      },
+      child: Container(
+        height: 55,
+        margin: EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(0),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                width: 50,
+                height: 50,
+                child: SongArtwork(
+                  albumId: AudioService.currentSong!.albumId,
+                  size: 50,
                 ),
-
-               
-              ],
+              ),
             ),
-          ),
-IconButton(
-  onPressed: () async {
-    if (AudioService.player.playing) {
-      await AudioService.player.pause();
-    } else {
-      await AudioService.player.play();
-    }
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AudioService.currentSong!.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () async {
+                if (AudioService.player.playing) {
+                  await AudioService.player.pause();
+                } else {
+                  await AudioService.player.play();
+                }
 
-    setState(() {});
-  },
-  icon: Icon(
-    AudioService.player.playing
-        ? Icons.pause
-        : Icons.play_arrow,
-    size: 34,
-    color: Colors.white,
-  ),
-),
+                setState(() {});
+              },
+              icon: Icon(
+                AudioService.player.playing
+                    ? Icons.pause
+                    : Icons.play_arrow,
+                size: 34,
+                color: Colors.white,
+              ),
+            ),
+            IconButton(
+              onPressed: () async {
+                if (AudioService.currentPlaylist.isEmpty) return;
 
+                if (AudioService.currentIndex <
+                    AudioService.currentPlaylist.length - 1) {
+                  AudioService.currentIndex++;
 
-        
-IconButton(
-  onPressed: () async {
-    if (AudioService.currentPlaylist.isEmpty) return;
+                  final nextSong = AudioService
+                      .currentPlaylist[AudioService.currentIndex];
 
-    if (AudioService.currentIndex <
-        AudioService.currentPlaylist.length - 1) {
+                  AudioService.currentSong = nextSong;
 
-      AudioService.currentIndex++;
+                  await AudioService.player.stop();
 
-      final nextSong =
-          AudioService.currentPlaylist[
-              AudioService.currentIndex];
+                  await AudioService.player.setAudioSource(
+                    AudioSource.file(nextSong.path),
+                  );
 
-      AudioService.currentSong = nextSong;
+                  await AudioService.player.play();
 
-      await AudioService.player.stop();
-
-      await AudioService.player.setAudioSource(
-        AudioSource.file(nextSong.data),
-      );
-
-      await AudioService.player.play();
-
-      setState(() {});
-    }
-  },
-  icon: const Icon(
-    Icons.skip_next,
-    size: 30,
-    color: Colors.white,
-  ),
-),
-            
-         
-        ],
+                  setState(() {});
+                }
+              },
+              icon: const Icon(
+                Icons.skip_next,
+                size: 30,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
-     ),
-   );
+    );
   }
 }
