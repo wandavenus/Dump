@@ -26,7 +26,7 @@ centerTitle: false,
   actions: const [
     CommonActions(),
   ],
-),
+
     
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
