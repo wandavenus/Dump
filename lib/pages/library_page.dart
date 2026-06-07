@@ -32,7 +32,7 @@ bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Container(
     height: 0.9,
-    color: Colors.black,
+    color: Colors.transparent,
   ),
 ),
 
