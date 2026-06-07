@@ -28,6 +28,14 @@ centerTitle: false,
   ],
 ),
     
+bottom: PreferredSize(
+  preferredSize: const Size.fromHeight(0.5),
+  child: Container(
+    height: 0.9,
+    color: Colors.black,
+  ),
+),
+
       body: SingleChildScrollView(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
