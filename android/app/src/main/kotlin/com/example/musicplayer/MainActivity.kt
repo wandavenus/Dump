@@ -51,13 +51,16 @@ class MainActivity : AudioServiceActivity() {
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
 
             while (cursor.moveToNext()) {
+                val albumId = cursor.getLong(albumIdCol)
+
                 songs.add(
                     mapOf(
                         "id" to cursor.getLong(idCol).toInt(),
                         "title" to cursor.getString(titleCol),
                         "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
                         "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
-                        "albumId" to cursor.getLong(albumIdCol).toInt(),
+                        "albumId" to albumId.toInt(),
+                        "artworkUri" to "content://media/external/audio/albumart/$albumId",
                         "path" to cursor.getString(pathCol),
                         "duration" to cursor.getLong(durationCol).toInt()
                     )
