@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 import '../models/local_song.dart';
 
@@ -14,5 +16,16 @@ class MediaStoreService {
               Map<dynamic, dynamic>.from(e),
             ))
         .toList();
+  }
+
+  static Future<Uint8List?> getArtwork(int albumId) async {
+    final Uint8List? artwork = await _channel.invokeMethod(
+      'getArtwork',
+      {
+        'albumId': albumId,
+      },
+    );
+
+    return artwork;
   }
 }
