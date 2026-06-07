@@ -21,7 +21,6 @@ dependencies:
   audiotags: ^1.4.5
   just_audio: ^0.9.41
   just_audio_background: ^0.0.1-beta.13
-  on_audio_query: ^2.9.0
   permission_handler: ^11.3.1
   shared_preferences: ^2.5.3
 
