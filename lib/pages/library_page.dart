@@ -24,7 +24,7 @@ class _LibraryPageState extends State<LibraryPage> {
     CommonActions(),
   ],
 ), 
-    ),
+    
       body: SingleChildScrollView(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
