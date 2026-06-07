@@ -1,3 +1,4 @@
+import 'package:musicplayer/widgets/common_actions.dart';
 import '../services/audio_service.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:flutter/cupertino.dart';
@@ -49,22 +50,11 @@ Future<void> loadSongs() async {
       fontSize: 20,
     ),
   ),
-  actions: [
-  Padding(
-    padding: const EdgeInsets.only(right: 4),
-    child: IconButton(
-      onPressed: () {},
-      icon: const Icon(Icons.cast),
-    ),
-  ),
-  Padding(
-    padding: const EdgeInsets.only(right: 8),
-    child: IconButton(
-      onPressed: () {},
-      icon: const Icon(Icons.more_horiz),
-    ),
-  ),
+
+  actions: const [
+  CommonActions(),
 ],
+
 bottom: const PreferredSize(
   preferredSize: Size.fromHeight(1),
   child: Divider(
