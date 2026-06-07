@@ -702,7 +702,7 @@ class _MusicPlayerState extends State<MusicPlayer>
             CupertinoIcons.quote_bubble,
             onTap: _showLyrics,
           ),
-          _bottomBtn(CupertinoIcons.airplayaudio),
+          _bottomBtn(CupertinoIcons.tv),
           _bottomBtn(
             CupertinoIcons.list_bullet,
             onTap: _showQueue,
