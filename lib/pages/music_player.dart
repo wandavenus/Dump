@@ -87,7 +87,6 @@ AudioService.currentPlaylist = routes['songs'];
     ModalRoute.of(context)?.settings.arguments
         as Map<String, dynamic>?;
 
-final List<LocalSong> allSongs =
     final List<LocalSong> allSongs =
     List<LocalSong>.from(routes?['songs'] ?? []);
 
@@ -215,7 +214,7 @@ AudioService.currentSong = selectedSong;
                           borderRadius: BorderRadius.circular(3.0),
                         ),
                       ),
-                      SizedBox(
+                      child: SizedBox(
   width: coverSize,
   height: coverSize,
   child: SongArtwork(
@@ -379,8 +378,8 @@ AudioService.currentSong = selectedSong;
                               ModalRoute.of(context)?.settings.arguments
                                   as Map<String, dynamic>?;
 
-                          final List<SongModel> allSongs =
-                              routes?['songs'] ?? [];
+                          final List<LocalSong> allSongs =
+    List<LocalSong>.from(routes?['songs'] ?? []);
 
                           if (currentIndex < allSongs.length - 1) {
                             setState(() {
