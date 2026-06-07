@@ -35,7 +35,7 @@ bottom: PreferredSize(
     color: Colors.transparent,
   ),
 ),
-
+),
       body: SingleChildScrollView(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
