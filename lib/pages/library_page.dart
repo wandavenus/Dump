@@ -18,10 +18,8 @@ double _scrollOffset = 0;
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-  backgroundColor: Colors.blue,
-)
-       automaticallyImplyLeading: false,
-backgroundColor: Colors.black,
+automaticallyImplyLeading: false,
+backgroundColor: Colors.blue,
 surfaceTintColor: Colors.transparent, 
   
 actions: const [
