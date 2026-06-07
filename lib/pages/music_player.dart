@@ -89,7 +89,7 @@ AudioService.currentPlaylist = routes['songs'];
 
 final List<LocalSong> allSongs =
     final List<LocalSong> allSongs =
-    List<LocalSong>.from(routes?['songs'] ?? []););
+    List<LocalSong>.from(routes?['songs'] ?? []);
 
 if (currentIndex < allSongs.length - 1) {
   currentIndex++;
@@ -215,17 +215,16 @@ AudioService.currentSong = selectedSong;
                           borderRadius: BorderRadius.circular(3.0),
                         ),
                       ),
-                      child: QueryArtworkWidget(
-                        controller: audioQuery,
-                        id: AudioService.currentSong?.id ?? 0,
-                        type: ArtworkType.AUDIO,
-                        keepOldArtwork: true,
-                        artworkHeight: coverSize,
-                        artworkWidth: coverSize,
-                        artworkFit: BoxFit.cover,
-                      ),
+                      SizedBox(
+  width: coverSize,
+  height: coverSize,
+  child: SongArtwork(
+    albumId: AudioService.currentSong?.albumId ?? 0,
+    size: coverSize,
+  ),
+),
                     ),
-                  ),
+                  
                   const SizedBox(height: 60),
                   Container(
                     padding: const EdgeInsets.only(left: 25),
