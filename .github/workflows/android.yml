@@ -47,6 +47,7 @@ jobs:
             ${{ runner.os }}-pub-
 
       - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter build apk --release --target-platform android-arm64
 
       - uses: actions/upload-artifact@v4
