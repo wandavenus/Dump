@@ -20,10 +20,21 @@ class _LibraryPageState extends State<LibraryPage> {
   backgroundColor: Colors.black,
   surfaceTintColor: Colors.transparent,
 
+title: const SizedBox.shrink(),
+centerTitle: false,
+
   actions: const [
     CommonActions(),
   ],
-), 
+
+  bottom: PreferredSize(
+    preferredSize: const Size.fromHeight(0.5),
+    child: Container(
+      height: 0.9,
+      color: const Color(0xFF48484A),
+    ),
+  ),
+),
     
       body: SingleChildScrollView(
         child: Container(
