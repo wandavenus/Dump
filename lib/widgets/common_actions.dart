@@ -7,44 +7,41 @@ class CommonActions extends StatelessWidget {
     // TODO: Cast function
   }
 
-  void _more(BuildContext context) {
-    PopupMenuButton<String>(
-  icon: const Icon(
-    Icons.more_vert,
-    color: Color(0xFFF92D48),
-    size: 24,
-  ),
-  onSelected: (value) {
-    if (value == 'settings') {
-      Navigator.pushNamed(context, '/settings');
-    }
-  },
-  itemBuilder: (context) => [
-    const PopupMenuItem(
-      value: 'settings',
-      child: Text('Pengaturan'),
-    ),
-  ],
-)
-  }
-
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.translate(
-          offset: const Offset(0, -0.0),
+          offset: const Offset(0, 0),
           child: IconButton(
             onPressed: () => _cast(context),
-            icon: const Icon(Icons.cast),
+            icon: const Icon(
+              Icons.cast_outlined,
+              color: Color(0xFFF92D48),
+              size: 24,
+            ),
           ),
         ),
         Transform.translate(
-          offset: const Offset(0, -0.0),
-          child: IconButton(
-            onPressed: () => _more(context),
-            icon: const Icon(Icons.more_vert),
+          offset: const Offset(0, 0),
+          child: PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.more_vert,
+              color: Color(0xFFF92D48),
+              size: 24,
+            ),
+            onSelected: (value) {
+              if (value == 'settings') {
+                Navigator.pushNamed(context, '/settings');
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Text('Pengaturan'),
+              ),
+            ],
           ),
         ),
       ],
