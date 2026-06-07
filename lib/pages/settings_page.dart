@@ -25,7 +25,7 @@ class SettingsPage extends StatelessWidget {
                 ),
                 value: isGlass,
                 onChanged: (value) {
-                  ThemeController.glassTheme.value = value;
+                  ThemeController.setGlassTheme(value);
                 },
               ),
               const Divider(height: 1),
