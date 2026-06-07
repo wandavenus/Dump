@@ -250,7 +250,7 @@ const SizedBox(height: 9),
   ],
 ),         
  ],
-          
+        ),  
         ),
       ),
     );
