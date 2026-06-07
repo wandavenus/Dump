@@ -21,7 +21,7 @@ double _scrollOffset = 0;
        automaticallyImplyLeading: false,
 backgroundColor: Colors.black,
 surfaceTintColor: Colors.transparent, 
-    
+  
 actions: [
   Transform.translate(
     offset: const Offset(0, -1),
