@@ -12,27 +12,19 @@ class LibraryPage extends StatefulWidget {
 
 class _LibraryPageState extends State<LibraryPage> {
 
-double _scrollOffset = 0;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-automaticallyImplyLeading: false,
-backgroundColor: Colors.blue,
-surfaceTintColor: Colors.transparent, 
-  
-actions: const [
-  CommonActions(),
-],
+  automaticallyImplyLeading: false,
+  backgroundColor: Colors.black,
+  surfaceTintColor: Colors.transparent,
 
-       flexibleSpace: Stack(
-  children: [
-
-     
+  actions: const [
+    CommonActions(),
   ],
-),      
-      ),
+), 
+    ),
       body: SingleChildScrollView(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
