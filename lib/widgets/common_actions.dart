@@ -8,7 +8,24 @@ class CommonActions extends StatelessWidget {
   }
 
   void _more(BuildContext context) {
-    // TODO: More menu function
+    PopupMenuButton<String>(
+  icon: const Icon(
+    Icons.more_vert,
+    color: Color(0xFFF92D48),
+    size: 24,
+  ),
+  onSelected: (value) {
+    if (value == 'settings') {
+      Navigator.pushNamed(context, '/settings');
+    }
+  },
+  itemBuilder: (context) => [
+    const PopupMenuItem(
+      value: 'settings',
+      child: Text('Pengaturan'),
+    ),
+  ],
+)
   }
 
   @override
