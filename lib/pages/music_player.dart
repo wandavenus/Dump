@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:on_audio_query/on_audio_query.dart';
+import '../models/local_song.dart';
+import '../widgets/song_artwork.dart';
 import 'package:audiotags/audiotags.dart';
 
 class MusicPlayer extends StatefulWidget {
@@ -17,7 +18,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
       
   //variable for music audioPlayer
   final AudioPlayer audioPlayer = AudioService.player;
-  final OnAudioQuery audioQuery = OnAudioQuery();
+  
   bool isPlaying = false;
   Duration duration = Duration.zero;
   Duration position = Duration.zero;
@@ -86,7 +87,9 @@ AudioService.currentPlaylist = routes['songs'];
     ModalRoute.of(context)?.settings.arguments
         as Map<String, dynamic>?;
 
-final List<SongModel> allSongs = routes?['songs'] ?? [];
+final List<LocalSong> allSongs =
+    final List<LocalSong> allSongs =
+    List<LocalSong>.from(routes?['songs'] ?? []););
 
 if (currentIndex < allSongs.length - 1) {
   currentIndex++;
@@ -104,13 +107,14 @@ if (currentIndex < allSongs.length - 1) {
 
   AudioService.currentIndex = currentIndex;
 
-  SongModel selectedSong;
+  late LocalSong selectedSong;
 
 final routes =
     ModalRoute.of(context)?.settings.arguments
         as Map<String, dynamic>?;
 
-final List<SongModel> allSongs = routes!['songs'];
+final List<LocalSong> allSongs =
+    List<LocalSong>.from(routes!['songs']);
 
 selectedSong = allSongs[index];
 AudioService.currentSong = selectedSong;
@@ -119,11 +123,11 @@ AudioService.currentSong = selectedSong;
   await audioPlayer.stop();
   await audioPlayer.setAudioSource(
   AudioSource.file(
-    selectedSong.data,
+    selectedSong.path,
     tag: MediaItem(
   id: selectedSong.id.toString(),
   title: selectedSong.title,
-  artist: selectedSong.artist ?? 'Unknown Artist',
+  artist: selectedSong.artist,
   artUri: Uri.parse(
     'content://media/external/audio/albumart/${selectedSong.albumId}',
   ),
