@@ -5,6 +5,7 @@ class LocalSong {
   final String path;
   final String album;
   final int albumId;
+  final String? artworkUri;
   final Duration duration;
 
   const LocalSong({
@@ -14,6 +15,7 @@ class LocalSong {
     required this.path,
     required this.album,
     required this.albumId,
+    this.artworkUri,
     required this.duration,
   });
 
@@ -25,6 +27,7 @@ class LocalSong {
       path: map['path'] ?? '',
       album: map['album'] ?? 'Unknown Album',
       albumId: map['albumId'] ?? 0,
+      artworkUri: map['artworkUri'],
       duration: Duration(
         milliseconds: map['duration'] ?? 0,
       ),
@@ -39,6 +42,7 @@ class LocalSong {
       'path': path,
       'album': album,
       'albumId': albumId,
+      'artworkUri': artworkUri,
       'duration': duration.inMilliseconds,
     };
   }
