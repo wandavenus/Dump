@@ -1,4 +1,4 @@
-
+import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 // import 'package:icons_flutter/icons_flutter.dart';
@@ -22,34 +22,8 @@ double _scrollOffset = 0;
 backgroundColor: Colors.black,
 surfaceTintColor: Colors.transparent, 
   
-actions: [
-  Transform.translate(
-    offset: const Offset(0, -0.5),
-    child: IconButton(
-      onPressed: () {},
-      icon: const Icon(
-        Icons.cast_outlined,
-        color: Color(0xFFF92D48),
-        size: 24,
-      ),
-    ),
-  ),
-  Transform.translate(
-    offset: const Offset(0, -0.5),
-    child: PopupMenuButton(
-      icon: const Icon(
-        Icons.more_vert,
-        color: Color(0xFFF92D48),
-        size: 24,
-      ),
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'settings',
-          child: Text('Pengaturan'),
-        ),
-      ],
-    ),
-  ),
+actions: const [
+  CommonActions(),
 ],
 
        flexibleSpace: Stack(
