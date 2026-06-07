@@ -1,5 +1,70 @@
 package com.example.musicplayer
 
+import android.provider.MediaStore
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 import com.ryanheise.audioservice.AudioServiceActivity
 
-class MainActivity: AudioServiceActivity()
+class MainActivity : AudioServiceActivity() {
+
+    private val channelName = "musicplayer/media_store"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getSongs" -> result.success(getSongs())
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun getSongs(): List<Map<String, Any?>> {
+        val songs = mutableListOf<Map<String, Any?>>()
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.DURATION
+        )
+
+        contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            MediaStore.Audio.Media.IS_MUSIC + "!= 0",
+            null,
+            MediaStore.Audio.Media.TITLE + " ASC"
+        )?.use { cursor ->
+
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+
+            while (cursor.moveToNext()) {
+                songs.add(
+                    mapOf(
+                        "id" to cursor.getLong(idCol).toInt(),
+                        "title" to cursor.getString(titleCol),
+                        "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
+                        "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
+                        "albumId" to cursor.getLong(albumIdCol).toInt(),
+                        "path" to cursor.getString(pathCol),
+                        "duration" to cursor.getLong(durationCol).toInt()
+                    )
+                )
+            }
+        }
+
+        return songs
+    }
+}
