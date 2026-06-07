@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
+import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -86,11 +87,9 @@ class MyApp extends StatelessWidget {
         ),
       ),
       debugShowCheckedModeBanner: false,
-     routes: {
-  '/settings': (context) => const SettingsPage(),
-},
       initialRoute: '/firstpage',
       routes: {
+  '/settings': (context) => const SettingsPage(),
         '/list_test': (context) => const WebView(child: ListTest()),
         '/firstpage': (context) => const WebView(child: FirstPage()),
         '/browse': (context) => const WebView(child: BrowsePage()),
