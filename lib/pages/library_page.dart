@@ -85,9 +85,11 @@ const SizedBox(height: 9),
      Column(
   children: [
     Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 2,
-      ),
+      padding: const EdgeInsets.only(
+    left: 8,
+    top: 2,
+    bottom: 2,
+  ),
       child: Row(
         children: [
           Icon(
@@ -118,9 +120,11 @@ const SizedBox(height: 9),
            Column(
   children: [
     Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 2,
-      ),
+      padding: const EdgeInsets.only(
+    left: 8,
+    top: 2,
+    bottom: 2,
+  ),
       child: Row(
         children: [
           Icon(
@@ -152,9 +156,11 @@ const SizedBox(height: 9),
               Column(
   children: [
     Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 2,
-      ),
+      padding: const EdgeInsets.only(
+    left: 8,
+    top: 2,
+    bottom: 2,
+  ),
       child: Row(
         children: [
           Icon(
@@ -190,9 +196,12 @@ const SizedBox(height: 9),
   child: Column(
     children: [
       Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 2,
-        ),
+  padding: const EdgeInsets.only(
+    left: 8,
+    top: 2,
+    bottom: 2,
+  ),
+ 
         child: Row(
           children: [
             Icon(
@@ -223,10 +232,12 @@ const SizedBox(height: 9),
         Column(
   children: [
     Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 2,
-      ),
-      child: Row(
+  padding: const EdgeInsets.only(
+    left: 8,
+    top: 2,
+    bottom: 2,
+  ),
+  child: Row(
         children: [
           Icon(
             CupertinoIcons.tv,
