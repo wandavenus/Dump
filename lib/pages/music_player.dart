@@ -103,14 +103,10 @@ Future<void> _loadSong(int index) async {
     currentIndex = index;
   });
 
-  AudioService.currentIndex = currentIndex;
-
-  final routes =
-      ModalRoute.of(context)?.settings.arguments
-          as Map<String, dynamic>?;
+  AudioService.currentIndex = index;
 
   final List<LocalSong> allSongs =
-      List<LocalSong>.from(routes?['songs'] ?? []);
+    AudioService.currentPlaylist;
 
   if (allSongs.isEmpty || index >= allSongs.length) {
     if (mounted) {
@@ -363,13 +359,10 @@ Widget build(BuildContext context) {
                           color: Color.fromARGB(255, 255, 255, 255),
                         ),
                         onPressed: () {
-                          if (currentIndex > 0) {
-                            setState(() {
-                              currentIndex--;
-                            });
-                            _loadSong(currentIndex);
-                          }
-                        },
+  if (currentIndex > 0) {
+    _loadSong(currentIndex - 1);
+  }
+},
                       ),
                       IconButton(
                         icon: Icon(
