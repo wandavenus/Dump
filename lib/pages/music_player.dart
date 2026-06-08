@@ -241,10 +241,10 @@ Widget build(BuildContext context) {
   child: SongArtwork(
     albumId: AudioService.currentSong?.albumId ?? 0,
     size: coverSize,
-  ),
-),
-                    ),
-                  
+       ),
+      ),
+     ),
+    ),            
                   const SizedBox(height: 60),
                   Container(
                     padding: const EdgeInsets.only(left: 25),
