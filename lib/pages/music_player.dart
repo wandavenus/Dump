@@ -31,22 +31,22 @@ class _MusicPlayerState extends State<MusicPlayer> {
     setupAudioPlayer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final routes =
-          ModalRoute.of(context)?.settings.arguments
-              as Map<String, dynamic>?;
+  final routes =
+      ModalRoute.of(context)?.settings.arguments
+          as Map<String, dynamic>?;
 
-      if (routes != null && routes.containsKey('index')) {
-        setState(() {
-          currentIndex = routes['index'] as int;
-        });
-
-        AudioService.currentIndex = currentIndex;
-        AudioService.currentPlaylist =
-            List<LocalSong>.from(routes['songs']);
-
-        _loadSong(currentIndex);
-      }
+  if (routes != null && routes.containsKey('index')) {
+    setState(() {
+      currentIndex = routes['index'] as int;
     });
+
+    AudioService.currentIndex = currentIndex;
+    AudioService.currentPlaylist =
+        List<LocalSong>.from(routes['songs']);
+
+    _loadSong(currentIndex);
+  }
+});
   }
 
   void setupAudioPlayer() {
@@ -85,17 +85,11 @@ class _MusicPlayerState extends State<MusicPlayer> {
           isPlaying = false;
         });
 
-        final routes =
-            ModalRoute.of(context)?.settings.arguments
-                as Map<String, dynamic>?;
+        final songs = AudioService.currentPlaylist;
 
-        final List<LocalSong> allSongs =
-            List<LocalSong>.from(routes?['songs'] ?? []);
-
-        if (currentIndex < allSongs.length - 1) {
-          currentIndex++;
-          _loadSong(currentIndex);
-        }
+if (currentIndex < songs.length - 1) {
+  _loadSong(currentIndex + 1);
+}
       }
     });
   }
@@ -397,21 +391,13 @@ Widget build(BuildContext context) {
                           size: 70,
                           color: Color.fromARGB(255, 255, 255, 255),
                         ),
-                        onPressed: () {
-                          final routes =
-                              ModalRoute.of(context)?.settings.arguments
-                                  as Map<String, dynamic>?;
+                        onPressed: () async {
+  final songs = AudioService.currentPlaylist;
 
-                          final List<LocalSong> allSongs =
-    List<LocalSong>.from(routes?['songs'] ?? []);
-
-                          if (currentIndex < allSongs.length - 1) {
-                            setState(() {
-                              currentIndex++;
-                            });
-                            _loadSong(currentIndex);
-                          }
-                        },
+  if (currentIndex < songs.length - 1) {
+    await _loadSong(currentIndex + 1);
+  }
+},
                       ),
                     ],
                   ),
