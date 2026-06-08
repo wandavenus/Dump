@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
@@ -14,6 +15,7 @@ import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'pages/library_page.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
@@ -41,6 +43,11 @@ Future<void> main() async {
   );
 
   await ThemeController.init();
+
+  if (Platform.isAndroid) {
+    await Permission.storage.request();
+    await Permission.audio.request();
+  }
 
   runApp(const MyApp());
 }
