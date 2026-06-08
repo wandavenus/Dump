@@ -71,7 +71,7 @@ class _FirstPageState extends State<FirstPage> {
         );
 
         return Scaffold(
-          extendBody: true,
+          extendBody: false,
           body: IndexedStack(
             index: _selected_index,
             children: _pages.cast<Widget>(),
