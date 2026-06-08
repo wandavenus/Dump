@@ -21,14 +21,17 @@ class WebView extends StatelessWidget {
     this.shadowColor = Colors.black54,
     this.shadowBlurRadius = 10.0,
     this.shadowSpreadRadius = 0.0,
-    this.innerContainerColor = Colors.transparent,
+    this.innerContainerColor = Colors.black87,
     this.borderRadius = 0.0,
     this.padding = EdgeInsets.zero,
     this.gradientColors = const [
       Color(0xff536976),
       Color(0xff292e49),
     ],
-    this.gradientStops = const [0, 1],
+    this.gradientStops = const [
+      0,
+      1
+    ],
   });
 
   @override
@@ -50,19 +53,18 @@ class WebView extends StatelessWidget {
             padding: padding,
             child: Container(
               height: double.infinity,
-              width: double.infinity,
+ width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.all(
                   Radius.circular(borderRadius),
                 ),
                 color: innerContainerColor,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.all(
-                  Radius.circular(borderRadius),
                 ),
-                child: child,
-              ),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(borderRadius),
+                  ),
+                  child: child),
             ),
           ),
         ),
