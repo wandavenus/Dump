@@ -71,7 +71,7 @@ class _FirstPageState extends State<FirstPage> {
         );
 
         return Scaffold(
-          extendBody: true,
+          extendBody: false,
           body: IndexedStack(
             index: _selected_index,
             children: _pages.cast<Widget>(),
@@ -86,7 +86,7 @@ class _FirstPageState extends State<FirstPage> {
                   color: const Color(0xFF38383A),
                 ),
               SizedBox(
-                height: kBottomNavigationBarHeight,
+                height: 70,
                 child: isGlass ? GlassNavBar(child: navBar) : navBar,
               ),
             ],
