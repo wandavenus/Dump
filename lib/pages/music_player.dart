@@ -499,7 +499,7 @@ Widget build(BuildContext context) {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               subtitle: Text(
-                                               song.artist
+                                               song.artist,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
