@@ -87,7 +87,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
 
         final songs = AudioService.currentPlaylist;
 
-if (currentIndex < songs.length - 1) {
+if (!isLoading && currentIndex < songs.length - 1) {
   _loadSong(currentIndex + 1);
 }
       }
@@ -96,7 +96,7 @@ if (currentIndex < songs.length - 1) {
 
 
 Future<void> _loadSong(int index) async {
-  if (!mounted) return;
+  if (!mounted || isLoading) return;
 
   setState(() {
     isLoading = true;
@@ -130,6 +130,11 @@ Future<void> _loadSong(int index) async {
   id: selectedSong.id.toString(),
   title: selectedSong.title,
   artist: selectedSong.artist,
+  artUri: selectedSong.albumId > 0
+      ? Uri.parse(
+          'content://media/external/audio/albumart/${selectedSong.albumId}',
+        )
+      : null,
 ),
       ),
     );
