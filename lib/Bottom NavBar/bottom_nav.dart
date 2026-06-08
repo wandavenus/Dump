@@ -76,23 +76,20 @@ class _FirstPageState extends State<FirstPage> {
             index: _selected_index,
             children: _pages.cast<Widget>(),
           ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const MiniPlayer(),
-                if (!isGlass)
-                  Container(
-                    height: 1.5,
-                    color: const Color(0xFF38383A),
-                  ),
-                SizedBox(
-                  height: 70,
-                  child: isGlass ? GlassNavBar(child: navBar) : navBar,
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MiniPlayer(),
+              if (!isGlass)
+                Container(
+                  height: 1.5,
+                  color: const Color(0xFF38383A),
                 ),
-              ],
-            ),
+              SizedBox(
+                height: 70,
+                child: isGlass ? GlassNavBar(child: navBar) : navBar,
+              ),
+            ],
           ),
         );
       },
