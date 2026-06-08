@@ -64,7 +64,7 @@ class _FirstPageState extends State<FirstPage> {
             selectedItemColor: const Color(0xFFF92D48),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
