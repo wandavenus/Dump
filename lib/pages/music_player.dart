@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui';
+
 import '../services/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -5,6 +8,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../widgets/song_artwork.dart';
+import '../services/media_store_service.dart';
 
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
@@ -199,13 +203,26 @@ Widget build(BuildContext context) {
           dragOffset,
           0,
         ),
-        child: Center(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFF1C1C1E),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _BlurredPlayerBackground(
+              albumId: AudioService.currentSong?.albumId ?? 0,
             ),
-  
-  child: Column(
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromARGB(90, 0, 0, 0),
+                    Color.fromARGB(210, 0, 0, 0),
+                  ],
+                ),
+              ),
+            ),
+            Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 60),
@@ -508,7 +525,110 @@ Widget build(BuildContext context) {
                 ],
               ),
             ),
-          ),
+          ],
+        ),
+      ),
+    ),
+    );
+  }
+}
+
+
+class _BlurredPlayerBackground extends StatefulWidget {
+  final int albumId;
+
+  const _BlurredPlayerBackground({
+    required this.albumId,
+  });
+
+  @override
+  State<_BlurredPlayerBackground> createState() =>
+      _BlurredPlayerBackgroundState();
+}
+
+class _BlurredPlayerBackgroundState extends State<_BlurredPlayerBackground> {
+  Future<Uint8List?>? _artworkFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateArtworkFuture();
+  }
+
+  @override
+  void didUpdateWidget(_BlurredPlayerBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.albumId != widget.albumId) {
+      _updateArtworkFuture();
+    }
+  }
+
+  void _updateArtworkFuture() {
+    _artworkFuture = widget.albumId > 0
+        ? MediaStoreService.getArtwork(widget.albumId)
+        : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.albumId <= 0 || _artworkFuture == null) {
+      return const _PlayerFallbackBackground();
+    }
+
+    return FutureBuilder<Uint8List?>(
+      key: ValueKey<int>(widget.albumId),
+      future: _artworkFuture,
+      builder: (context, snapshot) {
+        final artwork = snapshot.data;
+
+        if (artwork == null || artwork.isEmpty) {
+          return const _PlayerFallbackBackground();
+        }
+
+        return Stack(
+          key: ValueKey<String>('blurred-artwork-${widget.albumId}'),
+          fit: StackFit.expand,
+          children: [
+            Transform.scale(
+              scale: 1.18,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(
+                  sigmaX: 45,
+                  sigmaY: 45,
+                ),
+                child: Image.memory(
+                  artwork,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                ),
+              ),
+            ),
+            const ColoredBox(
+              color: Color.fromARGB(115, 0, 0, 0),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PlayerFallbackBackground extends StatelessWidget {
+  const _PlayerFallbackBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2A2A2E),
+            Color(0xFF111113),
+            Color(0xFF000000),
+          ],
         ),
       ),
     );
