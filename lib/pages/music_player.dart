@@ -127,13 +127,10 @@ Future<void> _loadSong(int index) async {
       AudioSource.file(
         selectedSong.path,
         tag: MediaItem(
-          id: selectedSong.id.toString(),
-          title: selectedSong.title,
-          artist: selectedSong.artist,
-          artUri: Uri.parse(
-            'content://media/external/audio/albumart/${selectedSong.albumId}',
-          ),
-        ),
+  id: selectedSong.id.toString(),
+  title: selectedSong.title,
+  artist: selectedSong.artist,
+),
       ),
     );
 
