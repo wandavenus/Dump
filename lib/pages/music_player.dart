@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'dart:typed_data';
 import '../services/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -5,6 +7,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../widgets/song_artwork.dart';
+import '../services/media_store_service.dart';
 
 class MusicPlayer extends StatefulWidget {
   const MusicPlayer({super.key});
@@ -31,22 +34,22 @@ class _MusicPlayerState extends State<MusicPlayer> {
     setupAudioPlayer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-  final routes =
-      ModalRoute.of(context)?.settings.arguments
-          as Map<String, dynamic>?;
+      final routes =
+          ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
 
-  if (routes != null && routes.containsKey('index')) {
-    setState(() {
-      currentIndex = routes['index'] as int;
+      if (routes != null && routes.containsKey('index')) {
+        setState(() {
+          currentIndex = routes['index'] as int;
+        });
+
+        AudioService.currentIndex = currentIndex;
+        AudioService.currentPlaylist =
+            List<LocalSong>.from(routes['songs']);
+
+        _loadSong(currentIndex);
+      }
     });
-
-    AudioService.currentIndex = currentIndex;
-    AudioService.currentPlaylist =
-        List<LocalSong>.from(routes['songs']);
-
-    _loadSong(currentIndex);
-  }
-});
   }
 
   void setupAudioPlayer() {
@@ -85,28 +88,38 @@ class _MusicPlayerState extends State<MusicPlayer> {
           isPlaying = false;
         });
 
-        final songs = AudioService.currentPlaylist;
+        final routes =
+            ModalRoute.of(context)?.settings.arguments
+                as Map<String, dynamic>?;
 
-if (!isLoading && currentIndex < songs.length - 1) {
-  _loadSong(currentIndex + 1);
-}
+        final List<LocalSong> allSongs =
+            List<LocalSong>.from(routes?['songs'] ?? []);
+
+        if (currentIndex < allSongs.length - 1) {
+          currentIndex++;
+          _loadSong(currentIndex);
+        }
       }
     });
   }
 
 
 Future<void> _loadSong(int index) async {
-  if (!mounted || isLoading) return;
+  if (!mounted) return;
 
   setState(() {
     isLoading = true;
     currentIndex = index;
   });
 
-  AudioService.currentIndex = index;
+  AudioService.currentIndex = currentIndex;
+
+  final routes =
+      ModalRoute.of(context)?.settings.arguments
+          as Map<String, dynamic>?;
 
   final List<LocalSong> allSongs =
-    AudioService.currentPlaylist;
+      List<LocalSong>.from(routes?['songs'] ?? []);
 
   if (allSongs.isEmpty || index >= allSongs.length) {
     if (mounted) {
@@ -127,15 +140,13 @@ Future<void> _loadSong(int index) async {
       AudioSource.file(
         selectedSong.path,
         tag: MediaItem(
-  id: selectedSong.id.toString(),
-  title: selectedSong.title,
-  artist: selectedSong.artist,
-  artUri: selectedSong.albumId > 0
-      ? Uri.parse(
-          'content://media/external/audio/albumart/${selectedSong.albumId}',
-        )
-      : null,
-),
+          id: selectedSong.id.toString(),
+          title: selectedSong.title,
+          artist: selectedSong.artist,
+          artUri: Uri.parse(
+            'content://media/external/audio/albumart/${selectedSong.albumId}',
+          ),
+        ),
       ),
     );
 
@@ -161,49 +172,6 @@ Future<void> _loadSong(int index) async {
   }
 }  
   
-String formatTime(Duration duration) {
-  final minutes = duration.inMinutes.remainder(60);
-  final seconds = duration.inSeconds.remainder(60);
-  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-}
-
-@override
-Widget build(BuildContext context) {
-  final coverSize =
-      MediaQuery.of(context).size.width - (22 * 2);
-
-  return Scaffold(
-    extendBodyBehindAppBar: true,
-    body: GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          dragOffset =
-              (dragOffset + details.delta.dy)
-                  .clamp(0.0, 500.0);
-        });
-      },
-      onVerticalDragEnd: (details) {
-        if (dragOffset > 200) {
-          Navigator.pop(context);
-        } else {
-          setState(() {
-            dragOffset = 0;
-          });
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(
-          0,
-          dragOffset,
-          0,
-        ),
-        child: Center(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFF1C1C1E),
-            ),
   
   child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -233,10 +201,10 @@ Widget build(BuildContext context) {
   child: SongArtwork(
     albumId: AudioService.currentSong?.albumId ?? 0,
     size: coverSize,
-       ),
-      ),
-     ),
-    ),            
+  ),
+),
+                    ),
+                  
                   const SizedBox(height: 60),
                   Container(
                     padding: const EdgeInsets.only(left: 25),
@@ -361,10 +329,13 @@ Widget build(BuildContext context) {
                           color: Color.fromARGB(255, 255, 255, 255),
                         ),
                         onPressed: () {
-  if (currentIndex > 0) {
-    _loadSong(currentIndex - 1);
-  }
-},
+                          if (currentIndex > 0) {
+                            setState(() {
+                              currentIndex--;
+                            });
+                            _loadSong(currentIndex);
+                          }
+                        },
                       ),
                       IconButton(
                         icon: Icon(
@@ -386,13 +357,21 @@ Widget build(BuildContext context) {
                           size: 70,
                           color: Color.fromARGB(255, 255, 255, 255),
                         ),
-                        onPressed: () async {
-  final songs = AudioService.currentPlaylist;
+                        onPressed: () {
+                          final routes =
+                              ModalRoute.of(context)?.settings.arguments
+                                  as Map<String, dynamic>?;
 
-  if (currentIndex < songs.length - 1) {
-    await _loadSong(currentIndex + 1);
-  }
-},
+                          final List<LocalSong> allSongs =
+    List<LocalSong>.from(routes?['songs'] ?? []);
+
+                          if (currentIndex < allSongs.length - 1) {
+                            setState(() {
+                              currentIndex++;
+                            });
+                            _loadSong(currentIndex);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -480,7 +459,7 @@ Widget build(BuildContext context) {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                               subtitle: Text(
-                                               song.artist,
+                                                song.artist ?? 'Unknown Artist',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -508,9 +487,11 @@ Widget build(BuildContext context) {
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
