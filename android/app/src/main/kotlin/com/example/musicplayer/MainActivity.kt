@@ -95,7 +95,7 @@ class MainActivity : AudioServiceActivity() {
                         "title" to cursor.getString(titleCol),
                         "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
                         "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
-                        "albumId" to albumId.toInt(),
+                        "albumId" to albumId,
                         "artworkUri" to "content://media/external/audio/albumart/$albumId",
                         "path" to cursor.getString(pathCol),
                         "duration" to cursor.getLong(durationCol).toInt()
