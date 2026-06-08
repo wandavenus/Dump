@@ -169,6 +169,49 @@ Future<void> _loadSong(int index) async {
   }
 }  
   
+String formatTime(Duration duration) {
+  final minutes = duration.inMinutes.remainder(60);
+  final seconds = duration.inSeconds.remainder(60);
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+}
+
+@override
+Widget build(BuildContext context) {
+  final coverSize =
+      MediaQuery.of(context).size.width - (22 * 2);
+
+  return Scaffold(
+    extendBodyBehindAppBar: true,
+    body: GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          dragOffset =
+              (dragOffset + details.delta.dy)
+                  .clamp(0.0, 500.0);
+        });
+      },
+      onVerticalDragEnd: (details) {
+        if (dragOffset > 200) {
+          Navigator.pop(context);
+        } else {
+          setState(() {
+            dragOffset = 0;
+          });
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(
+          0,
+          dragOffset,
+          0,
+        ),
+        child: Center(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF1C1C1E),
+            ),
   
   child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
