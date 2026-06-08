@@ -1,7 +1,11 @@
 package com.example.musicplayer
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -26,6 +30,20 @@ class MainActivity : AudioServiceActivity() {
             }
     }
 
+    private fun hasMediaPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     private fun getArtwork(albumId: Int): ByteArray? {
         return try {
             val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
@@ -36,6 +54,10 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun getSongs(): List<Map<String, Any?>> {
+        if (!hasMediaPermission()) {
+            return emptyList()
+        }
+
         val songs = mutableListOf<Map<String, Any?>>()
 
         val projection = arrayOf(
