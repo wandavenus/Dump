@@ -47,8 +47,6 @@ jobs:
             ${{ runner.os }}-pub-
 
       - run: flutter pub get
-      - name: Apply Dart Fixes
-        run: dart fix --apply
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter build apk --release --target-platform android-arm64
 
