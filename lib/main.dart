@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
+import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
   );
 
   await ThemeController.init();
+  AudioService.initialize();
 
   if (Platform.isAndroid) {
     await Permission.storage.request();
