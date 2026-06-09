@@ -87,7 +87,7 @@ class MainActivity : AudioServiceActivity() {
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
 
             while (cursor.moveToNext()) {
-                val albumId = cursor.getLong(albumIdCol)
+                val albumId = cursor.getInt(albumIdCol)
 
                 songs.add(
                     mapOf(
