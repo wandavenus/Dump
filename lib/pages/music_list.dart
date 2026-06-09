@@ -124,7 +124,7 @@ class _MusicListState extends State<MusicList> {
                     ),
                   ),
                   subtitle: Text(
-                    '${song.artist} | albumId=${song.albumId}',
+                    song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
