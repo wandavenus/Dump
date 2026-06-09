@@ -1,11 +1,10 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 
 import '../models/local_song.dart';
-import '../services/audio_service.dart';
 import '../services/media_store_service.dart';
 import '../widgets/song_artwork.dart';
+import 'music_player.dart';
 
 class MusicList extends StatefulWidget {
   const MusicList({super.key});
@@ -15,21 +14,19 @@ class MusicList extends StatefulWidget {
 }
 
 class _MusicListState extends State<MusicList> {
-  List<LocalSong> songs = [];
-  bool refreshMiniPlayer = false;
+  late Future<List<LocalSong>> _songsFuture;
 
   @override
   void initState() {
     super.initState();
-    loadSongs();
+    _songsFuture = MediaStoreService.getSongs();
   }
 
-  Future<void> loadSongs() async {
-    songs = await MediaStoreService.getSongs();
-
-    if (mounted) {
-      setState(() {});
-    }
+  Future<void> _refreshSongs() async {
+    setState(() {
+      _songsFuture = MediaStoreService.getSongs();
+    });
+    await _songsFuture;
   }
 
   @override
@@ -57,44 +54,82 @@ class _MusicListState extends State<MusicList> {
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: songs.length,
-        itemBuilder: (context, index) {
-          return InkWell(
-            onTap: () async {
-              Navigator.pushNamed(
-                context,
-                '/player',
-                arguments: {
-                  'index': index,
-                  'song': songs[index],
-                  'songs': songs,
-                },
-              );
-            },
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 2,
+      body: FutureBuilder<List<LocalSong>>(
+        future: _songsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final songs = snapshot.data ?? const <LocalSong>[];
+          if (songs.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: _refreshSongs,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 180),
+                  Icon(Icons.music_note, size: 56, color: Colors.white38),
+                  SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      'Tidak ada lagu lokal ditemukan',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ],
               ),
-              leading: SizedBox(
-                width: 55,
-                height: 55,
-                child: SongArtwork(
-                  albumId: songs[index].albumId,
-                  size: 55,
-                ),
-              ),
-              title: Text(
-                songs[index].title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                songs[index].artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refreshSongs,
+            child: ListView.builder(
+              itemCount: songs.length,
+              itemBuilder: (context, index) {
+                final song = songs[index];
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/player',
+                      arguments: {
+                        'index': index,
+                        'song': song,
+                        'songs': songs,
+                      },
+                    );
+                  },
+                  leading: Hero(
+                    tag: PlayerHeroTags.artwork(song),
+                    child: SongArtwork(
+                      albumId: song.albumId,
+                      size: 55,
+                    ),
+                  ),
+                  title: Hero(
+                    tag: PlayerHeroTags.title(song),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  subtitle: Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
             ),
           );
         },

@@ -1,125 +1,138 @@
 import 'package:flutter/material.dart';
+
+import '../models/local_song.dart';
+import '../pages/music_player.dart';
 import '../services/audio_service.dart';
-import 'package:just_audio/just_audio.dart';
 import 'song_artwork.dart';
 
-class MiniPlayer extends StatefulWidget {
+class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
 
   @override
-  State<MiniPlayer> createState() => _MiniPlayerState();
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, playbackState, _) {
+        final song = playbackState.currentSong;
+        if (song == null) return const SizedBox.shrink();
+
+        return _MiniPlayerBody(
+          song: song,
+          playbackState: playbackState,
+        );
+      },
+    );
+  }
 }
 
-class _MiniPlayerState extends State<MiniPlayer> {
-  @override
-  void initState() {
-    super.initState();
-    AudioService.player.playerStateStream.listen((event) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
+class _MiniPlayerBody extends StatelessWidget {
+  final LocalSong song;
+  final AudioPlaybackState playbackState;
+
+  const _MiniPlayerBody({
+    required this.song,
+    required this.playbackState,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (AudioService.currentSong == null) {
-      return const SizedBox();
-    }
+    final canGoNext =
+        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/player',
-        );
-      },
-      child: Container(
-        height: 55,
-        margin: EdgeInsets.zero,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(0),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: SizedBox(
-                width: 50,
-                height: 50,
-                child: SongArtwork(
-                  albumId: AudioService.currentSong!.albumId,
-                  size: 50,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AudioService.currentSong!.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white),
+    return Material(
+      color: const Color(0xFF1C1C1E),
+      child: InkWell(
+        onTap: () => _openFullPlayer(context),
+        child: SizedBox(
+          height: 55,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Hero(
+                  tag: PlayerHeroTags.artwork(song),
+                  child: SongArtwork(
+                    albumId: song.albumId,
+                    size: 46,
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Hero(
+                    tag: PlayerHeroTags.title(song),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: playbackState.isLoading
+                      ? null
+                      : () {
+                          playbackState.isPlaying
+                              ? AudioService.pause()
+                              : AudioService.play();
+                        },
+                  icon: Icon(
+                    playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
+                    size: 34,
+                    color: Colors.white,
+                  ),
+                ),
+                IconButton(
+                  onPressed: canGoNext ? () => AudioService.skipNext() : null,
+                  icon: Icon(
+                    Icons.skip_next,
+                    size: 30,
+                    color: canGoNext ? Colors.white : Colors.white24,
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              onPressed: () async {
-                if (AudioService.player.playing) {
-                  await AudioService.player.pause();
-                } else {
-                  await AudioService.player.play();
-                }
-
-                setState(() {});
-              },
-              icon: Icon(
-                AudioService.player.playing
-                    ? Icons.pause
-                    : Icons.play_arrow,
-                size: 34,
-                color: Colors.white,
-              ),
-            ),
-            IconButton(
-              onPressed: () async {
-                if (AudioService.currentPlaylist.isEmpty) return;
-
-                if (AudioService.currentIndex <
-                    AudioService.currentPlaylist.length - 1) {
-                  AudioService.currentIndex++;
-
-                  final nextSong = AudioService
-                      .currentPlaylist[AudioService.currentIndex];
-
-                  AudioService.currentSong = nextSong;
-
-                  await AudioService.player.stop();
-
-                  await AudioService.player.setAudioSource(
-                    AudioSource.file(nextSong.path),
-                  );
-
-                  await AudioService.player.play();
-
-                  setState(() {});
-                }
-              },
-              icon: const Icon(
-                Icons.skip_next,
-                size: 30,
-                color: Colors.white,
-              ),
-            ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  void _openFullPlayer(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.black54,
+        transitionDuration: const Duration(milliseconds: 360),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return const MusicPlayer();
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }

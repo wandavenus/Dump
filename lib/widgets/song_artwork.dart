@@ -1,38 +1,53 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import '../services/media_store_service.dart';
 
 class SongArtwork extends StatelessWidget {
   final int albumId;
   final double size;
+  final BorderRadius borderRadius;
+  final BoxFit fit;
 
   const SongArtwork({
     super.key,
     required this.albumId,
     this.size = 60,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.fit = BoxFit.cover,
   });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: MediaStoreService.getArtwork(albumId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) {
-          return _fallback();
-        }
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final cacheSize = (size * pixelRatio).round();
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(
-            snapshot.data!,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _fallback(),
-          ),
-        );
-      },
+    return RepaintBoundary(
+      child: FutureBuilder<Uint8List?>(
+        future: MediaStoreService.getArtwork(albumId),
+        builder: (context, snapshot) {
+          final artwork = snapshot.data;
+          if (artwork == null || artwork.isEmpty) {
+            return _fallback();
+          }
+
+          return ClipRRect(
+            borderRadius: borderRadius,
+            child: Image.memory(
+              artwork,
+              width: size,
+              height: size,
+              fit: fit,
+              gaplessPlayback: true,
+              cacheWidth: cacheSize,
+              cacheHeight: cacheSize,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) => _fallback(),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -41,7 +56,7 @@ class SongArtwork extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: borderRadius,
         color: Colors.grey.shade900,
       ),
       child: const Icon(Icons.music_note),
