@@ -119,14 +119,11 @@ class AudioService {
     );
 
     try {
-      if (_queue == null ||
-    _queue!.length != immutablePlaylist.length) {
-  _queue = ConcatenatingAudioSource(
-    children: immutablePlaylist
-        .map(buildAudioSource)
-        .toList(),
-  );
-}
+      _queue = ConcatenatingAudioSource(
+  children: immutablePlaylist
+      .map(buildAudioSource)
+      .toList(),
+);
 await player.stop();
 
 await player.setAudioSource(
