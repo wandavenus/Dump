@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
+import '../models/local_song.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -279,6 +280,22 @@ double _scrollOffset = 0;
     ],
   ];
 
+  List<LocalSong> _buildSongList() {
+    return song.asMap().entries.map((entry) {
+      final i = entry.key;
+      final s = entry.value as Map;
+      return LocalSong(
+        id: i + 1,
+        title: s['title'] ?? 'Unknown Title',
+        artist: s['artist'] ?? 'Unknown Artist',
+        path: s['source'] ?? '',
+        album: s['album'] ?? 'Unknown Album',
+        albumId: 0,
+        duration: Duration(seconds: (s['duration'] as num?)?.toInt() ?? 0),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -497,12 +514,13 @@ bottom: PreferredSize(
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.all(10),
-                itemCount: 10,
+                itemCount: song.length,
                 itemBuilder: (context, index) {
                   return InkWell(
                     onTap: () {
                       Navigator.pushNamed(context, '/player', arguments: {
-                        'index': index
+                        'index': index,
+                        'songs': _buildSongList(),
                       });
                     },
                     child: Container(
@@ -608,7 +626,7 @@ bottom: PreferredSize(
                                 child: CachedNetworkImage(
                                   placeholder: (context, url) => const CircularProgressIndicator(),
                                   errorWidget: (context, url, error) => const Icon(Icons.error),
-                                  imageUrl: Artist[index][index]['artist_img'],
+                                  imageUrl: Artist[index][0]['artist_img'],
                                   height: 150,
                                   width: 150,
                                   fit: BoxFit.cover,
@@ -620,7 +638,7 @@ bottom: PreferredSize(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  Artist[index][index]['artist'],
+                                  Artist[index][0]['artist'],
                                   style: const TextStyle(fontSize: 18),
                                 ),
                                 const SizedBox(

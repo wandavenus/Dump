@@ -6,6 +6,27 @@ import 'package:just_audio_background/just_audio_background.dart';
 
 import '../models/local_song.dart';
 
+// On web, just_audio_background is not used; use a no-op stub instead.
+AudioSource _buildAudioSource(LocalSong song) {
+  if (kIsWeb) {
+    return AudioSource.uri(Uri.parse(song.path));
+  }
+  return AudioSource.file(
+    song.path,
+    tag: MediaItem(
+      id: song.id.toString(),
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+      duration: song.duration,
+      artUri: song.albumId > 0
+          ? Uri.parse(
+              'content://media/external/audio/albumart/${song.albumId}')
+          : null,
+    ),
+  );
+}
+
 @immutable
 class AudioPlaybackState {
   final LocalSong? currentSong;
@@ -143,12 +164,7 @@ class AudioService {
 
     try {
       await player.stop();
-      await player.setAudioSource(
-        AudioSource.file(
-          selectedSong.path,
-          tag: _mediaItemFor(selectedSong),
-        ),
-      );
+      await player.setAudioSource(_buildAudioSource(selectedSong));
 
       if (autoplay) {
         await player.play();
@@ -224,19 +240,6 @@ class AudioService {
         isPlaying: player.playing,
         processingState: player.processingState,
       ),
-    );
-  }
-
-  static MediaItem _mediaItemFor(LocalSong song) {
-    return MediaItem(
-      id: song.id.toString(),
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      duration: song.duration,
-      artUri: song.albumId > 0
-          ? Uri.parse('content://media/external/audio/albumart/${song.albumId}')
-          : null,
     );
   }
 

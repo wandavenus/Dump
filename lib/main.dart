@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
@@ -23,30 +23,34 @@ import 'package:just_audio_background/just_audio_background.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.musicplayer.channel.audio',
-    androidNotificationChannelName: 'Music Playback',
-    androidNotificationIcon: 'drawable/ic_notification',
-    androidNotificationOngoing: true,
-  );
+  if (!kIsWeb) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.musicplayer.channel.audio',
+      androidNotificationChannelName: 'Music Playback',
+      androidNotificationIcon: 'drawable/ic_notification',
+      androidNotificationOngoing: true,
+    );
+  }
 
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
-  );
+  if (!kIsWeb) {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ),
-  );
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
+  }
 
   await ThemeController.init();
   AudioService.initialize();
 
-  if (Platform.isAndroid) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Permission.storage.request();
     await Permission.audio.request();
   }
