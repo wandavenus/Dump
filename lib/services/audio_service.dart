@@ -107,11 +107,10 @@ class AudioService {
       if (autoplay) {
         await player.play();
       }
-
-      _syncPlaybackState();
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
+      _syncPlaybackState();
     }
   }
 
