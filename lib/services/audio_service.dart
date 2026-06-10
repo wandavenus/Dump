@@ -2,72 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 
 import '../models/local_song.dart';
-
-// On web, just_audio_background is not used; use a no-op stub instead.
-AudioSource _buildAudioSource(LocalSong song) {
-  if (kIsWeb) {
-    return AudioSource.uri(Uri.parse(song.path));
-  }
-  return AudioSource.file(
-    song.path,
-    tag: MediaItem(
-      id: song.id.toString(),
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      duration: song.duration,
-      artUri: song.albumId > 0
-          ? Uri.parse(
-              'content://media/external/audio/albumart/${song.albumId}')
-          : null,
-    ),
-  );
-}
-
-@immutable
-class AudioPlaybackState {
-  final LocalSong? currentSong;
-  final bool isPlaying;
-  final bool isLoading;
-  final int currentIndex;
-  final List<LocalSong> currentPlaylist;
-  final ProcessingState processingState;
-  final Duration duration;
-
-  const AudioPlaybackState({
-    this.currentSong,
-    this.isPlaying = false,
-    this.isLoading = false,
-    this.currentIndex = 0,
-    this.currentPlaylist = const [],
-    this.processingState = ProcessingState.idle,
-    this.duration = Duration.zero,
-  });
-
-  AudioPlaybackState copyWith({
-    LocalSong? currentSong,
-    bool clearCurrentSong = false,
-    bool? isPlaying,
-    bool? isLoading,
-    int? currentIndex,
-    List<LocalSong>? currentPlaylist,
-    ProcessingState? processingState,
-    Duration? duration,
-  }) {
-    return AudioPlaybackState(
-      currentSong: clearCurrentSong ? null : currentSong ?? this.currentSong,
-      isPlaying: isPlaying ?? this.isPlaying,
-      isLoading: isLoading ?? this.isLoading,
-      currentIndex: currentIndex ?? this.currentIndex,
-      currentPlaylist: currentPlaylist ?? this.currentPlaylist,
-      processingState: processingState ?? this.processingState,
-      duration: duration ?? this.duration,
-    );
-  }
-}
+import 'audio_playback_state.dart';
+import 'audio_source_builder.dart';
 
 class AudioService {
   AudioService._();
@@ -164,7 +102,7 @@ class AudioService {
 
     try {
       await player.stop();
-      await player.setAudioSource(_buildAudioSource(selectedSong));
+      await player.setAudioSource(buildAudioSource(selectedSong));
 
       if (autoplay) {
         await player.play();
