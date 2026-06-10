@@ -178,17 +178,16 @@ class _AlbumPageState extends State<AlbumPage> {
   ];
   int currentIndex = 0;
   @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final routes = ModalRoute.of(context)?.settings.arguments as Map<String, int>;
-      if (routes.containsKey('index')) {
-        setState(() {
-          currentIndex = routes['index']!;
-        });
-      }
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments is! Map) return;
+
+    final index = arguments['index'];
+    if (index is! int || index < 0 || index >= TopPicks.length) return;
+
+    currentIndex = index;
   }
 
   @override
