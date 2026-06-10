@@ -23,8 +23,8 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "getSongs" -> result.success(getSongs())
                     "getArtwork" -> {
-                        val songId = call.argument<Int>("songId")
-                        result.success(getArtwork(songId ?: 0))
+                        val songId = call.argument<Number>("songId")?.toLong() ?: 0L
+                        result.success(getArtwork(songId))
                     }
                     else -> result.notImplemented()
                 }
@@ -45,21 +45,24 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun getArtwork(songId: Int): ByteArray? {
+    private fun getArtwork(songId: Long): ByteArray? {
+        if (songId <= 0L) {
+            return null
+        }
+
+        val uri = Uri.withAppendedPath(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            songId.toString()
+        )
+
+        val retriever = MediaMetadataRetriever()
         return try {
-            val uri = Uri.withAppendedPath(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                songId.toString()
-            )
-
-            val retriever = MediaMetadataRetriever()
             retriever.setDataSource(this, uri)
-            val artwork = retriever.embeddedPicture
-            retriever.release()
-
-            artwork
+            retriever.embeddedPicture
         } catch (_: Exception) {
             null
+        } finally {
+            retriever.release()
         }
     }
 
@@ -97,18 +100,18 @@ class MainActivity : AudioServiceActivity() {
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
 
             while (cursor.moveToNext()) {
-                val albumId = cursor.getInt(albumIdCol)
+                val albumId = cursor.getLong(albumIdCol)
 
                 songs.add(
                     mapOf(
-                        "id" to cursor.getLong(idCol).toInt(),
+                        "id" to cursor.getLong(idCol),
                         "title" to cursor.getString(titleCol),
                         "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
                         "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
                         "albumId" to albumId,
                         "artworkUri" to "content://media/external/audio/albumart/$albumId",
                         "path" to cursor.getString(pathCol),
-                        "duration" to cursor.getLong(durationCol).toInt()
+                        "duration" to cursor.getLong(durationCol)
                     )
                 )
             }
