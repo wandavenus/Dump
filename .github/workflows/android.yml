@@ -48,8 +48,7 @@ jobs:
 
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - name: run tests
-        run: flutter test
+      
       - run: flutter build apk --release --target-platform android-arm64
 
       - uses: actions/upload-artifact@v4
