@@ -167,13 +167,7 @@ class _PlayerContent extends StatelessWidget {
 
     return Column(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            onPressed: () => Navigator.maybePop(context),
-            
-          ),
-        ),
+        
         Expanded(
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
@@ -200,7 +194,7 @@ class _PlayerContent extends StatelessWidget {
                       child: SongArtwork(
   songId: song.id,
   size: coverSize,
-                        size: coverSize,
+                        
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -637,13 +631,13 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   void didUpdateWidget(_AnimatedBlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.albumId != widget.songId) {
+    if (oldWidget.songId != widget.songId) {
       _updateArtworkFuture();
     }
   }
 
   void _updateArtworkFuture() {
-    _artworkFuture = widget.albumId > 0
+    _artworkFuture = widget.songId > 0
         ? MediaStoreService.getArtwork(widget.songId)
         : Future<Uint8List?>.value();
   }
