@@ -3,8 +3,8 @@ import 'package:musicplayer/widgets/common_actions.dart';
 
 import '../models/local_song.dart';
 import '../services/media_store_service.dart';
+import '../widgets/player/player_hero_tags.dart';
 import '../widgets/song_artwork.dart';
-import 'music_player.dart';
 
 class MusicList extends StatefulWidget {
   const MusicList({super.key});
