@@ -2,6 +2,7 @@ package com.example.musicplayer
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -22,8 +23,8 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "getSongs" -> result.success(getSongs())
                     "getArtwork" -> {
-                        val albumId = call.argument<Int>("albumId")
-                        result.success(getArtwork(albumId ?: 0))
+                        val songId = call.argument<Int>("songId")
+                        result.success(getArtwork(songId ?: 0))
                     }
                     else -> result.notImplemented()
                 }
@@ -44,10 +45,19 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun getArtwork(albumId: Int): ByteArray? {
+    private fun getArtwork(songId: Int): ByteArray? {
         return try {
-            val uri = Uri.parse("content://media/external/audio/albumart/$albumId")
-            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            val uri = Uri.withAppendedPath(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                songId.toString()
+            )
+
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(this, uri)
+            val artwork = retriever.embeddedPicture
+            retriever.release()
+
+            artwork
         } catch (_: Exception) {
             null
         }
