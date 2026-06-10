@@ -143,8 +143,14 @@ class AudioService {
       );
 
       if (autoplay) {
-        await player.play();
-      }
+  await player.play();
+
+  _setState(
+    playbackState.value.copyWith(
+      isPlaying: true,
+    ),
+  );
+}
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
@@ -152,14 +158,28 @@ class AudioService {
   }
 
   static Future<void> play() async {
-    initialize();
-    await player.play();
-  }
+  initialize();
+
+  await player.play();
+
+  _setState(
+    playbackState.value.copyWith(
+      isPlaying: true,
+    ),
+  );
+}
 
   static Future<void> pause() async {
-    initialize();
-    await player.pause();
-  }
+  initialize();
+
+  await player.pause();
+
+  _setState(
+    playbackState.value.copyWith(
+      isPlaying: false,
+    ),
+  );
+}
 
   static Future<void> seek(Duration position) async {
     initialize();
