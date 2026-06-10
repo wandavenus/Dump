@@ -108,7 +108,7 @@ class _MusicListState extends State<MusicList> {
                   leading: Hero(
                     tag: PlayerHeroTags.artwork(song),
                     child: SongArtwork(
-                      albumId: song.songId,
+                      songId: song.id,
                       size: 55,
                     ),
                   ),
