@@ -17,7 +17,6 @@ class MusicPlayer extends StatefulWidget {
 
 class _MusicPlayerState extends State<MusicPlayer> {
   bool _handledRouteArguments = false;
-  double _dragOffset = 0;
   final String _lyrics = 'Loading lyrics...';
 
   @override
@@ -62,27 +61,6 @@ class _MusicPlayerState extends State<MusicPlayer> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (details.delta.dy < 0 && _dragOffset == 0) return;
-
-    setState(() {
-      _dragOffset =
-          (_dragOffset + details.delta.dy).clamp(0.0, 500.0).toDouble();
-    });
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (_dragOffset > 160 || velocity > 800) {
-      Navigator.maybePop(context);
-      return;
-    }
-
-    setState(() {
-      _dragOffset = 0;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AudioPlaybackState>(
@@ -93,42 +71,36 @@ class _MusicPlayerState extends State<MusicPlayer> {
         return Scaffold(
           backgroundColor: Colors.black,
           extendBodyBehindAppBar: true,
-          body: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onVerticalDragUpdate: _onVerticalDragUpdate,
-            onVerticalDragEnd: _onVerticalDragEnd,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              transform: Matrix4.translationValues(0, _dragOffset, 0),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  AnimatedBlurredPlayerBackground(songId: song?.id ?? 0),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color.fromARGB(55, 0, 0, 0),
-                          Color.fromARGB(230, 0, 0, 0),
-                        ],
-                      ),
+          body: AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AnimatedBlurredPlayerBackground(songId: song?.id ?? 0),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.fromARGB(55, 0, 0, 0),
+                        Color.fromARGB(230, 0, 0, 0),
+                      ],
                     ),
                   ),
-                  SafeArea(
-                    child: song == null
-                        ? const PlayerEmptyState()
-                        : PlayerContent(
-                            song: song,
-                            playbackState: playbackState,
-                            formatTime: _formatTime,
-                            lyrics: _lyrics,
-                          ),
-                  ),
-                ],
-              ),
+                ),
+                SafeArea(
+                  child: song == null
+                      ? const PlayerEmptyState()
+                      : PlayerContent(
+                          song: song,
+                          playbackState: playbackState,
+                          formatTime: _formatTime,
+                          lyrics: _lyrics,
+                        ),
+                ),
+              ],
             ),
           ),
         );
