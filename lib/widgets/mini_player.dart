@@ -41,64 +41,70 @@ class _MiniPlayerBody extends StatelessWidget {
 
     return Material(
       color: const Color(0xFF1C1C1E),
-      child: InkWell(
-        onTap: () => _openFullPlayer(context),
-        child: SizedBox(
-          height: 55,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Hero(
-                  tag: PlayerHeroTags.artwork(song),
-                  child: SongArtwork(
-                    songId: song.id,
-                    size: 46,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Hero(
-                    tag: PlayerHeroTags.title(song),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
+      child: SizedBox(
+        height: 55,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _openFullPlayer(context),
+                  child: Row(
+                    children: [
+                      Hero(
+                        tag: PlayerHeroTags.artwork(song),
+                        child: SongArtwork(
+                          songId: song.id,
+                          size: 46,
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Hero(
+                          tag: PlayerHeroTags.title(song),
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Text(
+                              song.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  onPressed: playbackState.isLoading
-                      ? null
-                      : () {
-                          playbackState.isPlaying
-                              ? AudioService.pause()
-                              : AudioService.play();
-                        },
-                  icon: Icon(
-                    playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 34,
-                    color: Colors.white,
-                  ),
+              ),
+              IconButton(
+                onPressed: playbackState.isLoading
+                    ? null
+                    : () {
+                        playbackState.isPlaying
+                            ? AudioService.pause()
+                            : AudioService.play();
+                      },
+                icon: Icon(
+                  playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
+                  size: 34,
+                  color: Colors.white,
                 ),
-                IconButton(
-                  onPressed: canGoNext ? () => AudioService.skipNext() : null,
-                  icon: Icon(
-                    Icons.skip_next,
-                    size: 30,
-                    color: canGoNext ? Colors.white : Colors.white24,
-                  ),
+              ),
+              IconButton(
+                onPressed: canGoNext ? () => AudioService.skipNext() : null,
+                icon: Icon(
+                  Icons.skip_next,
+                  size: 30,
+                  color: canGoNext ? Colors.white : Colors.white24,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
