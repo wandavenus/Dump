@@ -34,13 +34,11 @@ class PlayerTransportControls extends StatelessWidget {
             size: 76,
             color: Colors.white,
           ),
-          onPressed: playbackState.isLoading
-              ? null
-              : () {
-                  playbackState.isPlaying
-                      ? AudioService.pause()
-                      : AudioService.play();
-                },
+          onPressed: () {
+            playbackState.isPlaying
+                ? AudioService.pause()
+                : AudioService.play();
+          },
         ),
         const SizedBox(width: 10),
         IconButton(
