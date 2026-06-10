@@ -86,6 +86,7 @@ class _MiniPlayerBody extends StatelessWidget {
                 onPressed: playbackState.isLoading
                     ? null
                     : () {
+                        debugPrint('MINI PLAYER BUTTON');
                         playbackState.isPlaying
                             ? AudioService.pause()
                             : AudioService.play();
@@ -97,7 +98,12 @@ class _MiniPlayerBody extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: canGoNext ? () => AudioService.skipNext() : null,
+                onPressed: canGoNext
+                    ? () {
+                        debugPrint('MINI PLAYER NEXT');
+                        AudioService.skipNext();
+                      }
+                    : null,
                 icon: Icon(
                   Icons.skip_next,
                   size: 30,
