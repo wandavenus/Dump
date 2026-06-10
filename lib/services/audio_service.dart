@@ -92,10 +92,12 @@ class AudioService {
 
     _subscriptions.add(
       player.playerStateStream.listen((PlayerState state) {
-        _setState(playbackState.value.copyWith(
-          isPlaying: state.playing,
-          processingState: state.processingState,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            isPlaying: state.playing,
+            processingState: state.processingState,
+          ),
+        );
 
         if (state.processingState == ProcessingState.completed) {
           _playNextAfterCompletion();
@@ -105,11 +107,15 @@ class AudioService {
 
     _subscriptions.add(
       player.durationStream.listen((Duration? duration) {
-        _setState(playbackState.value.copyWith(
-          duration: duration ?? Duration.zero,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            duration: duration ?? Duration.zero,
+          ),
+        );
       }),
     );
+
+    _syncPlaybackState();
   }
 
   static Future<void> playSongAt({
@@ -126,12 +132,14 @@ class AudioService {
     final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
     final selectedSong = immutablePlaylist[index];
 
-    _setState(playbackState.value.copyWith(
-      currentSong: selectedSong,
-      currentIndex: index,
-      currentPlaylist: immutablePlaylist,
-      isLoading: true,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: selectedSong,
+        currentIndex: index,
+        currentPlaylist: immutablePlaylist,
+        isLoading: true,
+      ),
+    );
 
     try {
       await player.stop();
@@ -143,14 +151,10 @@ class AudioService {
       );
 
       if (autoplay) {
-  await player.play();
+        await player.play();
+      }
 
-  _setState(
-    playbackState.value.copyWith(
-      isPlaying: true,
-    ),
-  );
-}
+      _syncPlaybackState();
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
@@ -158,32 +162,23 @@ class AudioService {
   }
 
   static Future<void> play() async {
-  initialize();
+    initialize();
 
-  await player.play();
-
-  _setState(
-    playbackState.value.copyWith(
-      isPlaying: true,
-    ),
-  );
-}
+    await player.play();
+    _syncPlaybackState();
+  }
 
   static Future<void> pause() async {
-  initialize();
+    initialize();
 
-  await player.pause();
-
-  _setState(
-    playbackState.value.copyWith(
-      isPlaying: false,
-    ),
-  );
-}
+    await player.pause();
+    _syncPlaybackState();
+  }
 
   static Future<void> seek(Duration position) async {
     initialize();
     await player.seek(position);
+    _syncPlaybackState();
   }
 
   static Future<void> skipNext() async {
@@ -221,6 +216,15 @@ class AudioService {
     }
 
     await skipNext();
+  }
+
+  static void _syncPlaybackState() {
+    _setState(
+      playbackState.value.copyWith(
+        isPlaying: player.playing,
+        processingState: player.processingState,
+      ),
+    );
   }
 
   static MediaItem _mediaItemFor(LocalSong song) {
