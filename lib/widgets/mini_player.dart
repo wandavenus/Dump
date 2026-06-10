@@ -52,7 +52,7 @@ class _MiniPlayerBody extends StatelessWidget {
                 Hero(
                   tag: PlayerHeroTags.artwork(song),
                   child: SongArtwork(
-                    albumId: song.albumId,
+                    albumId: song.songId,
                     size: 46,
                     borderRadius: BorderRadius.circular(3),
                   ),
