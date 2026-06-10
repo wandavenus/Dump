@@ -169,14 +169,8 @@ await player.setAudioSource(
 }
 
   static Future<void> skipPrevious() async {
-    final state = playbackState.value;
-    if (state.currentIndex <= 0) return;
-
-    await playSongAt(
-      playlist: state.currentPlaylist,
-      index: state.currentIndex - 1,
-    );
-  }
+  await player.seekToPrevious();
+}
 
   static Future<void> playFromCurrentQueue(int index) async {
     final state = playbackState.value;
