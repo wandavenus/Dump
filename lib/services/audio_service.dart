@@ -124,8 +124,8 @@ class AudioService {
       .map(buildAudioSource)
       .toList(),
 );
-await player.stop();
 
+await player.stop();
 await player.setAudioSource(
   _queue!,
   initialIndex: index,
@@ -170,12 +170,13 @@ await player.setAudioSource(
 }
 
   static Future<void> playFromCurrentQueue(int index) async {
-    final state = playbackState.value;
-    await playSongAt(
-      playlist: state.currentPlaylist,
-      index: index,
-    );
-  }
+  await player.seek(
+    Duration.zero,
+    index: index,
+  );
+
+  await player.play();
+}
 
   static Future<void> _playNextAfterCompletion() async {
     final state = playbackState.value;
