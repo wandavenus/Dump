@@ -74,7 +74,24 @@ class AudioService {
       }),
     );
 
-    _syncPlaybackState();
+  _subscriptions.add(
+  player.currentIndexStream.listen((index) {
+    if (index == null) return;
+
+    final playlist = playbackState.value.currentPlaylist;
+
+    if (index < 0 || index >= playlist.length) return;
+
+    _setState(
+      playbackState.value.copyWith(
+        currentIndex: index,
+        currentSong: playlist[index],
+      ),
+    );
+  }),
+); 
+
+ _syncPlaybackState();
   }
 
   static Future<void> playSongAt({
