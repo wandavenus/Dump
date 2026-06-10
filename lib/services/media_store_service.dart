@@ -29,32 +29,32 @@ class MediaStoreService {
     }
   }
 
-  static Future<Uint8List?> getArtwork(int albumId) {
-    if (albumId <= 0) return Future<Uint8List?>.value();
+  static Future<Uint8List?> getArtwork(int songId) {
+    if (songId <= 0) return Future<Uint8List?>.value();
 
-    final cachedArtwork = _artworkCache.remove(albumId);
+    final cachedArtwork = _artworkCache.remove(songId);
     if (cachedArtwork != null) {
-      _artworkCache[albumId] = cachedArtwork;
+      _artworkCache[songId] = cachedArtwork;
       return cachedArtwork;
     }
 
-    final artworkFuture = _loadArtwork(albumId);
-    _artworkCache[albumId] = artworkFuture;
+    final artworkFuture = _loadArtwork(songId);
+    _artworkCache[songId] = artworkFuture;
     _trimArtworkCache();
     return artworkFuture;
   }
 
-  static Future<Uint8List?> _loadArtwork(int albumId) async {
+  static Future<Uint8List?> _loadArtwork(int songId) async {
     try {
       return _channel.invokeMethod<Uint8List>(
         'getArtwork',
-        {'albumId': albumId},
+        {'songId': songId},
       );
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load artwork for album $albumId: $error\n$stackTrace');
+      debugPrint('Failed to load artwork for song $songId: $error\n$stackTrace');
       return null;
     } catch (error, stackTrace) {
-      debugPrint('Invalid artwork payload for album $albumId: $error\n$stackTrace');
+      debugPrint('Invalid artwork payload for song $songId: $error\n$stackTrace');
       return null;
     }
   }
