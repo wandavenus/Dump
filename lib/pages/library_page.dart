@@ -24,7 +24,10 @@ class _LibraryPageState extends State<LibraryPage> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
           child: Container(height: 0.9, color: Colors.transparent),
-      body: const LibraryContent(),
+  ),
+),
+    
+body: const LibraryContent(),
     );
   }
 }
