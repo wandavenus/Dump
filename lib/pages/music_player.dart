@@ -112,7 +112,9 @@ class _MusicPlayerState extends State<MusicPlayer> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _AnimatedBlurredPlayerBackground(albumId: song?.albumId ?? 0),
+                  _AnimatedBlurredPlayerBackground(
+  songId: song?.id ?? 0,
+),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -165,17 +167,7 @@ class _PlayerContent extends StatelessWidget {
 
     return Column(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            onPressed: () => Navigator.maybePop(context),
-            icon: const Icon(
-              CupertinoIcons.chevron_down,
-              color: Colors.white,
-              size: 30,
-            ),
-          ),
-        ),
+        
         Expanded(
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
@@ -200,8 +192,9 @@ class _PlayerContent extends StatelessWidget {
                         ],
                       ),
                       child: SongArtwork(
-                        albumId: song.albumId,
-                        size: coverSize,
+  songId: song.id,
+  size: coverSize,
+                        
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -616,9 +609,9 @@ class _EmptyPlayerState extends StatelessWidget {
 }
 
 class _AnimatedBlurredPlayerBackground extends StatefulWidget {
-  final int albumId;
+  final int songId;
 
-  const _AnimatedBlurredPlayerBackground({required this.albumId});
+  const _AnimatedBlurredPlayerBackground({required this.songId});
 
   @override
   State<_AnimatedBlurredPlayerBackground> createState() =>
@@ -638,28 +631,28 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   void didUpdateWidget(_AnimatedBlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.albumId != widget.albumId) {
+    if (oldWidget.songId != widget.songId) {
       _updateArtworkFuture();
     }
   }
 
   void _updateArtworkFuture() {
-    _artworkFuture = widget.albumId > 0
-        ? MediaStoreService.getArtwork(widget.albumId)
+    _artworkFuture = widget.songId > 0
+        ? MediaStoreService.getArtwork(widget.songId)
         : Future<Uint8List?>.value();
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      key: ValueKey<int>(widget.albumId),
+      key: ValueKey<int>(widget.songId),
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
         final child = artwork == null || artwork.isEmpty
             ? const _PlayerFallbackBackground(key: ValueKey<String>('fallback'))
             : _BlurredArtworkBackground(
-                key: ValueKey<int>(widget.albumId),
+                key: ValueKey<int>(widget.songId),
                 artwork: artwork,
               );
 

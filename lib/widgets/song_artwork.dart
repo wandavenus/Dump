@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import '../services/media_store_service.dart';
 
 class SongArtwork extends StatelessWidget {
-  final int albumId;
+  final int songId;
   final double size;
   final BorderRadius borderRadius;
   final BoxFit fit;
 
   const SongArtwork({
     super.key,
-    required this.albumId,
+    required this.songId,
     this.size = 60,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
     this.fit = BoxFit.cover,
@@ -25,7 +25,7 @@ class SongArtwork extends StatelessWidget {
 
     return RepaintBoundary(
       child: FutureBuilder<Uint8List?>(
-        future: MediaStoreService.getArtwork(albumId),
+        future: MediaStoreService.getArtwork(songId),
         builder: (context, snapshot) {
           final artwork = snapshot.data;
           if (artwork == null || artwork.isEmpty) {

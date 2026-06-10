@@ -21,15 +21,15 @@ class LocalSong {
 
   factory LocalSong.fromMap(Map<dynamic, dynamic> map) {
     return LocalSong(
-      id: map['id'] ?? 0,
+      id: (map['id'] as num?)?.toInt() ?? 0,
       title: map['title'] ?? 'Unknown Title',
       artist: map['artist'] ?? 'Unknown Artist',
       path: map['path'] ?? '',
       album: map['album'] ?? 'Unknown Album',
-      albumId: map['albumId'] ?? 0,
+      albumId: (map['albumId'] as num?)?.toInt() ?? 0,
       artworkUri: map['artworkUri'],
       duration: Duration(
-        milliseconds: map['duration'] ?? 0,
+        milliseconds: (map['duration'] as num?)?.toInt() ?? 0,
       ),
     );
   }
