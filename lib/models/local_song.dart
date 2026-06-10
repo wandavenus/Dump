@@ -3,6 +3,7 @@ class LocalSong {
   final String title;
   final String artist;
   final String path;
+  final String? contentUri;
   final String album;
   final int albumId;
   final String? artworkUri;
@@ -13,6 +14,7 @@ class LocalSong {
     required this.title,
     required this.artist,
     required this.path,
+    this.contentUri,
     required this.album,
     required this.albumId,
     this.artworkUri,
@@ -21,17 +23,24 @@ class LocalSong {
 
   factory LocalSong.fromMap(Map<dynamic, dynamic> map) {
     return LocalSong(
-      id: map['id'] ?? 0,
+      id: _toInt(map['id']),
       title: map['title'] ?? 'Unknown Title',
       artist: map['artist'] ?? 'Unknown Artist',
       path: map['path'] ?? '',
+      contentUri: map['contentUri'],
       album: map['album'] ?? 'Unknown Album',
-      albumId: map['albumId'] ?? 0,
+      albumId: _toInt(map['albumId']),
       artworkUri: map['artworkUri'],
       duration: Duration(
-        milliseconds: map['duration'] ?? 0,
+        milliseconds: _toInt(map['duration']),
       ),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   Map<String, dynamic> toMap() {
@@ -40,6 +49,7 @@ class LocalSong {
       'title': title,
       'artist': artist,
       'path': path,
+      'contentUri': contentUri,
       'album': album,
       'albumId': albumId,
       'artworkUri': artworkUri,

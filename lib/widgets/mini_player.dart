@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
-import 'package:just_audio/just_audio.dart';
 import 'song_artwork.dart';
 
 class MiniPlayer extends StatefulWidget {
@@ -51,6 +50,8 @@ class _MiniPlayerState extends State<MiniPlayer> {
                 height: 50,
                 child: SongArtwork(
                   albumId: AudioService.currentSong!.albumId,
+                  songId: AudioService.currentSong!.id,
+                  path: AudioService.currentSong!.path,
                   size: 50,
                 ),
               ),
@@ -104,7 +105,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                   await AudioService.player.stop();
 
                   await AudioService.player.setAudioSource(
-                    AudioSource.file(nextSong.path),
+                    AudioService.createSource(nextSong),
                   );
 
                   await AudioService.player.play();

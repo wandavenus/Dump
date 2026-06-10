@@ -4,7 +4,6 @@ import 'dart:ui';
 import '../services/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../widgets/song_artwork.dart';
@@ -128,19 +127,7 @@ Future<void> _loadSong(int index) async {
     await audioPlayer.stop();
 
     await audioPlayer.setAudioSource(
-      AudioSource.file(
-        selectedSong.path,
-        tag: MediaItem(
-  id: selectedSong.id.toString(),
-  title: selectedSong.title,
-  artist: selectedSong.artist,
-  artUri: selectedSong.albumId > 0
-      ? Uri.parse(
-          'content://media/external/audio/albumart/${selectedSong.albumId}',
-        )
-      : null,
-),
-      ),
+      AudioService.createSource(selectedSong),
     );
 
     await audioPlayer.play();
@@ -207,7 +194,7 @@ Widget build(BuildContext context) {
           fit: StackFit.expand,
           children: [
             _BlurredPlayerBackground(
-              albumId: AudioService.currentSong?.albumId ?? 0,
+              song: AudioService.currentSong,
             ),
             const DecoratedBox(
               decoration: BoxDecoration(
@@ -249,6 +236,8 @@ Widget build(BuildContext context) {
   height: coverSize,
   child: SongArtwork(
     albumId: AudioService.currentSong?.albumId ?? 0,
+    songId: AudioService.currentSong?.id,
+    path: AudioService.currentSong?.path,
     size: coverSize,
        ),
       ),
@@ -535,10 +524,10 @@ Widget build(BuildContext context) {
 
 
 class _BlurredPlayerBackground extends StatefulWidget {
-  final int albumId;
+  final LocalSong? song;
 
   const _BlurredPlayerBackground({
-    required this.albumId,
+    required this.song,
   });
 
   @override
@@ -559,25 +548,39 @@ class _BlurredPlayerBackgroundState extends State<_BlurredPlayerBackground> {
   void didUpdateWidget(_BlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.albumId != widget.albumId) {
+    if (oldWidget.song?.albumId != widget.song?.albumId ||
+        oldWidget.song?.id != widget.song?.id ||
+        oldWidget.song?.path != widget.song?.path) {
       _updateArtworkFuture();
     }
   }
 
   void _updateArtworkFuture() {
-    _artworkFuture = widget.albumId > 0
-        ? MediaStoreService.getArtwork(widget.albumId)
-        : null;
+    final song = widget.song;
+
+    _artworkFuture = song == null
+        ? null
+        : MediaStoreService.getArtwork(
+            song.albumId,
+            songId: song.id,
+            path: song.path,
+          );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.albumId <= 0 || _artworkFuture == null) {
+    if (_artworkFuture == null) {
       return const _PlayerFallbackBackground();
     }
 
     return FutureBuilder<Uint8List?>(
-      key: ValueKey<int>(widget.albumId),
+      key: ValueKey<String>(
+        [
+          widget.song?.albumId.toString() ?? '',
+          widget.song?.id.toString() ?? '',
+          widget.song?.path ?? '',
+        ].join('|'),
+      ),
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
@@ -587,7 +590,9 @@ class _BlurredPlayerBackgroundState extends State<_BlurredPlayerBackground> {
         }
 
         return Stack(
-          key: ValueKey<String>('blurred-artwork-${widget.albumId}'),
+          key: ValueKey<String>(
+            'blurred-artwork-${widget.song?.albumId}-${widget.song?.id}',
+          ),
           fit: StackFit.expand,
           children: [
             Transform.scale(

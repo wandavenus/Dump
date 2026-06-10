@@ -82,6 +82,8 @@ class _MusicListState extends State<MusicList> {
                 height: 55,
                 child: SongArtwork(
                   albumId: songs[index].albumId,
+                  songId: songs[index].id,
+                  path: songs[index].path,
                   size: 55,
                 ),
               ),
