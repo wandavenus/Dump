@@ -11,7 +11,8 @@ class AudioService {
   AudioService._();
 
   static final AudioPlayer player = AudioPlayer();
-  static final ValueNotifier<AudioPlaybackState> playbackState =
+ static ConcatenatingAudioSource? _queue;
+ static final ValueNotifier<AudioPlaybackState> playbackState =
       ValueNotifier<AudioPlaybackState>(const AudioPlaybackState());
 
   static bool _initialized = false;
@@ -118,8 +119,20 @@ class AudioService {
     );
 
     try {
-      await player.stop();
-      await player.setAudioSource(buildAudioSource(selectedSong));
+      if (_queue == null ||
+    _queue!.length != immutablePlaylist.length) {
+  _queue = ConcatenatingAudioSource(
+    children: immutablePlaylist
+        .map(buildAudioSource)
+        .toList(),
+  );
+}
+await player.stop();
+
+await player.setAudioSource(
+  _queue!,
+  initialIndex: index,
+);
 
       if (autoplay) {
         await player.play();
@@ -152,14 +165,8 @@ class AudioService {
   }
 
   static Future<void> skipNext() async {
-    final state = playbackState.value;
-    if (state.currentIndex >= state.currentPlaylist.length - 1) return;
-
-    await playSongAt(
-      playlist: state.currentPlaylist,
-      index: state.currentIndex + 1,
-    );
-  }
+  await player.seekToNext();
+}
 
   static Future<void> skipPrevious() async {
     final state = playbackState.value;
