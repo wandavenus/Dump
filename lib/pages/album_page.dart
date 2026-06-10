@@ -223,7 +223,7 @@ class _AlbumPageState extends State<AlbumPage> {
                         padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(150),
-                          color: const Color.fromARGB(85, 79, 79, 79),
+                          color: Colors.white.withOpacity(0.12),
                         ),
                         child: const Icon(
                           Icons.add,
@@ -238,7 +238,7 @@ class _AlbumPageState extends State<AlbumPage> {
                         padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(150),
-                          color: const Color.fromARGB(85, 79, 79, 79),
+                          color: Colors.white.withOpacity(0.12),
                         ),
                         child: const Icon(
                           Icons.more_horiz,
@@ -291,7 +291,7 @@ class _AlbumPageState extends State<AlbumPage> {
                   Container(
                     height: 50,
                     width: 160,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: const Color.fromARGB(85, 79, 79, 79)),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.white.withOpacity(0.12)),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -310,7 +310,7 @@ class _AlbumPageState extends State<AlbumPage> {
                   Container(
                     height: 50,
                     width: 160,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: const Color.fromARGB(85, 79, 79, 79)),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.white.withOpacity(0.12)),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

@@ -17,7 +17,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
 
 title: const SizedBox.shrink(),
@@ -27,7 +27,7 @@ centerTitle: false,
     CommonActions(),
   ],
 
-    
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Container(
@@ -87,7 +87,7 @@ Padding(
     height: 0,
   ),
 ),
-        
+
 const SizedBox(height: 9),
 
      Column(
@@ -123,10 +123,12 @@ const SizedBox(height: 9),
       endIndent: 0,
     ),
   ],
-),                      
-         
-           Column(
-  children: [
+),
+
+
+),
+
+
     Padding(
       padding: const EdgeInsets.only(
     left: 8,
@@ -136,19 +138,19 @@ const SizedBox(height: 9),
       child: Row(
         children: [
           Icon(
-            CupertinoIcons.mic,
-            color: Color(0xFFF92D48),
-            size: 28,
-          ),
-          SizedBox(width: 11),
+),
+
+
+
+),
           Text(
-            "Artis",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-            ),
-          ),
-        ],
+),
+ ],
+        ),
+        ),
+      ),
+    );
+  }
       ),
     ),
     const Divider(

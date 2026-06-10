@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/media_store_service.dart';
+import '../themes/apple_music_material.dart';
 import '../widgets/song_artwork.dart';
 
 class PlayerHeroTags {
@@ -99,7 +100,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
         final song = playbackState.currentSong;
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.transparent,
           extendBodyBehindAppBar: true,
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -113,17 +114,19 @@ class _MusicPlayerState extends State<MusicPlayer> {
                 fit: StackFit.expand,
                 children: [
                   _AnimatedBlurredPlayerBackground(
-  songId: song?.id ?? 0,
-),
+                    songId: song?.id ?? 0,
+                  ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Color.fromARGB(55, 0, 0, 0),
-                          Color.fromARGB(230, 0, 0, 0),
+                          Color.fromARGB(35, 255, 255, 255),
+                          Color.fromARGB(95, 0, 0, 0),
+                          Color.fromARGB(235, 0, 0, 0),
                         ],
+                        stops: [0.0, 0.42, 1.0],
                       ),
                     ),
                   ),
@@ -143,6 +146,23 @@ class _MusicPlayerState extends State<MusicPlayer> {
           ),
         );
       },
+    );
+  }
+}
+
+
+class _PlayerGrabber extends StatelessWidget {
+  const _PlayerGrabber();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 5,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.38),
+        borderRadius: BorderRadius.circular(99),
+      ),
     );
   }
 }
@@ -167,13 +187,13 @@ class _PlayerContent extends StatelessWidget {
 
     return Column(
       children: [
-        
         Expanded(
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 34),
             child: Column(
               children: [
+                const _PlayerGrabber(),
                 const SizedBox(height: 18),
                 Hero(
                   tag: PlayerHeroTags.artwork(song),
@@ -182,25 +202,24 @@ class _PlayerContent extends StatelessWidget {
                     type: MaterialType.transparency,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(30),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color.fromARGB(80, 0, 0, 0),
-                            blurRadius: 28,
-                            offset: Offset(0, 16),
+                            color: Color.fromARGB(95, 0, 0, 0),
+                            blurRadius: 44,
+                            offset: Offset(0, 24),
                           ),
                         ],
                       ),
                       child: SongArtwork(
-  songId: song.id,
-  size: coverSize,
-                        
-                        borderRadius: BorderRadius.circular(12),
+                        songId: song.id,
+                        size: coverSize,
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 42),
+                const SizedBox(height: 38),
                 _SongHeader(song: song),
                 const SizedBox(height: 22),
                 _ProgressSection(formatTime: formatTime),
@@ -267,7 +286,7 @@ class _SongHeader extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 24,
+                      fontSize: 26,
                     ),
                   ),
                 ),
@@ -287,11 +306,12 @@ class _SongHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-        Container(
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color.fromARGB(135, 100, 100, 100),
-          ),
+        AppleMusicMaterial(
+          width: 44,
+          height: 44,
+          borderRadius: BorderRadius.circular(22),
+          style: AppleMusicMaterialStyle.thin,
+          showShadow: false,
           child: IconButton(
             onPressed: () {},
             icon: const Icon(Icons.more_horiz_rounded),
@@ -344,15 +364,15 @@ class _ProgressSection extends StatelessWidget {
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 5,
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0xFF505050),
+                activeTrackColor: Colors.white.withOpacity(0.92),
+                inactiveTrackColor: Colors.white.withOpacity(0.22),
                 thumbShape: const RoundSliderThumbShape(
                   enabledThumbRadius: 5,
                   elevation: 0,
                   pressedElevation: 0,
                 ),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                overlayColor: Colors.white24,
+                overlayColor: Colors.white.withOpacity(0.16),
               ),
               child: Slider(
                 min: 0,
@@ -414,7 +434,7 @@ class _TransportControls extends StatelessWidget {
           icon: Icon(
             Icons.fast_rewind_rounded,
             size: 64,
-            color: canGoPrevious ? Colors.white : Colors.white24,
+            color: canGoPrevious ? Colors.white : Colors.white30,
           ),
           onPressed: canGoPrevious ? () => AudioService.skipPrevious() : null,
         ),
@@ -440,7 +460,7 @@ class _TransportControls extends StatelessWidget {
           icon: Icon(
             Icons.fast_forward_rounded,
             size: 64,
-            color: canGoNext ? Colors.white : Colors.white24,
+            color: canGoNext ? Colors.white : Colors.white30,
           ),
           onPressed: canGoNext ? () => AudioService.skipNext() : null,
         ),
@@ -478,7 +498,7 @@ class _SecondaryControls extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return _BottomSheetScaffold(
           title: 'Lyrics',
@@ -486,7 +506,11 @@ class _SecondaryControls extends StatelessWidget {
             child: Text(
               lyrics,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, height: 2),
+              style: const TextStyle(
+                fontSize: 20,
+                height: 2,
+                color: Colors.white,
+              ),
             ),
           ),
         );
@@ -498,7 +522,7 @@ class _SecondaryControls extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return _BottomSheetScaffold(
           title: 'Queue',
@@ -550,31 +574,36 @@ class _BottomSheetScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.75,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: AppleMusicMaterial(
+          height: MediaQuery.of(context).size.height * 0.75,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+          style: AppleMusicMaterialStyle.prominent,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(child: child),
-            ],
+                const SizedBox(height: 20),
+                Expanded(child: child),
+              ],
+            ),
           ),
         ),
       ),
@@ -683,7 +712,7 @@ class _BlurredArtworkBackground extends StatelessWidget {
         Transform.scale(
           scale: 1.16,
           child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+            imageFilter: ImageFilter.blur(sigmaX: 42, sigmaY: 42),
             child: Image.memory(
               artwork,
               fit: BoxFit.cover,
@@ -693,7 +722,19 @@ class _BlurredArtworkBackground extends StatelessWidget {
             ),
           ),
         ),
-        const ColoredBox(color: Color.fromARGB(130, 0, 0, 0)),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(-0.35, -0.65),
+              radius: 0.95,
+              colors: [
+                Colors.white.withOpacity(0.10),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+        const ColoredBox(color: Color.fromARGB(142, 0, 0, 0)),
       ],
     );
   }

@@ -13,7 +13,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
- 
+
 double _scrollOffset = 0;
 
  List TopPicks = [
@@ -95,7 +95,7 @@ double _scrollOffset = 0;
       "duration": 264,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
     },
-    
+
     {
       "id": "spatial_01",
       "title": "Pre-game marching band",
@@ -148,7 +148,7 @@ double _scrollOffset = 0;
       "duration": 296,
       "site": "https://library.soundfield.com/track/65"
     }
-    
+
   ];
   List Artist = [
     [
@@ -284,7 +284,7 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
 
  title: Transform.translate(
@@ -323,7 +323,7 @@ bottom: PreferredSize(
   ),
 ),
  ),
-  
+
  body: NotificationListener<ScrollNotification>(
   onNotification: (notification) {
   if (notification is ScrollUpdateNotification &&
@@ -355,7 +355,7 @@ bottom: PreferredSize(
     ),
   ),
 ),
-   
+
  const Padding(
   padding: EdgeInsets.symmetric(
     horizontal: 16,
@@ -365,8 +365,8 @@ bottom: PreferredSize(
     thickness: 0.5,
     height: 0,
   ),
-),    
-  
+),
+
       Container(
               // color: Colors.amber,
               padding: const EdgeInsets.only(left: 16,

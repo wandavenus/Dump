@@ -12,7 +12,7 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage> {
- 
+
 double _scrollOffset = 0;
 
  List ban = [
@@ -28,14 +28,14 @@ double _scrollOffset = 0;
       't3': 'Apple Music',
       'img': 'assets/2.jpg',
     },
-    
+
     {
       't1': 'ADD TO YOUR LIBRARY',
       't2': 'Soul Revival',
       't3': 'Apple Music R&B',
       'img': 'assets/4.jpg',
     }
-    
+
   ];
   List song = [
     {
@@ -77,7 +77,7 @@ double _scrollOffset = 0;
       "duration": 264,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
     }
-    
+
   ];
 
   @override
@@ -85,7 +85,7 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
     automaticallyImplyLeading: false,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
     surfaceTintColor: Colors.transparent,
 
 title: Transform.translate(
@@ -106,13 +106,13 @@ title: Transform.translate(
       ),
     ),
   ),
- ),    
+ ),
 centerTitle: false,
 
    actions: const [
   CommonActions(),
 ],
- 
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
@@ -137,7 +137,7 @@ bottom: PreferredSize(
   child: SingleChildScrollView(
         child: Column(
           children: [
-          
+
 const Padding(
   padding: EdgeInsets.fromLTRB(
     16,
@@ -762,7 +762,7 @@ const SizedBox(height: 12),
         ),
        ),
       ),
-     
+
   );
   }
 }

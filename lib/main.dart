@@ -15,6 +15,7 @@ import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/themes/apple_music_material.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pages/library_page.dart';
@@ -69,12 +70,44 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
       theme: ThemeData(
-        colorScheme: const ColorScheme.dark(),
-        scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
+        useMaterial3: false,
+        colorScheme: const ColorScheme.dark(
+          primary: AppleMusicColors.accent,
+          surface: AppleMusicColors.backgroundBottom,
+          onSurface: AppleMusicColors.primaryText,
+        ),
+        scaffoldBackgroundColor: AppleMusicColors.backgroundBottom,
+        canvasColor: Colors.transparent,
+        dividerColor: AppleMusicColors.separator,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
+          foregroundColor: AppleMusicColors.primaryText,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: AppleMusicColors.primaryText,
+            fontFamily: 'SF Pro Display',
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Colors.transparent,
+          modalBackgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppleMusicColors.backgroundTop.withOpacity(0.94),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          textStyle: const TextStyle(
+            color: AppleMusicColors.primaryText,
+            fontFamily: 'SF Pro Display',
+          ),
         ),
         fontFamily: 'SF Pro Display',
         textTheme: const TextTheme(

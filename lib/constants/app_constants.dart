@@ -11,7 +11,7 @@ class AppColors {
   static const Color white = Colors.white;
   static const Color divider = Color(0xFF48484A);
   static const Color surfaceLight = Color(0xFF1C1C1E);
-  static const Color buttonBackground = Color.fromARGB(85, 79, 79, 79);
+  static const Color buttonBackground = Color(0x24FFFFFF);
   static const Color textSecondary = Color.fromARGB(255, 186, 186, 186);
 }
 

@@ -163,7 +163,7 @@ class _ArtistPageState extends State<ArtistPage> {
           child: Container(
             width: 500,
             height: 900, //main height adjust
-            color: Colors.black,
+            color: Colors.transparent,
             margin: const EdgeInsets.all(0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../themes/apple_music_material.dart';
+
 class WebView extends StatelessWidget {
   final Widget? child;
   final double? innerContainerHeight;
@@ -21,50 +23,39 @@ class WebView extends StatelessWidget {
     this.shadowColor = Colors.black54,
     this.shadowBlurRadius = 10.0,
     this.shadowSpreadRadius = 0.0,
-    this.innerContainerColor = Colors.black87,
+    this.innerContainerColor = Colors.transparent,
     this.borderRadius = 0.0,
     this.padding = EdgeInsets.zero,
     this.gradientColors = const [
-      Color(0xff536976),
-      Color(0xff292e49),
+      AppleMusicColors.backgroundTop,
+      AppleMusicColors.backgroundBottom,
     ],
-    this.gradientStops = const [
-      0,
-      1
-    ],
+    this.gradientStops = const [0, 1],
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: gradientColors,
-            stops: gradientStops,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+      backgroundColor: AppleMusicColors.backgroundBottom,
+      body: AppleMusicPageBackground(
         child: Center(
           child: Padding(
             padding: padding,
             child: Container(
               height: double.infinity,
- width: double.infinity,
+              width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.all(
                   Radius.circular(borderRadius),
                 ),
                 color: innerContainerColor,
-                ),
+              ),
               child: ClipRRect(
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(borderRadius),
-                  ),
-                  child: child),
+                borderRadius: BorderRadius.all(
+                  Radius.circular(borderRadius),
+                ),
+                child: child,
+              ),
             ),
           ),
         ),

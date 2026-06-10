@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/local_song.dart';
 import '../pages/music_player.dart';
 import '../services/audio_service.dart';
+import '../themes/apple_music_material.dart';
 import 'song_artwork.dart';
 
 class MiniPlayer extends StatelessWidget {
@@ -39,43 +40,67 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
 
-    return Material(
-      color: const Color(0xFF1C1C1E),
-      child: InkWell(
-        onTap: () => _openFullPlayer(context),
-        child: SizedBox(
-          height: 55,
+    return AppleMusicMaterial(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      height: 64,
+      borderRadius: BorderRadius.circular(24),
+      style: AppleMusicMaterialStyle.prominent,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => _openFullPlayer(context),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
             child: Row(
               children: [
                 Hero(
                   tag: PlayerHeroTags.artwork(song),
                   child: SongArtwork(
                     songId: song.id,
-                    size: 46,
-                    borderRadius: BorderRadius.circular(3),
+                    size: 48,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Hero(
                     tag: PlayerHeroTags.title(song),
                     child: Material(
                       type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            song.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppleMusicColors.primaryText,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            song.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppleMusicColors.secondaryText,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   onPressed: playbackState.isLoading
                       ? null
                       : () {
@@ -84,17 +109,20 @@ class _MiniPlayerBody extends StatelessWidget {
                               : AudioService.play();
                         },
                   icon: Icon(
-                    playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
+                    playbackState.isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
                     size: 34,
                     color: Colors.white,
                   ),
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   onPressed: canGoNext ? () => AudioService.skipNext() : null,
                   icon: Icon(
-                    Icons.skip_next,
+                    Icons.skip_next_rounded,
                     size: 30,
-                    color: canGoNext ? Colors.white : Colors.white24,
+                    color: canGoNext ? Colors.white : Colors.white30,
                   ),
                 ),
               ],

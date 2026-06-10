@@ -1,18 +1,12 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
-import '../services/audio_service.dart';
-import 'package:musicplayer/widgets/mini_player.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
-import 'package:musicplayer/pages/artist_list.dart';
 import 'package:musicplayer/pages/browse_page.dart';
 import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
-import 'package:musicplayer/pages/music_list.dart';
 import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';
-import 'package:musicplayer/themes/theme_controller.dart';
+import 'package:musicplayer/widgets/mini_player.dart';
 
 class FirstPage extends StatefulWidget {
   const FirstPage({super.key});
@@ -22,77 +16,82 @@ class FirstPage extends StatefulWidget {
 }
 
 class _FirstPageState extends State<FirstPage> {
-  int _selected_index = 0;
+  int _selectedIndex = 0;
 
-  void _navgateBottomBar(int index) {
+  void _navigateBottomBar(int index) {
     setState(() {
-      _selected_index = index;
+      _selectedIndex = index;
     });
   }
 
-  final List _pages = [
-    const HomePage(),
-    const BrowsePage(),
-    const RadioPage(),
-    const LibraryPage(),
-    const SearchPage(),
+  final List<Widget> _pages = const [
+    HomePage(),
+    BrowsePage(),
+    RadioPage(),
+    LibraryPage(),
+    SearchPage(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.glassTheme,
-      builder: (context, isGlass, _) {
-        final navBar = Theme(
-          data: Theme.of(context).copyWith(
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
+    final navBar = Theme(
+      data: Theme.of(context).copyWith(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+      ),
+      child: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedIndex,
+        onTap: _navigateBottomBar,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_filled, size: 26),
+            label: 'Beranda',
           ),
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            currentIndex: _selected_index,
-            onTap: _navgateBottomBar,
-            items: [
-              const BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
-              const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
-              const BottomNavigationBarItem(icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
-              const BottomNavigationBarItem(icon: Icon(Icons.subscriptions_rounded, size: 26), label: 'Perpustakaan'),
-              const BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
-            ],
-            elevation: 0,
-            selectedLabelStyle: const TextStyle(color: Colors.white),
-            selectedItemColor: const Color(0xFFF92D48),
-            unselectedItemColor: Colors.grey,
-            showUnselectedLabels: true,
-            backgroundColor: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
-            unselectedFontSize: 11.0,
-            selectedFontSize: 11.0,
+          BottomNavigationBarItem(
+            icon: Icon(Icons.grid_view_rounded, size: 26),
+            label: 'Baru',
           ),
-        );
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sensors, size: 26),
+            label: 'Radio',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.subscriptions_rounded, size: 26),
+            label: 'Perpustakaan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search, size: 26),
+            label: 'Cari',
+          ),
+        ],
+        elevation: 0,
+        selectedLabelStyle: const TextStyle(color: Colors.white),
+        selectedItemColor: const Color(0xFFFF2D55),
+        unselectedItemColor: Colors.white60,
+        showUnselectedLabels: true,
+        backgroundColor: Colors.transparent,
+        unselectedFontSize: 11,
+        selectedFontSize: 11,
+      ),
+    );
 
-        return Scaffold(
-          extendBody: false,
-          body: IndexedStack(
-            index: _selected_index,
-            children: _pages.cast<Widget>(),
+    return Scaffold(
+      extendBody: true,
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayer(),
+          SizedBox(
+            height: 72,
+            child: GlassNavBar(child: navBar),
           ),
-          bottomNavigationBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const MiniPlayer(),
-              if (!isGlass)
-                Container(
-                  height: 1.5,
-                  color: const Color(0xFF38383A),
-                ),
-              SizedBox(
-                height: 70,
-                child: isGlass ? GlassNavBar(child: navBar) : navBar,
-              ),
-            ],
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

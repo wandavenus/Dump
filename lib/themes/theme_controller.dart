@@ -9,7 +9,7 @@ class ThemeController {
     final prefs = await SharedPreferences.getInstance();
 
     glassTheme.value =
-        prefs.getBool('glass_theme') ?? false;
+        prefs.getBool('glass_theme') ?? true;
   }
 
   static Future<void> setGlassTheme(

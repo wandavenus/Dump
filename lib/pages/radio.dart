@@ -10,11 +10,11 @@ class RadioPage extends StatefulWidget {
 }
 
 class _RadioPageState extends State<RadioPage> {
- 
+
 double _scrollOffset = 0;
 
- List radio = [  
-  
+ List radio = [
+
     {
       'text1': 'Music Hits',
       'text2': 'Songs you know and love',
@@ -42,7 +42,7 @@ double _scrollOffset = 0;
       "artist": "Marsmello",
       "song": ""
     },
-    
+
   ];
   List song = [
     {
@@ -70,8 +70,8 @@ double _scrollOffset = 0;
       "totalTrackCount": 13,
       "duration": 267,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
-    },  
-    
+    },
+
   ];
 
   @override
@@ -79,7 +79,7 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
 
 title: Transform.translate(
@@ -107,7 +107,7 @@ centerTitle: false,
   actions: const [
   CommonActions(),
 ],
-    
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
@@ -161,8 +161,8 @@ const Padding(
   ),
 ),
 
-const SizedBox(height: 12),    
- 
+const SizedBox(height: 12),
+
 Container(
             // height: 600,
             child: Column(children: [
@@ -186,14 +186,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -274,7 +274,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -310,14 +310,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -393,7 +393,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -429,14 +429,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -512,7 +512,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -611,7 +611,7 @@ Container(
                       ],
                     ),
                   ),
-                 
+
                 );
               },
             ),
@@ -619,7 +619,7 @@ Container(
         ],
       ),
     ),
-  ), 
+  ),
  );
   }
 }
