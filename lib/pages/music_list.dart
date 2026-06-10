@@ -4,7 +4,7 @@ import 'package:musicplayer/widgets/common_actions.dart';
 import '../models/local_song.dart';
 import '../services/media_store_service.dart';
 import '../widgets/song_artwork.dart';
-import 'music_player.dart';
+import '../widgets/now_playing/now_playing_components.dart';
 
 class MusicList extends StatefulWidget {
   const MusicList({super.key});

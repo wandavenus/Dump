@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
 import '../pages/music_player.dart';
 import '../services/audio_service.dart';
-import 'song_artwork.dart';
+import '../themes/theme_controller.dart';
+import 'now_playing/now_playing_components.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
@@ -16,9 +19,21 @@ class MiniPlayer extends StatelessWidget {
         final song = playbackState.currentSong;
         if (song == null) return const SizedBox.shrink();
 
-        return _MiniPlayerBody(
-          song: song,
-          playbackState: playbackState,
+        return ValueListenableBuilder<bool>(
+          valueListenable: ThemeController.glassTheme,
+          builder: (context, isGlass, _) {
+            return DynamicArtworkPalette(
+              song: song,
+              isGlass: isGlass,
+              builder: (context, theme) {
+                return _MiniPlayerBody(
+                  song: song,
+                  playbackState: playbackState,
+                  theme: theme,
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -28,74 +43,64 @@ class MiniPlayer extends StatelessWidget {
 class _MiniPlayerBody extends StatelessWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
+  final NowPlayingThemeData theme;
 
   const _MiniPlayerBody({
     required this.song,
     required this.playbackState,
+    required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canGoNext =
-        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
+    final horizontal = theme.isGlass ? 12.0 : 8.0;
 
-    return Material(
-      color: const Color(0xFF1C1C1E),
-      child: InkWell(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, theme.isGlass ? 8 : 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _openFullPlayer(context),
-        child: SizedBox(
-          height: 55,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity < -260) _openFullPlayer(context);
+        },
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.98, end: 1),
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutBack,
+          builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+          child: GlassSurface(
+            theme: theme,
+            strong: theme.isGlass,
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+            borderRadius: BorderRadius.circular(theme.isGlass ? 26 : 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Hero(
-                  tag: PlayerHeroTags.artwork(song),
-                  child: SongArtwork(
-                    songId: song.id,
-                    size: 46,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Hero(
-                    tag: PlayerHeroTags.title(song),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                        ),
+                Row(
+                  children: [
+                    NowPlayingArtwork(song: song, size: 46, theme: theme, expansion: 0),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: NowPlayingMetadata(
+                        song: song,
+                        theme: theme,
+                        titleSize: 15.5,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    NowPlayingTransportControls(
+                      playbackState: playbackState,
+                      theme: theme,
+                      compact: true,
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: playbackState.isLoading
-                      ? null
-                      : () {
-                          playbackState.isPlaying
-                              ? AudioService.pause()
-                              : AudioService.play();
-                        },
-                  icon: Icon(
-                    playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 34,
-                    color: Colors.white,
-                  ),
-                ),
-                IconButton(
-                  onPressed: canGoNext ? () => AudioService.skipNext() : null,
-                  icon: Icon(
-                    Icons.skip_next,
-                    size: 30,
-                    color: canGoNext ? Colors.white : Colors.white24,
-                  ),
+                const SizedBox(height: 7),
+                NowPlayingProgress(
+                  theme: theme,
+                  formatTime: _formatTime,
+                  compact: true,
                 ),
               ],
             ),
@@ -105,32 +110,48 @@ class _MiniPlayerBody extends StatelessWidget {
     );
   }
 
+  String _formatTime(Duration duration) {
+    final safeDuration = duration.isNegative ? Duration.zero : duration;
+    final minutes = safeDuration.inMinutes.remainder(60);
+    final seconds = safeDuration.inSeconds.remainder(60);
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   void _openFullPlayer(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         opaque: false,
-        barrierColor: Colors.black54,
-        transitionDuration: const Duration(milliseconds: 360),
-        reverseTransitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return const MusicPlayer();
-        },
+        barrierColor: Colors.black.withOpacity(0.52),
+        transitionDuration: const Duration(milliseconds: 520),
+        reverseTransitionDuration: const Duration(milliseconds: 360),
+        pageBuilder: (context, animation, secondaryAnimation) => const MusicPlayer(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curvedAnimation = CurvedAnimation(
+          final curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeOutCubic,
             reverseCurve: Curves.easeInCubic,
           );
-
-          return FadeTransition(
-            opacity: curvedAnimation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.04),
-                end: Offset.zero,
-              ).animate(curvedAnimation),
-              child: child,
-            ),
+          return AnimatedBuilder(
+            animation: curved,
+            builder: (context, _) {
+              final value = curved.value;
+              return BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: lerpDouble(0, 10, value)!,
+                  sigmaY: lerpDouble(0, 10, value)!,
+                ),
+                child: FadeTransition(
+                  opacity: curved,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.10),
+                      end: Offset.zero,
+                    ).animate(curved),
+                    child: child,
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
