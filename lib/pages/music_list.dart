@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 
 import '../models/local_song.dart';
@@ -33,6 +34,9 @@ class _MusicListState extends State<MusicList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const AppleMusicBarBackground(),
         automaticallyImplyLeading: false,
         titleSpacing: 16,
         title: const Text(

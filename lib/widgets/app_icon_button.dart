@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class CommonActions extends StatelessWidget {
   const CommonActions({super.key});
@@ -14,7 +15,7 @@ class CommonActions extends StatelessWidget {
             onPressed: () {},
             icon: const Icon(
               Icons.cast_outlined,
-              color: Color(0xFFF92D48),
+              color: AppleMusicColors.accent,
               size: 24,
             ),
           ),
@@ -24,7 +25,7 @@ class CommonActions extends StatelessWidget {
           child: PopupMenuButton<String>(
             icon: const Icon(
               Icons.more_vert,
-              color: Color(0xFFF92D48),
+              color: AppleMusicColors.accent,
               size: 24,
             ),
             itemBuilder: (context) => [

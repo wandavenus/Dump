@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class WebView extends StatelessWidget {
   final Widget? child;
@@ -21,16 +22,18 @@ class WebView extends StatelessWidget {
     this.shadowColor = Colors.black54,
     this.shadowBlurRadius = 10.0,
     this.shadowSpreadRadius = 0.0,
-    this.innerContainerColor = Colors.black87,
+    this.innerContainerColor = Colors.transparent,
     this.borderRadius = 0.0,
     this.padding = EdgeInsets.zero,
     this.gradientColors = const [
-      Color(0xff536976),
-      Color(0xff292e49),
+      Color(0xFF130A10),
+      AppleMusicColors.background,
+      Color(0xFF09090D),
     ],
     this.gradientStops = const [
       0,
-      1
+      0.42,
+      1,
     ],
   });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class AppButton extends StatelessWidget {
   final String label;
@@ -38,14 +39,14 @@ class AppButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: iconColor ?? const Color(0xFFF92D48),
+              color: iconColor ?? AppleMusicColors.accent,
               size: 30,
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: textColor ?? const Color(0xFFF92D48),
+                color: textColor ?? AppleMusicColors.accent,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),

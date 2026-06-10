@@ -1,16 +1,12 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
-import '../services/audio_service.dart';
 import 'package:musicplayer/widgets/mini_player.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
-import 'package:musicplayer/pages/artist_list.dart';
 import 'package:musicplayer/pages/browse_page.dart';
 import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
-import 'package:musicplayer/pages/music_list.dart';
 import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
@@ -60,18 +56,23 @@ class _FirstPageState extends State<FirstPage> {
               const BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
             ],
             elevation: 0,
-            selectedLabelStyle: const TextStyle(color: Colors.white),
-            selectedItemColor: const Color(0xFFF92D48),
-            unselectedItemColor: Colors.grey,
+            selectedLabelStyle: const TextStyle(
+              color: AppleMusicColors.label,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+            selectedItemColor: AppleMusicColors.accent,
+            unselectedItemColor: AppleMusicColors.tertiaryLabel,
             showUnselectedLabels: true,
-            backgroundColor: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
+            backgroundColor: Colors.transparent,
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
         );
 
         return Scaffold(
-          extendBody: false,
+          backgroundColor: AppleMusicColors.background,
+          extendBody: true,
           body: IndexedStack(
             index: _selected_index,
             children: _pages.cast<Widget>(),
@@ -80,14 +81,16 @@ class _FirstPageState extends State<FirstPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const MiniPlayer(),
-              if (!isGlass)
-                Container(
-                  height: 1.5,
-                  color: const Color(0xFF38383A),
-                ),
               SizedBox(
                 height: 70,
-                child: isGlass ? GlassNavBar(child: navBar) : navBar,
+                child: isGlass
+                    ? GlassNavBar(child: navBar)
+                    : AppleMusicMaterial(
+                        style: AppleMusicMaterialStyle.regular,
+                        borderRadius: BorderRadius.zero,
+                        showShadow: false,
+                        child: navBar,
+                      ),
               ),
             ],
           ),

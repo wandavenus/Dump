@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:flutter/widgets.dart';
 
 class BrowsePage extends StatefulWidget {
@@ -12,7 +13,7 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage> {
- 
+
 double _scrollOffset = 0;
 
  List ban = [
@@ -28,14 +29,14 @@ double _scrollOffset = 0;
       't3': 'Apple Music',
       'img': 'assets/2.jpg',
     },
-    
+
     {
       't1': 'ADD TO YOUR LIBRARY',
       't2': 'Soul Revival',
       't3': 'Apple Music R&B',
       'img': 'assets/4.jpg',
     }
-    
+
   ];
   List song = [
     {
@@ -77,7 +78,7 @@ double _scrollOffset = 0;
       "duration": 264,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
     }
-    
+
   ];
 
   @override
@@ -85,8 +86,9 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
     automaticallyImplyLeading: false,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
     surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
 
 title: Transform.translate(
   offset: Offset(
@@ -106,20 +108,20 @@ title: Transform.translate(
       ),
     ),
   ),
- ),    
+ ),
 centerTitle: false,
 
    actions: const [
   CommonActions(),
 ],
- 
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
     opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
     child: Container(
       height: 0.9,
-      color: const Color(0xFF48484A),
+      color: AppleMusicColors.separator,
     ),
   ),
 ),
@@ -137,7 +139,7 @@ bottom: PreferredSize(
   child: SingleChildScrollView(
         child: Column(
           children: [
-          
+
 const Padding(
   padding: EdgeInsets.fromLTRB(
     16,
@@ -162,7 +164,7 @@ const Padding(
     horizontal: 16,
   ),
   child: Divider(
-    color: Color(0xFF48484A),
+    color: AppleMusicColors.separator,
     thickness: 0.5,
     height: 0,
   ),
@@ -762,7 +764,7 @@ const SizedBox(height: 12),
         ),
        ),
       ),
-     
+
   );
   }
 }

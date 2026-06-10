@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -7,10 +8,11 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
         title: const Text('Pengaturan'),
       ),
       body: ValueListenableBuilder<bool>(

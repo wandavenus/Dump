@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/media_store_service.dart';
+import '../themes/apple_music_blur.dart';
 import '../widgets/song_artwork.dart';
 
 class PlayerHeroTags {
@@ -99,7 +100,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
         final song = playbackState.currentSong;
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: AppleMusicColors.background,
           extendBodyBehindAppBar: true,
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -112,21 +113,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _AnimatedBlurredPlayerBackground(
-  songId: song?.id ?? 0,
-),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color.fromARGB(55, 0, 0, 0),
-                          Color.fromARGB(230, 0, 0, 0),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _AnimatedBlurredPlayerBackground(songId: song?.id ?? 0),
                   SafeArea(
                     child: song == null
                         ? const _EmptyPlayerState()
@@ -167,11 +154,11 @@ class _PlayerContent extends StatelessWidget {
 
     return Column(
       children: [
-        
+
         Expanded(
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 30),
             child: Column(
               children: [
                 const SizedBox(height: 18),
@@ -182,25 +169,26 @@ class _PlayerContent extends StatelessWidget {
                     type: MaterialType.transparency,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppleMusicRadii.artwork),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color.fromARGB(80, 0, 0, 0),
-                            blurRadius: 28,
-                            offset: Offset(0, 16),
+                            color: Color(0x66000000),
+                            blurRadius: 42,
+                            offset: Offset(0, 24),
                           ),
                         ],
                       ),
                       child: SongArtwork(
-  songId: song.id,
-  size: coverSize,
-                        
-                        borderRadius: BorderRadius.circular(12),
+                        songId: song.id,
+                        size: coverSize,
+                        borderRadius: BorderRadius.circular(
+                          AppleMusicRadii.artwork,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 42),
+                const SizedBox(height: 38),
                 _SongHeader(song: song),
                 const SizedBox(height: 22),
                 _ProgressSection(formatTime: formatTime),
@@ -265,9 +253,10 @@ class _SongHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppleMusicColors.label,
                       fontWeight: FontWeight.w700,
-                      fontSize: 24,
+                      fontSize: 25,
+                      letterSpacing: -0.4,
                     ),
                   ),
                 ),
@@ -278,7 +267,7 @@ class _SongHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Colors.white70,
+                  color: AppleMusicColors.secondaryLabel,
                   fontSize: 18,
                   fontWeight: FontWeight.w400,
                 ),
@@ -287,15 +276,11 @@ class _SongHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-        Container(
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color.fromARGB(135, 100, 100, 100),
-          ),
-          child: IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_horiz_rounded),
-            color: Colors.white,
+        AppleMusicIconMaterial(
+          onTap: () {},
+          child: const Icon(
+            Icons.more_horiz_rounded,
+            color: AppleMusicColors.label,
           ),
         ),
       ],
@@ -343,16 +328,16 @@ class _ProgressSection extends StatelessWidget {
           children: [
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                trackHeight: 5,
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0xFF505050),
+                trackHeight: 4,
+                activeTrackColor: AppleMusicColors.label,
+                inactiveTrackColor: Colors.white.withOpacity(0.18),
                 thumbShape: const RoundSliderThumbShape(
                   enabledThumbRadius: 5,
                   elevation: 0,
                   pressedElevation: 0,
                 ),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                overlayColor: Colors.white24,
+                overlayColor: Colors.white.withOpacity(0.16),
               ),
               child: Slider(
                 min: 0,
@@ -375,7 +360,7 @@ class _ProgressSection extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.white70,
+                      color: AppleMusicColors.secondaryLabel,
                     ),
                   ),
                   Text(
@@ -383,7 +368,7 @@ class _ProgressSection extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.white70,
+                      color: AppleMusicColors.secondaryLabel,
                     ),
                   ),
                 ],
@@ -414,7 +399,7 @@ class _TransportControls extends StatelessWidget {
           icon: Icon(
             Icons.fast_rewind_rounded,
             size: 64,
-            color: canGoPrevious ? Colors.white : Colors.white24,
+            color: canGoPrevious ? AppleMusicColors.label : AppleMusicColors.tertiaryLabel,
           ),
           onPressed: canGoPrevious ? () => AudioService.skipPrevious() : null,
         ),
@@ -425,7 +410,7 @@ class _TransportControls extends StatelessWidget {
                 ? Icons.pause_rounded
                 : Icons.play_arrow_rounded,
             size: 76,
-            color: Colors.white,
+            color: AppleMusicColors.label,
           ),
           onPressed: playbackState.isLoading
               ? null
@@ -440,7 +425,7 @@ class _TransportControls extends StatelessWidget {
           icon: Icon(
             Icons.fast_forward_rounded,
             size: 64,
-            color: canGoNext ? Colors.white : Colors.white24,
+            color: canGoNext ? AppleMusicColors.label : AppleMusicColors.tertiaryLabel,
           ),
           onPressed: canGoNext ? () => AudioService.skipNext() : null,
         ),
@@ -458,7 +443,12 @@ class _SecondaryControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
+      child: AppleMusicMaterial(
+        style: AppleMusicMaterialStyle.ultraThin,
+        borderRadius: BorderRadius.circular(AppleMusicRadii.floating),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+        showShadow: false,
+        child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
@@ -470,6 +460,7 @@ class _SecondaryControls extends StatelessWidget {
             icon: const Icon(CupertinoIcons.list_bullet, size: 26),
           ),
         ],
+        ),
       ),
     );
   }
@@ -478,7 +469,7 @@ class _SecondaryControls extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return _BottomSheetScaffold(
           title: 'Lyrics',
@@ -498,7 +489,7 @@ class _SecondaryControls extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return _BottomSheetScaffold(
           title: 'Queue',
@@ -524,7 +515,7 @@ class _SecondaryControls extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: isCurrent
-                        ? const Icon(Icons.equalizer, color: Color(0xFFF92D48))
+                        ? const Icon(Icons.equalizer, color: AppleMusicColors.accent)
                         : null,
                   );
                 },
@@ -550,31 +541,41 @@ class _BottomSheetScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.75,
-        child: Padding(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: AppleMusicMaterial(
+          style: AppleMusicMaterialStyle.prominent,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppleMusicRadii.sheet),
+            bottom: Radius.circular(AppleMusicRadii.card),
+          ),
           padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.75,
+            child: Column(
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.28),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppleMusicColors.label,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(child: child),
-            ],
+                const SizedBox(height: 20),
+                Expanded(child: child),
+              ],
+            ),
           ),
         ),
       ),
@@ -595,7 +596,7 @@ class _EmptyPlayerState extends StatelessWidget {
           const SizedBox(height: 16),
           const Text(
             'No song selected',
-            style: TextStyle(color: Colors.white70, fontSize: 18),
+            style: TextStyle(color: AppleMusicColors.secondaryLabel, fontSize: 18),
           ),
           const SizedBox(height: 24),
           TextButton(
@@ -674,28 +675,7 @@ class _BlurredArtworkBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final cacheWidth = (width * MediaQuery.of(context).devicePixelRatio / 2).round();
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Transform.scale(
-          scale: 1.16,
-          child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-            child: Image.memory(
-              artwork,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              cacheWidth: cacheWidth,
-              filterQuality: FilterQuality.low,
-            ),
-          ),
-        ),
-        const ColoredBox(color: Color.fromARGB(130, 0, 0, 0)),
-      ],
-    );
+    return AppleMusicArtworkBackground(artwork: artwork);
   }
 }
 
@@ -704,18 +684,6 @@ class _PlayerFallbackBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2A2A2E),
-            Color(0xFF111113),
-            Color(0xFF000000),
-          ],
-        ),
-      ),
-    );
+    return const AppleMusicArtworkBackground();
   }
 }

@@ -2,6 +2,7 @@ import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:flutter/widgets.dart';
 import 'package:musicplayer/webView/webViewContainer.dart';
 
@@ -13,7 +14,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
- 
+
 double _scrollOffset = 0;
 
  List TopPicks = [
@@ -95,7 +96,7 @@ double _scrollOffset = 0;
       "duration": 264,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
     },
-    
+
     {
       "id": "spatial_01",
       "title": "Pre-game marching band",
@@ -148,7 +149,7 @@ double _scrollOffset = 0;
       "duration": 296,
       "site": "https://library.soundfield.com/track/65"
     }
-    
+
   ];
   List Artist = [
     [
@@ -284,8 +285,9 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
 
  title: Transform.translate(
   offset: Offset(
@@ -318,12 +320,12 @@ bottom: PreferredSize(
     opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
     child: Container(
       height: 0.9,
-      color: const Color(0xFF48484A),
+      color: AppleMusicColors.separator,
     ),
   ),
 ),
  ),
-  
+
  body: NotificationListener<ScrollNotification>(
   onNotification: (notification) {
   if (notification is ScrollUpdateNotification &&
@@ -355,18 +357,18 @@ bottom: PreferredSize(
     ),
   ),
 ),
-   
+
  const Padding(
   padding: EdgeInsets.symmetric(
     horizontal: 16,
   ),
   child: Divider(
-    color: Color(0xFF48484A),
+    color: AppleMusicColors.separator,
     thickness: 0.5,
     height: 0,
   ),
-),    
-  
+),
+
       Container(
               // color: Colors.amber,
               padding: const EdgeInsets.only(left: 16,

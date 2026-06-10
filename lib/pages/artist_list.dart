@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class ArtistList extends StatefulWidget {
   const ArtistList({super.key});
@@ -142,6 +143,9 @@ class _ArtistListState extends State<ArtistList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const AppleMusicBarBackground(),
         title: const Text(
           "           Favourite Artist",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
@@ -149,7 +153,7 @@ class _ArtistListState extends State<ArtistList> {
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.red,
+            color: AppleMusicColors.accent,
           ), // replace with your desired icon
           onPressed: () {
             Navigator.of(context).pop(); // go back to the previous page when the icon is pressed
@@ -180,7 +184,7 @@ class _ArtistListState extends State<ArtistList> {
                           children: [
                             const Icon(
                               Icons.star,
-                              color: Colors.red,
+                              color: AppleMusicColors.accent,
                               size: 15,
                             ),
                             const SizedBox(

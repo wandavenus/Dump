@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:flutter/widgets.dart';
 
 class ArtistPage extends StatefulWidget {
@@ -163,7 +164,7 @@ class _ArtistPageState extends State<ArtistPage> {
           child: Container(
             width: 500,
             height: 900, //main height adjust
-            color: Colors.black,
+            color: AppleMusicColors.background,
             margin: const EdgeInsets.all(0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -197,7 +198,7 @@ class _ArtistPageState extends State<ArtistPage> {
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(100),
-                                    color: const Color(0xFFF92D48),
+                                    color: AppleMusicColors.accent,
                                   ),
                                   child: const Icon(
                                     Icons.play_arrow_rounded,

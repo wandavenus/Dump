@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class AlbumPage extends StatefulWidget {
   const AlbumPage({super.key});
@@ -213,7 +214,7 @@ class _AlbumPageState extends State<AlbumPage> {
                       child: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
-                        color: Colors.red,
+                        color: AppleMusicColors.accent,
                       ),
                     ),
                   ),
@@ -228,7 +229,7 @@ class _AlbumPageState extends State<AlbumPage> {
                         child: const Icon(
                           Icons.add,
                           size: 20,
-                          color: Colors.red,
+                          color: AppleMusicColors.accent,
                         ),
                       ),
                       const SizedBox(
@@ -243,7 +244,7 @@ class _AlbumPageState extends State<AlbumPage> {
                         child: const Icon(
                           Icons.more_horiz,
                           size: 20,
-                          color: Colors.red,
+                          color: AppleMusicColors.accent,
                         ),
                       ),
                     ],
@@ -273,7 +274,7 @@ class _AlbumPageState extends State<AlbumPage> {
                   ),
                   Text(
                     TopPicks[currentIndex]['artist'],
-                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red),
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: AppleMusicColors.accent),
                   ),
                   const Text(
                     "SoundTrack • 2024 • Lossless",
@@ -297,12 +298,12 @@ class _AlbumPageState extends State<AlbumPage> {
                       children: [
                         Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.red,
+                          color: AppleMusicColors.accent,
                           size: 30,
                         ),
                         Text(
                           "Play",
-                          style: TextStyle(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppleMusicColors.accent, fontSize: 20, fontWeight: FontWeight.bold),
                         )
                       ],
                     ),
@@ -316,12 +317,12 @@ class _AlbumPageState extends State<AlbumPage> {
                       children: [
                         Icon(
                           Icons.shuffle_rounded,
-                          color: Colors.red,
+                          color: AppleMusicColors.accent,
                           size: 30,
                         ),
                         Text(
                           "Shuffle",
-                          style: TextStyle(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppleMusicColors.accent, fontSize: 20, fontWeight: FontWeight.bold),
                         )
                       ],
                     ),

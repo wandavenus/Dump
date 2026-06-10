@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
@@ -10,11 +11,11 @@ class RadioPage extends StatefulWidget {
 }
 
 class _RadioPageState extends State<RadioPage> {
- 
+
 double _scrollOffset = 0;
 
- List radio = [  
-  
+ List radio = [
+
     {
       'text1': 'Music Hits',
       'text2': 'Songs you know and love',
@@ -42,7 +43,7 @@ double _scrollOffset = 0;
       "artist": "Marsmello",
       "song": ""
     },
-    
+
   ];
   List song = [
     {
@@ -70,8 +71,8 @@ double _scrollOffset = 0;
       "totalTrackCount": 13,
       "duration": 267,
       "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
-    },  
-    
+    },
+
   ];
 
   @override
@@ -79,8 +80,9 @@ double _scrollOffset = 0;
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
 
 title: Transform.translate(
   offset: Offset(
@@ -107,14 +109,14 @@ centerTitle: false,
   actions: const [
   CommonActions(),
 ],
-    
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Opacity(
     opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
     child: Container(
       height: 0.9,
-      color: const Color(0xFF48484A),
+      color: AppleMusicColors.separator,
     ),
   ),
 ),
@@ -155,14 +157,14 @@ const Padding(
     horizontal: 16,
   ),
   child: Divider(
-    color: Color(0xFF48484A),
+    color: AppleMusicColors.separator,
     thickness: 0.5,
     height: 0,
   ),
 ),
 
-const SizedBox(height: 12),    
- 
+const SizedBox(height: 12),
+
 Container(
             // height: 600,
             child: Column(children: [
@@ -186,14 +188,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[0]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -274,7 +276,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -310,14 +312,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[1]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -393,7 +395,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -429,14 +431,14 @@ Container(
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    
+
                                     Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text1'], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 Container(margin: const EdgeInsets.only(left: 16), child: Text(radio[2]['text2'], style: const TextStyle(color: Colors.grey, fontSize: 15))),
                               ],
                             ),
-                            
+
                           ],
                         ),
                         Container(
@@ -512,7 +514,7 @@ Container(
                                                 ),
                                               ],
                                             ),
-                                            
+
                                           ],
                                         ),
                                       )
@@ -611,7 +613,7 @@ Container(
                       ],
                     ),
                   ),
-                 
+
                 );
               },
             ),
@@ -619,7 +621,7 @@ Container(
         ],
       ),
     ),
-  ), 
+  ),
  );
   }
 }

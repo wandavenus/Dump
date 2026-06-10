@@ -1,6 +1,7 @@
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 // import 'package:icons_flutter/icons_flutter.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -17,8 +18,9 @@ class _LibraryPageState extends State<LibraryPage> {
     return Scaffold(
       appBar: AppBar(
   automaticallyImplyLeading: false,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
 
 title: const SizedBox.shrink(),
 centerTitle: false,
@@ -27,12 +29,12 @@ centerTitle: false,
     CommonActions(),
   ],
 
-    
+
 bottom: PreferredSize(
   preferredSize: const Size.fromHeight(0.5),
   child: Container(
     height: 0.9,
-    color: Colors.transparent,
+    color: AppleMusicColors.separator,
   ),
 ),
 ),
@@ -66,7 +68,7 @@ Padding(
     child: const Text(
       "Edit",
       style: TextStyle(
-        color: Color(0xFFF92D48),
+        color: AppleMusicColors.accent,
         fontSize: 17,
       ),
     ),
@@ -82,12 +84,12 @@ Padding(
     right: 0,
   ),
   child: const Divider(
-    color: Color(0xFF38383A),
+    color: AppleMusicColors.separator,
     thickness: 0.5,
     height: 0,
   ),
 ),
-        
+
 const SizedBox(height: 9),
 
      Column(
@@ -102,7 +104,7 @@ const SizedBox(height: 9),
         children: [
           Icon(
             CupertinoIcons.music_note_list,
-            color: Color(0xFFF92D48),
+            color: AppleMusicColors.accent,
             size: 28,
           ),
           SizedBox(width: 11),
@@ -117,18 +119,20 @@ const SizedBox(height: 9),
       ),
     ),
     const Divider(
-      color: Color(0xFF38383A),
+      color: AppleMusicColors.separator,
       thickness: 0.5,
       indent: 38,
       endIndent: 0,
     ),
   ],
-),                      
-         
-           Column(
-  children: [
-    Padding(
-      padding: const EdgeInsets.only(
+),
+
+
+            color: AppleMusicColors.accent,
+      color: AppleMusicColors.separator,
+),
+
+
     left: 8,
     top: 2,
     bottom: 2,
@@ -136,36 +140,36 @@ const SizedBox(height: 9),
       child: Row(
         children: [
           Icon(
-            CupertinoIcons.mic,
-            color: Color(0xFFF92D48),
-            size: 28,
-          ),
-          SizedBox(width: 11),
-          Text(
-            "Artis",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+            color: AppleMusicColors.accent,
+      color: AppleMusicColors.separator,
+),
+
+
+
+              color: AppleMusicColors.accent,
+        color: AppleMusicColors.separator,
+),
+            color: AppleMusicColors.accent,
             ),
           ),
         ],
       ),
     ),
     const Divider(
-      color: Color(0xFF38383A),
+      color: AppleMusicColors.separator,
       thickness: 0.5,
       indent: 38,
       endIndent: 0,
     ),
   ],
 ),
-                
-              
-              Column(
-  children: [
-    Padding(
-      padding: const EdgeInsets.only(
-    left: 8,
+ ],
+        ),
+        ),
+      ),
+    );
+  }
+}
     top: 2,
     bottom: 2,
   ),

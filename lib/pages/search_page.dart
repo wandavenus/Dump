@@ -1,6 +1,7 @@
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/apple_music_blur.dart';
 import 'package:flutter/widgets.dart';
 
 class SearchPage extends StatefulWidget {
@@ -11,7 +12,7 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  
+
 double _scrollOffset = 0;
 
 List<Map<String, dynamic>> BrowseCat = [
@@ -42,7 +43,7 @@ List<Map<String, dynamic>> BrowseCat = [
     {
       "image": "assets/images/search/klasik.webp",
       "title": "Classical"
-    }, 
+    },
     {
       "image": "assets/images/search/metal.webp",
       "title": "Metal"
@@ -83,7 +84,7 @@ List<Map<String, dynamic>> BrowseCat = [
       "image": "assets/images/search/dance.webp",
       "title": "Dance"
     },
-   
+
    ];
 
 @override
@@ -100,9 +101,10 @@ List<Map<String, dynamic>> BrowseCat = [
         slivers: [
   SliverAppBar(
   pinned: true,
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.transparent,
   automaticallyImplyLeading: false,
   surfaceTintColor: Colors.transparent,
+  flexibleSpace: const AppleMusicBarBackground(),
   title: Transform.translate(
   offset: Offset(
     0,
@@ -129,7 +131,7 @@ bottom: PreferredSize(
     opacity: (_scrollOffset / 140).clamp(0.0, 1.0),
     child: Container(
       height: 0.9,
-      color: const Color(0xFF48484A),
+      color: AppleMusicColors.separator,
     ),
   ),
 ),
@@ -158,7 +160,7 @@ SliverToBoxAdapter(
     ),
   ),
 ),
-  
+
 SliverPersistentHeader(
     pinned: true,
     delegate: _SearchBarDelegate(),
@@ -244,7 +246,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: Colors.black,
+      color: AppleMusicColors.background,
       padding: const EdgeInsets.only(
   left: 16,
   right: 16,
@@ -254,14 +256,14 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
       child: Container(
         height: 70,
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: AppleMusicColors.backgroundElevated,
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Row(
           children: [
             SizedBox(width: 13),
-            
-            
+
+
             Text(
               "Artis, Lagu, Lirik, dan lainnya",
               style: TextStyle(
@@ -271,7 +273,7 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ],
         ),
-      ),  
+      ),
     );
   }
 

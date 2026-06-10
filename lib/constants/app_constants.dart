@@ -2,16 +2,16 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFFF92D48);
+  static const Color primary = Color(0xFFFF2D55);
   static const Color black = Color.fromARGB(255, 0, 0, 0);
-  static const Color darkGrey = Color.fromARGB(255, 36, 36, 36);
-  static const Color mediumGrey = Color.fromARGB(255, 65, 65, 65);
-  static const Color grey = Color.fromARGB(255, 80, 80, 80);
+  static const Color darkGrey = Color(0xFF111113);
+  static const Color mediumGrey = Color(0xFF24242A);
+  static const Color grey = Color(0x8AFFFFFF);
   static const Color lightGrey = Color.fromARGB(255, 153, 153, 153);
   static const Color white = Colors.white;
-  static const Color divider = Color(0xFF48484A);
-  static const Color surfaceLight = Color(0xFF1C1C1E);
-  static const Color buttonBackground = Color.fromARGB(85, 79, 79, 79);
+  static const Color divider = Color(0x24FFFFFF);
+  static const Color surfaceLight = Color(0xCC17171B);
+  static const Color buttonBackground = Color(0x2EFFFFFF);
   static const Color textSecondary = Color.fromARGB(255, 186, 186, 186);
 }
 
