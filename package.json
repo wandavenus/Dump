@@ -1,0 +1,10 @@
+{
+  "name": "musicplayer",
+  "version": "1.0.0",
+  "description": "Flutter Music Player web server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "flutter build web --release --base-href /"
+  }
+}

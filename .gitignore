@@ -29,7 +29,17 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+
+# Keep build/web (served by the Node.js server)
+/build/android
+/build/ios
+/build/linux
+/build/macos
+/build/windows
+/build/app
+
+# Node.js
+node_modules/
 
 # Symbolication related
 app.*.symbols
