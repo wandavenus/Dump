@@ -33,9 +33,8 @@ class PlayerContent extends StatelessWidget {
 
     return Column(
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
+        SingleChildScrollView(
+  physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
             child: Column(
               children: [
