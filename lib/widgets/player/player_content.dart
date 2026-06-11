@@ -79,7 +79,7 @@ class PlayerContent extends StatelessWidget {
         ),
     
 Transform.translate(
-  offset: const Offset(0, -15.1),
+  offset: const Offset(0, -14.1),
   child: SizedBox(
     width: MediaQuery.of(context).size.width,
     child: const Divider(
