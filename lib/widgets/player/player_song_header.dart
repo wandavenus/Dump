@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
 import 'player_hero_tags.dart';
+import 'player_more_menu.dart';
 
 class PlayerSongHeader extends StatelessWidget {
   final LocalSong song;
@@ -49,24 +50,7 @@ class PlayerSongHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 16),
-        Container(
-  width: 36,
-  height: 36,
-  decoration: const BoxDecoration(
-    shape: BoxShape.circle,
-    color: Color.fromARGB(90, 100, 100, 100),
-  ),
-  child: IconButton(
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(),
-    onPressed: () {},
-    icon: const Icon(
-      Icons.more_vert_rounded,
-      size: 20,
-    ),
-    color: Colors.white,
-  ),
-),
+        PlayerMoreMenu(song: song),
       ],
     );
   }

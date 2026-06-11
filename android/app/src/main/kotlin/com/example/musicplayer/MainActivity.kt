@@ -6,6 +6,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import java.io.File
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -25,6 +26,11 @@ class MainActivity : AudioServiceActivity() {
                     "getArtwork" -> {
                         val songId = call.argument<Int>("songId")
                         result.success(getArtwork(songId ?: 0))
+                    }
+                    "getAudioMetadata" -> {
+                        val path = call.argument<String>("path")
+                        val songId = call.argument<Int>("songId")
+                        result.success(getAudioMetadata(path, songId ?: 0))
                     }
                     else -> result.notImplemented()
                 }
@@ -58,6 +64,49 @@ class MainActivity : AudioServiceActivity() {
             retriever.release()
 
             artwork
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getAudioMetadata(path: String?, songId: Int): Map<String, String?> {
+        val retriever = MediaMetadataRetriever()
+
+        return try {
+            try {
+                if (path.isNullOrBlank()) {
+                    throw IllegalArgumentException("Missing path")
+                }
+
+                retriever.setDataSource(path)
+            } catch (_: Exception) {
+                val uri = Uri.withAppendedPath(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    songId.toString()
+                )
+                retriever.setDataSource(this, uri)
+            }
+
+            mapOf(
+                "year" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
+                "bitrate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
+                "sampleRate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE),
+                "fileSize" to getFileSize(path)
+            )
+        } catch (_: Exception) {
+            emptyMap()
+        } finally {
+            retriever.release()
+        }
+    }
+
+    private fun getFileSize(path: String?): String? {
+        if (path.isNullOrBlank()) {
+            return null
+        }
+
+        return try {
+            File(path).length().takeIf { it > 0 }?.toString()
         } catch (_: Exception) {
             null
         }
