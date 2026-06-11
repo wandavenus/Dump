@@ -169,13 +169,16 @@ await player.setAudioSource(
   await player.seekToPrevious();
 }
 
-  static Future<void> playFromCurrentQueue(int index) async {
+  static Future<void>
+ playFromCurrentQueue(int index) async {
   await player.seek(
     Duration.zero,
     index: index,
   );
 
-  await player.play();
+  if (!player.playing) {
+    await player.play();
+  }
 }
 
   static Future<void> _playNextAfterCompletion() async {
