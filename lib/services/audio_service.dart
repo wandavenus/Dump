@@ -193,16 +193,28 @@ class AudioService {
   await player.seekToPrevious();
 }
 
-  static Future<void>
- playFromCurrentQueue(int index) async {
+  static Future<void> playFromCurrentQueue(int index) async {
   await player.seek(
     Duration.zero,
     index: index,
   );
 
+  final playlist = playbackState.value.currentPlaylist;
+
+  if (index >= 0 && index < playlist.length) {
+    _setState(
+      playbackState.value.copyWith(
+        currentIndex: index,
+        currentSong: playlist[index],
+      ),
+    );
+  }
+
   if (!player.playing) {
     await player.play();
   }
+
+  _syncPlaybackState();
 }
 
   static Future<void> _playNextAfterCompletion() async {
