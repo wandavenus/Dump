@@ -96,74 +96,50 @@ class AudioService {
   }
 
   static Future<void> playSongAt({
-  required List<LocalSong> playlist,
-  required int index,
-  bool autoplay = true,
-}) async {
-  initialize();
+    required List<LocalSong> playlist,
+    required int index,
+    bool autoplay = true,
+  }) async {
+    initialize();
 
-  if (_isLoading) return;
-  if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
+    if (_isLoading) return;
+    if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
 
-  final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
-
-  if (listEquals(
-    playbackState.value.currentPlaylist,
-    immutablePlaylist,
-  )) {
-    await playFromCurrentQueue(index);
+    _isLoading = true;
+    final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
+    final selectedSong = immutablePlaylist[index];
 
     _setState(
       playbackState.value.copyWith(
-        currentSong: immutablePlaylist[index],
+        currentSong: selectedSong,
         currentIndex: index,
+        currentPlaylist: immutablePlaylist,
+        isLoading: true,
       ),
     );
 
-    return;
-  }
+    try {
+      _queue = ConcatenatingAudioSource(
+  children: immutablePlaylist
+      .map(buildAudioSource)
+      .toList(),
+);
 
-  _isLoading = true;
-  final selectedSong = immutablePlaylist[index];
+await player.stop();
+await player.setAudioSource(
+  _queue!,
+  initialIndex: index,
+);
 
-  _setState(
-    playbackState.value.copyWith(
-      currentSong: selectedSong,
-      currentIndex: index,
-      currentPlaylist: immutablePlaylist,
-      isLoading: true,
-    ),
-  );
-
-  try {
-    _queue = ConcatenatingAudioSource(
-      children: immutablePlaylist
-          .map(buildAudioSource)
-          .toList(),
-    );
-
-    await player.stop();
-
-    await player.setAudioSource(
-      _queue!,
-      initialIndex: index,
-    );
-
-    if (autoplay) {
-      await player.play();
+      if (autoplay) {
+        await player.play();
+      }
+    } finally {
+      _isLoading = false;
+      _setState(playbackState.value.copyWith(isLoading: false));
+      _syncPlaybackState();
     }
-  } finally {
-    _isLoading = false;
-
-    _setState(
-      playbackState.value.copyWith(
-        isLoading: false,
-      ),
-    );
-
-    _syncPlaybackState();
   }
-}
 
   static Future<void> play() async {
     initialize();
@@ -193,28 +169,16 @@ class AudioService {
   await player.seekToPrevious();
 }
 
-  static Future<void> playFromCurrentQueue(int index) async {
+  static Future<void>
+ playFromCurrentQueue(int index) async {
   await player.seek(
     Duration.zero,
     index: index,
   );
 
-  final playlist = playbackState.value.currentPlaylist;
-
-  if (index >= 0 && index < playlist.length) {
-    _setState(
-      playbackState.value.copyWith(
-        currentIndex: index,
-        currentSong: playlist[index],
-      ),
-    );
-  }
-
   if (!player.playing) {
     await player.play();
   }
-
-  _syncPlaybackState();
 }
 
   static Future<void> _playNextAfterCompletion() async {
