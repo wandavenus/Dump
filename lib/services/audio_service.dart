@@ -96,50 +96,74 @@ class AudioService {
   }
 
   static Future<void> playSongAt({
-    required List<LocalSong> playlist,
-    required int index,
-    bool autoplay = true,
-  }) async {
-    initialize();
+  required List<LocalSong> playlist,
+  required int index,
+  bool autoplay = true,
+}) async {
+  initialize();
 
-    if (_isLoading) return;
-    if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
+  if (_isLoading) return;
+  if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
 
-    _isLoading = true;
-    final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
-    final selectedSong = immutablePlaylist[index];
+  final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
+
+  if (listEquals(
+    playbackState.value.currentPlaylist,
+    immutablePlaylist,
+  )) {
+    await playFromCurrentQueue(index);
 
     _setState(
       playbackState.value.copyWith(
-        currentSong: selectedSong,
+        currentSong: immutablePlaylist[index],
         currentIndex: index,
-        currentPlaylist: immutablePlaylist,
-        isLoading: true,
       ),
     );
 
-    try {
-      _queue = ConcatenatingAudioSource(
-  children: immutablePlaylist
-      .map(buildAudioSource)
-      .toList(),
-);
-
-await player.stop();
-await player.setAudioSource(
-  _queue!,
-  initialIndex: index,
-);
-
-      if (autoplay) {
-        await player.play();
-      }
-    } finally {
-      _isLoading = false;
-      _setState(playbackState.value.copyWith(isLoading: false));
-      _syncPlaybackState();
-    }
+    return;
   }
+
+  _isLoading = true;
+  final selectedSong = immutablePlaylist[index];
+
+  _setState(
+    playbackState.value.copyWith(
+      currentSong: selectedSong,
+      currentIndex: index,
+      currentPlaylist: immutablePlaylist,
+      isLoading: true,
+    ),
+  );
+
+  try {
+    _queue = ConcatenatingAudioSource(
+      children: immutablePlaylist
+          .map(buildAudioSource)
+          .toList(),
+    );
+
+    await player.stop();
+
+    await player.setAudioSource(
+      _queue!,
+      initialIndex: index,
+    );
+
+    if (autoplay) {
+      await player.play();
+    }
+  } finally {
+    _isLoading = false;
+
+    _setState(
+      playbackState.value.copyWith(
+        isLoading: false,
+      ),
+    );
+
+    _syncPlaybackState();
+  }
+}
 
   static Future<void> play() async {
     initialize();
