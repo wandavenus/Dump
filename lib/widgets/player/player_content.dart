@@ -72,22 +72,25 @@ class PlayerContent extends StatelessWidget {
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
-                Transform.translate(
-                  offset: const Offset(-22, 11.5),
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width + 90,
-                    child: const Divider(
-                      color: Color(0xFF48484A),
-                      thickness: 0.4,
-                      height: 14,
-                    ),
-                  ),
-                ),
+                
               ],
             ),
           ),
         ),
-      ],
+    
+Transform.translate(
+  offset: const Offset(0, 11.1),
+  child: SizedBox(
+    width: MediaQuery.of(context).size.width,
+    child: const Divider(
+      color: Color(0xFF48484A),
+      thickness: 0.4,
+      height: 14,
+    ),
+  ),
+),
+
+  ],
     );
   }
 
