@@ -125,7 +125,6 @@ class AudioService {
       .toList(),
 );
 
-await player.stop();
 await player.setAudioSource(
   _queue!,
   initialIndex: index,
