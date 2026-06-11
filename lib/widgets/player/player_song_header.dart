@@ -50,16 +50,23 @@ class PlayerSongHeader extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Container(
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color.fromARGB(135, 100, 100, 100),
-          ),
-          child: IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_horiz_rounded),
-            color: Colors.white,
-          ),
-        ),
+  width: 36,
+  height: 36,
+  decoration: const BoxDecoration(
+    shape: BoxShape.circle,
+    color: Color.fromARGB(90, 100, 100, 100),
+  ),
+  child: IconButton(
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(),
+    onPressed: () {},
+    icon: const Icon(
+      Icons.more_vert_rounded,
+      size: 20,
+    ),
+    color: Colors.white,
+  ),
+),
       ],
     );
   }
