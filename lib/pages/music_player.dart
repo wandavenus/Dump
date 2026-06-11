@@ -91,15 +91,19 @@ class _MusicPlayerState extends State<MusicPlayer> {
                     ),
                   ),
                 ),
-                SafeArea(
-                  child: song == null
+              
+  SafeArea(
+  child: Padding(
+    padding: const EdgeInsets.only(top: 20),
+    child: song == null
                       ? const PlayerEmptyState()
                       : PlayerContent(
                           song: song,
                           playbackState: playbackState,
                           formatTime: _formatTime,
                           lyrics: _lyrics,
-                        ),
+                       ),
+                      ),
                 ),
               ],
             ),
