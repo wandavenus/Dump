@@ -15,18 +15,19 @@ class PlayerSecondaryControls extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => _showLyrics(context),
-            icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
-          ),
-          IconButton(
-            onPressed: () => _showQueue(context),
-            icon: const Icon(CupertinoIcons.list_bullet, size: 26),
-          ),
-        ],
-      ),
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    IconButton(
+      onPressed: () => _showLyrics(context),
+      icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
+    ),
+    const SizedBox(width: 130),
+    IconButton(
+      onPressed: () => _showQueue(context),
+      icon: const Icon(CupertinoIcons.list_bullet, size: 26),
+    ),
+  ],
+),
     );
   }
 
