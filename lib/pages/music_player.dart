@@ -85,8 +85,8 @@ class _MusicPlayerState extends State<MusicPlayer> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color.fromARGB(55, 0, 0, 0),
-                        Color.fromARGB(230, 0, 0, 0),
+                        Color.fromARGB(30, 0, 0, 0),
+                        Color.fromARGB(120, 0, 0, 0),
                       ],
                     ),
                   ),
