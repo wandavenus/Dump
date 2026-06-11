@@ -73,8 +73,13 @@ class PlayerContent extends StatelessWidget {
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
          
-const SizedBox(height: 0),
-const HeaderDivider(),
+const SizedBox(height: 20),
+
+const Divider(
+  color: Color(0xFF48484A),
+  thickness: 0.5,
+  height: 14,
+),
 
      ],
             ),
