@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-
+import '../common/scrolling_page_chrome.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
@@ -72,7 +72,11 @@ class PlayerContent extends StatelessWidget {
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
-              ],
+         
+const SizedBox(height: 24),
+const HeaderDivider(),
+
+     ],
             ),
           ),
         ),
