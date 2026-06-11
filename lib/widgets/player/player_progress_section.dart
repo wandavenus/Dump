@@ -24,7 +24,7 @@ class PlayerProgressSection extends StatelessWidget {
           children: [
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                trackHeight: 7,
+                trackHeight: 6,
                 activeTrackColor: Colors.white,
                 inactiveTrackColor: const Color(0xFF505050),
                 thumbShape: SliderComponentShape.noThumb,
@@ -50,7 +50,7 @@ overlayShape: SliderComponentShape.noOverlay,
                     formatTime(position),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 11,
                       color: Colors.white70,
                     ),
                   ),
@@ -58,7 +58,7 @@ overlayShape: SliderComponentShape.noOverlay,
                     '-${formatTime(duration - position)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 11,
                       color: Colors.white70,
                     ),
                   ),
