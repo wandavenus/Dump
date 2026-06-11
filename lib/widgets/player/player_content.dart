@@ -34,7 +34,8 @@ class PlayerContent extends StatelessWidget {
     return Column(
       children: [
         SingleChildScrollView(
-  physics: const NeverScrollableScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
             child: Column(
               children: [
@@ -71,17 +72,15 @@ class PlayerContent extends StatelessWidget {
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
-         
-Transform.translate(
-  offset: const Offset(0, -10),
-  child: const Divider(
-    color: Color(0xFF48484A),
-    thickness: 0.5,
-    height: 14,
-  ),
-),
-
-     ],
+                Transform.translate(
+                  offset: const Offset(0, -10),
+                  child: const Divider(
+                    color: Color(0xFF48484A),
+                    thickness: 0.5,
+                    height: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
