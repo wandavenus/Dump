@@ -41,7 +41,10 @@ overlayShape: SliderComponentShape.noOverlay,
                       },
               ),
             ),
-            Padding(
+          
+const SizedBox(height: 8),
+
+  Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
