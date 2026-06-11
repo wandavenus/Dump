@@ -73,12 +73,12 @@ class PlayerContent extends StatelessWidget {
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
                 Transform.translate(
-                  offset: const Offset(0, 11),
+                  offset: const Offset(-22, 12),
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width + 44,
                     child: const Divider(
                       color: Color(0xFF48484A),
-                      thickness: 0.5,
+                      thickness: 0.4,
                       height: 14,
                     ),
                   ),
