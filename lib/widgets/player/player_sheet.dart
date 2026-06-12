@@ -3,10 +3,7 @@ import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
 import 'player_background.dart';
-import 'player_progress_section.dart';
-import 'player_secondary_controls.dart';
-import 'player_song_header.dart';
-import 'player_transport_controls.dart';
+import 'player_content.dart';
 
 class PlayerSheet extends StatelessWidget {
   final bool expanded;
@@ -69,51 +66,11 @@ class PlayerSheet extends StatelessWidget {
                             ),
                           ),
                         )
-                      : Column(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                color: Colors.white38,
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            SongArtwork(
-                              songId: song.id,
-                              size: 300,
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(12),
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: PlayerSongHeader(song: song),
-                            ),
-                            const SizedBox(height: 24),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: PlayerProgressSection(
-                                formatTime: _formatTime,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            PlayerTransportControls(
-                              playbackState: playbackState,
-                            ),
-                            const SizedBox(height: 32),
-                            const PlayerSecondaryControls(
-                              lyrics: '',
-                            ),
-                            const Spacer(),
-                            const Divider(
-                              color: Color(0xFF48484A),
-                              thickness: 0.4,
-                              height: 14,
-                            ),
-                          ],
+                      : PlayerContent(
+                          song: song,
+                          playbackState: playbackState,
+                          formatTime: _formatTime,
+                          lyrics: '',
                         ),
                 ),
               ),
