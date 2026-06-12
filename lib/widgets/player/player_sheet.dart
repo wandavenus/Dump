@@ -138,7 +138,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                           song: song,
                                           playbackState: playbackState,
                                           formatTime: _formatTime,
-                                          lyrics: '',
                                         ),
                                       ),
                                     ),
