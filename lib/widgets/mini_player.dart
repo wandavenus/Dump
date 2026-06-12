@@ -40,17 +40,29 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
 
-    return Material(
-      color: const Color(0xFF1C1C1E),
-      child: SizedBox(
-        height: 55,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _openFullPlayer(context),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+
+      // TAP → open full player
+      onTap: _openFullPlayer,
+
+      // SWIPE UP → open full player (gesture trigger)
+      onVerticalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -500) {
+          PlayerSheetController.open();
+        }
+      },
+
+      child: Material(
+        color: const Color(0xFF1C1C1E),
+        child: SizedBox(
+          height: 55,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Expanded(
                   child: Row(
                     children: [
                       Hero(
@@ -82,43 +94,43 @@ class _MiniPlayerBody extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: playbackState.isLoading
-                    ? null
-                    : () {
-                        debugPrint('MINI PLAYER BUTTON');
-                        playbackState.isPlaying
-                            ? AudioService.pause()
-                            : AudioService.play();
-                      },
-                icon: Icon(
-                  playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
-                  size: 34,
-                  color: Colors.white,
+
+                IconButton(
+                  onPressed: playbackState.isLoading
+                      ? null
+                      : () {
+                          playbackState.isPlaying
+                              ? AudioService.pause()
+                              : AudioService.play();
+                        },
+                  icon: Icon(
+                    playbackState.isPlaying
+                        ? Icons.pause
+                        : Icons.play_arrow,
+                    size: 34,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: canGoNext
-                    ? () {
-                        debugPrint('MINI PLAYER NEXT');
-                        AudioService.skipNext();
-                      }
-                    : null,
-                icon: Icon(
-                  Icons.skip_next,
-                  size: 30,
-                  color: canGoNext ? Colors.white : Colors.white24,
+
+                IconButton(
+                  onPressed: canGoNext
+                      ? () => AudioService.skipNext()
+                      : null,
+                  icon: Icon(
+                    Icons.skip_next,
+                    size: 30,
+                    color: canGoNext ? Colors.white : Colors.white24,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _openFullPlayer(BuildContext context) {
+  void _openFullPlayer() {
     PlayerSheetController.open();
   }
 }
