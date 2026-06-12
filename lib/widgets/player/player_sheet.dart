@@ -4,6 +4,7 @@ import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
 import 'player_background.dart';
 import 'player_progress_section.dart';
+import 'player_secondary_controls.dart';
 import 'player_song_header.dart';
 import 'player_transport_controls.dart';
 
@@ -101,6 +102,16 @@ class PlayerSheet extends StatelessWidget {
                             const SizedBox(height: 24),
                             PlayerTransportControls(
                               playbackState: playbackState,
+                            ),
+                            const SizedBox(height: 32),
+                            const PlayerSecondaryControls(
+                              lyrics: '',
+                            ),
+                            const Spacer(),
+                            const Divider(
+                              color: Color(0xFF48484A),
+                              thickness: 0.4,
+                              height: 14,
                             ),
                           ],
                         ),
