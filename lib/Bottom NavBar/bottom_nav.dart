@@ -80,30 +80,46 @@ class _FirstPageState extends State<FirstPage> {
                 index: _selected_index,
                 children: _pages.cast<Widget>(),
               ),
-              bottomNavigationBar: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const MiniPlayer(),
-                  if (!isGlass)
-                    Container(
-                      height: 1.5,
-                      color: const Color(0xFF38383A),
+              bottomNavigationBar: ValueListenableBuilder<double>(
+                valueListenable: PlayerSheetController.progress,
+                builder: (context, progress, _) {
+                  final opacity = (1 - progress).clamp(0.0, 1.0);
+
+                  return Transform.translate(
+                    offset: Offset(0, 24 * progress),
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Opacity(
+                            opacity: opacity,
+                            child: const MiniPlayer(),
+                          ),
+                          if (!isGlass)
+                            Container(
+                              height: 1.5,
+                              color: const Color(0xFF38383A),
+                            ),
+                          SizedBox(
+                            height: 70,
+                            child: isGlass ? GlassNavBar(child: navBar) : navBar,
+                          ),
+                        ],
+                      ),
                     ),
-                  SizedBox(
-                    height: 70,
-                    child: isGlass ? GlassNavBar(child: navBar) : navBar,
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             ValueListenableBuilder<bool>(
-  valueListenable: PlayerSheetController.expanded,
-  builder: (context, expanded, _) {
-    return PlayerSheet(
-      expanded: expanded,
-    );
-  },
-),
+              valueListenable: PlayerSheetController.expanded,
+              builder: (context, expanded, _) {
+                return PlayerSheet(
+                  expanded: expanded,
+                );
+              },
+            ),
           ],
         );
       },
