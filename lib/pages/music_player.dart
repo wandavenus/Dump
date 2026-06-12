@@ -94,7 +94,7 @@ class _MusicPlayerState extends State<MusicPlayer> {
               
   SafeArea(
   child: Padding(
-    padding: const EdgeInsets.only(top: 50),
+    padding: const EdgeInsets.only(top: 100),
     child: song == null
                       ? const PlayerEmptyState()
                       : PlayerContent(
