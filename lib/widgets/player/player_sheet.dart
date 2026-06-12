@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
+import 'player_background.dart';
 import 'player_progress_section.dart';
 import 'player_transport_controls.dart';
 
@@ -27,72 +28,101 @@ class PlayerSheet extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Material(
-      color: Colors.black,
-      child: ValueListenableBuilder<AudioPlaybackState>(
-        valueListenable: AudioService.playbackState,
-        builder: (context, playbackState, _) {
-          final song = playbackState.currentSong;
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, playbackState, _) {
+        final song = playbackState.currentSong;
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 50),
-              child: Center(
-                child: song == null
-                    ? const Text(
-                        'No song selected',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                        ),
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SongArtwork(
-                            songId: song.id,
-                            size: 300,
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(12),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            song.title,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            song.artist,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: PlayerProgressSection(
-                              formatTime: _formatTime,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          PlayerTransportControls(
-                            playbackState: playbackState,
-                          ),
-                        ],
-                      ),
+        return Material(
+          color: Colors.black,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (song != null)
+                AnimatedBlurredPlayerBackground(songId: song.id)
+              else
+                const PlayerFallbackBackground(),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.fromARGB(80, 0, 0, 0),
+                      Color.fromARGB(180, 0, 0, 0),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          );
-        },
-      ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: song == null
+                      ? const Center(
+                          child: Text(
+                            'No song selected',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: Colors.white38,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            SongArtwork(
+                              songId: song.id,
+                              size: 300,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(12),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              song.title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              song.artist,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: PlayerProgressSection(
+                                formatTime: _formatTime,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            PlayerTransportControls(
+                              playbackState: playbackState,
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
