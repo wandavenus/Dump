@@ -13,14 +13,19 @@ class PlayerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Material(
-      color: Colors.red,
-      child: Center(
-        child: Text(
-          'TEST',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 50,
-            fontWeight: FontWeight.bold,
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(top: 50),
+          child: Center(
+            child: Text(
+              'STEP 2',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 40,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ),
