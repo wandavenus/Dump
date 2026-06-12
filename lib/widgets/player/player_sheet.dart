@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
+import 'player_transport_controls.dart';
 
 class PlayerSheet extends StatelessWidget {
   final bool expanded;
@@ -66,6 +67,10 @@ class PlayerSheet extends StatelessWidget {
                               color: Colors.white70,
                               fontSize: 18,
                             ),
+                          ),
+                          const SizedBox(height: 40),
+                          PlayerTransportControls(
+                            playbackState: playbackState,
                           ),
                         ],
                       ),
