@@ -4,6 +4,7 @@ import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
 import 'player_background.dart';
 import 'player_progress_section.dart';
+import 'player_song_header.dart';
 import 'player_transport_controls.dart';
 
 class PlayerSheet extends StatelessWidget {
@@ -86,23 +87,9 @@ class PlayerSheet extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 32),
-                            Text(
-                              song.title,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              song.artist,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 18,
-                              ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: PlayerSongHeader(song: song),
                             ),
                             const SizedBox(height: 24),
                             Padding(
