@@ -69,10 +69,9 @@ class _MiniPlayerBody extends StatelessWidget {
     final artworkSize = 46 - (6 * anim);
 
     return GestureDetector(
-      behavior: HitTestBehavior.deferToChild,
-      onVerticalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity < -150) {
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (details) {
+        if (details.delta.dy < -6) {
           PlayerSheetController.open();
         }
       },
