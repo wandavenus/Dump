@@ -17,9 +17,33 @@ class MiniPlayer extends StatelessWidget {
         final song = playbackState.currentSong;
         if (song == null) return const SizedBox.shrink();
 
-        return _MiniPlayerBody(
-          song: song,
-          playbackState: playbackState,
+        return ValueListenableBuilder<bool>(
+          valueListenable: PlayerSheetController.expanded,
+          builder: (context, expanded, _) {
+            final t = expanded ? 1.0 : 0.0;
+
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: t),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutBack,
+              builder: (context, value, _) {
+                return Opacity(
+                  opacity: 1 - value,
+                  child: Transform.translate(
+                    offset: Offset(0, 18 * value),
+                    child: Transform.scale(
+                      scale: 1 - (0.12 * value),
+                      child: _MiniPlayerBody(
+                        song: song,
+                        playbackState: playbackState,
+                        anim: value,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -29,10 +53,12 @@ class MiniPlayer extends StatelessWidget {
 class _MiniPlayerBody extends StatelessWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
+  final double anim;
 
   const _MiniPlayerBody({
     required this.song,
     required this.playbackState,
+    required this.anim,
   });
 
   @override
@@ -40,13 +66,13 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
 
+    final artworkSize = 46 - (6 * anim);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
 
-      // TAP → open full player
       onTap: _openFullPlayer,
 
-      // SWIPE UP → open full player (gesture trigger)
       onVerticalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -500) {
@@ -69,23 +95,26 @@ class _MiniPlayerBody extends StatelessWidget {
                         tag: PlayerHeroTags.artwork(song),
                         child: SongArtwork(
                           songId: song.id,
-                          size: 46,
+                          size: artworkSize,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Hero(
-                          tag: PlayerHeroTags.title(song),
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: Text(
-                              song.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
+                        child: Transform.translate(
+                          offset: Offset(6 * anim, 0),
+                          child: Hero(
+                            tag: PlayerHeroTags.title(song),
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: Text(
+                                song.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                ),
                               ),
                             ),
                           ),
@@ -94,32 +123,38 @@ class _MiniPlayerBody extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                IconButton(
-                  onPressed: playbackState.isLoading
-                      ? null
-                      : () {
+                Opacity(
+                  opacity: 1 - anim,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: playbackState.isLoading
+                            ? null
+                            : () {
+                                playbackState.isPlaying
+                                    ? AudioService.pause()
+                                    : AudioService.play();
+                              },
+                        icon: Icon(
                           playbackState.isPlaying
-                              ? AudioService.pause()
-                              : AudioService.play();
-                        },
-                  icon: Icon(
-                    playbackState.isPlaying
-                        ? Icons.pause
-                        : Icons.play_arrow,
-                    size: 34,
-                    color: Colors.white,
-                  ),
-                ),
-
-                IconButton(
-                  onPressed: canGoNext
-                      ? () => AudioService.skipNext()
-                      : null,
-                  icon: Icon(
-                    Icons.skip_next,
-                    size: 30,
-                    color: canGoNext ? Colors.white : Colors.white24,
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                          size: 34,
+                          color: Colors.white,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: canGoNext
+                            ? () => AudioService.skipNext()
+                            : null,
+                        icon: Icon(
+                          Icons.skip_next,
+                          size: 30,
+                          color:
+                              canGoNext ? Colors.white : Colors.white24,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
