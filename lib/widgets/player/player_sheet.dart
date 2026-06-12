@@ -33,73 +33,79 @@ class PlayerSheet extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return ValueListenableBuilder<AudioPlaybackState>(
-      valueListenable: AudioService.playbackState,
-      builder: (context, playbackState, _) {
-        final song = playbackState.currentSong;
+    return WillPopScope(
+      onWillPop: () async {
+        _close();
+        return false;
+      },
+      child: ValueListenableBuilder<AudioPlaybackState>(
+        valueListenable: AudioService.playbackState,
+        builder: (context, playbackState, _) {
+          final song = playbackState.currentSong;
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {},
-          onVerticalDragUpdate: (details) {
-            final dy = details.primaryDelta;
-            if (dy != null && dy > 14) {
-              _close();
-            }
-          },
-          onVerticalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (velocity > 600) {
-              _close();
-            }
-          },
-          child: Material(
-            color: Colors.black,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (song != null)
-                  AnimatedBlurredPlayerBackground(songId: song.id)
-                else
-                  const PlayerFallbackBackground(),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color.fromARGB(80, 0, 0, 0),
-                        Color.fromARGB(180, 0, 0, 0),
-                      ],
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _close,
+            onVerticalDragUpdate: (details) {
+              final dy = details.primaryDelta;
+              if (dy != null && dy > 14) {
+                _close();
+              }
+            },
+            onVerticalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity > 600) {
+                _close();
+              }
+            },
+            child: Material(
+              color: Colors.black,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (song != null)
+                    AnimatedBlurredPlayerBackground(songId: song.id)
+                  else
+                    const PlayerFallbackBackground(),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.fromARGB(80, 0, 0, 0),
+                          Color.fromARGB(180, 0, 0, 0),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: song == null
-                        ? const Center(
-                            child: Text(
-                              'No song selected',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: song == null
+                          ? const Center(
+                              child: Text(
+                                'No song selected',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                ),
                               ),
+                            )
+                          : PlayerContent(
+                              song: song,
+                              playbackState: playbackState,
+                              formatTime: _formatTime,
+                              lyrics: '',
                             ),
-                          )
-                        : PlayerContent(
-                            song: song,
-                            playbackState: playbackState,
-                            formatTime: _formatTime,
-                            lyrics: '',
-                          ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
