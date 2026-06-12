@@ -72,8 +72,9 @@ class _MiniPlayerBody extends StatelessWidget {
       color: const Color(0xFF1C1C1E),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onVerticalDragUpdate: (details) {
-          if (details.delta.dy < -8) {
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity < -250) {
             PlayerSheetController.open();
           }
         },
