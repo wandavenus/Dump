@@ -4,6 +4,7 @@ import 'package:musicplayer/widgets/mini_player.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/widgets/player/player_sheet.dart';
+import 'package:musicplayer/services/player_sheet_controller.dart';
 import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
 import 'package:musicplayer/pages/artist_list.dart';
 import 'package:musicplayer/pages/browse_page.dart';
@@ -74,16 +75,21 @@ class _FirstPageState extends State<FirstPage> {
         return Scaffold(
           extendBody: false,
           body: Stack(
-  children: [
-    IndexedStack(
-      index: _selected_index,
-      children: _pages.cast<Widget>(),
-    ),
-    const PlayerSheet(
-      expanded: false,
-    ),
-  ],
-),
+            children: [
+              IndexedStack(
+                index: _selected_index,
+                children: _pages.cast<Widget>(),
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: PlayerSheetController.expanded,
+                builder: (context, expanded, _) {
+                  return PlayerSheet(
+                    expanded: expanded,
+                  );
+                },
+              ),
+            ],
+          ),
           bottomNavigationBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
