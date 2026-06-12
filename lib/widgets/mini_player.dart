@@ -103,7 +103,7 @@ class _MiniPlayerBody extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _openFullPlayer,
-                  onVerticalDragStart: (_) => _dragUp = 0,
+                  onVerticalDragStart: (_) {},
                   onVerticalDragUpdate: (details) => onDragUpdate?.call(details.delta.dy),
                   onVerticalDragEnd: (details) => onDragEnd?.call(details.primaryVelocity ?? 0),
                   child: Row(
