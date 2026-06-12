@@ -1,33 +1,39 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/local_song.dart';
 import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
+import '../../services/lyrics_service.dart';
+import '../player/synced_lyrics_view.dart';
 import 'player_bottom_sheet_scaffold.dart';
 
 class PlayerSecondaryControls extends StatelessWidget {
-  final String lyrics;
+  final LocalSong song;
 
-  const PlayerSecondaryControls({super.key, required this.lyrics});
+  const PlayerSecondaryControls({
+    super.key,
+    required this.song,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    IconButton(
-      onPressed: () => _showLyrics(context),
-      icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
-    ),
-    const SizedBox(width: 130),
-    IconButton(
-      onPressed: () => _showQueue(context),
-      icon: const Icon(CupertinoIcons.list_bullet, size: 26),
-    ),
-  ],
-),
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: () => _showLyrics(context),
+            icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
+          ),
+          const SizedBox(width: 130),
+          IconButton(
+            onPressed: () => _showQueue(context),
+            icon: const Icon(CupertinoIcons.list_bullet, size: 26),
+          ),
+        ],
+      ),
     );
   }
 
@@ -39,12 +45,30 @@ class PlayerSecondaryControls extends StatelessWidget {
       builder: (context) {
         return PlayerBottomSheetScaffold(
           title: 'Lyrics',
-          child: SingleChildScrollView(
-            child: Text(
-              lyrics,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, height: 2),
+          child: FutureBuilder(
+            future: LyricsService.fetchLyrics(
+              title: song.title,
+              artist: song.artist,
             ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              final lyrics = snapshot.data ?? [];
+
+              if (lyrics.isEmpty) {
+                return const Center(
+                  child: Text('Lyrics not found'),
+                );
+              }
+
+              return SyncedLyricsView(
+                lyrics: lyrics,
+              );
+            },
           ),
         );
       },
