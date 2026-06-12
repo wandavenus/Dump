@@ -72,39 +72,39 @@ class _FirstPageState extends State<FirstPage> {
           ),
         );
 
-        return Scaffold(
-          extendBody: false,
-          body: Stack(
-            children: [
-              IndexedStack(
+        return Stack(
+          children: [
+            Scaffold(
+              extendBody: false,
+              body: IndexedStack(
                 index: _selected_index,
                 children: _pages.cast<Widget>(),
               ),
-              ValueListenableBuilder<bool>(
-                valueListenable: PlayerSheetController.expanded,
-                builder: (context, expanded, _) {
-                  return PlayerSheet(
-                    expanded: expanded,
-                  );
-                },
+              bottomNavigationBar: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const MiniPlayer(),
+                  if (!isGlass)
+                    Container(
+                      height: 1.5,
+                      color: const Color(0xFF38383A),
+                    ),
+                  SizedBox(
+                    height: 70,
+                    child: isGlass ? GlassNavBar(child: navBar) : navBar,
+                  ),
+                ],
               ),
-            ],
-          ),
-          bottomNavigationBar: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const MiniPlayer(),
-              if (!isGlass)
-                Container(
-                  height: 1.5,
-                  color: const Color(0xFF38383A),
-                ),
-              SizedBox(
-                height: 70,
-                child: isGlass ? GlassNavBar(child: navBar) : navBar,
-              ),
-            ],
-          ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: PlayerSheetController.expanded,
+              builder: (context, expanded, _) {
+                return PlayerSheet(
+                  expanded: expanded,
+                );
+              },
+            ),
+          ],
         );
       },
     );
