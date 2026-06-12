@@ -97,13 +97,13 @@ class _FirstPageState extends State<FirstPage> {
               ),
             ),
             ValueListenableBuilder<bool>(
-              valueListenable: PlayerSheetController.expanded,
-              builder: (context, expanded, _) {
-                return PlayerSheet(
-                  expanded: expanded,
-                );
-              },
-            ),
+  valueListenable: PlayerSheetController.expanded,
+  builder: (context, expanded, _) {
+    return PlayerSheet(
+      expanded: expanded,
+    );
+  },
+),
           ],
         );
       },
