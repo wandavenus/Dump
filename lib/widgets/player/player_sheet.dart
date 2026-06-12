@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
+import '../song_artwork.dart';
 
 class PlayerSheet extends StatelessWidget {
   final bool expanded;
@@ -36,6 +37,14 @@ class PlayerSheet extends StatelessWidget {
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          SongArtwork(
+                            songId: song.id,
+                            size: 300,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(12),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
                           Text(
                             song.title,
                             textAlign: TextAlign.center,
