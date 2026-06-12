@@ -22,7 +22,16 @@ class LyricsService {
         'https://lrclib.net/api/search?track_name=${Uri.encodeComponent(title)}&artist_name=${Uri.encodeComponent(artist)}',
       );
 
-      final response = await http.get(uri);
+      final response = await http.get(
+        uri,
+        headers: {
+          'User-Agent': 'MusicPlayer/1.0',
+          'Accept': 'application/json',
+        },
+      );
+
+      print('LRCLIB status: ${response.statusCode}');
+      print('LRCLIB body: ${response.body}');
 
       if (response.statusCode != 200) {
         return [];
@@ -34,9 +43,11 @@ class LyricsService {
         return [];
       }
 
-      final syncedLyrics = data.first['syncedLyrics'] as String?;
+      final first = data.first;
+      final syncedLyrics =
+          (first['syncedLyrics'] ?? first['lyrics'] ?? '') as String;
 
-      if (syncedLyrics == null || syncedLyrics.isEmpty) {
+      if (syncedLyrics.isEmpty) {
         return [];
       }
 
@@ -44,7 +55,8 @@ class LyricsService {
       _cache[key] = lyrics;
 
       return lyrics;
-    } catch (_) {
+    } catch (e) {
+      print('LyricsService error: $e');
       return [];
     }
   }
@@ -65,7 +77,7 @@ class LyricsService {
       result.add(
         LyricLine(
           timestamp: Duration(
-            milliseconds: ((minutes * 60) + seconds) * 1000 ~/ 1,
+            milliseconds: (((minutes * 60) + seconds) * 1000).round(),
           ),
           text: text,
         ),
