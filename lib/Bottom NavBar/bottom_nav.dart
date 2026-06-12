@@ -72,63 +72,55 @@ class _FirstPageState extends State<FirstPage> {
           ),
         );
 
-        return PopScope(
-          canPop: !PlayerSheetController.expanded.value,
-          onPopInvokedWithResult: (didPop, result) {
-            if (PlayerSheetController.expanded.value) {
-              PlayerSheetController.close();
-            }
-          },
-          child: Stack(
-            children: [
-              Scaffold(
-                extendBody: false,
-                body: IndexedStack(
-                  index: _selected_index,
-                  children: _pages.cast<Widget>(),
-                ),
-                bottomNavigationBar: ValueListenableBuilder<double>(
-                  valueListenable: PlayerSheetController.progress,
-                  builder: (context, progress, _) {
-                    final opacity = (1 - progress).clamp(0.0, 1.0);
-
-                    return Transform.translate(
-                      offset: Offset(0, 24 * progress),
-                      child: Opacity(
-                        opacity: opacity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Opacity(
-                              opacity: opacity,
-                              child: const MiniPlayer(),
-                            ),
-                            if (!isGlass)
-                              Container(
-                                height: 1.5,
-                                color: const Color(0xFF38383A),
-                              ),
-                            SizedBox(
-                              height: 70,
-                              child: isGlass ? GlassNavBar(child: navBar) : navBar,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+        return Stack(
+          children: [
+            Scaffold(
+              extendBody: false,
+              body: IndexedStack(
+                index: _selected_index,
+                children: _pages.cast<Widget>(),
               ),
-              ValueListenableBuilder<bool>(
-                valueListenable: PlayerSheetController.expanded,
-                builder: (context, expanded, _) {
-                  return PlayerSheet(
-                    expanded: expanded,
+              bottomNavigationBar: ValueListenableBuilder<double>(
+                valueListenable: PlayerSheetController.progress,
+                builder: (context, progress, _) {
+                  final opacity = (1 - progress).clamp(0.0, 1.0);
+
+                  return Transform.translate(
+                    offset: Offset(0, 24 * progress),
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Opacity(
+                            opacity: opacity,
+                            child: const MiniPlayer(),
+                          ),
+                          if (!isGlass)
+                            Container(
+                              height: 1.5,
+                              color: const Color(0xFF38383A),
+                            ),
+                          SizedBox(
+                            height: 70,
+                            child: isGlass ? GlassNavBar(child: navBar) : navBar,
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
-            ],
-          ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: PlayerSheetController.expanded,
+              builder: (context, expanded, _) {
+                return PlayerSheet(
+                  expanded: expanded,
+                );
+              },
+            ),
+          ],
         );
       },
     );
