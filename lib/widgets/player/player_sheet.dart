@@ -25,6 +25,15 @@ class PlayerSheet extends StatefulWidget {
 class _PlayerSheetState extends State<PlayerSheet> {
   double _dragDy = 0;
 
+  @override
+  void didUpdateWidget(covariant PlayerSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.expanded && !oldWidget.expanded) {
+      _dragDy = 0;
+    }
+  }
+
   String _formatTime(Duration d) {
     final minutes = d.inMinutes;
     final seconds = d.inSeconds % 60;
