@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/player_sheet_controller.dart';
 
 class PlayerSheet extends StatelessWidget {
   final bool expanded;
@@ -22,17 +23,20 @@ class PlayerSheet extends StatelessWidget {
         top: expanded ? 0 : MediaQuery.of(context).size.height,
         bottom: 0,
         child: Material(
-          color: Colors.black,
+          color: const Color(0xFF000000),
           child: SafeArea(
             child: Column(
               children: [
                 const SizedBox(height: 12),
-                Container(
-                  width: 36,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(99),
+                GestureDetector(
+                  onTap: PlayerSheetController.close,
+                  child: Container(
+                    width: 36,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
