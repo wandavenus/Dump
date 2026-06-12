@@ -45,17 +45,8 @@ class PlayerContent extends StatelessWidget {
                   flightShuttleBuilder: _artworkFlightShuttleBuilder,
                   child: Material(
                     type: MaterialType.transparency,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color.fromARGB(80, 0, 0, 0),
-                            blurRadius: 28,
-                            offset: Offset(0, 16),
-                          ),
-                        ],
-                      ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
                       child: SongArtwork(
                         songId: song.id,
                         size: coverSize,
@@ -72,25 +63,22 @@ class PlayerContent extends StatelessWidget {
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
                 PlayerSecondaryControls(lyrics: lyrics),
-                
               ],
             ),
           ),
         ),
-    
-Transform.translate(
-  offset: const Offset(0, -14.1),
-  child: SizedBox(
-    width: MediaQuery.of(context).size.width,
-    child: const Divider(
-      color: Color(0xFF48484A),
-      thickness: 0.4,
-      height: 14,
-    ),
-  ),
-),
-
-  ],
+        Transform.translate(
+          offset: const Offset(0, -14.1),
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width,
+            child: const Divider(
+              color: Color(0xFF48484A),
+              thickness: 0.4,
+              height: 14,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -108,7 +96,7 @@ Transform.translate(
           type: MaterialType.transparency,
           child: Transform.scale(
             scale: lerpDouble(
-              0.98,
+              0.9,
               1.0,
               Curves.easeOutCubic.transform(animation.value),
             )!,
