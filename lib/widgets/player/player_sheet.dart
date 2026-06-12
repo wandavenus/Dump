@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
@@ -46,6 +48,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
     }
 
     final progress = _progress;
+    final blurSigma = 0.0 + (progress * 22.0);
 
     return ValueListenableBuilder<AudioPlaybackState>(
       valueListenable: AudioService.playbackState,
@@ -79,10 +82,20 @@ class _PlayerSheetState extends State<PlayerSheet> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
+                    // A3: blur follows drag
                     if (song != null)
-                      AnimatedBlurredPlayerBackground(songId: song.id)
+                      ClipRect(
+                        child: ImageFiltered(
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: blurSigma,
+                            sigmaY: blurSigma,
+                          ),
+                          child: AnimatedBlurredPlayerBackground(songId: song.id),
+                        ),
+                      )
                     else
                       const PlayerFallbackBackground(),
+
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -95,6 +108,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
                         ),
                       ),
                     ),
+
                     SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 12),
@@ -108,13 +122,16 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                   ),
                                 ),
                               )
-                            : Transform.scale(
-                                scale: 1 - (progress * 0.05),
-                                child: PlayerContent(
-                                  song: song,
-                                  playbackState: playbackState,
-                                  formatTime: _formatTime,
-                                  lyrics: '',
+                            : Transform.translate(
+                                offset: Offset(0, -progress * 18),
+                                child: Transform.scale(
+                                  scale: 1 - (progress * 0.05),
+                                  child: PlayerContent(
+                                    song: song,
+                                    playbackState: playbackState,
+                                    formatTime: _formatTime,
+                                    lyrics: '',
+                                  ),
                                 ),
                               ),
                       ),
