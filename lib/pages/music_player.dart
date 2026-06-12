@@ -18,7 +18,6 @@ class MusicPlayer extends StatefulWidget {
 
 class _MusicPlayerState extends State<MusicPlayer> {
   bool _handledRouteArguments = false;
-  final String _lyrics = 'Loading lyrics...';
 
   @override
   void initState() {
@@ -91,19 +90,17 @@ class _MusicPlayerState extends State<MusicPlayer> {
                     ),
                   ),
                 ),
-              
-  SafeArea(
-  child: Padding(
-    padding: const EdgeInsets.only(top: 100),
-    child: song == null
-                      ? const PlayerEmptyState()
-                      : PlayerContent(
-                          song: song,
-                          playbackState: playbackState,
-                          formatTime: _formatTime,
-                          lyrics: _lyrics,
-                       ),
-                      ),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 100),
+                    child: song == null
+                        ? const PlayerEmptyState()
+                        : PlayerContent(
+                            song: song,
+                            playbackState: playbackState,
+                            formatTime: _formatTime,
+                          ),
+                  ),
                 ),
               ],
             ),
