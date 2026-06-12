@@ -69,7 +69,7 @@ class _MiniPlayerBody extends StatelessWidget {
     final artworkSize = 46 - (6 * anim);
 
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+      behavior: HitTestBehavior.deferToChild,
       onVerticalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -150) {
@@ -128,13 +128,11 @@ class _MiniPlayerBody extends StatelessWidget {
                   child: Row(
                     children: [
                       IconButton(
-                        onPressed: playbackState.isLoading
-                            ? null
-                            : () {
-                                playbackState.isPlaying
-                                    ? AudioService.pause()
-                                    : AudioService.play();
-                              },
+                        onPressed: () {
+                          playbackState.isPlaying
+                              ? AudioService.pause()
+                              : AudioService.play();
+                        },
                         icon: Icon(
                           playbackState.isPlaying
                               ? Icons.pause
