@@ -9,6 +9,20 @@ class PlayerSheetController {
   static final ValueNotifier<double> progress =
       ValueNotifier<double>(0.0);
 
+  static void setProgress(double value) {
+    final clamped = value.clamp(0.0, 1.0);
+
+    progress.value = clamped;
+
+    if (clamped > 0) {
+      expanded.value = true;
+    }
+
+    if (clamped == 0) {
+      expanded.value = false;
+    }
+  }
+
   static void open() {
     expanded.value = true;
     progress.value = 1.0;
