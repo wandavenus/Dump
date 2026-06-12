@@ -48,95 +48,100 @@ class _PlayerSheetState extends State<PlayerSheet> {
     }
 
     final progress = _progress;
-    final blurSigma = 0.0 + (progress * 22.0);
+    final blurSigma = progress * 22.0;
 
     return ValueListenableBuilder<AudioPlaybackState>(
       valueListenable: AudioService.playbackState,
       builder: (context, playbackState, _) {
         final song = playbackState.currentSong;
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragUpdate: (details) {
-            setState(() {
-              _dragDy += details.delta.dy;
-              if (_dragDy < 0) _dragDy = 0;
-            });
-          },
-          onVerticalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
+        return AnimatedSlide(
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          offset: const Offset(0, 0),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 280),
+            opacity: 1,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  _dragDy += details.delta.dy;
+                  if (_dragDy < 0) _dragDy = 0;
+                });
+              },
+              onVerticalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
 
-            if (velocity > 600 || progress > 0.25) {
-              _close();
-            } else {
-              setState(() => _dragDy = 0);
-            }
-          },
-          onTap: _close,
-          child: Transform.translate(
-            offset: Offset(0, _dragDy * 0.5),
-            child: Opacity(
-              opacity: (1 - progress).clamp(0.0, 1.0),
-              child: Material(
-                color: Colors.black,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // A3: blur follows drag
-                    if (song != null)
-                      ClipRect(
-                        child: ImageFiltered(
-                          imageFilter: ImageFilter.blur(
-                            sigmaX: blurSigma,
-                            sigmaY: blurSigma,
-                          ),
-                          child: AnimatedBlurredPlayerBackground(songId: song.id),
-                        ),
-                      )
-                    else
-                      const PlayerFallbackBackground(),
-
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color.fromARGB(80, 0, 0, 0),
-                            Color.fromARGB(180, 0, 0, 0),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: song == null
-                            ? const Center(
-                                child: Text(
-                                  'No song selected',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                              )
-                            : Transform.translate(
-                                offset: Offset(0, -progress * 18),
-                                child: Transform.scale(
-                                  scale: 1 - (progress * 0.05),
-                                  child: PlayerContent(
-                                    song: song,
-                                    playbackState: playbackState,
-                                    formatTime: _formatTime,
-                                    lyrics: '',
-                                  ),
-                                ),
+                if (velocity > 600 || progress > 0.25) {
+                  _close();
+                } else {
+                  setState(() => _dragDy = 0);
+                }
+              },
+              child: Transform.translate(
+                offset: Offset(0, _dragDy * 0.5),
+                child: Opacity(
+                  opacity: (1 - progress).clamp(0.0, 1.0),
+                  child: Material(
+                    color: Colors.black,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (song != null)
+                          ClipRect(
+                            child: ImageFiltered(
+                              imageFilter: ImageFilter.blur(
+                                sigmaX: blurSigma,
+                                sigmaY: blurSigma,
                               ),
-                      ),
+                              child: AnimatedBlurredPlayerBackground(songId: song.id),
+                            ),
+                          )
+                        else
+                          const PlayerFallbackBackground(),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.fromARGB(80, 0, 0, 0),
+                                Color.fromARGB(180, 0, 0, 0),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: song == null
+                                ? const Center(
+                                    child: Text(
+                                      'No song selected',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                      ),
+                                    ),
+                                  )
+                                : Transform.translate(
+                                    offset: Offset(0, -progress * 18),
+                                    child: Transform.scale(
+                                      scale: 1 - (progress * 0.05),
+                                      child: PlayerContent(
+                                        song: song,
+                                        playbackState: playbackState,
+                                        formatTime: _formatTime,
+                                        lyrics: '',
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
