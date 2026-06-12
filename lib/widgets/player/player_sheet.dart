@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
 import '../../services/player_sheet_controller.dart';
-import 'player_background.dart';
 import 'player_empty_state.dart';
 
 class PlayerSheet extends StatelessWidget {
@@ -36,9 +35,7 @@ class PlayerSheet extends StatelessWidget {
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  AnimatedBlurredPlayerBackground(
-                    songId: song?.id ?? 0,
-                  ),
+                  const ColoredBox(color: Colors.black),
                   SafeArea(
                     child: Stack(
                       children: [
