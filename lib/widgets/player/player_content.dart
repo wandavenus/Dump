@@ -16,14 +16,12 @@ class PlayerContent extends StatelessWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
   final String Function(Duration duration) formatTime;
-  final String lyrics;
 
   const PlayerContent({
     super.key,
     required this.song,
     required this.playbackState,
     required this.formatTime,
-    required this.lyrics,
   });
 
   @override
@@ -62,7 +60,7 @@ class PlayerContent extends StatelessWidget {
                 const SizedBox(height: 28),
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
-                PlayerSecondaryControls(lyrics: lyrics),
+                PlayerSecondaryControls(song: song),
               ],
             ),
           ),
