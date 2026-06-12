@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
+import 'player_progress_section.dart';
 import 'player_transport_controls.dart';
 
 class PlayerSheet extends StatelessWidget {
@@ -13,6 +14,12 @@ class PlayerSheet extends StatelessWidget {
     required this.expanded,
     this.onCollapse,
   });
+
+  String _formatTime(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +75,14 @@ class PlayerSheet extends StatelessWidget {
                               fontSize: 18,
                             ),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: PlayerProgressSection(
+                              formatTime: _formatTime,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
                           PlayerTransportControls(
                             playbackState: playbackState,
                           ),
