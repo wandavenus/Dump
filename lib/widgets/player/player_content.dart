@@ -36,7 +36,7 @@ class PlayerContent extends StatelessWidget {
         SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+            padding: const EdgeInsets.fromLTRB(22, 45, 22, 24),
             child: Column(
               children: [
                 const SizedBox(height: 18),
