@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/audio_playback_state.dart';
 import '../models/local_song.dart';
-import '../pages/music_player.dart';
 import '../services/audio_service.dart';
+import '../services/player_sheet_controller.dart';
 import 'song_artwork.dart';
 
 class MiniPlayer extends StatelessWidget {
@@ -118,34 +118,6 @@ class _MiniPlayerBody extends StatelessWidget {
   }
 
   void _openFullPlayer(BuildContext context) {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierColor: Colors.black54,
-        transitionDuration: const Duration(milliseconds: 360),
-        reverseTransitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return const MusicPlayer();
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curvedAnimation = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-
-          return FadeTransition(
-            opacity: curvedAnimation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.04),
-                end: Offset.zero,
-              ).animate(curvedAnimation),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+    PlayerSheetController.open();
   }
 }
