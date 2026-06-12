@@ -3,7 +3,6 @@ import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
 import '../../services/player_sheet_controller.dart';
 import 'player_background.dart';
-import 'player_content.dart';
 import 'player_empty_state.dart';
 
 class PlayerSheet extends StatelessWidget {
@@ -15,13 +14,6 @@ class PlayerSheet extends StatelessWidget {
     required this.expanded,
     this.onCollapse,
   });
-
-  String _formatTime(Duration duration) {
-    final safeDuration = duration.isNegative ? Duration.zero : duration;
-    final minutes = safeDuration.inMinutes.remainder(60);
-    final seconds = safeDuration.inSeconds.remainder(60);
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +64,14 @@ class PlayerSheet extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 18),
                           child: song == null
                               ? const PlayerEmptyState()
-                              : PlayerContent(
-                                  song: song,
-                                  playbackState: playbackState,
-                                  formatTime: _formatTime,
-                                  lyrics: 'Loading lyrics...',
+                              : const Center(
+                                  child: Text(
+                                    'PLAYER SHEET WORKS',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 30,
+                                    ),
+                                  ),
                                 ),
                         ),
                       ],
