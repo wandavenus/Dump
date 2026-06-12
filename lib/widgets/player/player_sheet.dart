@@ -15,6 +15,10 @@ class PlayerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!expanded) {
+      return const SizedBox.shrink();
+    }
+
     return Material(
       color: Colors.black,
       child: ValueListenableBuilder<AudioPlaybackState>(
