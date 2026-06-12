@@ -47,7 +47,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                         onDragUpdate: (dy) {
                           setState(() {
                             _dragUp -= dy;
-                            PlayerSheetController.setProgress((_dragUp / 350).clamp(0.0, 1.0));
+                            PlayerSheetController.setProgress((_dragUp / 600).clamp(0.0, 1.0));
                           });
                         },
                         onDragEnd: (velocity) {
