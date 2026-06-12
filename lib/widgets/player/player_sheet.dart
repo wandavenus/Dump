@@ -22,6 +22,11 @@ class PlayerSheet extends StatelessWidget {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
+  void _close() {
+    onCollapse?.call();
+    PlayerSheetController.close();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!expanded) {
@@ -34,10 +39,18 @@ class PlayerSheet extends StatelessWidget {
         final song = playbackState.currentSong;
 
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
           onVerticalDragUpdate: (details) {
             final dy = details.primaryDelta;
-            if (dy != null && dy > 12) {
-              PlayerSheetController.close();
+            if (dy != null && dy > 14) {
+              _close();
+            }
+          },
+          onVerticalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity > 600) {
+              _close();
             }
           },
           child: Material(
