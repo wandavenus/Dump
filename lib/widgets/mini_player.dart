@@ -70,7 +70,6 @@ class _MiniPlayerBody extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _openFullPlayer,
       onVerticalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity < -150) {
@@ -86,38 +85,42 @@ class _MiniPlayerBody extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      Hero(
-                        tag: PlayerHeroTags.artwork(song),
-                        child: SongArtwork(
-                          songId: song.id,
-                          size: artworkSize,
-                          borderRadius: BorderRadius.circular(3),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openFullPlayer,
+                    child: Row(
+                      children: [
+                        Hero(
+                          tag: PlayerHeroTags.artwork(song),
+                          child: SongArtwork(
+                            songId: song.id,
+                            size: artworkSize,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Transform.translate(
-                          offset: Offset(6 * anim, 0),
-                          child: Hero(
-                            tag: PlayerHeroTags.title(song),
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: Text(
-                                song.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Transform.translate(
+                            offset: Offset(6 * anim, 0),
+                            child: Hero(
+                              tag: PlayerHeroTags.title(song),
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: Text(
+                                  song.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 Opacity(
