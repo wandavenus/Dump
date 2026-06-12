@@ -57,106 +57,109 @@ class _PlayerSheetState extends State<PlayerSheet> {
     final screenHeight = MediaQuery.of(context).size.height;
     final hiddenOffset = widget.expanded ? 0.0 : screenHeight;
 
-    return Transform.translate(
-      offset: Offset(0, hiddenOffset),
-      child: ValueListenableBuilder<AudioPlaybackState>(
-        valueListenable: AudioService.playbackState,
-        builder: (context, playbackState, _) {
-          final song = playbackState.currentSong;
+    return IgnorePointer(
+      ignoring: !widget.expanded,
+      child: Transform.translate(
+        offset: Offset(0, hiddenOffset),
+        child: ValueListenableBuilder<AudioPlaybackState>(
+          valueListenable: AudioService.playbackState,
+          builder: (context, playbackState, _) {
+            final song = playbackState.currentSong;
 
-          return AnimatedSlide(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            offset: const Offset(0, 0),
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 280),
-              opacity: 1,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (details) {
-                  setState(() {
-                    _dragDy += details.delta.dy;
-                    if (_dragDy < 0) _dragDy = 0;
-                  });
-                },
-                onVerticalDragEnd: (details) {
-                  final velocity = details.primaryVelocity ?? 0;
+            return AnimatedSlide(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              offset: const Offset(0, 0),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 280),
+                opacity: 1,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (details) {
+                    setState(() {
+                      _dragDy += details.delta.dy;
+                      if (_dragDy < 0) _dragDy = 0;
+                    });
+                  },
+                  onVerticalDragEnd: (details) {
+                    final velocity = details.primaryVelocity ?? 0;
 
-                  if (velocity > 600 || progress > 0.25) {
-                    _close();
-                  } else {
-                    setState(() => _dragDy = 0);
-                  }
-                },
-                child: Transform.translate(
-                  offset: Offset(0, _dragDy * 0.5),
-                  child: Opacity(
-                    opacity: (1 - progress).clamp(0.0, 1.0),
-                    child: Material(
-                      color: Colors.black,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (song != null)
-                            ClipRect(
-                              child: ImageFiltered(
-                                imageFilter: ImageFilter.blur(
-                                  sigmaX: blurSigma,
-                                  sigmaY: blurSigma,
+                    if (velocity > 600 || progress > 0.25) {
+                      _close();
+                    } else {
+                      setState(() => _dragDy = 0);
+                    }
+                  },
+                  child: Transform.translate(
+                    offset: Offset(0, _dragDy * 0.5),
+                    child: Opacity(
+                      opacity: (1 - progress).clamp(0.0, 1.0),
+                      child: Material(
+                        color: Colors.black,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (song != null)
+                              ClipRect(
+                                child: ImageFiltered(
+                                  imageFilter: ImageFilter.blur(
+                                    sigmaX: blurSigma,
+                                    sigmaY: blurSigma,
+                                  ),
+                                  child: AnimatedBlurredPlayerBackground(songId: song.id),
                                 ),
-                                child: AnimatedBlurredPlayerBackground(songId: song.id),
-                              ),
-                            )
-                          else
-                            const PlayerFallbackBackground(),
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color.fromARGB(80, 0, 0, 0),
-                                  Color.fromARGB(180, 0, 0, 0),
-                                ],
+                              )
+                            else
+                              const PlayerFallbackBackground(),
+                            const DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color.fromARGB(80, 0, 0, 0),
+                                    Color.fromARGB(180, 0, 0, 0),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          SafeArea(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: song == null
-                                  ? const Center(
-                                      child: Text(
-                                        'No song selected',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 24,
+                            SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: song == null
+                                    ? const Center(
+                                        child: Text(
+                                          'No song selected',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 24,
+                                          ),
+                                        ),
+                                      )
+                                    : Transform.translate(
+                                        offset: Offset(0, -progress * 18),
+                                        child: Transform.scale(
+                                          scale: 1 - (progress * 0.05),
+                                          child: PlayerContent(
+                                            song: song,
+                                            playbackState: playbackState,
+                                            formatTime: _formatTime,
+                                            lyrics: '',
+                                          ),
                                         ),
                                       ),
-                                    )
-                                  : Transform.translate(
-                                      offset: Offset(0, -progress * 18),
-                                      child: Transform.scale(
-                                        scale: 1 - (progress * 0.05),
-                                        child: PlayerContent(
-                                          song: song,
-                                          playbackState: playbackState,
-                                          formatTime: _formatTime,
-                                          lyrics: '',
-                                        ),
-                                      ),
-                                    ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
