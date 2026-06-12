@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 
 import '../models/local_song.dart';
+import '../services/audio_service.dart';
 import '../services/media_store_service.dart';
+import '../services/player_sheet_controller.dart';
 import '../widgets/player/player_hero_tags.dart';
 import '../widgets/song_artwork.dart';
 
@@ -94,16 +96,12 @@ class _MusicListState extends State<MusicList> {
                     horizontal: 16,
                     vertical: 2,
                   ),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/player',
-                      arguments: {
-                        'index': index,
-                        'song': song,
-                        'songs': songs,
-                      },
+                  onTap: () async {
+                    await AudioService.playSongAt(
+                      playlist: songs,
+                      index: index,
                     );
+                    PlayerSheetController.open();
                   },
                   leading: Hero(
                     tag: PlayerHeroTags.artwork(song),
