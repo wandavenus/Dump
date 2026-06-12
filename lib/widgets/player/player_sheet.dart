@@ -18,13 +18,13 @@ class PlayerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      ignoring: !expanded,
+      ignoring: false,
       child: AnimatedPositioned(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
         left: 0,
         right: 0,
-        top: expanded ? 0 : MediaQuery.of(context).size.height,
+        top: 0,
         bottom: 0,
         child: Material(
           color: const Color(0xFF000000),
