@@ -14,8 +14,15 @@ class SongMetadataService {
     return Map<String, dynamic>.from(metadata ?? {});
   }
 
+  // Existing methods restored
+  static Future<Map<String, dynamic>> getSongInfo(LocalSong song) async {
+    return await getAudioMetadata(song.path, song.id);
+  }
+
   static Future<String?> getLyrics(LocalSong song) async {
     final metadata = await getAudioMetadata(song.path, song.id);
     return metadata['lyrics'] as String?;
   }
+
+  // Additional helper methods could be restored here if needed
 }
