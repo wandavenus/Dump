@@ -6,8 +6,15 @@ import '../services/player_sheet_controller.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
-class MiniPlayer extends StatelessWidget {
+class MiniPlayer extends StatefulWidget {
   const MiniPlayer({super.key});
+
+  @override
+  State<MiniPlayer> createState() => _MiniPlayerState();
+}
+
+class _MiniPlayerState extends State<MiniPlayer> {
+  double _dragUp = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +44,20 @@ class MiniPlayer extends StatelessWidget {
                         song: song,
                         playbackState: playbackState,
                         anim: value,
+                        onDragUpdate: (dy) {
+                          setState(() {
+                            _dragUp -= dy;
+                            PlayerSheetController.setProgress((_dragUp / 350).clamp(0.0, 1.0));
+                          });
+                        },
+                        onDragEnd: (velocity) {
+                          if (PlayerSheetController.progress.value > 0.35 || velocity < -150) {
+                            PlayerSheetController.open();
+                          } else {
+                            PlayerSheetController.close();
+                          }
+                          _dragUp = 0;
+                        },
                       ),
                     ),
                   ),
@@ -54,18 +75,20 @@ class _MiniPlayerBody extends StatelessWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
   final double anim;
+  final Function(double)? onDragUpdate;
+  final Function(double)? onDragEnd;
 
   const _MiniPlayerBody({
     required this.song,
     required this.playbackState,
     required this.anim,
+    this.onDragUpdate,
+    this.onDragEnd,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canGoNext =
-        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
-
+    final canGoNext = playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final artworkSize = 46 - (6 * anim);
 
     return Material(
@@ -80,12 +103,9 @@ class _MiniPlayerBody extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _openFullPlayer,
-                  onVerticalDragEnd: (details) {
-                    final velocity = details.primaryVelocity ?? 0;
-                    if (velocity < -150) {
-                      PlayerSheetController.open();
-                    }
-                  },
+                  onVerticalDragStart: (_) => _dragUp = 0,
+                  onVerticalDragUpdate: (details) => onDragUpdate?.call(details.delta.dy),
+                  onVerticalDragEnd: (details) => onDragEnd?.call(details.primaryVelocity ?? 0),
                   child: Row(
                     children: [
                       Hero(
@@ -127,22 +147,16 @@ class _MiniPlayerBody extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: () {
-                        playbackState.isPlaying
-                            ? AudioService.pause()
-                            : AudioService.play();
+                        playbackState.isPlaying ? AudioService.pause() : AudioService.play();
                       },
                       icon: Icon(
-                        playbackState.isPlaying
-                            ? Icons.pause
-                            : Icons.play_arrow,
+                        playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
                         size: 34,
                         color: Colors.white,
                       ),
                     ),
                     IconButton(
-                      onPressed: canGoNext
-                          ? () => AudioService.skipNext()
-                          : null,
+                      onPressed: canGoNext ? () => AudioService.skipNext() : null,
                       icon: Icon(
                         Icons.skip_next,
                         size: 30,
