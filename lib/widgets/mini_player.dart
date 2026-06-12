@@ -70,16 +70,18 @@ class _MiniPlayerBody extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-
       onTap: _openFullPlayer,
-
-      onVerticalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity < -500) {
+      onVerticalDragUpdate: (details) {
+        if (details.delta.dy < -4) {
           PlayerSheetController.open();
         }
       },
-
+      onVerticalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -250) {
+          PlayerSheetController.open();
+        }
+      },
       child: Material(
         color: const Color(0xFF1C1C1E),
         child: SizedBox(
