@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
+import '../../services/player_sheet_controller.dart';
 import '../song_artwork.dart';
 import 'player_background.dart';
 import 'player_content.dart';
@@ -32,49 +33,57 @@ class PlayerSheet extends StatelessWidget {
       builder: (context, playbackState, _) {
         final song = playbackState.currentSong;
 
-        return Material(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (song != null)
-                AnimatedBlurredPlayerBackground(songId: song.id)
-              else
-                const PlayerFallbackBackground(),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.fromARGB(80, 0, 0, 0),
-                      Color.fromARGB(180, 0, 0, 0),
-                    ],
+        return GestureDetector(
+          onVerticalDragUpdate: (details) {
+            final dy = details.primaryDelta;
+            if (dy != null && dy > 12) {
+              PlayerSheetController.close();
+            }
+          },
+          child: Material(
+            color: Colors.black,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (song != null)
+                  AnimatedBlurredPlayerBackground(songId: song.id)
+                else
+                  const PlayerFallbackBackground(),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.fromARGB(80, 0, 0, 0),
+                        Color.fromARGB(180, 0, 0, 0),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: song == null
-                      ? const Center(
-                          child: Text(
-                            'No song selected',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: song == null
+                        ? const Center(
+                            child: Text(
+                              'No song selected',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                              ),
                             ),
+                          )
+                        : PlayerContent(
+                            song: song,
+                            playbackState: playbackState,
+                            formatTime: _formatTime,
+                            lyrics: '',
                           ),
-                        )
-                      : PlayerContent(
-                          song: song,
-                          playbackState: playbackState,
-                          formatTime: _formatTime,
-                          lyrics: '',
-                        ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
