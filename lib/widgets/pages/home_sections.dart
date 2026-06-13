@@ -6,7 +6,7 @@ import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
 import '../../utils/sample_music_data.dart';
 import '../common/scrolling_page_chrome.dart';
-import '../widgets/song_artwork.dart';
+import '../song_artwork.dart';
 class HomePageContent extends StatelessWidget {
 const HomePageContent({super.key});
 @override
