@@ -1,4 +1,4 @@
-# hello world, i am Wndavenznchole
+# Hello world, i am Wndavenznchole
 
 [![typing svg](https://readme-typing-svg.demolab.com?font=fira+code&pause=1000&color=f7f7f7&width=435&lines=full+stack+developer;tech+enthusiast;building+cool+stuff)](https://git.io/typing-svg)
 
