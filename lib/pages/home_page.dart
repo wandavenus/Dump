@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/home_sections.dart';
 
@@ -23,12 +24,21 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: FadingTitleAppBar(title: 'Beranda', scrollOffset: _scrollOffset),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScroll,
-        child: const HomePageContent(),
-      ),
+    return ListenableBuilder(
+      listenable: ThemeController.allGlass,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: ThemeController.glassTheme.value
+              ? Colors.transparent
+              : Colors.black,
+          appBar: FadingTitleAppBar(
+              title: 'Beranda', scrollOffset: _scrollOffset),
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _handleScroll,
+            child: const HomePageContent(),
+          ),
+        );
+      },
     );
   }
 }

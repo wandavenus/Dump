@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
+import '../../themes/liquid_glass.dart';
+import '../../themes/theme_controller.dart';
 import '../player/player_panel_controller.dart';
 import '../song_artwork.dart';
 
@@ -20,10 +22,15 @@ class DetailTopBar extends StatelessWidget {
             padding: const EdgeInsets.all(5),
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.red),
+              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 20, color: Colors.red),
             ),
           ),
-          const Row(children: [_CircleIcon(icon: Icons.add), SizedBox(width: 18), _CircleIcon(icon: Icons.more_horiz)]),
+          const Row(children: [
+            _CircleIcon(icon: Icons.add),
+            SizedBox(width: 18),
+            _CircleIcon(icon: Icons.more_horiz),
+          ]),
         ],
       ),
     );
@@ -37,20 +44,34 @@ class _CircleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(150),
-        color: const Color.fromARGB(85, 79, 79, 79),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(5),
-        child: Icon(icon, size: 20, color: Colors.red),
-      ),
+    return ListenableBuilder(
+      listenable: ThemeController.glassTheme,
+      builder: (ctx, _) {
+        if (ThemeController.glassTheme.value) {
+          return LiquidGlass(
+            borderRadius: BorderRadius.circular(150),
+            blur: 16,
+            addShadow: false,
+            padding: const EdgeInsets.all(6),
+            child: Icon(icon, size: 20, color: Colors.red),
+          );
+        }
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(150),
+            color: const Color.fromARGB(85, 79, 79, 79),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(5),
+            child: Icon(icon, size: 20, color: Colors.red),
+          ),
+        );
+      },
     );
   }
 }
 
-// ─── Album hero — pakai SongArtwork dari lagu lokal ────────────────────────
+// ─── Album hero ─────────────────────────────────────────────────────────────
 
 class AlbumHero extends StatelessWidget {
   const AlbumHero({super.key, required this.album});
@@ -72,15 +93,24 @@ class AlbumHero extends StatelessWidget {
           Text(
             album.album,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                color: Colors.white),
           ),
           Text(
             album.artist,
-            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red),
+            style: const TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.normal,
+                color: Colors.red),
           ),
           const Text(
             'Local • Lossless',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white),
           ),
         ],
       ),
@@ -88,7 +118,7 @@ class AlbumHero extends StatelessWidget {
   }
 }
 
-// ─── Artist hero — artwork lagu sebagai latar belakang ─────────────────────
+// ─── Artist hero ─────────────────────────────────────────────────────────────
 
 class ArtistHero extends StatelessWidget {
   const ArtistHero({super.key, required this.songs});
@@ -111,9 +141,8 @@ class ArtistHero extends StatelessWidget {
             fit: BoxFit.cover,
           ),
           DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.45),
-            ),
+            decoration:
+                BoxDecoration(color: Colors.black.withOpacity(0.45)),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,10 +154,9 @@ class ArtistHero extends StatelessWidget {
                 child: Text(
                   artistName,
                   style: const TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
               ),
             ],
@@ -139,7 +167,7 @@ class ArtistHero extends StatelessWidget {
   }
 }
 
-// ─── Tombol play/shuffle ───────────────────────────────────────────────────
+// ─── Tombol Play / Shuffle ────────────────────────────────────────────────────
 
 class PlayShuffleButtons extends StatelessWidget {
   const PlayShuffleButtons({super.key, required this.songs});
@@ -177,7 +205,8 @@ class PlayShuffleButtons extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.icon, required this.label, required this.onTap});
+  const _ActionButton(
+      {required this.icon, required this.label, required this.onTap});
 
   final IconData icon;
   final String label;
@@ -185,31 +214,65 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 50,
-        width: 160,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: const Color.fromARGB(85, 79, 79, 79),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.red, size: 30),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.red,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+    return ListenableBuilder(
+      listenable: ThemeController.glassTheme,
+      builder: (ctx, _) {
+        if (ThemeController.glassTheme.value) {
+          return LiquidGlass(
+            borderRadius: BorderRadius.circular(12),
+            blur: 20,
+            addShadow: true,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 50,
+                width: 160,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: Colors.red, size: 28),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 50,
+            width: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: const Color.fromARGB(85, 79, 79, 79),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.red, size: 30),
+                Text(
+                  label,
+                  style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -239,10 +302,9 @@ class SongListSection extends StatelessWidget {
                 Text(
                   'Top Songs',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
                 Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey),
               ],
@@ -283,10 +345,9 @@ class SongListRow extends StatelessWidget {
       child: Column(
         children: [
           const Divider(
-            color: Color.fromARGB(255, 80, 80, 80),
-            thickness: .4,
-            indent: 58,
-          ),
+              color: Color.fromARGB(255, 80, 80, 80),
+              thickness: .4,
+              indent: 58),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -303,16 +364,13 @@ class SongListRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          song.title,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                        Text(
-                          song.album,
-                          style: const TextStyle(fontSize: 15, color: Colors.grey),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Text(song.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 20)),
+                        Text(song.album,
+                            style: const TextStyle(
+                                fontSize: 15, color: Colors.grey),
+                            overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),

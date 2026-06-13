@@ -42,9 +42,11 @@ class _FirstPageState extends State<FirstPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: ThemeController.glassTheme,
-      builder: (context, isGlass, _) {
+    return ListenableBuilder(
+      listenable: ThemeController.allGlass,
+      builder: (context, _) {
+        final isNavGlass = ThemeController.isNavBarGlass;
+
         final navBar = Theme(
           data: Theme.of(context).copyWith(
             splashColor: Colors.transparent,
@@ -55,18 +57,25 @@ class _FirstPageState extends State<FirstPage> {
             currentIndex: _selected_index,
             onTap: _navgateBottomBar,
             items: [
-              const BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
-              const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
-              const BottomNavigationBarItem(icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
-              const BottomNavigationBarItem(icon: Icon(Icons.subscriptions_rounded, size: 26), label: 'Perpustakaan'),
-              const BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.subscriptions_rounded, size: 26),
+                  label: 'Perpustakaan'),
+              const BottomNavigationBarItem(
+                  icon: Icon(Icons.search, size: 26), label: 'Cari'),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
             selectedItemColor: const Color(0xFFF92D48),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
-            backgroundColor: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
+            backgroundColor:
+                isNavGlass ? Colors.transparent : const Color(0xFF1C1C1E),
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
@@ -96,14 +105,16 @@ class _FirstPageState extends State<FirstPage> {
                             opacity: opacity,
                             child: const MiniPlayer(),
                           ),
-                          if (!isGlass)
+                          if (!isNavGlass)
                             Container(
                               height: 1.5,
                               color: const Color(0xFF38383A),
                             ),
                           SizedBox(
                             height: 70,
-                            child: isGlass ? GlassNavBar(child: navBar) : navBar,
+                            child: isNavGlass
+                                ? GlassNavBar(child: navBar)
+                                : navBar,
                           ),
                         ],
                       ),
@@ -115,9 +126,7 @@ class _FirstPageState extends State<FirstPage> {
             ValueListenableBuilder<bool>(
               valueListenable: PlayerSheetController.expanded,
               builder: (context, expanded, _) {
-                return PlayerSheet(
-                  expanded: expanded,
-                );
+                return PlayerSheet(expanded: expanded);
               },
             ),
           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../themes/theme_controller.dart';
 import '../widgets/pages/search_sections.dart';
 
 class SearchPage extends StatefulWidget {
@@ -19,11 +20,19 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScroll,
-        child: SearchSlivers(scrollOffset: _scrollOffset),
-      ),
+    return ListenableBuilder(
+      listenable: ThemeController.allGlass,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: ThemeController.glassTheme.value
+              ? Colors.transparent
+              : Colors.black,
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _handleScroll,
+            child: SearchSlivers(scrollOffset: _scrollOffset),
+          ),
+        );
+      },
     );
   }
 }

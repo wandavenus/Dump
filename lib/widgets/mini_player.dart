@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/audio_playback_state.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/player_sheet_controller.dart';
+import '../themes/theme_controller.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
@@ -47,11 +49,13 @@ class _MiniPlayerState extends State<MiniPlayer> {
                         onDragUpdate: (dy) {
                           setState(() {
                             _dragUp -= dy;
-                            PlayerSheetController.setProgress((_dragUp / 600).clamp(0.0, 1.0));
+                            PlayerSheetController.setProgress(
+                                (_dragUp / 600).clamp(0.0, 1.0));
                           });
                         },
                         onDragEnd: (velocity) {
-                          if (PlayerSheetController.progress.value > 0.35 || velocity < -150) {
+                          if (PlayerSheetController.progress.value > 0.35 ||
+                              velocity < -150) {
                             PlayerSheetController.open();
                           } else {
                             PlayerSheetController.close();
@@ -88,92 +92,124 @@ class _MiniPlayerBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canGoNext = playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
+    final canGoNext =
+        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final artworkSize = 46 - (6 * anim);
 
-    return Material(
-      color: const Color(0xFF1C1C1E),
-      child: SizedBox(
-        height: 55,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _openFullPlayer,
-                  onVerticalDragStart: (_) {},
-                  onVerticalDragUpdate: (details) => onDragUpdate?.call(details.delta.dy),
-                  onVerticalDragEnd: (details) => onDragEnd?.call(details.primaryVelocity ?? 0),
-                  child: Row(
-                    children: [
-                      Hero(
-                        tag: PlayerHeroTags.artwork(song),
-                        child: SongArtwork(
-                          songId: song.id,
-                          size: artworkSize,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
+    final content = SizedBox(
+      height: 55,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openFullPlayer,
+                onVerticalDragStart: (_) {},
+                onVerticalDragUpdate: (details) =>
+                    onDragUpdate?.call(details.delta.dy),
+                onVerticalDragEnd: (details) =>
+                    onDragEnd?.call(details.primaryVelocity ?? 0),
+                child: Row(
+                  children: [
+                    Hero(
+                      tag: PlayerHeroTags.artwork(song),
+                      child: SongArtwork(
+                        songId: song.id,
+                        size: artworkSize,
+                        borderRadius: BorderRadius.circular(3),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Transform.translate(
-                          offset: Offset(6 * anim, 0),
-                          child: Hero(
-                            tag: PlayerHeroTags.title(song),
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: Text(
-                                song.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                ),
-                              ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Transform.translate(
+                        offset: Offset(6 * anim, 0),
+                        child: Hero(
+                          tag: PlayerHeroTags.title(song),
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Text(
+                              song.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 15),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Opacity(
-                opacity: 1 - anim,
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        playbackState.isPlaying ? AudioService.pause() : AudioService.play();
-                      },
-                      icon: Icon(
-                        playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 34,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: canGoNext ? () => AudioService.skipNext() : null,
-                      icon: Icon(
-                        Icons.skip_next,
-                        size: 30,
-                        color: canGoNext ? Colors.white : Colors.white24,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            Opacity(
+              opacity: 1 - anim,
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      playbackState.isPlaying
+                          ? AudioService.pause()
+                          : AudioService.play();
+                    },
+                    icon: Icon(
+                      playbackState.isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                      size: 34,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        canGoNext ? () => AudioService.skipNext() : null,
+                    icon: Icon(
+                      Icons.skip_next,
+                      size: 30,
+                      color: canGoNext ? Colors.white : Colors.white24,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
+
+    return ListenableBuilder(
+      listenable: ThemeController.allGlass,
+      builder: (ctx, _) {
+        if (ThemeController.isMiniPlayerGlass) {
+          return ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.20),
+                      Colors.white.withOpacity(0.07),
+                    ],
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                        color: Colors.white.withOpacity(0.30), width: 0.6),
+                  ),
+                ),
+                child: content,
+              ),
+            ),
+          );
+        }
+        return Material(color: const Color(0xFF1C1C1E), child: content);
+      },
+    );
   }
 
-  void _openFullPlayer() {
-    PlayerSheetController.open();
-  }
+  void _openFullPlayer() => PlayerSheetController.open();
 }

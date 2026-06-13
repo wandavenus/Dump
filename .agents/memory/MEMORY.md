@@ -1,2 +1,3 @@
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
-- [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
+- [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di browser web; bukan bug — semua seksi harus menangani list kosong.
+- [Liquid Glass iOS 27 architecture](liquid-glass-arch.md) — sistem glass 5-komponen (NavBar, AppBar, MiniPlayer, Cards, background) dikendalikan ThemeController; WebView harus transparent saat glass on agar gradient blur terlihat.
