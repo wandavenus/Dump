@@ -1,30 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../models/local_song.dart';
 import '../widgets/pages/artist_sections.dart';
 
-class ArtistPage extends StatefulWidget {
+class ArtistPage extends StatelessWidget {
   const ArtistPage({super.key});
 
   @override
-  State<ArtistPage> createState() => _ArtistPageState();
-}
-
-class _ArtistPageState extends State<ArtistPage> {
-  int currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final routes = ModalRoute.of(context)?.settings.arguments as Map<String, int>?;
-      if (routes != null && routes.containsKey('index')) {
-        setState(() => currentIndex = routes['index']!);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(body: ArtistPageContent(currentIndex: currentIndex));
+    final songs = ModalRoute.of(context)!.settings.arguments as List<LocalSong>;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: ArtistPageContent(
+          songs: songs,
+        ),
+      ),
+    );
   }
 }
