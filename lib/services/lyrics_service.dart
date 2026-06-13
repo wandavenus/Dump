@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/lyric_line.dart';
 
@@ -12,17 +13,27 @@ class LyricsService {
     required String artist,
   }) async {
     final key = '$artist|$title';
+    final prefKey = 'lyrics_$key';
 
     if (_cache.containsKey(key)) {
       return _cache[key]!;
     }
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final savedLyrics = prefs.getString(prefKey);
+      if (savedLyrics != null && savedLyrics.isNotEmpty) {
+        final lyrics = parseLrc(savedLyrics);
+        _cache[key] = lyrics;
+        return lyrics;
+      }
+
       final normalizedArtist = artist.split(',').first.trim();
       final normalizedTitle =
           title.replaceAll(RegExp(r'\s*\(.*?\)'), '').trim();
 
-      Future<List<LyricLine>> search(String track, String artistName) async {
+      Future<String?> search(String track, String artistName) async {
         final uri = Uri.parse(
           'https://lrclib.net/api/search?track_name=${Uri.encodeComponent(track)}&artist_name=${Uri.encodeComponent(artistName)}',
         );
@@ -36,13 +47,13 @@ class LyricsService {
         );
 
         if (response.statusCode != 200) {
-          return [];
+          return null;
         }
 
         final data = jsonDecode(response.body);
 
         if (data is! List || data.isEmpty) {
-          return [];
+          return null;
         }
 
         final first = data.first;
@@ -50,18 +61,24 @@ class LyricsService {
             (first['syncedLyrics'] ?? first['lyrics'] ?? '') as String;
 
         if (syncedLyrics.isEmpty) {
-          return [];
+          return null;
         }
 
-        return parseLrc(syncedLyrics);
+        return syncedLyrics;
       }
 
-      var lyrics = await search(normalizedTitle, normalizedArtist);
+      String? rawLyrics =
+          await search(normalizedTitle, normalizedArtist);
 
-      if (lyrics.isEmpty) {
-        lyrics = await search(title, artist);
+      rawLyrics ??= await search(title, artist);
+
+      if (rawLyrics == null || rawLyrics.isEmpty) {
+        return [];
       }
 
+      await prefs.setString(prefKey, rawLyrics);
+
+      final lyrics = parseLrc(rawLyrics);
       _cache[key] = lyrics;
       return lyrics;
     } catch (_) {
