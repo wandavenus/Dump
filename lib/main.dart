@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/services/audio_service.dart';
+import 'package:musicplayer/services/audio_settings_service.dart';
+import 'package:musicplayer/services/audio_focus_service.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -33,10 +35,7 @@ Future<void> main() async {
   }
 
   if (!kIsWeb) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
-
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -48,7 +47,9 @@ Future<void> main() async {
   }
 
   await ThemeController.init();
+  await AudioSettingsService.init();
   AudioService.initialize();
+  AudioFocusService.initialize();
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Permission.storage.request();
@@ -72,9 +73,8 @@ void applyEdgeToEdge() {
 
 class MyScrollBehavior extends MaterialScrollBehavior {
   @override
-  ScrollPhysics getScrollPhysics(BuildContext context) {
-    return const ClampingScrollPhysics();
-  }
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const ClampingScrollPhysics();
 }
 
 class MyApp extends StatefulWidget {
@@ -99,8 +99,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) applyEdgeToEdge();
+    if (state == AppLifecycleState.paused) {
+      AudioFocusService.onFocusLoss(transient: false);
+    }
     if (state == AppLifecycleState.resumed) {
-      applyEdgeToEdge();
+      AudioFocusService.onFocusGain();
     }
   }
 

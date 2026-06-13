@@ -7,6 +7,7 @@ import '../models/local_song.dart';
 import 'audio_playback_state.dart';
 import 'audio_source_builder.dart';
 import 'history_service.dart';
+import 'log_service.dart';
 
 class AudioService {
   AudioService._();
@@ -81,7 +82,6 @@ class AudioService {
         if (index == null) return;
 
         final playlist = playbackState.value.currentPlaylist;
-
         if (index < 0 || index >= playlist.length) return;
 
         _setState(
@@ -91,15 +91,14 @@ class AudioService {
           ),
         );
 
-        unawaited(
-          HistoryService.trackPlay(
-            playlist[index],
-          ),
-        );
+        LogService.log('AudioService', 'Playing: ${playlist[index].title}');
+
+        unawaited(HistoryService.trackPlay(playlist[index]));
       }),
     );
 
     _syncPlaybackState();
+    LogService.log('AudioService', 'Initialized');
   }
 
   static Future<void> playSongAt({
@@ -130,14 +129,11 @@ class AudioService {
         children: immutablePlaylist.map(buildAudioSource).toList(),
       );
 
-      await player.setAudioSource(
-        _queue!,
-        initialIndex: index,
-      );
+      await player.setAudioSource(_queue!, initialIndex: index);
 
-      if (autoplay) {
-        await player.play();
-      }
+      if (autoplay) await player.play();
+    } catch (e, st) {
+      LogService.error('AudioService', 'playSongAt error: $e\n$st');
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
@@ -147,14 +143,12 @@ class AudioService {
 
   static Future<void> play() async {
     initialize();
-
     await player.play();
     _syncPlaybackState();
   }
 
   static Future<void> pause() async {
     initialize();
-
     await player.pause();
     _syncPlaybackState();
   }
@@ -167,21 +161,41 @@ class AudioService {
 
   static Future<void> skipNext() async {
     await player.seekToNext();
+    LogService.log('AudioService', 'Skip next');
   }
 
   static Future<void> skipPrevious() async {
     await player.seekToPrevious();
+    LogService.log('AudioService', 'Skip previous');
   }
 
   static Future<void> playFromCurrentQueue(int index) async {
-    await player.seek(
-      Duration.zero,
-      index: index,
-    );
+    await player.seek(Duration.zero, index: index);
+    if (!player.playing) await player.play();
+  }
 
-    if (!player.playing) {
-      await player.play();
-    }
+  /// Tambah lagu sebagai item berikutnya di antrian (setelah lagu saat ini).
+  static void addToQueueNext(LocalSong song) {
+    if (_queue == null) return;
+    final nextIndex = (currentIndex + 1).clamp(0, _queue!.length);
+    _queue!.insert(nextIndex, buildAudioSource(song));
+    final newPlaylist = List<LocalSong>.from(currentPlaylist)
+      ..insert(nextIndex, song);
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
+    ));
+    LogService.log('AudioService', 'Added to queue next: ${song.title}');
+  }
+
+  /// Tambah lagu ke akhir antrian.
+  static void addToQueue(LocalSong song) {
+    if (_queue == null) return;
+    _queue!.add(buildAudioSource(song));
+    final newPlaylist = List<LocalSong>.from(currentPlaylist)..add(song);
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
+    ));
+    LogService.log('AudioService', 'Added to queue end: ${song.title}');
   }
 
   static Future<void> _playNextAfterCompletion() async {
@@ -189,7 +203,6 @@ class AudioService {
     if (_isLoading || state.currentIndex >= state.currentPlaylist.length - 1) {
       return;
     }
-
     await skipNext();
   }
 
@@ -207,8 +220,8 @@ class AudioService {
   }
 
   static Future<void> dispose() async {
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
+    for (final sub in _subscriptions) {
+      await sub.cancel();
     }
     _subscriptions.clear();
     _initialized = false;
