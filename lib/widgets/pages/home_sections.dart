@@ -4,6 +4,8 @@ import '../../extensions/song_map_extensions.dart';
 import '../../models/local_song.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
+import '../../services/audio_service.dart';
+import '../../services/player_sheet_controller.dart';
 import '../../utils/sample_music_data.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../song_artwork.dart';
@@ -92,15 +94,13 @@ itemCount: _recentSongs.length,
 itemBuilder: (context, index) {
 final song = _recentSongs[index];
 return InkWell(
-onTap: () {
-Navigator.pushNamed(
-context,
-'/player',
-arguments: {
-'index': index,
-'songs': _recentSongs,
-},
-);
+onTap: () async {
+  await AudioService.playSongAt(
+    playlist: _recentSongs,
+    index: index,
+  );
+
+  PlayerSheetController.open();
 },
 child: Container(
 margin: const EdgeInsets.only(right: 10, left: 6),
@@ -290,11 +290,13 @@ final bool passSongsToPlayer;
 Widget build(BuildContext context) {
 final song = songs[index];
 return InkWell(
-onTap: () {
-Navigator.pushNamed(context, '/player', arguments: {
-'index': index,
-if (passSongsToPlayer) 'songs': songs.toLocalSongs(),
-});
+onTap: () async {
+  await AudioService.playSongAt(
+    playlist: songs.toLocalSongs(),
+    index: index,
+  );
+
+  PlayerSheetController.open();
 },
 child: Container(
 margin: const EdgeInsets.only(right: 10, left: 6),
