@@ -109,16 +109,20 @@ crossAxisAlignment: CrossAxisAlignment.start,
 children: [
 const SizedBox(height: 10),
 ClipPath(
-clipper: ShapeBorderClipper(
-shape: RoundedRectangleBorder(
-borderRadius: BorderRadius.circular(10),
-),
-),
-child: SizedBox(
-height: 170,
-width: 170,
-child: SongArtwork(song: song),
-),
+  clipper: ShapeBorderClipper(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+  ),
+  child: SizedBox(
+    height: 170,
+    width: 170,
+    child: SongArtwork(
+      songId: song.id,
+      size: 170,
+      borderRadius: BorderRadius.circular(10),
+    ),
+  ),
 ),
 const Padding(padding: EdgeInsets.only(top: 2.5)),
 SizedBox(
