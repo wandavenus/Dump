@@ -6,13 +6,14 @@ import 'package:just_audio/just_audio.dart';
 import '../models/local_song.dart';
 import 'audio_playback_state.dart';
 import 'audio_source_builder.dart';
+import 'history_service.dart';
 
 class AudioService {
   AudioService._();
 
   static final AudioPlayer player = AudioPlayer();
- static ConcatenatingAudioSource? _queue;
- static final ValueNotifier<AudioPlaybackState> playbackState =
+  static ConcatenatingAudioSource? _queue;
+  static final ValueNotifier<AudioPlaybackState> playbackState =
       ValueNotifier<AudioPlaybackState>(const AudioPlaybackState());
 
   static bool _initialized = false;
@@ -75,24 +76,30 @@ class AudioService {
       }),
     );
 
-  _subscriptions.add(
-  player.currentIndexStream.listen((index) {
-    if (index == null) return;
+    _subscriptions.add(
+      player.currentIndexStream.listen((index) {
+        if (index == null) return;
 
-    final playlist = playbackState.value.currentPlaylist;
+        final playlist = playbackState.value.currentPlaylist;
 
-    if (index < 0 || index >= playlist.length) return;
+        if (index < 0 || index >= playlist.length) return;
 
-    _setState(
-      playbackState.value.copyWith(
-        currentIndex: index,
-        currentSong: playlist[index],
-      ),
+        _setState(
+          playbackState.value.copyWith(
+            currentIndex: index,
+            currentSong: playlist[index],
+          ),
+        );
+
+        unawaited(
+          HistoryService.trackPlay(
+            playlist[index],
+          ),
+        );
+      }),
     );
-  }),
-); 
 
- _syncPlaybackState();
+    _syncPlaybackState();
   }
 
   static Future<void> playSongAt({
@@ -120,15 +127,13 @@ class AudioService {
 
     try {
       _queue = ConcatenatingAudioSource(
-  children: immutablePlaylist
-      .map(buildAudioSource)
-      .toList(),
-);
+        children: immutablePlaylist.map(buildAudioSource).toList(),
+      );
 
-await player.setAudioSource(
-  _queue!,
-  initialIndex: index,
-);
+      await player.setAudioSource(
+        _queue!,
+        initialIndex: index,
+      );
 
       if (autoplay) {
         await player.play();
@@ -161,24 +166,23 @@ await player.setAudioSource(
   }
 
   static Future<void> skipNext() async {
-  await player.seekToNext();
-}
+    await player.seekToNext();
+  }
 
   static Future<void> skipPrevious() async {
-  await player.seekToPrevious();
-}
-
-  static Future<void>
- playFromCurrentQueue(int index) async {
-  await player.seek(
-    Duration.zero,
-    index: index,
-  );
-
-  if (!player.playing) {
-    await player.play();
+    await player.seekToPrevious();
   }
-}
+
+  static Future<void> playFromCurrentQueue(int index) async {
+    await player.seek(
+      Duration.zero,
+      index: index,
+    );
+
+    if (!player.playing) {
+      await player.play();
+    }
+  }
 
   static Future<void> _playNextAfterCompletion() async {
     final state = playbackState.value;
