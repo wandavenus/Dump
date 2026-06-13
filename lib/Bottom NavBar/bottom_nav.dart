@@ -75,7 +75,7 @@ class _FirstPageState extends State<FirstPage> {
         return Stack(
           children: [
             Scaffold(
-              extendBody: false,
+              extendBody: isGlass,
               body: IndexedStack(
                 index: _selected_index,
                 children: _pages.cast<Widget>(),
@@ -85,28 +85,30 @@ class _FirstPageState extends State<FirstPage> {
                 builder: (context, progress, _) {
                   final opacity = (1 - progress).clamp(0.0, 1.0);
 
+                  final column = Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Opacity(
+                        opacity: opacity,
+                        child: const MiniPlayer(),
+                      ),
+                      if (!isGlass)
+                        Container(
+                          height: 1.5,
+                          color: const Color(0xFF38383A),
+                        ),
+                      SizedBox(
+                        height: 70,
+                        child: navBar,
+                      ),
+                    ],
+                  );
+
                   return Transform.translate(
                     offset: Offset(0, 24 * progress),
                     child: Opacity(
                       opacity: opacity,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Opacity(
-                            opacity: opacity,
-                            child: const MiniPlayer(),
-                          ),
-                          if (!isGlass)
-                            Container(
-                              height: 1.5,
-                              color: const Color(0xFF38383A),
-                            ),
-                          SizedBox(
-                            height: 70,
-                            child: isGlass ? GlassNavBar(child: navBar) : navBar,
-                          ),
-                        ],
-                      ),
+                      child: isGlass ? GlassNavBar(child: column) : column,
                     ),
                   );
                 },
@@ -115,9 +117,7 @@ class _FirstPageState extends State<FirstPage> {
             ValueListenableBuilder<bool>(
               valueListenable: PlayerSheetController.expanded,
               builder: (context, expanded, _) {
-                return PlayerSheet(
-                  expanded: expanded,
-                );
+                return PlayerSheet(expanded: expanded);
               },
             ),
           ],

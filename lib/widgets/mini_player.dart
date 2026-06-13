@@ -3,6 +3,7 @@ import '../services/audio_playback_state.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/player_sheet_controller.dart';
+import '../themes/theme_controller.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
@@ -91,85 +92,90 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext = playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final artworkSize = 46 - (6 * anim);
 
-    return Material(
-      color: const Color(0xFF1C1C1E),
-      child: SizedBox(
-        height: 55,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _openFullPlayer,
-                  onVerticalDragStart: (_) {},
-                  onVerticalDragUpdate: (details) => onDragUpdate?.call(details.delta.dy),
-                  onVerticalDragEnd: (details) => onDragEnd?.call(details.primaryVelocity ?? 0),
-                  child: Row(
-                    children: [
-                      Hero(
-                        tag: PlayerHeroTags.artwork(song),
-                        child: SongArtwork(
-                          songId: song.id,
-                          size: artworkSize,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Transform.translate(
-                          offset: Offset(6 * anim, 0),
-                          child: Hero(
-                            tag: PlayerHeroTags.title(song),
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: Text(
-                                song.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        return Material(
+          color: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
+          child: SizedBox(
+            height: 55,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _openFullPlayer,
+                      onVerticalDragStart: (_) {},
+                      onVerticalDragUpdate: (details) => onDragUpdate?.call(details.delta.dy),
+                      onVerticalDragEnd: (details) => onDragEnd?.call(details.primaryVelocity ?? 0),
+                      child: Row(
+                        children: [
+                          Hero(
+                            tag: PlayerHeroTags.artwork(song),
+                            child: SongArtwork(
+                              songId: song.id,
+                              size: artworkSize,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Transform.translate(
+                              offset: Offset(6 * anim, 0),
+                              child: Hero(
+                                tag: PlayerHeroTags.title(song),
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: Text(
+                                    song.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              Opacity(
-                opacity: 1 - anim,
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        playbackState.isPlaying ? AudioService.pause() : AudioService.play();
-                      },
-                      icon: Icon(
-                        playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 34,
-                        color: Colors.white,
-                      ),
+                  Opacity(
+                    opacity: 1 - anim,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            playbackState.isPlaying ? AudioService.pause() : AudioService.play();
+                          },
+                          icon: Icon(
+                            playbackState.isPlaying ? Icons.pause : Icons.play_arrow,
+                            size: 34,
+                            color: Colors.white,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: canGoNext ? () => AudioService.skipNext() : null,
+                          icon: Icon(
+                            Icons.skip_next,
+                            size: 30,
+                            color: canGoNext ? Colors.white : Colors.white24,
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: canGoNext ? () => AudioService.skipNext() : null,
-                      icon: Icon(
-                        Icons.skip_next,
-                        size: 30,
-                        color: canGoNext ? Colors.white : Colors.white24,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
