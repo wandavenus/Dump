@@ -18,45 +18,53 @@ class LyricsService {
     }
 
     try {
-      final uri = Uri.parse(
-        'https://lrclib.net/api/search?track_name=${Uri.encodeComponent(title)}&artist_name=${Uri.encodeComponent(artist)}',
-      );
+      final normalizedArtist = artist.split(',').first.trim();
+      final normalizedTitle =
+          title.replaceAll(RegExp(r'\s*\(.*?\)'), '').trim();
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'User-Agent': 'MusicPlayer/1.0',
-          'Accept': 'application/json',
-        },
-      );
+      Future<List<LyricLine>> search(String track, String artistName) async {
+        final uri = Uri.parse(
+          'https://lrclib.net/api/search?track_name=${Uri.encodeComponent(track)}&artist_name=${Uri.encodeComponent(artistName)}',
+        );
 
-      print('LRCLIB status: ${response.statusCode}');
-      print('LRCLIB body: ${response.body}');
+        final response = await http.get(
+          uri,
+          headers: {
+            'User-Agent': 'MusicPlayer/1.0',
+            'Accept': 'application/json',
+          },
+        );
 
-      if (response.statusCode != 200) {
-        return [];
+        if (response.statusCode != 200) {
+          return [];
+        }
+
+        final data = jsonDecode(response.body);
+
+        if (data is! List || data.isEmpty) {
+          return [];
+        }
+
+        final first = data.first;
+        final syncedLyrics =
+            (first['syncedLyrics'] ?? first['lyrics'] ?? '') as String;
+
+        if (syncedLyrics.isEmpty) {
+          return [];
+        }
+
+        return parseLrc(syncedLyrics);
       }
 
-      final data = jsonDecode(response.body);
+      var lyrics = await search(normalizedTitle, normalizedArtist);
 
-      if (data is! List || data.isEmpty) {
-        return [];
+      if (lyrics.isEmpty) {
+        lyrics = await search(title, artist);
       }
 
-      final first = data.first;
-      final syncedLyrics =
-          (first['syncedLyrics'] ?? first['lyrics'] ?? '') as String;
-
-      if (syncedLyrics.isEmpty) {
-        return [];
-      }
-
-      final lyrics = parseLrc(syncedLyrics);
       _cache[key] = lyrics;
-
       return lyrics;
-    } catch (e) {
-      print('LyricsService error: $e');
+    } catch (_) {
       return [];
     }
   }
