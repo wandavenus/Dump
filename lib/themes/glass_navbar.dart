@@ -27,20 +27,8 @@ class GlassNavBar extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          height: 1.0,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                stops: const [0.0, 0.38, 0.62, 1.0],
-                colors: [
-                  const Color(0x44FF2D55),
-                  const Color(0x55FFFFFF),
-                  const Color(0x55FFFFFF),
-                  const Color(0x442979FF),
-                ],
-              ),
-            ),
-          ),
+          height: 0.5,
+          child: Container(color: Colors.white.withOpacity(0.18)),
         ),
         child,
       ],

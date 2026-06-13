@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:musicplayer/themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/browse_sections.dart';
 
@@ -23,12 +23,28 @@ class _BrowsePageState extends State<BrowsePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: FadingTitleAppBar(title: 'Baru', scrollOffset: _scrollOffset),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScroll,
-        child: const BrowsePageContent(),
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        final topPad = isGlass
+            ? MediaQuery.of(context).padding.top + kToolbarHeight
+            : 0.0;
+
+        return Scaffold(
+          extendBodyBehindAppBar: isGlass,
+          appBar: FadingTitleAppBar(
+            title: 'Baru',
+            scrollOffset: _scrollOffset,
+          ),
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _handleScroll,
+            child: Padding(
+              padding: EdgeInsets.only(top: topPad),
+              child: const BrowsePageContent(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
