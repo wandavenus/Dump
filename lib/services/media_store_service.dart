@@ -9,17 +9,34 @@ import '../models/local_song.dart';
 class MediaStoreService {
   static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
   static const int _maxArtworkCacheEntries = 80;
+
   static final LinkedHashMap<int, Future<Uint8List?>> _artworkCache =
       LinkedHashMap<int, Future<Uint8List?>>();
 
-  static Future<List<LocalSong>> getSongs() async {
-    try {
-      final List<dynamic>? songs = await _channel.invokeListMethod('getSongs');
+  static List<LocalSong>? _songsCache;
 
-      return (songs ?? const <dynamic>[])
-          .map((song) => LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
+  static Future<List<LocalSong>> getSongs() async {
+    final cachedSongs = _songsCache;
+    if (cachedSongs != null) {
+      return cachedSongs;
+    }
+
+    return refreshSongs();
+  }
+
+  static Future<List<LocalSong>> refreshSongs() async {
+    try {
+      final List<dynamic>? songs =
+          await _channel.invokeListMethod('getSongs');
+
+      final parsedSongs = (songs ?? const <dynamic>[])
+          .map((song) =>
+              LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
           .where((song) => song.path.isNotEmpty)
           .toList(growable: false);
+
+      _songsCache = parsedSongs;
+      return parsedSongs;
     } on PlatformException catch (error, stackTrace) {
       debugPrint('Failed to load songs from MediaStore: $error\n$stackTrace');
       return const <LocalSong>[];
@@ -27,6 +44,10 @@ class MediaStoreService {
       debugPrint('Invalid song payload from MediaStore: $error\n$stackTrace');
       return const <LocalSong>[];
     }
+  }
+
+  static void clearSongsCache() {
+    _songsCache = null;
   }
 
   static Future<Uint8List?> getArtwork(int songId) {
