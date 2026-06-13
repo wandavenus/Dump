@@ -58,6 +58,18 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+void applyEdgeToEdge() {
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
+}
+
 class MyScrollBehavior extends MaterialScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
@@ -72,6 +84,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
+      builder: (context, child) {
+        applyEdgeToEdge();
+        return child ?? const SizedBox.shrink();
+      },
       theme: ThemeData(
         colorScheme: const ColorScheme.dark(),
         scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
