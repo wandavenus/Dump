@@ -1,32 +1,67 @@
-import 'dart:math';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/sample_music_data.dart';
+import '../../models/local_song.dart';
+import '../../services/media_store_service.dart';
+import '../../utils/data/browse_banners.dart';
 import '../common/scrolling_page_chrome.dart';
+import '../local_song_carousel.dart';
 
-class BrowsePageContent extends StatelessWidget {
+class BrowsePageContent extends StatefulWidget {
   const BrowsePageContent({super.key});
+
+  @override
+  State<BrowsePageContent> createState() => _BrowsePageContentState();
+}
+
+class _BrowsePageContentState extends State<BrowsePageContent> {
+  List<LocalSong> _recommend = [];
+  List<LocalSong> _newMusic = [];
+  List<LocalSong> _daily = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final songs = await MediaStoreService.getSongs();
+      // Acak satu kali, lalu bagi menjadi 3 subset agar tiap seksi terasa berbeda
+      final shuffled = List<LocalSong>.from(songs)..shuffle();
+      final third = (shuffled.length / 3).ceil();
+      if (mounted) {
+        setState(() {
+          _recommend = shuffled.take(third).toList();
+          _newMusic = shuffled.skip(third).take(third).toList();
+          _daily = shuffled.skip(third * 2).toList();
+        });
+      }
+    } catch (_) {
+      // Biarkan daftar tetap kosong; seksi akan tersembunyi otomatis
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
-        children: const [
-          LargePageTitle(title: 'Baru'),
-          HeaderDivider(),
-          SizedBox(height: 12),
-          BrowseBannerCarousel(),
-          _BrowseSection(title: 'We Recommend'),
-          _BrowseSection(title: 'New Music'),
-          BrowseCategoryStrip(),
-          _BrowseSection(title: 'Daily Top 100'),
+        children: [
+          const LargePageTitle(title: 'Baru'),
+          const HeaderDivider(),
+          const SizedBox(height: 12),
+          const BrowseBannerCarousel(),
+          _BrowseSection(title: 'We Recommend', songs: _recommend),
+          _BrowseSection(title: 'New Music', songs: _newMusic),
+          const BrowseCategoryStrip(),
+          _BrowseSection(title: 'Daily Top 100', songs: _daily),
         ],
       ),
     );
   }
 }
+
+// ─── Banner carousel (local assets — tidak berubah) ───────────────────────────
 
 class BrowseBannerCarousel extends StatelessWidget {
   const BrowseBannerCarousel({super.key});
@@ -47,17 +82,39 @@ class BrowseBannerCarousel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(banner['t1'],
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
-                      overflow: TextOverflow.ellipsis),
-                  Text(banner['t2'],
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.normal, color: Colors.white),
-                      overflow: TextOverflow.ellipsis),
-                  Text(banner['t3'],
-                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.normal, color: Colors.grey)),
+                  Text(
+                    banner['t1'],
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    banner['t2'],
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    banner['t3'],
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 5),
                   ClipPath(
-                    clipper: ShapeBorderClipper(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+                    clipper: ShapeBorderClipper(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                    ),
                     child: Image.asset(
                       banner['img'],
                       height: 720 / 3,
@@ -75,79 +132,42 @@ class BrowseBannerCarousel extends StatelessWidget {
   }
 }
 
+// ─── Browse section dengan local songs ────────────────────────────────────────
+
 class _BrowseSection extends StatelessWidget {
-  const _BrowseSection({required this.title});
+  const _BrowseSection({required this.title, required this.songs});
 
   final String title;
+  final List<LocalSong> songs;
 
   @override
   Widget build(BuildContext context) {
+    if (songs.isEmpty) return const SizedBox.shrink();
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 15, top: 10),
           child: Row(
             children: [
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Icon(Icons.chevron_right_rounded, color: Color.fromARGB(255, 186, 186, 186)),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color.fromARGB(255, 186, 186, 186),
+              ),
             ],
           ),
         ),
-        const RandomSongCarousel(),
+        LocalSongCarousel(songs: songs),
       ],
     );
   }
 }
 
-class RandomSongCarousel extends StatelessWidget {
-  const RandomSongCarousel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final random = Random();
-    return SizedBox(
-      height: 250,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(10),
-        itemCount: browseSongs.length,
-        itemBuilder: (context, index) {
-          final song = browseSongs[random.nextInt(browseSongs.length)];
-          return Container(
-            margin: const EdgeInsets.only(right: 10, left: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-                ClipPath(
-                  clipper: ShapeBorderClipper(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                  child: CachedNetworkImage(
-                    placeholder: (context, url) => const CircularProgressIndicator(),
-                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                    imageUrl: song['image'],
-                    height: 170,
-                    width: 170,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const Padding(padding: EdgeInsets.only(top: 1)),
-                SizedBox(
-                  width: 165,
-                  child: Text(song['title'],
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 15, color: Colors.white)),
-                ),
-                Text(song['artist'],
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
+// ─── Category strip (statis — tidak berubah) ──────────────────────────────────
 
 class BrowseCategoryStrip extends StatelessWidget {
   const BrowseCategoryStrip({super.key});
@@ -183,7 +203,10 @@ class _GradientCategory extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             gradient: const LinearGradient(
-              colors: [Color.fromARGB(255, 251, 47, 88), Color.fromARGB(255, 255, 174, 174)],
+              colors: [
+                Color.fromARGB(255, 251, 47, 88),
+                Color.fromARGB(255, 255, 174, 174),
+              ],
               stops: [0.4, 1],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -199,7 +222,9 @@ class _GradientCategory extends StatelessWidget {
                 fontSize: 30,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                shadows: [Shadow(color: Colors.white, offset: Offset(0, 0), blurRadius: 15)],
+                shadows: [
+                  Shadow(color: Colors.white, offset: Offset(0, 0), blurRadius: 15),
+                ],
               ),
             ),
           ),
