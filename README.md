@@ -1,4 +1,4 @@
-# 🚀 welcome to my chaotic cyber space
+# welcome to my chaotic cyber space
 
 <p align="center">
   <img src="https://komarev.com/ghpvc/?username=[username]&color=purple&style=for-the-badge&label=profile+views" alt="visitor counter" />
@@ -10,4 +10,4 @@
 
 ---
 
-## 🎭 about me
+## about me
