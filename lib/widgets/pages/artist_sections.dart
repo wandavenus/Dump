@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 
-import '../../utils/sample_music_data.dart';
+import '../../models/local_song.dart';
 import 'detail_sections.dart';
 
 class ArtistPageContent extends StatelessWidget {
-  const ArtistPageContent({super.key, required this.currentIndex});
+  const ArtistPageContent({super.key, required this.songs});
 
-  final int currentIndex;
+  final List<LocalSong> songs;
 
   @override
   Widget build(BuildContext context) {
-    final songs = artistSongs[currentIndex];
     return SingleChildScrollView(
       child: Column(
         children: [
           ArtistHero(songs: songs),
-          const PlayShuffleButtons(),
+          PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs, showHeader: true),
         ],
       ),

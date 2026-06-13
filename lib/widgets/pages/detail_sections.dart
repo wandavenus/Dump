@@ -1,5 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../models/local_song.dart';
+import '../../services/audio_service.dart';
+import '../player/player_panel_controller.dart';
+import '../song_artwork.dart';
 
 class DetailTopBar extends StatelessWidget {
   const DetailTopBar({super.key});
@@ -46,10 +50,12 @@ class _CircleIcon extends StatelessWidget {
   }
 }
 
+// ─── Album hero — pakai SongArtwork dari lagu lokal ────────────────────────
+
 class AlbumHero extends StatelessWidget {
   const AlbumHero({super.key, required this.album});
 
-  final Map album;
+  final LocalSong album;
 
   @override
   Widget build(BuildContext context) {
@@ -57,56 +63,75 @@ class AlbumHero extends StatelessWidget {
       margin: const EdgeInsets.only(top: 20),
       child: Column(
         children: [
-          ClipPath(
-            clipper: ShapeBorderClipper(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-            child: CachedNetworkImage(
-              placeholder: (context, url) => const CircularProgressIndicator(),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
-              imageUrl: album['image'],
-              height: 300,
-              width: 300,
-            ),
+          SongArtwork(
+            songId: album.id,
+            size: 300,
+            borderRadius: BorderRadius.circular(15),
           ),
           const SizedBox(height: 20),
-          Text(album['title'],
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white)),
-          Text(album['artist'],
-              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red)),
-          const Text('SoundTrack • 2024 • Lossless',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(
+            album.album,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          Text(
+            album.artist,
+            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red),
+          ),
+          const Text(
+            'Local • Lossless',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
         ],
       ),
     );
   }
 }
+
+// ─── Artist hero — artwork lagu sebagai latar belakang ─────────────────────
 
 class ArtistHero extends StatelessWidget {
   const ArtistHero({super.key, required this.songs});
 
-  final List songs;
+  final List<LocalSong> songs;
 
   @override
   Widget build(BuildContext context) {
-    final artist = songs[0];
-    return Container(
+    final artistName = songs.first.artist;
+
+    return SizedBox(
       height: 340,
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: NetworkImage(artist['artist_img']),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.35), BlendMode.darken),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          const DetailTopBar(),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 20),
-            child: Text(artist['artist'],
-                style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.white)),
+          SongArtwork(
+            songId: songs.first.id,
+            size: 340,
+            borderRadius: BorderRadius.zero,
+            fit: BoxFit.cover,
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.45),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const DetailTopBar(),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.only(left: 16, bottom: 20),
+                child: Text(
+                  artistName,
+                  style: const TextStyle(
+                    fontSize: 42,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -114,18 +139,37 @@ class ArtistHero extends StatelessWidget {
   }
 }
 
+// ─── Tombol play/shuffle ───────────────────────────────────────────────────
+
 class PlayShuffleButtons extends StatelessWidget {
-  const PlayShuffleButtons({super.key});
+  const PlayShuffleButtons({super.key, required this.songs});
+
+  final List<LocalSong> songs;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 20),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _ActionButton(icon: Icons.play_arrow_rounded, label: 'Play'),
-          _ActionButton(icon: Icons.shuffle_rounded, label: 'Shuffle'),
+          _ActionButton(
+            icon: Icons.play_arrow_rounded,
+            label: 'Play',
+            onTap: () async {
+              await AudioService.playSongAt(playlist: songs, index: 0);
+              PlayerPanelController.instance.open();
+            },
+          ),
+          _ActionButton(
+            icon: Icons.shuffle_rounded,
+            label: 'Shuffle',
+            onTap: () async {
+              final shuffled = List<LocalSong>.from(songs)..shuffle();
+              await AudioService.playSongAt(playlist: shuffled, index: 0);
+              PlayerPanelController.instance.open();
+            },
+          ),
         ],
       ),
     );
@@ -133,40 +177,58 @@ class PlayShuffleButtons extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.icon, required this.label});
+  const _ActionButton({required this.icon, required this.label, required this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 50,
-      width: 160,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: const Color.fromARGB(85, 79, 79, 79),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.red, size: 30),
-          Text(label,
-              style: const TextStyle(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold)),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 50,
+        width: 160,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: const Color.fromARGB(85, 79, 79, 79),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.red, size: 30),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class SongListSection extends StatelessWidget {
-  const SongListSection({super.key, required this.songs, this.showHeader = false});
+// ─── Daftar lagu ──────────────────────────────────────────────────────────
 
-  final List songs;
+class SongListSection extends StatelessWidget {
+  const SongListSection({
+    super.key,
+    required this.songs,
+    this.showHeader = false,
+  });
+
+  final List<LocalSong> songs;
   final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
+    final displayCount = songs.length < 4 ? songs.length : 4;
     return Column(
       children: [
         if (showHeader)
@@ -174,8 +236,14 @@ class SongListSection extends StatelessWidget {
             margin: const EdgeInsets.only(left: 10, top: 20),
             child: const Row(
               children: [
-                Text('Top Songs',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  'Top Songs',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey),
               ],
             ),
@@ -184,8 +252,9 @@ class SongListSection extends StatelessWidget {
           padding: const EdgeInsets.only(top: 0, left: 10, right: 10),
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
-          itemCount: songs.length < 4 ? songs.length : 4,
-          itemBuilder: (context, index) => SongListRow(song: songs[index], index: index),
+          itemCount: displayCount,
+          itemBuilder: (context, index) =>
+              SongListRow(song: songs[index], index: index, playlist: songs),
         ),
       ],
     );
@@ -193,50 +262,67 @@ class SongListSection extends StatelessWidget {
 }
 
 class SongListRow extends StatelessWidget {
-  const SongListRow({super.key, required this.song, required this.index});
+  const SongListRow({
+    super.key,
+    required this.song,
+    required this.index,
+    required this.playlist,
+  });
 
-  final Map song;
+  final LocalSong song;
   final int index;
+  final List<LocalSong> playlist;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Divider(color: Color.fromARGB(255, 80, 80, 80), thickness: .4, indent: 58),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                ClipPath(
-                  clipper: ShapeBorderClipper(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0))),
-                  child: CachedNetworkImage(
-                    placeholder: (context, url) => const CircularProgressIndicator(),
-                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                    imageUrl: song['image'],
-                    height: 50,
-                    width: 50,
-                    fit: BoxFit.cover,
+    return InkWell(
+      onTap: () async {
+        await AudioService.playSongAt(playlist: playlist, index: index);
+        PlayerPanelController.instance.open();
+      },
+      child: Column(
+        children: [
+          const Divider(
+            color: Color.fromARGB(255, 80, 80, 80),
+            thickness: .4,
+            indent: 58,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  SongArtwork(
+                    songId: song.id,
+                    size: 50,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                Container(
-                  width: 280,
-                  margin: const EdgeInsets.only(left: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(song['song'], overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20)),
-                      Text('${song['album']} • 2022',
-                          style: const TextStyle(fontSize: 15, color: Colors.grey)),
-                    ],
+                  Container(
+                    width: 280,
+                    margin: const EdgeInsets.only(left: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                        Text(
+                          song.album,
+                          style: const TextStyle(fontSize: 15, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const Icon(Icons.more_horiz),
-          ],
-        ),
-      ],
+                ],
+              ),
+              const Icon(Icons.more_horiz),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
