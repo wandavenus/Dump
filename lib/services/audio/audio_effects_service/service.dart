@@ -205,8 +205,8 @@ class AudioEffectsService {
 
   static Future<void> setLimiterEnabled(bool value) async {
     limiterEnabled.value = value;
-    await _saveBool('limiterEnabled', value);
     AudioEngine.setLimiter(enabled: value);
+    await _saveBool('limiterEnabled', value);
     LogService.log('AudioEffects', 'Limiter: $value');
   }
 
