@@ -230,11 +230,7 @@ class _LibraryRow extends StatelessWidget {
                     style:
                         const TextStyle(color: Colors.white, fontSize: 18)),
               ),
-              const Icon(
-                CupertinoIcons.chevron_right,
-                color: Color(0xFF48484A),
-                size: 16,
-              ),
+              
             ],
           ),
         ),
