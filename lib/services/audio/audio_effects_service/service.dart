@@ -194,12 +194,12 @@ class AudioEffectsService {
   static Future<void> setPreamp(double value) async {
     final v = value.clamp(0.0, 2.0).toDouble();
     preamp.value = v;
-    await _saveDouble('preamp', v);
     AudioEngine.setPreampVolume(v);
     AudioEngine.applyNormalize(
       enabled: audioNormalize.value,
       preamp: v,
     );
+    await _saveDouble('preamp', v);
     LogService.log('AudioEffects', 'Preamp: ${v.toStringAsFixed(2)}x');
   }
 
