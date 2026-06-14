@@ -235,7 +235,7 @@ class _GlassSubToggle extends StatelessWidget {
             CupertinoSwitch(
               value: value,
               onChanged: onChanged,
-              activeTrackColor: const Color(0xFFF92D48),
+              activeColor: const Color(0xFFF92D48),
             ),
           ],
         ),
