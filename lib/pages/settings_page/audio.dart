@@ -98,7 +98,7 @@ class _AudioSection extends StatelessWidget {
                 min: 0,
                 max: 1,
                 onChanged: song == null
-                    ? (_) async {}
+                    ? null
                     : (value) => AudioEffectsService.setCurrentTrackVolume(
                           song,
                           value,
