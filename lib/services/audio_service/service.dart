@@ -68,6 +68,7 @@ class AudioService {
           currentSong: playlist[index],
         ));
 
+        unawaited(AudioEffectsService.loadTrackVolume(playlist[index]));
         LogService.log('AudioService', 'Playing: ${playlist[index].title}');
         unawaited(HistoryService.trackPlay(playlist[index]));
       }),

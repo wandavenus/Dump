@@ -50,6 +50,70 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
+
+        // Preamp
+        ValueListenableBuilder<double>(
+          valueListenable: AudioEffectsService.preamp,
+          builder: (_, v, __) => SettingsSliderRow(
+            title: 'Preamp',
+            subtitle: '${v.toStringAsFixed(2)}x',
+            value: v,
+            min: 0,
+            max: 2,
+            onChanged: AudioEffectsService.setPreamp,
+            divisions: 20,
+            showReset: v != 1.0,
+            onReset: () => AudioEffectsService.setPreamp(1.0),
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Limiter / anti-clipping
+        ValueListenableBuilder<bool>(
+          valueListenable: AudioEffectsService.limiterEnabled,
+          builder: (_, v, __) => SettingsToggleRow(
+            title: 'Limiter / Anti-Clipping',
+            subtitle: v
+                ? 'Batasi output digital untuk mencegah clipping'
+                : 'Nonaktif — preamp tinggi dapat clipping',
+            value: v,
+            onChanged: AudioEffectsService.setLimiterEnabled,
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Per-track volume memory
+        ValueListenableBuilder<AudioPlaybackState>(
+          valueListenable: AudioService.playbackState,
+          builder: (_, state, __) {
+            final song = state.currentSong;
+            return ValueListenableBuilder<double>(
+              valueListenable: AudioEffectsService.currentTrackVolume,
+              builder: (_, v, __) => SettingsSliderRow(
+                title: 'Volume Lagu Ini',
+                subtitle: song == null
+                    ? 'Pilih lagu untuk menyimpan volume per-track'
+                    : '${(v * 100).round()}% — tersimpan untuk track ini',
+                value: v,
+                min: 0,
+                max: 1,
+                onChanged: song == null
+                    ? (_) async {}
+                    : (value) => AudioEffectsService.setCurrentTrackVolume(
+                          song,
+                          value,
+                        ),
+                divisions: 20,
+                showReset: song != null && v != 1.0,
+                onReset: song == null
+                    ? null
+                    : () => AudioEffectsService.setCurrentTrackVolume(song, 1.0),
+              ),
+            );
+          },
+        ),
+        const SettingsDivider(),
+
         // Playback Speed
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.playbackSpeed,

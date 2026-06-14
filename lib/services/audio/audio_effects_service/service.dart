@@ -21,6 +21,9 @@ class AudioEffectsService {
   static final ValueNotifier<bool>   gaplessPlayback  = ValueNotifier(true);
   static final ValueNotifier<bool>   audioNormalize   = ValueNotifier(false);
   static final ValueNotifier<double> crossfadeDuration= ValueNotifier(0.0);
+  static final ValueNotifier<double> preamp          = ValueNotifier(1.0);
+  static final ValueNotifier<bool>   limiterEnabled  = ValueNotifier(true);
+  static final ValueNotifier<double> currentTrackVolume = ValueNotifier(1.0);
   static final ValueNotifier<double> pitchShift       = ValueNotifier(0.0);
   static final ValueNotifier<bool>   spatialAudio     = ValueNotifier(false);
   static final ValueNotifier<int>    spatialStrength  = ValueNotifier(1000);
@@ -129,6 +132,10 @@ class AudioEffectsService {
     gaplessPlayback.value  = prefs.getBool('gapless')     ?? true;
     audioNormalize.value   = prefs.getBool('normalize')   ?? false;
     crossfadeDuration.value= prefs.getDouble('crossfade') ?? 0.0;
+    preamp.value = (prefs.getDouble('preamp') ?? 1.0)
+        .clamp(0.0, 2.0)
+        .toDouble();
+    limiterEnabled.value   = prefs.getBool('limiterEnabled') ?? true;
     pitchShift.value       = prefs.getDouble('pitch')     ?? 0.0;
     spatialAudio.value     = prefs.getBool('spatial')     ?? false;
     spatialStrength.value  = prefs.getInt('spatialStr')   ?? 1000;
@@ -145,7 +152,13 @@ class AudioEffectsService {
   }
 
   static void applyAll() {
-    AudioEngine.applyNormalize(enabled: audioNormalize.value);
+    AudioEngine.setPreampVolume(preamp.value);
+    AudioEngine.setLimiter(enabled: limiterEnabled.value);
+    AudioEngine.setTrackVolume(currentTrackVolume.value);
+    AudioEngine.applyNormalize(
+      enabled: audioNormalize.value,
+      preamp: preamp.value,
+    );
     _applyPitch(pitchShift.value);
     _applySpeed(playbackSpeed.value);
     AudioEngine.setBassBoost(bassBoost.value);
@@ -155,7 +168,7 @@ class AudioEffectsService {
     }
     if (equalizerEnabled.value) {
       AudioEngine.equalizer?.setEnabled(true);
-      _applyRoomPresetEq(roomPreset.value);
+      restoreEqualizerBands();
     }
   }
 
@@ -172,8 +185,53 @@ class AudioEffectsService {
   static Future<void> setNormalize(bool value) async {
     audioNormalize.value = value;
     await _saveBool('normalize', value);
-    AudioEngine.applyNormalize(enabled: value);
+    AudioEngine.applyNormalize(enabled: value, preamp: preamp.value);
     LogService.log('AudioEffects', 'Normalize: $value');
+  }
+
+  // ── Preamp / limiter / per-track volume ─────────────────────────────────
+
+  static Future<void> setPreamp(double value) async {
+    final v = value.clamp(0.0, 2.0).toDouble();
+    preamp.value = v;
+    await _saveDouble('preamp', v);
+    AudioEngine.setPreampVolume(v);
+    AudioEngine.applyNormalize(
+      enabled: audioNormalize.value,
+      preamp: v,
+    );
+    LogService.log('AudioEffects', 'Preamp: ${v.toStringAsFixed(2)}x');
+  }
+
+  static Future<void> setLimiterEnabled(bool value) async {
+    limiterEnabled.value = value;
+    await _saveBool('limiterEnabled', value);
+    AudioEngine.setLimiter(enabled: value);
+    LogService.log('AudioEffects', 'Limiter: $value');
+  }
+
+  static Future<void> loadTrackVolume(LocalSong song) async {
+    final prefs = await SharedPreferences.getInstance();
+    final volume = prefs.getDouble(_trackVolumeKey(song)) ?? 1.0;
+    currentTrackVolume.value = volume.clamp(0.0, 1.0).toDouble();
+    AudioEngine.setTrackVolume(currentTrackVolume.value);
+  }
+
+  static Future<void> setCurrentTrackVolume(LocalSong song, double value) async {
+    final v = value.clamp(0.0, 1.0).toDouble();
+    currentTrackVolume.value = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_trackVolumeKey(song), v);
+    AudioEngine.setTrackVolume(v);
+    LogService.log(
+      'AudioEffects',
+      'Track volume: ${song.title} -> ${v.toStringAsFixed(2)}',
+    );
+  }
+
+  static String _trackVolumeKey(LocalSong song) {
+    final stableId = song.id != 0 ? song.id.toString() : song.path;
+    return 'trackVolume_$stableId';
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
@@ -183,7 +241,7 @@ class AudioEffectsService {
     await _saveBool('eqEnabled', value);
     try {
       await AudioEngine.equalizer?.setEnabled(value);
-      if (value) _applyRoomPresetEq(roomPreset.value);
+      if (value) await restoreEqualizerBands();
     } catch (e) {
       LogService.warn('AudioEffects', 'setEqEnabled: $e');
     }
@@ -298,9 +356,10 @@ class AudioEffectsService {
   // ── Crossfade ──────────────────────────────────────────────────────────────
 
   static Future<void> setCrossfade(double seconds) async {
-    crossfadeDuration.value = seconds;
-    await _saveDouble('crossfade', seconds);
-    LogService.log('AudioEffects', 'Crossfade: ${seconds}s');
+    final v = seconds.clamp(0.0, 12.0).toDouble();
+    crossfadeDuration.value = v;
+    await _saveDouble('crossfade', v);
+    LogService.log('AudioEffects', 'Crossfade: ${v}s');
   }
 
   // ── Pitch Shift ───────────────────────────────────────────────────────────

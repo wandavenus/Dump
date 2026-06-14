@@ -36,7 +36,7 @@ class CrossfadeController {
       // Crossfade disabled – reset volume if we left it dirty
       if (_fading) {
         _fading = false;
-        _setVolume(1.0);
+        _setFadeVolume(1.0);
       }
       return;
     }
@@ -63,7 +63,7 @@ class CrossfadeController {
       // ── Fade-out phase ──────────────────────────────────────────────────
       final fadeRatio = (remaining / crossMs).clamp(0.0, 1.0).toDouble();
       final volume = _easeInQuad(fadeRatio);
-      _setVolume(volume);
+      _setFadeVolume(volume);
 
       if (!_fading) {
         _fading = true;
@@ -79,11 +79,11 @@ class CrossfadeController {
       final elapsed = pos.inMilliseconds;
       final fadeInRatio = (elapsed / crossMs).clamp(0.0, 1.0).toDouble();
       final volume = _easeOutQuad(fadeInRatio);
-      _setVolume(volume);
+      _setFadeVolume(volume);
 
       if (fadeInRatio >= 1.0) {
         _fading = false;
-        _setVolume(1.0);
+        _setFadeVolume(1.0);
         LogService.log('Crossfade', 'Fade-in complete');
       }
     }
@@ -109,12 +109,8 @@ class CrossfadeController {
     });
   }
 
-  static void _setVolume(double v) {
-    try {
-      AudioEngine.player.setVolume(v.clamp(0.0, 1.0).toDouble());
-    } catch (error) {
-      LogService.warn('Crossfade', 'setVolume gagal: $error');
-    }
+  static void _setFadeVolume(double v) {
+    AudioEngine.setFadeVolume(v);
   }
 
   // Ease curves for a more musical feel.

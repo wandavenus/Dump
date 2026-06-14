@@ -12,6 +12,11 @@ class AudioEngine {
   static AndroidEqualizer? _equalizer;
   static AndroidLoudnessEnhancer? _loudnessEnhancer;
   static bool _initialized = false;
+  static double _preampVolume = 1.0;
+  static double _trackVolume = 1.0;
+  static double _fadeVolume = 1.0;
+  static bool _limiterEnabled = true;
+  static double _limiterCeiling = 1.0;
 
   // Effect support flags (queried from native on Android 11+)
   static bool _virtualizerSupported = false;
@@ -25,6 +30,10 @@ class AudioEngine {
 
   static AndroidEqualizer? get equalizer => _equalizer;
   static AndroidLoudnessEnhancer? get loudnessEnhancer => _loudnessEnhancer;
+  static double get effectiveVolume =>
+      (_preampVolume.clamp(0.0, 1.0) * _trackVolume * _fadeVolume)
+          .clamp(0.0, _limiterEnabled ? _limiterCeiling : 1.0)
+          .toDouble();
 
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -150,21 +159,25 @@ class AudioEngine {
 
   // ── Normalize (LoudnessEnhancer) ──────────────────────────────────────────
 
-  /// targetGain in millibels (0 = neutral).
-  static void applyNormalize({required bool enabled, double targetGainMb = 50.0}) {
+  /// targetGain in millibels (0 = neutral). Uses a conservative gain so the
+  /// Android LoudnessEnhancer behaves as gentle levelling, not ReplayGain.
+  static void applyNormalize({
+    required bool enabled,
+    double targetGainMb = 25.0,
+    double preamp = 1.0,
+  }) {
+    final preampGainMb = preamp > 1.0
+        ? (preamp.clamp(1.0, 2.0).toDouble() - 1.0) * 600.0
+        : 0.0;
+    final requestedGainMb = (enabled ? targetGainMb : 0.0) + preampGainMb;
     final enhancer = _loudnessEnhancer;
     if (enhancer == null) {
-      // Web fallback
-      try {
-        _player?.setVolume(enabled ? 0.88 : 1.0);
-      } catch (error) {
-        LogService.warn('AudioEngine', 'fallback volume: $error');
-      }
+      _applyEffectiveVolume();
       return;
     }
     try {
-      if (enabled) {
-        enhancer.setTargetGain(targetGainMb);
+      if (requestedGainMb > 0.0) {
+        enhancer.setTargetGain(requestedGainMb);
         enhancer.setEnabled(true);
       } else {
         enhancer.setTargetGain(0.0);
@@ -172,6 +185,37 @@ class AudioEngine {
       }
     } catch (e) {
       LogService.warn('AudioEngine', 'applyNormalize: $e');
+    }
+  }
+
+  // ── Volume stack ──────────────────────────────────────────────────────────
+
+  static void setPreampVolume(double value) {
+    _preampVolume = value.clamp(0.0, 2.0).toDouble();
+    _applyEffectiveVolume();
+  }
+
+  static void setTrackVolume(double value) {
+    _trackVolume = value.clamp(0.0, 1.0).toDouble();
+    _applyEffectiveVolume();
+  }
+
+  static void setFadeVolume(double value) {
+    _fadeVolume = value.clamp(0.0, 1.0).toDouble();
+    _applyEffectiveVolume();
+  }
+
+  static void setLimiter({required bool enabled, double ceiling = 1.0}) {
+    _limiterEnabled = enabled;
+    _limiterCeiling = ceiling.clamp(0.1, 1.0).toDouble();
+    _applyEffectiveVolume();
+  }
+
+  static void _applyEffectiveVolume() {
+    try {
+      _player?.setVolume(effectiveVolume);
+    } catch (error) {
+      LogService.warn('AudioEngine', 'set effective volume: $error');
     }
   }
 
@@ -183,5 +227,10 @@ class AudioEngine {
     _equalizer      = null;
     _loudnessEnhancer = null;
     _initialized    = false;
+    _preampVolume = 1.0;
+    _trackVolume = 1.0;
+    _fadeVolume = 1.0;
+    _limiterEnabled = true;
+    _limiterCeiling = 1.0;
   }
 }
