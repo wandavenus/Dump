@@ -159,7 +159,7 @@ class AudioEngine {
   // ── Normalize (LoudnessEnhancer) ──────────────────────────────────────────
 
   /// targetGain in millibels (0 = neutral).
-  static void applyNormalize({required bool enabled, double targetGainMb = 300.0}) {
+  static void applyNormalize({required bool enabled, double targetGainMb = 50.0}) {
     final enhancer = _loudnessEnhancer;
     if (enhancer == null) {
       // Web fallback
