@@ -220,9 +220,9 @@ class AudioEffectsService {
   static Future<void> setCurrentTrackVolume(LocalSong song, double value) async {
     final v = value.clamp(0.0, 1.0).toDouble();
     currentTrackVolume.value = v;
+    AudioEngine.setTrackVolume(v);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_trackVolumeKey(song), v);
-    AudioEngine.setTrackVolume(v);
     LogService.log(
       'AudioEffects',
       'Track volume: ${song.title} -> ${v.toStringAsFixed(2)}',
