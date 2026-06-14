@@ -71,7 +71,7 @@ class CrossfadeController {
       }
 
       // Near the very end: trigger advance so the transition feels smooth.
-      if (remaining <= 120) {
+      if (remaining <= 300) {
         _triggerNext(player);
       }
     } else if (_fading) {
