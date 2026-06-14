@@ -8,10 +8,14 @@ import '../local_song_carousel.dart';
 import '../song_artwork.dart';
 
 part 'home/albums_section.dart';
+part 'home/albums_section/section.dart';
+part 'home/albums_section/state.dart';
+part 'home/albums_section/card.dart';
 part 'home/recently_played_section.dart';
 part 'home/artists_section.dart';
-
-// ─── Entry point ──────────────────────────────────────────────────────────────
+part 'home/artists_section/section.dart';
+part 'home/artists_section/state.dart';
+part 'home/artists_section/card.dart';
 
 class HomePageContent extends StatelessWidget {
   const HomePageContent({super.key});
@@ -35,8 +39,6 @@ class HomePageContent extends StatelessWidget {
     );
   }
 }
-
-// ─── Data models (shared across part files via library scope) ─────────────────
 
 class _AlbumGroup {
   final int albumId;

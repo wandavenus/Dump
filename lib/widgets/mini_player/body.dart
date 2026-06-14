@@ -1,0 +1,172 @@
+part of '../mini_player.dart';
+
+class _MiniPlayerBody extends StatelessWidget {
+  final LocalSong song;
+  final AudioPlaybackState playbackState;
+  final double anim;
+  final double swipeOffset;
+
+  const _MiniPlayerBody({
+    required this.song,
+    required this.playbackState,
+    required this.anim,
+    this.swipeOffset = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canGoNext =
+        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
+    final canGoPrev = playbackState.currentIndex > 0;
+    final artworkSize = 46 - (6 * anim);
+    final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassMiniPlayer,
+      builder: (context, glassComp, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: ThemeController.glassTheme,
+          builder: (context, isGlassMaster, _) {
+            final isGlass = isGlassMaster && glassComp;
+
+            return Material(
+              color: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
+              child: SizedBox(
+                height: 55,
+                child: Stack(
+                  children: [
+                    // Swipe direction indicator
+                    if (swipeFraction > 0.05)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: swipeFraction * 0.18,
+                          child: Container(
+                            color: swipeOffset < 0
+                                ? Colors.blue
+                                : Colors.blue,
+                          ),
+                        ),
+                      ),
+                    if (swipeFraction > 0.05)
+                      Positioned(
+                        top: 0,
+                        bottom: 0,
+                        left: swipeOffset < 0 ? null : 14,
+                        right: swipeOffset < 0 ? 14 : null,
+                        child: Opacity(
+                          opacity: swipeFraction,
+                          child: Icon(
+                            swipeOffset < 0
+                                ? Icons.skip_next
+                                : Icons.skip_previous,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    // Main content
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _openFullPlayer,
+                              child: Row(
+                                children: [
+                                  Hero(
+                                    tag: PlayerHeroTags.artwork(song),
+                                    child: SongArtwork(
+                                      songId: song.id,
+                                      size: artworkSize,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Transform.translate(
+                                      offset: Offset(6 * anim, 0),
+                                      child: Hero(
+                                        tag: PlayerHeroTags.title(song),
+                                        child: Material(
+                                          type: MaterialType.transparency,
+                                          child: Text(
+                                            song.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Opacity(
+                            opacity: 1 - anim,
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  onPressed: canGoPrev
+                                      ? () => AudioService.skipPrevious()
+                                      : null,
+                                  icon: Icon(
+                                    Icons.skip_previous,
+                                    size: 28,
+                                    color: canGoPrev
+                                        ? Colors.white
+                                        : Colors.white24,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () {
+                                    playbackState.isPlaying
+                                        ? AudioService.pause()
+                                        : AudioService.play();
+                                  },
+                                  icon: Icon(
+                                    playbackState.isPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
+                                    size: 34,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: canGoNext
+                                      ? () => AudioService.skipNext()
+                                      : null,
+                                  icon: Icon(
+                                    Icons.skip_next,
+                                    size: 30,
+                                    color: canGoNext
+                                        ? Colors.white
+                                        : Colors.white24,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openFullPlayer() {
+    PlayerSheetController.open();
+  }
+}
