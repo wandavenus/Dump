@@ -57,10 +57,20 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+
+    packagingOptions {
+        // jaudiotagger includes some duplicate files
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/*.kotlin_module'
+    }
 }
 
 flutter {
     source '../..'
 }
 
-dependencies {}
+dependencies {
+    // jaudiotagger: read embedded lyrics from MP3/M4A/FLAC/OGG/WAV ID3/Vorbis tags
+    implementation 'net.jthink:jaudiotagger:2.2.5'
+}

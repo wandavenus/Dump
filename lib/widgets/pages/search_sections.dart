@@ -19,19 +19,32 @@ class SearchSlivers extends StatefulWidget {
   State<SearchSlivers> createState() => _SearchSliversState();
 }
 
-class _SearchSliversState extends State<SearchSlivers> {
+class _SearchSliversState extends State<SearchSlivers>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _controller = TextEditingController();
+  // NOT requesting focus automatically — keyboard only appears on explicit tap
   final FocusNode _focusNode = FocusNode();
+
   List<LocalSong> _allSongs = [];
-  List<LocalSong> _results = [];
+  List<LocalSong> _results  = [];
   bool _isSearching = false;
-  bool _loading = false;
+  bool _loading     = false;
+
+  @override
+  bool get wantKeepAlive => false; // Don't preserve keyboard state on tab switch
 
   @override
   void initState() {
     super.initState();
     _loadSongs();
     _controller.addListener(_onQueryChanged);
+  }
+
+  @override
+  void deactivate() {
+    // Dismiss keyboard when navigating away (tab switch / route pop)
+    _focusNode.unfocus();
+    super.deactivate();
   }
 
   @override
@@ -69,6 +82,7 @@ class _SearchSliversState extends State<SearchSlivers> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return CustomScrollView(
       slivers: [
         _SearchAppBar(scrollOffset: widget.scrollOffset),
@@ -174,56 +188,63 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 10),
-      child: Container(
-        height: 38,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            const Icon(Icons.search, color: Color(0xFF8E8E93), size: 18),
-            const SizedBox(width: 6),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                cursorColor: const Color(0xFFF92D48),
-                decoration: const InputDecoration(
-                  hintText: 'Artis, Lagu, Album, dan lainnya',
-                  hintStyle:
-                      TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+      child: GestureDetector(
+        // Request focus ONLY when user explicitly taps the search bar
+        onTap: () => focusNode.requestFocus(),
+        child: Container(
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 10),
+              const Icon(Icons.search, color: Color(0xFF8E8E93), size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  autofocus: false,   // Never autofocus on page load
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  cursorColor: const Color(0xFFF92D48),
+                  decoration: const InputDecoration(
+                    hintText: 'Artis, Lagu, Album, dan lainnya',
+                    hintStyle:
+                        TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => focusNode.unfocus(),
+                  onTapOutside: (_) => focusNode.unfocus(),
                 ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => focusNode.unfocus(),
               ),
-            ),
-            if (loading)
-              const Padding(
-                padding: EdgeInsets.only(right: 10),
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFF8E8E93),
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                )
+              else if (isSearching)
+                GestureDetector(
+                  onTap: onClear,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child:
+                        Icon(Icons.cancel, color: Color(0xFF8E8E93), size: 18),
                   ),
                 ),
-              )
-            else if (isSearching)
-              GestureDetector(
-                onTap: onClear,
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Icon(Icons.cancel, color: Color(0xFF8E8E93), size: 18),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -255,8 +276,8 @@ class _SearchResultsSliver extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Tidak ada hasil untuk "$query"',
-                style: const TextStyle(
-                    color: Color(0xFF8E8E93), fontSize: 15),
+                style:
+                    const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
               ),
             ],
           ),
@@ -332,8 +353,7 @@ class _SearchResultTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.play_arrow,
-                color: Color(0xFF48484A), size: 20),
+            const Icon(Icons.play_arrow, color: Color(0xFF48484A), size: 20),
           ],
         ),
       ),
@@ -387,7 +407,7 @@ class _SearchCategoryTile extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  Colors.black.withOpacity(0.1)
+                  Colors.black.withOpacity(0.1),
                 ],
               ),
             ),

@@ -1,84 +1,49 @@
-import 'dart:math' as math;
+/// Thin compatibility shim — delegates everything to [AudioEffectsService].
+///
+/// All existing code that imports [AudioSettingsService] will continue to
+/// work without changes. New code should use [AudioEffectsService] directly.
+library;
+
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'audio_service.dart';
-import 'log_service.dart';
+
+import 'audio/audio_effects_service.dart';
 
 class AudioSettingsService {
   AudioSettingsService._();
 
-  static final ValueNotifier<bool> gaplessPlayback = ValueNotifier(false);
-  static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
-  static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
-  static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
-  static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
+  // ── Notifiers (forwarded from AudioEffectsService) ─────────────────────────
 
-  static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    gaplessPlayback.value = prefs.getBool('gapless') ?? false;
-    audioNormalize.value = prefs.getBool('normalize') ?? false;
-    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
-    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
-    spatialAudio.value = prefs.getBool('spatial') ?? false;
+  static ValueNotifier<bool> get gaplessPlayback =>
+      AudioEffectsService.gaplessPlayback;
+  static ValueNotifier<bool> get audioNormalize =>
+      AudioEffectsService.audioNormalize;
+  static ValueNotifier<double> get crossfadeDuration =>
+      AudioEffectsService.crossfadeDuration;
+  static ValueNotifier<double> get pitchShift =>
+      AudioEffectsService.pitchShift;
+  static ValueNotifier<bool> get spatialAudio =>
+      AudioEffectsService.spatialAudio;
 
-    _applyNormalize(audioNormalize.value);
-    _applyPitch(pitchShift.value);
-    LogService.log('AudioSettings', 'Initialized');
-  }
+  // ── Init ───────────────────────────────────────────────────────────────────
 
-  // ─── Gapless ───────────────────────────────────────────────────────────────
-  static Future<void> setGapless(bool value) async {
-    gaplessPlayback.value = value;
-    (await SharedPreferences.getInstance()).setBool('gapless', value);
-    LogService.log('AudioSettings', 'Gapless: $value');
-  }
+  static Future<void> init() => AudioEffectsService.init();
 
-  // ─── Normalize ─────────────────────────────────────────────────────────────
-  static Future<void> setNormalize(bool value) async {
-    audioNormalize.value = value;
-    (await SharedPreferences.getInstance()).setBool('normalize', value);
-    _applyNormalize(value);
-    LogService.log('AudioSettings', 'Normalize: $value');
-  }
+  // ── Setters ────────────────────────────────────────────────────────────────
 
-  static void _applyNormalize(bool enabled) {
-    try {
-      AudioService.player.setVolume(enabled ? 0.82 : 1.0);
-    } catch (_) {}
-  }
+  static Future<void> setGapless(bool value) =>
+      AudioEffectsService.setGapless(value);
 
-  // ─── Crossfade ─────────────────────────────────────────────────────────────
-  static Future<void> setCrossfade(double seconds) async {
-    crossfadeDuration.value = seconds;
-    (await SharedPreferences.getInstance()).setDouble('crossfade', seconds);
-    LogService.log('AudioSettings', 'Crossfade: ${seconds}s');
-  }
+  static Future<void> setNormalize(bool value) =>
+      AudioEffectsService.setNormalize(value);
 
-  // ─── Pitch Shift ───────────────────────────────────────────────────────────
-  static Future<void> setPitch(double semitones) async {
-    pitchShift.value = semitones;
-    (await SharedPreferences.getInstance()).setDouble('pitch', semitones);
-    _applyPitch(semitones);
-    LogService.log('AudioSettings', 'Pitch: ${semitones} semitones');
-  }
+  static Future<void> setCrossfade(double seconds) =>
+      AudioEffectsService.setCrossfade(seconds);
 
-  static void _applyPitch(double semitones) {
-    try {
-      if (kIsWeb) return;
-      final factor = math.pow(2.0, semitones / 12.0).toDouble();
-      AudioService.player.setPitch(factor);
-    } catch (_) {}
-  }
+  static Future<void> setPitch(double semitones) =>
+      AudioEffectsService.setPitch(semitones);
 
-  // ─── Spatial Audio ─────────────────────────────────────────────────────────
-  static Future<void> setSpatial(bool value) async {
-    spatialAudio.value = value;
-    (await SharedPreferences.getInstance()).setBool('spatial', value);
-    LogService.log('AudioSettings', 'Spatial: $value');
-  }
+  static Future<void> setSpatial(bool value) =>
+      AudioEffectsService.setSpatial(value);
 
-  static void applyAll() {
-    _applyNormalize(audioNormalize.value);
-    _applyPitch(pitchShift.value);
-  }
+  static void applyAll() => AudioEffectsService.applyAll();
 }
