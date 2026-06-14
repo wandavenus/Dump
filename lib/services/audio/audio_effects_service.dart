@@ -7,32 +7,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../log_service.dart';
 import 'audio_engine.dart';
 
-/// Manages all DSP / playback-quality settings and persists them.
+/// Central DSP controller.
 ///
 /// Feature map:
 ///   • Loudness normalize   → AndroidLoudnessEnhancer (Android) / volume (web)
-///   • Equalizer            → AndroidEqualizer (Android only)
+///   • Equalizer (room)     → AndroidEqualizer presets mapped to room acoustics
 ///   • Bass boost           → Android BassBoost native effect
 ///   • Reverb               → Android PresetReverb native effect
-///   • Spatial audio        → Android Virtualizer native effect
+///   • Spatial audio        → Android Virtualizer native effect + strength
 ///   • Pitch shift          → just_audio setPitch()
 ///   • Playback speed       → just_audio setSpeed()
 ///   • Crossfade            → CrossfadeController
 ///   • Gapless              → ConcatenatingAudioSource (always active)
+///   • Audio output mode    → AAudio / OpenSL ES / MIUI Hi-Fi
 class AudioEffectsService {
   AudioEffectsService._();
 
-  // ── Value notifiers (UI listens to these) ──────────────────────────────────
+  // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool> gaplessPlayback = ValueNotifier(true);
-  static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
-  static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
-  static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
-  static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
-  static final ValueNotifier<int> bassBoost = ValueNotifier(0);
-  static final ValueNotifier<int> reverbPreset = ValueNotifier(0);
-  static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
-  static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
+  static final ValueNotifier<bool>   gaplessPlayback  = ValueNotifier(true);
+  static final ValueNotifier<bool>   audioNormalize   = ValueNotifier(false);
+  static final ValueNotifier<double> crossfadeDuration= ValueNotifier(0.0);
+  static final ValueNotifier<double> pitchShift       = ValueNotifier(0.0);
+  static final ValueNotifier<bool>   spatialAudio     = ValueNotifier(false);
+  static final ValueNotifier<int>    spatialStrength  = ValueNotifier(1000);
+  static final ValueNotifier<int>    bassBoost        = ValueNotifier(0);
+  static final ValueNotifier<int>    reverbPreset     = ValueNotifier(0);
+  static final ValueNotifier<double> playbackSpeed    = ValueNotifier(1.0);
+  static final ValueNotifier<bool>   equalizerEnabled = ValueNotifier(false);
+  static final ValueNotifier<int>    roomPreset       = ValueNotifier(0);
+  static final ValueNotifier<int>    audioOutputMode  = ValueNotifier(0);
+  /// Lyrics folder path (e.g. /sdcard/Music/Lyrics)
+  static final ValueNotifier<String> lyricsPath       = ValueNotifier('');
 
   // ── Reverb preset labels ───────────────────────────────────────────────────
 
@@ -46,36 +52,115 @@ class AudioEffectsService {
     'Plate',
   ];
 
+  // ── Room acoustic presets ──────────────────────────────────────────────────
+  // Each entry maps to: {name, reverb (0-6), eq gains [60Hz,230Hz,910Hz,3.6k,14k], description}
+
+  static const List<Map<String, dynamic>> roomPresets = [
+    {
+      'name': 'Flat',
+      'reverb': 0,
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+      'desc': 'Tanpa efek ruangan',
+    },
+    {
+      'name': 'Studio',
+      'reverb': 0,
+      'gains': [2.0, 1.0, 0.0, -1.0, 1.0],
+      'desc': 'Rekaman studio profesional',
+    },
+    {
+      'name': 'Live Stage',
+      'reverb': 3,
+      'gains': [3.0, 0.0, 2.0, 1.0, 2.0],
+      'desc': 'Panggung pertunjukan langsung',
+    },
+    {
+      'name': 'Concert Hall',
+      'reverb': 5,
+      'gains': [4.0, 1.0, -1.0, 2.0, 4.0],
+      'desc': 'Aula konser klasik',
+    },
+    {
+      'name': 'Cathedral',
+      'reverb': 6,
+      'gains': [3.0, 0.0, -2.0, 0.0, 5.0],
+      'desc': 'Gema katedral besar',
+    },
+    {
+      'name': 'Club',
+      'reverb': 2,
+      'gains': [6.0, 3.0, 1.0, 0.0, -1.0],
+      'desc': 'Club malam dengan bass kuat',
+    },
+    {
+      'name': 'Outdoor',
+      'reverb': 1,
+      'gains': [1.0, 0.0, 0.0, 2.0, 3.0],
+      'desc': 'Ruang terbuka di luar ruangan',
+    },
+    {
+      'name': 'Car',
+      'reverb': 1,
+      'gains': [4.0, 2.0, 1.0, -1.0, 0.0],
+      'desc': 'Interior kabin mobil',
+    },
+    {
+      'name': 'Bathroom',
+      'reverb': 2,
+      'gains': [0.0, 1.0, 3.0, 2.0, 1.0],
+      'desc': 'Ruang kecil dengan dinding keras',
+    },
+  ];
+
+  // ── Audio output labels ────────────────────────────────────────────────────
+
+  static const List<String> audioOutputNames = [
+    'Auto (AAudio)',
+    'OpenSL ES',
+    'MIUI Hi-Fi',
+  ];
+
+  static const List<String> audioOutputDesc = [
+    'AAudio default — direkomendasikan untuk Android 8+',
+    'Kompatibel dengan semua perangkat Android',
+    'DAC Hi-Fi khusus MIUI 12+ (perlu headset)',
+  ];
+
   // ── Init ───────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    gaplessPlayback.value = prefs.getBool('gapless') ?? true;
-    audioNormalize.value = prefs.getBool('normalize') ?? false;
-    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
-    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
-    spatialAudio.value = prefs.getBool('spatial') ?? false;
-    bassBoost.value = prefs.getInt('bassBoost') ?? 0;
-    reverbPreset.value = prefs.getInt('reverb') ?? 0;
-    playbackSpeed.value = prefs.getDouble('speed') ?? 1.0;
-    equalizerEnabled.value = prefs.getBool('eqEnabled') ?? false;
+    gaplessPlayback.value  = prefs.getBool('gapless')     ?? true;
+    audioNormalize.value   = prefs.getBool('normalize')   ?? false;
+    crossfadeDuration.value= prefs.getDouble('crossfade') ?? 0.0;
+    pitchShift.value       = prefs.getDouble('pitch')     ?? 0.0;
+    spatialAudio.value     = prefs.getBool('spatial')     ?? false;
+    spatialStrength.value  = prefs.getInt('spatialStr')   ?? 1000;
+    bassBoost.value        = prefs.getInt('bassBoost')    ?? 0;
+    reverbPreset.value     = prefs.getInt('reverb')       ?? 0;
+    playbackSpeed.value    = prefs.getDouble('speed')     ?? 1.0;
+    equalizerEnabled.value = prefs.getBool('eqEnabled')   ?? false;
+    roomPreset.value       = prefs.getInt('roomPreset')   ?? 0;
+    audioOutputMode.value  = prefs.getInt('audioOutputMode') ?? 0;
+    lyricsPath.value       = prefs.getString('lyricsPath') ?? '';
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
   }
 
   static void applyAll() {
-    _applyNormalize(audioNormalize.value);
+    AudioEngine.applyNormalize(enabled: audioNormalize.value);
     _applyPitch(pitchShift.value);
     _applySpeed(playbackSpeed.value);
     AudioEngine.setBassBoost(bassBoost.value);
     AudioEngine.setReverb(reverbPreset.value);
     if (spatialAudio.value) {
-      AudioEngine.setSpatialEnabled(true);
+      AudioEngine.setSpatialEnabled(true, strength: spatialStrength.value);
     }
     if (equalizerEnabled.value) {
       AudioEngine.equalizer?.setEnabled(true);
+      _applyRoomPresetEq(roomPreset.value);
     }
   }
 
@@ -83,50 +168,30 @@ class AudioEffectsService {
 
   static Future<void> setGapless(bool value) async {
     gaplessPlayback.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('gapless', value);
+    await _saveBool('gapless', value);
     LogService.log('AudioEffects', 'Gapless: $value');
   }
 
-  // ── Normalize (Loudness) ───────────────────────────────────────────────────
+  // ── Normalize ─────────────────────────────────────────────────────────────
 
   static Future<void> setNormalize(bool value) async {
     audioNormalize.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('normalize', value);
-    _applyNormalize(value);
+    await _saveBool('normalize', value);
+    AudioEngine.applyNormalize(enabled: value);
     LogService.log('AudioEffects', 'Normalize: $value');
-  }
-
-  static void _applyNormalize(bool enabled) {
-    final enhancer = AudioEngine.loudnessEnhancer;
-    if (enhancer != null) {
-      // AndroidLoudnessEnhancer: targetGain in dB millibels (0 = neutral,
-      // negative = reduce, positive = boost).  For normalization we boost
-      // quiet tracks slightly.
-      enhancer.setEnabled(enabled);
-      if (enabled) {
-        enhancer.setTargetGain(300); // +3 dB gentle normalize
-      } else {
-        enhancer.setTargetGain(0);
-      }
-    } else {
-      // Web / non-Android fallback: volume approximation
-      try {
-        AudioEngine.player.setVolume(enabled ? 0.88 : 1.0);
-      } catch (_) {}
-    }
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
 
   static Future<void> setEqualizerEnabled(bool value) async {
     equalizerEnabled.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('eqEnabled', value);
+    await _saveBool('eqEnabled', value);
     try {
       await AudioEngine.equalizer?.setEnabled(value);
-    } catch (_) {}
+      if (value) _applyRoomPresetEq(roomPreset.value);
+    } catch (e) {
+      LogService.warn('AudioEffects', 'setEqEnabled: $e');
+    }
     LogService.log('AudioEffects', 'EQ enabled: $value');
   }
 
@@ -138,51 +203,51 @@ class AudioEffectsService {
     }
   }
 
-  static Future<void> setEqualizerBandGain(
-      int bandIndex, double gainDb) async {
+  static Future<void> setEqualizerBandGain(int bandIndex, double gainDb) async {
     try {
       final params = await AudioEngine.equalizer?.parameters;
       if (params == null) return;
       final band = params.bands[bandIndex];
       await band.setGain(gainDb);
-      _saveEqBand(bandIndex, gainDb);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('eqBand_$bandIndex', gainDb);
     } catch (e) {
       LogService.warn('AudioEffects', 'setEqBand: $e');
     }
   }
 
-  /// Built-in EQ presets (gain in dB per band: 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz).
-  static const List<Map<String, dynamic>> eqPresets = [
-    {'name': 'Normal',    'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Classical', 'gains': [5.0, 3.0, 0.0, 3.0, 4.0]},
-    {'name': 'Dance',     'gains': [6.0, 0.0, 2.0, 4.0, 1.0]},
-    {'name': 'Flat',      'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Folk',      'gains': [3.0, 0.0, 0.0, 2.0, -1.0]},
-    {'name': 'Heavy Metal', 'gains': [4.0, 1.0, 9.0, 3.0, 0.0]},
-    {'name': 'Hip-Hop',   'gains': [5.0, 4.0, 1.0, 1.0, 3.0]},
-    {'name': 'Jazz',      'gains': [4.0, 2.0, -2.0, 2.0, 5.0]},
-    {'name': 'Pop',       'gains': [-1.0, 2.0, 5.0, 1.0, -2.0]},
-    {'name': 'Rock',      'gains': [5.0, 3.0, -1.0, 3.0, 5.0]},
-  ];
+  // ── Room Presets ──────────────────────────────────────────────────────────
 
-  static Future<void> applyEqPreset(int presetIndex) async {
-    if (presetIndex < 0 || presetIndex >= eqPresets.length) return;
-    final gains = eqPresets[presetIndex]['gains'] as List<double>;
+  static Future<void> setRoomPreset(int index) async {
+    final i = index.clamp(0, roomPresets.length - 1);
+    roomPreset.value = i;
+    await _saveInt('roomPreset', i);
+
+    final preset = roomPresets[i];
+    // Apply reverb
+    final rev = preset['reverb'] as int;
+    await setReverb(rev);
+    // Apply EQ gains
+    if (equalizerEnabled.value) _applyRoomPresetEq(i);
+
+    LogService.log('AudioEffects', 'Room preset: ${preset['name']}');
+  }
+
+  static Future<void> _applyRoomPresetEq(int index) async {
+    final i = index.clamp(0, roomPresets.length - 1);
+    final gains = roomPresets[i]['gains'] as List<double>;
     final eq = AudioEngine.equalizer;
     if (eq == null) return;
     try {
       final params = await eq.parameters;
-      for (var i = 0; i < params.bands.length && i < gains.length; i++) {
-        final clamped = gains[i]
-            .clamp(params.minDecibels, params.maxDecibels);
-        await params.bands[i].setGain(clamped);
-        _saveEqBand(i, clamped);
+      for (var b = 0; b < params.bands.length && b < gains.length; b++) {
+        final clamped = gains[b].clamp(params.minDecibels, params.maxDecibels);
+        await params.bands[b].setGain(clamped);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('eqBand_$b', clamped);
       }
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('eqPreset', presetIndex);
-      LogService.log('AudioEffects', 'EQ preset: ${eqPresets[presetIndex]['name']}');
     } catch (e) {
-      LogService.warn('AudioEffects', 'applyEqPreset: $e');
+      LogService.warn('AudioEffects', 'applyRoomPresetEq: $e');
     }
   }
 
@@ -194,24 +259,49 @@ class AudioEffectsService {
       final params = await eq.parameters;
       for (var i = 0; i < params.bands.length; i++) {
         final gain = prefs.getDouble('eqBand_$i');
-        if (gain != null) {
-          await params.bands[i].setGain(gain);
-        }
+        if (gain != null) await params.bands[i].setGain(gain);
       }
     } catch (_) {}
   }
 
-  static Future<void> _saveEqBand(int bandIndex, double gainDb) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('eqBand_$bandIndex', gainDb);
+  // Legacy EQ presets kept for backward compat
+  static const List<Map<String, dynamic>> eqPresets = [
+    {'name': 'Normal',      'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
+    {'name': 'Classical',   'gains': [5.0, 3.0, 0.0, 3.0, 4.0]},
+    {'name': 'Dance',       'gains': [6.0, 0.0, 2.0, 4.0, 1.0]},
+    {'name': 'Flat',        'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
+    {'name': 'Folk',        'gains': [3.0, 0.0, 0.0, 2.0, -1.0]},
+    {'name': 'Heavy Metal', 'gains': [4.0, 1.0, 9.0, 3.0, 0.0]},
+    {'name': 'Hip-Hop',     'gains': [5.0, 4.0, 1.0, 1.0, 3.0]},
+    {'name': 'Jazz',        'gains': [4.0, 2.0, -2.0, 2.0, 5.0]},
+    {'name': 'Pop',         'gains': [-1.0, 2.0, 5.0, 1.0, -2.0]},
+    {'name': 'Rock',        'gains': [5.0, 3.0, -1.0, 3.0, 5.0]},
+  ];
+
+  static Future<void> applyEqPreset(int presetIndex) async {
+    if (presetIndex < 0 || presetIndex >= eqPresets.length) return;
+    final gains = eqPresets[presetIndex]['gains'] as List<double>;
+    final eq = AudioEngine.equalizer;
+    if (eq == null) return;
+    try {
+      final params = await eq.parameters;
+      for (var i = 0; i < params.bands.length && i < gains.length; i++) {
+        final clamped = gains[i].clamp(params.minDecibels, params.maxDecibels);
+        await params.bands[i].setGain(clamped);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('eqBand_$i', clamped);
+      }
+      await _saveInt('eqPreset', presetIndex);
+    } catch (e) {
+      LogService.warn('AudioEffects', 'applyEqPreset: $e');
+    }
   }
 
   // ── Crossfade ──────────────────────────────────────────────────────────────
 
   static Future<void> setCrossfade(double seconds) async {
     crossfadeDuration.value = seconds;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('crossfade', seconds);
+    await _saveDouble('crossfade', seconds);
     LogService.log('AudioEffects', 'Crossfade: ${seconds}s');
   }
 
@@ -219,8 +309,7 @@ class AudioEffectsService {
 
   static Future<void> setPitch(double semitones) async {
     pitchShift.value = semitones;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('pitch', semitones);
+    await _saveDouble('pitch', semitones);
     _applyPitch(semitones);
     LogService.log('AudioEffects', 'Pitch: $semitones semitones');
   }
@@ -236,12 +325,11 @@ class AudioEffectsService {
   // ── Playback Speed ────────────────────────────────────────────────────────
 
   static Future<void> setSpeed(double speed) async {
-    final clamped = speed.clamp(0.25, 3.0);
-    playbackSpeed.value = clamped;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('speed', clamped);
-    _applySpeed(clamped);
-    LogService.log('AudioEffects', 'Speed: ${clamped}x');
+    final v = speed.clamp(0.25, 3.0);
+    playbackSpeed.value = v;
+    await _saveDouble('speed', v);
+    _applySpeed(v);
+    LogService.log('AudioEffects', 'Speed: ${v}x');
   }
 
   static void _applySpeed(double speed) {
@@ -254,8 +342,7 @@ class AudioEffectsService {
 
   static Future<void> setBassBoost(int strength) async {
     bassBoost.value = strength.clamp(0, 1000);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('bassBoost', bassBoost.value);
+    await _saveInt('bassBoost', bassBoost.value);
     await AudioEngine.setBassBoost(bassBoost.value);
     LogService.log('AudioEffects', 'BassBoost: ${bassBoost.value}');
   }
@@ -264,20 +351,63 @@ class AudioEffectsService {
 
   static Future<void> setReverb(int preset) async {
     reverbPreset.value = preset.clamp(0, reverbPresetNames.length - 1);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('reverb', reverbPreset.value);
+    await _saveInt('reverb', reverbPreset.value);
     await AudioEngine.setReverb(reverbPreset.value);
-    LogService.log(
-        'AudioEffects', 'Reverb: ${reverbPresetNames[reverbPreset.value]}');
+    LogService.log('AudioEffects', 'Reverb: ${reverbPresetNames[reverbPreset.value]}');
   }
 
-  // ── Spatial Audio (Android Virtualizer) ──────────────────────────────────
+  // ── Spatial Audio ─────────────────────────────────────────────────────────
 
   static Future<void> setSpatial(bool value) async {
     spatialAudio.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('spatial', value);
-    await AudioEngine.setSpatialEnabled(value);
+    await _saveBool('spatial', value);
+    await AudioEngine.setSpatialEnabled(value, strength: spatialStrength.value);
     LogService.log('AudioEffects', 'Spatial: $value');
+  }
+
+  static Future<void> setSpatialStrength(int strength) async {
+    final v = strength.clamp(0, 1000);
+    spatialStrength.value = v;
+    await _saveInt('spatialStr', v);
+    if (spatialAudio.value) {
+      await AudioEngine.setSpatialEnabled(true, strength: v);
+    }
+    LogService.log('AudioEffects', 'Spatial strength: $v');
+  }
+
+  // ── Audio Output ──────────────────────────────────────────────────────────
+
+  static Future<void> setAudioOutputMode(int modeIndex) async {
+    final idx = modeIndex.clamp(0, 2);
+    audioOutputMode.value = idx;
+    await _saveInt('audioOutputMode', idx);
+    await AudioEngine.setAudioOutputMode(AudioOutputMode.values[idx]);
+    LogService.log('AudioEffects', 'AudioOutput: ${audioOutputNames[idx]}');
+  }
+
+  // ── Lyrics path ───────────────────────────────────────────────────────────
+
+  static Future<void> setLyricsPath(String path) async {
+    lyricsPath.value = path.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('lyricsPath', path.trim());
+    LogService.log('AudioEffects', 'Lyrics path: ${path.trim()}');
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  static Future<void> _saveBool(String k, bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(k, v);
+  }
+
+  static Future<void> _saveInt(String k, int v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(k, v);
+  }
+
+  static Future<void> _saveDouble(String k, double v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(k, v);
   }
 }

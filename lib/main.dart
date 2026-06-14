@@ -6,6 +6,7 @@ import 'package:musicplayer/services/audio/audio_engine.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
+import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -48,10 +49,11 @@ Future<void> main() async {
   }
 
   await ThemeController.init();
+  await LogService.init();
 
   // Order matters: AudioEngine must be ready before AudioEffectsService,
   // which must be ready before AudioService.
-  AudioEngine.initialize();
+  await AudioEngine.initialize();
   await AudioEffectsService.init();
   AudioService.initialize();
   AudioFocusService.initialize();

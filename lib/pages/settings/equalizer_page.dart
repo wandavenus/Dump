@@ -1,50 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:just_audio/just_audio.dart';
 
 import '../../services/audio/audio_effects_service.dart';
 
-class EqualizerPage extends StatefulWidget {
+/// Halaman pemilihan preset ruangan — menggabungkan reverb + EQ
+/// dalam satu pilihan yang mudah dipahami.
+class EqualizerPage extends StatelessWidget {
   const EqualizerPage({super.key});
-
-  @override
-  State<EqualizerPage> createState() => _EqualizerPageState();
-}
-
-class _EqualizerPageState extends State<EqualizerPage> {
-  AndroidEqualizerParameters? _params;
-  bool _loading = true;
-  String? _error;
-  int _selectedPreset = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadParameters();
-  }
-
-  Future<void> _loadParameters() async {
-    try {
-      final params = await AudioEffectsService.getEqualizerParameters();
-      if (mounted) {
-        setState(() {
-          _params = params;
-          _loading = false;
-        });
-        if (params != null) {
-          await AudioEffectsService.restoreEqualizerBands();
-          if (mounted) setState(() {});
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'Equalizer tidak tersedia di perangkat ini.';
-          _loading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +16,26 @@ class _EqualizerPageState extends State<EqualizerPage> {
         child: Column(
           children: [
             _buildAppBar(context),
-            Expanded(child: _buildBody()),
+            const SizedBox(height: 8),
+            _buildEqToggle(),
+            const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'PRESET RUANGAN',
+                  style: TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(child: _RoomPresetGrid()),
           ],
         ),
       ),
@@ -63,7 +44,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Row(
         children: [
           CupertinoButton(
@@ -74,7 +55,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              'Equalizer',
+              'Preset Ruangan',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -82,291 +63,163 @@ class _EqualizerPageState extends State<EqualizerPage> {
               ),
             ),
           ),
-          ValueListenableBuilder<bool>(
-            valueListenable: AudioEffectsService.equalizerEnabled,
-            builder: (_, enabled, __) => CupertinoSwitch(
-              value: enabled,
-              onChanged: AudioEffectsService.setEqualizerEnabled,
-              activeTrackColor: const Color(0xFFF92D48),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null || _params == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            _error ?? 'Equalizer tidak tersedia.',
-            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
+  Widget _buildEqToggle() {
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.equalizerEnabled,
-      builder: (_, enabled, __) => Column(
-        children: [
-          // ── Presets ──────────────────────────────────────────────────────
-          _PresetsRow(
-            selectedPreset: _selectedPreset,
-            enabled: enabled,
-            onPresetSelected: (i) async {
-              await AudioEffectsService.applyEqPreset(i);
-              if (mounted) {
-                setState(() => _selectedPreset = i);
-                // Reload params so UI reflects new gains
-                final fresh =
-                    await AudioEffectsService.getEqualizerParameters();
-                if (mounted) setState(() => _params = fresh);
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          // ── Band sliders ─────────────────────────────────────────────────
-          Expanded(
-            child: _BandsView(
-              params: _params!,
-              enabled: enabled,
-              onBandChanged: (i, gain) =>
-                  AudioEffectsService.setEqualizerBandGain(i, gain),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Presets row ──────────────────────────────────────────────────────────────
-
-class _PresetsRow extends StatelessWidget {
-  final int selectedPreset;
-  final bool enabled;
-  final void Function(int) onPresetSelected;
-
-  const _PresetsRow({
-    required this.selectedPreset,
-    required this.enabled,
-    required this.onPresetSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final presets = AudioEffectsService.eqPresets;
-
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
+      builder: (_, enabled, __) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: presets.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final selected = i == selectedPreset;
-          return GestureDetector(
-            onTap: enabled ? () => onPresetSelected(i) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFFF92D48)
-                    : const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                presets[i]['name'] as String,
-                style: TextStyle(
-                  color: selected
-                      ? Colors.white
-                      : const Color(0xFF8E8E93),
-                  fontSize: 13,
-                  fontWeight:
-                      selected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ─── Band sliders ─────────────────────────────────────────────────────────────
-
-class _BandsView extends StatefulWidget {
-  final AndroidEqualizerParameters params;
-  final bool enabled;
-  final void Function(int bandIndex, double gain) onBandChanged;
-
-  const _BandsView({
-    required this.params,
-    required this.enabled,
-    required this.onBandChanged,
-  });
-
-  @override
-  State<_BandsView> createState() => _BandsViewState();
-}
-
-class _BandsViewState extends State<_BandsView> {
-  late List<double> _gains;
-
-  @override
-  void initState() {
-    super.initState();
-    _gains = widget.params.bands.map((b) => b.gain).toList();
-  }
-
-  @override
-  void didUpdateWidget(_BandsView old) {
-    super.didUpdateWidget(old);
-    _gains = widget.params.bands.map((b) => b.gain).toList();
-  }
-
-  String _freqLabel(double hz) {
-    if (hz >= 1000) {
-      final k = hz / 1000;
-      return '${k % 1 == 0 ? k.toStringAsFixed(0) : k.toStringAsFixed(1)}k';
-    }
-    return hz.toStringAsFixed(0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bands = widget.params.bands;
-    final minDb = widget.params.minDecibels;
-    final maxDb = widget.params.maxDecibels;
-
-    // dB steps for y-axis labels
-    final range = (maxDb - minDb).round();
-    final step = range ~/ 4;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // dB labels column
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
             children: [
-              for (var db = maxDb.round(); db >= minDb.round(); db -= step)
-                Text(
-                  '${db > 0 ? '+' : ''}$db',
-                  style: const TextStyle(
-                      color: Color(0xFF8E8E93), fontSize: 10),
+              const Icon(Icons.equalizer, color: Color(0xFFF92D48), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Equalizer',
+                      style: TextStyle(color: Colors.white, fontSize: 15),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      enabled
+                          ? 'Preset ruangan aktif'
+                          : 'Nonaktif — audio diputar flat',
+                      style: const TextStyle(
+                          color: Color(0xFF8E8E93), fontSize: 12),
+                    ),
+                  ],
                 ),
+              ),
+              CupertinoSwitch(
+                value: enabled,
+                onChanged: AudioEffectsService.setEqualizerEnabled,
+                activeTrackColor: const Color(0xFFF92D48),
+              ),
             ],
           ),
-          const SizedBox(width: 12),
-          // Band sliders
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(bands.length, (i) {
-                return Expanded(
-                  child: _BandSlider(
-                    freqLabel: _freqLabel(bands[i].centerFrequency),
-                    gain: _gains.length > i ? _gains[i] : 0.0,
-                    minDb: minDb,
-                    maxDb: maxDb,
-                    enabled: widget.enabled,
-                    onChanged: (v) {
-                      setState(() => _gains[i] = v);
-                      widget.onBandChanged(i, v);
-                    },
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _BandSlider extends StatelessWidget {
-  final String freqLabel;
-  final double gain;
-  final double minDb;
-  final double maxDb;
-  final bool enabled;
-  final ValueChanged<double> onChanged;
+// ─── Room preset grid ─────────────────────────────────────────────────────────
 
-  const _BandSlider({
-    required this.freqLabel,
-    required this.gain,
-    required this.minDb,
-    required this.maxDb,
-    required this.enabled,
-    required this.onChanged,
-  });
+class _RoomPresetGrid extends StatelessWidget {
+  const _RoomPresetGrid();
+
+  static const List<IconData> _icons = [
+    Icons.radio_button_unchecked,
+    Icons.mic,
+    Icons.theater_comedy,
+    Icons.music_note,
+    Icons.church,
+    Icons.nightlife,
+    Icons.park,
+    Icons.directions_car,
+    Icons.bathroom,
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Gain value indicator
-        Text(
-          '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(1)}',
-          style: const TextStyle(
-            color: Color(0xFFF92D48),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        // Vertical slider
-        Expanded(
-          child: RotatedBox(
-            quarterTurns: 3,
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: enabled
-                    ? const Color(0xFFF92D48)
-                    : const Color(0xFF48484A),
-                thumbColor:
-                    enabled ? Colors.white : const Color(0xFF636366),
-                inactiveTrackColor: const Color(0xFF48484A),
-                overlayColor: const Color(0x29F92D48),
-                trackHeight: 3,
-                thumbShape:
-                    const RoundSliderThumbShape(enabledThumbRadius: 7),
+    return ValueListenableBuilder<int>(
+      valueListenable: AudioEffectsService.roomPreset,
+      builder: (_, selected, __) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: AudioEffectsService.equalizerEnabled,
+          builder: (_, enabled, __) {
+            final presets = AudioEffectsService.roomPresets;
+            return GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.9,
               ),
-              child: Slider(
-                value: gain.clamp(minDb, maxDb),
-                min: minDb,
-                max: maxDb,
-                onChanged: enabled ? onChanged : null,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          freqLabel,
-          style: const TextStyle(
-            color: Color(0xFF8E8E93),
-            fontSize: 11,
-          ),
-        ),
-      ],
+              itemCount: presets.length,
+              itemBuilder: (context, i) {
+                final preset = presets[i];
+                final isSelected = i == selected;
+                final icon = i < _icons.length
+                    ? _icons[i]
+                    : Icons.graphic_eq;
+
+                return GestureDetector(
+                  onTap: () => AudioEffectsService.setRoomPreset(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFF92D48).withOpacity(0.15)
+                          : const Color(0xFF1C1C1E),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFF92D48)
+                            : Colors.transparent,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          icon,
+                          size: 28,
+                          color: isSelected
+                              ? const Color(0xFFF92D48)
+                              : const Color(0xFF8E8E93),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          preset['name'] as String,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : const Color(0xFFAEAEB2),
+                            fontSize: 13,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            preset['desc'] as String,
+                            style: const TextStyle(
+                              color: Color(0xFF636366),
+                              fontSize: 10,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

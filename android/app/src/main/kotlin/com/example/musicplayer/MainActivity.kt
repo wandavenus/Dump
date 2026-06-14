@@ -1,13 +1,17 @@
 package com.example.musicplayer
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
+import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import java.io.File
 import androidx.core.content.ContextCompat
@@ -17,7 +21,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 
 class MainActivity : AudioServiceActivity() {
 
-    private val mediaStoreChannel = "musicplayer/media_store"
+    private val mediaStoreChannel  = "musicplayer/media_store"
     private val audioEffectsChannel = "musicplayer/audio_effects"
 
     // ── Audio effects ────────────────────────────────────────────────────────
@@ -44,7 +48,7 @@ class MainActivity : AudioServiceActivity() {
                         result.success(getArtwork(songId ?: 0))
                     }
                     "getAudioMetadata" -> {
-                        val path = call.argument<String>("path")
+                        val path   = call.argument<String>("path")
                         val songId = call.argument<Int>("songId")
                         result.success(getAudioMetadata(path, songId ?: 0))
                     }
@@ -61,12 +65,12 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "attachEffects" -> {
                         val sessionId = call.argument<Int>("sessionId") ?: 0
-                        attachEffects(sessionId)
-                        result.success(null)
+                        result.success(attachEffects(sessionId))
                     }
                     "setSpatialEnabled" -> {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        setSpatialEnabled(enabled)
+                        val enabled  = call.argument<Boolean>("enabled") ?: false
+                        val strength = call.argument<Int>("strength") ?: 1000
+                        setSpatialEnabled(enabled, strength.toShort())
                         result.success(null)
                     }
                     "setBassBoost" -> {
@@ -79,50 +83,121 @@ class MainActivity : AudioServiceActivity() {
                         setReverb(preset.toShort())
                         result.success(null)
                     }
+                    "setAudioOutputMode" -> {
+                        val mode = call.argument<Int>("mode") ?: 0
+                        setAudioOutputMode(mode)
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
     }
 
-    private fun attachEffects(sessionId: Int) {
-        if (sessionId == 0 || sessionId == currentSessionId) return
-        currentSessionId = sessionId
+    // ── attachEffects ────────────────────────────────────────────────────────
+    //
+    //  Returns a Map<String, Boolean> with hardware support flags so Flutter
+    //  can disable effect sliders that won't work on the current device.
+    //  All effects are instantiated inside try-catch so MIUI / vendor
+    //  modifications that deny AudioEffect access don't crash the app.
 
+    private fun attachEffects(sessionId: Int): Map<String, Boolean> {
+        if (sessionId == 0) return emptyMap()
+        if (sessionId == currentSessionId) {
+            return mapOf(
+                "virtualizerSupported" to (virtualizer != null),
+                "bassBoostSupported"   to (bassBoost   != null),
+                "reverbSupported"      to (presetReverb != null),
+            )
+        }
+        currentSessionId = sessionId
         releaseEffects()
 
-        try {
-            virtualizer = Virtualizer(0, sessionId).apply {
-                enabled = false
-            }
-        } catch (_: Exception) {}
+        val virt = tryCreateVirtualizer(sessionId)
+        val bass = tryCreateBassBoost(sessionId)
+        val reverb = tryCreateReverb(sessionId)
 
-        try {
-            bassBoost = BassBoost(0, sessionId).apply {
+        virtualizer  = virt
+        bassBoost    = bass
+        presetReverb = reverb
+
+        return mapOf(
+            "virtualizerSupported" to (virt != null),
+            "bassBoostSupported"   to (bass != null),
+            "reverbSupported"      to (reverb != null),
+        )
+    }
+
+    private fun tryCreateVirtualizer(sessionId: Int): Virtualizer? {
+        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) return null
+        return try {
+            Virtualizer(0, sessionId).apply { enabled = false }
+        } catch (_: Exception) { null }
+    }
+
+    private fun tryCreateBassBoost(sessionId: Int): BassBoost? {
+        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_BASS_BOOST)) return null
+        return try {
+            BassBoost(0, sessionId).apply {
                 setStrength(0)
                 enabled = false
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) { null }
+    }
 
-        try {
-            presetReverb = PresetReverb(0, sessionId).apply {
+    private fun tryCreateReverb(sessionId: Int): PresetReverb? {
+        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) return null
+        return try {
+            PresetReverb(0, sessionId).apply {
                 preset = PresetReverb.PRESET_NONE
                 enabled = false
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) { null }
     }
 
-    private fun setSpatialEnabled(enabled: Boolean) {
+    // ── isEffectTypeSupported ────────────────────────────────────────────────
+    //
+    //  AudioEffect.queryEffects() is the proper API (API 21+) to check what
+    //  the device DSP actually implements.  Falls back to true on older APIs.
+
+    private fun isEffectTypeSupported(type: java.util.UUID): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return true
+        return try {
+            val descriptors = AudioEffect.queryEffects() ?: return false
+            descriptors.any { it.type == type }
+        } catch (_: Exception) { false }
+    }
+
+    // ── Spatial audio ────────────────────────────────────────────────────────
+
+    private fun setSpatialEnabled(enabled: Boolean, strength: Short) {
         try {
             virtualizer?.run {
                 if (enabled) {
-                    setStrength(1000)
-                    this.enabled = true
+                    if (canVirtualize(enabled)) {
+                        setStrength(strength.coerceIn(0, 1000))
+                        this.enabled = true
+                    }
                 } else {
                     this.enabled = false
                 }
             }
         } catch (_: Exception) {}
     }
+
+    /** Check if virtualizer can process the current audio source (API 21+). */
+    private fun canVirtualize(enabled: Boolean): Boolean {
+        if (!enabled) return false
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                virtualizer?.canVirtualize(
+                    Virtualizer.CHANNEL_LAYOUT_NATIVE,
+                    Virtualizer.VIRTUALIZATION_MODE_AUTO
+                ) ?: false
+            } else true
+        } catch (_: Exception) { true }
+    }
+
+    // ── Bass Boost ───────────────────────────────────────────────────────────
 
     private fun setBassBoost(strength: Short) {
         try {
@@ -132,6 +207,8 @@ class MainActivity : AudioServiceActivity() {
             }
         } catch (_: Exception) {}
     }
+
+    // ── Reverb ───────────────────────────────────────────────────────────────
 
     private fun setReverb(preset: Short) {
         try {
@@ -152,12 +229,53 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: Exception) {}
     }
 
+    // ── Audio output mode ────────────────────────────────────────────────────
+    //
+    //  0 = Auto/AAudio  (default ExoPlayer behavior)
+    //  1 = OpenSL ES    (preference stored; applied at ExoPlayer creation if
+    //                    we customise ExoPlayer in the future)
+    //  2 = MIUI Hi-Fi   (broadcast intent to enable MIUI HiFi DAC)
+
+    private fun setAudioOutputMode(mode: Int) {
+        when (mode) {
+            2 -> enableMiuiHifi(true)
+            else -> {
+                // mode 0 & 1: handled by stored preference; no runtime change needed
+                // Disable MIUI HiFi if switching away
+                if (mode != 2) enableMiuiHifi(false)
+            }
+        }
+    }
+
+    private fun enableMiuiHifi(enable: Boolean) {
+        // MIUI-specific Hi-Fi broadcast — silently fails on non-MIUI devices
+        try {
+            val action = if (enable)
+                "miui.intent.action.ACTION_HEADSET_HIFI_ENABLE"
+            else
+                "miui.intent.action.ACTION_HEADSET_HIFI_DISABLE"
+            val intent = Intent(action)
+            intent.setPackage("com.android.phone")
+            sendBroadcast(intent)
+        } catch (_: Exception) {}
+
+        // Alternative: try ContentResolver write for MIUI settings
+        try {
+            val value = if (enable) "1" else "0"
+            android.provider.Settings.System.putString(
+                contentResolver, "hifi_audio", value
+            )
+        } catch (_: Exception) {}
+    }
+
+    // ── Release ──────────────────────────────────────────────────────────────
+
     private fun releaseEffects() {
-        try { virtualizer?.release() } catch (_: Exception) {}
-        try { bassBoost?.release() } catch (_: Exception) {}
+        try { virtualizer?.release()  } catch (_: Exception) {}
+        try { bassBoost?.release()    } catch (_: Exception) {}
         try { presetReverb?.release() } catch (_: Exception) {}
-        virtualizer = null
-        bassBoost = null
+        virtualizer  = null
+        bassBoost    = null
         presetReverb = null
     }
 
@@ -171,13 +289,11 @@ class MainActivity : AudioServiceActivity() {
     private fun hasMediaPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_MEDIA_AUDIO
+                this, Manifest.permission.READ_MEDIA_AUDIO
             ) == PackageManager.PERMISSION_GRANTED
         } else {
             ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
+                this, Manifest.permission.READ_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
@@ -193,9 +309,7 @@ class MainActivity : AudioServiceActivity() {
             val artwork = retriever.embeddedPicture
             retriever.release()
             artwork
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
     private fun getAudioMetadata(path: String?, songId: Int): Map<String, String?> {
@@ -217,25 +331,17 @@ class MainActivity : AudioServiceActivity() {
                 "sampleRate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE),
                 "fileSize"   to getFileSize(path)
             )
-        } catch (_: Exception) {
-            emptyMap()
-        } finally {
-            retriever.release()
-        }
+        } catch (_: Exception) { emptyMap() } finally { retriever.release() }
     }
 
     private fun getFileSize(path: String?): String? {
         if (path.isNullOrBlank()) return null
-        return try {
-            File(path).length().takeIf { it > 0 }?.toString()
-        } catch (_: Exception) {
-            null
-        }
+        return try { File(path).length().takeIf { it > 0 }?.toString() }
+        catch (_: Exception) { null }
     }
 
     private fun getSongs(): List<Map<String, Any?>> {
         if (!hasMediaPermission()) return emptyList()
-
         val songs = mutableListOf<Map<String, Any?>>()
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -246,13 +352,12 @@ class MainActivity : AudioServiceActivity() {
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.DURATION
         )
-
         contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
-            MediaStore.Audio.Media.IS_MUSIC + "!= 0",
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0",
             null,
-            MediaStore.Audio.Media.TITLE + " ASC"
+            "${MediaStore.Audio.Media.TITLE} ASC"
         )?.use { cursor ->
             val idCol      = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -261,7 +366,6 @@ class MainActivity : AudioServiceActivity() {
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val pathCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val durCol     = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-
             while (cursor.moveToNext()) {
                 val albumId = cursor.getInt(albumIdCol)
                 songs.add(mapOf(
