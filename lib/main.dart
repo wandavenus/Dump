@@ -122,6 +122,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: ThemeData(
         colorScheme: const ColorScheme.dark(),
         scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
+      
+        snackBarTheme: const SnackBarThemeData(
+  contentTextStyle: TextStyle(
+    color: Colors.white,
+  ),
+),
+        
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
