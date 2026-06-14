@@ -30,10 +30,14 @@ class AudioEngine {
 
   static AndroidEqualizer? get equalizer => _equalizer;
   static AndroidLoudnessEnhancer? get loudnessEnhancer => _loudnessEnhancer;
-  static double get effectiveVolume =>
-      (_preampVolume.clamp(0.0, 1.0) * _trackVolume * _fadeVolume)
-          .clamp(0.0, _limiterEnabled ? _limiterCeiling : 1.0)
-          .toDouble();
+  static double get effectiveVolume {
+    final ceiling = _limiterEnabled
+        ? (_limiterCeiling / (_preampVolume > 1.0 ? _preampVolume : 1.0))
+        : 1.0;
+    return (_preampVolume.clamp(0.0, 1.0) * _trackVolume * _fadeVolume)
+        .clamp(0.0, ceiling)
+        .toDouble();
+  }
 
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
