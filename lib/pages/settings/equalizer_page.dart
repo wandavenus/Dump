@@ -105,7 +105,7 @@ class EqualizerPage extends StatelessWidget {
               CupertinoSwitch(
                 value: enabled,
                 onChanged: AudioEffectsService.setEqualizerEnabled,
-                activeTrackColor: const Color(0xFFF92D48),
+                activeColor: const Color(0xFFF92D48),
               ),
             ],
           ),
