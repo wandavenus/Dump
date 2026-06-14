@@ -1,4 +1,4 @@
-part of '../albums_section.dart';
+part of '../../home_sections.dart';
 
 class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   List<_AlbumGroup> _albums = [];

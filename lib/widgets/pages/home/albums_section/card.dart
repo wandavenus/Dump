@@ -1,4 +1,4 @@
-part of '../albums_section.dart';
+part of '../../home_sections.dart';
 
 class _AlbumCard extends StatelessWidget {
   final _AlbumGroup album;

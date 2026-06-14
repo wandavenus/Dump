@@ -1,4 +1,4 @@
-part of '../artists_section.dart';
+part of '../../home_sections.dart';
 
 class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
   List<_ArtistGroup> _artists = [];

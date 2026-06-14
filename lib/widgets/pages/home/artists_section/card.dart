@@ -1,4 +1,4 @@
-part of '../artists_section.dart';
+part of '../../home_sections.dart';
 
 class _ArtistCard extends StatelessWidget {
   final _ArtistGroup artist;
