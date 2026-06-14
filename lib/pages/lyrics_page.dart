@@ -493,7 +493,7 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                         builder: (_, v, __) => CupertinoSwitch(
                           value: v,
                           onChanged: LyricsSettings.setShowSource,
-                          activeTrackColor: const Color(0xFFF92D48),
+                          activeColor: const Color(0xFFF92D48),
                         ),
                       ),
                     ],
