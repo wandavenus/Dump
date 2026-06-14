@@ -15,9 +15,11 @@ class PlayShuffleButtons extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _ActionButton(
+          _ActionButton(
             icon: Icons.play_arrow_rounded,
             label: 'Play',
             onTap: () async {
+              if (songs.isEmpty) return;
               await AudioService.playSongAt(playlist: songs, index: 0);
               PlayerPanelController.instance.open();
             },
@@ -26,12 +28,12 @@ class PlayShuffleButtons extends StatelessWidget {
             icon: Icons.shuffle_rounded,
             label: 'Shuffle',
             onTap: () async {
+              if (songs.isEmpty) return;
               final shuffled = List<LocalSong>.from(songs)..shuffle();
               await AudioService.playSongAt(playlist: shuffled, index: 0);
               PlayerPanelController.instance.open();
             },
           ),
-        ],
       ),
     );
   }
