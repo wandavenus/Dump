@@ -117,13 +117,15 @@ class AudioEffectsService {
   static const List<String> audioOutputNames = [
     'Auto (AAudio)',
     'OpenSL ES',
-    'MIUI Hi-Fi',
+    'Hi-Res Audio',
   ];
 
   static const List<String> audioOutputDesc = [
-    'AAudio default — direkomendasikan untuk Android 8+',
-    'Kompatibel dengan semua perangkat Android',
-    'DAC Hi-Fi khusus MIUI 12+ (perlu headset)',
+    'AAudio — jalur audio default, direkomendasikan untuk Android 8+',
+    'OpenSL ES — kompatibel dengan semua versi Android',
+    'Hi-Res Audio — aktifkan DAC Hi-Res/Hi-Fi hardware. '
+        'Mendukung MIUI 12, Qualcomm, Sony, dan OEM lain. '
+        'Perlu headset atau DAC hi-res terhubung.',
   ];
 
   // ── Init ───────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
@@ -21,13 +22,13 @@ import com.ryanheise.audioservice.AudioServiceActivity
 
 class MainActivity : AudioServiceActivity() {
 
-    private val mediaStoreChannel  = "musicplayer/media_store"
+    private val mediaStoreChannel   = "musicplayer/media_store"
     private val audioEffectsChannel = "musicplayer/audio_effects"
 
-    // ── Audio effects ────────────────────────────────────────────────────────
-    private var virtualizer: Virtualizer? = null
-    private var bassBoost: BassBoost? = null
-    private var presetReverb: PresetReverb? = null
+    // ── Audio effects ─────────────────────────────────────────────────────────
+    private var virtualizer:  Virtualizer?   = null
+    private var bassBoost:    BassBoost?     = null
+    private var presetReverb: PresetReverb?  = null
     private var currentSessionId: Int = 0
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -36,7 +37,7 @@ class MainActivity : AudioServiceActivity() {
         setupAudioEffectsChannel(flutterEngine)
     }
 
-    // ── MediaStore channel ───────────────────────────────────────────────────
+    // ── MediaStore channel ────────────────────────────────────────────────────
 
     private fun setupMediaStoreChannel(flutterEngine: FlutterEngine) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaStoreChannel)
@@ -52,12 +53,16 @@ class MainActivity : AudioServiceActivity() {
                         val songId = call.argument<Int>("songId")
                         result.success(getAudioMetadata(path, songId ?: 0))
                     }
+                    "getEmbeddedLyrics" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        result.success(getEmbeddedLyrics(path))
+                    }
                     else -> result.notImplemented()
                 }
             }
     }
 
-    // ── Audio Effects channel ────────────────────────────────────────────────
+    // ── Audio Effects channel ─────────────────────────────────────────────────
 
     private fun setupAudioEffectsChannel(flutterEngine: FlutterEngine) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
@@ -93,27 +98,22 @@ class MainActivity : AudioServiceActivity() {
             }
     }
 
-    // ── attachEffects ────────────────────────────────────────────────────────
-    //
-    //  Returns a Map<String, Boolean> with hardware support flags so Flutter
-    //  can disable effect sliders that won't work on the current device.
-    //  All effects are instantiated inside try-catch so MIUI / vendor
-    //  modifications that deny AudioEffect access don't crash the app.
+    // ── attachEffects ─────────────────────────────────────────────────────────
 
     private fun attachEffects(sessionId: Int): Map<String, Boolean> {
         if (sessionId == 0) return emptyMap()
         if (sessionId == currentSessionId) {
             return mapOf(
-                "virtualizerSupported" to (virtualizer != null),
-                "bassBoostSupported"   to (bassBoost   != null),
+                "virtualizerSupported" to (virtualizer  != null),
+                "bassBoostSupported"   to (bassBoost    != null),
                 "reverbSupported"      to (presetReverb != null),
             )
         }
         currentSessionId = sessionId
         releaseEffects()
 
-        val virt = tryCreateVirtualizer(sessionId)
-        val bass = tryCreateBassBoost(sessionId)
+        val virt   = tryCreateVirtualizer(sessionId)
+        val bass   = tryCreateBassBoost(sessionId)
         val reverb = tryCreateReverb(sessionId)
 
         virtualizer  = virt
@@ -121,8 +121,8 @@ class MainActivity : AudioServiceActivity() {
         presetReverb = reverb
 
         return mapOf(
-            "virtualizerSupported" to (virt != null),
-            "bassBoostSupported"   to (bass != null),
+            "virtualizerSupported" to (virt   != null),
+            "bassBoostSupported"   to (bass   != null),
             "reverbSupported"      to (reverb != null),
         )
     }
@@ -138,8 +138,7 @@ class MainActivity : AudioServiceActivity() {
         if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_BASS_BOOST)) return null
         return try {
             BassBoost(0, sessionId).apply {
-                setStrength(0)
-                enabled = false
+                setStrength(0); enabled = false
             }
         } catch (_: Exception) { null }
     }
@@ -148,35 +147,26 @@ class MainActivity : AudioServiceActivity() {
         if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) return null
         return try {
             PresetReverb(0, sessionId).apply {
-                preset = PresetReverb.PRESET_NONE
-                enabled = false
+                preset = PresetReverb.PRESET_NONE; enabled = false
             }
         } catch (_: Exception) { null }
     }
 
-    // ── isEffectTypeSupported ────────────────────────────────────────────────
-    //
-    //  AudioEffect.queryEffects() is the proper API (API 21+) to check what
-    //  the device DSP actually implements.  Falls back to true on older APIs.
-
     private fun isEffectTypeSupported(type: java.util.UUID): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return true
         return try {
-            val descriptors = AudioEffect.queryEffects() ?: return false
-            descriptors.any { it.type == type }
+            AudioEffect.queryEffects()?.any { it.type == type } ?: false
         } catch (_: Exception) { false }
     }
 
-    // ── Spatial audio ────────────────────────────────────────────────────────
+    // ── Spatial audio ─────────────────────────────────────────────────────────
 
     private fun setSpatialEnabled(enabled: Boolean, strength: Short) {
         try {
             virtualizer?.run {
-                if (enabled) {
-                    if (canVirtualize(enabled)) {
-                        setStrength(strength.coerceIn(0, 1000))
-                        this.enabled = true
-                    }
+                if (enabled && canVirtualize()) {
+                    setStrength(strength.coerceIn(0, 1000))
+                    this.enabled = true
                 } else {
                     this.enabled = false
                 }
@@ -184,9 +174,7 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: Exception) {}
     }
 
-    /** Check if virtualizer can process the current audio source (API 21+). */
-    private fun canVirtualize(enabled: Boolean): Boolean {
-        if (!enabled) return false
+    private fun canVirtualize(): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 virtualizer?.canVirtualize(
@@ -197,7 +185,7 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: Exception) { true }
     }
 
-    // ── Bass Boost ───────────────────────────────────────────────────────────
+    // ── Bass Boost ────────────────────────────────────────────────────────────
 
     private fun setBassBoost(strength: Short) {
         try {
@@ -208,13 +196,12 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: Exception) {}
     }
 
-    // ── Reverb ───────────────────────────────────────────────────────────────
+    // ── Reverb ────────────────────────────────────────────────────────────────
 
     private fun setReverb(preset: Short) {
         try {
             presetReverb?.run {
                 val androidPreset = when (preset.toInt()) {
-                    0 -> PresetReverb.PRESET_NONE
                     1 -> PresetReverb.PRESET_SMALLROOM
                     2 -> PresetReverb.PRESET_MEDIUMROOM
                     3 -> PresetReverb.PRESET_LARGEROOM
@@ -223,52 +210,84 @@ class MainActivity : AudioServiceActivity() {
                     6 -> PresetReverb.PRESET_PLATE
                     else -> PresetReverb.PRESET_NONE
                 }
-                this.preset = androidPreset
+                this.preset  = androidPreset
                 this.enabled = preset.toInt() > 0
             }
         } catch (_: Exception) {}
     }
 
-    // ── Audio output mode ────────────────────────────────────────────────────
+    // ── Audio output mode ─────────────────────────────────────────────────────
     //
-    //  0 = Auto/AAudio  (default ExoPlayer behavior)
-    //  1 = OpenSL ES    (preference stored; applied at ExoPlayer creation if
-    //                    we customise ExoPlayer in the future)
-    //  2 = MIUI Hi-Fi   (broadcast intent to enable MIUI HiFi DAC)
+    //  0 = Auto / AAudio  — default ExoPlayer path (Android 8+)
+    //  1 = OpenSL ES      — legacy path, all Android versions
+    //  2 = Hi-Res Audio   — enable hardware Hi-Res / Hi-Fi DAC path
+    //                       Tries: AudioManager.setParameters(), MIUI broadcast,
+    //                       MIUI Settings.System write.
 
     private fun setAudioOutputMode(mode: Int) {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         when (mode) {
-            2 -> enableMiuiHifi(true)
-            else -> {
-                // mode 0 & 1: handled by stored preference; no runtime change needed
-                // Disable MIUI HiFi if switching away
-                if (mode != 2) enableMiuiHifi(false)
-            }
+            2 -> enableHiRes(am, true)
+            else -> enableHiRes(am, false)
         }
     }
 
-    private fun enableMiuiHifi(enable: Boolean) {
-        // MIUI-specific Hi-Fi broadcast — silently fails on non-MIUI devices
+    private fun enableHiRes(am: AudioManager, enable: Boolean) {
+        val onOff = if (enable) "on" else "off"
+
+        // 1. Standard Android AudioManager parameters (works on many OEM ROMs)
+        try { am.setParameters("hifi_audio=$onOff") }        catch (_: Exception) {}
+        try { am.setParameters("high_resolution_audio=$onOff") } catch (_: Exception) {}
+        try { am.setParameters("hifi_enable=$onOff") }       catch (_: Exception) {}
+
+        // 2. MIUI-specific broadcast intent (MIUI 12+ com.android.phone)
         try {
             val action = if (enable)
                 "miui.intent.action.ACTION_HEADSET_HIFI_ENABLE"
             else
                 "miui.intent.action.ACTION_HEADSET_HIFI_DISABLE"
-            val intent = Intent(action)
-            intent.setPackage("com.android.phone")
-            sendBroadcast(intent)
+            sendBroadcast(Intent(action).apply { setPackage("com.android.phone") })
         } catch (_: Exception) {}
 
-        // Alternative: try ContentResolver write for MIUI settings
+        // 3. MIUI ContentResolver write (requires WRITE_SETTINGS — silently fails otherwise)
         try {
             val value = if (enable) "1" else "0"
-            android.provider.Settings.System.putString(
-                contentResolver, "hifi_audio", value
-            )
+            android.provider.Settings.System.putString(contentResolver, "hifi_audio", value)
         } catch (_: Exception) {}
+
+        // 4. Sony / Qualcomm high-res parameter
+        try { am.setParameters("audio_qoe_enable=$onOff") }   catch (_: Exception) {}
+        try { am.setParameters("hi_res_audio_enabled=$onOff") } catch (_: Exception) {}
     }
 
-    // ── Release ──────────────────────────────────────────────────────────────
+    // ── Embedded lyrics ───────────────────────────────────────────────────────
+    //
+    //  Reads lyrics embedded in audio file tags using jaudiotagger.
+    //  Supported formats: MP3 (ID3v2 USLT/SYLT), M4A (iTunes ©lyr),
+    //  FLAC/OGG/OPUS (Vorbis LYRICS field), WAV (ID3).
+
+    private fun getEmbeddedLyrics(path: String): String? {
+        if (path.isBlank()) return null
+        return try {
+            val file = File(path)
+            if (!file.exists()) return null
+
+            val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
+            val tag = audioFile?.tag ?: return null
+
+            // Standard LYRICS field (works for all formats jaudiotagger supports)
+            val lyrics = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)
+            if (!lyrics.isNullOrBlank()) return lyrics.trim()
+
+            // Fallback: try COMMENT field (some encoders store lyrics there)
+            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
+            if (!comment.isNullOrBlank() && comment.contains('\n')) return comment.trim()
+
+            null
+        } catch (_: Exception) { null }
+    }
+
+    // ── Release ───────────────────────────────────────────────────────────────
 
     private fun releaseEffects() {
         try { virtualizer?.release()  } catch (_: Exception) {}
@@ -284,7 +303,7 @@ class MainActivity : AudioServiceActivity() {
         super.onDestroy()
     }
 
-    // ── MediaStore helpers ───────────────────────────────────────────────────
+    // ── MediaStore helpers ────────────────────────────────────────────────────
 
     private fun hasMediaPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -301,8 +320,7 @@ class MainActivity : AudioServiceActivity() {
     private fun getArtwork(songId: Int): ByteArray? {
         return try {
             val uri = Uri.withAppendedPath(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                songId.toString()
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
             )
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(this, uri)
@@ -320,8 +338,7 @@ class MainActivity : AudioServiceActivity() {
                 retriever.setDataSource(path)
             } catch (_: Exception) {
                 val uri = Uri.withAppendedPath(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    songId.toString()
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
                 )
                 retriever.setDataSource(this, uri)
             }

@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../models/lyric_line.dart';
+import '../../models/lyrics_settings.dart';
 import '../../services/audio_service.dart';
 
+/// Widget teks lirik sinkron — scroll otomatis ke baris aktif.
+/// Mendukung pengaturan tampilan dari [LyricsSettings].
 class SyncedLyricsView extends StatefulWidget {
   final List<LyricLine> lyrics;
+  final EdgeInsetsGeometry padding;
 
   const SyncedLyricsView({
     super.key,
     required this.lyrics,
+    this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
   });
 
   @override
@@ -16,50 +21,81 @@ class SyncedLyricsView extends StatefulWidget {
 }
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView> {
-  final ScrollController _scrollController = ScrollController();
-
+  final ScrollController _scroll = ScrollController();
   int _currentIndex = 0;
+
+  // Tinggi rata-rata tiap baris — diperbarui setelah layout pertama
+  double _itemHeight = 52.0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Duration>(
-      stream: AudioService.player.positionStream,
-      builder: (context, snapshot) {
-        final position = snapshot.data ?? Duration.zero;
+    return ValueListenableBuilder<double>(
+      valueListenable: LyricsSettings.fontSize,
+      builder: (_, fs, __) =>
+          ValueListenableBuilder<String>(
+        valueListenable: LyricsSettings.textAlign,
+        builder: (_, align, __) =>
+            ValueListenableBuilder<String>(
+          valueListenable: LyricsSettings.activeColor,
+          builder: (_, colorKey, __) {
+            final activeColor = LyricsSettings.resolvedActiveColor;
+            final textAlign   = LyricsSettings.resolvedTextAlign;
 
-        _updateCurrentLine(position);
+            return StreamBuilder<Duration>(
+              stream: AudioService.player.positionStream,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                _updateCurrentLine(position, fs);
 
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          itemCount: widget.lyrics.length,
-          itemBuilder: (context, index) {
-            final active = index == _currentIndex;
+                return ListView.builder(
+                  controller: _scroll,
+                  padding: widget.padding,
+                  itemCount: widget.lyrics.length,
+                  itemBuilder: (context, index) {
+                    final active = index == _currentIndex;
+                    final activeFontSize = fs;
+                    final inactiveFontSize = (fs * 0.82).clamp(12.0, 22.0);
 
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                widget.lyrics[index].text,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: active ? 24 : 20,
-                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                  color: active ? Colors.white : Colors.white54,
-                ),
-              ),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
+                        style: TextStyle(
+                          fontSize: active ? activeFontSize : inactiveFontSize,
+                          fontWeight:
+                              active ? FontWeight.bold : FontWeight.w400,
+                          color: active
+                              ? activeColor
+                              : Colors.white.withOpacity(0.35),
+                          height: 1.4,
+                        ),
+                        child: Text(
+                          widget.lyrics[index].text,
+                          textAlign: textAlign,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             );
           },
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _updateCurrentLine(Duration position) {
+  void _updateCurrentLine(Duration position, double fontSize) {
     if (widget.lyrics.isEmpty) return;
 
     int activeIndex = 0;
-
     for (int i = 0; i < widget.lyrics.length; i++) {
       if (widget.lyrics[i].timestamp <= position) {
         activeIndex = i;
@@ -72,23 +108,24 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
-      setState(() {
-        _currentIndex = activeIndex;
-      });
-
-      final targetOffset = activeIndex * 44.0;
-
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          targetOffset.clamp(
-            0,
-            _scrollController.position.maxScrollExtent,
-          ),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      setState(() => _currentIndex = activeIndex);
+      _scrollToIndex(activeIndex, fontSize);
     });
+  }
+
+  void _scrollToIndex(int index, double fontSize) {
+    if (!_scroll.hasClients) return;
+    // Perkiraan tinggi tiap item berdasarkan font size
+    _itemHeight = fontSize * 1.4 + 12 + 12; // line-height + vertical padding
+    final viewportHalf = _scroll.position.viewportDimension / 2;
+    final itemOffset = index * _itemHeight;
+    final target = (itemOffset - viewportHalf + _itemHeight / 2)
+        .clamp(0.0, _scroll.position.maxScrollExtent);
+
+    _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
   }
 }

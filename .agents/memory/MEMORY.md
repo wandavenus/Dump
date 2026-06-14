@@ -1,13 +1,16 @@
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
-- [AudioEngine architecture](audio-engine.md) — AudioEngine → AudioEffectsService → AudioService; `AudioSettingsService` adalah shim kompatibilitas. Init order: AudioEngine.initialize() → LogService.init() → AudioEffectsService.init() → AudioService.initialize().
+- [LyricsSettings model](lyrics-settings.md) — LyricsSettings singleton (fontSize/textAlign/bgDim/blurStrength/activeColor/showSource/karaokeMode); init di main() setelah LogService.init().
+- [LyricsService cascade](lyrics-service-cascade.md) — urutan: embedded tag (jaudiotagger native) → file .lrc same dir → file .lrc configured folder → internet (lrclib.net); hasilnya LyricsResult{lines, source}.
+- [LyricsPage full-screen](lyrics-page-fullscreen.md) — LyricsPage adalah full-screen route (bukan modal); dibuka via Navigator.push dengan SlideTransition dari bawah; punya tombol tampilan lirik (ikon textformat) yang buka _LyricsAppearanceSheet.
+- [jaudiotagger Android](jaudiotagger-android.md) — net.jthink:jaudiotagger:2.2.5 ditambah ke android/app/build.gradle; getEmbeddedLyrics() via MethodChannel musicplayer/media_store; packagingOptions exclude duplicate META-INF files.
+- [Hi-Res Audio mode](hires-audio.md) — mode 2 sekarang "Hi-Res Audio" (bukan MIUI Hi-Fi); enableHiRes() coba 5 metode: AudioManager.setParameters() berbagai key, MIUI broadcast, ContentResolver, Sony/Qualcomm parameters.
+- [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
-- [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet. _MiniPlayerBody baca swipeOffset dari parent state.
+- [AudioEngine architecture](audio-engine.md) — init order: ThemeController → LogService → LyricsSettings → AudioEngine → AudioEffectsService → AudioService.
+- [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
-- [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart. Data models tetap di induk.
-- [Android native effects](android-audio-effects.md) — Virtualizer/BassBoost/PresetReverb diinit via MethodChannel `musicplayer/audio_effects`; attachEffects() sekarang return Map support flags; isEffectTypeSupported() cek AudioEffect.queryEffects() untuk Android 11 compat.
-- [AndroidEqualizer presets](android-eq-presets.md) — EQ diubah jadi "room preset" — setiap preset gabungkan reverb + EQ gains; tidak pakai .presets/.setPreset() API yang tidak ada.
-- [Search keyboard fix](search-keyboard.md) — FocusNode tidak autofocus; keyboard hanya muncul saat GestureDetector.onTap → focusNode.requestFocus(); onTapOutside unfocus; deactivate() juga unfocus.
-- [LogService persistent](log-service-persistent.md) — LogService.init() baca SharedPrefs; loggingEnabled & errorsOnly bisa di-toggle & persist; max 500 entri; panggil init() di main() sebelum AudioEngine.
-- [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → _DebugState.enabled=true; shows debug section: effect status, audio session info, notif icon picker.
-- [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, MIUI Hi-Fi; disimpan SharedPrefs; MIUI Hi-Fi coba broadcast + ContentResolver write; LoudnessEnhancer.setTargetGain() butuh double bukan int.
+- [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
+- [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
+- [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
+- [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
