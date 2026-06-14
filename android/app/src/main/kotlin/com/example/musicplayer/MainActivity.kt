@@ -175,15 +175,12 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun canVirtualize(): Boolean {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                virtualizer?.canVirtualize(
-                    Virtualizer.CHANNEL_LAYOUT_NATIVE,
-                    Virtualizer.VIRTUALIZATION_MODE_AUTO
-                ) ?: false
-            } else true
-        } catch (_: Exception) { true }
+    return try {
+        virtualizer != null
+    } catch (_: Exception) {
+        false
     }
+}
 
     // ── Bass Boost ────────────────────────────────────────────────────────────
 
