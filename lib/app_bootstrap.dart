@@ -1,0 +1,69 @@
+part of 'main.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.musicplayer.channel.audio',
+      androidNotificationChannelName: 'Music Playback',
+      androidNotificationIcon: 'drawable/ic_notification',
+      androidNotificationOngoing: true,
+    );
+  }
+
+  if (!kIsWeb) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
+  }
+
+  await ThemeController.init();
+  await LogService.init();
+  await LyricsSettings.init();
+
+  // Order matters: AudioEngine must be ready before AudioEffectsService,
+  // which must be ready before AudioService.
+  await AudioEngine.initialize();
+  await AudioEffectsService.init();
+  AudioService.initialize();
+  AudioFocusService.initialize();
+
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await Permission.storage.request();
+    await Permission.audio.request();
+  }
+
+  runApp(const MyApp());
+}
+
+void applyEdgeToEdge() {
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
+}
+
+class MyScrollBehavior extends MaterialScrollBehavior {
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const ClampingScrollPhysics();
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
