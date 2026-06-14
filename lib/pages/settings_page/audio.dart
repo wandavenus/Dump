@@ -11,18 +11,6 @@ class _AudioSection extends StatelessWidget {
         const SettingsSectionHeader('AUDIO'),
         const SizedBox(height: 6),
 
-        // Gapless
-        ValueListenableBuilder<bool>(
-          valueListenable: AudioEffectsService.gaplessPlayback,
-          builder: (_, v, __) => SettingsToggleRow(
-            title: 'Gapless Playback',
-            subtitle: 'Putar tanpa jeda antar lagu',
-            value: v,
-            onChanged: AudioEffectsService.setGapless,
-          ),
-        ),
-        const SettingsDivider(),
-
         // Normalize
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.audioNormalize,
@@ -50,7 +38,6 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Playback Speed
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.playbackSpeed,
           builder: (_, v, __) => SettingsSliderRow(
@@ -67,7 +54,6 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Pitch Shift
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.pitchShift,
           builder: (_, v, __) => SettingsSliderRow(
@@ -86,7 +72,6 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Bass Boost
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.bassBoost,
           builder: (_, v, __) => SettingsSliderRow(
@@ -107,7 +92,6 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Reverb
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.reverbPreset,
           builder: (_, v, __) => _ReverbRow(preset: v),
