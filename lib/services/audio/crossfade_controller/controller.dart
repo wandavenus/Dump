@@ -17,7 +17,7 @@ class CrossfadeController {
   static void initialize() {
     if (_initialized) return;
     _initialized = true;
-    _ticker = Timer.periodic(const Duration(milliseconds: 50), _onTick);
+    _ticker = Timer.periodic(const Duration(milliseconds: 20), _onTick);
     LogService.log('Crossfade', 'Controller initialized');
   }
 
@@ -118,6 +118,11 @@ class CrossfadeController {
   }
 
   // Ease curves for a more musical feel.
-  static double _easeInQuad(double t) => t * t;
-  static double _easeOutQuad(double t) => t * (2 - t);
+  import 'dart:math' as math;
+
+static double _easeInQuad(double t) =>
+    math.sin(t * math.pi / 2);
+
+static double _easeOutQuad(double t) =>
+    math.sin(t * math.pi / 2);
 }
