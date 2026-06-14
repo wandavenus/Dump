@@ -7,9 +7,9 @@ class BlurredArtworkBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery.sizeOf(context).width;
     final cacheWidth =
-        (width * MediaQuery.of(context).devicePixelRatio / 2).round();
+        (width * MediaQuery.devicePixelRatioOf(context) / 2).round();
 
     return Stack(
       fit: StackFit.expand,
