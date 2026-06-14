@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:musicplayer/services/audio_settings_service.dart';
+import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'settings/settings_widgets.dart';
+import 'settings/equalizer_page.dart';
 
 export 'settings/settings_widgets.dart';
 
@@ -102,13 +103,15 @@ class _SettingsAppBar extends StatelessWidget {
 class _SettingsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: const [
         SizedBox(height: 24),
         _AppearanceSection(),
         SizedBox(height: 32),
         _AudioSection(),
+        SizedBox(height: 32),
+        _EqualizerSection(),
         SizedBox(height: 32),
         _SystemSection(),
         SizedBox(height: 32),
@@ -227,41 +230,78 @@ class _AudioSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('AUDIO'),
         const SizedBox(height: 6),
+
+        // Gapless
         ValueListenableBuilder<bool>(
-          valueListenable: AudioSettingsService.gaplessPlayback,
+          valueListenable: AudioEffectsService.gaplessPlayback,
           builder: (_, v, __) => SettingsToggleRow(
             title: 'Gapless Playback',
             subtitle: 'Putar tanpa jeda antar lagu',
             value: v,
-            onChanged: AudioSettingsService.setGapless,
+            onChanged: AudioEffectsService.setGapless,
           ),
         ),
         const SettingsDivider(),
+
+        // Normalize
         ValueListenableBuilder<bool>(
-          valueListenable: AudioSettingsService.audioNormalize,
+          valueListenable: AudioEffectsService.audioNormalize,
           builder: (_, v, __) => SettingsToggleRow(
             title: 'Audio Normalize',
             subtitle: 'Samakan volume semua lagu',
             value: v,
-            onChanged: AudioSettingsService.setNormalize,
+            onChanged: AudioEffectsService.setNormalize,
           ),
         ),
         const SettingsDivider(),
+
+        // Spatial Audio
+        ValueListenableBuilder<bool>(
+          valueListenable: AudioEffectsService.spatialAudio,
+          builder: (_, v, __) => SettingsToggleRow(
+            title: 'Spatial Audio',
+            subtitle: 'Simulasi suara 3D surround (Android Virtualizer)',
+            value: v,
+            onChanged: AudioEffectsService.setSpatial,
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Crossfade
         ValueListenableBuilder<double>(
-          valueListenable: AudioSettingsService.crossfadeDuration,
+          valueListenable: AudioEffectsService.crossfadeDuration,
           builder: (_, v, __) => SettingsSliderRow(
             title: 'Crossfade',
             subtitle: v == 0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} detik',
             value: v,
             min: 0,
             max: 12,
-            onChanged: AudioSettingsService.setCrossfade,
+            onChanged: AudioEffectsService.setCrossfade,
             divisions: 24,
           ),
         ),
         const SettingsDivider(),
+
+        // Playback Speed
         ValueListenableBuilder<double>(
-          valueListenable: AudioSettingsService.pitchShift,
+          valueListenable: AudioEffectsService.playbackSpeed,
+          builder: (_, v, __) => SettingsSliderRow(
+            title: 'Kecepatan Putar',
+            subtitle: '${v.toStringAsFixed(2)}x',
+            value: v,
+            min: 0.25,
+            max: 3.0,
+            onChanged: AudioEffectsService.setSpeed,
+            divisions: 22,
+            showReset: v != 1.0,
+            onReset: () => AudioEffectsService.setSpeed(1.0),
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Pitch Shift
+        ValueListenableBuilder<double>(
+          valueListenable: AudioEffectsService.pitchShift,
           builder: (_, v, __) => SettingsSliderRow(
             title: 'Pitch Shift',
             subtitle: v == 0
@@ -270,20 +310,133 @@ class _AudioSection extends StatelessWidget {
             value: v,
             min: -6,
             max: 6,
-            onChanged: AudioSettingsService.setPitch,
+            onChanged: AudioEffectsService.setPitch,
             divisions: 24,
             showReset: v != 0,
-            onReset: () => AudioSettingsService.setPitch(0),
+            onReset: () => AudioEffectsService.setPitch(0),
           ),
         ),
         const SettingsDivider(),
+
+        // Bass Boost
+        ValueListenableBuilder<int>(
+          valueListenable: AudioEffectsService.bassBoost,
+          builder: (_, v, __) => SettingsSliderRow(
+            title: 'Bass Boost',
+            subtitle: v == 0 ? 'Nonaktif' : '${(v / 10).round()}%',
+            value: v.toDouble(),
+            min: 0,
+            max: 1000,
+            onChanged: (val) => AudioEffectsService.setBassBoost(val.round()),
+            divisions: 20,
+            showReset: v != 0,
+            onReset: () => AudioEffectsService.setBassBoost(0),
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Reverb
+        ValueListenableBuilder<int>(
+          valueListenable: AudioEffectsService.reverbPreset,
+          builder: (_, v, __) => _ReverbRow(preset: v),
+        ),
+        const SettingsDivider(),
+      ],
+    );
+  }
+}
+
+class _ReverbRow extends StatelessWidget {
+  final int preset;
+  const _ReverbRow({required this.preset});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showReverbPicker(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Reverb',
+                      style:
+                          TextStyle(color: Colors.white, fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text(
+                    AudioEffectsService.reverbPresetNames[preset],
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: Color(0xFF48484A), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReverbPicker(BuildContext context) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: const Text('Reverb'),
+        actions: List.generate(
+          AudioEffectsService.reverbPresetNames.length,
+          (i) => CupertinoActionSheetAction(
+            isDefaultAction: i == preset,
+            onPressed: () {
+              AudioEffectsService.setReverb(i);
+              Navigator.of(context).pop();
+            },
+            child: Text(AudioEffectsService.reverbPresetNames[i]),
+          ),
+        ),
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── EQUALIZER ────────────────────────────────────────────────────────────────
+
+class _EqualizerSection extends StatelessWidget {
+  const _EqualizerSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SettingsSectionHeader('EQUALIZER'),
+        const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
-          valueListenable: AudioSettingsService.spatialAudio,
-          builder: (_, v, __) => SettingsToggleRow(
-            title: 'Spatial Audio',
-            subtitle: 'Simulasi audio 3D surround',
-            value: v,
-            onChanged: AudioSettingsService.setSpatial,
+          valueListenable: AudioEffectsService.equalizerEnabled,
+          builder: (_, enabled, __) => SettingsToggleRow(
+            title: 'Equalizer',
+            subtitle: 'Atur frekuensi audio per band',
+            value: enabled,
+            onChanged: AudioEffectsService.setEqualizerEnabled,
+          ),
+        ),
+        const SettingsDivider(),
+        SettingsActionRow(
+          title: 'Buka Equalizer',
+          trailing: '',
+          onTap: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(
+              builder: (_) => const EqualizerPage(),
+            ),
           ),
         ),
         const SettingsDivider(),

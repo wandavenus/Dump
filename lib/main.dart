@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
+import 'package:musicplayer/services/audio/audio_engine.dart';
+import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio_service.dart';
-import 'package:musicplayer/services/audio_settings_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
@@ -47,7 +48,11 @@ Future<void> main() async {
   }
 
   await ThemeController.init();
-  await AudioSettingsService.init();
+
+  // Order matters: AudioEngine must be ready before AudioEffectsService,
+  // which must be ready before AudioService.
+  AudioEngine.initialize();
+  await AudioEffectsService.init();
   AudioService.initialize();
   AudioFocusService.initialize();
 
@@ -100,12 +105,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) applyEdgeToEdge();
-    if (state == AppLifecycleState.paused) {
-      AudioFocusService.onFocusLoss(transient: false);
-    }
-    if (state == AppLifecycleState.resumed) {
-      AudioFocusService.onFocusGain();
-    }
   }
 
   @override
@@ -126,39 +125,39 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         fontFamily: 'SF Pro Display',
         textTheme: const TextTheme(
-          displayLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          displayLarge:  TextStyle(fontFamily: 'SF Pro Display'),
           displayMedium: TextStyle(fontFamily: 'SF Pro Display'),
-          displaySmall: TextStyle(fontFamily: 'SF Pro Display'),
-          headlineLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          displaySmall:  TextStyle(fontFamily: 'SF Pro Display'),
+          headlineLarge:  TextStyle(fontFamily: 'SF Pro Display'),
           headlineMedium: TextStyle(fontFamily: 'SF Pro Display'),
-          headlineSmall: TextStyle(fontFamily: 'SF Pro Display'),
-          titleLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          headlineSmall:  TextStyle(fontFamily: 'SF Pro Display'),
+          titleLarge:  TextStyle(fontFamily: 'SF Pro Display'),
           titleMedium: TextStyle(fontFamily: 'SF Pro Display'),
-          titleSmall: TextStyle(fontFamily: 'SF Pro Display'),
-          bodyLarge: TextStyle(fontFamily: 'SF Pro Display'),
-          bodyMedium: TextStyle(fontFamily: 'SF Pro Display'),
-          bodySmall: TextStyle(fontFamily: 'SF Pro Display'),
-          labelLarge: TextStyle(fontFamily: 'SF Pro Display'),
+          titleSmall:  TextStyle(fontFamily: 'SF Pro Display'),
+          bodyLarge:   TextStyle(fontFamily: 'SF Pro Display'),
+          bodyMedium:  TextStyle(fontFamily: 'SF Pro Display'),
+          bodySmall:   TextStyle(fontFamily: 'SF Pro Display'),
+          labelLarge:  TextStyle(fontFamily: 'SF Pro Display'),
           labelMedium: TextStyle(fontFamily: 'SF Pro Display'),
-          labelSmall: TextStyle(fontFamily: 'SF Pro Display'),
+          labelSmall:  TextStyle(fontFamily: 'SF Pro Display'),
         ),
       ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
       routes: {
-        '/settings': (context) => const SettingsPage(),
-        '/list_test': (context) => const WebView(child: ListTest()),
-        '/firstpage': (context) => const WebView(child: FirstPage()),
-        '/browse': (context) => const WebView(child: BrowsePage()),
-        '/radio': (context) => const WebView(child: RadioPage()),
-        '/library': (context) => const WebView(child: LibraryPage()),
-        '/search': (context) => const WebView(child: SearchPage()),
-        '/home': (context) => const WebView(child: HomePage()),
-        '/album': (context) => const WebView(child: AlbumPage()),
-        '/artist': (context) => const WebView(child: ArtistPage()),
+        '/settings':   (context) => const SettingsPage(),
+        '/list_test':  (context) => const WebView(child: ListTest()),
+        '/firstpage':  (context) => const WebView(child: FirstPage()),
+        '/browse':     (context) => const WebView(child: BrowsePage()),
+        '/radio':      (context) => const WebView(child: RadioPage()),
+        '/library':    (context) => const WebView(child: LibraryPage()),
+        '/search':     (context) => const WebView(child: SearchPage()),
+        '/home':       (context) => const WebView(child: HomePage()),
+        '/album':      (context) => const WebView(child: AlbumPage()),
+        '/artist':     (context) => const WebView(child: ArtistPage()),
         '/artistlist': (context) => const WebView(child: ArtistList()),
-        '/musiclist': (context) => const WebView(child: MusicList()),
-        '/player': (context) => const WebView(child: MusicPlayer()),
+        '/musiclist':  (context) => const WebView(child: MusicList()),
+        '/player':     (context) => const WebView(child: MusicPlayer()),
       },
     );
   }

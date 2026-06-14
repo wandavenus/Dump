@@ -19,8 +19,10 @@ dependencies:
   cached_network_image: ^3.4.1
   just_audio: ^0.9.41
   just_audio_background: ^0.0.1-beta.13
+  audio_session: ^0.1.21
   permission_handler: ^11.3.1
   shared_preferences: ^2.5.3
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,9 @@
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
-- [AudioSettingsService](audio-settings.md) — gapless/normalize/crossfade/pitch/spatial; SharedPreferences; apply ke just_audio. Pitch hanya native (kIsWeb guard). Init di main() sebelum AudioService.initialize().
+- [AudioEngine architecture](audio-engine.md) — AudioEngine → AudioEffectsService → AudioService; `AudioSettingsService` adalah shim kompatibilitas. Init order: AudioEngine.initialize() → AudioEffectsService.init() → AudioService.initialize().
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; glassNavBar/glassAppBar/glassMiniPlayer/glassPlayerSheet=sub-toggle. Helper: ThemeController.isGlass(component).
 - [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet. _MiniPlayerBody baca swipeOffset dari parent state.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart. Data models tetap di induk.
+- [Android native effects](android-audio-effects.md) — Virtualizer/BassBoost/PresetReverb diinit via MethodChannel `musicplayer/audio_effects`; session ID dikirim dari just_audio androidAudioSessionIdStream; perlu `attachEffects` dipanggil lebih dulu.
+- [AndroidEqualizer presets](android-eq-presets.md) — `AndroidEqualizerParameters` di just_audio TIDAK punya `.presets` atau `.setPreset()`; preset harus diimplementasi manual dengan list gains per band.
