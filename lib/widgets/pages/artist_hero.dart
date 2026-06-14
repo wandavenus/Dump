@@ -9,6 +9,7 @@ class ArtistHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (songs.isEmpty) return const SizedBox.shrink();
     final artistName = songs.first.artist;
 
     return SizedBox(
