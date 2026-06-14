@@ -87,7 +87,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
             builder: (_, enabled, __) => CupertinoSwitch(
               value: enabled,
               onChanged: AudioEffectsService.setEqualizerEnabled,
-              activeTrackColor: const Color(0xFFF92D48),
+              activeColor: const Color(0xFFF92D48),
             ),
           ),
         ],
