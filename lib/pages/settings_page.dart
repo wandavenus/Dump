@@ -798,14 +798,24 @@ class _LyricsAppearanceRows extends StatelessWidget {
         title: const Text('Ukuran Teks Lirik'),
         actions: [
           for (final s in [
-            (label: 'Kecil (S)', value: 14.0),
-            (label: 'Sedang (M)', value: 18.0),
-            (label: 'Besar (L)', value: 22.0),
-            (label: 'Sangat Besar (XL)', value: 26.0),
-          ])
+  (label: 'Kecil (S)', value: 14.0),
+  (label: 'Sedang (M)', value: 18.0),
+  (label: 'Besar (L)', value: 22.0),
+  (label: 'Sangat Besar (XL)', value: 26.0),
+  (label: 'Kustom...', value: -1.0),
+])
             CupertinoActionSheetAction(
               isDefaultAction: cur == s.value,
-              onPressed: () { LyricsSettings.setFontSize(s.value); Navigator.pop(ctx); },
+              onPressed: () {
+  if (s.value == -1.0) {
+    Navigator.pop(ctx);
+    _showCustomFontSize(ctx);
+    return;
+  }
+
+  LyricsSettings.setFontSize(s.value);
+  Navigator.pop(ctx);
+},
               child: Text(s.label),
             ),
         ],
@@ -818,6 +828,47 @@ class _LyricsAppearanceRows extends StatelessWidget {
     );
   }
 
+void _showCustomFontSize(BuildContext context) {
+  double temp = LyricsSettings.fontSize.value;
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Ukuran Kustom'),
+      content: StatefulBuilder(
+        builder: (context, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${temp.round()} px'),
+            Slider(
+              value: temp,
+              min: 12,
+              max: 60,
+              divisions: 28,
+              onChanged: (v) {
+                setState(() => temp = v);
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        TextButton(
+          onPressed: () {
+            LyricsSettings.setFontSize(temp);
+            Navigator.pop(context);
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+}
+  
   void _pickAlign(BuildContext ctx, String cur) {
     showCupertinoModalPopup<void>(
       context: ctx,
@@ -1463,7 +1514,7 @@ class _AboutSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('TENTANG'),
         const SizedBox(height: 6),
-        const SettingsInfoRow(title: 'Music Player', trailing: '© 2026'),
+        const SettingsInfoRow(title: 'Music Player', trailing: 'Wndavenznchole'),
         const SettingsDivider(),
         // Version — tap 3x to enable debug mode
         _VersionTile(),
