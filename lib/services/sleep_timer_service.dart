@@ -67,7 +67,9 @@ class SleepTimerService {
     if (wasActive) {
       try {
         AudioService.pause();
-      } catch (_) {}
+      } catch (error) {
+        LogService.warn('SleepTimer', 'Gagal pause audio: $error');
+      }
       LogService.log('SleepTimer', 'Musik dihentikan oleh sleep timer');
     }
   }

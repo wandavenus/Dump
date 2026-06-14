@@ -1,0 +1,107 @@
+part of '../mini_player.dart';
+
+class _MiniPlayerState extends State<MiniPlayer> {
+  double _dragUp = 0;
+  double _panDx = 0;
+  double _panDy = 0;
+  bool _isHorizontal = false;
+  bool _directionLocked = false;
+  double _swipeOffset = 0;
+
+  void _onPanStart(DragStartDetails d) {
+    _panDx = 0;
+    _panDy = 0;
+    _isHorizontal = false;
+    _directionLocked = false;
+    _dragUp = 0;
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    _panDx += d.delta.dx;
+    _panDy += d.delta.dy;
+
+    if (!_directionLocked && (_panDx.abs() > 8 || _panDy.abs() > 8)) {
+      _isHorizontal = _panDx.abs() > _panDy.abs();
+      _directionLocked = true;
+    }
+
+    if (!_directionLocked) return;
+
+    if (_isHorizontal) {
+      setState(() => _swipeOffset = _panDx);
+    } else {
+      _dragUp -= d.delta.dy;
+      PlayerSheetController.setProgress((_dragUp / 600).clamp(0.0, 1.0).toDouble());
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    if (_isHorizontal) {
+      final vx = d.velocity.pixelsPerSecond.dx;
+      if (_panDx < -80 || vx < -350) {
+        AudioService.skipNext();
+      } else if (_panDx > 80 || vx > 350) {
+        AudioService.skipPrevious();
+      }
+      setState(() => _swipeOffset = 0);
+    } else {
+      final vy = d.velocity.pixelsPerSecond.dy;
+      if (PlayerSheetController.progress.value > 0.35 || vy < -150) {
+        PlayerSheetController.open();
+      } else {
+        PlayerSheetController.close();
+      }
+    }
+    _dragUp = 0;
+    _panDx = 0;
+    _panDy = 0;
+    _directionLocked = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, playbackState, _) {
+        final song = playbackState.currentSong;
+        if (song == null) return const SizedBox.shrink();
+
+        return ValueListenableBuilder<bool>(
+          valueListenable: PlayerSheetController.expanded,
+          builder: (context, expanded, _) {
+            final t = expanded ? 1.0 : 0.0;
+
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: t),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutBack,
+              builder: (context, value, _) {
+                return Opacity(
+                  opacity: 1 - value,
+                  child: Transform.translate(
+                    offset: Offset(0, 18 * value),
+                    child: Transform.scale(
+                      scale: 1 - (0.12 * value),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onPanStart: _onPanStart,
+                        onPanUpdate: _onPanUpdate,
+                        onPanEnd: _onPanEnd,
+                        child: _MiniPlayerBody(
+                          song: song,
+                          playbackState: playbackState,
+                          anim: value,
+                          swipeOffset: _swipeOffset,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}

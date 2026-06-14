@@ -13,7 +13,7 @@ class PlayerSheetController {
   static Timer? _timer;
 
   static void setProgress(double value) {
-    final clamped = value.clamp(0.0, 1.0);
+    final clamped = value.clamp(0.0, 1.0).toDouble();
 
     progress.value = clamped;
 
