@@ -257,11 +257,11 @@ void _showCustomFontSize(BuildContext context) {
               value: temp,
               min: 12,
               max: 60,
-              divisions: 28,
+              divisions: 48,
               onChanged: (v) {
                 setState(() => temp = v);
               },
-            ),
+            )
           ],
         ),
       ),
