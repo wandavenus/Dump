@@ -48,11 +48,13 @@ jobs:
 
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      
+
       - run: flutter build apk --release --target-platform android-arm64
 
-      - uses: actions/upload-artifact@v4
+      - name: Release APK
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
         with:
-          name: app-release-arm64
-          path: build/app/outputs/flutter-apk/app-release.apk
-          compression-level: 0
+          tag_name: latest
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: false
