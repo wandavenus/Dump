@@ -52,7 +52,10 @@ class PlayerContent extends StatelessWidget {
                 const SizedBox(height: 28),
                 PlayerTransportControls(playbackState: playbackState),
                 const SizedBox(height: 32),
-                PlayerSecondaryControls(song: song),
+                PlayerSecondaryControls(
+                  song: song,
+                  onLyricsToggle: onLyricsToggle,
+                ),
               ],
             ),
           ),
