@@ -1,3 +1,4 @@
+- [Dual-Player Architecture](dual-player-architecture.md) — AudioEngine holds SlotA+SlotB (PlayerSlot); handoff() swaps; CrossfadeController does true vol automation on both; AudioService has manual queue (no ConcatenatingAudioSource).
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
 - [LyricsSettings model](lyrics-settings.md) — LyricsSettings singleton (fontSize/textAlign/bgDim/blurStrength/activeColor/showSource/karaokeMode); init di main() setelah LogService.init().

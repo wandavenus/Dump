@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:musicplayer/models/lyrics_settings.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio/audio_engine.dart';
