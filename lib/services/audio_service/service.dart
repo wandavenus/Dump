@@ -132,10 +132,14 @@ class AudioService {
 
     try {
       await AudioEngine.activePlayer.setAudioSource(buildAudioSource(song));
-      if (autoplay) await AudioEngine.activePlayer.play();
 
-      _resubscribeToActivePlayer();
-      AudioEffectsService.reapplyToActivePlayer();
+_resubscribeToActivePlayer();
+
+if (autoplay) {
+  await AudioEngine.activePlayer.play();
+}
+
+_syncState();
 
       // Background loudness analysis for the whole playlist
       LoudnessAnalyzer.analyzeInBackground(
@@ -301,9 +305,12 @@ class AudioService {
 
     try {
       await AudioEngine.activePlayer.setAudioSource(buildAudioSource(song));
-      await AudioEngine.activePlayer.play();
 
-      _resubscribeToActivePlayer();
+_resubscribeToActivePlayer();
+
+await AudioEngine.activePlayer.play();
+
+_syncState();
       AudioEffectsService.reapplyToActivePlayer();
 
       if (AudioEffectsService.audioNormalize.value) {
@@ -344,7 +351,11 @@ class AudioService {
     ));
 
     _resubscribeToActivePlayer();
-    AudioEffectsService.reapplyToActivePlayer();
+
+_syncState();
+
+AudioEffectsService.reapplyToActivePlayer();
+
     unawaited(HistoryService.trackPlay(song));
     LogService.log('AudioService', 'Gapless: ${song.title}');
   }
