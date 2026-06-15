@@ -109,15 +109,26 @@ class AudioEffectsService {
   /// Reapply pitch, speed, EQ, and normalization after a player handoff.
   /// EQ bands and LoudnessEnhancer live in each slot's DSP pipeline and
   /// persist across handoffs — only the player-level settings need refresh.
-  static void reapplyToActivePlayer() {
+    static void reapplyToActivePlayer() {
     _applyPitch(pitchShift.value);
     _applySpeed(playbackSpeed.value);
     unawaited(AudioEngine.restoreEqBandsOnSlot(AudioEngine.activeSlot));
-    AudioEngine.applyNormalizeToSlot(
-      AudioEngine.activeSlot,
-      enabled:      audioNormalize.value,
-      targetGainMb: 0.0,
-    );
+    final song = AudioService.currentSong;
+    if (audioNormalize.value && song != null) {
+      LoudnessAnalyzer.analyze(song.path).then((result) {
+        AudioEngine.applyNormalizeToSlot(
+          AudioEngine.activeSlot,
+          enabled:      true,
+          targetGainMb: result?.recommendedGainMb ?? 0.0,
+        );
+      });
+    } else {
+      AudioEngine.applyNormalizeToSlot(
+        AudioEngine.activeSlot,
+        enabled:      false,
+        targetGainMb: 0.0,
+      );
+    }
   }
 
   // ── Gapless ────────────────────────────────────────────────────────────────
