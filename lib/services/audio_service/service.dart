@@ -343,8 +343,8 @@ class AudioService {
   }
 
   /// Preload the next track onto the standby player (buffered, volume=0, not playing).
-  static Future<void> _preloadNext() async {
-    if (_isPreloading || _preloadedIdx != null) return;
+     static Future<void> _preloadNext() async {
+    if (_isPreloading || _preloadedIdx != null || _loopMode == LoopMode.one) return;
     final nextIdx = _nextIdx();
     if (nextIdx == null) return;
 
@@ -366,14 +366,7 @@ class AudioService {
     } finally {
       _isPreloading = false;
     }
-  }
-
-  static Future<void> _resetStandby() async {
-    try {
-      await AudioEngine.standbyPlayer.stop();
-      AudioEngine.standbySlot.setVolume(1.0);
-    } catch (_) {}
-  }
+     } 
 
   // ── Internal – handoff callback ───────────────────────────────────────────
 
