@@ -89,6 +89,13 @@ class AudioService {
 
   // ── Primary playback ──────────────────────────────────────────────────────
 
+   static Future<void> _resetStandby() async {
+  try {
+    await AudioEngine.standbyPlayer.stop();
+    await AudioEngine.standbyPlayer.seek(Duration.zero);
+  } catch (_) {}
+}
+
   static Future<void> playSongAt({
     required List<LocalSong> playlist,
     required int index,
