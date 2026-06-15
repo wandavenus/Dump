@@ -392,8 +392,8 @@ class MainActivity : AudioServiceActivity() {
                 "sampleRate"  to sampleRate,
             )
         } catch (e: Exception) {
-            analyzeLoudnessFallback(path)
-        } finally {
+    return null
+} finally {
             try {
                 codec?.stop()
             } catch (_: Exception) {}
