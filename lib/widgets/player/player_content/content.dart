@@ -78,7 +78,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
-                const lyricsTop = _smallCoverSize + 20.0;
+                const lyricsTop = _smallCoverSize + 5.0;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -98,7 +98,7 @@ class _PlayerContentState extends State<PlayerContent> {
                         ),
                       ),
                     ),
-
+  
                     // ── Lyrics area — fades in in lyrics mode ─────────────
                     Positioned(
                       top: lyricsTop,
@@ -131,6 +131,45 @@ class _PlayerContentState extends State<PlayerContent> {
                       ),
                     ),
 
+                     Positioned(
+  top: 14,
+  left: 106,
+  right: 70,
+  child: AnimatedOpacity(
+    duration: _animDuration,
+    curve: _animCurve,
+    opacity: showLyrics ? 1.0 : 0.0,
+    child: IgnorePointer(
+      ignoring: !showLyrics,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            widget.song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.55),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+                    
                     // ── Album cover — AnimatedPositioned + AnimatedContainer
                     AnimatedPositioned(
                       duration: _animDuration,
@@ -349,7 +388,7 @@ class _AppearanceButton extends StatelessWidget {
           ),
         ),
         child:
-            const Icon(CupertinoIcons.textformat, color: Colors.white, size: 18),
+            const Icon(Icons.more_horiz, color: Colors.white, size: 16),
       ),
     );
   }
