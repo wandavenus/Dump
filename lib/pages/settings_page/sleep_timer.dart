@@ -12,9 +12,9 @@ class _SleepTimerSection extends StatelessWidget {
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
           valueListenable: SleepTimerService.isActive,
-          builder: (_, active, __) => ValueListenableBuilder<Duration?>(
+          builder: (_, active, _) => ValueListenableBuilder<Duration?>(
             valueListenable: SleepTimerService.remaining,
-            builder: (_, remaining, __) {
+            builder: (_, remaining, _) {
               String subtitle;
               if (!active) {
                 subtitle = 'Nonaktif';

@@ -21,7 +21,7 @@ class _LyricsBackgroundState extends State<_LyricsBackground> {
         if (art == null || art.isEmpty) return const _LyricsGradient();
         return ValueListenableBuilder<double>(
           valueListenable: LyricsSettings.blurStrength,
-          builder: (_, blur, __) => SizedBox.expand(
+          builder: (_, blur, _) => SizedBox.expand(
             child: Transform.scale(
               scale: 1.3,
               child: ImageFiltered(

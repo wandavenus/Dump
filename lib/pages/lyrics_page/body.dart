@@ -15,7 +15,7 @@ class _LyricsBody extends StatelessWidget {
         // Lencana sumber lirik
         ValueListenableBuilder<bool>(
           valueListenable: LyricsSettings.showSource,
-          builder: (_, show, __) {
+          builder: (_, show, _) {
             if (!show || result.source == LyricsSource.none) {
               return const SizedBox.shrink();
             }

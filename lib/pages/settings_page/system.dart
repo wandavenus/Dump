@@ -14,7 +14,7 @@ class _SystemSection extends StatelessWidget {
         // Logging toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
-          builder: (_, enabled, __) => SettingsToggleRow(
+          builder: (_, enabled, _) => SettingsToggleRow(
             title: 'Logging Aktif',
             subtitle: 'Catat aktivitas & error app',
             value: enabled,
@@ -26,10 +26,10 @@ class _SystemSection extends StatelessWidget {
         // Errors only toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
-          builder: (_, logEnabled, __) =>
+          builder: (_, logEnabled, _) =>
               ValueListenableBuilder<bool>(
             valueListenable: LogService.errorsOnly,
-            builder: (_, errOnly, __) => SettingsToggleRow(
+            builder: (_, errOnly, _) => SettingsToggleRow(
               title: 'Error & Peringatan Saja',
               subtitle: 'Sembunyikan log informasi biasa',
               value: errOnly,
@@ -44,7 +44,7 @@ class _SystemSection extends StatelessWidget {
         // Log viewer
         ValueListenableBuilder<int>(
           valueListenable: LogService.logCount,
-          builder: (_, count, __) => SettingsActionRow(
+          builder: (_, count, _) => SettingsActionRow(
             title: 'Log Aktivitas',
             trailing: '$count entri',
             onTap: () => _showLogs(context),

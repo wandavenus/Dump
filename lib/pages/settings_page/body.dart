@@ -5,7 +5,7 @@ class _SettingsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: _DebugState.enabled,
-      builder: (_, debug, __) => Column(
+      builder: (_, debug, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),

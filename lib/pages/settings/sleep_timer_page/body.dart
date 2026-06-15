@@ -5,7 +5,7 @@ class _SleepTimerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: SleepTimerService.isActive,
-      builder: (_, active, __) {
+      builder: (_, active, _) {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [

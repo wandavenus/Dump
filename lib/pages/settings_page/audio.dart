@@ -14,7 +14,7 @@ class _AudioSection extends StatelessWidget {
         // Normalize
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.audioNormalize,
-          builder: (_, v, __) => SettingsToggleRow(
+          builder: (_, v, _) => SettingsToggleRow(
             title: 'Audio Normalize',
             subtitle: 'Samakan volume semua lagu (AndroidLoudnessEnhancer)',
             value: v,
@@ -26,7 +26,7 @@ class _AudioSection extends StatelessWidget {
         // Crossfade
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.crossfadeDuration,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Crossfade',
             subtitle: v == 0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} detik',
             value: v,
@@ -40,7 +40,7 @@ class _AudioSection extends StatelessWidget {
 
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.playbackSpeed,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Kecepatan Putar',
             subtitle: '${v.toStringAsFixed(2)}x',
             value: v,
@@ -56,7 +56,7 @@ class _AudioSection extends StatelessWidget {
 
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.pitchShift,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Pitch Shift',
             subtitle: v == 0
                 ? 'Normal'
@@ -74,7 +74,7 @@ class _AudioSection extends StatelessWidget {
 
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.bassBoost,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Bass Boost',
             subtitle: v == 0
                 ? 'Nonaktif'
@@ -94,7 +94,7 @@ class _AudioSection extends StatelessWidget {
 
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.reverbPreset,
-          builder: (_, v, __) => _ReverbRow(preset: v),
+          builder: (_, v, _) => _ReverbRow(preset: v),
         ),
         const SettingsDivider(),
       ],

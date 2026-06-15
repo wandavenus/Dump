@@ -39,8 +39,8 @@ class PlayerSecondaryControls extends StatelessWidget {
         opaque: false,
         barrierColor: Colors.transparent,
         transitionDuration: const Duration(milliseconds: 380),
-        pageBuilder: (_, __, ___) => LyricsPage(song: song),
-        transitionsBuilder: (_, animation, __, child) {
+        pageBuilder: (_, _, _) => LyricsPage(song: song),
+        transitionsBuilder: (_, animation, _, child) {
           return SlideTransition(
             position: Tween<Offset>(
               begin: const Offset(0, 1),

@@ -68,7 +68,7 @@ class EqualizerPage extends StatelessWidget {
   Widget _buildEqToggle() {
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.equalizerEnabled,
-      builder: (_, enabled, __) => Padding(
+      builder: (_, enabled, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Container(
           decoration: BoxDecoration(

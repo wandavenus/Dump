@@ -13,27 +13,27 @@ class _EffectStatusRow extends StatelessWidget {
           const SizedBox(height: 6),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.spatialAudio,
-            builder: (_, v, __) =>
+            builder: (_, v, _) =>
                 _InfoLine('Spatial', v ? 'ON (${AudioEffectsService.spatialStrength.value})' : 'OFF'),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.audioNormalize,
-            builder: (_, v, __) => _InfoLine('Normalize', v ? 'ON' : 'OFF'),
+            builder: (_, v, _) => _InfoLine('Normalize', v ? 'ON' : 'OFF'),
           ),
           ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.bassBoost,
-            builder: (_, v, __) => _InfoLine('BassBoost', '$v / 1000'),
+            builder: (_, v, _) => _InfoLine('BassBoost', '$v / 1000'),
           ),
           ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.reverbPreset,
-            builder: (_, v, __) => _InfoLine(
+            builder: (_, v, _) => _InfoLine(
                 'Reverb', AudioEffectsService.reverbPresetNames[v]),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.equalizerEnabled,
-            builder: (_, v, __) => ValueListenableBuilder<int>(
+            builder: (_, v, _) => ValueListenableBuilder<int>(
               valueListenable: AudioEffectsService.roomPreset,
-              builder: (_, r, __) => _InfoLine(
+              builder: (_, r, _) => _InfoLine(
                   'EQ',
                   v
                       ? '${AudioEffectsService.roomPresets[r]['name']} (room)'
@@ -42,7 +42,7 @@ class _EffectStatusRow extends StatelessWidget {
           ),
           ValueListenableBuilder<double>(
             valueListenable: AudioEffectsService.playbackSpeed,
-            builder: (_, v, __) => _InfoLine('Speed', '${v.toStringAsFixed(2)}x'),
+            builder: (_, v, _) => _InfoLine('Speed', '${v.toStringAsFixed(2)}x'),
           ),
         ],
       ),

@@ -14,7 +14,7 @@ class _SpatialSection extends StatelessWidget {
         // Toggle
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.spatialAudio,
-          builder: (_, v, __) => SettingsToggleRow(
+          builder: (_, v, _) => SettingsToggleRow(
             title: 'Spatial Audio',
             subtitle: AudioEngine.virtualizerSupported
                 ? 'Virtualizer 3D surround (Android AudioEffect)'
@@ -28,10 +28,10 @@ class _SpatialSection extends StatelessWidget {
         // Strength slider
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.spatialAudio,
-          builder: (_, enabled, __) =>
+          builder: (_, enabled, _) =>
               ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.spatialStrength,
-            builder: (_, strength, __) => SettingsSliderRow(
+            builder: (_, strength, _) => SettingsSliderRow(
               title: 'Kekuatan Spatial',
               subtitle: enabled
                   ? '${(strength / 10).round()}%'

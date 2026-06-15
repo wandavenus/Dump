@@ -13,7 +13,7 @@ class _AlignPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.textAlign,
-      builder: (_, cur, __) => Row(
+      builder: (_, cur, _) => Row(
         children: _opts.map((o) {
           final active = cur == o.value;
           return Expanded(

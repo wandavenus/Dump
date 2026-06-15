@@ -19,10 +19,10 @@ class _RoomPresetGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: AudioEffectsService.roomPreset,
-      builder: (_, selected, __) {
+      builder: (_, selected, _) {
         return ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.equalizerEnabled,
-          builder: (_, enabled, __) {
+          builder: (_, enabled, _) {
             final presets = AudioEffectsService.roomPresets;
             return GridView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

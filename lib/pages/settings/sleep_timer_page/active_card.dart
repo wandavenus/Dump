@@ -29,7 +29,7 @@ class _ActiveTimerCard extends StatelessWidget {
           const SizedBox(height: 16),
           ValueListenableBuilder<Duration?>(
             valueListenable: SleepTimerService.remaining,
-            builder: (_, remaining, __) {
+            builder: (_, remaining, _) {
               if (remaining == null) {
                 // End-of-song mode
                 return const Text(

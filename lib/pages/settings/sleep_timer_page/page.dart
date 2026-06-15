@@ -42,7 +42,7 @@ class SleepTimerPage extends StatelessWidget {
           // Cancel button — only visible when timer is active
           ValueListenableBuilder<bool>(
             valueListenable: SleepTimerService.isActive,
-            builder: (_, active, __) => active
+            builder: (_, active, _) => active
                 ? CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: SleepTimerService.cancel,

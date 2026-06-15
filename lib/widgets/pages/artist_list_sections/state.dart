@@ -1,7 +1,7 @@
 part of '../artist_list_sections.dart';
 
 class _ArtistListContentState extends State<ArtistListContent> {
-  List<_ArtistInfo> _artists = [];
+  List<ArtistInfo> _artists = [];
   bool _isLoading = true;
 
   @override
@@ -18,7 +18,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
         artistMap.putIfAbsent(song.artist, () => []).add(song);
       }
       final artists = artistMap.entries
-          .map((e) => _ArtistInfo(name: e.key, songs: e.value))
+          .map((e) => ArtistInfo(name: e.key, songs: e.value))
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
       if (mounted) setState(() { _artists = artists; _isLoading = false; });

@@ -2,7 +2,7 @@ part of '../list.dart';
 
 class _ListTestState extends State<ListTest> {
   int currentIndex = 0;
-  List TopPicks = [
+  List topPicks = [
     [
       {
         'artist': 'Joji',
@@ -134,18 +134,17 @@ class _ListTestState extends State<ListTest> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-          child: ListView.builder(
-        itemCount: TopPicks.length,
+      body: ListView.builder(
+        itemCount: topPicks.length,
         itemBuilder: (context, index) {
           return Column(
             children: [
-              CachedNetworkImage(placeholder: (context, url) => const CircularProgressIndicator(), errorWidget: (context, url, error) => const Icon(Icons.error), imageUrl: TopPicks[currentIndex][0]['artist_img']),
-              CachedNetworkImage(placeholder: (context, url) => const CircularProgressIndicator(), errorWidget: (context, url, error) => const Icon(Icons.error), imageUrl: TopPicks[currentIndex][index]['image']),
+              CachedNetworkImage(placeholder: (context, url) => const CircularProgressIndicator(), errorWidget: (context, url, error) => const Icon(Icons.error), imageUrl: topPicks[currentIndex][0]['artist_img']),
+              CachedNetworkImage(placeholder: (context, url) => const CircularProgressIndicator(), errorWidget: (context, url, error) => const Icon(Icons.error), imageUrl: topPicks[currentIndex][index]['image']),
             ],
           );
         },
-      )),
+      ),
     );
   }
 }

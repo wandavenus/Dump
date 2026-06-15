@@ -12,7 +12,7 @@ class _EqualizerSection extends StatelessWidget {
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.equalizerEnabled,
-          builder: (_, enabled, __) => SettingsToggleRow(
+          builder: (_, enabled, _) => SettingsToggleRow(
             title: 'Equalizer',
             subtitle: 'Aktifkan preset ruangan',
             value: enabled,
@@ -22,7 +22,7 @@ class _EqualizerSection extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.roomPreset,
-          builder: (_, idx, __) => SettingsActionRow(
+          builder: (_, idx, _) => SettingsActionRow(
             title: 'Preset Ruangan',
             trailing: AudioEffectsService.roomPresets[idx]['name'] as String,
             onTap: () => Navigator.of(context).push(

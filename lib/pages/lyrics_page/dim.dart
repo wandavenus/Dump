@@ -7,7 +7,7 @@ class _DimSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.bgDim,
-      builder: (_, v, __) => Row(
+      builder: (_, v, _) => Row(
         children: [
           const Icon(Icons.brightness_high, color: Colors.white38, size: 16),
           Expanded(
