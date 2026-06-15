@@ -53,8 +53,8 @@ jobs:
 
       - name: Release APK
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/beta'
         with:
-          tag_name: latest
+          tag_name: beta-${{ github.run_number }}
           files: build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: false
