@@ -139,8 +139,6 @@ if (autoplay) {
   await AudioEngine.activePlayer.play();
 }
 
-_syncState();
-
       // Background loudness analysis for the whole playlist
       LoudnessAnalyzer.analyzeInBackground(
         playlist.where((s) => s.path.isNotEmpty).map((s) => s.path).toList(),
@@ -310,7 +308,6 @@ _resubscribeToActivePlayer();
 
 await AudioEngine.activePlayer.play();
 
-_syncState();
       AudioEffectsService.reapplyToActivePlayer();
 
       if (AudioEffectsService.audioNormalize.value) {
@@ -351,8 +348,6 @@ _syncState();
     ));
 
     _resubscribeToActivePlayer();
-
-_syncState();
 
 AudioEffectsService.reapplyToActivePlayer();
 
