@@ -13,7 +13,7 @@ class _ColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.activeColor,
-      builder: (_, cur, __) => Row(
+      builder: (_, cur, _) => Row(
         children: _opts.map((o) {
           final active = cur == o.value;
           return Expanded(
@@ -24,11 +24,11 @@ class _ColorPicker extends StatelessWidget {
                 margin: const EdgeInsets.only(right: 8),
                 height: 40,
                 decoration: BoxDecoration(
-                  color: active ? o.color : Colors.white.withOpacity(0.08),
+                  color: active ? o.color : Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border: active
                       ? null
-                      : Border.all(color: o.color.withOpacity(0.4), width: 1),
+                      : Border.all(color: o.color.withValues(alpha: 0.4), width: 1),
                 ),
                 alignment: Alignment.center,
                 child: Text(

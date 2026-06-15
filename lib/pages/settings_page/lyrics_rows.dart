@@ -7,7 +7,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
       children: [
         ValueListenableBuilder<double>(
           valueListenable: LyricsSettings.fontSize,
-          builder: (_, fs, __) {
+          builder: (_, fs, _) {
             final label = fs <= 14 ? 'Kecil (S)' : fs <= 18 ? 'Sedang (M)' : fs <= 22 ? 'Besar (L)' : 'Sangat Besar (XL)';
             return SettingsActionRow(
               title: 'Ukuran Teks Lirik',
@@ -19,7 +19,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.textAlign,
-          builder: (_, align, __) {
+          builder: (_, align, _) {
             final label = align == 'center' ? 'Tengah' : align == 'right' ? 'Kanan' : 'Kiri';
             return SettingsActionRow(
               title: 'Rata Teks',
@@ -31,7 +31,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.activeColor,
-          builder: (_, c, __) {
+          builder: (_, c, _) {
             final label = c == 'accent' ? 'Merah' : c == 'yellow' ? 'Kuning' : 'Putih';
             return SettingsActionRow(
               title: 'Warna Teks Aktif',
@@ -43,7 +43,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<double>(
           valueListenable: LyricsSettings.bgDim,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Kegelapan Latar',
             subtitle: '${(v * 100).round()}%',
             value: v,
@@ -56,7 +56,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<double>(
           valueListenable: LyricsSettings.blurStrength,
-          builder: (_, v, __) => SettingsSliderRow(
+          builder: (_, v, _) => SettingsSliderRow(
             title: 'Blur Latar',
             subtitle: v == 0 ? 'Nonaktif' : '${v.round()}',
             value: v,
@@ -69,7 +69,7 @@ class _LyricsAppearanceRows extends StatelessWidget {
         const SettingsDivider(),
         ValueListenableBuilder<bool>(
           valueListenable: LyricsSettings.showSource,
-          builder: (_, v, __) => SettingsToggleRow(
+          builder: (_, v, _) => SettingsToggleRow(
             title: 'Tampilkan Sumber Lirik',
             subtitle: 'Label "Dari internet / Dari file" di halaman lirik',
             value: v,

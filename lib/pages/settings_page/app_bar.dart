@@ -30,7 +30,7 @@ class _SettingsAppBar extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white.withOpacity(expandRatio),
+                      color: Colors.white.withValues(alpha: expandRatio),
                     ),
                   ),
                 ),

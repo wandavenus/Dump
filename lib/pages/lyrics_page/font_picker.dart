@@ -14,7 +14,7 @@ class _FontSizePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
-      builder: (_, cur, __) => Row(
+      builder: (_, cur, _) => Row(
         children: _sizes.map((s) {
           final active = cur == s.value;
           return Expanded(
@@ -27,7 +27,7 @@ class _FontSizePicker extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: active
                       ? const Color(0xFFF92D48)
-                      : Colors.white.withOpacity(0.08),
+                      : Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,

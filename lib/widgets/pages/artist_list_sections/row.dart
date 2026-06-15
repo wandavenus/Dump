@@ -3,7 +3,7 @@ part of '../artist_list_sections.dart';
 class ArtistListRow extends StatelessWidget {
   const ArtistListRow({super.key, required this.artist});
 
-  final _ArtistInfo artist;
+  final ArtistInfo artist;
 
   @override
   Widget build(BuildContext context) {

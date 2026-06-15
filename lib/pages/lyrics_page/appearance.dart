@@ -10,7 +10,7 @@ class _LyricsAppearanceSheet extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
-          color: Colors.black.withOpacity(0.75),
+          color: Colors.black.withValues(alpha: 0.75),
           child: SafeArea(
             top: false,
             child: Padding(
@@ -67,10 +67,10 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                       ),
                       ValueListenableBuilder<bool>(
                         valueListenable: LyricsSettings.showSource,
-                        builder: (_, v, __) => CupertinoSwitch(
+                        builder: (_, v, _) => CupertinoSwitch(
                           value: v,
                           onChanged: LyricsSettings.setShowSource,
-                          activeColor: const Color(0xFFF92D48),
+                          activeTrackColor: const Color(0xFFF92D48),
                         ),
                       ),
                     ],

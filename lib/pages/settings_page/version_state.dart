@@ -38,7 +38,7 @@ class _VersionTileState extends State<_VersionTile> {
       behavior: HitTestBehavior.opaque,
       child: ValueListenableBuilder<bool>(
         valueListenable: _DebugState.enabled,
-        builder: (_, debug, __) => Padding(
+        builder: (_, debug, _) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [

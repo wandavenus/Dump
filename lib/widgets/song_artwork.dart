@@ -43,7 +43,7 @@ class SongArtwork extends StatelessWidget {
               cacheWidth: cacheSize,
               cacheHeight: cacheSize,
               filterQuality: FilterQuality.medium,
-              errorBuilder: (_, __, ___) => _fallback(),
+              errorBuilder: (_, _, _) => _fallback(),
             ),
           );
         },

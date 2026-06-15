@@ -27,7 +27,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                     child: Container(
-                      color: Colors.white.withOpacity(0.055),
+                      color: Colors.white.withValues(alpha: 0.055),
                     ),
                   ),
                 )
@@ -51,7 +51,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: isGlass
                 ? Container(
                     height: 0.5,
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                   )
                 : Opacity(
                     opacity: (scrollOffset / 140).clamp(0.0, 1.0).toDouble(),

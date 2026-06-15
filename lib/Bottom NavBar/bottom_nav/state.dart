@@ -1,11 +1,11 @@
 part of '../bottom_nav.dart';
 
 class _FirstPageState extends State<FirstPage> {
-  int _selected_index = 0;
+  int _selectedIndex = 0;
 
   void _navgateBottomBar(int index) {
     setState(() {
-      _selected_index = index;
+      _selectedIndex = index;
     });
   }
 
@@ -29,7 +29,7 @@ class _FirstPageState extends State<FirstPage> {
           ),
           child: BottomNavigationBar(
             type: BottomNavigationBarType.fixed,
-            currentIndex: _selected_index,
+            currentIndex: _selectedIndex,
             onTap: _navgateBottomBar,
             items: [
               const BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
@@ -54,7 +54,7 @@ class _FirstPageState extends State<FirstPage> {
             Scaffold(
               extendBody: isGlass,
               body: IndexedStack(
-                index: _selected_index,
+                index: _selectedIndex,
                 children: _pages.cast<Widget>(),
               ),
               bottomNavigationBar: ValueListenableBuilder<double>(

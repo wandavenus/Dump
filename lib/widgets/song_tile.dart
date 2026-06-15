@@ -7,12 +7,12 @@ class SongTile extends StatelessWidget {
   final VoidCallback? onTap;
 
   const SongTile({
-    Key? key,
+    super.key,
     required this.title,
     required this.artist,
     required this.index,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

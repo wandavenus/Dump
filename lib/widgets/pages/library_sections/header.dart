@@ -29,7 +29,7 @@ class _LibraryHeader extends StatelessWidget {
                 editMode ? 'Selesai' : 'Edit',
                 style: TextStyle(
                   color: editMode
-                      ? Colors.white.withOpacity(0.7)
+                      ? Colors.white.withValues(alpha: 0.7)
                       : const Color(0xFFF92D48),
                   fontSize: 17,
                 ),

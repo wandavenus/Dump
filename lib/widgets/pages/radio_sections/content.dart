@@ -10,7 +10,7 @@ class RadioPageContent extends StatelessWidget {
         children: const [
           LargePageTitle(title: 'Radio'),
           HeaderDivider(),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           RadioStationsList(),
           SectionTitle(
             title: 'Recently Played',

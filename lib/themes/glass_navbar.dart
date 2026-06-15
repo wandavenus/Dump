@@ -18,7 +18,7 @@ class GlassNavBar extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
               child: Container(
-                color: Colors.white.withOpacity(0.055),
+                color: Colors.white.withValues(alpha: 0.055),
               ),
             ),
           ),
@@ -28,7 +28,7 @@ class GlassNavBar extends StatelessWidget {
           left: 0,
           right: 0,
           height: 0.5,
-          child: Container(color: Colors.white.withOpacity(0.18)),
+          child: Container(color: Colors.white.withValues(alpha: 0.18)),
         ),
         child,
       ],

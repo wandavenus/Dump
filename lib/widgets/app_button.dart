@@ -11,7 +11,7 @@ class AppButton extends StatelessWidget {
   final double? height;
 
   const AppButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
@@ -20,7 +20,7 @@ class AppButton extends StatelessWidget {
     this.iconColor,
     this.width = 160,
     this.height = 50,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

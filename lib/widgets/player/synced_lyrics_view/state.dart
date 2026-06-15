@@ -17,13 +17,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
-      builder: (_, fs, __) =>
+      builder: (_, fs, _) =>
           ValueListenableBuilder<String>(
         valueListenable: LyricsSettings.textAlign,
-        builder: (_, align, __) =>
+        builder: (_, align, _) =>
             ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.activeColor,
-          builder: (_, colorKey, __) {
+          builder: (_, colorKey, _) {
             final activeColor = LyricsSettings.resolvedActiveColor;
             final textAlign   = LyricsSettings.resolvedTextAlign;
 
@@ -53,7 +53,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                               active ? FontWeight.bold : FontWeight.w400,
                           color: active
                               ? activeColor
-                              : Colors.white.withOpacity(0.35),
+                              : Colors.white.withValues(alpha: 0.35),
                           height: 1.4,
                         ),
                         child: Text(

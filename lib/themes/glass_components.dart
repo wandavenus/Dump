@@ -29,7 +29,7 @@ class GlassContainer extends StatelessWidget {
               child: DecoratedBox(
                 decoration: decoration ??
                     BoxDecoration(
-                      color: Colors.white.withOpacity(tintOpacity),
+                      color: Colors.white.withValues(alpha: tintOpacity),
                     ),
               ),
             ),

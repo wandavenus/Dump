@@ -39,9 +39,9 @@ class _LyricsPageState extends State<LyricsPage>
           // Overlay gelap + tambahan blur
           ValueListenableBuilder<double>(
             valueListenable: LyricsSettings.bgDim,
-            builder: (_, dim, __) => ValueListenableBuilder<double>(
+            builder: (_, dim, _) => ValueListenableBuilder<double>(
               valueListenable: LyricsSettings.blurStrength,
-              builder: (_, blur, __) => Stack(
+              builder: (_, blur, _) => Stack(
                 fit: StackFit.expand,
                 children: [
                   if (blur > 0)
@@ -51,7 +51,7 @@ class _LyricsPageState extends State<LyricsPage>
                       child: const SizedBox.expand(),
                     ),
                   ColoredBox(
-                      color: Colors.black.withOpacity(dim.clamp(0.0, 0.95).toDouble())),
+                      color: Colors.black.withValues(alpha: dim.clamp(0.0, 0.95).toDouble())),
                 ],
               ),
             ),

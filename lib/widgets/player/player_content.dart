@@ -1,9 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import '../common/scrolling_page_chrome.dart';
 import '../../models/local_song.dart';
-import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 import '../song_artwork.dart';
 import 'player_hero_tags.dart';

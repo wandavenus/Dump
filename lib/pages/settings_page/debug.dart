@@ -26,7 +26,7 @@ class _DebugSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFF92D48).withOpacity(0.15),
+                color: const Color(0xFFF92D48).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text('MODE AKTIF',
@@ -42,7 +42,7 @@ class _DebugSection extends StatelessWidget {
         // Notification icon picker
         ValueListenableBuilder<int>(
           valueListenable: _DebugState.notifIcon,
-          builder: (_, idx, __) => _NotifIconRow(selectedIdx: idx),
+          builder: (_, idx, _) => _NotifIconRow(selectedIdx: idx),
         ),
         const SettingsDivider(),
 

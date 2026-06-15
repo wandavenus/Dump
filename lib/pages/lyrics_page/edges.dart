@@ -16,7 +16,7 @@ class _EdgeGradients extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.92),
+                  Colors.black.withValues(alpha: 0.92),
                   Colors.transparent
                 ],
               ),
@@ -31,7 +31,7 @@ class _EdgeGradients extends StatelessWidget {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.black.withOpacity(0.85),
+                  Colors.black.withValues(alpha: 0.85),
                   Colors.transparent
                 ],
               ),

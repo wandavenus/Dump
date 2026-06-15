@@ -15,7 +15,7 @@ class _GlassSubToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: notifier,
-      builder: (_, value, __) => Padding(
+      builder: (_, value, _) => Padding(
         padding: const EdgeInsets.only(left: 36, right: 16, top: 10, bottom: 10),
         child: Row(
           children: [
@@ -28,7 +28,7 @@ class _GlassSubToggle extends StatelessWidget {
             CupertinoSwitch(
               value: value,
               onChanged: onChanged,
-              activeColor: const Color(0xFFF92D48),
+              activeTrackColor: const Color(0xFFF92D48),
             ),
           ],
         ),

@@ -68,7 +68,7 @@ class EqualizerPage extends StatelessWidget {
   Widget _buildEqToggle() {
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.equalizerEnabled,
-      builder: (_, enabled, __) => Padding(
+      builder: (_, enabled, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Container(
           decoration: BoxDecoration(
@@ -102,7 +102,7 @@ class EqualizerPage extends StatelessWidget {
               CupertinoSwitch(
                 value: enabled,
                 onChanged: AudioEffectsService.setEqualizerEnabled,
-                activeColor: const Color(0xFFF92D48),
+                activeTrackColor: const Color(0xFFF92D48),
               ),
             ],
           ),

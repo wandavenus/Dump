@@ -10,6 +10,7 @@ class AudioService {
   // Expose the engine's player so legacy code continues to compile.
   static AudioPlayer get player => AudioEngine.player;
 
+  // ignore: deprecated_member_use
   static ConcatenatingAudioSource? _queue;
   static final ValueNotifier<AudioPlaybackState> playbackState =
       ValueNotifier<AudioPlaybackState>(const AudioPlaybackState());
@@ -120,6 +121,7 @@ class AudioService {
     ));
 
     try {
+      // ignore: deprecated_member_use
       _queue = ConcatenatingAudioSource(
         useLazyPreparation: true,
         shuffleOrder: DefaultShuffleOrder(),

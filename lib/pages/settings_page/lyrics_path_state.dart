@@ -5,7 +5,7 @@ class _LyricsPathRowState extends State<_LyricsPathRow> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: AudioEffectsService.lyricsPath,
-      builder: (_, path, __) => InkWell(
+      builder: (_, path, _) => InkWell(
         onTap: () => _showPathDialog(context, path),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
