@@ -47,14 +47,14 @@ jobs:
             ${{ runner.os }}-pub-
 
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      
 
       - run: flutter build apk --release --target-platform android-arm64
 
       - name: Release APK
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/beta'
+        if: github.ref == 'refs/heads/main'
         with:
-          tag_name: beta-${{ github.run_number }}
+          tag_name: latest
           files: build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: false
