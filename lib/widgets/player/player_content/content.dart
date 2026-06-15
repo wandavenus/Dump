@@ -264,10 +264,26 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        SyncedLyricsView(
-          lyrics: result.lines,
-          padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
-        ),
+        ShaderMask(
+  shaderCallback: (Rect rect) {
+    return const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Colors.transparent,
+        Colors.white,
+        Colors.white,
+        Colors.transparent,
+      ],
+      stops: [0.0, 0.10, 0.90, 1.0],
+    ).createShader(rect);
+  },
+  blendMode: BlendMode.dstIn,
+  child: SyncedLyricsView(
+    lyrics: result.lines,
+    padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+  ),
+),
         ValueListenableBuilder<bool>(
           valueListenable: LyricsSettings.showSource,
           builder: (_, show, _) {
