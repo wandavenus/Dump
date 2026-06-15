@@ -12,7 +12,7 @@ Widget build(BuildContext context) {
           sigmaY: 16,
         ),
         child: Container(
-          color: Colors.white.withValues(alpha: 0.02),
+          color: Colors.white.withValues(alpha: 0.04),
         ),
       ),
     ],
