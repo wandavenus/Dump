@@ -2,6 +2,7 @@ part of '../music_player.dart';
 
 class _MusicPlayerState extends State<MusicPlayer> {
   bool _handledRouteArguments = false;
+  bool _showLyrics = false;
 
   @override
   void initState() {
