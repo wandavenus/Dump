@@ -4,12 +4,16 @@ class PlayerContent extends StatelessWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
   final String Function(Duration duration) formatTime;
+  final bool showLyrics;
+  final VoidCallback onLyricsToggle;
 
   const PlayerContent({
     super.key,
     required this.song,
     required this.playbackState,
     required this.formatTime,
+    required this.showLyrics,
+    required this.onLyricsToggle,
   });
 
   @override
