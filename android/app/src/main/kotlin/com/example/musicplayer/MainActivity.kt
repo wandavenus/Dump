@@ -276,10 +276,11 @@ class MainActivity : AudioServiceActivity() {
     //
     //  Analysis is limited to the first 60 seconds to keep latency acceptable.
 
-    private fun analyzeLoudness(path: String): Map<String, Any?>? {
+        private fun analyzeLoudness(path: String): Map<String, Any?>? {
         if (path.isBlank() || !File(path).exists()) return null
 
         val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
         return try {
             extractor.setDataSource(path)
 
@@ -303,7 +304,7 @@ class MainActivity : AudioServiceActivity() {
 
             extractor.selectTrack(audioTrackIndex)
 
-            val codec = MediaCodec.createDecoderByType(mime)
+            codec = MediaCodec.createDecoderByType(mime)
             codec.configure(audioFormat, null, null, 0)
             codec.start()
 
@@ -376,10 +377,6 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
-            codec.stop()
-            codec.release()
-            extractor.release()
-
             if (sampleCount == 0L) return null
 
             val kMeanSq = kSumSq / sampleCount
@@ -395,23 +392,19 @@ class MainActivity : AudioServiceActivity() {
                 "sampleRate"  to sampleRate,
             )
         } catch (e: Exception) {
-            extractor.release()
             analyzeLoudnessFallback(path)
+        } finally {
+            try {
+                codec?.stop()
+            } catch (_: Exception) {}
+            try {
+                codec?.release()
+            } catch (_: Exception) {}
+            try {
+                extractor.release()
+            } catch (_: Exception) {}
         }
     }
-
-    /// Fallback when MediaCodec decoding fails – returns typical estimate.
-    private fun analyzeLoudnessFallback(path: String): Map<String, Any?>? {
-        return try {
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(path)
-            retriever.release()
-            // Return null so Dart disables normalization for this track rather
-            // than applying a wrong fixed estimate.
-            null
-        } catch (_: Exception) { null }
-    }
-
     // ── Embedded lyrics ───────────────────────────────────────────────────────
 
     private fun getEmbeddedLyrics(path: String): String? {
