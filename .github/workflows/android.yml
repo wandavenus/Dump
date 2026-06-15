@@ -3,7 +3,7 @@ name: Android Build
 on:
   push:
     branches:
-      - main
+      - Audio
 
   workflow_dispatch:
 
@@ -53,8 +53,8 @@ jobs:
 
       - name: Release APK
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/Audio'
         with:
-          tag_name: latest
+          tag_name: ${{ github.ref_name }}
           files: build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: false
