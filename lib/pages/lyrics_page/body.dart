@@ -26,10 +26,10 @@ class _LyricsBody extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.12), width: 0.5),
+                      color: Colors.white.withValues(alpha: 0.12), width: 0.5),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -38,14 +38,14 @@ class _LyricsBody extends StatelessWidget {
                       result.source == LyricsSource.internet
                           ? CupertinoIcons.globe
                           : CupertinoIcons.doc_text,
-                      color: Colors.white.withOpacity(0.45),
+                      color: Colors.white.withValues(alpha: 0.45),
                       size: 11,
                     ),
                     const SizedBox(width: 5),
                     Text(
                       result.sourceLabel,
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.45), fontSize: 11),
+                          color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
                     ),
                   ],
                 ),

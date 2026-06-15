@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
 import '../models/lyrics_settings.dart';
-import '../models/lyric_line.dart';
 import '../services/lyrics_service.dart';
 import '../services/media_store_service.dart';
 import '../widgets/player/synced_lyrics_view.dart';

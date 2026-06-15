@@ -20,7 +20,7 @@ class _Chip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.2) : Colors.transparent,
+          color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: selected ? color : const Color(0xFF48484A), width: 0.5),
         ),

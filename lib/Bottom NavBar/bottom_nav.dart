@@ -1,16 +1,11 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
-import '../services/audio_service.dart';
 import 'package:musicplayer/widgets/mini_player.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/widgets/player/player_sheet.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
-import 'package:glassmorphism_widgets/glassmorphism_widgets.dart';
-import 'package:musicplayer/pages/artist_list.dart';
 import 'package:musicplayer/pages/browse_page.dart';
 import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
-import 'package:musicplayer/pages/music_list.dart';
 import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';

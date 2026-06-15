@@ -42,7 +42,7 @@ class SettingsToggleRow extends StatelessWidget {
           CupertinoSwitch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFFF92D48),
+            activeTrackColor: const Color(0xFFF92D48),
           ),
         ],
       ),

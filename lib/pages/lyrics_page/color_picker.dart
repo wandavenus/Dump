@@ -24,11 +24,11 @@ class _ColorPicker extends StatelessWidget {
                 margin: const EdgeInsets.only(right: 8),
                 height: 40,
                 decoration: BoxDecoration(
-                  color: active ? o.color : Colors.white.withOpacity(0.08),
+                  color: active ? o.color : Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border: active
                       ? null
-                      : Border.all(color: o.color.withOpacity(0.4), width: 1),
+                      : Border.all(color: o.color.withValues(alpha: 0.4), width: 1),
                 ),
                 alignment: Alignment.center,
                 child: Text(

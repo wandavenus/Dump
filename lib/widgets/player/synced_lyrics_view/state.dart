@@ -53,7 +53,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                               active ? FontWeight.bold : FontWeight.w400,
                           color: active
                               ? activeColor
-                              : Colors.white.withOpacity(0.35),
+                              : Colors.white.withValues(alpha: 0.35),
                           height: 1.4,
                         ),
                         child: Text(

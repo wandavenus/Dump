@@ -51,7 +51,7 @@ class _LyricsPageState extends State<LyricsPage>
                       child: const SizedBox.expand(),
                     ),
                   ColoredBox(
-                      color: Colors.black.withOpacity(dim.clamp(0.0, 0.95).toDouble())),
+                      color: Colors.black.withValues(alpha: dim.clamp(0.0, 0.95).toDouble())),
                 ],
               ),
             ),

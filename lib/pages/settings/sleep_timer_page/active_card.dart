@@ -8,7 +8,7 @@ class _ActiveTimerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF92D48).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFF92D48).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -16,7 +16,7 @@ class _ActiveTimerCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.bedtime, color: Color(0xFFF92D48), size: 18),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 'Sleep Timer Aktif',
                 style: TextStyle(

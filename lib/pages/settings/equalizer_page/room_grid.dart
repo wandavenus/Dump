@@ -46,7 +46,7 @@ class _RoomPresetGrid extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFFF92D48).withOpacity(0.15)
+                          ? const Color(0xFFF92D48).withValues(alpha: 0.15)
                           : const Color(0xFF1C1C1E),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
