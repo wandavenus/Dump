@@ -4,4 +4,5 @@ import 'package:flutter/services.dart';
 import '../models/local_song.dart';
 import '../models/song_info.dart';
 
+part 'song_metadata_service/formatters.dart';
 part 'song_metadata_service/service.dart';

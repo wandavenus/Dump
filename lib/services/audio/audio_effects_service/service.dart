@@ -18,73 +18,46 @@ class AudioEffectsService {
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool>   gaplessPlayback  = ValueNotifier(true);
-  static final ValueNotifier<bool>   audioNormalize   = ValueNotifier(false);
-  static final ValueNotifier<double> crossfadeDuration= ValueNotifier(0.0);
-  static final ValueNotifier<double> pitchShift       = ValueNotifier(0.0);
-  static final ValueNotifier<bool>   spatialAudio     = ValueNotifier(false);
-  static final ValueNotifier<int>    spatialStrength  = ValueNotifier(1000);
-  static final ValueNotifier<int>    bassBoost        = ValueNotifier(0);
-  static final ValueNotifier<int>    reverbPreset     = ValueNotifier(0);
-  static final ValueNotifier<double> playbackSpeed    = ValueNotifier(1.0);
-  static final ValueNotifier<bool>   equalizerEnabled = ValueNotifier(false);
-  static final ValueNotifier<int>    roomPreset       = ValueNotifier(0);
-  static final ValueNotifier<int>    audioOutputMode  = ValueNotifier(0);
-  static final ValueNotifier<String> lyricsPath       = ValueNotifier('');
+  static final ValueNotifier<bool>   gaplessPlayback   = ValueNotifier(true);
+  static final ValueNotifier<bool>   audioNormalize    = ValueNotifier(false);
+  static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
+  static final ValueNotifier<double> pitchShift        = ValueNotifier(0.0);
+  static final ValueNotifier<bool>   spatialAudio      = ValueNotifier(false);
+  static final ValueNotifier<int>    spatialStrength   = ValueNotifier(1000);
+  static final ValueNotifier<int>    bassBoost         = ValueNotifier(0);
+  static final ValueNotifier<int>    reverbPreset      = ValueNotifier(0);
+  static final ValueNotifier<double> playbackSpeed     = ValueNotifier(1.0);
+  static final ValueNotifier<bool>   equalizerEnabled  = ValueNotifier(false);
+  static final ValueNotifier<int>    roomPreset        = ValueNotifier(0);
+  static final ValueNotifier<int>    audioOutputMode   = ValueNotifier(0);
+  static final ValueNotifier<String> lyricsPath        = ValueNotifier('');
 
-  // ── Reverb preset labels ───────────────────────────────────────────────────
+  // ── Preset data (defined in presets.dart) ─────────────────────────────────
 
-  static const List<String> reverbPresetNames = [
-    'Off', 'Small Room', 'Medium Room', 'Large Room',
-    'Medium Hall', 'Large Hall', 'Plate',
-  ];
-
-  // ── Room acoustic presets ──────────────────────────────────────────────────
-
-  static const List<Map<String, dynamic>> roomPresets = [
-    {'name': 'Flat',        'reverb': 0, 'gains': <double>[0.0,  0.0,  0.0,  0.0,  0.0 ], 'desc': 'Tanpa efek ruangan'},
-    {'name': 'Studio',      'reverb': 0, 'gains': <double>[2.0,  1.0,  0.0, -1.0,  1.0 ], 'desc': 'Rekaman studio profesional'},
-    {'name': 'Live Stage',  'reverb': 3, 'gains': <double>[3.0,  0.0,  2.0,  1.0,  2.0 ], 'desc': 'Panggung pertunjukan langsung'},
-    {'name': 'Concert Hall','reverb': 5, 'gains': <double>[4.0,  1.0, -1.0,  2.0,  4.0 ], 'desc': 'Aula konser klasik'},
-    {'name': 'Cathedral',   'reverb': 6, 'gains': <double>[3.0,  0.0, -2.0,  0.0,  5.0 ], 'desc': 'Gema katedral besar'},
-    {'name': 'Club',        'reverb': 2, 'gains': <double>[6.0,  3.0,  1.0,  0.0, -1.0 ], 'desc': 'Club malam dengan bass kuat'},
-    {'name': 'Outdoor',     'reverb': 1, 'gains': <double>[1.0,  0.0,  0.0,  2.0,  3.0 ], 'desc': 'Ruang terbuka di luar ruangan'},
-    {'name': 'Car',         'reverb': 1, 'gains': <double>[4.0,  2.0,  1.0, -1.0,  0.0 ], 'desc': 'Interior kabin mobil'},
-    {'name': 'Bathroom',    'reverb': 2, 'gains': <double>[0.0,  1.0,  3.0,  2.0,  1.0 ], 'desc': 'Ruang kecil dengan dinding keras'},
-  ];
-
-  // ── Audio output labels ────────────────────────────────────────────────────
-
-  static const List<String> audioOutputNames = [
-    'Auto (AAudio)', 'OpenSL ES', 'Hi-Res Audio',
-  ];
-
-  static const List<String> audioOutputDesc = [
-    'AAudio — jalur audio default, direkomendasikan untuk Android 8+',
-    'OpenSL ES — kompatibel dengan semua versi Android',
-    'Hi-Res Audio — aktifkan DAC Hi-Res/Hi-Fi hardware. '
-        'Mendukung MIUI 12, Qualcomm, Sony, dan OEM lain. '
-        'Perlu headset atau DAC hi-res terhubung.',
-  ];
+  static const List<String>               reverbPresetNames = _kReverbPresetNames;
+  static const List<Map<String, dynamic>> roomPresets       = _kRoomPresets;
+  static const List<String>               audioOutputNames  = _kAudioOutputNames;
+  static const List<String>               audioOutputDesc   = _kAudioOutputDesc;
+  static const List<Map<String, dynamic>> eqPresets         = _kEqPresets;
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    gaplessPlayback.value   = prefs.getBool('gapless')         ?? true;
-    audioNormalize.value    = prefs.getBool('normalize')        ?? false;
-    crossfadeDuration.value = prefs.getDouble('crossfade')      ?? 0.0;
-    pitchShift.value        = prefs.getDouble('pitch')          ?? 0.0;
-    spatialAudio.value      = prefs.getBool('spatial')          ?? false;
-    spatialStrength.value   = prefs.getInt('spatialStr')        ?? 1000;
-    bassBoost.value         = prefs.getInt('bassBoost')         ?? 0;
-    reverbPreset.value      = prefs.getInt('reverb')            ?? 0;
-    playbackSpeed.value     = prefs.getDouble('speed')          ?? 1.0;
-    equalizerEnabled.value  = prefs.getBool('eqEnabled')        ?? false;
-    roomPreset.value        = prefs.getInt('roomPreset')        ?? 0;
-    audioOutputMode.value   = prefs.getInt('audioOutputMode')   ?? 0;
-    lyricsPath.value        = prefs.getString('lyricsPath')     ?? '';
+    gaplessPlayback.value   = prefs.getBool('gapless')          ?? true;
+    audioNormalize.value    = prefs.getBool('normalize')         ?? false;
+    crossfadeDuration.value = prefs.getDouble('crossfade')       ?? 0.0;
+    pitchShift.value        = prefs.getDouble('pitch')           ?? 0.0;
+    spatialAudio.value      = prefs.getBool('spatial')           ?? false;
+    spatialStrength.value   = prefs.getInt('spatialStr')         ?? 1000;
+    bassBoost.value         = prefs.getInt('bassBoost')          ?? 0;
+    reverbPreset.value      = prefs.getInt('reverb')             ?? 0;
+    playbackSpeed.value     = prefs.getDouble('speed')           ?? 1.0;
+    equalizerEnabled.value  = prefs.getBool('eqEnabled')         ?? false;
+    roomPreset.value        = prefs.getInt('roomPreset')         ?? 0;
+    audioOutputMode.value   = prefs.getInt('audioOutputMode')    ?? 0;
+    lyricsPath.value        = prefs.getString('lyricsPath')      ?? '';
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -107,8 +80,6 @@ class AudioEffectsService {
   }
 
   /// Reapply pitch, speed, EQ, and normalization after a player handoff.
-  /// EQ bands and LoudnessEnhancer live in each slot's DSP pipeline and
-  /// persist across handoffs — only the player-level settings need refresh.
   static void reapplyToActivePlayer() {
     _applyPitch(pitchShift.value);
     _applySpeed(playbackSpeed.value);
@@ -133,8 +104,6 @@ class AudioEffectsService {
   static Future<void> setNormalize(bool value) async {
     audioNormalize.value = value;
     await _saveBool('normalize', value);
-    // Base enable/disable on both slots; per-track LUFS gain is applied by
-    // AudioService when a track starts or becomes active.
     AudioEngine.applyNormalize(enabled: value, targetGainMb: 0.0);
     LogService.log('AudioEffects', 'Normalize (LUFS): $value');
   }
@@ -207,19 +176,6 @@ class AudioEffectsService {
   static Future<void> restoreEqualizerBands() async {
     await AudioEngine.restoreEqBandsOnSlot(AudioEngine.activeSlot);
   }
-
-  static const List<Map<String, dynamic>> eqPresets = [
-    {'name': 'Normal',      'gains': <double>[0.0,  0.0,  0.0, 0.0,  0.0 ]},
-    {'name': 'Classical',   'gains': <double>[5.0,  3.0,  0.0, 3.0,  4.0 ]},
-    {'name': 'Dance',       'gains': <double>[6.0,  0.0,  2.0, 4.0,  1.0 ]},
-    {'name': 'Flat',        'gains': <double>[0.0,  0.0,  0.0, 0.0,  0.0 ]},
-    {'name': 'Folk',        'gains': <double>[3.0,  0.0,  0.0, 2.0, -1.0 ]},
-    {'name': 'Heavy Metal', 'gains': <double>[4.0,  1.0,  9.0, 3.0,  0.0 ]},
-    {'name': 'Hip-Hop',     'gains': <double>[5.0,  4.0,  1.0, 1.0,  3.0 ]},
-    {'name': 'Jazz',        'gains': <double>[4.0,  2.0, -2.0, 2.0,  5.0 ]},
-    {'name': 'Pop',         'gains': <double>[-1.0, 2.0,  5.0, 1.0, -2.0 ]},
-    {'name': 'Rock',        'gains': <double>[5.0,  3.0, -1.0, 3.0,  5.0 ]},
-  ];
 
   static Future<void> applyEqPreset(int presetIndex) async {
     if (presetIndex < 0 || presetIndex >= eqPresets.length) return;

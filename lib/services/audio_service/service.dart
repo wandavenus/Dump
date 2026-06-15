@@ -26,7 +26,6 @@ class AudioService {
   static final ValueNotifier<AudioPlaybackState> playbackState =
       ValueNotifier<AudioPlaybackState>(const AudioPlaybackState());
 
-  /// Backward-compatible alias – returns the currently active player.
   static AudioPlayer get player => AudioEngine.activePlayer;
 
   // ── Queue state ────────────────────────────────────────────────────────────
@@ -35,7 +34,7 @@ class AudioService {
   static int             _curIndex   = 0;
   static LoopMode        _loopMode   = LoopMode.off;
   static bool            _shuffled   = false;
-  static List<int>       _shuffleOrd = []; // permuted indices into _playlist
+  static List<int>       _shuffleOrd = [];
 
   // ── Preload state ─────────────────────────────────────────────────────────
 
@@ -49,10 +48,7 @@ class AudioService {
 
   // ── Subscriptions ─────────────────────────────────────────────────────────
 
-  /// Per-active-player subscriptions, cancelled and renewed on handoff.
   static final List<StreamSubscription<dynamic>> _playerSubs = [];
-
-  /// Speed-notifier listener (ValueNotifier, not a stream).
   static VoidCallback? _speedListener;
 
   // ── Convenience getters ────────────────────────────────────────────────────
@@ -76,7 +72,6 @@ class AudioService {
       onHandoffComplete: _onHandoffComplete,
     );
 
-    // Keep speed field in playbackState in sync with the AudioEffectsService notifier
     _speedListener = () {
       _setState(playbackState.value.copyWith(
         speed: AudioEffectsService.playbackSpeed.value,
@@ -99,8 +94,6 @@ class AudioService {
     if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
 
     _isLoading = true;
-
-    // Cancel any in-progress crossfade and silence the standby player
     CrossfadeController.cancel();
     await _resetStandby();
 
@@ -130,7 +123,6 @@ class AudioService {
       _resubscribeToActivePlayer();
       AudioEffectsService.reapplyToActivePlayer();
 
-      // Background loudness analysis for the whole playlist
       LoudnessAnalyzer.analyzeInBackground(
         playlist.where((s) => s.path.isNotEmpty).map((s) => s.path).toList(),
       );
@@ -140,9 +132,10 @@ class AudioService {
       }
 
       unawaited(HistoryService.trackPlay(song));
-      LogService.log('AudioService', 'Playing: ${song.title}');
+      LogService.log('AudioService', 'Playing: ${song.title}',
+          extra: {'index': index, 'total': playlist.length});
     } catch (e, st) {
-      LogService.error('AudioService', 'playSongAt: $e\n$st');
+      LogService.error('AudioService', 'playSongAt: $e', stackTrace: st);
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
@@ -303,7 +296,7 @@ class AudioService {
         unawaited(_applyLufsToActive(song));
       }
       unawaited(HistoryService.trackPlay(song));
-      LogService.log('AudioService', 'Load & play: ${song.title}');
+      LogService.debug('AudioService', 'Load & play: ${song.title}');
     } catch (e) {
       LogService.error('AudioService', '_loadAndPlay: $e');
     } finally {
@@ -312,16 +305,14 @@ class AudioService {
     }
   }
 
-  /// Instant gapless swap: standby player is already buffered at [nextIdx].
   static Future<void> _gaplessSwap(int nextIdx) async {
-    LogService.log('AudioService', 'Gapless swap → $nextIdx');
+    LogService.debug('AudioService', 'Gapless swap → $nextIdx');
 
     AudioEngine.standbySlot.setVolume(1.0);
     try { await AudioEngine.standbyPlayer.play(); } catch (_) {}
 
     AudioEngine.handoff();
 
-    // Stop old active (now standby) and reset its volume for future reuse
     try {
       await AudioEngine.standbyPlayer.stop();
       AudioEngine.standbySlot.setVolume(1.0);
@@ -342,7 +333,6 @@ class AudioService {
     LogService.log('AudioService', 'Gapless: ${song.title}');
   }
 
-  /// Preload the next track onto the standby player (buffered, volume=0, not playing).
   static Future<void> _preloadNext() async {
     if (_isPreloading || _preloadedIdx != null) return;
     final nextIdx = _nextIdx();
@@ -353,9 +343,9 @@ class AudioService {
       final song = _playlist[nextIdx];
       AudioEngine.standbySlot.setVolume(0.0);
       await AudioEngine.standbyPlayer.setAudioSource(buildAudioSource(song));
-      // Intentionally NOT calling play() – the track buffers silently.
       _preloadedIdx = nextIdx;
-      LogService.log('AudioService', 'Preloaded: ${song.title}');
+      LogService.verbose('AudioService', 'Preloaded: ${song.title}',
+          extra: {'index': nextIdx});
 
       if (AudioEffectsService.audioNormalize.value) {
         unawaited(_applyLufsToStandby(song));
@@ -428,7 +418,6 @@ class AudioService {
     final remaining = duration - position;
     if (remaining <= Duration.zero) return;
 
-    // Trigger preload when approaching end (crossfadeDuration + 12 s buffer)
     final crossSec      = AudioEffectsService.crossfadeDuration.value;
     final preloadBuffer = Duration(seconds: (crossSec + 12).ceil());
 
@@ -442,6 +431,9 @@ class AudioService {
   static void _onTrackCompleted() {
     if (_isLoading) return;
 
+    // Notify sleep timer (for end-of-song mode)
+    SleepTimerService.onSongEnded();
+
     if (_loopMode == LoopMode.one) {
       AudioEngine.activePlayer
           .seek(Duration.zero)
@@ -452,6 +444,7 @@ class AudioService {
     final nextIdx = _nextIdx();
     if (nextIdx == null) {
       _setState(playbackState.value.copyWith(isPlaying: false));
+      LogService.debug('AudioService', 'Queue ended');
       return;
     }
 
@@ -524,6 +517,7 @@ class AudioService {
         enabled:      true,
         targetGainMb: result?.recommendedGainMb ?? 0.0,
       );
+      LogService.verbose('AudioService', 'LUFS active: ${result?.lufs.toStringAsFixed(1)} dB');
     } catch (_) {}
   }
 
@@ -536,6 +530,7 @@ class AudioService {
         enabled:      true,
         targetGainMb: result?.recommendedGainMb ?? 0.0,
       );
+      LogService.verbose('AudioService', 'LUFS standby: ${result?.lufs.toStringAsFixed(1)} dB');
     } catch (_) {}
   }
 

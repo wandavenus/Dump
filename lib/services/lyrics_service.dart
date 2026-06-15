@@ -13,4 +13,5 @@ import 'log_service.dart';
 
 part 'lyrics_service/source.dart';
 part 'lyrics_service/result.dart';
+part 'lyrics_service/internet_fetch.dart';
 part 'lyrics_service/service.dart';

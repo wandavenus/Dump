@@ -8,4 +8,5 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../log_service.dart';
 import 'audio_engine.dart';
 
+part 'audio_effects_service/presets.dart';
 part 'audio_effects_service/service.dart';

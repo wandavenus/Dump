@@ -12,6 +12,7 @@
 - [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
-- [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
+- [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info. Sampel audio debug sudah dihapus.
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
-- [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
+- [LogService levels](log-service-levels.md) — 5 level: verbose/debug/info/warning/error; LogEntry.extra (Map?) + stackTrace; log viewer punya filter kategori + copy button; settings_page.dart butuh import flutter/services.dart untuk Clipboard.
+- [Part file architecture](part-file-architecture.md) — semua barrel files (audio_engine.dart, audio_effects_service.dart, dll) pakai `part` directive; part file harus `part of '../barrel.dart'`; private `_` members class accessible dari part file di library yang sama.

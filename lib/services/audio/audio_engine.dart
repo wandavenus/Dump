@@ -9,4 +9,5 @@ import '../log_service.dart';
 
 part 'audio_engine/output_mode.dart';
 part 'audio_engine/player_slot.dart';
+part 'audio_engine/effects_control.dart';
 part 'audio_engine/engine.dart';

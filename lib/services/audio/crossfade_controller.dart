@@ -8,4 +8,5 @@ import '../log_service.dart';
 import 'audio_engine.dart';
 import 'audio_effects_service.dart';
 
+part 'crossfade_controller/fade_helpers.dart';
 part 'crossfade_controller/controller.dart';

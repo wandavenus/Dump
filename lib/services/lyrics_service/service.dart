@@ -47,8 +47,8 @@ class LyricsService {
       }
     }
 
-    // 4. Internet (lrclib.net)
-    final internet = await _fetchFromInternet(title, artist);
+    // 4. Internet — implementation in internet_fetch.dart
+    final internet = await _lyricsFromInternet(title, artist);
     if (internet.isNotEmpty) {
       final result = LyricsResult(internet, LyricsSource.internet);
       _cache[key] = result;
@@ -66,8 +66,7 @@ class LyricsService {
   static Future<List<LyricLine>> _getEmbeddedLyrics(String filePath) async {
     try {
       final raw = await _channel.invokeMethod<String>(
-        'getEmbeddedLyrics',
-        {'path': filePath},
+        'getEmbeddedLyrics', {'path': filePath},
       );
       if (raw == null || raw.trim().isEmpty) return [];
       return _parseLyricsString(raw.trim());
@@ -84,8 +83,8 @@ class LyricsService {
   ) async {
     try {
       final nameNoExt = p.basenameWithoutExtension(audioPath);
-      final folder = overrideFolder ?? p.dirname(audioPath);
-      final lrcFile = File(p.join(folder, '$nameNoExt.lrc'));
+      final folder    = overrideFolder ?? p.dirname(audioPath);
+      final lrcFile   = File(p.join(folder, '$nameNoExt.lrc'));
       if (!await lrcFile.exists()) return [];
       final raw = await lrcFile.readAsString();
       return parseLrc(raw);
@@ -94,58 +93,12 @@ class LyricsService {
     }
   }
 
-  // ── 3. Internet ───────────────────────────────────────────────────────────
-
-  static Future<List<LyricLine>> _fetchFromInternet(
-    String title,
-    String artist,
-  ) async {
-    final prefKey = 'lyrics_${artist.trim()}|${title.trim()}';
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cached = prefs.getString(prefKey);
-      if (cached != null && cached.isNotEmpty) return parseLrc(cached);
-
-      final normalArtist = artist.split(',').first.trim();
-      final normalTitle = title.replaceAll(RegExp(r'\s*\(.*?\)'), '').trim();
-
-      String? raw = await _searchLrcLib(normalTitle, normalArtist);
-      raw ??= await _searchLrcLib(title, artist);
-      if (raw == null || raw.isEmpty) return [];
-
-      await prefs.setString(prefKey, raw);
-      LogService.log('Lyrics', 'Internet: $title');
-      return parseLrc(raw);
-    } catch (e) {
-      LogService.warn('Lyrics', 'Internet error: $e');
-      return [];
-    }
-  }
-
-  static Future<String?> _searchLrcLib(String track, String artist) async {
-    final uri = Uri.parse(
-      'https://lrclib.net/api/search'
-      '?track_name=${Uri.encodeComponent(track)}'
-      '&artist_name=${Uri.encodeComponent(artist)}',
-    );
-    final response = await http
-        .get(uri, headers: {'User-Agent': 'MusicPlayer/1.0'})
-        .timeout(const Duration(seconds: 8));
-    if (response.statusCode != 200) return null;
-    final data = jsonDecode(response.body);
-    if (data is! List || data.isEmpty) return null;
-    final synced =
-        (data.first['syncedLyrics'] ?? data.first['lyrics'] ?? '') as String;
-    return synced.isEmpty ? null : synced;
-  }
-
   // ── Parser ────────────────────────────────────────────────────────────────
 
   static List<LyricLine> _parseLyricsString(String raw) {
     if (RegExp(r'^\[\d+:\d+', multiLine: true).hasMatch(raw)) {
       return parseLrc(raw);
     }
-    // Teks biasa: setiap baris = satu lyric line
     int offset = 0;
     return raw
         .split('\n')
@@ -171,7 +124,7 @@ class LyricsService {
       if (match == null) continue;
       final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
       final seconds = double.tryParse(match.group(2) ?? '') ?? 0;
-      final text = (match.group(3) ?? '').trim();
+      final text    = (match.group(3) ?? '').trim();
       result.add(LyricLine(
         timestamp: Duration(
           milliseconds: (((minutes * 60) + seconds) * 1000).round(),

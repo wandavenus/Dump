@@ -7,5 +7,6 @@ import 'song_artwork.dart';
 
 part 'local_song_card/card.dart';
 part 'local_song_card/menu.dart';
+part 'local_song_card/song_info_dialog.dart';
 part 'local_song_card/info.dart';
 part 'local_song_card/menu_item.dart';

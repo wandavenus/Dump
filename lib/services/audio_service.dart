@@ -12,5 +12,6 @@ import 'audio_playback_state.dart';
 import 'audio_source_builder.dart';
 import 'history_service.dart';
 import 'log_service.dart';
+import 'sleep_timer_service.dart';
 
 part 'audio_service/service.dart';

@@ -35,18 +35,18 @@ class _MiniPlayerBody extends StatelessWidget {
                 height: 55,
                 child: Stack(
                   children: [
-                    // Swipe direction indicator
+                    // Swipe direction indicator — background tint
                     if (swipeFraction > 0.05)
                       Positioned.fill(
                         child: Opacity(
                           opacity: swipeFraction * 0.18,
                           child: Container(
-                            color: swipeOffset < 0
-                                ? Colors.blue
-                                : Colors.blue,
+                            // left swipe = skip next (blue), right swipe = skip prev (orange)
+                            color: swipeOffset < 0 ? Colors.blue : Colors.orange,
                           ),
                         ),
                       ),
+                    // Swipe direction indicator — icon
                     if (swipeFraction > 0.05)
                       Positioned(
                         top: 0,

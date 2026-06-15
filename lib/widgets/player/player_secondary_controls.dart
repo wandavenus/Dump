@@ -7,3 +7,4 @@ import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
 
 part 'player_secondary_controls/controls.dart';
+part 'player_secondary_controls/queue_sheet.dart';

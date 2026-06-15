@@ -26,8 +26,7 @@ class _SystemSection extends StatelessWidget {
         // Errors only toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
-          builder: (_, logEnabled, __) =>
-              ValueListenableBuilder<bool>(
+          builder: (_, logEnabled, __) => ValueListenableBuilder<bool>(
             valueListenable: LogService.errorsOnly,
             builder: (_, errOnly, __) => SettingsToggleRow(
               title: 'Error & Peringatan Saja',
@@ -37,6 +36,18 @@ class _SystemSection extends StatelessWidget {
                 if (logEnabled) await LogService.setErrorsOnly(v);
               },
             ),
+          ),
+        ),
+        const SettingsDivider(),
+
+        // Verbose toggle
+        ValueListenableBuilder<bool>(
+          valueListenable: LogService.verboseEnabled,
+          builder: (_, verbose, __) => SettingsToggleRow(
+            title: 'Log Verbose & Debug',
+            subtitle: 'Tampilkan level VRB dan DBG (lebih detail)',
+            value: verbose,
+            onChanged: LogService.setVerbose,
           ),
         ),
         const SettingsDivider(),
@@ -65,7 +76,6 @@ class _SystemSection extends StatelessWidget {
   }
 
   void _showLogs(BuildContext context) {
-    final logs = LogService.getLogs();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
@@ -73,111 +83,7 @@ class _SystemSection extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.95,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, sc) => Column(
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Log Aktivitas',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 8),
-                _LogFilterChips(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: logs.isEmpty
-                  ? const Center(
-                      child: Text('Belum ada log',
-                          style: TextStyle(color: Color(0xFF8E8E93))))
-                  : ListView.builder(
-                      controller: sc,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: logs.length,
-                      itemBuilder: (_, i) {
-                        final log = logs[logs.length - 1 - i];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(top: 4, right: 6),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: log.level == LogLevel.error
-                                      ? const Color(0xFFF92D48)
-                                      : log.level == LogLevel.warning
-                                          ? Colors.orange
-                                          : const Color(0xFF48484A),
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '[${log.category}]',
-                                          style: TextStyle(
-                                            color: log.level == LogLevel.error
-                                                ? const Color(0xFFF92D48)
-                                                : log.level == LogLevel.warning
-                                                    ? Colors.orange
-                                                    : const Color(0xFF8E8E93),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${log.timestamp.hour.toString().padLeft(2,'0')}:'
-                                          '${log.timestamp.minute.toString().padLeft(2,'0')}:'
-                                          '${log.timestamp.second.toString().padLeft(2,'0')}',
-                                          style: const TextStyle(
-                                              color: Color(0xFF48484A),
-                                              fontSize: 10),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      log.message,
-                                      style: const TextStyle(
-                                          color: Colors.white70, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => const _LogViewerSheet(),
     );
   }
 }
