@@ -84,6 +84,12 @@ class _MusicPlayerState extends State<MusicPlayer> {
                             song: song,
                             playbackState: playbackState,
                             formatTime: _formatTime,
+                            showLyrics: _showLyrics,
+                            onLyricsToggle: () {
+                              setState(() {
+                                _showLyrics = !_showLyrics;
+                              });
+                            },
                           ),
                   ),
                 ),
