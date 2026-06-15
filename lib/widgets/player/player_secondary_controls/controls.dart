@@ -2,11 +2,13 @@ part of '../player_secondary_controls.dart';
 
 class PlayerSecondaryControls extends StatelessWidget {
   final LocalSong song;
+  final bool showLyrics;
   final VoidCallback onLyricsToggle;
 
   const PlayerSecondaryControls({
     super.key,
     required this.song,
+    required this.showLyrics,
     required this.onLyricsToggle,
   });
 
@@ -17,10 +19,9 @@ class PlayerSecondaryControls extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-            onPressed: onLyricsToggle,
-            icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
-            tooltip: 'Lirik',
+          _LyricsToggleButton(
+            active: showLyrics,
+            onTap: onLyricsToggle,
           ),
           const SizedBox(width: 130),
           IconButton(
@@ -87,7 +88,8 @@ class PlayerSecondaryControls extends StatelessWidget {
                         final s = state.currentPlaylist[index];
                         final isCurrent = index == state.currentIndex;
                         return ListTile(
-                          onTap: () => AudioService.playFromCurrentQueue(index),
+                          onTap: () =>
+                              AudioService.playFromCurrentQueue(index),
                           leading: isCurrent
                               ? const Icon(Icons.equalizer,
                                   color: Color(0xFFF92D48))
@@ -97,8 +99,9 @@ class PlayerSecondaryControls extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color:
-                                  isCurrent ? const Color(0xFFF92D48) : Colors.white,
+                              color: isCurrent
+                                  ? const Color(0xFFF92D48)
+                                  : Colors.white,
                               fontWeight: isCurrent
                                   ? FontWeight.w600
                                   : FontWeight.normal,
@@ -108,7 +111,8 @@ class PlayerSecondaryControls extends StatelessWidget {
                             s.artist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Color(0xFF8E8E93)),
+                            style:
+                                const TextStyle(color: Color(0xFF8E8E93)),
                           ),
                         );
                       },
@@ -120,6 +124,39 @@ class PlayerSecondaryControls extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ─── Lyrics toggle button with active-state highlight ───────────────────────
+
+class _LyricsToggleButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+
+  const _LyricsToggleButton({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          CupertinoIcons.quote_bubble,
+          size: 26,
+          color: active ? const Color(0xFFF92D48) : Colors.white,
+        ),
+      ),
     );
   }
 }

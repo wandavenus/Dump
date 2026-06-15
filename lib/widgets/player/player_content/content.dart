@@ -1,6 +1,6 @@
 part of '../player_content.dart';
 
-class PlayerContent extends StatelessWidget {
+class PlayerContent extends StatefulWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
   final String Function(Duration duration) formatTime;
@@ -17,89 +17,652 @@ class PlayerContent extends StatelessWidget {
   });
 
   @override
+  State<PlayerContent> createState() => _PlayerContentState();
+}
+
+class _PlayerContentState extends State<PlayerContent> {
+  static const _smallCoverSize = 72.0;
+  static const _animDuration = Duration(milliseconds: 400);
+  static const _animCurve = Curves.easeInOutCubic;
+
+  Future<LyricsResult>? _lyricsFuture;
+  int? _lastFetchedSongId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLyricsIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(PlayerContent old) {
+    super.didUpdateWidget(old);
+    if (old.song.id != widget.song.id) {
+      _fetchLyricsIfNeeded();
+    }
+  }
+
+  void _fetchLyricsIfNeeded() {
+    if (widget.song.id == _lastFetchedSongId) return;
+    _lastFetchedSongId = widget.song.id;
+    setState(() {
+      _lyricsFuture = LyricsService.fetchLyrics(
+        title: widget.song.title,
+        artist: widget.song.artist,
+        filePath: widget.song.path.isNotEmpty ? widget.song.path : null,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final coverSize = (width - 44).clamp(260.0, 390.0).toDouble();
+    final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
+    final showLyrics = widget.showLyrics;
 
-    return Column(
-      children: [
-        SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 46, 22, 24),
-            child: Column(
-              children: [
-                const SizedBox(height: 18),
-                Hero(
-                  tag: PlayerHeroTags.artwork(song),
-                  flightShuttleBuilder: _artworkFlightShuttleBuilder,
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SongArtwork(
-                        songId: song.id,
-                        size: coverSize,
-                        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(top: 46),
+      child: Column(
+        children: [
+          // ─── Flexible top area: cover + song info + lyrics ────────────────
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final sw = constraints.maxWidth;
+                final sh = constraints.maxHeight;
+
+                // Normal-mode cover position: centred in the available space,
+                // leaving ~80 px at the bottom for the song header.
+                final coverLeft = (sw - largeCoverSize) / 2;
+                final rawTop = (sh - largeCoverSize - 80) / 2;
+                final coverTop = rawTop.clamp(8.0, 60.0);
+
+                // Lyrics area starts just below the small thumbnail.
+                const lyricsTop = _smallCoverSize + 20.0;
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // ── Song info — fades out in lyrics mode ──────────────
+                    Positioned(
+                      bottom: 12,
+                      left: 22,
+                      right: 22,
+                      child: AnimatedOpacity(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        opacity: showLyrics ? 0.0 : 1.0,
+                        child: IgnorePointer(
+                          ignoring: showLyrics,
+                          child: PlayerSongHeader(song: widget.song),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 42),
-                PlayerSongHeader(song: song),
-                const SizedBox(height: 22),
-                PlayerProgressSection(formatTime: formatTime),
-                const SizedBox(height: 28),
-                PlayerTransportControls(playbackState: playbackState),
-                const SizedBox(height: 32),
+
+                    // ── Lyrics area — fades in in lyrics mode ─────────────
+                    Positioned(
+                      top: lyricsTop,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: AnimatedOpacity(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        opacity: showLyrics ? 1.0 : 0.0,
+                        child: IgnorePointer(
+                          ignoring: !showLyrics,
+                          child: _buildLyricsContent(),
+                        ),
+                      ),
+                    ),
+
+                    // ── Appearance button — fades in with lyrics ──────────
+                    Positioned(
+                      top: 16,
+                      right: 22,
+                      child: AnimatedOpacity(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        opacity: showLyrics ? 1.0 : 0.0,
+                        child: IgnorePointer(
+                          ignoring: !showLyrics,
+                          child: const _AppearanceButton(),
+                        ),
+                      ),
+                    ),
+
+                    // ── Album cover — AnimatedPositioned + AnimatedContainer
+                    AnimatedPositioned(
+                      duration: _animDuration,
+                      curve: _animCurve,
+                      top: showLyrics ? 8.0 : coverTop,
+                      left: showLyrics ? 22.0 : coverLeft,
+                      child: AnimatedContainer(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        width: showLyrics ? _smallCoverSize : largeCoverSize,
+                        height: showLyrics ? _smallCoverSize : largeCoverSize,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(showLyrics ? 8 : 12),
+                          color: Colors.black,
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            width: largeCoverSize,
+                            height: largeCoverSize,
+                            child: SongArtwork(
+                              songId: widget.song.id,
+                              size: largeCoverSize,
+                              borderRadius: BorderRadius.zero,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          // ─── Fixed bottom controls ────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayerProgressSection(formatTime: widget.formatTime),
+                const SizedBox(height: 24),
+                PlayerTransportControls(playbackState: widget.playbackState),
+                const SizedBox(height: 20),
                 PlayerSecondaryControls(
-                  song: song,
-                  onLyricsToggle: onLyricsToggle,
+                  song: widget.song,
+                  showLyrics: showLyrics,
+                  onLyricsToggle: widget.onLyricsToggle,
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, -14.1),
-          child: SizedBox(
-            width: MediaQuery.of(context).size.width,
-            child: const Divider(
-              color: Color(0xFF48484A),
-              thickness: 0.4,
-              height: 14,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLyricsContent() {
+    return FutureBuilder<LyricsResult>(
+      future: _lyricsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white24,
+              strokeWidth: 2,
             ),
-          ),
+          );
+        }
+        final result =
+            snapshot.data ?? const LyricsResult([], LyricsSource.none);
+        if (result.isEmpty) {
+          return _EmptyLyricsOverlay(song: widget.song);
+        }
+        return _LyricsOverlayBody(result: result);
+      },
+    );
+  }
+}
+
+// ─── Lyrics body ─────────────────────────────────────────────────────────────
+
+class _LyricsOverlayBody extends StatelessWidget {
+  final LyricsResult result;
+  const _LyricsOverlayBody({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        SyncedLyricsView(
+          lyrics: result.lines,
+          padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: LyricsSettings.showSource,
+          builder: (_, show, _) {
+            if (!show || result.source == LyricsSource.none) {
+              return const SizedBox.shrink();
+            }
+            return Positioned(
+              bottom: 8,
+              left: 24,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      result.source == LyricsSource.internet
+                          ? CupertinoIcons.globe
+                          : CupertinoIcons.doc_text,
+                      color: Colors.white.withValues(alpha: 0.45),
+                      size: 11,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      result.sourceLabel,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
+}
 
-  static Widget _artworkFlightShuttleBuilder(
-    BuildContext flightContext,
-    Animation<double> animation,
-    HeroFlightDirection flightDirection,
-    BuildContext fromHeroContext,
-    BuildContext toHeroContext,
-  ) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Material(
-          type: MaterialType.transparency,
-          child: Transform.scale(
-            scale: lerpDouble(
-              0.9,
-              1.0,
-              Curves.easeOutCubic.transform(animation.value),
-            )!,
-            child: child,
+// ─── Empty lyrics state ───────────────────────────────────────────────────────
+
+class _EmptyLyricsOverlay extends StatelessWidget {
+  final LocalSong song;
+  const _EmptyLyricsOverlay({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(CupertinoIcons.music_note,
+                size: 48, color: Colors.white.withValues(alpha: 0.2)),
+            const SizedBox(height: 16),
+            Text(
+              'Lirik tidak ditemukan',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${song.title} · ${song.artist}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tambahkan file .lrc di folder yang sama\ndengan lagu, atau konfigurasikan folder\nlirik di Pengaturan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.2),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Appearance button (circle icon, top-right in lyrics mode) ───────────────
+
+class _AppearanceButton extends StatelessWidget {
+  const _AppearanceButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _show(context),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 0.5,
           ),
-        );
-      },
-      child: flightDirection == HeroFlightDirection.push
-          ? (toHeroContext.widget as Hero).child
-          : (fromHeroContext.widget as Hero).child,
+        ),
+        child:
+            const Icon(CupertinoIcons.textformat, color: Colors.white, size: 18),
+      ),
+    );
+  }
+
+  void _show(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const _LyricsAppearanceOverlay(),
+    );
+  }
+}
+
+// ─── Appearance settings sheet ────────────────────────────────────────────────
+
+class _LyricsAppearanceOverlay extends StatelessWidget {
+  const _LyricsAppearanceOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.75),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Tampilan Lirik',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 20),
+                  _label('Ukuran Teks'),
+                  const SizedBox(height: 8),
+                  const _FontSizePicker(),
+                  const SizedBox(height: 16),
+                  _label('Rata Teks'),
+                  const SizedBox(height: 8),
+                  const _AlignPicker(),
+                  const SizedBox(height: 16),
+                  _label('Warna Aktif'),
+                  const SizedBox(height: 8),
+                  const _ColorPicker(),
+                  const SizedBox(height: 16),
+                  _label('Kegelapan Latar'),
+                  const SizedBox(height: 4),
+                  const _DimSlider(),
+                  const SizedBox(height: 12),
+                  _label('Kekuatan Blur'),
+                  const SizedBox(height: 4),
+                  const _BlurSlider(),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Tampilkan Sumber Lirik',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 15)),
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: LyricsSettings.showSource,
+                        builder: (_, v, _) => CupertinoSwitch(
+                          value: v,
+                          onChanged: LyricsSettings.setShowSource,
+                          activeTrackColor: const Color(0xFFF92D48),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _label(String text) => Text(
+        text,
+        style: const TextStyle(
+            color: Color(0xFF8E8E93),
+            fontSize: 12,
+            fontWeight: FontWeight.w500),
+      );
+}
+
+// ─── Font size picker ─────────────────────────────────────────────────────────
+
+class _FontSizePicker extends StatelessWidget {
+  const _FontSizePicker();
+
+  static const _sizes = [
+    (label: 'S', value: 14.0),
+    (label: 'M', value: 18.0),
+    (label: 'L', value: 22.0),
+    (label: 'XL', value: 26.0),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: LyricsSettings.fontSize,
+      builder: (_, cur, _) => Row(
+        children: _sizes.map((s) {
+          final active = cur == s.value;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => LyricsSettings.setFontSize(s.value),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(right: 8),
+                height: 40,
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFFF92D48)
+                      : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  s.label,
+                  style: TextStyle(
+                    color: active ? Colors.white : Colors.white54,
+                    fontWeight:
+                        active ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Text-align picker ────────────────────────────────────────────────────────
+
+class _AlignPicker extends StatelessWidget {
+  const _AlignPicker();
+
+  static const _opts = [
+    (label: 'Kiri', icon: Icons.format_align_left, value: 'left'),
+    (label: 'Tengah', icon: Icons.format_align_center, value: 'center'),
+    (label: 'Kanan', icon: Icons.format_align_right, value: 'right'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: LyricsSettings.textAlign,
+      builder: (_, cur, _) => Row(
+        children: _opts.map((o) {
+          final active = cur == o.value;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => LyricsSettings.setTextAlign(o.value),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(right: 8),
+                height: 40,
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFFF92D48)
+                      : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(o.icon,
+                    color: active ? Colors.white : Colors.white54, size: 20),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Active-colour picker ─────────────────────────────────────────────────────
+
+class _ColorPicker extends StatelessWidget {
+  const _ColorPicker();
+
+  static const _opts = [
+    (label: 'Putih', color: Color(0xFFFFFFFF), value: 'white'),
+    (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
+    (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: LyricsSettings.activeColor,
+      builder: (_, cur, _) => Row(
+        children: _opts.map((o) {
+          final active = cur == o.value;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => LyricsSettings.setActiveColor(o.value),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(right: 8),
+                height: 40,
+                decoration: BoxDecoration(
+                  color: active
+                      ? o.color
+                      : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: active
+                      ? null
+                      : Border.all(
+                          color: o.color.withValues(alpha: 0.4), width: 1),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  o.label,
+                  style: TextStyle(
+                    color: active ? Colors.white : Colors.white54,
+                    fontSize: 13,
+                    fontWeight:
+                        active ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Dim slider ───────────────────────────────────────────────────────────────
+
+class _DimSlider extends StatelessWidget {
+  const _DimSlider();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: LyricsSettings.bgDim,
+      builder: (_, v, _) => Row(
+        children: [
+          const Icon(Icons.brightness_high, color: Colors.white38, size: 16),
+          Expanded(
+            child: Slider(
+              value: v,
+              min: 0.2,
+              max: 0.95,
+              divisions: 15,
+              activeColor: const Color(0xFFF92D48),
+              inactiveColor: Colors.white12,
+              onChanged: LyricsSettings.setBgDim,
+            ),
+          ),
+          const Icon(Icons.brightness_low, color: Colors.white38, size: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Blur slider ──────────────────────────────────────────────────────────────
+
+class _BlurSlider extends StatelessWidget {
+  const _BlurSlider();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: LyricsSettings.blurStrength,
+      builder: (_, v, _) => Row(
+        children: [
+          const Icon(CupertinoIcons.photo, color: Colors.white38, size: 16),
+          Expanded(
+            child: Slider(
+              value: v,
+              min: 0,
+              max: 50,
+              divisions: 10,
+              activeColor: const Color(0xFFF92D48),
+              inactiveColor: Colors.white12,
+              onChanged: LyricsSettings.setBlurStrength,
+            ),
+          ),
+          const Icon(Icons.blur_on, color: Colors.white38, size: 16),
+        ],
+      ),
     );
   }
 }

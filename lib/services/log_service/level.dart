@@ -1,3 +1,3 @@
 part of '../log_service.dart';
 
-enum LogLevel { info, warning, error }
+enum LogLevel { verbose, info, warning, error }

@@ -2,13 +2,17 @@ part of '../player_sheet.dart';
 
 class _PlayerSheetState extends State<PlayerSheet> {
   double _dragDy = 0;
+  bool _showLyrics = false;
 
   @override
   void didUpdateWidget(covariant PlayerSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (widget.expanded && !oldWidget.expanded) {
       _dragDy = 0;
+    }
+    // Reset lyrics mode when sheet collapses
+    if (!widget.expanded && _showLyrics) {
+      _showLyrics = false;
     }
   }
 
@@ -19,6 +23,10 @@ class _PlayerSheetState extends State<PlayerSheet> {
   }
 
   void _close() {
+    setState(() {
+      _showLyrics = false;
+      _dragDy = 0;
+    });
     widget.onCollapse?.call();
     PlayerSheetController.close();
   }
@@ -51,21 +59,26 @@ class _PlayerSheetState extends State<PlayerSheet> {
                   opacity: sheetProgress.clamp(0.0, 1.0).toDouble(),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (details) {
-                      setState(() {
-                        _dragDy += details.delta.dy;
-                        if (_dragDy < 0) _dragDy = 0;
-                      });
-                    },
-                    onVerticalDragEnd: (details) {
-                      final velocity = details.primaryVelocity ?? 0;
-
-                      if (velocity > 600 || dragProgress > 0.25) {
-                        _close();
-                      } else {
-                        setState(() => _dragDy = 0);
-                      }
-                    },
+                    // Disable drag-to-close while lyrics are shown so the
+                    // lyrics list can scroll freely.
+                    onVerticalDragUpdate: _showLyrics
+                        ? null
+                        : (details) {
+                            setState(() {
+                              _dragDy += details.delta.dy;
+                              if (_dragDy < 0) _dragDy = 0;
+                            });
+                          },
+                    onVerticalDragEnd: _showLyrics
+                        ? null
+                        : (details) {
+                            final velocity = details.primaryVelocity ?? 0;
+                            if (velocity > 600 || dragProgress > 0.25) {
+                              _close();
+                            } else {
+                              setState(() => _dragDy = 0);
+                            }
+                          },
                     child: Material(
                       color: Colors.black,
                       child: Stack(
@@ -78,7 +91,8 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                   sigmaX: blurSigma,
                                   sigmaY: blurSigma,
                                 ),
-                                child: AnimatedBlurredPlayerBackground(songId: song.id),
+                                child: AnimatedBlurredPlayerBackground(
+                                    songId: song.id),
                               ),
                             )
                           else
@@ -116,8 +130,9 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                           song: song,
                                           playbackState: playbackState,
                                           formatTime: _formatTime,
-                                          showLyrics: false,
-                                          onLyricsToggle: () {},
+                                          showLyrics: _showLyrics,
+                                          onLyricsToggle: () => setState(
+                                              () => _showLyrics = !_showLyrics),
                                         ),
                                       ),
                                     ),
