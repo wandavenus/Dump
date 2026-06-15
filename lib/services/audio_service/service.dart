@@ -45,6 +45,7 @@ class AudioService {
         ));
 
         if (state.processingState == ProcessingState.completed) {
+          LogService.verbose('AudioService', 'Track completed → advancing');
           _onTrackCompleted();
         }
       }),
@@ -55,6 +56,10 @@ class AudioService {
         _setState(playbackState.value.copyWith(
           duration: duration ?? Duration.zero,
         ));
+        if (duration != null && duration > Duration.zero) {
+          LogService.verbose(
+              'AudioService', 'Duration resolved: ${_fmtDur(duration)}');
+        }
       }),
     );
 
@@ -69,8 +74,13 @@ class AudioService {
           currentSong: playlist[index],
         ));
 
-        LogService.log('AudioService', 'Playing: ${playlist[index].title}');
-        unawaited(HistoryService.trackPlay(playlist[index]));
+        final song = playlist[index];
+        LogService.log(
+          'AudioService',
+          'Now playing [${index + 1}/${playlist.length}]: '
+          '"${song.title}" — ${song.artist}',
+        );
+        unawaited(HistoryService.trackPlay(song));
       }),
     );
 
@@ -87,9 +97,9 @@ class AudioService {
     );
 
     AudioEffectsService.playbackSpeed.addListener(() {
-      _setState(playbackState.value.copyWith(
-        speed: AudioEffectsService.playbackSpeed.value,
-      ));
+      final spd = AudioEffectsService.playbackSpeed.value;
+      _setState(playbackState.value.copyWith(speed: spd));
+      LogService.verbose('AudioService', 'Speed changed: ${spd.toStringAsFixed(2)}x');
     });
 
     CrossfadeController.initialize();
@@ -106,12 +116,25 @@ class AudioService {
   }) async {
     initialize();
 
-    if (_isLoading) return;
-    if (playlist.isEmpty || index < 0 || index >= playlist.length) return;
+    if (_isLoading) {
+      LogService.verbose('AudioService', 'playSongAt ignored — already loading');
+      return;
+    }
+    if (playlist.isEmpty || index < 0 || index >= playlist.length) {
+      LogService.warn('AudioService',
+          'playSongAt: invalid args (index=$index, count=${playlist.length})');
+      return;
+    }
 
     _isLoading = true;
     final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
     final selectedSong = immutablePlaylist[index];
+
+    LogService.log(
+      'AudioService',
+      'Loading "${selectedSong.title}" — ${selectedSong.artist} '
+      '(track ${index + 1}/${playlist.length})',
+    );
 
     _setState(playbackState.value.copyWith(
       currentSong: selectedSong,
@@ -129,10 +152,16 @@ class AudioService {
       );
 
       await player.setAudioSource(_queue!, initialIndex: index);
+      LogService.verbose('AudioService',
+          'AudioSource set — ${immutablePlaylist.length} tracks in queue');
 
-      if (autoplay) await player.play();
+      if (autoplay) {
+        await player.play();
+        LogService.verbose('AudioService', 'Autoplay started');
+      }
     } catch (e, st) {
-      LogService.error('AudioService', 'playSongAt error: $e\n$st');
+      LogService.error('AudioService', 'playSongAt failed: $e',
+          stackTrace: st.toString());
     } finally {
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
@@ -143,42 +172,52 @@ class AudioService {
   static Future<void> play() async {
     initialize();
     await player.play();
+    LogService.verbose('AudioService', 'Resumed playback');
     _syncPlaybackState();
   }
 
   static Future<void> pause() async {
     initialize();
+    final pos = _fmtDur(player.position);
     await player.pause();
+    LogService.verbose('AudioService', 'Paused at $pos');
     _syncPlaybackState();
   }
 
   static Future<void> seek(Duration position) async {
     initialize();
     await player.seek(position);
+    LogService.verbose('AudioService', 'Seek → ${_fmtDur(position)}');
     _syncPlaybackState();
   }
 
   static Future<void> skipNext() async {
-    // If crossfade is active, let the controller handle transition.
-    // Otherwise, just seek to next.
-    if (!player.hasNext) return;
+    if (!player.hasNext) {
+      LogService.verbose('AudioService', 'skipNext: already at end of queue');
+      return;
+    }
     await player.seekToNext();
-    LogService.log('AudioService', 'Skip next');
+    LogService.log('AudioService', 'Skip → next track');
   }
 
   static Future<void> skipPrevious() async {
-    // Restart track if past 3 seconds, else go to previous.
     if (player.position.inSeconds > 3) {
       await player.seek(Duration.zero);
+      LogService.verbose('AudioService', 'Skip previous: restarted track');
     } else {
       await player.seekToPrevious();
+      LogService.log('AudioService', 'Skip → previous track');
     }
-    LogService.log('AudioService', 'Skip previous');
   }
 
   static Future<void> playFromCurrentQueue(int index) async {
+    final song = currentPlaylist.elementAtOrNull(index);
     await player.seek(Duration.zero, index: index);
     if (!player.playing) await player.play();
+    if (song != null) {
+      LogService.log('AudioService',
+          'Queue jump → [${index + 1}]: "${song.title}"');
+    }
   }
 
   // ── Loop / Shuffle ─────────────────────────────────────────────────────────
@@ -190,14 +229,14 @@ class AudioService {
       LoopMode.one => LoopMode.off,
     };
     await player.setLoopMode(next);
-    LogService.log('AudioService', 'Loop: $next');
+    LogService.log('AudioService', 'Loop mode → ${next.name}');
   }
 
   static Future<void> toggleShuffle() async {
     final enabled = !shuffleEnabled;
     await player.setShuffleModeEnabled(enabled);
     if (enabled) await player.shuffle();
-    LogService.log('AudioService', 'Shuffle: $enabled');
+    LogService.log('AudioService', 'Shuffle → ${enabled ? 'on' : 'off'}');
   }
 
   // ── Queue management ───────────────────────────────────────────────────────
@@ -211,7 +250,8 @@ class AudioService {
     _setState(playbackState.value.copyWith(
       currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
     ));
-    LogService.log('AudioService', 'Queued next: ${song.title}');
+    LogService.log('AudioService',
+        'Queued next: "${song.title}" at position ${nextIndex + 1}');
   }
 
   static void addToQueue(LocalSong song) {
@@ -221,7 +261,8 @@ class AudioService {
     _setState(playbackState.value.copyWith(
       currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
     ));
-    LogService.log('AudioService', 'Queued end: ${song.title}');
+    LogService.log('AudioService',
+        'Queued at end: "${song.title}" (queue size: ${newPlaylist.length})');
   }
 
   // ── Internal ───────────────────────────────────────────────────────────────
@@ -232,12 +273,16 @@ class AudioService {
 
     if (state.loopMode == LoopMode.one) {
       player.seek(Duration.zero).then((_) => player.play());
+      LogService.verbose('AudioService', 'Loop one: restarting track');
       return;
     }
 
     if (state.currentIndex >= state.currentPlaylist.length - 1) {
       if (state.loopMode == LoopMode.all) {
         player.seek(Duration.zero, index: 0).then((_) => player.play());
+        LogService.verbose('AudioService', 'Loop all: wrapping to track 1');
+      } else {
+        LogService.verbose('AudioService', 'End of queue reached');
       }
       return;
     }
@@ -256,6 +301,12 @@ class AudioService {
     playbackState.value = state;
   }
 
+  static String _fmtDur(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
   static Future<void> dispose() async {
     CrossfadeController.dispose();
     for (final sub in _subscriptions) {
@@ -263,6 +314,7 @@ class AudioService {
     }
     _subscriptions.clear();
     _initialized = false;
+    LogService.log('AudioService', 'Disposed');
     await AudioEngine.dispose();
   }
 }
