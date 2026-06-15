@@ -2,10 +2,12 @@ part of '../player_secondary_controls.dart';
 
 class PlayerSecondaryControls extends StatelessWidget {
   final LocalSong song;
+  final VoidCallback onLyricsToggle;
 
   const PlayerSecondaryControls({
     super.key,
     required this.song,
+    required this.onLyricsToggle,
   });
 
   @override
@@ -16,7 +18,7 @@ class PlayerSecondaryControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            onPressed: () => _openLyrics(context),
+            onPressed: onLyricsToggle,
             icon: const Icon(CupertinoIcons.quote_bubble, size: 26),
             tooltip: 'Lirik',
           ),
@@ -30,33 +32,6 @@ class PlayerSecondaryControls extends StatelessWidget {
       ),
     );
   }
-
-  // ── Buka halaman lirik penuh layar ──────────────────────────────────────────
-
-  void _openLyrics(BuildContext context) {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 380),
-        pageBuilder: (_, _, _) => LyricsPage(song: song),
-        transitionsBuilder: (_, animation, _, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: child,
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Antrian putar ──────────────────────────────────────────────────────────
 
   void _showQueue(BuildContext context) {
     showModalBottomSheet<void>(
