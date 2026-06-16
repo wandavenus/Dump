@@ -231,11 +231,11 @@ class _PlayerContentState extends State<PlayerContent> {
                 PlayerProgressSection(
                   formatTime: widget.formatTime,
                 ),
-                const SizedBox(height: 47),
+                const SizedBox(height: 20),
                 PlayerTransportControls(
                   playbackState: widget.playbackState,
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 PlayerSecondaryControls(
                   song: widget.song,
                   showLyrics: showLyrics,
@@ -249,8 +249,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
         Container(
           width: double.infinity,
-          height: 0.5,
-          color: Colors.white.withValues(alpha: 0.08),
+          height: 0.8,
+          color: Colors.white.withValues(alpha: 0.09),
         ),
       ],
     ),
