@@ -21,7 +21,7 @@ class PlayerContent extends StatefulWidget {
 }
 
 class _PlayerContentState extends State<PlayerContent> {
-  static const _smallCoverSize = 60.0;
+  static const _smallCoverSize = 57.0;
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -75,11 +75,11 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 16;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 12;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
-                const lyricsTop = _smallCoverSize + 20.0;
+                const lyricsTop = _smallCoverSize + 25.0;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -108,7 +108,7 @@ class _PlayerContentState extends State<PlayerContent> {
   left: 0,
   right: 0,
 
-  bottom: _lyricsExpand > 0 ? -180 : 0,
+  bottom: _lyricsExpand > 0 ? -200 : 0,
 
   child: AnimatedOpacity(
                         duration: _animDuration,
@@ -231,17 +231,17 @@ class _PlayerContentState extends State<PlayerContent> {
                 PlayerProgressSection(
                   formatTime: widget.formatTime,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 34),
                 PlayerTransportControls(
                   playbackState: widget.playbackState,
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 35),
                 PlayerSecondaryControls(
                   song: widget.song,
                   showLyrics: showLyrics,
                   onLyricsToggle: widget.onLyricsToggle,
                 ),
-                const SizedBox(height: 21),
+                const SizedBox(height: 01),
               ],
             ),
           ),
