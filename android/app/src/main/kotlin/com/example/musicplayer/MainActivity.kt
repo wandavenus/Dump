@@ -290,10 +290,17 @@ class MainActivity : AudioServiceActivity() {
                 val result = mutableMapOf<String, String?>()
 
                 // ReplayGain keys via standard FieldKey enum (ID3v2, Vorbis, APEv2)
-                result["replayGainTrackGain"] = get(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_TRACK_GAIN)
-                result["replayGainTrackPeak"] = get(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_TRACK_PEAK)
-                result["replayGainAlbumGain"] = get(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_ALBUM_GAIN)
-                result["replayGainAlbumPeak"] = get(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_ALBUM_PEAK)
+                result["replayGainTrackGain"] =
+    readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
+
+result["replayGainTrackPeak"] =
+    readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
+
+result["replayGainAlbumGain"] =
+    readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
+
+result["replayGainAlbumPeak"] =
+    readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
 
                 // R128 — stored as custom tag fields (Opus, FLAC)
                 result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
