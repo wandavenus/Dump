@@ -29,13 +29,13 @@ class PlayerSongHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 24,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 22,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 song.artist,
                 maxLines: 1,
