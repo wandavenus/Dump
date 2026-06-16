@@ -8,7 +8,7 @@ class LyricsSettings {
   // ── Value notifiers ─────────────────────────────────────────────────────────
 
   /// Ukuran font teks lirik aktif (14 / 18 / 22 / 26).
-  static final ValueNotifier<double> fontSize = ValueNotifier(22.0);
+  static final ValueNotifier<double> fontSize = ValueNotifier(30.0);
 
   /// Rata teks: 'left' / 'center' / 'right'.
   static final ValueNotifier<String> textAlign = ValueNotifier('left');
@@ -17,28 +17,28 @@ class LyricsSettings {
   static final ValueNotifier<double> bgDim = ValueNotifier(0.55);
 
   /// Kekuatan blur latar (0 = tanpa blur, 40 = sangat buram).
-  static final ValueNotifier<double> blurStrength = ValueNotifier(28.0);
+  static final ValueNotifier<double> blurStrength = ValueNotifier(0.0);
 
   /// Warna teks aktif: 'white' / 'accent' / 'yellow'.
   static final ValueNotifier<String> activeColor = ValueNotifier('white');
 
   /// Tampilkan lencana sumber lirik (Dari Internet / Dari File / Dari Tag).
-  static final ValueNotifier<bool> showSource = ValueNotifier(true);
+  static final ValueNotifier<bool> showSource = ValueNotifier(false);
 
   /// Aktifkan animasi karaoke (highlight kata per kata — hanya jika data tersedia).
-  static final ValueNotifier<bool> karaokeMode = ValueNotifier(false);
+  static final ValueNotifier<bool> karaokeMode = ValueNotifier(true);
 
   // ── Init ────────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     final p = await SharedPreferences.getInstance();
-    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 22.0;
+    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 30.0;
     textAlign.value    = p.getString('lyr_textAlign')   ?? 'left';
     bgDim.value        = p.getDouble('lyr_bgDim')       ?? 0.55;
     blurStrength.value = p.getDouble('lyr_blur')        ?? 28.0;
     activeColor.value  = p.getString('lyr_activeColor') ?? 'white';
-    showSource.value   = p.getBool('lyr_showSource')    ?? true;
-    karaokeMode.value  = p.getBool('lyr_karaoke')       ?? false;
+    showSource.value   = p.getBool('lyr_showSource')    ?? false;
+    karaokeMode.value  = p.getBool('lyr_karaoke')       ?? true;
   }
 
   // ── Setters ─────────────────────────────────────────────────────────────────
