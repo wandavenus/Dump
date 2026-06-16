@@ -25,13 +25,13 @@ class PlayerTransportControls extends StatelessWidget {
           ),
           onPressed: canGoPrevious ? () => AudioService.skipPrevious() : null,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 15),
         IconButton(
           icon: Icon(
             playbackState.isPlaying
                 ? Icons.pause_rounded
                 : Icons.play_arrow_rounded,
-            size: 76,
+            size: 75,
             color: Colors.white,
           ),
           onPressed: () {
@@ -40,7 +40,7 @@ class PlayerTransportControls extends StatelessWidget {
                 : AudioService.play();
           },
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 15),
         IconButton(
           icon: Icon(
             Icons.fast_forward_rounded,
