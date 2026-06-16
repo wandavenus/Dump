@@ -76,7 +76,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
                 final rawTop = (sh - largeCoverSize - 80) / 2;
-                final coverTop = rawTop.clamp(8.0, 80.0);
+                final coverTop = rawTop.clamp(-8.0, 34.0);
 
                 // Lyrics area starts just below the small thumbnail.
                 const lyricsTop = _smallCoverSize + 20.0;
@@ -101,12 +101,16 @@ class _PlayerContentState extends State<PlayerContent> {
                     ),
   
                     // ── Lyrics area — fades in in lyrics mode ─────────────
-                    Positioned(
-                      top: lyricsTop,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: AnimatedOpacity(
+                    AnimatedPositioned(
+  duration: const Duration(milliseconds: 250),
+  curve: Curves.easeOut,
+  top: lyricsTop,
+  left: 0,
+  right: 0,
+
+  bottom: _lyricsExpand > 0 ? -180 : 0,
+
+  child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
                         opacity: showLyrics ? 1.0 : 0.0,
@@ -212,24 +216,29 @@ class _PlayerContentState extends State<PlayerContent> {
           AnimatedOpacity(
   duration: const Duration(milliseconds: 250),
   opacity: 1.0 - _lyricsExpand,
-  child: Padding(
-    padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        PlayerProgressSection(formatTime: widget.formatTime),
-        const SizedBox(height: 24),
-        PlayerTransportControls(
-          playbackState: widget.playbackState,
-        ),
-        const SizedBox(height: 20),
-        PlayerSecondaryControls(
-          song: widget.song,
-          showLyrics: showLyrics,
-          onLyricsToggle: widget.onLyricsToggle,
-        ),
-        const SizedBox(height: 16),
-      ],
+  child: IgnorePointer(
+    ignoring: _lyricsExpand > 0.0,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PlayerProgressSection(
+            formatTime: widget.formatTime,
+          ),
+          const SizedBox(height: 24),
+          PlayerTransportControls(
+            playbackState: widget.playbackState,
+          ),
+          const SizedBox(height: 20),
+          PlayerSecondaryControls(
+            song: widget.song,
+            showLyrics: showLyrics,
+            onLyricsToggle: widget.onLyricsToggle,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     ),
   ),
 ),
@@ -416,7 +425,7 @@ class _AppearanceButton extends StatelessWidget {
           ),
         ),
         child:
-            const Icon(Icons.more_horiz, color: Colors.white, size: 16),
+            const Icon(Icons.more_horiz, color: Colors.white, size: 14),
       ),
     );
   }
