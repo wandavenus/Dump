@@ -21,7 +21,7 @@ class PlayerContent extends StatefulWidget {
 }
 
 class _PlayerContentState extends State<PlayerContent> {
-  static const _smallCoverSize = 57.0;
+  static const _smallCoverSize = 55.0;
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -86,7 +86,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out in lyrics mode ──────────────
                     Positioned(
-                      bottom: 26,
+                      bottom: 30,
                       left: 22,
                       right: 22,
                       child: AnimatedOpacity(
@@ -456,8 +456,8 @@ class _AppearanceButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => _show(context),
       child: Container(
-        width: 34,
-        height: 34,
+        width: 32,
+        height: 32,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: Color.fromARGB(90, 100, 100, 100),
