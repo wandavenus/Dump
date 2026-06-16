@@ -250,7 +250,7 @@ class _PlayerContentState extends State<PlayerContent> {
         Container(
           width: double.infinity,
           height: 1,
-          color: Colors.white24,
+          color: Colors.white12,
         ),
       ],
     ),
