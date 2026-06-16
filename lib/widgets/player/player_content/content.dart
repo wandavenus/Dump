@@ -245,7 +245,22 @@ class _PlayerContentState extends State<PlayerContent> {
     ),
   ),
  ),   
-   ],
+
+ Positioned(
+  left: 0,
+  right: 0,
+  bottom: 0,
+  child: AnimatedOpacity(
+    duration: const Duration(milliseconds: 250),
+    opacity: 1.0 - _lyricsExpand,
+    child: Container(
+      height: 1,
+      color: Colors.white24,
+    ),
+  ),
+),
+        
+        ],
       ),
     );
   }
