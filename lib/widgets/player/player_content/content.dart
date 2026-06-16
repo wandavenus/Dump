@@ -222,7 +222,7 @@ class _PlayerContentState extends State<PlayerContent> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.translate(
-          offset: const Offset(0, -24),
+          offset: const Offset(0, 0),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
             child: Column(
