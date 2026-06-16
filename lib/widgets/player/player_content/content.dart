@@ -75,11 +75,11 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 12;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 7;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
-                const lyricsTop = _smallCoverSize + 25.0;
+                const lyricsTop = _smallCoverSize + 30.0;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -231,11 +231,11 @@ class _PlayerContentState extends State<PlayerContent> {
                 PlayerProgressSection(
                   formatTime: widget.formatTime,
                 ),
-                const SizedBox(height: 34),
+                const SizedBox(height: 39),
                 PlayerTransportControls(
                   playbackState: widget.playbackState,
                 ),
-                const SizedBox(height: 35),
+                const SizedBox(height: 40),
                 PlayerSecondaryControls(
                   song: widget.song,
                   showLyrics: showLyrics,
@@ -249,8 +249,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
         Container(
           width: double.infinity,
-          height: 1,
-          color: Colors.white12,
+          height: 0.5,
+          color: Colors.white8,
         ),
       ],
     ),
@@ -456,8 +456,8 @@ class _AppearanceButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => _show(context),
       child: Container(
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: Color.fromARGB(90, 100, 100, 100),
