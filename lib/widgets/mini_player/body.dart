@@ -42,8 +42,8 @@ class _MiniPlayerBody extends StatelessWidget {
                           opacity: swipeFraction * 0.18,
                           child: Container(
                             color: swipeOffset < 0
-                                ? Colors.blue
-                                : Colors.blue,
+                                ? Colors.transparant
+                                : Colors.transparant,
                           ),
                         ),
                       ),
