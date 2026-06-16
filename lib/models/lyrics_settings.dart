@@ -8,13 +8,13 @@ class LyricsSettings {
   // ── Value notifiers ─────────────────────────────────────────────────────────
 
   /// Ukuran font teks lirik aktif (14 / 18 / 22 / 26).
-  static final ValueNotifier<double> fontSize = ValueNotifier(30.0);
+  static final ValueNotifier<double> fontSize = ValueNotifier(46.0);
 
   /// Rata teks: 'left' / 'center' / 'right'.
   static final ValueNotifier<String> textAlign = ValueNotifier('left');
 
   /// Opasitas overlay gelap di atas latar blur (0.0 = transparan, 1.0 = hitam penuh).
-  static final ValueNotifier<double> bgDim = ValueNotifier(0.55);
+  static final ValueNotifier<double> bgDim = ValueNotifier(0.0);
 
   /// Kekuatan blur latar (0 = tanpa blur, 40 = sangat buram).
   static final ValueNotifier<double> blurStrength = ValueNotifier(0.0);
@@ -32,10 +32,10 @@ class LyricsSettings {
 
   static Future<void> init() async {
     final p = await SharedPreferences.getInstance();
-    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 30.0;
+    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 40.0;
     textAlign.value    = p.getString('lyr_textAlign')   ?? 'left';
-    bgDim.value        = p.getDouble('lyr_bgDim')       ?? 0.55;
-    blurStrength.value = p.getDouble('lyr_blur')        ?? 28.0;
+    bgDim.value        = p.getDouble('lyr_bgDim')       ?? 0.0;
+    blurStrength.value = p.getDouble('lyr_blur')        ?? 0.0;
     activeColor.value  = p.getString('lyr_activeColor') ?? 'white';
     showSource.value   = p.getBool('lyr_showSource')    ?? false;
     karaokeMode.value  = p.getBool('lyr_karaoke')       ?? true;
