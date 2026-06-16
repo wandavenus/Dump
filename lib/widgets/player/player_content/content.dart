@@ -22,7 +22,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 60.0;
-  double _lyricsExpand = 1.0;
+  double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
 
@@ -264,7 +264,16 @@ class _PlayerContentState extends State<PlayerContent> {
         if (result.isEmpty) {
           return _EmptyLyricsOverlay(song: widget.song);
         }
-        return _LyricsOverlayBody(result: result);
+        return _LyricsOverlayBody(
+  result: result,
+  onExpandChanged: (expanded) {
+    if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
+
+    setState(() {
+      _lyricsExpand = expanded ? 1.0 : 0.0;
+    });
+  },
+);
       },
     );
   }
@@ -274,35 +283,53 @@ class _PlayerContentState extends State<PlayerContent> {
 
 class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
-  const _LyricsOverlayBody({required this.result});
+  final ValueChanged<bool> onExpandChanged;
+
+  const _LyricsOverlayBody({
+    required this.result,
+    required this.onExpandChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        ShaderMask(
-  shaderCallback: (Rect rect) {
-    return const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Colors.transparent,
-        Colors.white,
-        Colors.white,
-        Colors.transparent,
-      ],
-      stops: [
-  0.0,
-  0.20,
-  0.80,
-  1.0,
-],
-    ).createShader(rect);
+        NotificationListener<ScrollNotification>(
+  onNotification: (notification) {
+    final offset = notification.metrics.pixels;
+
+    if (offset > 80) {
+      onExpandChanged(true);
+    } else if (offset < 30) {
+      onExpandChanged(false);
+    }
+
+    return false;
   },
-  blendMode: BlendMode.dstIn,
-  child: SyncedLyricsView(
-    lyrics: result.lines,
-    padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+  child: ShaderMask(
+    shaderCallback: (Rect rect) {
+      return const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.transparent,
+          Colors.white,
+          Colors.white,
+          Colors.transparent,
+        ],
+        stops: [
+          0.0,
+          0.20,
+          0.80,
+          1.0,
+        ],
+      ).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: SyncedLyricsView(
+      lyrics: result.lines,
+      padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+    ),
   ),
 ),
         ValueListenableBuilder<bool>(
