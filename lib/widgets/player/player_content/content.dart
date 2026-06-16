@@ -22,6 +22,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 60.0;
+  double _lyricsExpand = 1.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
 
@@ -75,7 +76,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
                 final rawTop = (sh - largeCoverSize - 80) / 2;
-                final coverTop = rawTop.clamp(8.0, 50.0);
+                final coverTop = rawTop.clamp(8.0, 80.0);
 
                 // Lyrics area starts just below the small thumbnail.
                 const lyricsTop = _smallCoverSize + 20.0;
@@ -208,24 +209,30 @@ class _PlayerContentState extends State<PlayerContent> {
           ),
 
           // ─── Fixed bottom controls ────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PlayerProgressSection(formatTime: widget.formatTime),
-                const SizedBox(height: 24),
-                PlayerTransportControls(playbackState: widget.playbackState),
-                const SizedBox(height: 20),
-                PlayerSecondaryControls(
-                  song: widget.song,
-                  showLyrics: showLyrics,
-                  onLyricsToggle: widget.onLyricsToggle,
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+          AnimatedOpacity(
+  duration: const Duration(milliseconds: 250),
+  opacity: 1.0 - _lyricsExpand,
+  child: Padding(
+    padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PlayerProgressSection(formatTime: widget.formatTime),
+        const SizedBox(height: 24),
+        PlayerTransportControls(
+          playbackState: widget.playbackState,
+        ),
+        const SizedBox(height: 20),
+        PlayerSecondaryControls(
+          song: widget.song,
+          showLyrics: showLyrics,
+          onLyricsToggle: widget.onLyricsToggle,
+        ),
+        const SizedBox(height: 16),
+      ],
+    ),
+  ),
+),
         ],
       ),
     );
