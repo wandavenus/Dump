@@ -108,7 +108,7 @@ class _PlayerContentState extends State<PlayerContent> {
   left: 0,
   right: 0,
 
-  bottom: _lyricsExpand > 0 ? -200 : 0,
+  bottom: _lyricsExpand > 0 ? -250 : 0,
 
   child: AnimatedOpacity(
                         duration: _animDuration,
@@ -250,7 +250,7 @@ class _PlayerContentState extends State<PlayerContent> {
         Container(
           width: double.infinity,
           height: 0.5,
-          color: Colors.white8,
+          color: Colors.white.withValues(alpha: 0.08),
         ),
       ],
     ),
@@ -313,9 +313,9 @@ class _LyricsOverlayBody extends StatelessWidget {
   onNotification: (notification) {
     final offset = notification.metrics.pixels;
 
-    if (offset > 80) {
+    if (offset > 150) {
       onExpandChanged(true);
-    } else if (offset < 30) {
+    } else if (offset < 50) {
       onExpandChanged(false);
     }
 
@@ -333,11 +333,11 @@ class _LyricsOverlayBody extends StatelessWidget {
           Colors.transparent,
         ],
         stops: [
-          0.0,
-          0.20,
-          0.80,
-          1.0,
-        ],
+  0.0,
+  0.35,
+  0.65,
+  1.0,
+],
       ).createShader(rect);
     },
     blendMode: BlendMode.dstIn,
