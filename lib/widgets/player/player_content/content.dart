@@ -75,7 +75,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 7;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 5;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
@@ -86,7 +86,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out in lyrics mode ──────────────
                     Positioned(
-                      bottom: 36,
+                      bottom: 26,
                       left: 22,
                       right: 22,
                       child: AnimatedOpacity(
