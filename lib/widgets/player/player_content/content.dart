@@ -62,7 +62,7 @@ class _PlayerContentState extends State<PlayerContent> {
     final showLyrics = widget.showLyrics;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 30),
+      padding: const EdgeInsets.only(top: 25),
       child: Column(
         children: [
           // ─── Flexible top area: cover + song info + lyrics ────────────────
@@ -75,7 +75,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 24;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
@@ -86,7 +86,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out in lyrics mode ──────────────
                     Positioned(
-                      bottom: 12,
+                      bottom: 36,
                       left: 22,
                       right: 22,
                       child: AnimatedOpacity(
@@ -213,36 +213,39 @@ class _PlayerContentState extends State<PlayerContent> {
           ),
 
           // ─── Fixed bottom controls ────────────────────────────────────────
-          AnimatedOpacity(
+ AnimatedOpacity(
   duration: const Duration(milliseconds: 250),
   opacity: 1.0 - _lyricsExpand,
   child: IgnorePointer(
     ignoring: _lyricsExpand > 0.0,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PlayerProgressSection(
-            formatTime: widget.formatTime,
-          ),
-          const SizedBox(height: 24),
-          PlayerTransportControls(
-            playbackState: widget.playbackState,
-          ),
-          const SizedBox(height: 20),
-          PlayerSecondaryControls(
-            song: widget.song,
-            showLyrics: showLyrics,
-            onLyricsToggle: widget.onLyricsToggle,
-          ),
-          const SizedBox(height: 16),
-        ],
+    child: Transform.translate(
+      offset: const Offset(0, -24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PlayerProgressSection(
+              formatTime: widget.formatTime,
+            ),
+            const SizedBox(height: 24),
+            PlayerTransportControls(
+              playbackState: widget.playbackState,
+            ),
+            const SizedBox(height: 20),
+            PlayerSecondaryControls(
+              song: widget.song,
+              showLyrics: showLyrics,
+              onLyricsToggle: widget.onLyricsToggle,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     ),
   ),
-),
-        ],
+ ),   
+   ],
       ),
     );
   }
