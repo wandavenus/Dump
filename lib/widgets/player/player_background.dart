@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui';
-
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../services/media_store_service.dart';
