@@ -23,10 +23,10 @@ class PlayerSecondaryControls extends StatelessWidget {
             active: showLyrics,
             onTap: onLyricsToggle,
           ),
-          const SizedBox(width: 130),
+          const SizedBox(width: 110),
           IconButton(
             onPressed: () => _showQueue(context),
-            icon: const Icon(CupertinoIcons.list_bullet, size: 26),
+            icon: const Icon(CupertinoIcons.list_bullet, size: 24),
             tooltip: 'Antrian',
           ),
         ],
@@ -153,7 +153,7 @@ class _LyricsToggleButton extends StatelessWidget {
         ),
         child: Icon(
           CupertinoIcons.quote_bubble,
-          size: 26,
+          size: 24,
           color: active ? const Color(0xFFF92D48) : Colors.white,
         ),
       ),
