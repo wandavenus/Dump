@@ -62,7 +62,7 @@ class _PlayerContentState extends State<PlayerContent> {
     final showLyrics = widget.showLyrics;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 46),
+      padding: const EdgeInsets.only(top: 30),
       child: Column(
         children: [
           // ─── Flexible top area: cover + song info + lyrics ────────────────
@@ -75,7 +75,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 140) / 2;
+                final rawTop = (sh - largeCoverSize - 80) / 2;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
@@ -443,16 +443,15 @@ class _AppearanceButton extends StatelessWidget {
       child: Container(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
+          color: Color.fromARGB(90, 100, 100, 100),
         ),
-        child:
-            const Icon(Icons.more_horiz, color: Colors.white, size: 14),
+        child: const Icon(
+          Icons.more_vert_rounded,
+          color: Colors.white,
+          size: 20,
+        ),
       ),
     );
   }
@@ -568,11 +567,11 @@ class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
   static const _sizes = [
-    (label: 'S', value: 14.0),
-    (label: 'M', value: 18.0),
-    (label: 'L', value: 22.0),
-    (label: 'XL', value: 26.0),
-  ];
+  (label: 'S', value: 18.0),
+  (label: 'M', value: 22.0),
+  (label: 'L', value: 28.0),
+  (label: 'XL', value: 34.0),
+];
 
   @override
   Widget build(BuildContext context) {
