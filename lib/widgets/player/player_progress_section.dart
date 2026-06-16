@@ -52,7 +52,7 @@ const SizedBox(height: 8),
                   Text(
                     formatTime(position),
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w400,
                       fontSize: 11,
                       color: Colors.white70,
                     ),
@@ -60,7 +60,7 @@ const SizedBox(height: 8),
                   Text(
                     '-${formatTime(duration - position)}',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w400,
                       fontSize: 11,
                       color: Colors.white70,
                     ),
