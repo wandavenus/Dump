@@ -1,9 +1,39 @@
 part of '../player_background.dart';
 
-class BlurredArtworkBackground extends StatelessWidget {
+class BlurredArtworkBackground extends StatefulWidget {
   final Uint8List artwork;
 
-  const BlurredArtworkBackground({super.key, required this.artwork});
+  const BlurredArtworkBackground({
+    super.key,
+    required this.artwork,
+  });
+
+  @override
+  State<BlurredArtworkBackground> createState() =>
+      _BlurredArtworkBackgroundState();
+}
+
+class _BlurredArtworkBackgroundState
+    extends State<BlurredArtworkBackground>
+    with SingleTickerProviderStateMixin {
+
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 30),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +49,7 @@ class BlurredArtworkBackground extends StatelessWidget {
           child: ImageFiltered(
             imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
             child: Image.memory(
-              artwork,
+              widget.artwork,
               fit: BoxFit.cover,
               gaplessPlayback: true,
               cacheWidth: cacheWidth,
