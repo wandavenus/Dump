@@ -7,7 +7,7 @@ class AudioSessionHandler {
   AudioSessionHandler._();
 
   static AudioSession? _session;
-  static bool _initialized = false;
+  static bool _initialized        = false;
   static bool _pausedByInterruption = false;
 
   static Future<void> initialize() async {
@@ -36,58 +36,55 @@ class AudioSessionHandler {
 
   static void _onInterruption(AudioInterruptionEvent event) {
     final player = AudioEngine.player;
+
     switch (event.type) {
       case AudioInterruptionType.pause:
-        if (player.playing) {
-          _pausedByInterruption = true;
-          player.pause();
-          LogService.log('AudioSession', 'Paused: interruption (pause)');
+        if (event.begin) {
+          if (player.playing) {
+            _pausedByInterruption = true;
+            player.pause();
+            // Also pause the secondary player if a crossfade is in progress.
+            _pauseSecondaryAndResetFade();
+            LogService.log('AudioSession', 'Paused: interruption (pause)');
+          }
+        } else {
+          _handleInterruptionEnd(event);
         }
         break;
+
       case AudioInterruptionType.duck:
-        player.setVolume(0.3);
-        LogService.log('AudioSession', 'Ducked: interruption');
+        if (event.begin) {
+          player.setVolume(0.3);
+          // Duck secondary too (might be fading in).
+          try { DualPlayerManager.secondaryPlayer?.setVolume(0.3); } catch (_) {}
+          LogService.log('AudioSession', 'Ducked: interruption');
+        } else {
+          player.setVolume(1.0);
+          // Restore secondary to 0 (it should not be audible when preloading).
+          try { DualPlayerManager.secondaryPlayer?.setVolume(0.0); } catch (_) {}
+          LogService.log('AudioSession', 'Unducked');
+        }
         break;
+
       case AudioInterruptionType.unknown:
         if (event.begin) {
           if (player.playing) {
             _pausedByInterruption = true;
             player.pause();
+            _pauseSecondaryAndResetFade();
           }
         } else {
-          // Interruption ended
           _handleInterruptionEnd(event);
         }
         break;
     }
-
-    if (!event.begin) {
-      _handleInterruptionEnd(event);
-    }
   }
 
   static void _handleInterruptionEnd(AudioInterruptionEvent event) {
-    final player = AudioEngine.player;
-    switch (event.type) {
-      case AudioInterruptionType.pause:
-        if (_pausedByInterruption) {
-          _pausedByInterruption = false;
-          player.play();
-          LogService.log('AudioSession', 'Resumed after pause interruption');
-        }
-        break;
-      case AudioInterruptionType.duck:
-        player.setVolume(1.0);
-        LogService.log('AudioSession', 'Unducked');
-        break;
-      default:
-        if (_pausedByInterruption) {
-          _pausedByInterruption = false;
-          player.play();
-          LogService.log('AudioSession', 'Resumed after interruption');
-        }
-        break;
-    }
+    if (!_pausedByInterruption) return;
+    _pausedByInterruption = false;
+    AudioEngine.player.play();
+    LogService.log('AudioSession', 'Resumed after interruption');
   }
 
   // ── Headphone disconnect ───────────────────────────────────────────────────
@@ -96,17 +93,27 @@ class AudioSessionHandler {
     final player = AudioEngine.player;
     if (player.playing) {
       player.pause();
+      _pauseSecondaryAndResetFade();
       LogService.log('AudioSession', 'Paused: headphones disconnected');
     }
+  }
+
+  // ── Dual-player helper ────────────────────────────────────────────────────
+
+  /// Pauses the secondary player and resets any in-flight crossfade so that
+  /// resuming after an interruption starts cleanly from the primary.
+  static void _pauseSecondaryAndResetFade() {
+    try { DualPlayerManager.secondaryPlayer?.pause(); } catch (_) {}
+    CrossfadeController.reset();
   }
 
   // ── Manual controls (for AppLifecycle) ────────────────────────────────────
 
   static void onAppPause() {
-    // Audio session handles this automatically via the OS
+    // Handled automatically by the OS audio session.
   }
 
   static void onAppResume() {
-    // Audio session handles this automatically via the OS
+    // Handled automatically by the OS audio session.
   }
 }

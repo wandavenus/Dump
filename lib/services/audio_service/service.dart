@@ -2,45 +2,127 @@ part of '../audio_service.dart';
 
 /// Main facade for all audio playback operations.
 ///
-/// Internally delegates to [AudioEngine] for the player instance
-/// and [CrossfadeController] for crossfade behaviour.
+/// After the Dual-Player upgrade the queue is managed manually here
+/// (no [ConcatenatingAudioSource]).  [DualPlayerManager] preloads the
+/// next track in a secondary [AudioPlayer]; when a track ends (gapless)
+/// or a crossfade completes, [DualPlayerManager.promote] atomically
+/// swaps secondary → primary and fires [_afterPromotion].
 class AudioService {
   AudioService._();
 
-  // Expose the engine's player so legacy code continues to compile.
+  // ── Player accessor ────────────────────────────────────────────────────────
+
+  /// Returns the currently active (primary) [AudioPlayer].
+  /// Delegates to [AudioEngine.player] → [DualPlayerManager.primaryPlayer].
   static AudioPlayer get player => AudioEngine.player;
 
-  // ignore: deprecated_member_use
-  static ConcatenatingAudioSource? _queue;
+  // ── Playback state ─────────────────────────────────────────────────────────
+
   static final ValueNotifier<AudioPlaybackState> playbackState =
       ValueNotifier<AudioPlaybackState>(const AudioPlaybackState());
 
+  // ── Manual queue state (replaces ConcatenatingAudioSource) ─────────────────
+
+  static List<LocalSong> _playlist = [];
+  static int _currentIndex = 0;
+  static LoopMode _loopMode = LoopMode.off;
+  static bool _shuffleEnabled = false;
+  static List<int> _shuffleOrder = [];
+
+  // ── Misc ───────────────────────────────────────────────────────────────────
+
   static bool _initialized = false;
-  static bool _isLoading = false;
-  static final List<StreamSubscription<dynamic>> _subscriptions = [];
+  static bool _isLoading   = false;
+
+  /// Subscriptions that follow the PRIMARY player; cancelled and
+  /// re-created every time [DualPlayerManager.promote] fires.
+  static final List<StreamSubscription<dynamic>> _playerSubs = [];
+
+  /// Subscriptions that are independent of which player is primary.
+  static final List<StreamSubscription<dynamic>> _staticSubs = [];
 
   // ── Convenience getters ────────────────────────────────────────────────────
 
-  static LocalSong? get currentSong => playbackState.value.currentSong;
-  static bool get isPlaying => playbackState.value.isPlaying;
-  static int get currentIndex => playbackState.value.currentIndex;
+  static LocalSong? get currentSong     => playbackState.value.currentSong;
+  static bool       get isPlaying       => playbackState.value.isPlaying;
+  static int        get currentIndex    => playbackState.value.currentIndex;
   static List<LocalSong> get currentPlaylist =>
       playbackState.value.currentPlaylist;
-  static LoopMode get loopMode => playbackState.value.loopMode;
-  static bool get shuffleEnabled => playbackState.value.shuffleEnabled;
+  static LoopMode   get loopMode        => playbackState.value.loopMode;
+  static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
 
-  // ── Init ───────────────────────────────────────────────────────────────────
+  /// Exposed for [CrossfadeController] so it can populate its gapless
+  /// context without importing [AudioService] (avoids circular dep).
+  static int get nextIndex => _nextIndexValue;
+
+  // ── Queue navigation helpers ───────────────────────────────────────────────
+
+  static int get _nextIndexValue {
+    if (_loopMode == LoopMode.one) return _currentIndex;
+    if (_shuffleEnabled && _shuffleOrder.isNotEmpty) {
+      final pos = _shuffleOrder.indexOf(_currentIndex);
+      if (pos < _shuffleOrder.length - 1) return _shuffleOrder[pos + 1];
+      return _loopMode == LoopMode.all ? _shuffleOrder[0] : -1;
+    }
+    if (_currentIndex < _playlist.length - 1) return _currentIndex + 1;
+    return _loopMode == LoopMode.all ? 0 : -1;
+  }
+
+  static int get _prevIndexValue {
+    if (_loopMode == LoopMode.one) return _currentIndex;
+    if (_shuffleEnabled && _shuffleOrder.isNotEmpty) {
+      final pos = _shuffleOrder.indexOf(_currentIndex);
+      if (pos > 0) return _shuffleOrder[pos - 1];
+      return _loopMode == LoopMode.all ? _shuffleOrder.last : -1;
+    }
+    if (_currentIndex > 0) return _currentIndex - 1;
+    return _loopMode == LoopMode.all ? _playlist.length - 1 : -1;
+  }
+
+  // ── Initialization ─────────────────────────────────────────────────────────
 
   static void initialize() {
     if (_initialized) return;
     _initialized = true;
 
-    final p = player;
+    // Register promotion callback from DualPlayerManager.
+    DualPlayerManager.onPromoted = _afterPromotion;
 
-    _subscriptions.add(
+    // Subscribe to primary player streams.
+    _resubscribeToPrimaryStreams();
+
+    // Speed is a ValueNotifier — use addListener (not a stream subscription).
+    AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
+
+    CrossfadeController.initialize();
+    _syncPlaybackState();
+    LogService.log('AudioService', 'Initialized');
+  }
+
+  static void _onSpeedChange() {
+    final spd = AudioEffectsService.playbackSpeed.value;
+    _setState(playbackState.value.copyWith(speed: spd));
+    LogService.verbose('AudioService',
+        'Speed changed: ${spd.toStringAsFixed(2)}x');
+  }
+
+  // ── Primary-stream subscriptions ───────────────────────────────────────────
+
+  /// Cancels current primary-player subscriptions and resubscribes to
+  /// [AudioEngine.player] (= [DualPlayerManager.primaryPlayer]).
+  /// Called at init and every time a promotion occurs.
+  static void _resubscribeToPrimaryStreams() {
+    for (final sub in _playerSubs) {
+      unawaited(sub.cancel());
+    }
+    _playerSubs.clear();
+
+    final p = AudioEngine.player;
+
+    _playerSubs.add(
       p.playerStateStream.listen((PlayerState state) {
         _setState(playbackState.value.copyWith(
-          isPlaying: state.playing,
+          isPlaying:       state.playing,
           processingState: state.processingState,
         ));
 
@@ -51,7 +133,7 @@ class AudioService {
       }),
     );
 
-    _subscriptions.add(
+    _playerSubs.add(
       p.durationStream.listen((Duration? duration) {
         _setState(playbackState.value.copyWith(
           duration: duration ?? Duration.zero,
@@ -63,48 +145,12 @@ class AudioService {
       }),
     );
 
-    _subscriptions.add(
-      p.currentIndexStream.listen((index) {
-        if (index == null) return;
-        final playlist = playbackState.value.currentPlaylist;
-        if (index < 0 || index >= playlist.length) return;
-
-        _setState(playbackState.value.copyWith(
-          currentIndex: index,
-          currentSong: playlist[index],
-        ));
-
-        final song = playlist[index];
-        LogService.log(
-          'AudioService',
-          'Now playing [${index + 1}/${playlist.length}]: '
-          '"${song.title}" — ${song.artist}',
-        );
-        unawaited(HistoryService.trackPlay(song));
-      }),
-    );
-
-    _subscriptions.add(
-      p.loopModeStream.listen((mode) {
-        _setState(playbackState.value.copyWith(loopMode: mode));
-      }),
-    );
-
-    _subscriptions.add(
-      p.shuffleModeEnabledStream.listen((enabled) {
-        _setState(playbackState.value.copyWith(shuffleEnabled: enabled));
-      }),
-    );
-
-    AudioEffectsService.playbackSpeed.addListener(() {
-      final spd = AudioEffectsService.playbackSpeed.value;
-      _setState(playbackState.value.copyWith(speed: spd));
-      LogService.verbose('AudioService', 'Speed changed: ${spd.toStringAsFixed(2)}x');
-    });
-
-    CrossfadeController.initialize();
-    _syncPlaybackState();
-    LogService.log('AudioService', 'Initialized');
+    // Immediately sync from current player state.
+    _setState(playbackState.value.copyWith(
+      isPlaying:       p.playing,
+      processingState: p.processingState,
+      duration:        p.duration ?? Duration.zero,
+    ));
   }
 
   // ── Playback ───────────────────────────────────────────────────────────────
@@ -127,8 +173,16 @@ class AudioService {
     }
 
     _isLoading = true;
-    final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
-    final selectedSong = immutablePlaylist[index];
+
+    // Reset any active crossfade.
+    CrossfadeController.reset();
+
+    final immutablePlaylist  = List<LocalSong>.unmodifiable(playlist);
+    final selectedSong       = immutablePlaylist[index];
+
+    _playlist      = immutablePlaylist;
+    _currentIndex  = index;
+    if (_shuffleEnabled) _buildShuffleOrder();
 
     LogService.log(
       'AudioService',
@@ -137,23 +191,15 @@ class AudioService {
     );
 
     _setState(playbackState.value.copyWith(
-      currentSong: selectedSong,
-      currentIndex: index,
+      currentSong:     selectedSong,
+      currentIndex:    index,
       currentPlaylist: immutablePlaylist,
-      isLoading: true,
+      isLoading:       true,
     ));
 
     try {
-      // ignore: deprecated_member_use
-      _queue = ConcatenatingAudioSource(
-        useLazyPreparation: true,
-        shuffleOrder: DefaultShuffleOrder(),
-        children: immutablePlaylist.map(buildAudioSource).toList(),
-      );
-
-      await player.setAudioSource(_queue!, initialIndex: index);
-      LogService.verbose('AudioService',
-          'AudioSource set — ${immutablePlaylist.length} tracks in queue');
+      await player.setAudioSource(buildAudioSource(selectedSong));
+      LogService.verbose('AudioService', 'AudioSource set (single-track primary)');
 
       if (autoplay) {
         await player.play();
@@ -167,6 +213,9 @@ class AudioService {
       _setState(playbackState.value.copyWith(isLoading: false));
       _syncPlaybackState();
     }
+
+    // Preload next track into secondary player.
+    _schedulePreload();
   }
 
   static Future<void> play() async {
@@ -180,6 +229,8 @@ class AudioService {
     initialize();
     final pos = _fmtDur(player.position);
     await player.pause();
+    // Also pause secondary if it was fading in during a crossfade.
+    try { DualPlayerManager.secondaryPlayer?.pause(); } catch (_) {}
     LogService.verbose('AudioService', 'Paused at $pos');
     _syncPlaybackState();
   }
@@ -192,11 +243,14 @@ class AudioService {
   }
 
   static Future<void> skipNext() async {
-    if (!player.hasNext) {
+    final nextIdx = _nextIndexValue;
+    if (nextIdx < 0) {
       LogService.verbose('AudioService', 'skipNext: already at end of queue');
       return;
     }
-    await player.seekToNext();
+    CrossfadeController.reset();
+    _currentIndex = nextIdx;
+    await _playCurrentSong(autoplay: true);
     LogService.log('AudioService', 'Skip → next track');
   }
 
@@ -204,95 +258,254 @@ class AudioService {
     if (player.position.inSeconds > 3) {
       await player.seek(Duration.zero);
       LogService.verbose('AudioService', 'Skip previous: restarted track');
-    } else {
-      await player.seekToPrevious();
-      LogService.log('AudioService', 'Skip → previous track');
+      return;
     }
+    final prevIdx = _prevIndexValue;
+    if (prevIdx < 0) {
+      await player.seek(Duration.zero);
+      LogService.verbose('AudioService', 'Skip previous: at start, restarted');
+      return;
+    }
+    CrossfadeController.reset();
+    _currentIndex = prevIdx;
+    await _playCurrentSong(autoplay: true);
+    LogService.log('AudioService', 'Skip → previous track');
   }
 
   static Future<void> playFromCurrentQueue(int index) async {
-    final song = currentPlaylist.elementAtOrNull(index);
-    await player.seek(Duration.zero, index: index);
-    if (!player.playing) await player.play();
-    if (song != null) {
-      LogService.log('AudioService',
-          'Queue jump → [${index + 1}]: "${song.title}"');
-    }
+    if (index < 0 || index >= _playlist.length) return;
+    CrossfadeController.reset();
+    _currentIndex = index;
+    await _playCurrentSong(autoplay: true);
+    LogService.log('AudioService',
+        'Queue jump → [${index + 1}]: "${_playlist[index].title}"');
   }
 
   // ── Loop / Shuffle ─────────────────────────────────────────────────────────
 
   static Future<void> cycleLoopMode() async {
-    final next = switch (loopMode) {
+    final next = switch (_loopMode) {
       LoopMode.off => LoopMode.all,
       LoopMode.all => LoopMode.one,
       LoopMode.one => LoopMode.off,
     };
-    await player.setLoopMode(next);
+    _loopMode = next;
+    _setState(playbackState.value.copyWith(loopMode: next));
+    _schedulePreload(); // update preload since "next" may have changed
     LogService.log('AudioService', 'Loop mode → ${next.name}');
   }
 
   static Future<void> toggleShuffle() async {
-    final enabled = !shuffleEnabled;
-    await player.setShuffleModeEnabled(enabled);
-    if (enabled) await player.shuffle();
-    LogService.log('AudioService', 'Shuffle → ${enabled ? 'on' : 'off'}');
+    _shuffleEnabled = !_shuffleEnabled;
+    if (_shuffleEnabled) {
+      _buildShuffleOrder();
+    } else {
+      _shuffleOrder = [];
+    }
+    _setState(playbackState.value.copyWith(shuffleEnabled: _shuffleEnabled));
+    _schedulePreload();
+    LogService.log('AudioService',
+        'Shuffle → ${_shuffleEnabled ? "on" : "off"}');
   }
 
   // ── Queue management ───────────────────────────────────────────────────────
 
   static void addToQueueNext(LocalSong song) {
-    if (_queue == null) return;
-    final nextIndex = (currentIndex + 1).clamp(0, _queue!.length).toInt();
-    _queue!.insert(nextIndex, buildAudioSource(song));
-    final newPlaylist = List<LocalSong>.from(currentPlaylist)
-      ..insert(nextIndex, song);
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
-    ));
+    if (_playlist.isEmpty) return;
+    final nextPos    = (_currentIndex + 1).clamp(0, _playlist.length);
+    final newList    = List<LocalSong>.from(_playlist)..insert(nextPos, song);
+    _playlist = List<LocalSong>.unmodifiable(newList);
+    if (_shuffleEnabled) _buildShuffleOrder();
+    _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
+    _schedulePreload();
     LogService.log('AudioService',
-        'Queued next: "${song.title}" at position ${nextIndex + 1}');
+        'Queued next: "${song.title}" at position ${nextPos + 1}');
   }
 
   static void addToQueue(LocalSong song) {
-    if (_queue == null) return;
-    _queue!.add(buildAudioSource(song));
-    final newPlaylist = List<LocalSong>.from(currentPlaylist)..add(song);
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: List<LocalSong>.unmodifiable(newPlaylist),
-    ));
+    if (_playlist.isEmpty) return;
+    final newList = List<LocalSong>.from(_playlist)..add(song);
+    _playlist = List<LocalSong>.unmodifiable(newList);
+    if (_shuffleEnabled) _buildShuffleOrder();
+    _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
+    _schedulePreload();
     LogService.log('AudioService',
-        'Queued at end: "${song.title}" (queue size: ${newPlaylist.length})');
+        'Queued at end: "${song.title}" (queue size: ${_playlist.length})');
   }
 
-  // ── Internal ───────────────────────────────────────────────────────────────
+  // ── Internal — playback helpers ────────────────────────────────────────────
+
+  /// Load and optionally play the song at [_currentIndex].
+  static Future<void> _playCurrentSong({bool autoplay = true}) async {
+    if (_playlist.isEmpty ||
+        _currentIndex < 0 ||
+        _currentIndex >= _playlist.length) return;
+
+    _isLoading = true;
+    final song = _playlist[_currentIndex];
+
+    _setState(playbackState.value.copyWith(
+      currentSong:  song,
+      currentIndex: _currentIndex,
+      isLoading:    true,
+    ));
+
+    try {
+      await player.setAudioSource(buildAudioSource(song));
+      if (autoplay) await player.play();
+
+      LogService.log(
+        'AudioService',
+        'Now playing [${_currentIndex + 1}/${_playlist.length}]: '
+        '"${song.title}" — ${song.artist}',
+      );
+      unawaited(HistoryService.trackPlay(song));
+    } catch (e, st) {
+      LogService.error('AudioService', '_playCurrentSong failed: $e',
+          stackTrace: st.toString());
+    } finally {
+      _isLoading = false;
+      _setState(playbackState.value.copyWith(isLoading: false));
+      _syncPlaybackState();
+    }
+
+    _schedulePreload();
+  }
+
+  // ── Preloading ─────────────────────────────────────────────────────────────
+
+  /// Preloads the next track into the secondary player and informs
+  /// [CrossfadeController] of the gapless-album context.
+  static void _schedulePreload() {
+    final nextIdx = _nextIndexValue;
+
+    if (nextIdx < 0 ||
+        nextIdx == _currentIndex ||
+        nextIdx >= _playlist.length) {
+      unawaited(DualPlayerManager.cancelPreload());
+      CrossfadeController.updateContext(
+        nextIsGapless: false,
+        loopOne:       _loopMode == LoopMode.one,
+      );
+      return;
+    }
+
+    final current = _playlist[_currentIndex];
+    final next    = _playlist[nextIdx];
+    final gapless = GaplessAlbumDetector.isGapless(current, next);
+
+    CrossfadeController.updateContext(
+      nextIsGapless: gapless,
+      loopOne:       _loopMode == LoopMode.one,
+    );
+
+    unawaited(DualPlayerManager.preloadTrack(next));
+
+    LogService.verbose('AudioService',
+        'Preloading "${next.title}" '
+        '(${gapless ? "gapless — no crossfade" : "crossfade eligible"})');
+  }
+
+  // ── Promotion callback (fired by DualPlayerManager) ────────────────────────
+
+  /// Called immediately after [DualPlayerManager.promote] swaps the players.
+  ///
+  /// [fromCrossfade] = true  → secondary was already playing; don't call play().
+  /// [fromCrossfade] = false → secondary was preloaded but paused; call play().
+  static void _afterPromotion(bool fromCrossfade) {
+    // Advance queue index.
+    final nextIdx = _nextIndexValue;
+    if (nextIdx >= 0 && nextIdx < _playlist.length) {
+      _currentIndex = nextIdx;
+    }
+
+    final song = _playlist.elementAtOrNull(_currentIndex);
+    if (song != null) {
+      _setState(playbackState.value.copyWith(
+        currentSong:  song,
+        currentIndex: _currentIndex,
+      ));
+      unawaited(HistoryService.trackPlay(song));
+      LogService.log(
+        'AudioService',
+        'Promoted → [${_currentIndex + 1}/${_playlist.length}]: '
+        '"${song.title}" — ${song.artist}',
+      );
+    }
+
+    // Re-subscribe to the new primary's streams.
+    _resubscribeToPrimaryStreams();
+
+    // Start playback if secondary was only preloaded (gapless path).
+    if (!fromCrossfade) {
+      unawaited(DualPlayerManager.primaryPlayer.play());
+    }
+
+    // Re-apply DSP effects immediately (EQ, pitch, speed).
+    AudioEffectsService.applyAll();
+    // Re-apply native effects (BassBoost, Reverb, Spatial) once the new
+    // audio session has settled (~350 ms — avoids race with session ID).
+    Future.delayed(
+      const Duration(milliseconds: 350),
+      AudioEffectsService.applyAll,
+    );
+
+    // Preload the track after next.
+    _schedulePreload();
+  }
+
+  // ── Track-completed handler ────────────────────────────────────────────────
 
   static void _onTrackCompleted() {
-    final state = playbackState.value;
     if (_isLoading) return;
 
-    if (state.loopMode == LoopMode.one) {
+    // CrossfadeController is handling this transition.
+    if (CrossfadeController.isFading) return;
+
+    if (_loopMode == LoopMode.one) {
       player.seek(Duration.zero).then((_) => player.play());
       LogService.verbose('AudioService', 'Loop one: restarting track');
       return;
     }
 
-    if (state.currentIndex >= state.currentPlaylist.length - 1) {
-      if (state.loopMode == LoopMode.all) {
-        player.seek(Duration.zero, index: 0).then((_) => player.play());
-        LogService.verbose('AudioService', 'Loop all: wrapping to track 1');
-      } else {
-        LogService.verbose('AudioService', 'End of queue reached');
-      }
+    final nextIdx = _nextIndexValue;
+    if (nextIdx < 0) {
+      LogService.verbose('AudioService', 'End of queue reached');
       return;
     }
 
-    skipNext();
+    // Gapless promotion: secondary is preloaded → promote then play.
+    unawaited(_gaplessPromoteAndPlay());
   }
+
+  static Future<void> _gaplessPromoteAndPlay() async {
+    if (DualPlayerManager.secondaryPlayer == null) {
+      // Fallback: secondary wasn't ready — load track directly.
+      LogService.warn(
+          'AudioService', 'Gapless: secondary not ready, loading directly');
+      _currentIndex = _nextIndexValue;
+      await _playCurrentSong(autoplay: true);
+      return;
+    }
+    // Promote secondary → primary (not from crossfade, so play() is needed).
+    await DualPlayerManager.promote(fromCrossfade: false);
+    // _afterPromotion(false) will call play() on the new primary.
+  }
+
+  // ── Shuffle helpers ────────────────────────────────────────────────────────
+
+  static void _buildShuffleOrder() {
+    _shuffleOrder = List.generate(_playlist.length, (i) => i)..shuffle();
+    // Ensure current track stays at the logical "front".
+    _shuffleOrder.remove(_currentIndex);
+    _shuffleOrder.insert(0, _currentIndex);
+  }
+
+  // ── Misc internals ─────────────────────────────────────────────────────────
 
   static void _syncPlaybackState() {
     _setState(playbackState.value.copyWith(
-      isPlaying: player.playing,
+      isPlaying:       player.playing,
       processingState: player.processingState,
     ));
   }
@@ -307,13 +520,18 @@ class AudioService {
     return '$m:$s';
   }
 
+  // ── Dispose ────────────────────────────────────────────────────────────────
+
   static Future<void> dispose() async {
     CrossfadeController.dispose();
-    for (final sub in _subscriptions) {
+    AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
+    for (final sub in [..._playerSubs, ..._staticSubs]) {
       await sub.cancel();
     }
-    _subscriptions.clear();
+    _playerSubs.clear();
+    _staticSubs.clear();
     _initialized = false;
+    DualPlayerManager.onPromoted = null;
     LogService.log('AudioService', 'Disposed');
     await AudioEngine.dispose();
   }

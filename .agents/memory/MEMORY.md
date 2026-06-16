@@ -8,6 +8,7 @@
 - [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
 - [AudioEngine architecture](audio-engine.md) — init order: ThemeController → LogService → LyricsSettings → AudioEngine → AudioEffectsService → AudioService.
+- [Dual-Player Architecture](dual-player-architecture.md) — callback pattern breaks AudioEngine↔DualPlayerManager circular dep; promotion flow; crossfade tick; applyAll() called twice after promote.
 - [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
