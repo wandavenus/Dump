@@ -23,11 +23,11 @@ class BlurredArtworkBackground extends StatelessWidget {
               fit: BoxFit.cover,
               gaplessPlayback: true,
               cacheWidth: cacheWidth,
-              filterQuality: FilterQuality.low,
+              filterQuality: FilterQuality.none,
             ),
           ),
         ),
-        const ColoredBox(color: Color.fromARGB(130, 0, 0, 0)),
+        const ColoredBox(color: Color.fromARGB(0, 0, 0, 0)),
       ],
     );
   }
