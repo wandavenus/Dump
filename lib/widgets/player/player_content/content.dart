@@ -75,8 +75,8 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2;
-                final coverTop = rawTop.clamp(-8.0, 34.0);
+                final rawTop = (sh - largeCoverSize - 140) / 2;
+                final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
                 const lyricsTop = _smallCoverSize + 20.0;
