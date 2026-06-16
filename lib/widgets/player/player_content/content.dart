@@ -218,44 +218,41 @@ class _PlayerContentState extends State<PlayerContent> {
   opacity: 1.0 - _lyricsExpand,
   child: IgnorePointer(
     ignoring: _lyricsExpand > 0.0,
-    child: Transform.translate(
-      offset: const Offset(0, -24),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PlayerProgressSection(
-              formatTime: widget.formatTime,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Transform.translate(
+          offset: const Offset(0, -24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayerProgressSection(
+                  formatTime: widget.formatTime,
+                ),
+                const SizedBox(height: 24),
+                PlayerTransportControls(
+                  playbackState: widget.playbackState,
+                ),
+                const SizedBox(height: 25),
+                PlayerSecondaryControls(
+                  song: widget.song,
+                  showLyrics: showLyrics,
+                  onLyricsToggle: widget.onLyricsToggle,
+                ),
+                const SizedBox(height: 21),
+              ],
             ),
-            const SizedBox(height: 24),
-            PlayerTransportControls(
-              playbackState: widget.playbackState,
-            ),
-            const SizedBox(height: 25),
-            PlayerSecondaryControls(
-              song: widget.song,
-              showLyrics: showLyrics,
-              onLyricsToggle: widget.onLyricsToggle,
-            ),
-            const SizedBox(height: 21),
-          ],
+          ),
         ),
-      ),
-    ),
-  ),
- ),   
 
- Positioned(
-  left: 0,
-  right: 0,
-  bottom: 0,
-  child: AnimatedOpacity(
-    duration: const Duration(milliseconds: 250),
-    opacity: 1.0 - _lyricsExpand,
-    child: Container(
-      height: 1,
-      color: Colors.white24,
+        Container(
+          width: double.infinity,
+          height: 1,
+          color: Colors.white24,
+        ),
+      ],
     ),
   ),
 ),
