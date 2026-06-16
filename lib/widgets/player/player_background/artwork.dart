@@ -44,9 +44,20 @@ class _BlurredArtworkBackgroundState
     return Stack(
       fit: StackFit.expand,
       children: [
-        Transform.scale(
-          scale: 1.16,
-          child: ImageFiltered(
+        AnimatedBuilder(
+  animation: _controller,
+  builder: (_, child) {
+    return Transform.translate(
+      offset: Offset(
+        math.sin(_controller.value * math.pi * 2) * 12,
+        0,
+      ),
+      child: child,
+    );
+  },
+  child: Transform.scale(
+    scale: 1.16,
+    child: ImageFiltered(
             imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
             child: Image.memory(
               widget.artwork,
@@ -54,6 +65,7 @@ class _BlurredArtworkBackgroundState
               gaplessPlayback: true,
               cacheWidth: cacheWidth,
               filterQuality: FilterQuality.none,
+              ),
             ),
           ),
         ),
