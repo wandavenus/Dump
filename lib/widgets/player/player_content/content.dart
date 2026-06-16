@@ -21,7 +21,7 @@ class PlayerContent extends StatefulWidget {
 }
 
 class _PlayerContentState extends State<PlayerContent> {
-  static const _smallCoverSize = 72.0;
+  static const _smallCoverSize = 64.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
 
@@ -78,7 +78,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
-                const lyricsTop = _smallCoverSize + 5.0;
+                const lyricsTop = _smallCoverSize + 15.0;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -133,7 +133,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                      Positioned(
   top: 14,
-  left: 106,
+  left: 22 + _smallCoverSize + 12,
   right: 70,
   child: AnimatedOpacity(
     duration: _animDuration,
@@ -275,7 +275,12 @@ class _LyricsOverlayBody extends StatelessWidget {
         Colors.white,
         Colors.transparent,
       ],
-      stops: [0.0, 0.05, 0.95, 1.0],
+      stops: [
+  0.0,
+  0.20,
+  0.80,
+  1.0,
+],
     ).createShader(rect);
   },
   blendMode: BlendMode.dstIn,
