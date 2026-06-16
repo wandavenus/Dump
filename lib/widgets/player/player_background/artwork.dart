@@ -49,9 +49,9 @@ class _BlurredArtworkBackgroundState
   builder: (_, child) {
     return Transform.translate(
       offset: Offset(
-        math.sin(_controller.value * math.pi * 2) * 12,
-        0,
-      ),
+  math.sin(_controller.value * math.pi * 2) * 18,
+  math.cos(_controller.value * math.pi * 2) * 8,
+),
       child: child,
     );
   },
