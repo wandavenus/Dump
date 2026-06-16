@@ -231,7 +231,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 PlayerProgressSection(
                   formatTime: widget.formatTime,
                 ),
-                const SizedBox(height: 39),
+                const SizedBox(height: 47),
                 PlayerTransportControls(
                   playbackState: widget.playbackState,
                 ),
@@ -309,7 +309,7 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        NotificationListener<ScrollNotification>(
+        NotificationListener<UserScrollNotification>(
   onNotification: (notification) {
     final offset = notification.metrics.pixels;
 
@@ -582,10 +582,10 @@ class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
   static const _sizes = [
-  (label: 'S', value: 18.0),
-  (label: 'M', value: 22.0),
-  (label: 'L', value: 28.0),
-  (label: 'XL', value: 34.0),
+  (label: 'S', value: 23.0),
+  (label: 'M', value: 34.0),
+  (label: 'L', value: 48.0),
+  (label: 'XL', value: 55.0),
 ];
 
   @override
