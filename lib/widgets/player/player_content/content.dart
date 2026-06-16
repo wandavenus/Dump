@@ -75,7 +75,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Normal-mode cover position: centred in the available space,
                 // leaving ~80 px at the bottom for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 3;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 10;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Lyrics area starts just below the small thumbnail.
@@ -222,7 +222,7 @@ class _PlayerContentState extends State<PlayerContent> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.translate(
-          offset: const Offset(0, 0),
+          offset: const Offset(0, -70),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
             child: Column(
@@ -231,17 +231,17 @@ class _PlayerContentState extends State<PlayerContent> {
                 PlayerProgressSection(
                   formatTime: widget.formatTime,
                 ),
-                const SizedBox(height: 53),
+                const SizedBox(height: 20),
                 PlayerTransportControls(
                   playbackState: widget.playbackState,
                 ),
-                const SizedBox(height: 46),
+                const SizedBox(height: 24),
                 PlayerSecondaryControls(
                   song: widget.song,
                   showLyrics: showLyrics,
                   onLyricsToggle: widget.onLyricsToggle,
                 ),
-                const SizedBox(height: 1.0),
+                const SizedBox(height: 15),
               ],
             ),
           ),
