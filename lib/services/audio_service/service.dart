@@ -29,6 +29,9 @@ class AudioService {
   static bool _shuffleEnabled = false;
   static List<int> _shuffleOrder = [];
 
+  // Last song played — used by LoudnessSourceResolver for auto album-gain.
+  static LocalSong? _previousSong;
+
   // ── Misc ───────────────────────────────────────────────────────────────────
 
   static bool _initialized = false;
@@ -201,6 +204,9 @@ class AudioService {
       await player.setAudioSource(buildAudioSource(selectedSong));
       LogService.verbose('AudioService', 'AudioSource set (single-track primary)');
 
+      // Apply ReplayGain gain before playback starts.
+      await _applyReplayGain(selectedSong);
+
       if (autoplay) {
         await player.play();
         LogService.verbose('AudioService', 'Autoplay started');
@@ -209,6 +215,7 @@ class AudioService {
       LogService.error('AudioService', 'playSongAt failed: $e',
           stackTrace: st.toString());
     } finally {
+      _previousSong = selectedSong;
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
       _syncPlaybackState();
@@ -352,6 +359,10 @@ class AudioService {
 
     try {
       await player.setAudioSource(buildAudioSource(song));
+
+      // Apply ReplayGain before playback starts.
+      await _applyReplayGain(song);
+
       if (autoplay) await player.play();
 
       LogService.log(
@@ -364,6 +375,7 @@ class AudioService {
       LogService.error('AudioService', '_playCurrentSong failed: $e',
           stackTrace: st.toString());
     } finally {
+      _previousSong = song;
       _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
       _syncPlaybackState();
@@ -450,8 +462,43 @@ class AudioService {
       AudioEffectsService.applyAll,
     );
 
+    // Apply ReplayGain for the newly promoted song (async, non-blocking).
+    if (song != null) unawaited(_applyReplayGain(song));
+
     // Preload the track after next.
     _schedulePreload();
+  }
+
+  // ── ReplayGain application ────────────────────────────────────────────────
+
+  /// Resolves and applies ReplayGain gain for [song].
+  ///
+  /// If [ReplayGainMode.off], disables normalize. Otherwise resolves the best
+  /// available loudness data and applies it via [AudioEngine.applyNormalize].
+  static Future<void> _applyReplayGain(LocalSong song) async {
+    final mode = AudioEffectsService.replayGainMode.value;
+    if (mode == ReplayGainMode.off) {
+      AudioEngine.applyNormalize(enabled: false);
+      return;
+    }
+
+    final data = await LoudnessSourceResolver.resolve(
+      song:         song,
+      mode:         mode,
+      previousSong: _previousSong,
+    );
+
+    if (!data.hasData) {
+      AudioEngine.applyNormalize(enabled: false);
+      return;
+    }
+
+    final preamp = AudioEffectsService.replayGainPreamp.value;
+    final gainDb = data.safeGain(preamp: preamp);
+    AudioEngine.applyNormalize(
+      enabled:     true,
+      targetGainMb: gainDb * 100.0,
+    );
   }
 
   // ── Track-completed handler ────────────────────────────────────────────────

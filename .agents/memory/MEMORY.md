@@ -15,3 +15,4 @@
 - [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
 - [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
+- [ReplayGain architecture](replay-gain.md) — Phase 4: LoudnessData model, ReplayGainService (native tags via jaudiotagger), LoudnessSourceResolver (branching priority), wired into AudioService; target Android 11 + MIUI 12.

@@ -177,24 +177,39 @@ class AudioEngine {
     }
   }
 
-  // ── Normalize (LoudnessEnhancer) ──────────────────────────────────────────
+  // ── Normalize (LoudnessEnhancer + ReplayGain volume) ─────────────────────
 
-  /// [targetGainMb] is in millibels (0 = neutral).
+  /// Applies loudness normalization to the active player.
+  ///
+  /// On Android: uses [AndroidLoudnessEnhancer] with [targetGainMb].
+  /// On non-Android / web: approximates via player volume clamped to [0.1, 1.0].
+  ///
+  /// [targetGainMb] is in millibels (100 mb = 1 dB).  Pass 0 for neutral.
   static void applyNormalize({
     required bool enabled,
     double targetGainMb = 0.0,
   }) {
     final enhancer = _loudnessEnhancer;
     if (enhancer == null) {
-      // Non-Android fallback: approximate via player volume.
-      try { _player?.setVolume(enabled ? 0.88 : 1.0); } catch (e) {
+      // Non-Android (web) fallback: rough volume approximation.
+      if (!enabled) {
+        try { _player?.setVolume(1.0); } catch (_) {}
+        return;
+      }
+      // Convert mb → linear scale: volume = 10^(gainMb / 2000)
+      final gainDb     = targetGainMb / 100.0;
+      final linearGain = _dbToLinear(gainDb);
+      final volume     = linearGain.clamp(0.1, 1.0);
+      try { _player?.setVolume(volume); } catch (e) {
         LogService.warn('AudioEngine', 'fallback volume: $e');
       }
       return;
     }
     try {
       if (enabled) {
-        enhancer.setTargetGain(targetGainMb);
+        // AndroidLoudnessEnhancer accepts millibels; clamp to ±2400 mb (±24 dB).
+        final clamped = targetGainMb.clamp(-2400.0, 2400.0);
+        enhancer.setTargetGain(clamped);
         enhancer.setEnabled(true);
       } else {
         enhancer.setTargetGain(0.0);
@@ -203,6 +218,30 @@ class AudioEngine {
     } catch (e) {
       LogService.warn('AudioEngine', 'applyNormalize: $e');
     }
+  }
+
+  static double _dbToLinear(double db) {
+    if (db == 0.0) return 1.0;
+    // 10^(db/20) via series expansion (avoids dart:math import)
+    final x = db / 20.0;
+    return _pow10(x);
+  }
+
+  static double _pow10(double x) {
+    // e^(x * ln10); ln10 ≈ 2.302585092994046
+    const ln10 = 2.302585092994046;
+    return _exp(x * ln10);
+  }
+
+  static double _exp(double x) {
+    // Taylor series for e^x — accurate enough for small |x|
+    var result = 1.0;
+    var term   = 1.0;
+    for (var i = 1; i <= 30; i++) {
+      term   *= x / i;
+      result += term;
+    }
+    return result;
   }
 
   // ── Cleanup ─────────────────────────────────────────────────────────────────
