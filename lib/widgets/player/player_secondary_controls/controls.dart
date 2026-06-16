@@ -23,7 +23,7 @@ class PlayerSecondaryControls extends StatelessWidget {
             active: showLyrics,
             onTap: onLyricsToggle,
           ),
-          const SizedBox(width: 110),
+          const SizedBox(width: 150),
           IconButton(
             onPressed: () => _showQueue(context),
             icon: const Icon(CupertinoIcons.list_bullet, size: 24),
