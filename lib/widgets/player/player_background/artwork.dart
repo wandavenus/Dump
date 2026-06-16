@@ -44,33 +44,71 @@ class _BlurredArtworkBackgroundState
     return Stack(
       fit: StackFit.expand,
       children: [
-        AnimatedBuilder(
-  animation: _controller,
-  builder: (_, child) {
-    return Transform.translate(
-      offset: Offset(
-  math.sin(_controller.value * math.pi * 2) * 18,
-  math.cos(_controller.value * math.pi * 2) * 8,
-),
-      child: child,
-    );
-  },
-  child: Transform.scale(
-    scale: 1.16,
-    child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-            child: Image.memory(
-              widget.artwork,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              cacheWidth: cacheWidth,
-              filterQuality: FilterQuality.none,
-              ),
-            ),
+
+  AnimatedBuilder(
+    animation: _controller,
+    builder: (_, child) {
+      return Transform.translate(
+        offset: Offset(
+          math.sin(_controller.value * math.pi * 2) * 18,
+          math.cos(_controller.value * math.pi * 2) * 8,
+        ),
+        child: child,
+      );
+    },
+    child: Opacity(
+      opacity: .30,
+      child: Transform.scale(
+        scale: 1.30,
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(
+            sigmaX: 50,
+            sigmaY: 50,
+          ),
+          child: Image.memory(
+            widget.artwork,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            cacheWidth: cacheWidth,
           ),
         ),
-        const ColoredBox(color: Color.fromARGB(0, 0, 0, 0)),
-      ],
+      ),
+    ),
+  ),
+
+  AnimatedBuilder(
+    animation: _controller,
+    builder: (_, child) {
+      return Transform.translate(
+        offset: Offset(
+          -math.sin(_controller.value * math.pi * 2) * 10,
+          math.cos(_controller.value * math.pi * 2) * 5,
+        ),
+        child: child,
+      );
+    },
+    child: Transform.scale(
+      scale: 1.16,
+      child: ImageFiltered(
+        imageFilter: ImageFilter.blur(
+          sigmaX: 32,
+          sigmaY: 32,
+        ),
+        child: Image.memory(
+          widget.artwork,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: cacheWidth,
+          filterQuality: FilterQuality.none,
+        ),
+      ),
+    ),
+  ),
+
+  const ColoredBox(
+    color: Color.fromARGB(30, 0, 0, 0),
+  ),
+],
     );
   }
 }
