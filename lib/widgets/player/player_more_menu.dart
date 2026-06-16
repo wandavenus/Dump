@@ -11,8 +11,8 @@ class PlayerMoreMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 36,
-      height: 36,
+      width: 34,
+      height: 34,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         color: Color.fromARGB(90, 100, 100, 100),
