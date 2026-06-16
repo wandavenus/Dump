@@ -112,18 +112,7 @@ class _MiniPlayerBody extends StatelessWidget {
                             opacity: 1 - anim,
                             child: Row(
                               children: [
-                                IconButton(
-                                  onPressed: canGoPrev
-                                      ? () => AudioService.skipPrevious()
-                                      : null,
-                                  icon: Icon(
-                                    Icons.skip_previous,
-                                    size: 28,
-                                    color: canGoPrev
-                                        ? Colors.white
-                                        : Colors.white24,
-                                  ),
-                                ),
+                                
                                 IconButton(
                                   onPressed: () {
                                     playbackState.isPlaying
