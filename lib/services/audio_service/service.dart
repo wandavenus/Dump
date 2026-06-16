@@ -340,6 +340,51 @@ class AudioService {
         'Queued at end: "${song.title}" (queue size: ${_playlist.length})');
   }
 
+  /// Reorders the queue by moving the item at [oldIndex] to [newIndex].
+  ///
+  /// Follows Flutter's [ReorderableListView.onReorder] convention:
+  /// when dragging downward, [newIndex] already accounts for the removal
+  /// of the item at [oldIndex], so no extra adjustment is needed here —
+  /// the caller passes the raw values from [onReorder].
+  static void reorderQueue(int oldIndex, int newIndex) {
+    if (_playlist.length < 2) return;
+    if (oldIndex == newIndex) return;
+    if (oldIndex < 0 || oldIndex >= _playlist.length) return;
+
+    // Flutter's ReorderableListView passes newIndex as the position to insert
+    // AFTER the old item has been conceptually removed. We must adjust.
+    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex)
+        .clamp(0, _playlist.length - 1);
+
+    final mutable = List<LocalSong>.from(_playlist);
+    final item = mutable.removeAt(oldIndex);
+    mutable.insert(adjustedNew, item);
+
+    // Keep _currentIndex pointing at the same song.
+    int newCurrent = _currentIndex;
+    if (oldIndex == _currentIndex) {
+      newCurrent = adjustedNew;
+    } else if (oldIndex < _currentIndex && adjustedNew >= _currentIndex) {
+      newCurrent = _currentIndex - 1;
+    } else if (oldIndex > _currentIndex && adjustedNew <= _currentIndex) {
+      newCurrent = _currentIndex + 1;
+    }
+
+    _currentIndex = newCurrent;
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+
+    if (_shuffleEnabled) _buildShuffleOrder();
+
+    _setState(playbackState.value.copyWith(
+      currentPlaylist: _playlist,
+      currentIndex: _currentIndex,
+    ));
+
+    _schedulePreload();
+    LogService.log(
+        'AudioService', 'Queue reordered: [$oldIndex] → [$adjustedNew]');
+  }
+
   // ── Internal — playback helpers ────────────────────────────────────────────
 
   /// Load and optionally play the song at [_currentIndex].

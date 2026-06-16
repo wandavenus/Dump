@@ -125,11 +125,11 @@ class CrossfadeController {
       final elapsed   = (_fadeStartRemainingMs - remaining).clamp(0, crossMs);
       final fadeRatio = (elapsed / crossMs).clamp(0.0, 1.0);
 
-      _setVol(primary, _easeInQuad(1.0 - fadeRatio));   // primary:   1 → 0
+      _setVol(primary, _logFadeOut(fadeRatio));          // primary:   1 → 0
 
       final secondary = DualPlayerManager.secondaryPlayer;
       if (secondary != null) {
-        _setVol(secondary, _easeOutQuad(fadeRatio));     // secondary: 0 → 1
+        _setVol(secondary, _logFadeIn(fadeRatio));       // secondary: 0 → 1
       }
 
       if (fadeRatio >= 1.0 && !_promoted) {
@@ -176,13 +176,24 @@ class CrossfadeController {
     try { p.setVolume(v.clamp(0.0, 1.0)); } catch (_) {}
   }
 
-  // ── Easing curves ─────────────────────────────────────────────────────────
+  // ── Logarithmic volume curves ─────────────────────────────────────────────
+  //
+  // Both curves operate in the dB domain so the transition sounds perceptually
+  // smooth to the human ear (equal-loudness / Fletcher-Munson behaviour).
+  //
+  //   fade-out: 0 dB → −60 dB  as  t: 0 → 1   →  10^(−3t)
+  //   fade-in : −60 dB → 0 dB  as  t: 0 → 1   →  10^(−3(1−t))
+  //
+  // At t = 0.5 each channel is at −30 dB (≈ 3 % linear), giving a tight
+  // overlap without clipping at the crossover point.
 
-  /// Ease-in quad (slow start) — used for the fade-OUT channel.
-  static double _easeInQuad(double t) => t * t;
+  /// Primary channel: logarithmic fade-OUT (1.0 → ~0.001).
+  static double _logFadeOut(double t) =>
+      math.pow(10.0, -3.0 * t).toDouble().clamp(0.0, 1.0);
 
-  /// Ease-out quad (fast start, slow end) — used for the fade-IN channel.
-  static double _easeOutQuad(double t) => t * (2.0 - t);
+  /// Secondary channel: logarithmic fade-IN (≈0.001 → 1.0).
+  static double _logFadeIn(double t) =>
+      math.pow(10.0, -3.0 * (1.0 - t)).toDouble().clamp(0.0, 1.0);
 
   // ── Dispose ───────────────────────────────────────────────────────────────
 

@@ -3,6 +3,7 @@ part of '../player_sheet.dart';
 class _PlayerSheetState extends State<PlayerSheet> {
   double _dragDy = 0;
   bool _showLyrics = false;
+  bool _showQueue = false;
 
   @override
   void didUpdateWidget(covariant PlayerSheet oldWidget) {
@@ -10,9 +11,10 @@ class _PlayerSheetState extends State<PlayerSheet> {
     if (widget.expanded && !oldWidget.expanded) {
       _dragDy = 0;
     }
-    // Reset lyrics mode when sheet collapses
-    if (!widget.expanded && _showLyrics) {
+    // Reset both overlays when sheet collapses.
+    if (!widget.expanded && (_showLyrics || _showQueue)) {
       _showLyrics = false;
+      _showQueue = false;
     }
   }
 
@@ -25,10 +27,27 @@ class _PlayerSheetState extends State<PlayerSheet> {
   void _close() {
     setState(() {
       _showLyrics = false;
+      _showQueue = false;
       _dragDy = 0;
     });
     widget.onCollapse?.call();
     PlayerSheetController.close();
+  }
+
+  // Mutually exclusive: opening lyrics closes queue.
+  void _toggleLyrics() {
+    setState(() {
+      _showLyrics = !_showLyrics;
+      if (_showLyrics) _showQueue = false;
+    });
+  }
+
+  // Mutually exclusive: opening queue closes lyrics.
+  void _toggleQueue() {
+    setState(() {
+      _showQueue = !_showQueue;
+      if (_showQueue) _showLyrics = false;
+    });
   }
 
   double get _dragProgress {
@@ -59,9 +78,9 @@ class _PlayerSheetState extends State<PlayerSheet> {
                   opacity: sheetProgress.clamp(0.0, 1.0).toDouble(),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    // Disable drag-to-close while lyrics are shown so the
-                    // lyrics list can scroll freely.
-                    onVerticalDragUpdate: _showLyrics
+                    // Disable drag-to-close while any overlay is shown so the
+                    // list/lyrics can scroll freely.
+                    onVerticalDragUpdate: (_showLyrics || _showQueue)
                         ? null
                         : (details) {
                             setState(() {
@@ -69,7 +88,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
                               if (_dragDy < 0) _dragDy = 0;
                             });
                           },
-                    onVerticalDragEnd: _showLyrics
+                    onVerticalDragEnd: (_showLyrics || _showQueue)
                         ? null
                         : (details) {
                             final velocity = details.primaryVelocity ?? 0;
@@ -131,8 +150,9 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                           playbackState: playbackState,
                                           formatTime: _formatTime,
                                           showLyrics: _showLyrics,
-                                          onLyricsToggle: () => setState(
-                                              () => _showLyrics = !_showLyrics),
+                                          onLyricsToggle: _toggleLyrics,
+                                          showQueue: _showQueue,
+                                          onQueueToggle: _toggleQueue,
                                         ),
                                       ),
                                     ),

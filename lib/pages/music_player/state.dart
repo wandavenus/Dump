@@ -3,6 +3,7 @@ part of '../music_player.dart';
 class _MusicPlayerState extends State<MusicPlayer> {
   bool _handledRouteArguments = false;
   bool _showLyrics = false;
+  bool _showQueue = false;
 
   @override
   void initState() {
@@ -85,11 +86,15 @@ class _MusicPlayerState extends State<MusicPlayer> {
                             playbackState: playbackState,
                             formatTime: _formatTime,
                             showLyrics: _showLyrics,
-                            onLyricsToggle: () {
-                              setState(() {
-                                _showLyrics = !_showLyrics;
-                              });
-                            },
+                            onLyricsToggle: () => setState(() {
+                              _showLyrics = !_showLyrics;
+                              if (_showLyrics) _showQueue = false;
+                            }),
+                            showQueue: _showQueue,
+                            onQueueToggle: () => setState(() {
+                              _showQueue = !_showQueue;
+                              if (_showQueue) _showLyrics = false;
+                            }),
                           ),
                   ),
                 ),

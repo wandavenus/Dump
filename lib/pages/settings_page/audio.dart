@@ -27,19 +27,7 @@ class _AudioSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Crossfade
-        ValueListenableBuilder<double>(
-          valueListenable: AudioEffectsService.crossfadeDuration,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Crossfade',
-            subtitle: v == 0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} detik',
-            value: v,
-            min: 0,
-            max: 12,
-            onChanged: AudioEffectsService.setCrossfade,
-            divisions: 24,
-          ),
-        ),
+        const _CrossfadePicker(),
         const SettingsDivider(),
 
         ValueListenableBuilder<double>(
@@ -291,6 +279,85 @@ class _ModeOption extends StatelessWidget {
       onTap: () {
         AudioEffectsService.setReplayGainMode(mode);
         Navigator.pop(context);
+      },
+    );
+  }
+}
+
+// ─── Crossfade discrete picker ────────────────────────────────────────────────
+
+class _CrossfadePicker extends StatelessWidget {
+  const _CrossfadePicker();
+
+  static const _steps = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
+  static const _labels = ['Off', '1s', '2s', '4s', '6s', '8s', '12s'];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: AudioEffectsService.crossfadeDuration,
+      builder: (_, current, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Crossfade',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    current == 0
+                        ? 'Nonaktif'
+                        : '${current.toStringAsFixed(0)} detik',
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93), fontSize: 13),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: List.generate(_steps.length, (i) {
+                  final active = current == _steps[i];
+                  final isLast = i == _steps.length - 1;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () =>
+                          AudioEffectsService.setCrossfade(_steps[i]),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: isLast
+                            ? EdgeInsets.zero
+                            : const EdgeInsets.only(right: 5),
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? const Color(0xFFF92D48)
+                              : Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _labels[i],
+                          style: TextStyle(
+                            color: active ? Colors.white : Colors.white54,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
