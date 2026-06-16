@@ -13,8 +13,8 @@ class SongArtwork extends StatelessWidget {
   const SongArtwork({
     super.key,
     required this.songId,
-    this.size = 60,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.size = 55,
+    this.borderRadius = const BorderRadius.all(Radius.circular(6)),
     this.fit = BoxFit.cover,
   });
 
