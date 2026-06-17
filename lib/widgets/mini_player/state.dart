@@ -28,11 +28,11 @@ class _MiniPlayerState extends State<MiniPlayer> {
     if (!_directionLocked) return;
 
     if (_isHorizontal) {
-  final nextOffset = _panDx;
+      final nextOffset = _panDx;
 
-  if ((nextOffset - _swipeOffset).abs() > 2) {
-    setState(() => _swipeOffset = nextOffset);
-  }
+      if ((nextOffset - _swipeOffset).abs() > 2) {
+        setState(() => _swipeOffset = nextOffset);
+      }
     } else {
       _dragUp -= d.delta.dy;
       PlayerSheetController.setProgress((_dragUp / 600).clamp(0.0, 1.0).toDouble());
@@ -75,33 +75,17 @@ class _MiniPlayerState extends State<MiniPlayer> {
           builder: (context, expanded, _) {
             final t = expanded ? 1.0 : 0.0;
 
-            return TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: t),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutBack,
-              builder: (context, value, _) {
-                return Opacity(
-                  opacity: 1 - value,
-                  child: Transform.translate(
-                    offset: Offset(0, 18 * value),
-                    child: Transform.scale(
-                      scale: 1 - (0.12 * value),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onPanStart: _onPanStart,
-                        onPanUpdate: _onPanUpdate,
-                        onPanEnd: _onPanEnd,
-                        child: _MiniPlayerBody(
-                          song: song,
-                          playbackState: playbackState,
-                          anim: value,
-                          swipeOffset: _swipeOffset,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd: _onPanEnd,
+              child: _MiniPlayerBody(
+                song: song,
+                playbackState: playbackState,
+                anim: t,
+                swipeOffset: _swipeOffset,
+              ),
             );
           },
         );
