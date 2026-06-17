@@ -1,0 +1,496 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+
+import '../models/local_song.dart';
+import '../services/audio_playback_state.dart';
+import '../services/audio_service.dart';
+import '../services/player_sheet_controller.dart';
+import 'player/player_background.dart';
+import 'player/player_content.dart';
+import 'song_artwork.dart';
+
+class UnifiedMorphPlayer extends StatefulWidget {
+  const UnifiedMorphPlayer({super.key});
+
+  @override
+  State<UnifiedMorphPlayer> createState() => _UnifiedMorphPlayerState();
+}
+
+class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
+  // ── Gesture state ──────────────────────────────────────────────────────────
+  double _panDx = 0;
+  double _panDy = 0;
+  bool _isHorizontal = false;
+  bool _directionLocked = false;
+  double _swipeOffset = 0;
+  double _startProgress = 0;
+
+  // ── Full-player sub-view state ─────────────────────────────────────────────
+  bool _showLyrics = false;
+  bool _showQueue = false;
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    PlayerSheetController.expanded.addListener(_onExpandedChanged);
+  }
+
+  @override
+  void dispose() {
+    PlayerSheetController.expanded.removeListener(_onExpandedChanged);
+    super.dispose();
+  }
+
+  void _onExpandedChanged() {
+    if (!PlayerSheetController.expanded.value) {
+      if (_showLyrics || _showQueue) {
+        setState(() {
+          _showLyrics = false;
+          _showQueue = false;
+        });
+      }
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  String _formatTime(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  void _toggleLyrics() => setState(() {
+        _showLyrics = !_showLyrics;
+        if (_showLyrics) _showQueue = false;
+      });
+
+  void _toggleQueue() => setState(() {
+        _showQueue = !_showQueue;
+        if (_showQueue) _showLyrics = false;
+      });
+
+  // ── Gesture callbacks ──────────────────────────────────────────────────────
+  void _onPanStart(DragStartDetails d) {
+    _panDx = 0;
+    _panDy = 0;
+    _isHorizontal = false;
+    _directionLocked = false;
+    _swipeOffset = 0;
+    _startProgress = PlayerSheetController.progress.value;
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    _panDx += d.delta.dx;
+    _panDy += d.delta.dy;
+
+    if (!_directionLocked && (_panDx.abs() > 8 || _panDy.abs() > 8)) {
+      _isHorizontal = _panDx.abs() > _panDy.abs();
+      _directionLocked = true;
+    }
+    if (!_directionLocked) return;
+
+    if (_isHorizontal) {
+      if (_startProgress < 0.15) {
+        if ((_swipeOffset - _panDx).abs() > 2) {
+          setState(() => _swipeOffset = _panDx);
+        }
+      }
+    } else {
+      if (_showLyrics || _showQueue) return;
+      final sh = MediaQuery.of(context).size.height;
+      final delta = -d.delta.dy / (sh * 0.55);
+      PlayerSheetController.setProgress(
+        (PlayerSheetController.progress.value + delta).clamp(0.0, 1.0),
+      );
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    final progress = PlayerSheetController.progress.value;
+    if (_isHorizontal && _startProgress < 0.15) {
+      final vx = d.velocity.pixelsPerSecond.dx;
+      if (_panDx < -80 || vx < -350) {
+        AudioService.skipNext();
+      } else if (_panDx > 80 || vx > 350) {
+        AudioService.skipPrevious();
+      }
+      setState(() => _swipeOffset = 0);
+    } else if (!_isHorizontal && !(_showLyrics || _showQueue)) {
+      final vy = d.velocity.pixelsPerSecond.dy;
+      if (progress > 0.35 || vy < -200) {
+        PlayerSheetController.open();
+      } else {
+        PlayerSheetController.close();
+      }
+    }
+    _panDx = 0;
+    _panDy = 0;
+    _directionLocked = false;
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, state, _) {
+        final song = state.currentSong;
+        if (song == null) return const SizedBox.shrink();
+        return ValueListenableBuilder<double>(
+          valueListenable: PlayerSheetController.progress,
+          builder: (context, progress, _) {
+            return _buildMorph(context, song, state, progress);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMorph(
+    BuildContext context,
+    LocalSong song,
+    AudioPlaybackState state,
+    double progress,
+  ) {
+    final mq = MediaQuery.of(context);
+    final screenH = mq.size.height;
+    final screenW = mq.size.width;
+    final safeBottom = mq.padding.bottom;
+    final safeTop = mq.padding.top;
+
+    const miniH = 64.0;
+    const miniHorizMargin = 8.0;
+    const navBarH = 70.0;
+    const miniBottomGap = 6.0;
+
+    // Eased curve for Apple-Music–like deceleration
+    final t = Curves.easeOutCubic.transform(progress);
+
+    final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)!;
+    final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
+    final height = lerpDouble(miniH, screenH, t)!;
+    // Border radius: linear so corners snap crisply at 0
+    final radius = lerpDouble(16.0, 0.0, progress)!;
+
+    // Cross-fade timing
+    final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
+    final fullAlpha = ((progress - 0.12) / 0.38).clamp(0.0, 1.0);
+    final bgAlpha = (progress / 0.35).clamp(0.0, 1.0);
+    final blurSigma = (progress * 22.0).clamp(0.01, 22.0);
+
+    // ── Artwork morph positions ──────────────────────────────────────────────
+    const miniArtSize = 46.0;
+    const miniArtLeft = 12.0;
+    const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
+
+    final largeCoverSize = (screenW - 44.0).clamp(260.0, 390.0);
+    final artFullLeft = (screenW - largeCoverSize) / 2;
+
+    // Estimate PlayerContent artwork vertical position at full screen.
+    // Layout stack: SafeArea.top + Padding(12) + PlayerContent.Padding(25) = topInset
+    // Bottom controls ≈ 244 px.
+    final topInset = safeTop + 37.0;
+    const bottomCtrlH = 244.0;
+    final shFull = screenH - topInset - bottomCtrlH;
+    final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
+    final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
+    final artFullTop = topInset + coverTopLocal;
+
+    final artLeft = lerpDouble(miniArtLeft, artFullLeft, t)!;
+    final artTop = lerpDouble(miniArtTop, artFullTop, t)!;
+    final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
+    final artRadius = lerpDouble(8.0, 12.0, t)!;
+
+    // When overlay (lyrics/queue) is active, PlayerContent manages the
+    // small artwork itself — hide the morph artwork so they don't overlap.
+    final showOverlay = _showLyrics || _showQueue;
+    final morphArtVisible = !showOverlay;
+
+    return Positioned(
+      bottom: bottom,
+      left: horizMargin,
+      right: horizMargin,
+      height: height,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: _onPanStart,
+        onPanUpdate: _onPanUpdate,
+        onPanEnd: _onPanEnd,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.antiAlias,
+            children: [
+              // ── Dark base ──────────────────────────────────────────────────
+              const ColoredBox(color: Color(0xFF1C1C1E)),
+
+              // ── Blurred artwork background (fades in with progress) ────────
+              if (bgAlpha > 0)
+                Opacity(
+                  opacity: bgAlpha,
+                  child: ClipRect(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(
+                        sigmaX: blurSigma,
+                        sigmaY: blurSigma,
+                      ),
+                      child: AnimatedBlurredPlayerBackground(songId: song.id),
+                    ),
+                  ),
+                ),
+
+              // ── Gradient overlay ───────────────────────────────────────────
+              if (bgAlpha > 0)
+                Opacity(
+                  opacity: bgAlpha,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.fromARGB(80, 0, 0, 0),
+                          Color.fromARGB(180, 0, 0, 0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Full player content (fades in) ─────────────────────────────
+              if (fullAlpha > 0)
+                Opacity(
+                  opacity: fullAlpha,
+                  child: IgnorePointer(
+                    ignoring: progress < 0.45,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: PlayerContent(
+                          song: song,
+                          playbackState: state,
+                          formatTime: _formatTime,
+                          showLyrics: _showLyrics,
+                          onLyricsToggle: _toggleLyrics,
+                          showQueue: _showQueue,
+                          onQueueToggle: _toggleQueue,
+                          // Unified player owns the artwork during normal mode;
+                          // give it back to PlayerContent during overlay mode.
+                          hideArtwork: !showOverlay,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Morphing artwork (bridges mini → full) ─────────────────────
+              Positioned(
+                left: artLeft,
+                top: artTop,
+                width: artSize,
+                height: artSize,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  opacity: morphArtVisible ? 1.0 : 0.0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(artRadius),
+                    child: SongArtwork(
+                      songId: song.id,
+                      size: artSize,
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Mini player overlay (fades out in first 28% of progress) ───
+              if (miniAlpha > 0)
+                Opacity(
+                  opacity: miniAlpha,
+                  child: IgnorePointer(
+                    ignoring: progress > 0.08,
+                    child: _buildMiniOverlay(song, state),
+                  ),
+                ),
+
+              // ── Drag handle pill (visible during opening) ──────────────────
+              if (progress > 0.04 && progress < 0.96)
+                Positioned(
+                  top: safeTop + 10,
+                  left: 0,
+                  right: 0,
+                  child: Opacity(
+                    opacity: (progress * 5).clamp(0.0, 1.0) *
+                        ((0.95 - progress) / 0.3).clamp(0.0, 1.0),
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Collapse chevron (top-left of full player) ─────────────────
+              if (progress > 0.5)
+                Positioned(
+                  top: safeTop + 6,
+                  left: 4,
+                  child: Opacity(
+                    opacity: ((progress - 0.5) / 0.25).clamp(0.0, 1.0),
+                    child: IgnorePointer(
+                      ignoring: progress < 0.85,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 32,
+                          color: Colors.white70,
+                        ),
+                        onPressed: () {
+                          _showLyrics = false;
+                          _showQueue = false;
+                          PlayerSheetController.close();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Mini player overlay ────────────────────────────────────────────────────
+  Widget _buildMiniOverlay(LocalSong song, AudioPlaybackState state) {
+    final canGoNext =
+        state.currentIndex < state.currentPlaylist.length - 1;
+    final swipeFraction = (_swipeOffset.abs() / 80).clamp(0.0, 1.0);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Skip-direction arrow hint
+        if (swipeFraction > 0.05)
+          Positioned(
+            top: 0,
+            bottom: 0,
+            left: _swipeOffset < 0 ? null : 12,
+            right: _swipeOffset < 0 ? 12 : null,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Opacity(
+                opacity: swipeFraction.clamp(0.0, 1.0),
+                child: Icon(
+                  _swipeOffset < 0 ? Icons.skip_next : Icons.skip_previous,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+
+        // Row: reserve artwork gap | title + artist | controls
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              // Space for the morphing artwork (46 px) + 10 px gap
+              const SizedBox(width: 56),
+              // Song info
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Play / Pause
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 40),
+                onPressed: () => state.isPlaying
+                    ? AudioService.pause()
+                    : AudioService.play(),
+                icon: Icon(
+                  state.isPlaying ? Icons.pause : Icons.play_arrow,
+                  size: 30,
+                  color: Colors.white,
+                ),
+              ),
+              // Skip next
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 36, minHeight: 40),
+                onPressed: canGoNext ? AudioService.skipNext : null,
+                icon: Icon(
+                  Icons.skip_next,
+                  size: 28,
+                  color: canGoNext ? Colors.white : Colors.white24,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Thin progress bar at bottom edge
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: StreamBuilder<Duration>(
+            stream: AudioService.player.positionStream,
+            initialData: AudioService.player.position,
+            builder: (context, snap) {
+              final pos = snap.data ?? Duration.zero;
+              final dur = state.duration;
+              final fraction = dur.inMilliseconds > 0
+                  ? (pos.inMilliseconds / dur.inMilliseconds)
+                      .clamp(0.0, 1.0)
+                  : 0.0;
+              return LinearProgressIndicator(
+                value: fraction,
+                backgroundColor: Colors.white12,
+                valueColor: const AlwaysStoppedAnimation(
+                  Color(0xFFF92D48),
+                ),
+                minHeight: 2.5,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

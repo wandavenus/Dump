@@ -830,6 +830,37 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     return '$m:$s';
   }
 
+  // ── Debug fake playback ────────────────────────────────────────────────────
+
+  static const LocalSong _kFakeSong = LocalSong(
+    id: -999,
+    title: 'Demo — Morph Player',
+    artist: 'Debug Mode',
+    path: '',
+    album: 'Debug Album',
+    albumId: 0,
+    duration: Duration(minutes: 3, seconds: 30),
+  );
+
+  static bool get debugFakePlaying =>
+      playbackState.value.currentSong?.id == -999;
+
+  static void debugStartFake() {
+    playbackState.value = AudioPlaybackState(
+      currentSong: _kFakeSong,
+      isPlaying: false,
+      currentIndex: 0,
+      currentPlaylist: const [_kFakeSong],
+      duration: const Duration(minutes: 3, seconds: 30),
+    );
+  }
+
+  static void debugClearFake() {
+    if (debugFakePlaying) {
+      playbackState.value = const AudioPlaybackState();
+    }
+  }
+
   // ── Dispose ────────────────────────────────────────────────────────────────
 
   static Future<void> dispose() async {

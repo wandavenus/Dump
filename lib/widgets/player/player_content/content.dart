@@ -8,6 +8,7 @@ class PlayerContent extends StatefulWidget {
   final VoidCallback onLyricsToggle;
   final bool showQueue;
   final VoidCallback onQueueToggle;
+  final bool hideArtwork;
 
   const PlayerContent({
     super.key,
@@ -18,6 +19,7 @@ class PlayerContent extends StatefulWidget {
     required this.onLyricsToggle,
     required this.showQueue,
     required this.onQueueToggle,
+    this.hideArtwork = false,
   });
 
   @override
@@ -239,7 +241,10 @@ class _PlayerContentState extends State<PlayerContent> {
         coverLeft,
         progress,
       )!,
-                      child: AnimatedContainer(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: (widget.hideArtwork && !showOverlay) ? 0.0 : 1.0,
+                        child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
                         width: showOverlay
@@ -298,6 +303,7 @@ height: showOverlay
 ),
                           ),
                         ),
+                      ),
                       ),
                     ),
                   ],

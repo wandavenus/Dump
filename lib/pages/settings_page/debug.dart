@@ -39,10 +39,14 @@ class _DebugSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
 
+        // Fake playback trigger
+        const _DebugFakePlaybackRow(),
+        const SettingsDivider(),
+
         // Notification icon picker
         ValueListenableBuilder<int>(
           valueListenable: _DebugState.notifIcon,
-          builder: (_, idx, _) => _NotifIconRow(selectedIdx: idx),
+          builder: (_, idx, __) => _NotifIconRow(selectedIdx: idx),
         ),
         const SettingsDivider(),
 
@@ -58,11 +62,45 @@ class _DebugSection extends StatelessWidget {
         SettingsActionRow(
           title: 'Keluar Mode Debug',
           trailing: '',
-          onTap: () => _DebugState.enabled.value = false,
+          onTap: () {
+            AudioService.debugClearFake();
+            PlayerSheetController.close();
+            _DebugState.enabled.value = false;
+          },
           isDestructive: true,
         ),
         const SettingsDivider(),
       ],
+    );
+  }
+}
+
+// ─── Fake playback row ────────────────────────────────────────────────────────
+
+class _DebugFakePlaybackRow extends StatelessWidget {
+  const _DebugFakePlaybackRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (_, state, __) {
+        final isFake = AudioService.debugFakePlaying;
+        return SettingsActionRow(
+          title: isFake ? 'Hentikan Pemutaran Palsu' : 'Aktifkan Pemutaran Palsu',
+          trailing: isFake ? '■ AKTIF' : '▶ Demo',
+          onTap: () {
+            if (isFake) {
+              AudioService.debugClearFake();
+              PlayerSheetController.close();
+            } else {
+              AudioService.debugStartFake();
+              PlayerSheetController.open();
+            }
+          },
+          isDestructive: isFake,
+        );
+      },
     );
   }
 }
