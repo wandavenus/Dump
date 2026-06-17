@@ -7,8 +7,15 @@ class AudioSessionHandler {
   AudioSessionHandler._();
 
   static AudioSession? _session;
-  static bool _initialized        = false;
+  static bool _initialized          = false;
   static bool _pausedByInterruption = false;
+
+  /// True while a player promotion is in progress.
+  ///
+  /// During promotion the old primary is being stopped and disposed; any OS
+  /// interruption events fired in that window are spurious (MIUI 12 / Android
+  /// 11 focus-steal) and must be ignored.
+  static bool _inPromotion = false;
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -26,15 +33,56 @@ class AudioSessionHandler {
       _session!.interruptionEventStream.listen(_onInterruption);
       _session!.becomingNoisyEventStream.listen(_onBecomingNoisy);
 
+      // Register the promotion lock callbacks with DualPlayerManager so they
+      // are called atomically around every player swap.
+      DualPlayerManager.onBeforePromote = beginPromotion;
+      DualPlayerManager.onAfterPromote  = endPromotion;
+
       LogService.log('AudioSession', 'Configured for music playback');
     } catch (e) {
       LogService.warn('AudioSession', 'Init failed: $e');
     }
   }
 
+  // ── Promotion focus lock ───────────────────────────────────────────────────
+
+  /// Acquires the audio-focus lock before a player swap.
+  ///
+  /// Calling [AudioSession.setActive(true)] before the swap tells the OS that
+  /// the session is still active, preventing MIUI 12 from interpreting the
+  /// old player's upcoming [stop()] as a voluntary focus abandonment.
+  static void beginPromotion() {
+    _inPromotion = true;
+    // Fire-and-forget: setActive is best-effort; failure doesn't block swap.
+    if (_session != null) {
+      _session!.setActive(true).catchError(
+        (Object _) {},  // ignore: setActive failures are non-fatal
+      );
+    }
+    LogService.verbose('AudioSession', 'Promotion lock acquired');
+  }
+
+  /// Releases the focus lock after the old primary player is fully disposed.
+  static void endPromotion() {
+    _inPromotion = false;
+    LogService.verbose('AudioSession', 'Promotion lock released');
+  }
+
   // ── Interruption handling ──────────────────────────────────────────────────
 
   static void _onInterruption(AudioInterruptionEvent event) {
+    // Suppress all interruptions during the promotion window.
+    // On MIUI 12 / Android 11, stopping the old primary triggers a spurious
+    // focus-loss event that would otherwise pause the new primary mid-playback.
+    if (_inPromotion) {
+      LogService.verbose(
+        'AudioSession',
+        'Interruption suppressed (promotion in progress): '
+        '${event.type.name} begin=${event.begin}',
+      );
+      return;
+    }
+
     final player = AudioEngine.player;
 
     switch (event.type) {

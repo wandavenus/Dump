@@ -39,6 +39,17 @@ class DualPlayerManager {
   /// paused → caller must play).
   static void Function(bool fromCrossfade)? onPromoted;
 
+  /// Registered by [AudioSessionHandler] (via its own [initialize]).
+  /// Called synchronously at the START of [promote] — before any player swap —
+  /// so the audio-focus lock can be acquired.  Suppresses OS interruptions
+  /// (including MIUI 12 focus-steal) during the entire swap window.
+  static void Function()? onBeforePromote;
+
+  /// Registered by [AudioSessionHandler].
+  /// Called after the old primary player has been fully stopped and disposed
+  /// so the focus lock can be safely released.
+  static void Function()? onAfterPromote;
+
   // ── Player state ───────────────────────────────────────────────────────────
 
   static AudioPlayer? _primary;
@@ -185,6 +196,11 @@ class DualPlayerManager {
       return;
     }
 
+    // ── Acquire focus lock ────────────────────────────────────────────────────
+    // Must happen BEFORE touching either player so MIUI 12 / Android 11 cannot
+    // steal audio focus during the old-primary disposal window.
+    onBeforePromote?.call();
+
     final oldPrimary = _primary!;
 
     // ── Swap ─────────────────────────────────────────────────────────────────
@@ -205,8 +221,14 @@ class DualPlayerManager {
     // ── Notify AudioService (advance queue, resubscribe streams) ─────────────
     onPromoted?.call(fromCrossfade);
 
-    // ── Async cleanup (no await) ──────────────────────────────────────────────
-    unawaited(_disposePlayer(oldPrimary));
+    // ── Async cleanup — release focus lock AFTER old primary is fully dead ────
+    // Keeping the lock alive through stop()+dispose() prevents MIUI 12 from
+    // interpreting the old player's stop() as an audio-focus abandonment and
+    // dispatching a spurious interruption to the new primary.
+    final afterPromote = onAfterPromote;
+    unawaited(
+      _disposePlayer(oldPrimary).whenComplete(() => afterPromote?.call()),
+    );
     unawaited(_initSecondary());
 
     LogService.log(
@@ -250,6 +272,8 @@ class DualPlayerManager {
     onPrimaryChanged     = null;
     onSecondarySessionId = null;
     onPromoted           = null;
+    onBeforePromote      = null;
+    onAfterPromote       = null;
     LogService.log('DualPlayer', 'Disposed (primary + secondary)');
   }
 }

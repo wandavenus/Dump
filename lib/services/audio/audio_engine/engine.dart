@@ -25,6 +25,22 @@ class AudioEngine {
   static bool _bassBoostSupported   = false;
   static bool _reverbSupported      = false;
 
+  // ── Native-effect retry state ───────────────────────────────────────────────
+  //
+  // On Android 11 the OS audio session may not be registered when the first
+  // androidAudioSessionIdStream event fires.  We retry with exponential
+  // back-off (50 → 100 → 200 → 400 ms) and stop as soon as one attempt
+  // succeeds.  A new session ID cancels any pending retry for an old one.
+
+  /// The last session ID for which effects were successfully attached.
+  static int    _lastAttachedSessionId  = -1;
+  /// Which session ID the current retry loop is working on.
+  static int    _effectsRetrySessionId  = -1;
+  /// How many retries have been issued for [_effectsRetrySessionId].
+  static int    _effectsRetryCount      = 0;
+  /// Pending retry timer (cancelled on new session ID or successful attach).
+  static Timer? _effectsRetryTimer;
+
   // ── Public getters ──────────────────────────────────────────────────────────
 
   static AudioPlayer get player {
@@ -98,12 +114,41 @@ class AudioEngine {
   static Future<void> attachEffectsToSession(int sessionId) =>
       _attachNativeEffects(sessionId);
 
+  /// Entry point: validates dedup / session-change before the first attempt.
   static Future<void> _attachNativeEffects(int sessionId) async {
+    if (!isAndroid) return;
+
+    // New session ID → cancel any in-flight retry loop for the old session.
+    if (sessionId != _effectsRetrySessionId) {
+      _effectsRetryTimer?.cancel();
+      _effectsRetryTimer  = null;
+      _effectsRetryCount  = 0;
+      _effectsRetrySessionId = sessionId;
+    }
+
+    // Already attached to this session — nothing to do.
+    if (sessionId == _lastAttachedSessionId) return;
+
+    await _tryAttachEffects(sessionId);
+  }
+
+  /// Performs one attach attempt.  On failure schedules the next retry with
+  /// exponential back-off (50 → 100 → 200 → 400 ms, max 4 attempts total).
+  static Future<void> _tryAttachEffects(int sessionId) async {
+    // Guard: a newer session may have arrived while this retry was queued.
+    if (sessionId != _effectsRetrySessionId) return;
+
+    const maxAttempts = 4;
     try {
       final result = await _effectsChannel.invokeMapMethod<String, dynamic>(
         'attachEffects',
         {'sessionId': sessionId},
       );
+      // ── Success ──────────────────────────────────────────────────────────
+      _lastAttachedSessionId = sessionId;
+      _effectsRetryTimer?.cancel();
+      _effectsRetryTimer = null;
+      _effectsRetryCount = 0;
       _virtualizerSupported = result?['virtualizerSupported'] as bool? ?? false;
       _bassBoostSupported   = result?['bassBoostSupported']   as bool? ?? false;
       _reverbSupported      = result?['reverbSupported']      as bool? ?? false;
@@ -114,7 +159,30 @@ class AudioEngine {
         'reverb=$_reverbSupported',
       );
     } catch (e) {
-      LogService.warn('AudioEngine', 'attachEffects: $e');
+      // ── Failure — schedule retry if budget remains ────────────────────────
+      if (_effectsRetryCount < maxAttempts) {
+        // Exponential back-off: 50 ms, 100 ms, 200 ms, 400 ms.
+        final backoff = Duration(milliseconds: 50 * (1 << _effectsRetryCount));
+        _effectsRetryCount++;
+        LogService.warn(
+          'AudioEngine',
+          'attachEffects attempt $_effectsRetryCount/$maxAttempts failed '
+          '— retry in ${backoff.inMilliseconds} ms: $e',
+        );
+        _effectsRetryTimer?.cancel();
+        _effectsRetryTimer = Timer(
+          backoff,
+          () => unawaited(_tryAttachEffects(sessionId)),
+        );
+      } else {
+        // Budget exhausted — log and stop so we don't loop forever.
+        LogService.warn(
+          'AudioEngine',
+          'attachEffects gave up after $maxAttempts attempts '
+          '(session $sessionId): $e',
+        );
+        _effectsRetryCount = 0;
+      }
     }
   }
 
@@ -248,7 +316,13 @@ class AudioEngine {
 
   static Future<void> dispose() async {
     _sessionSub?.cancel();
-    _sessionSub       = null;
+    _sessionSub = null;
+    // Cancel any pending native-effect retry so no Timer fires after dispose.
+    _effectsRetryTimer?.cancel();
+    _effectsRetryTimer     = null;
+    _effectsRetryCount     = 0;
+    _effectsRetrySessionId = -1;
+    _lastAttachedSessionId = -1;
     await DualPlayerManager.dispose();
     _player           = null;
     _equalizer        = null;

@@ -545,6 +545,91 @@ class AudioService {
 
     // Preload the track after next.
     _schedulePreload();
+
+    // Runtime validation (verbose-logs only; zero overhead when logging off).
+    _validatePostPromotion(fromCrossfade, song);
+  }
+
+  // ── Post-promotion validation ──────────────────────────────────────────────
+
+  /// Asserts the DSP pipeline and playback state are intact after a player
+  /// swap.  All output goes to [LogService.verbose] so it only appears when
+  /// the in-app debug log is enabled; there is no runtime overhead otherwise.
+  static void _validatePostPromotion(bool fromCrossfade, LocalSong? song) {
+    // ── Transition type ───────────────────────────────────────────────────────
+    LogService.verbose(
+      'Validation',
+      '[promotion] type=${fromCrossfade ? "crossfade" : "gapless"} '
+      'track=${song != null ? '"${song.title}"' : "(none)"} '
+      'index=$_currentIndex/${_playlist.length}',
+    );
+
+    final p = AudioEngine.player;
+
+    // ── Gapless / crossfade path ──────────────────────────────────────────────
+    // After crossfade the new primary must already be playing.
+    // After gapless the primary starts via play() inside _afterPromotion.
+    final expectedPlaying = fromCrossfade;
+    if (fromCrossfade && !p.playing) {
+      LogService.warn(
+        'Validation',
+        '[crossfade] new primary is NOT playing after promotion — '
+        'state=${p.processingState.name}',
+      );
+    } else {
+      LogService.verbose(
+        'Validation',
+        '[${fromCrossfade ? "crossfade" : "gapless"}] '
+        'playing=${p.playing} state=${p.processingState.name} '
+        '— ${expectedPlaying == p.playing ? "OK" : "mismatch"}',
+      );
+    }
+
+    // ── DSP references ────────────────────────────────────────────────────────
+    if (AudioEngine.isAndroid) {
+      final eqOk = AudioEngine.equalizer        != null;
+      final leOk = AudioEngine.loudnessEnhancer != null;
+      if (!eqOk || !leOk) {
+        LogService.warn(
+          'Validation',
+          '[DSP] references null after promotion — eq=$eqOk le=$leOk '
+          '(AudioEngine._onPrimaryChanged may not have fired)',
+        );
+      } else {
+        LogService.verbose('Validation', '[DSP] eq=$eqOk le=$leOk — OK');
+      }
+
+      // ── Effect support flags (survive promotion via session re-attach) ─────
+      LogService.verbose(
+        'Validation',
+        '[effects] virt=${AudioEngine.virtualizerSupported} '
+        'bass=${AudioEngine.bassBoostSupported} '
+        'reverb=${AudioEngine.reverbSupported}',
+      );
+    }
+
+    // ── ReplayGain ────────────────────────────────────────────────────────────
+    LogService.verbose(
+      'Validation',
+      '[replaygain] mode=${AudioEffectsService.replayGainMode.value.name} '
+      'preamp=${AudioEffectsService.replayGainPreamp.value.toStringAsFixed(1)} dB '
+      '— will re-apply asynchronously',
+    );
+
+    // ── Equalizer enabled state ───────────────────────────────────────────────
+    LogService.verbose(
+      'Validation',
+      '[eq] enabled=${AudioEffectsService.equalizerEnabled.value} '
+      'preset=${AudioEffectsService.roomPreset.value}',
+    );
+
+    // ── Bass / Loudness / Reverb ──────────────────────────────────────────────
+    LogService.verbose(
+      'Validation',
+      '[dsp-params] bass=${AudioEffectsService.bassBoost.value} '
+      'reverb=${AudioEffectsService.reverbPreset.value} '
+      'spatial=${AudioEffectsService.spatialAudio.value}',
+    );
   }
 
   // ── ReplayGain application ────────────────────────────────────────────────
