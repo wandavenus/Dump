@@ -20,8 +20,10 @@ class PlayerProgressSection extends StatelessWidget {
             ? 0.0
             : position.inSeconds.clamp(0, durationSeconds).toDouble();
 
-        return Column(
-          children: [
+        return Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  child: Column(
+    children: [
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 6,
@@ -45,7 +47,7 @@ overlayShape: SliderComponentShape.noOverlay,
 const SizedBox(height: 8),
 
   Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -69,8 +71,9 @@ const SizedBox(height: 8),
               ),
             ),
           ],
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }
