@@ -13,18 +13,20 @@ class PlayerSheetController {
   static Timer? _timer;
 
   static void setProgress(double value) {
-    final clamped = value.clamp(0.0, 1.0).toDouble();
+  final clamped = value.clamp(0.0, 1.0).toDouble();
 
-    progress.value = clamped;
-
-    if (clamped > 0) {
-      expanded.value = true;
-    }
-
-    if (clamped == 0) {
-      expanded.value = false;
-    }
+  if ((progress.value - clamped).abs() < 0.001) {
+    return;
   }
+
+  progress.value = clamped;
+
+  if (clamped > 0 && !expanded.value) {
+    expanded.value = true;
+  } else if (clamped == 0 && expanded.value) {
+    expanded.value = false;
+  }
+}
 
   static void _animateTo(double target) {
     _timer?.cancel();
