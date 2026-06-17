@@ -92,13 +92,13 @@ class _PlayerContentState extends State<PlayerContent> {
 
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 30.0;
-                const controlsHeight = 200.0;
+                const controlsHeight = 100.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 10,
+                      bottom: 30,
                       left: 22,
                       right: 22,
                       child: AnimatedOpacity(
