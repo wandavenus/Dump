@@ -37,7 +37,7 @@ class PlayerSheetController {
       final current = progress.value;
 
       if ((current - target).abs() <= step) {
-        progress.value = target;
+        setProgress(target);
 
         if (target == 0) {
           expanded.value = false;
@@ -49,7 +49,9 @@ class PlayerSheetController {
         return;
       }
 
-      progress.value += target > current ? step : -step;
+      setProgress(
+  current + (target > current ? step : -step),
+);
     });
   }
 
