@@ -48,18 +48,7 @@ class LoudnessData {
     return g.clamp(-24.0, 24.0).toDouble();
   }
 
-  static double _log10(double x) => x > 0 ? (x == 1.0 ? 0.0 : _ln(x) / _ln(10)) : 0.0;
-  static double _ln(double x) {
-    if (x <= 0) return double.negativeInfinity;
-    var result = 0.0;
-    var n = (x - 1) / (x + 1);
-    var term = n;
-    for (var i = 1; i <= 100; i += 2) {
-      result += term / i;
-      term *= n * n;
-    }
-    return 2 * result;
-  }
+  static double _log10(double x) => x > 0 ? (x == 1.0 ? 0.0 : math.log(x) / math.ln10) : 0.0;
 
   @override
   String toString() =>
