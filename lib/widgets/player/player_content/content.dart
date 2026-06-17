@@ -105,15 +105,28 @@ class _PlayerContentState extends State<PlayerContent> {
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
-                        duration: _animDuration,
-                        curve: _animCurve,
-                        opacity: showOverlay ? 0.0 : 1.0,
-                        child: IgnorePointer(
-                          ignoring: showOverlay,
-                          child: PlayerSongHeader(song: widget.song),
-                        ),
-                      ),
-                    ),
+  duration: _animDuration,
+  curve: _animCurve,
+  opacity: showOverlay ? 0.0 : 1.0,
+  child: IgnorePointer(
+    ignoring: showOverlay,
+    child: Transform.translate(
+  offset: Offset(
+    0,
+    40 * (1 - progress),
+  ),
+  child: Opacity(
+    opacity: Curves.easeOut.transform(progress),
+    child: PlayerSongHeader(
+      song: widget.song,
+    ),
+  ),
+),
+        song: widget.song,
+      ),
+    ),
+  ),
+),
 
                     // ── Lyrics area — fades in in lyrics mode ─────────────────
                     AnimatedPositioned(
@@ -247,10 +260,30 @@ height: showOverlay
       )!,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(showOverlay ? 8 : 12),
-                          color: Colors.black,
-                        ),
+  borderRadius: BorderRadius.circular(
+    showOverlay
+        ? 8
+        : lerpDouble(
+            6,
+            12,
+            progress,
+          )!,
+  ),
+  color: Colors.black,
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(
+        alpha: 0.15 + (0.25 * progress),
+      ),
+      blurRadius: 12 + (18 * progress),
+      spreadRadius: 1,
+      offset: Offset(
+        0,
+        4 + (8 * progress),
+      ),
+    ),
+  ],
+),
                         child: FittedBox(
                           fit: BoxFit.cover,
                           child: SizedBox(
@@ -278,13 +311,18 @@ height: showOverlay
           AnimatedOpacity(
             duration: const Duration(milliseconds: 250),
             opacity: 1.0 - _lyricsExpand,
-            child: IgnorePointer(
-              ignoring: _lyricsExpand > 0.0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            IgnorePointer(
+  ignoring: _lyricsExpand > 0.0,
+  child: Opacity(
+  opacity: Curves.easeOut.transform(progress),
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
                 children: [
                   Transform.translate(
-  offset: const Offset(0, -20),
+  offset: Offset(
+  0,
+  40 * (1 - progress) - 20,
+),
   child: Padding(
     padding: EdgeInsets.symmetric(
       horizontal: _playerHorizontalPadding,
@@ -296,17 +334,23 @@ height: showOverlay
                             formatTime: widget.formatTime,
                           ),
                           const SizedBox(height: 20),
-                          PlayerTransportControls(
-                           playbackState: widget.playbackState,
-                          ),
+                          Transform.scale(
+  scale: 0.85 + (0.15 * progress),
+  child: PlayerTransportControls(
+    playbackState: widget.playbackState,
+  ),
+),
                           const SizedBox(height: 24),
-                          PlayerSecondaryControls(
-                            song: widget.song,
-                            showLyrics: showLyrics,
-                            onLyricsToggle: widget.onLyricsToggle,
-                            showQueue: showQueue,
-                            onQueueToggle: widget.onQueueToggle,
-                          ),
+                          Opacity(
+  opacity: progress,
+  child: PlayerSecondaryControls(
+    song: widget.song,
+    showLyrics: showLyrics,
+    onLyricsToggle: widget.onLyricsToggle,
+    showQueue: showQueue,
+    onQueueToggle: widget.onQueueToggle,
+  ),
+),
                           const SizedBox(height: 15),
                         ],
                       ),
