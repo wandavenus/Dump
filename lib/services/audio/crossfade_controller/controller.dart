@@ -189,11 +189,11 @@ class CrossfadeController {
 
   /// Primary channel: logarithmic fade-OUT (1.0 → ~0.001).
   static double _logFadeOut(double t) =>
-      math.pow(10.0, -3.0 * t).toDouble().clamp(0.0, 1.0);
+    math.cos(t * math.pi / 2).clamp(0.0, 1.0);
 
   /// Secondary channel: logarithmic fade-IN (≈0.001 → 1.0).
   static double _logFadeIn(double t) =>
-      math.pow(10.0, -3.0 * (1.0 - t)).toDouble().clamp(0.0, 1.0);
+    math.sin(t * math.pi / 2).clamp(0.0, 1.0);
 
   // ── Dispose ───────────────────────────────────────────────────────────────
 
