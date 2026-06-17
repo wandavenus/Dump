@@ -26,6 +26,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
+  static const _playerHorizontalPadding = 32.0;
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -92,7 +93,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 30.0;
-                const playerHorizontalPadding = 32.0;
+            
                 const controlsHeight = 50.0;
                 return Stack(
                   clipBehavior: Clip.none,
@@ -100,8 +101,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
                       bottom: 40,
-                      left: playerHorizontalPadding,
-                      right: playerHorizontalPadding,
+                      left: _playerHorizontalPadding,
+                      right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -256,9 +257,9 @@ class _PlayerContentState extends State<PlayerContent> {
                   Transform.translate(
   offset: const Offset(0, -20),
   child: Padding(
-    padding: EdgeInsets.symmetric(
-      horizontal: playerHorizontalPadding,
-    ),
+    padding: const EdgeInsets.symmetric(
+  horizontal: 32,
+),
     child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -267,7 +268,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           ),
                           const SizedBox(height: 20),
                           PlayerTransportControls(
-                            playbackState: widget.playbackState,
+                           playbackState: widget.playbackState,
                           ),
                           const SizedBox(height: 24),
                           PlayerSecondaryControls(
