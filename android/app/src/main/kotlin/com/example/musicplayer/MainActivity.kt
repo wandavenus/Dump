@@ -57,6 +57,10 @@ class MainActivity : AudioServiceActivity() {
                         val path = call.argument<String>("path") ?: ""
                         result.success(getEmbeddedLyrics(path))
                     }
+                    "getReplayGainTags" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        result.success(getReplayGainTags(path))
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -255,6 +259,102 @@ class MainActivity : AudioServiceActivity() {
         // 4. Sony / Qualcomm high-res parameter
         try { am.setParameters("audio_qoe_enable=$onOff") }   catch (_: Exception) {}
         try { am.setParameters("hi_res_audio_enabled=$onOff") } catch (_: Exception) {}
+    }
+
+    // ── ReplayGain / R128 / iTunNORM tag reader ───────────────────────────────
+    //
+    //  Returns a Map<String, String?> with keys:
+    //    replayGainTrackGain, replayGainTrackPeak,
+    //    replayGainAlbumGain, replayGainAlbumPeak,
+    //    r128TrackGain, r128AlbumGain,
+    //    iTunNORM
+    //
+    //  Uses jaudiotagger for ID3/Vorbis/APEv2 tags (already on classpath).
+    //  Falls back to MediaMetadataRetriever for formats jaudiotagger can't read.
+
+    private fun getReplayGainTags(path: String): Map<String, String?> {
+        if (path.isBlank()) return emptyMap()
+        val file = File(path)
+        if (!file.exists()) return emptyMap()
+
+        // -- jaudiotagger (ID3v2, Vorbis, APEv2, M4A atoms) ------------------
+        try {
+            val af  = org.jaudiotagger.audio.AudioFileIO.read(file)
+            val tag = af?.tag
+
+            if (tag != null) {
+                // Helper: read a FieldKey, return trimmed String or null
+                fun get(key: org.jaudiotagger.tag.FieldKey): String? =
+                    tag.getFirst(key).takeIf { it.isNotBlank() }?.trim()
+
+                val result = mutableMapOf<String, String?>()
+
+                // ReplayGain keys via standard FieldKey enum (ID3v2, Vorbis, APEv2)
+                result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
+                result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
+                result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
+                result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
+
+                // R128 — stored as custom tag fields (Opus, FLAC)
+                result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
+                    ?: readCustomTag(tag, "r128_track_gain")
+                result["r128AlbumGain"] = readCustomTag(tag, "R128_ALBUM_GAIN")
+                    ?: readCustomTag(tag, "r128_album_gain")
+
+                // iTunNORM (M4A / iTunes) — stored as a custom atom
+                result["iTunNORM"] = readCustomTag(tag, "iTunNORM")
+
+                // Only return if we got at least one non-null value
+                if (result.values.any { it != null }) return result
+            }
+        } catch (_: Exception) {}
+
+        // -- MediaMetadataRetriever fallback (limited, reads TXXX frames) -----
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(path)
+            // Android MMR doesn't expose RG directly; return empty so Dart falls back
+            retriever.release()
+            emptyMap()
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    /** Read a custom / freeform tag field by exact key name. */
+    private fun readCustomTag(tag: org.jaudiotagger.tag.Tag, key: String): String? {
+        return try {
+            // Vorbis / APEv2 / ID3v2 TXXX frame lookup
+            tag.getFirst(
+                org.jaudiotagger.tag.FieldKey.valueOf(key.uppercase())
+            ).takeIf { it.isNotBlank() }?.trim()
+        } catch (_: Exception) {
+            // FieldKey.valueOf throws if the enum constant doesn't exist;
+            // fall back to a raw field lookup if the tag impl supports it
+            try {
+                (tag as? org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag)
+                    ?.getFirst(key)?.takeIf { it.isNotBlank() }?.trim()
+                    ?: (tag as? org.jaudiotagger.tag.id3.AbstractID3v2Tag)
+                        ?.let { getID3TXXXValue(it, key) }
+            } catch (_: Exception) { null }
+        }
+    }
+
+    /** Read an ID3v2 TXXX (user-defined text) frame value by description. */
+    private fun getID3TXXXValue(
+        tag: org.jaudiotagger.tag.id3.AbstractID3v2Tag,
+        description: String,
+    ): String? {
+        return try {
+            val frameId = "TXXX"
+            val frames  = tag.getFrame(frameId) ?: return null
+            val list    = if (frames is List<*>) frames else listOf(frames)
+            for (frame in list) {
+                val f = frame as? org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX ?: continue
+                if (f.description.equals(description, ignoreCase = true)) {
+                    return f.userFriendlyValue.takeIf { it.isNotBlank() }?.trim()
+                }
+            }
+            null
+        } catch (_: Exception) { null }
     }
 
     // ── Embedded lyrics ───────────────────────────────────────────────────────

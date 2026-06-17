@@ -23,7 +23,8 @@ import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/models/lyrics_settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pages/library_page.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart' as bg;
+import 'package:musicplayer/services/audio/background_audio_handler.dart';
 
 part 'main/main.dart';
 part 'main/edge.dart';

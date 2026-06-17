@@ -6,6 +6,8 @@ class PlayerContent extends StatefulWidget {
   final String Function(Duration duration) formatTime;
   final bool showLyrics;
   final VoidCallback onLyricsToggle;
+  final bool showQueue;
+  final VoidCallback onQueueToggle;
 
   const PlayerContent({
     super.key,
@@ -14,6 +16,8 @@ class PlayerContent extends StatefulWidget {
     required this.formatTime,
     required this.showLyrics,
     required this.onLyricsToggle,
+    required this.showQueue,
+    required this.onQueueToggle,
   });
 
   @override
@@ -22,6 +26,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
+  static const _playerHorizontalPadding = 32.0;
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -40,6 +45,11 @@ class _PlayerContentState extends State<PlayerContent> {
     super.didUpdateWidget(old);
     if (old.song.id != widget.song.id) {
       _fetchLyricsIfNeeded();
+    }
+    // Reset lyricsExpand when lyrics mode is turned off so bottom controls
+    // are not left hidden when switching to queue or normal mode.
+    if (old.showLyrics && !widget.showLyrics && _lyricsExpand > 0) {
+      setState(() => _lyricsExpand = 0.0);
     }
   }
 
@@ -60,57 +70,59 @@ class _PlayerContentState extends State<PlayerContent> {
     final width = MediaQuery.of(context).size.width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
     final showLyrics = widget.showLyrics;
+    final showQueue = widget.showQueue;
+
+    // Both overlay modes share the same artwork-shrink + song-info-fade behaviour.
+    final showOverlay = showLyrics || showQueue;
 
     return Padding(
       padding: const EdgeInsets.only(top: 25),
       child: Column(
         children: [
-          // ─── Flexible top area: cover + song info + lyrics ────────────────
+          // ─── Flexible top area ────────────────────────────────────────────────
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final sw = constraints.maxWidth;
                 final sh = constraints.maxHeight;
 
-                // Normal-mode cover position: centred in the available space,
-                // leaving ~80 px at the bottom for the song header.
+                // Normal-mode cover: centred, leaving ~80 px for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
                 final rawTop = (sh - largeCoverSize - 80) / 2 - 10;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
-                // Lyrics area starts just below the small thumbnail.
-                const lyricsTop = _smallCoverSize + 30.0;
-
+                // Overlay content starts just below the small thumbnail.
+                const overlayTop = _smallCoverSize + 30.0;
+            
+                const controlsHeight = 40.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // ── Song info — fades out in lyrics mode ──────────────
+                    // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 30,
-                      left: 22,
-                      right: 22,
+                      bottom: 40,
+                      left: _playerHorizontalPadding,
+                      right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
-                        opacity: showLyrics ? 0.0 : 1.0,
+                        opacity: showOverlay ? 0.0 : 1.0,
                         child: IgnorePointer(
-                          ignoring: showLyrics,
+                          ignoring: showOverlay,
                           child: PlayerSongHeader(song: widget.song),
                         ),
                       ),
                     ),
-  
-                    // ── Lyrics area — fades in in lyrics mode ─────────────
+
+                    // ── Lyrics area — fades in in lyrics mode ─────────────────
                     AnimatedPositioned(
-  duration: const Duration(milliseconds: 250),
-  curve: Curves.easeOut,
-  top: lyricsTop,
-  left: 0,
-  right: 0,
-
-  bottom: _lyricsExpand > 0 ? -250 : 0,
-
-  child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                      top: overlayTop,
+                      left: 0,
+                      right: 0,
+                      bottom: _lyricsExpand > 0 ? -250 : 0,
+                      child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
                         opacity: showLyrics ? 1.0 : 0.0,
@@ -121,7 +133,27 @@ class _PlayerContentState extends State<PlayerContent> {
                       ),
                     ),
 
-                    // ── Appearance button — fades in with lyrics ──────────
+                    // ── Queue area — fades in in queue mode ───────────────────
+                    Positioned(
+                      top: overlayTop,
+                      left: 0,
+                      right: 0,
+                      bottom: controlsHeight,
+                      child: AnimatedOpacity(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        opacity: showQueue ? 1.0 : 0.0,
+                        child: IgnorePointer(
+                          ignoring: !showQueue,
+                          child: _QueueOverlayBody(
+                            isVisible: showQueue,
+                            onClose: widget.onQueueToggle,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
                       top: 16,
                       right: 22,
@@ -136,60 +168,61 @@ class _PlayerContentState extends State<PlayerContent> {
                       ),
                     ),
 
-                     Positioned(
-  top: 14,
-  left: 22 + _smallCoverSize + 12,
-  right: 70,
-  child: AnimatedOpacity(
-    duration: _animDuration,
-    curve: _animCurve,
-    opacity: showLyrics ? 1.0 : 0.0,
-    child: IgnorePointer(
-      ignoring: !showLyrics,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            widget.song.artist,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.55),
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-                    
-                    // ── Album cover — AnimatedPositioned + AnimatedContainer
+                    // ── Mini song header — shown next to small artwork ─────────
+                    Positioned(
+                      top: 14,
+                      left: 22 + _smallCoverSize + 12,
+                      right: 70,
+                      child: AnimatedOpacity(
+                        duration: _animDuration,
+                        curve: _animCurve,
+                        opacity: showOverlay ? 1.0 : 0.0,
+                        child: IgnorePointer(
+                          ignoring: !showOverlay,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.song.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.song.artist,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ── Album cover — AnimatedPositioned + AnimatedContainer ───
                     AnimatedPositioned(
                       duration: _animDuration,
                       curve: _animCurve,
-                      top: showLyrics ? 8.0 : coverTop,
-                      left: showLyrics ? 22.0 : coverLeft,
+                      top: showOverlay ? 8.0 : coverTop,
+                      left: showOverlay ? 22.0 : coverLeft,
                       child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
-                        width: showLyrics ? _smallCoverSize : largeCoverSize,
-                        height: showLyrics ? _smallCoverSize : largeCoverSize,
+                        width: showOverlay ? _smallCoverSize : largeCoverSize,
+                        height: showOverlay ? _smallCoverSize : largeCoverSize,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           borderRadius:
-                              BorderRadius.circular(showLyrics ? 8 : 12),
+                              BorderRadius.circular(showOverlay ? 8 : 12),
                           color: Colors.black,
                         ),
                         child: FittedBox(
@@ -212,51 +245,54 @@ class _PlayerContentState extends State<PlayerContent> {
             ),
           ),
 
-          // ─── Fixed bottom controls ────────────────────────────────────────
- AnimatedOpacity(
-  duration: const Duration(milliseconds: 250),
-  opacity: 1.0 - _lyricsExpand,
-  child: IgnorePointer(
-    ignoring: _lyricsExpand > 0.0,
+          // ─── Fixed bottom controls ────────────────────────────────────────────
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            opacity: 1.0 - _lyricsExpand,
+            child: IgnorePointer(
+              ignoring: _lyricsExpand > 0.0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform.translate(
+  offset: const Offset(0, -20),
+  child: Padding(
+    padding: EdgeInsets.symmetric(
+      horizontal: _playerHorizontalPadding,
+    ),
     child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Transform.translate(
-          offset: const Offset(0, -20),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PlayerProgressSection(
-                  formatTime: widget.formatTime,
-                ),
-                const SizedBox(height: 20),
-                PlayerTransportControls(
-                  playbackState: widget.playbackState,
-                ),
-                const SizedBox(height: 24),
-                PlayerSecondaryControls(
-                  song: widget.song,
-                  showLyrics: showLyrics,
-                  onLyricsToggle: widget.onLyricsToggle,
-                ),
-                const SizedBox(height: 15),
-              ],
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PlayerProgressSection(
+                            formatTime: widget.formatTime,
+                          ),
+                          const SizedBox(height: 20),
+                          PlayerTransportControls(
+                           playbackState: widget.playbackState,
+                          ),
+                          const SizedBox(height: 24),
+                          PlayerSecondaryControls(
+                            song: widget.song,
+                            showLyrics: showLyrics,
+                            onLyricsToggle: widget.onLyricsToggle,
+                            showQueue: showQueue,
+                            onQueueToggle: widget.onQueueToggle,
+                          ),
+                          const SizedBox(height: 15),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  Container(
+                    width: double.infinity,
+                    height: 0.9,
+                    color: Colors.white.withValues(alpha: 0.09),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-
-        Container(
-          width: double.infinity,
-          height: 0.9,
-          color: Colors.white.withValues(alpha: 0.09),
-        ),
-      ],
-    ),
-  ),
-),
-        
         ],
       ),
     );
@@ -280,16 +316,228 @@ class _PlayerContentState extends State<PlayerContent> {
           return _EmptyLyricsOverlay(song: widget.song);
         }
         return _LyricsOverlayBody(
-  result: result,
-  onExpandChanged: (expanded) {
-    if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
-
-    setState(() {
-      _lyricsExpand = expanded ? 1.0 : 0.0;
-    });
-  },
-);
+          result: result,
+          onExpandChanged: (expanded) {
+            if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
+            setState(() {
+              _lyricsExpand = expanded ? 1.0 : 0.0;
+            });
+          },
+        );
       },
+    );
+  }
+}
+
+// ─── Queue overlay body ───────────────────────────────────────────────────────
+
+class _QueueOverlayBody extends StatefulWidget {
+  final bool isVisible;
+  final VoidCallback onClose;
+
+  const _QueueOverlayBody({
+    required this.isVisible,
+    required this.onClose,
+  });
+
+  @override
+  State<_QueueOverlayBody> createState() => _QueueOverlayBodyState();
+}
+
+class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
+  final _scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(_QueueOverlayBody old) {
+    super.didUpdateWidget(old);
+    // Auto-scroll to current track when the overlay becomes visible.
+    if (widget.isVisible && !old.isVisible) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToCurrent());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrent() {
+    if (!_scroll.hasClients) return;
+    final idx = AudioService.playbackState.value.currentIndex;
+    if (idx <= 0) return;
+    // Standard ListTile height (with subtitle) is ~72 px.
+    // Scroll so the item above current is visible, centring the current row.
+    const itemH = 72.0;
+    final target = ((idx - 1) * itemH)
+        .clamp(0.0, _scroll.position.maxScrollExtent);
+    _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, state, _) {
+        if (state.currentPlaylist.isEmpty) {
+          return Center(
+            child: Text(
+              'Antrian kosong',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 15,
+              ),
+            ),
+          );
+        }
+
+        final playlist = state.currentPlaylist;
+        final currentIdx = state.currentIndex;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Antrian — ${playlist.length} lagu',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ReorderableListView.builder(
+                scrollController: _scroll,
+                padding: const EdgeInsets.only(bottom: 16),
+                itemCount: playlist.length,
+                onReorder: AudioService.reorderQueue,
+                itemBuilder: (context, index) {
+                  final song = playlist[index];
+                  final isCurrent = index == currentIdx;
+                  return _QueueRow(
+                    key: ValueKey('queue_${song.id}_$index'),
+                    index: index,
+                    song: song,
+                    isCurrent: isCurrent,
+                    onTap: () {
+                      AudioService.playFromCurrentQueue(index);
+                      widget.onClose();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─── Single queue row ─────────────────────────────────────────────────────────
+
+class _QueueRow extends StatelessWidget {
+  final int index;
+  final LocalSong song;
+  final bool isCurrent;
+  final VoidCallback onTap;
+
+  const _QueueRow({
+    super.key,
+    required this.index,
+    required this.song,
+    required this.isCurrent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: Colors.white10,
+        highlightColor: Colors.white.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              // Leading: equalizer icon for current, artwork for others
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: isCurrent
+                    ? const Center(
+                        child: Icon(
+                          Icons.equalizer_rounded,
+                          color: Color(0xFFF92D48),
+                          size: 22,
+                        ),
+                      )
+                    : SongArtwork(
+                        songId: song.id,
+                        size: 44,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              // Title + artist
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isCurrent
+                            ? const Color(0xFFF92D48)
+                            : Colors.white,
+                        fontSize: 14,
+                        fontWeight: isCurrent
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Drag handle
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.drag_handle_rounded,
+                    color: Colors.white.withValues(alpha: 0.3),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -310,43 +558,43 @@ class _LyricsOverlayBody extends StatelessWidget {
     return Stack(
       children: [
         NotificationListener<UserScrollNotification>(
-  onNotification: (notification) {
-    final offset = notification.metrics.pixels;
+          onNotification: (notification) {
+            final offset = notification.metrics.pixels;
 
-    if (offset > 150) {
-      onExpandChanged(true);
-    } else if (offset < 50) {
-      onExpandChanged(false);
-    }
+            if (offset > 150) {
+              onExpandChanged(true);
+            } else if (offset < 50) {
+              onExpandChanged(false);
+            }
 
-    return false;
-  },
-  child: ShaderMask(
-    shaderCallback: (Rect rect) {
-      return const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.transparent,
-          Colors.white,
-          Colors.white,
-          Colors.transparent,
-        ],
-        stops: [
-  0.0,
-  0.35,
-  0.65,
-  1.0,
-],
-      ).createShader(rect);
-    },
-    blendMode: BlendMode.dstIn,
-    child: SyncedLyricsView(
-      lyrics: result.lines,
-      padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
-    ),
-  ),
-),
+            return false;
+          },
+          child: ShaderMask(
+            shaderCallback: (Rect rect) {
+              return const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.white,
+                  Colors.white,
+                  Colors.transparent,
+                ],
+                stops: [
+                  0.0,
+                  0.35,
+                  0.65,
+                  1.0,
+                ],
+              ).createShader(rect);
+            },
+            blendMode: BlendMode.dstIn,
+            child: SyncedLyricsView(
+              lyrics: result.lines,
+              padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+            ),
+          ),
+        ),
         ValueListenableBuilder<bool>(
           valueListenable: LyricsSettings.showSource,
           builder: (_, show, _) {
@@ -582,11 +830,11 @@ class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
   static const _sizes = [
-  (label: 'S', value: 23.0),
-  (label: 'M', value: 34.0),
-  (label: 'L', value: 48.0),
-  (label: 'XL', value: 55.0),
-];
+    (label: 'S', value: 23.0),
+    (label: 'M', value: 34.0),
+    (label: 'L', value: 48.0),
+    (label: 'XL', value: 55.0),
+  ];
 
   @override
   Widget build(BuildContext context) {

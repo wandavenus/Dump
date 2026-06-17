@@ -8,9 +8,11 @@
 - [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
 - [AudioEngine architecture](audio-engine.md) — init order: ThemeController → LogService → LyricsSettings → AudioEngine → AudioEffectsService → AudioService.
+- [Dual-Player Architecture](dual-player-architecture.md) — callback pattern breaks AudioEngine↔DualPlayerManager circular dep; promotion flow; crossfade tick; applyAll() called twice after promote.
 - [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
 - [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
 - [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
+- [ReplayGain architecture](replay-gain.md) — Phase 4: LoudnessData model, ReplayGainService (native tags via jaudiotagger), LoudnessSourceResolver (branching priority), wired into AudioService; target Android 11 + MIUI 12.

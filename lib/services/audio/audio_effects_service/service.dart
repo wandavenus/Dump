@@ -11,16 +11,18 @@ part of '../audio_effects_service.dart';
 ///   • Pitch shift          → just_audio setPitch()
 ///   • Playback speed       → just_audio setSpeed()
 ///   • Crossfade            → CrossfadeController
-///   • Gapless              → ConcatenatingAudioSource (always active)
+///   • Gapless              → DualPlayerManager secondary preload (always active)
 ///   • Audio output mode    → AAudio / OpenSL ES / MIUI Hi-Fi
 class AudioEffectsService {
   AudioEffectsService._();
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool>   gaplessPlayback  = ValueNotifier(true);
-  static final ValueNotifier<bool>   audioNormalize   = ValueNotifier(false);
-  static final ValueNotifier<double> crossfadeDuration= ValueNotifier(0.0);
+  static final ValueNotifier<bool>           gaplessPlayback  = ValueNotifier(true);
+  static final ValueNotifier<bool>           audioNormalize   = ValueNotifier(false);
+  static final ValueNotifier<ReplayGainMode> replayGainMode   = ValueNotifier(ReplayGainMode.off);
+  static final ValueNotifier<double>         replayGainPreamp = ValueNotifier(0.0);
+  static final ValueNotifier<double>         crossfadeDuration= ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift       = ValueNotifier(0.0);
   static final ValueNotifier<bool>   spatialAudio     = ValueNotifier(false);
   static final ValueNotifier<int>    spatialStrength  = ValueNotifier(1000);
@@ -128,6 +130,9 @@ class AudioEffectsService {
 
     gaplessPlayback.value  = prefs.getBool('gapless')     ?? true;
     audioNormalize.value   = prefs.getBool('normalize')   ?? false;
+    final rgIdx            = prefs.getInt('replayGainMode') ?? 0;
+    replayGainMode.value   = ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
+    replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
     crossfadeDuration.value= prefs.getDouble('crossfade') ?? 0.0;
     pitchShift.value       = prefs.getDouble('pitch')     ?? 0.0;
     spatialAudio.value     = prefs.getBool('spatial')     ?? false;
@@ -174,6 +179,21 @@ class AudioEffectsService {
     await _saveBool('normalize', value);
     AudioEngine.applyNormalize(enabled: value);
     LogService.log('AudioEffects', 'Normalize: $value');
+  }
+
+  // ── ReplayGain ────────────────────────────────────────────────────────────
+
+  static Future<void> setReplayGainMode(ReplayGainMode mode) async {
+    replayGainMode.value = mode;
+    await _saveInt('replayGainMode', mode.index);
+    LogService.log('AudioEffects', 'ReplayGain mode: ${mode.name}');
+  }
+
+  static Future<void> setReplayGainPreamp(double db) async {
+    final v = db.clamp(-15.0, 15.0);
+    replayGainPreamp.value = v;
+    await _saveDouble('replayGainPreamp', v);
+    LogService.log('AudioEffects', 'ReplayGain preamp: $v dB');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────

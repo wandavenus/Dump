@@ -4,11 +4,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb) {
-    await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.musicplayer.channel.audio',
-      androidNotificationChannelName: 'Music Playback',
-      androidNotificationIcon: 'drawable/ic_notification',
-      androidNotificationOngoing: true,
+    await bg.AudioService.init(
+      builder: () => BackgroundAudioHandler(),
+      config: const bg.AudioServiceConfig(
+        androidNotificationChannelId:   'com.musicplayer.channel.audio',
+        androidNotificationChannelName: 'Music Playback',
+        androidNotificationIcon:        'drawable/ic_notification',
+        androidNotificationOngoing:     true,
+        androidNotificationClickStartsActivity: true,
+      ),
     );
   }
 
