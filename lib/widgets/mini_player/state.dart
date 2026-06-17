@@ -28,7 +28,11 @@ class _MiniPlayerState extends State<MiniPlayer> {
     if (!_directionLocked) return;
 
     if (_isHorizontal) {
-      setState(() => _swipeOffset = _panDx);
+  final nextOffset = _panDx;
+
+  if ((nextOffset - _swipeOffset).abs() > 2) {
+    setState(() => _swipeOffset = nextOffset);
+  }
     } else {
       _dragUp -= d.delta.dy;
       PlayerSheetController.setProgress((_dragUp / 600).clamp(0.0, 1.0).toDouble());
