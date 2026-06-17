@@ -212,23 +212,9 @@ class ReplayGainService {
   }
 
   static double _log10(double x) {
-    if (x <= 0) return double.negativeInfinity;
-    // Dart doesn't have log10 natively; compute via natural log
-    return _ln(x) / _ln(10);
-  }
-
-  static double _ln(double x) {
-    if (x <= 0) return double.negativeInfinity;
-    // Taylor series approximation using change of base
-    var result = 0.0;
-    var n = (x - 1) / (x + 1);
-    var term = n;
-    for (var i = 1; i <= 150; i += 2) {
-      result += term / i;
-      term *= n * n;
-    }
-    return 2 * result;
-  }
+  if (x <= 0) return double.negativeInfinity;
+  return math.log(x) / math.ln10;
+} 
 
   // ── SharedPrefs persistence ────────────────────────────────────────────────
 
