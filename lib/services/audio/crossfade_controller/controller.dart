@@ -104,7 +104,7 @@ class CrossfadeController {
 
       try {
         _setVol(secondary, 0.0);
-        secondary.play();
+        unawaited(secondary.play());
         _isFading             = true;
         _promoted             = false;
         _fadeStartRemainingMs = remaining;
