@@ -49,14 +49,17 @@ class _FirstPageState extends State<FirstPage> {
           ),
         );
 
-        return PopScope(
-          canPop: !PlayerSheetController.expanded.value,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop && PlayerSheetController.expanded.value) {
-              PlayerSheetController.close();
-            }
-          },
-          child: Stack(
+        return ValueListenableBuilder<bool>(
+  valueListenable: PlayerSheetController.expanded,
+  builder: (context, expanded, _) {
+    return PopScope(
+      canPop: !expanded,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && expanded) {
+          PlayerSheetController.close();
+        }
+      },
+      child: Stack(
             children: [
               Scaffold(
                 extendBody: isGlass,
@@ -107,6 +110,8 @@ class _FirstPageState extends State<FirstPage> {
             ],
           ),
         );
+      },
+    );
       },
     );
   }
