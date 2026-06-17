@@ -833,7 +833,8 @@ class AudioService {
   static Future<void> dispose() async {
     CrossfadeController.dispose();
     AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
-    AudioEffectsService.gaplessPlayback.removeListener(_onGaplessChanged);
+    AudioEffectsService.replayGainMode.removeListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainPreamp.removeListener(_onReplayGainSettingChanged);
     for (final sub in [..._playerSubs, ..._staticSubs]) {
       await sub.cancel();
     }
