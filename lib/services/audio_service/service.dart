@@ -106,9 +106,12 @@ class AudioService {
     // Wire lockscreen / notification controls → our static methods.
     // Done last so no callback fires before the service is fully ready.
     BackgroundAudioHandler.onPlayRequested       = play;
-    BackgroundAudioHandler.onPauseRequested      = pause;
-    BackgroundAudioHandler.onSkipNextRequested   = skipNext;
-    BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
+BackgroundAudioHandler.onPauseRequested      = pause;
+BackgroundAudioHandler.onSkipNextRequested   = skipNext;
+BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
+BackgroundAudioHandler.onSeekRequested       = seek;
+BackgroundAudioHandler.onSetRepeatRequested  = cycleLoopMode;
+BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     // Speed is a ValueNotifier — use addListener (not a stream subscription).
     
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
