@@ -70,11 +70,9 @@ class _MiniPlayerState extends State<MiniPlayer> {
         final song = playbackState.currentSong;
         if (song == null) return const SizedBox.shrink();
 
-        return ValueListenableBuilder<bool>(
-          valueListenable: PlayerSheetController.expanded,
-          builder: (context, expanded, _) {
-            final t = expanded ? 1.0 : 0.0;
-
+        return ValueListenableBuilder<double>(
+          valueListenable: PlayerSheetController.progress,
+          builder: (context, progress, _) {
             return GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: _onPanStart,
@@ -83,7 +81,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
               child: _MiniPlayerBody(
                 song: song,
                 playbackState: playbackState,
-                anim: t,
+                anim: progress,
                 swipeOffset: _swipeOffset,
               ),
             );
