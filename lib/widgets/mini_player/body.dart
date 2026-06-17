@@ -18,7 +18,7 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final canGoPrev = playbackState.currentIndex > 0;
-    final artworkSize = 46 - (6 * anim);
+    const artworkSize = 46.0;
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
 
     return ValueListenableBuilder<bool>(
@@ -35,7 +35,6 @@ class _MiniPlayerBody extends StatelessWidget {
                 height: 55,
                 child: Stack(
                   children: [
-                    // Swipe direction indicator
                     if (swipeFraction > 0.05)
                       Positioned.fill(
                         child: Opacity(
@@ -64,7 +63,6 @@ class _MiniPlayerBody extends StatelessWidget {
                           ),
                         ),
                       ),
-                    // Main content
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
@@ -85,20 +83,17 @@ class _MiniPlayerBody extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Transform.translate(
-                                      offset: Offset(6 * anim, 0),
-                                      child: Hero(
-                                        tag: PlayerHeroTags.title(song),
-                                        child: Material(
-                                          type: MaterialType.transparency,
-                                          child: Text(
-                                            song.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                            ),
+                                    child: Hero(
+                                      tag: PlayerHeroTags.title(song),
+                                      child: Material(
+                                        type: MaterialType.transparency,
+                                        child: Text(
+                                          song.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
                                           ),
                                         ),
                                       ),
@@ -109,10 +104,9 @@ class _MiniPlayerBody extends StatelessWidget {
                             ),
                           ),
                           Opacity(
-                            opacity: 1 - anim,
+                            opacity: 1.0,
                             child: Row(
                               children: [
-                                
                                 IconButton(
                                   onPressed: () {
                                     playbackState.isPlaying
