@@ -93,9 +93,9 @@ class _MiniPlayerBody extends StatelessWidget {
                                   Expanded(
   child: Transform.translate(
     offset: Offset(
-      20 * anim,
-      -(20 * anim),
-    ),
+  8 * anim,
+  -(8 * anim),
+),
     child: Hero(
       tag: PlayerHeroTags.title(song),
       child: Material(
@@ -106,7 +106,7 @@ class _MiniPlayerBody extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 15 + (2 * anim),
+            fontSize: 15 + anim,
           ),
         ),
       ),
@@ -119,7 +119,7 @@ class _MiniPlayerBody extends StatelessWidget {
                           ),
                           
                             Opacity(
-  opacity: 1 - (anim * 0.7),
+  opacity: 1 - anim,
                             child: Row(
                               children: [
                                 IconButton(
