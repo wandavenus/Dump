@@ -93,7 +93,7 @@ class _MiniPlayerBody extends StatelessWidget {
                                           song.title,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 15 + (2 * anim),
                                           ),
@@ -105,7 +105,7 @@ class _MiniPlayerBody extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Opacity(
+                          
                             Opacity(
   opacity: 1 - (anim * 0.7),
                             child: Row(
