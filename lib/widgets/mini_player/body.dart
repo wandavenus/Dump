@@ -18,7 +18,7 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final canGoPrev = playbackState.currentIndex > 0;
-    final artworkSize = 46 + (20 * anim);
+    final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
 
     return ValueListenableBuilder<bool>(
@@ -73,34 +73,46 @@ class _MiniPlayerBody extends StatelessWidget {
                               onTap: _openFullPlayer,
                               child: Row(
                                 children: [
-                                  Hero(
-                                    tag: PlayerHeroTags.artwork(song),
-                                    child: SongArtwork(
-                                      songId: song.id,
-                                      size: artworkSize,
-                                      borderRadius: BorderRadius.circular(
-  3 + (9 * anim),
+                                  Transform.translate(
+  offset: Offset(
+    0,
+    -(20 * anim),
+  ),
+  child: Hero(
+    tag: PlayerHeroTags.artwork(song),
+    child: SongArtwork(
+      songId: song.id,
+      size: artworkSize,
+      borderRadius: BorderRadius.circular(
+        3 + (9 * anim),
+      ),
+    ),
+  ),
 ),
-                                    ),
-                                  ),
                                   SizedBox(width: 10 + (6 * anim)),
                                   Expanded(
-                                    child: Hero(
-                                      tag: PlayerHeroTags.title(song),
-                                      child: Material(
-                                        type: MaterialType.transparency,
-                                        child: Text(
-                                          song.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15 + (2 * anim),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+  child: Transform.translate(
+    offset: Offset(
+      20 * anim,
+      -(20 * anim),
+    ),
+    child: Hero(
+      tag: PlayerHeroTags.title(song),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Text(
+          song.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15 + (2 * anim),
+          ),
+        ),
+      ),
+    ),
+  ),
+),
                                 ],
                               ),
                             ),
