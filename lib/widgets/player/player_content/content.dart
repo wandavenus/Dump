@@ -213,7 +213,13 @@ class _PlayerContentState extends State<PlayerContent> {
                     AnimatedPositioned(
                       duration: _animDuration,
                       curve: _animCurve,
-                      top: showOverlay ? 8.0 : coverTop,
+                      top: showOverlay
+    ? 8.0
+    : lerpDouble(
+        sh - 140,
+        coverTop,
+        progress,
+      )!,
                       left: showOverlay ? 22.0 : coverLeft,
                       child: AnimatedContainer(
                         duration: _animDuration,
@@ -225,7 +231,14 @@ class _PlayerContentState extends State<PlayerContent> {
         largeCoverSize,
         progress,
       )!,
-                        height: showOverlay ? _smallCoverSize : largeCoverSize,
+
+height: showOverlay
+    ? _smallCoverSize
+    : lerpDouble(
+        70,
+        largeCoverSize,
+        progress,
+      )!,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           borderRadius:
