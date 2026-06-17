@@ -18,7 +18,7 @@ class _MiniPlayerBody extends StatelessWidget {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final canGoPrev = playbackState.currentIndex > 0;
-    const artworkSize = 46.0;
+    final artworkSize = 46 + (20 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
 
     return ValueListenableBuilder<bool>(
@@ -78,10 +78,12 @@ class _MiniPlayerBody extends StatelessWidget {
                                     child: SongArtwork(
                                       songId: song.id,
                                       size: artworkSize,
-                                      borderRadius: BorderRadius.circular(3),
+                                      borderRadius: BorderRadius.circular(
+  3 + (9 * anim),
+),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  SizedBox(width: 10 + (6 * anim)),
                                   Expanded(
                                     child: Hero(
                                       tag: PlayerHeroTags.title(song),
@@ -93,7 +95,7 @@ class _MiniPlayerBody extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 15,
+                                            fontSize: 15 + (2 * anim),
                                           ),
                                         ),
                                       ),
@@ -104,7 +106,8 @@ class _MiniPlayerBody extends StatelessWidget {
                             ),
                           ),
                           Opacity(
-                            opacity: 1.0,
+                            Opacity(
+  opacity: 1 - (anim * 0.7),
                             child: Row(
                               children: [
                                 IconButton(
