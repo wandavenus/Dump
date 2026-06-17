@@ -56,7 +56,7 @@ class AudioSessionHandler {
     // Fire-and-forget: setActive is best-effort; failure doesn't block swap.
     if (_session != null) {
       _session!.setActive(true).catchError(
-        (Object _) {},  // ignore: setActive failures are non-fatal
+        (Object _) => false,
       );
     }
     LogService.verbose('AudioSession', 'Promotion lock acquired');
@@ -71,9 +71,6 @@ class AudioSessionHandler {
   // ── Interruption handling ──────────────────────────────────────────────────
 
   static void _onInterruption(AudioInterruptionEvent event) {
-    // Suppress all interruptions during the promotion window.
-    // On MIUI 12 / Android 11, stopping the old primary triggers a spurious
-    // focus-loss event that would otherwise pause the new primary mid-playback.
     if (_inPromotion) {
       LogService.verbose(
         'AudioSession',
@@ -91,7 +88,6 @@ class AudioSessionHandler {
           if (player.playing) {
             _pausedByInterruption = true;
             player.pause();
-            // Also pause the secondary player if a crossfade is in progress.
             _pauseSecondaryAndResetFade();
             LogService.log('AudioSession', 'Paused: interruption (pause)');
           }
@@ -103,12 +99,10 @@ class AudioSessionHandler {
       case AudioInterruptionType.duck:
         if (event.begin) {
           player.setVolume(0.3);
-          // Duck secondary too (might be fading in).
           try { DualPlayerManager.secondaryPlayer?.setVolume(0.3); } catch (_) {}
           LogService.log('AudioSession', 'Ducked: interruption');
         } else {
           player.setVolume(1.0);
-          // Restore secondary to 0 (it should not be audible when preloading).
           try { DualPlayerManager.secondaryPlayer?.setVolume(0.0); } catch (_) {}
           LogService.log('AudioSession', 'Unducked');
         }
@@ -135,8 +129,6 @@ class AudioSessionHandler {
     LogService.log('AudioSession', 'Resumed after interruption');
   }
 
-  // ── Headphone disconnect ───────────────────────────────────────────────────
-
   static void _onBecomingNoisy(dynamic _) {
     final player = AudioEngine.player;
     if (player.playing) {
@@ -146,22 +138,12 @@ class AudioSessionHandler {
     }
   }
 
-  // ── Dual-player helper ────────────────────────────────────────────────────
-
-  /// Pauses the secondary player and resets any in-flight crossfade so that
-  /// resuming after an interruption starts cleanly from the primary.
   static void _pauseSecondaryAndResetFade() {
     try { DualPlayerManager.secondaryPlayer?.pause(); } catch (_) {}
     CrossfadeController.reset();
   }
 
-  // ── Manual controls (for AppLifecycle) ────────────────────────────────────
+  static void onAppPause() {}
 
-  static void onAppPause() {
-    // Handled automatically by the OS audio session.
-  }
-
-  static void onAppResume() {
-    // Handled automatically by the OS audio session.
-  }
+  static void onAppResume() {}
 }
