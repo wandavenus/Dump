@@ -71,26 +71,15 @@ class _FirstPageState extends State<FirstPage> {
                   valueListenable: PlayerSheetController.progress,
                   builder: (context, progress, _) {
                     final opacity = (1 - progress).clamp(0.0, 1.0);
-
                     final column = Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Opacity(
-                          opacity: opacity,
-                          child: const MiniPlayer(),
-                        ),
+                        const SizedBox(height: 55),
                         if (!isGlass)
-                          Container(
-                            height: 1.5,
-                            color: const Color(0xFF38383A),
-                          ),
-                        SizedBox(
-                          height: 70,
-                          child: navBar,
-                        ),
+                          Container(height: 1.5, color: const Color(0xFF38383A)),
+                        SizedBox(height: 70, child: navBar),
                       ],
                     );
-
                     return Transform.translate(
                       offset: Offset(0, 24 * progress),
                       child: Opacity(
@@ -101,10 +90,16 @@ class _FirstPageState extends State<FirstPage> {
                   },
                 ),
               ),
-              ValueListenableBuilder<bool>(
-                valueListenable: PlayerSheetController.expanded,
-                builder: (context, expanded, _) {
-                  return PlayerSheet(expanded: expanded);
+              ValueListenableBuilder<double>(
+                valueListenable: PlayerSheetController.progress,
+                builder: (context, progress, _) {
+                  return Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 70 * (1 - progress),
+                    height: 55 + ((MediaQuery.of(context).size.height - 55) * progress),
+                    child: const NowPlayingLayout(),
+                  );
                 },
               ),
             ],
