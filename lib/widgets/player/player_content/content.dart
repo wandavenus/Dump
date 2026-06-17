@@ -220,7 +220,13 @@ class _PlayerContentState extends State<PlayerContent> {
         coverTop,
         progress,
       )!,
-                      left: showOverlay ? 22.0 : coverLeft,
+                      left: showOverlay
+    ? 22.0
+    : lerpDouble(
+        22.0,
+        coverLeft,
+        progress,
+      )!,
                       child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
