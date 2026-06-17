@@ -5,8 +5,10 @@ import '../models/local_song.dart';
 import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
 import '../services/player_sheet_controller.dart';
+import '../themes/theme_controller.dart';
 import 'player/player_background.dart';
 import 'player/player_content.dart';
+import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
 class UnifiedMorphPlayer extends StatefulWidget {
@@ -223,8 +225,29 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
             fit: StackFit.expand,
             clipBehavior: Clip.antiAlias,
             children: [
-              // ── Dark base ──────────────────────────────────────────────────
-              const ColoredBox(color: Color(0xFF1C1C1E)),
+              // ── Dark base (glass-aware at mini state) ──────────────────
+              ValueListenableBuilder<bool>(
+                valueListenable: ThemeController.glassTheme,
+                builder: (_, masterGlass, __) =>
+                    ValueListenableBuilder<bool>(
+                  valueListenable: ThemeController.glassMiniPlayer,
+                  builder: (_, compGlass, __) {
+                    final useGlass =
+                        masterGlass && compGlass && progress < 0.15;
+                    if (useGlass) {
+                      return BackdropFilter(
+                        filter:
+                            ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.45),
+                        ),
+                      );
+                    }
+                    return const ColoredBox(
+                        color: Color(0xFF1C1C1E));
+                  },
+                ),
+              ),
 
               // ── Blurred artwork background (fades in with progress) ────────
               if (bgAlpha > 0)
@@ -369,7 +392,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     );
   }
 
-  // ── Mini player overlay ────────────────────────────────────────────────────
+  // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
   Widget _buildMiniOverlay(LocalSong song, AudioPlaybackState state) {
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
@@ -378,116 +401,83 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Skip-direction arrow hint
+        // Swipe arrow hint (kiri = prev, kanan = next)
         if (swipeFraction > 0.05)
           Positioned(
             top: 0,
             bottom: 0,
-            left: _swipeOffset < 0 ? null : 12,
-            right: _swipeOffset < 0 ? 12 : null,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Opacity(
-                opacity: swipeFraction.clamp(0.0, 1.0),
-                child: Icon(
-                  _swipeOffset < 0 ? Icons.skip_next : Icons.skip_previous,
-                  color: Colors.white,
-                  size: 22,
-                ),
+            left: _swipeOffset < 0 ? null : 14,
+            right: _swipeOffset < 0 ? 14 : null,
+            child: Opacity(
+              opacity: swipeFraction,
+              child: Icon(
+                _swipeOffset < 0 ? Icons.skip_next : Icons.skip_previous,
+                color: Colors.white,
+                size: 22,
               ),
             ),
           ),
 
-        // Row: reserve artwork gap | title + artist | controls
+        // Row utama: [artwork spacer] [title] [controls]
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              // Space for the morphing artwork (46 px) + 10 px gap
+              // Spacer untuk morphing artwork (46 px lebar + 10 px gap)
               const SizedBox(width: 56),
-              // Song info
+
+              // Judul lagu dengan Hero tag
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: PlayerSheetController.open,
+                  child: Hero(
+                    tag: PlayerHeroTags.title(song),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      song.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        fontSize: 12,
+                  ),
+                ),
+              ),
+
+              // Play / Pause
+              Opacity(
+                opacity: 1.0,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => state.isPlaying
+                          ? AudioService.pause()
+                          : AudioService.play(),
+                      icon: Icon(
+                        state.isPlaying ? Icons.pause : Icons.play_arrow,
+                        size: 34,
+                        color: Colors.white,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: canGoNext
+                          ? () => AudioService.skipNext()
+                          : null,
+                      icon: Icon(
+                        Icons.skip_next,
+                        size: 30,
+                        color: canGoNext ? Colors.white : Colors.white24,
                       ),
                     ),
                   ],
                 ),
               ),
-              // Play / Pause
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 40, minHeight: 40),
-                onPressed: () => state.isPlaying
-                    ? AudioService.pause()
-                    : AudioService.play(),
-                icon: Icon(
-                  state.isPlaying ? Icons.pause : Icons.play_arrow,
-                  size: 30,
-                  color: Colors.white,
-                ),
-              ),
-              // Skip next
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 36, minHeight: 40),
-                onPressed: canGoNext ? AudioService.skipNext : null,
-                icon: Icon(
-                  Icons.skip_next,
-                  size: 28,
-                  color: canGoNext ? Colors.white : Colors.white24,
-                ),
-              ),
             ],
-          ),
-        ),
-
-        // Thin progress bar at bottom edge
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: StreamBuilder<Duration>(
-            stream: AudioService.player.positionStream,
-            initialData: AudioService.player.position,
-            builder: (context, snap) {
-              final pos = snap.data ?? Duration.zero;
-              final dur = state.duration;
-              final fraction = dur.inMilliseconds > 0
-                  ? (pos.inMilliseconds / dur.inMilliseconds)
-                      .clamp(0.0, 1.0)
-                  : 0.0;
-              return LinearProgressIndicator(
-                value: fraction,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(
-                  Color(0xFFF92D48),
-                ),
-                minHeight: 2.5,
-              );
-            },
           ),
         ),
       ],
