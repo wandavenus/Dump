@@ -110,12 +110,11 @@ class AudioService {
     BackgroundAudioHandler.onSkipNextRequested   = skipNext;
     BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
     // Speed is a ValueNotifier — use addListener (not a stream subscription).
-    AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
+    
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
 
-    CrossfadeController.initialize();
-    _syncPlaybackState();
+    
     LogService.log('AudioService', 'Initialized');
   }
 
