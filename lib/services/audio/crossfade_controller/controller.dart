@@ -38,6 +38,9 @@ class CrossfadeController {
   static bool _promoted             = false;
   static int  _fadeStartRemainingMs = 0;
 
+  static double? _lastPrimaryVol;
+  static double? _lastSecondaryVol;
+  
   /// True while a crossfade is in flight — checked by
   /// [AudioService._onTrackCompleted] to avoid double-advancing.
   static bool get isFading => _isFading;
@@ -104,7 +107,10 @@ class CrossfadeController {
 
       try {
         _setVol(secondary, 0.0);
+
+      if (!secondary.playing) {
         unawaited(secondary.play());
+      }
         _isFading             = true;
         _promoted             = false;
         _fadeStartRemainingMs = remaining;
@@ -125,13 +131,24 @@ class CrossfadeController {
       final elapsed   = (_fadeStartRemainingMs - remaining).clamp(0, crossMs);
       final fadeRatio = (elapsed / crossMs).clamp(0.0, 1.0);
 
-      _setVol(primary, _logFadeOut(fadeRatio));          // primary:   1 → 0
+      final primaryVol = _logFadeOut(fadeRatio);
 
-      final secondary = DualPlayerManager.secondaryPlayer;
-      if (secondary != null) {
-        _setVol(secondary, _logFadeIn(fadeRatio));       // secondary: 0 → 1
-      }
+if (_lastPrimaryVol == null ||
+    (primaryVol - _lastPrimaryVol!).abs() > 0.01) {
+  _lastPrimaryVol = primaryVol;
+  _setVol(primary, primaryVol);
+}
 
+final secondary = DualPlayerManager.secondaryPlayer;
+if (secondary != null) {
+  final secondaryVol = _logFadeIn(fadeRatio);
+
+  if (_lastSecondaryVol == null ||
+      (secondaryVol - _lastSecondaryVol!).abs() > 0.01) {
+    _lastSecondaryVol = secondaryVol;
+    _setVol(secondary, secondaryVol);
+  }
+}
       if (fadeRatio >= 1.0 && !_promoted) {
         _triggerPromotion();
       }
@@ -145,6 +162,8 @@ class CrossfadeController {
     _promoted = true;
     _isFading = false;
     LogService.log('Crossfade', 'Fade complete — promoting secondary');
+    _lastPrimaryVol = null;
+    _lastSecondaryVol = null;
     unawaited(DualPlayerManager.promote(fromCrossfade: true));
   }
 
@@ -161,13 +180,19 @@ class CrossfadeController {
   // ── Internal reset ────────────────────────────────────────────────────────
 
   static void _resetFade() {
+   _lastPrimaryVol = null;
+   _lastSecondaryVol = null; 
+    
     _isFading = false;
     _promoted = false;
     try { _setVol(DualPlayerManager.primaryPlayer, 1.0); } catch (_) {}
     try {
-      final sec = DualPlayerManager.secondaryPlayer;
-      if (sec != null) _setVol(sec, 0.0);
-    } catch (_) {}
+  final sec = DualPlayerManager.secondaryPlayer;
+  if (sec != null) {
+    _setVol(sec, 0.0);
+    unawaited(sec.pause());
+  }
+} catch (_) {}
   }
 
   // ── Volume helper ─────────────────────────────────────────────────────────
