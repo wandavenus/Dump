@@ -257,9 +257,9 @@ class _PlayerContentState extends State<PlayerContent> {
                   Transform.translate(
   offset: const Offset(0, -20),
   child: Padding(
-    padding: const EdgeInsets.symmetric(
-  horizontal: 32,
-),
+    padding: EdgeInsets.symmetric(
+      horizontal: _playerHorizontalPadding,
+    ),
     child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
