@@ -71,15 +71,26 @@ class _FirstPageState extends State<FirstPage> {
                   valueListenable: PlayerSheetController.progress,
                   builder: (context, progress, _) {
                     final opacity = (1 - progress).clamp(0.0, 1.0);
+
                     final column = Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 55),
+                        Opacity(
+                          opacity: opacity,
+                          child: const MiniPlayer(),
+                        ),
                         if (!isGlass)
-                          Container(height: 1.5, color: const Color(0xFF38383A)),
-                        SizedBox(height: 70, child: navBar),
+                          Container(
+                            height: 1.5,
+                            color: const Color(0xFF38383A),
+                          ),
+                        SizedBox(
+                          height: 70,
+                          child: navBar,
+                        ),
                       ],
                     );
+
                     return Transform.translate(
                       offset: Offset(0, 24 * progress),
                       child: Opacity(
@@ -90,16 +101,10 @@ class _FirstPageState extends State<FirstPage> {
                   },
                 ),
               ),
-              ValueListenableBuilder<double>(
-                valueListenable: PlayerSheetController.progress,
-                builder: (context, progress, _) {
-                  return Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 70 * (1 - progress),
-                    height: 55 + ((MediaQuery.of(context).size.height - 55) * progress),
-                    child: const NowPlayingLayout(),
-                  );
+              ValueListenableBuilder<bool>(
+                valueListenable: PlayerSheetController.expanded,
+                builder: (context, expanded, _) {
+                  return PlayerSheet(expanded: expanded);
                 },
               ),
             ],

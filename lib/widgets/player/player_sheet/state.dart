@@ -2,6 +2,7 @@ part of '../player_sheet.dart';
 
 class _PlayerSheetState extends State<PlayerSheet> {
   double _dragDy = 0;
+  double _dragStartProgress = 0;
   bool _showLyrics = false;
   bool _showQueue = false;
 
@@ -58,9 +59,12 @@ class _PlayerSheetState extends State<PlayerSheet> {
       valueListenable: PlayerSheetController.progress,
       builder: (context, sheetProgress, _) {
         final screenHeight = MediaQuery.of(context).size.height;
-        final hiddenOffset = screenHeight * (1 - sheetProgress);
+        final hiddenOffset = (screenHeight - 55) * (1 - sheetProgress);
         final dragProgress = _dragProgress;
-        final blurSigma = sheetProgress * 22.0;
+        final easedProgress = Curves.easeOutCubic.transform(
+          sheetProgress.clamp(0.0, 1.0).toDouble(),
+        );
+        final blurSigma = easedProgress * 22.0;
 
         return IgnorePointer(
           ignoring: sheetProgress <= 0.001,
@@ -72,16 +76,22 @@ class _PlayerSheetState extends State<PlayerSheet> {
                 final song = playbackState.currentSong;
 
                 return Opacity(
-                  opacity: sheetProgress.clamp(0.0, 1.0).toDouble(),
+                  opacity: (easedProgress * 1.25).clamp(0.0, 1.0).toDouble(),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
+                    onVerticalDragStart: (_showLyrics || _showQueue)
+                        ? null
+                        : (_) {
+                            _dragStartProgress = PlayerSheetController.progress.value;
+                            _dragDy = 0;
+                          },
                     onVerticalDragUpdate: (_showLyrics || _showQueue)
                         ? null
                         : (details) {
-                            setState(() {
-                              _dragDy += details.delta.dy;
-                              if (_dragDy < 0) _dragDy = 0;
-                            });
+                            _dragDy += details.delta.dy;
+                            final travel = screenHeight - 55;
+                            final next = _dragStartProgress - (_dragDy / travel);
+                            PlayerSheetController.setProgress(next);
                           },
                     onVerticalDragEnd: (_showLyrics || _showQueue)
                         ? null
@@ -91,6 +101,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
                               _close();
                             } else {
                               setState(() => _dragDy = 0);
+                              PlayerSheetController.open();
                             }
                           },
                     child: Material(

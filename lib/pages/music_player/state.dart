@@ -2,6 +2,9 @@ part of '../music_player.dart';
 
 class _MusicPlayerState extends State<MusicPlayer> {
   bool _handledRouteArguments = false;
+  bool _showLyrics = false;
+  bool _showQueue = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +38,13 @@ class _MusicPlayerState extends State<MusicPlayer> {
         SnackBar(content: Text('Error playing song: $error')),
       );
     }
+  }
+
+  String _formatTime(Duration duration) {
+    final safeDuration = duration.isNegative ? Duration.zero : duration;
+    final minutes = safeDuration.inMinutes.remainder(60);
+    final seconds = safeDuration.inSeconds.remainder(60);
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -71,7 +81,21 @@ class _MusicPlayerState extends State<MusicPlayer> {
                     padding: const EdgeInsets.only(top: 40),
                     child: song == null
                         ? const PlayerEmptyState()
-                        : const NowPlayingLayout(embedded: true),
+                        : PlayerContent(
+                            song: song,
+                            playbackState: playbackState,
+                            formatTime: _formatTime,
+                            showLyrics: _showLyrics,
+                            onLyricsToggle: () => setState(() {
+                              _showLyrics = !_showLyrics;
+                              if (_showLyrics) _showQueue = false;
+                            }),
+                            showQueue: _showQueue,
+                            onQueueToggle: () => setState(() {
+                              _showQueue = !_showQueue;
+                              if (_showQueue) _showLyrics = false;
+                            }),
+                          ),
                   ),
                 ),
               ],
