@@ -109,12 +109,21 @@ class AudioService {
     BackgroundAudioHandler.onPauseRequested      = pause;
     BackgroundAudioHandler.onSkipNextRequested   = skipNext;
     BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
-    BackgroundAudioHandler.onSeekRequested       = seek;
-    BackgroundAudioHandler.onStopRequested       = pause;
-    BackgroundAudioHandler.onSetRepeatRequested  = cycleLoopMode;
-    BackgroundAudioHandler.onSetShuffleRequested = (_) async => toggleShuffle();
+    // Speed is a ValueNotifier — use addListener (not a stream subscription).
+    AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
+    AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
 
+    CrossfadeController.initialize();
+    _syncPlaybackState();
     LogService.log('AudioService', 'Initialized');
+  }
+
+  static void _onReplayGainSettingChanged() {
+    final song = currentSong;
+    if (song != null) {
+      unawaited(_applyReplayGain(song));
+    }
   }
 
   static void _onSpeedChange() {
