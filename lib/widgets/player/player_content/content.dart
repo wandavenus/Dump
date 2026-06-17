@@ -112,11 +112,12 @@ class _PlayerContentState extends State<PlayerContent> {
     ignoring: showOverlay,
     child: Transform.translate(
   offset: Offset(
-    0,
-    40 * (1 - progress),
-  ),
+  0,
+  20 * (1 - progress),
+),
   child: Opacity(
-    opacity: Curves.easeOut.transform(progress),
+    opacity: ((progress - 0.15) / 0.85)
+    .clamp(0.0, 1.0),
     child: PlayerSongHeader(
   song: widget.song,
 ),
@@ -328,14 +329,22 @@ height: showOverlay
     child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          PlayerProgressSection(
-                            formatTime: widget.formatTime,
-                          ),
+                          Opacity(
+  opacity: ((progress - 0.2) / 0.8)
+      .clamp(0.0, 1.0),
+  child: PlayerProgressSection(
+    formatTime: widget.formatTime,
+  ),
+),
                           const SizedBox(height: 20),
-                          Transform.scale(
-  scale: 0.85 + (0.15 * progress),
-  child: PlayerTransportControls(
-    playbackState: widget.playbackState,
+                          Opacity(
+  opacity: ((progress - 0.35) / 0.65)
+      .clamp(0.0, 1.0),
+  child: Transform.scale(
+    scale: 0.85 + (0.15 * progress),
+    child: PlayerTransportControls(
+      playbackState: widget.playbackState,
+    ),
   ),
 ),
                           const SizedBox(height: 24),
