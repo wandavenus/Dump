@@ -49,55 +49,63 @@ class _FirstPageState extends State<FirstPage> {
           ),
         );
 
-        return Stack(
-          children: [
-            Scaffold(
-              extendBody: isGlass,
-              body: IndexedStack(
-                index: _selectedIndex,
-                children: _pages.cast<Widget>(),
-              ),
-              bottomNavigationBar: ValueListenableBuilder<double>(
-                valueListenable: PlayerSheetController.progress,
-                builder: (context, progress, _) {
-                  final opacity = (1 - progress).clamp(0.0, 1.0);
+        return PopScope(
+          canPop: !PlayerSheetController.expanded.value,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && PlayerSheetController.expanded.value) {
+              PlayerSheetController.close();
+            }
+          },
+          child: Stack(
+            children: [
+              Scaffold(
+                extendBody: isGlass,
+                body: IndexedStack(
+                  index: _selectedIndex,
+                  children: _pages.cast<Widget>(),
+                ),
+                bottomNavigationBar: ValueListenableBuilder<double>(
+                  valueListenable: PlayerSheetController.progress,
+                  builder: (context, progress, _) {
+                    final opacity = (1 - progress).clamp(0.0, 1.0);
 
-                  final column = Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Opacity(
-                        opacity: opacity,
-                        child: const MiniPlayer(),
-                      ),
-                      if (!isGlass)
-                        Container(
-                          height: 1.5,
-                          color: const Color(0xFF38383A),
+                    final column = Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Opacity(
+                          opacity: opacity,
+                          child: const MiniPlayer(),
                         ),
-                      SizedBox(
-                        height: 70,
-                        child: navBar,
-                      ),
-                    ],
-                  );
+                        if (!isGlass)
+                          Container(
+                            height: 1.5,
+                            color: const Color(0xFF38383A),
+                          ),
+                        SizedBox(
+                          height: 70,
+                          child: navBar,
+                        ),
+                      ],
+                    );
 
-                  return Transform.translate(
-                    offset: Offset(0, 24 * progress),
-                    child: Opacity(
-                      opacity: opacity,
-                      child: isGlass ? GlassNavBar(child: column) : column,
-                    ),
-                  );
+                    return Transform.translate(
+                      offset: Offset(0, 24 * progress),
+                      child: Opacity(
+                        opacity: opacity,
+                        child: isGlass ? GlassNavBar(child: column) : column,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: PlayerSheetController.expanded,
+                builder: (context, expanded, _) {
+                  return PlayerSheet(expanded: expanded);
                 },
               ),
-            ),
-            ValueListenableBuilder<bool>(
-              valueListenable: PlayerSheetController.expanded,
-              builder: (context, expanded, _) {
-                return PlayerSheet(expanded: expanded);
-              },
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
