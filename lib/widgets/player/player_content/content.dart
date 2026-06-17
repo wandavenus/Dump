@@ -230,11 +230,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           child: SizedBox(
                             width: largeCoverSize,
                             height: largeCoverSize,
-                            child: SongArtwork(
-                              songId: widget.song.id,
-                              size: largeCoverSize,
-                              borderRadius: BorderRadius.zero,
-                            ),
+                            child: Hero(
+  tag: PlayerHeroTags.artwork(widget.song),
+  child: SongArtwork(
+    songId: widget.song.id,
+    size: largeCoverSize,
+    borderRadius: BorderRadius.zero,
+  ),
+),
                           ),
                         ),
                       ),
