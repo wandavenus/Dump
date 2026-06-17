@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'player_hero_tags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../services/player_sheet_controller.dart';
 import '../../models/local_song.dart';
 import '../../models/lyrics_settings.dart';
 import '../../services/audio_playback_state.dart';
