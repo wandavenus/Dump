@@ -97,6 +97,9 @@ class AudioService {
     // Speed is a ValueNotifier — use addListener (not a stream subscription).
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
 
+    // Re-evaluate preload whenever gapless toggle changes.
+    AudioEffectsService.gaplessPlayback.addListener(_onGaplessChanged);
+
     CrossfadeController.initialize();
     _syncPlaybackState();
     LogService.log('AudioService', 'Initialized');
@@ -107,6 +110,12 @@ class AudioService {
     _setState(playbackState.value.copyWith(speed: spd));
     LogService.verbose('AudioService',
         'Speed changed: ${spd.toStringAsFixed(2)}x');
+  }
+
+  static void _onGaplessChanged() {
+    _schedulePreload();
+    LogService.verbose('AudioService',
+        'Gapless: ${AudioEffectsService.gaplessPlayback.value ? "on" : "off"}');
   }
 
   // ── Primary-stream subscriptions ───────────────────────────────────────────
@@ -177,8 +186,10 @@ class AudioService {
 
     _isLoading = true;
 
-    // Reset any active crossfade.
+    // Reset any active crossfade and discard stale secondary preload so the
+    // old next-track buffer cannot bleed into the new playlist.
     CrossfadeController.reset();
+    unawaited(DualPlayerManager.cancelPreload());
 
     final immutablePlaylist  = List<LocalSong>.unmodifiable(playlist);
     final selectedSong       = immutablePlaylist[index];
@@ -256,9 +267,27 @@ class AudioService {
       return;
     }
     CrossfadeController.reset();
+
+    // Fast-path: secondary already has the correct next track buffered.
+    // Promote it directly instead of discarding the buffer and reloading.
+    final preloaded = DualPlayerManager.preloadedSong;
+    final nextSong  = _playlist.elementAtOrNull(nextIdx);
+    if (preloaded != null &&
+        nextSong   != null &&
+        preloaded.id == nextSong.id &&
+        DualPlayerManager.secondaryPlayer != null) {
+      LogService.log('AudioService',
+          'Skip next → promote preloaded "${nextSong.title}"');
+      // Do NOT pre-advance _currentIndex; _afterPromotion handles it via
+      // _nextIndexValue so the index stays consistent.
+      await DualPlayerManager.promote(fromCrossfade: false);
+      return;
+    }
+
+    // Slow-path: secondary missing or stale — reload primary from disk.
     _currentIndex = nextIdx;
     await _playCurrentSong(autoplay: true);
-    LogService.log('AudioService', 'Skip → next track');
+    LogService.log('AudioService', 'Skip → next track (reload)');
   }
 
   static Future<void> skipPrevious() async {
@@ -449,7 +478,11 @@ class AudioService {
 
     final current = _playlist[_currentIndex];
     final next    = _playlist[nextIdx];
-    final gapless = GaplessAlbumDetector.isGapless(current, next);
+
+    // Respect the gapless toggle: when off, treat every transition as
+    // crossfade-eligible (even same-album tracks).
+    final gapless = AudioEffectsService.gaplessPlayback.value &&
+        GaplessAlbumDetector.isGapless(current, next);
 
     CrossfadeController.updateContext(
       nextIsGapless: gapless,
@@ -617,6 +650,7 @@ class AudioService {
   static Future<void> dispose() async {
     CrossfadeController.dispose();
     AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
+    AudioEffectsService.gaplessPlayback.removeListener(_onGaplessChanged);
     for (final sub in [..._playerSubs, ..._staticSubs]) {
       await sub.cancel();
     }

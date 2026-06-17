@@ -11,7 +11,7 @@ part of '../audio_effects_service.dart';
 ///   • Pitch shift          → just_audio setPitch()
 ///   • Playback speed       → just_audio setSpeed()
 ///   • Crossfade            → CrossfadeController
-///   • Gapless              → ConcatenatingAudioSource (always active)
+///   • Gapless              → DualPlayerManager secondary preload (always active)
 ///   • Audio output mode    → AAudio / OpenSL ES / MIUI Hi-Fi
 class AudioEffectsService {
   AudioEffectsService._();
