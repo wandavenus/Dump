@@ -6,11 +6,13 @@ class _LibraryRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.routeName,
+    this.destination,
   });
 
   final IconData icon;
   final String title;
   final String? routeName;
+  final _LibraryDestination? destination;
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +25,11 @@ class _LibraryRow extends StatelessWidget {
               Icon(icon, color: const Color(0xFFF92D48), size: 28),
               const SizedBox(width: 11),
               Expanded(
-                child: Text(title,
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 18)),
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                ),
               ),
-              
             ],
           ),
         ),
@@ -40,9 +42,19 @@ class _LibraryRow extends StatelessWidget {
       ],
     );
 
-    if (routeName == null) return row;
+    if (routeName == null && destination == null) return row;
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, routeName!),
+      onTap: () {
+        if (destination != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => _LibraryDetailPage(destination: destination!),
+            ),
+          );
+          return;
+        }
+        Navigator.pushNamed(context, routeName!);
+      },
       child: row,
     );
   }

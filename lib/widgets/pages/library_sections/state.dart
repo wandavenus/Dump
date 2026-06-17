@@ -15,11 +15,15 @@ class _LibraryContentState extends State<LibraryContent> {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getStringList(_kOrderKey);
     if (saved != null && saved.length == _defaultItems.length) {
-      final ordered = saved
-          .map((id) =>
-              _defaultItems.firstWhere((e) => e.id == id,
-                  orElse: () => _defaultItems.first))
-          .toList();
+      final ordered =
+          saved
+              .map(
+                (id) => _defaultItems.firstWhere(
+                  (e) => e.id == id,
+                  orElse: () => _defaultItems.first,
+                ),
+              )
+              .toList();
       if (mounted) setState(() => _items = ordered);
     }
     if (mounted) setState(() => _loaded = true);
@@ -63,14 +67,17 @@ class _LibraryContentState extends State<LibraryContent> {
 
   Widget _buildStaticList() {
     return Column(
-      children: _items
-          .map((item) => _LibraryRow(
-                key: ValueKey(item.id),
-                icon: item.icon,
-                title: item.title,
-                routeName: item.routeName,
-              ))
-          .toList(),
+      children:
+          _items
+              .map(
+                (item) => _LibraryRow(
+                  key: ValueKey(item.id),
+                  icon: item.icon,
+                  title: item.title,
+                  destination: item.destination,
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -78,25 +85,30 @@ class _LibraryContentState extends State<LibraryContent> {
     return ReorderableListView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      proxyDecorator: (child, index, animation) => Material(
-        color: Colors.transparent,
-        child: ScaleTransition(
-          scale: animation.drive(
-            Tween<double>(begin: 1, end: 1.04).chain(
-              CurveTween(curve: Curves.easeOut),
+      proxyDecorator:
+          (child, index, animation) => Material(
+            color: Colors.transparent,
+            child: ScaleTransition(
+              scale: animation.drive(
+                Tween<double>(
+                  begin: 1,
+                  end: 1.04,
+                ).chain(CurveTween(curve: Curves.easeOut)),
+              ),
+              child: child,
             ),
           ),
-          child: child,
-        ),
-      ),
       onReorder: _onReorder,
-      children: _items
-          .map((item) => _EditableRow(
-                key: ValueKey(item.id),
-                icon: item.icon,
-                title: item.title,
-              ))
-          .toList(),
+      children:
+          _items
+              .map(
+                (item) => _EditableRow(
+                  key: ValueKey(item.id),
+                  icon: item.icon,
+                  title: item.title,
+                ),
+              )
+              .toList(),
     );
   }
 }
