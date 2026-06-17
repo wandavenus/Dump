@@ -118,9 +118,12 @@ class _PlayerContentState extends State<PlayerContent> {
   child: Opacity(
     opacity: Curves.easeOut.transform(progress),
     child: PlayerSongHeader(
-      song: widget.song,
-    ),
+  song: widget.song,
+),
+),
+),
   ),
+),
 ),
         
                     // ── Lyrics area — fades in in lyrics mode ─────────────────
