@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 enum LoudnessSource {
+  replayGainTrack,
   replayGainAlbum,
   r128Track,
   r128Album,
