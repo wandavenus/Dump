@@ -459,6 +459,21 @@ class AudioService {
     try {
       await player.setAudioSource(buildAudioSource(song));
 
+      // Push track metadata to the notification / lockscreen.
+      // Covers skip-next (slow path), skip-previous, queue-jump, and
+      // the gapless-fallback path — all of which call _playCurrentSong.
+      BackgroundAudioHandler.instance?.updateNowPlaying(
+        id:       song.id.toString(),
+        title:    song.title,
+        artist:   song.artist.isNotEmpty ? song.artist : null,
+        album:    song.album.isNotEmpty  ? song.album  : null,
+        duration: song.duration,
+        artUri:   song.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${song.albumId}')
+            : null,
+      );
+
       // Apply ReplayGain before playback starts.
       await _applyReplayGain(song);
 

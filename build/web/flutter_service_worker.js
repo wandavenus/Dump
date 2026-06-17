@@ -63,9 +63,9 @@ const RESOURCES = {"assets/assets/fonts/regular.otf": "aaeac71d99a345145a126a8c9
 "icons/Icon-maskable-192.png": "c457ef57daa1d16f64b27b786ec2ea3c",
 "icons/Icon-maskable-512.png": "301a7604d45b3e739efc881eb04896ea",
 "version.json": "91bfc33a595f3f4f74ba10c533485f54",
-"flutter_bootstrap.js": "42508fad7579ddf4071acc281b14f0cb",
-"index.html": "48cb4883a049023ed0c1058c33a4159b",
-"/": "48cb4883a049023ed0c1058c33a4159b",
+"flutter_bootstrap.js": "d12365452aaf7695bb53e4a02576ea09",
+"index.html": "73f82c44f54df79f800dec35772ec5e6",
+"/": "73f82c44f54df79f800dec35772ec5e6",
 "main.dart.js": "244f76b2f8f85fe538d8e4647e1c1af5",
 "favicon.png": "5dcef449791fa27946b3d35ad8803796",
 "manifest.json": "492df3fe982711f271d36261e2706113"};
