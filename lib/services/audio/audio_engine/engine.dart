@@ -289,28 +289,11 @@ class AudioEngine {
   }
 
   static double _dbToLinear(double db) {
-    if (db == 0.0) return 1.0;
-    // 10^(db/20) via series expansion (avoids dart:math import)
-    final x = db / 20.0;
-    return _pow10(x);
-  }
+  if (db == 0.0) return 1.0;
+  return math.pow(10.0, db / 20.0).toDouble();
+}
 
-  static double _pow10(double x) {
-    // e^(x * ln10); ln10 ≈ 2.302585092994046
-    const ln10 = 2.302585092994046;
-    return _exp(x * ln10);
-  }
-
-  static double _exp(double x) {
-    // Taylor series for e^x — accurate enough for small |x|
-    var result = 1.0;
-    var term   = 1.0;
-    for (var i = 1; i <= 30; i++) {
-      term   *= x / i;
-      result += term;
-    }
-    return result;
-  }
+  
 
   // ── Cleanup ─────────────────────────────────────────────────────────────────
 
