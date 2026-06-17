@@ -65,9 +65,16 @@ class _PlayerSheetState extends State<PlayerSheet> {
         final dragProgress = _dragProgress;
         final blurSigma = dragProgress * 22.0;
 
-        return IgnorePointer(
-          ignoring: sheetProgress <= 0.001,
-          child: Transform.translate(
+        return PopScope(
+  canPop: !widget.expanded,
+  onPopInvokedWithResult: (didPop, _) {
+    if (!didPop && widget.expanded) {
+      _close();
+    }
+  },
+  child: IgnorePointer(
+    ignoring: sheetProgress <= 0.001,
+    child: Transform.translate(
             offset: Offset(0, hiddenOffset + (_dragDy * 0.5)),
             child: ValueListenableBuilder<AudioPlaybackState>(
               valueListenable: AudioService.playbackState,
@@ -166,8 +173,8 @@ class _PlayerSheetState extends State<PlayerSheet> {
               },
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
 }
