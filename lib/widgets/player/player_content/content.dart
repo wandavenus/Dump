@@ -218,8 +218,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
-                        width: showOverlay ? _smallCoverSize : largeCoverSize,
-                        height: showOverlay ? _smallCoverSize : largeCoverSize,
+                        width: showOverlay ? _smallCoverSize : largeCoverSize * 0.8,
+                        height: showOverlay ? _smallCoverSize : largeCoverSize * 0.8,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           borderRadius:
@@ -235,11 +235,7 @@ class _PlayerContentState extends State<PlayerContent> {
   tag: PlayerHeroTags.artwork(widget.song),
   child: SongArtwork(
     songId: widget.song.id,
-    size: lerpDouble(
-  70,
-  largeCoverSize,
-  progress,
-)!,
+    size: largeCoverSize,
     borderRadius: BorderRadius.zero,
   ),
 ),
