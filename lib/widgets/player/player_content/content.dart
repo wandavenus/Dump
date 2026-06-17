@@ -122,12 +122,7 @@ class _PlayerContentState extends State<PlayerContent> {
     ),
   ),
 ),
-        song: widget.song,
-      ),
-    ),
-  ),
-),
-
+        
                     // ── Lyrics area — fades in in lyrics mode ─────────────────
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 250),
@@ -309,9 +304,9 @@ height: showOverlay
 
           // ─── Fixed bottom controls ────────────────────────────────────────────
           AnimatedOpacity(
-            duration: const Duration(milliseconds: 250),
-            opacity: 1.0 - _lyricsExpand,
-            IgnorePointer(
+  duration: const Duration(milliseconds: 250),
+  opacity: 1.0 - _lyricsExpand,
+  child: IgnorePointer(
   ignoring: _lyricsExpand > 0.0,
   child: Opacity(
   opacity: Curves.easeOut.transform(progress),
@@ -358,17 +353,18 @@ height: showOverlay
                   ),
 
                   Container(
-                    width: double.infinity,
-                    height: 0.9,
-                    color: Colors.white.withValues(alpha: 0.09),
-                  ),
+  width: double.infinity,
+  height: 0.9,
+  color: Colors.white.withValues(alpha: 0.09),
+),
                 ],
               ),
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
 
   Widget _buildLyricsContent() {
