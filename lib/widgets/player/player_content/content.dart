@@ -95,13 +95,13 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 30.0;
             
-                const controlsHeight = 40.0;
+                const controlsHeight = 30.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 40,
+                      bottom: 43,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
@@ -218,8 +218,14 @@ class _PlayerContentState extends State<PlayerContent> {
                       child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
-                        width: showOverlay ? _smallCoverSize : largeCoverSize * 0.8,
-                        height: showOverlay ? _smallCoverSize : largeCoverSize * 0.8,
+                        width: showOverlay
+    ? _smallCoverSize
+    : lerpDouble(
+        70,
+        largeCoverSize,
+        progress,
+      )!,
+                        height: showOverlay ? _smallCoverSize : largeCoverSize,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           borderRadius:
