@@ -185,6 +185,26 @@ class AudioService {
       processingState: p.processingState,
       duration:        p.duration ?? Duration.zero,
     ));
+
+    // Periodic position correction so the lockscreen seek bar never drifts.
+    //
+    // audio_service computes bar position as:
+    //   updatePosition + (now - updateTime) * speed
+    // which advances automatically while playing.  We only need to correct
+    // for buffering gaps or clock skew — every 10 s is sufficient.
+    // The subscription is cancelled alongside all other _playerSubs whenever
+    // _resubscribeToPrimaryStreams is called again (promotion, dispose).
+    _playerSubs.add(
+      Stream.periodic(const Duration(seconds: 10)).listen((_) {
+        if (!p.playing) return;
+        BackgroundAudioHandler.instance?.pushPlaybackState(
+          playing:         p.playing,
+          processingState: p.processingState,
+          updatePosition:  p.position,
+          speed:           AudioEffectsService.playbackSpeed.value,
+        );
+      }),
+    );
   }
 
   // ── Playback ───────────────────────────────────────────────────────────────
