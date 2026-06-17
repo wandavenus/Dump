@@ -150,6 +150,16 @@ class AudioService {
           processingState: state.processingState,
         ));
 
+        // Keep the notification / lockscreen in sync on every player-state
+        // change (play, pause, buffering, completed …) without waiting for
+        // an explicit _syncPlaybackState() call site.
+        BackgroundAudioHandler.instance?.pushPlaybackState(
+          playing:         state.playing,
+          processingState: state.processingState,
+          updatePosition:  p.position,
+          speed:           AudioEffectsService.playbackSpeed.value,
+        );
+
         if (state.processingState == ProcessingState.completed) {
           LogService.verbose('AudioService', 'Track completed → advancing');
           _onTrackCompleted();
