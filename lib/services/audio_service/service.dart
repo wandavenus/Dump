@@ -102,6 +102,18 @@ class AudioService {
 
     CrossfadeController.initialize();
     _syncPlaybackState();
+
+    // Wire lockscreen / notification controls → our static methods.
+    // Done last so no callback fires before the service is fully ready.
+    BackgroundAudioHandler.onPlayRequested       = play;
+    BackgroundAudioHandler.onPauseRequested      = pause;
+    BackgroundAudioHandler.onSkipNextRequested   = skipNext;
+    BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
+    BackgroundAudioHandler.onSeekRequested       = seek;
+    BackgroundAudioHandler.onStopRequested       = pause;
+    BackgroundAudioHandler.onSetRepeatRequested  = cycleLoopMode;
+    BackgroundAudioHandler.onSetShuffleRequested = (_) async => toggleShuffle();
+
     LogService.log('AudioService', 'Initialized');
   }
 
@@ -214,6 +226,19 @@ class AudioService {
     try {
       await player.setAudioSource(buildAudioSource(selectedSong));
       LogService.verbose('AudioService', 'AudioSource set (single-track primary)');
+
+      // Push track metadata to the notification / lockscreen.
+      BackgroundAudioHandler.instance?.updateNowPlaying(
+        id:       selectedSong.id.toString(),
+        title:    selectedSong.title,
+        artist:   selectedSong.artist.isNotEmpty ? selectedSong.artist : null,
+        album:    selectedSong.album.isNotEmpty  ? selectedSong.album  : null,
+        duration: selectedSong.duration,
+        artUri:   selectedSong.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${selectedSong.albumId}')
+            : null,
+      );
 
       // Apply ReplayGain gain before playback starts.
       await _applyReplayGain(selectedSong);
@@ -521,6 +546,18 @@ class AudioService {
         'Promoted → [${_currentIndex + 1}/${_playlist.length}]: '
         '"${song.title}" — ${song.artist}',
       );
+      // Update notification with the promoted track's metadata.
+      BackgroundAudioHandler.instance?.updateNowPlaying(
+        id:       song.id.toString(),
+        title:    song.title,
+        artist:   song.artist.isNotEmpty ? song.artist : null,
+        album:    song.album.isNotEmpty  ? song.album  : null,
+        duration: song.duration,
+        artUri:   song.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${song.albumId}')
+            : null,
+      );
     }
 
     // Re-subscribe to the new primary's streams.
@@ -718,6 +755,13 @@ class AudioService {
       isPlaying:       player.playing,
       processingState: player.processingState,
     ));
+    // Keep the Android notification / lockscreen in sync.
+    BackgroundAudioHandler.instance?.pushPlaybackState(
+      playing:         player.playing,
+      processingState: player.processingState,
+      updatePosition:  player.position,
+      speed:           AudioEffectsService.playbackSpeed.value,
+    );
   }
 
   static void _setState(AudioPlaybackState state) {
@@ -743,6 +787,15 @@ class AudioService {
     _staticSubs.clear();
     _initialized = false;
     DualPlayerManager.onPromoted = null;
+    // Clear notification handler callbacks.
+    BackgroundAudioHandler.onPlayRequested       = null;
+    BackgroundAudioHandler.onPauseRequested      = null;
+    BackgroundAudioHandler.onSkipNextRequested   = null;
+    BackgroundAudioHandler.onSkipPrevRequested   = null;
+    BackgroundAudioHandler.onSeekRequested       = null;
+    BackgroundAudioHandler.onStopRequested       = null;
+    BackgroundAudioHandler.onSetRepeatRequested  = null;
+    BackgroundAudioHandler.onSetShuffleRequested = null;
     LogService.log('AudioService', 'Disposed');
     await AudioEngine.dispose();
   }

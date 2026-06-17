@@ -8,6 +8,7 @@ import '../models/loudness_data.dart';
 import '../models/replay_gain_mode.dart';
 import 'audio/audio_effects_service.dart';
 import 'audio/audio_engine.dart';
+import 'audio/background_audio_handler.dart';
 import 'audio/crossfade_controller.dart';
 import 'audio/dual_player_manager.dart';
 import 'audio/gapless_album_detector.dart';
