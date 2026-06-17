@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 30.0;
             
-                const controlsHeight = 30.0;
+                const controlsHeight = 35.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
