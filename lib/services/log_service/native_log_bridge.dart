@@ -9,7 +9,7 @@ class NativeLogBridge {
   static StreamSubscription<dynamic>? _sub;
 
   static void init() {
-    if (kIsWeb) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     _sub?.cancel();
     _sub = _channel.receiveBroadcastStream().listen(
       (dynamic event) {
