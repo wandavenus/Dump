@@ -90,7 +90,7 @@ class _FirstPageState extends State<FirstPage> {
                           offset: Offset(0, 55 * progress),
                           
                             child: isGlass ? GlassNavBar(child: column) : column,
-                          ),
+                          
                         );
                       },
                     ),
