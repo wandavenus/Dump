@@ -27,6 +27,11 @@ Future<void> main() async {
   AudioService.initialize();
   AudioFocusService.initialize();
 
+  // Sync playback state from the native Media3 service before rendering UI.
+  // This restores the mini player when the app is reopened while playback
+  // is already active in the background.
+  unawaited(AudioService.syncFromNative());
+
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Permission.storage.request();
     await Permission.audio.request();

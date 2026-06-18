@@ -136,4 +136,26 @@ class Media3PlaybackBridge {
       bands: bands,
     );
   }
+
+  /// Pull a complete playback snapshot from the running native service.
+  ///
+  /// Returns a map with keys:
+  ///   queue           – List of song maps (same shape as [LocalSong.toMap])
+  ///   currentIndex    – int
+  ///   isPlaying       – bool
+  ///   processingState – String ("idle"|"buffering"|"ready"|"completed")
+  ///   positionMs      – int (milliseconds)
+  ///   durationMs      – int (milliseconds)
+  ///   audioSessionId  – int
+  ///
+  /// Returns null if the service is not ready or the queue is empty.
+  static Future<Map<String, dynamic>?> getPlaybackSnapshot() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackSnapshot');
+      if (raw == null) return null;
+      return raw.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      return null;
+    }
+  }
 }

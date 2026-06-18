@@ -947,6 +947,109 @@ class AudioService {
 
   // ── Misc internals ─────────────────────────────────────────────────────────
 
+  // ── Native state synchronization ───────────────────────────────────────────
+
+  /// Pulls the current playback state from the running native Media3 service
+  /// and rebuilds the Dart-side [playbackState] and internal playlist.
+  ///
+  /// Call this:
+  ///   1. Once after [AudioService.initialize()] completes in main().
+  ///   2. Every time [AppLifecycleState.resumed] fires in app_state.dart.
+  ///
+  /// This is the primary mechanism for state restoration after the app is
+  /// backgrounded and reopened — it does NOT rely on EventChannel events, which
+  /// only arrive when the native player transitions to a new state.
+  static Future<void> syncFromNative() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+
+    try {
+      final snapshot = await Media3PlaybackBridge.getPlaybackSnapshot();
+      if (snapshot == null) return;
+
+      final rawQueue = snapshot['queue'];
+      if (rawQueue == null) return;
+
+      final List<dynamic> queueList =
+          rawQueue is List ? rawQueue : <dynamic>[];
+      if (queueList.isEmpty) return;
+
+      final List<LocalSong> songs = queueList
+          .whereType<Map>()
+          .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
+          .toList();
+
+      if (songs.isEmpty) return;
+
+      final int index =
+          ((snapshot['currentIndex'] as num?)?.toInt() ?? 0)
+              .clamp(0, songs.length - 1);
+      final bool isPlaying = snapshot['isPlaying'] as bool? ?? false;
+      final String stateStr = snapshot['processingState'] as String? ?? 'idle';
+      final int positionMs = (snapshot['positionMs'] as num?)?.toInt() ?? 0;
+      final int durationMs = (snapshot['durationMs'] as num?)?.toInt() ?? 0;
+
+      final ProcessingState ps = switch (stateStr) {
+        'buffering' => ProcessingState.buffering,
+        'ready'     => ProcessingState.ready,
+        'completed' => ProcessingState.completed,
+        _           => ProcessingState.idle,
+      };
+
+      // Rebuild Dart-side playlist so subsequent EventChannel events
+      // (currentTrack, queue) are no longer ignored by the empty-list guard.
+      _playlist      = List<LocalSong>.unmodifiable(songs);
+      _currentIndex  = index;
+
+      final song = songs[index];
+
+      _setState(
+        playbackState.value.copyWith(
+          currentSong:     song,
+          currentIndex:    index,
+          currentPlaylist: _playlist,
+          isPlaying:       isPlaying,
+          processingState: ps,
+          duration: durationMs > 0
+              ? Duration(milliseconds: durationMs)
+              : song.duration,
+        ),
+      );
+
+      // Update BackgroundAudioHandler metadata so lockscreen stays current.
+      BackgroundAudioHandler.instance?.updateNowPlaying(
+        id:       song.id.toString(),
+        title:    song.title,
+        artist:   song.artist.isNotEmpty ? song.artist : null,
+        album:    song.album.isNotEmpty  ? song.album  : null,
+        duration: song.duration,
+        artUri:   song.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${song.albumId}',
+              )
+            : null,
+      );
+      BackgroundAudioHandler.instance?.pushPlaybackState(
+        playing:         isPlaying,
+        processingState: ps,
+        updatePosition:  Duration(milliseconds: positionMs),
+        speed:           AudioEffectsService.playbackSpeed.value,
+      );
+
+      LogService.log(
+        'AudioService',
+        'syncFromNative: restored "${song.title}" — ${song.artist} '
+        '[${index + 1}/${songs.length}] '
+        'playing=$isPlaying pos=${positionMs}ms',
+      );
+    } catch (e, st) {
+      LogService.warn(
+        'AudioService',
+        'syncFromNative failed: $e\n$st',
+      );
+    }
+  }
+
   static void _syncPlaybackState() {
     _setState(
       playbackState.value.copyWith(

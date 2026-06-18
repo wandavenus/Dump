@@ -1,6 +1,5 @@
 package com.example.musicplayer
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -18,6 +18,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -27,6 +28,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.MediaStyleNotificationHelper
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -95,20 +97,24 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Foreground service ─────────────────────────────────────────────────────
     //
     // Android 11 (API 30) requires startForeground() to be called within 5 s of
-    // startForegroundService().  MediaSessionService does this lazily (only when
+    // startForegroundService(). MediaSessionService does this lazily (only when
     // a MediaController connects or playback starts), which is too late when the
-    // service is driven via MethodChannel.  We override onStartCommand to call
-    // startForeground() immediately with a minimal media-style notification so
-    // the OS timer is satisfied on every start — including MIUI restarts.
+    // service is driven via MethodChannel on MIUI 12.
+    //
+    // We call startForeground() immediately with a proper MediaStyle notification
+    // using the MediaSession token. This satisfies the OS timer AND ensures the
+    // notification is already media-style so Media3's DefaultMediaNotificationProvider
+    // can update it with track metadata and transport controls without replacing
+    // our foreground association.
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        ensureForeground()
+        ensureMediaForeground()
         nativeLog("verbose", "onStartCommand (API ${Build.VERSION.SDK_INT}): foreground ensured")
         return START_STICKY
     }
 
-    private fun ensureForeground() {
+    private fun ensureMediaForeground() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
@@ -117,17 +123,99 @@ class Media3PlaybackService : MediaSessionService() {
                     .apply { setSound(null, null); enableVibration(false) }
             )
         }
-        val notification = Notification.Builder(this, CHANNEL_ID)
+
+        val sess = session
+        val t = currentTrackMap()
+        val title = t?.get("title") as? String ?: "Music Player"
+        val artist = t?.get("artist") as? String ?: ""
+
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("Music Player")
-            .setContentText("Playback service running")
+            .setContentTitle(title)
+            .setContentText(artist)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .build()
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+        // Attach MediaSession token so the notification renders as a media
+        // notification (transport controls, lockscreen art, Bluetooth sync).
+        if (sess != null) {
+            builder.setStyle(MediaStyleNotificationHelper.buildMediaStyle(sess))
+        }
+
+        // Try to set artwork from the current track if available.
+        val artworkUri = t?.get("artworkUri") as? String
+        if (!artworkUri.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(artworkUri)
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
+                }
+                if (bitmap != null) builder.setLargeIcon(bitmap)
+            } catch (_: Exception) {}
+        }
+
+        val notification = builder.build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+    }
+
+    // ── Notification refresh ───────────────────────────────────────────────────
+    //
+    // Called whenever track or playback state changes to update the media
+    // notification content (title, artist, artwork, transport controls).
+
+    private fun refreshNotification() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val sess = session ?: return
+        val nm = getSystemService(NotificationManager::class.java)
+
+        val t = currentTrackMap()
+        val p = player ?: return
+        val title = t?.get("title") as? String ?: "Music Player"
+        val artist = t?.get("artist") as? String ?: ""
+
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(
+                if (p.isPlaying) android.R.drawable.ic_media_pause
+                else android.R.drawable.ic_media_play
+            )
+            .setContentTitle(title)
+            .setContentText(artist)
+            .setContentIntent(pendingIntent)
+            .setOngoing(p.isPlaying)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setStyle(MediaStyleNotificationHelper.buildMediaStyle(sess))
+
+        val artworkUri = t?.get("artworkUri") as? String
+        if (!artworkUri.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(artworkUri)
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
+                }
+                if (bitmap != null) builder.setLargeIcon(bitmap)
+            } catch (_: Exception) {}
+        }
+
+        try {
+            nm.notify(NOTIFICATION_ID, builder.build())
+        } catch (_: Exception) {}
     }
 
     override fun onCreate() {
@@ -150,9 +238,9 @@ class Media3PlaybackService : MediaSessionService() {
             .setSessionActivity(pendingIntent)
             .build()
         exoPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) = emitAll()
-            override fun onIsPlayingChanged(isPlaying: Boolean) = emitAll()
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = emitAll()
+            override fun onPlaybackStateChanged(playbackState: Int) { emitAll(); refreshNotification() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { emitAll(); refreshNotification() }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { emitAll(); refreshNotification() }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = emitAll()
             override fun onRepeatModeChanged(repeatMode: Int) = emitAll()
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -214,12 +302,28 @@ class Media3PlaybackService : MediaSessionService() {
     private fun mediaItemFrom(map: Map<*, *>): MediaItem {
         val path = map["path"] as? String ?: ""
         val uri = if (path.startsWith("content://") || path.startsWith("file://")) path.toUri() else Uri.fromFile(java.io.File(path))
+
+        // Build artwork URI from albumId or explicit artworkUri field.
+        val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
+        val artworkUriStr = map["artworkUri"] as? String
+        val artworkUri: Uri? = when {
+            !artworkUriStr.isNullOrBlank() -> Uri.parse(artworkUriStr)
+            albumId > 0 -> Uri.parse("content://media/external/audio/albumart/$albumId")
+            else -> null
+        }
+
         val metadata = MediaMetadata.Builder()
             .setTitle(map["title"] as? String)
             .setArtist(map["artist"] as? String)
             .setAlbumTitle(map["album"] as? String)
+            .setArtworkUri(artworkUri)
             .build()
-        return MediaItem.Builder().setMediaId((map["id"] ?: path).toString()).setUri(uri).setMediaMetadata(metadata).build()
+
+        return MediaItem.Builder()
+            .setMediaId((map["id"] ?: path).toString())
+            .setUri(uri)
+            .setMediaMetadata(metadata)
+            .build()
     }
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
@@ -262,7 +366,7 @@ class Media3PlaybackService : MediaSessionService() {
                 p.prepare()
                 val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
                 nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
-                emitAll(); result.success(null)
+                emitAll(); refreshNotification(); result.success(null)
             }
             "setTrack" -> { p.seekToDefaultPosition(call.argument<Number>("index")?.toInt() ?: 0); result.success(null) }
             "setRepeatMode" -> { p.repeatMode = when (call.argument<String>("mode")) { "one" -> Player.REPEAT_MODE_ONE; "all" -> Player.REPEAT_MODE_ALL; else -> Player.REPEAT_MODE_OFF }; result.success(null) }
@@ -275,9 +379,34 @@ class Media3PlaybackService : MediaSessionService() {
             "setLoudnessTargetGain" -> { setLoudnessTargetGain((call.argument<Number>("gainMb")?.toFloat() ?: 0f)); result.success(null) }
             "setLoudnessEnabled" -> { setLoudnessEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
             "getEqualizerParameters" -> result.success(equalizerParameters())
+
+            // ── State sync APIs ──────────────────────────────────────────────────
+            // These are called explicitly by Flutter on startup and resume to
+            // reconstruct the playback state without waiting for EventChannel events.
+
+            "getPlaybackSnapshot" -> {
+                val state = when (p.playbackState) {
+                    Player.STATE_BUFFERING -> "buffering"
+                    Player.STATE_READY -> "ready"
+                    Player.STATE_ENDED -> "completed"
+                    else -> "idle"
+                }
+                result.success(mapOf(
+                    "queue"           to queue,
+                    "currentIndex"    to p.currentMediaItemIndex,
+                    "isPlaying"       to p.isPlaying,
+                    "processingState" to state,
+                    "positionMs"      to p.currentPosition.coerceAtLeast(0L),
+                    "durationMs"      to p.duration.coerceAtLeast(0L),
+                    "audioSessionId"  to p.audioSessionId,
+                ))
+            }
+
             else -> result.notImplemented()
         }
-        emitAll()
+        if (call.method != "getPlaybackSnapshot" && call.method != "getEqualizerParameters") {
+            emitAll()
+        }
     }
 
     private fun requestAudioFocus(): Boolean {
