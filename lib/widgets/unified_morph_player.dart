@@ -463,36 +463,38 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 ),
                   
               // Play / Pause
-              Transform.translate(
+Transform.translate(
   offset: Offset(0, miniContentOffset),
   child: Opacity(
     opacity: miniContentAlpha,
     child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => state.isPlaying
-                          ? AudioService.pause()
-                          : AudioService.play(),
-                      icon: Icon(
-                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 36,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: canGoNext
-                          ? () => AudioService.skipNext()
-                          : null,
-                      icon: Icon(
-                        Icons.fast_forward_rounded,
-                        size: 36,
-                        color: canGoNext ? Colors.white : Colors.white24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-         ),
+      children: [
+        IconButton(
+          onPressed: () => state.isPlaying
+              ? AudioService.pause()
+              : AudioService.play(),
+          icon: Icon(
+            state.isPlaying
+                ? Icons.pause_rounded
+                : Icons.play_arrow_rounded,
+            size: 36,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext
+              ? () => AudioService.skipNext()
+              : null,
+          icon: Icon(
+            Icons.fast_forward_rounded,
+            size: 36,
+            color: canGoNext
+                ? Colors.white
+                : Colors.white24,
+          ),
+        ),
+      ],
+    ),
   ),
 ),
                 ],
