@@ -94,28 +94,28 @@ class _MiniPlayerBody extends StatelessWidget {
                                   Expanded(
   child: Transform.translate(
     offset: Offset(
-  0,
-  -(12 * fastAnim),
-),
+      0,
+      -(12 * fastAnim),
+    ),
     child: Opacity(
-  opacity: 1 - fastAnim,
-  child: Hero(
-      tag: PlayerHeroTags.title(song),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Text(
-          song.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15 + anim,
+      opacity: 1 - fastAnim,
+      child: Hero(
+        tag: PlayerHeroTags.title(song),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+            ),
           ),
         ),
       ),
     ),
   ),
- ),
 ),
                                 ],
                               ),
@@ -130,37 +130,37 @@ class _MiniPlayerBody extends StatelessWidget {
   child: Opacity(
     opacity: 1 - fastAnim,
     child: Row(
-                              children: [
-                                IconButton(
-                                  onPressed: () {
-                                    playbackState.isPlaying
-                                        ? AudioService.pause()
-                                        : AudioService.play();
-                                  },
-                                  icon: Icon(
-                                    playbackState.isPlaying
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
-                                    size: 34,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: canGoNext
-                                      ? () => AudioService.skipNext()
-                                      : null,
-                                  icon: Icon(
-                                    Icons.skip_next,
-                                    size: 30,
-                                    color: canGoNext
-                                        ? Colors.white
-                                        : Colors.white24,
-                                  ),
-                                ),
-                              ],
-                            ),
-                           ),
-                          ),
+      children: [
+        IconButton(
+          onPressed: () {
+            playbackState.isPlaying
+                ? AudioService.pause()
+                : AudioService.play();
+          },
+          icon: Icon(
+            playbackState.isPlaying
+                ? Icons.pause
+                : Icons.play_arrow,
+            size: 34,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext
+              ? () => AudioService.skipNext()
+              : null,
+          icon: Icon(
+            Icons.skip_next,
+            size: 30,
+            color: canGoNext
+                ? Colors.white
+                : Colors.white24,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                           ),
                         ],
                       ),
