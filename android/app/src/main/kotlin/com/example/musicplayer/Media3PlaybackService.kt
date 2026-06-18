@@ -231,7 +231,7 @@ class Media3PlaybackService : MediaSessionService() {
     private fun setEqualizerBandGain(band: Short, gain: Short) { bandGains[band] = gain; try { equalizer?.let { it.setBandLevel(band, gain.coerceIn(it.bandLevelRange[0], it.bandLevelRange[1])) } } catch (_: Exception) {} }
     private fun setLoudnessTargetGain(gainMb: Int) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb) } catch (_: Exception) {} }
     private fun setLoudnessEnabled(enabled: Boolean) { loudnessEnabled = enabled; try { loudness?.enabled = enabled } catch (_: Exception) {} }
-    private fun equalizerParameters(): Map<String, Any> = try { val eq = equalizer ?: Equalizer(0, player?.audioSessionId ?: 0).also { equalizer = it }; mapOf("minDecibels" to eq.bandLevelRange[0] / 100.0, "maxDecibels" to eq.bandLevelRange[1] / 100.0, "bands" to List(eq.numberOfBands.toInt()) { it }) } catch (_: Exception) { mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4)) }
+    private fun equalizerParameters(): Map<String, Any> = try { val eq = equalizer ?: Equalizer(0, player?.audioSessionId ?: 0).also { equalizer = it }; mapOf("minDecibels" to eq.bandLevelRange[0] / 100.0, "maxDecibels" to eq.bandLevelRange[1] / 100.0, "bands" to List(eq.numberOfBands.toInt()) { it }) } catch (e: Exception) { android.util.Log.e("Media3", "Equalizer params error", e); mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4)) }
 
     companion object { var instance: Media3PlaybackService? = null }
     object Events {
