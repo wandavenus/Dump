@@ -35,7 +35,7 @@ class AudioService {
   // ── Misc ───────────────────────────────────────────────────────────────────
 
   static bool _initialized = false;
-  static bool _isLoading   = false;
+  static bool _isLoading = false;
 
   /// Subscriptions that follow the PRIMARY player; cancelled and
   /// re-created every time [DualPlayerManager.promote] fires.
@@ -46,13 +46,13 @@ class AudioService {
 
   // ── Convenience getters ────────────────────────────────────────────────────
 
-  static LocalSong? get currentSong     => playbackState.value.currentSong;
-  static bool       get isPlaying       => playbackState.value.isPlaying;
-  static int        get currentIndex    => playbackState.value.currentIndex;
+  static LocalSong? get currentSong => playbackState.value.currentSong;
+  static bool get isPlaying => playbackState.value.isPlaying;
+  static int get currentIndex => playbackState.value.currentIndex;
   static List<LocalSong> get currentPlaylist =>
       playbackState.value.currentPlaylist;
-  static LoopMode   get loopMode        => playbackState.value.loopMode;
-  static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
+  static LoopMode get loopMode => playbackState.value.loopMode;
+  static bool get shuffleEnabled => playbackState.value.shuffleEnabled;
 
   /// Exposed for [CrossfadeController] so it can populate its gapless
   /// context without importing [AudioService] (avoids circular dep).
@@ -105,19 +105,20 @@ class AudioService {
 
     // Wire lockscreen / notification controls → our static methods.
     // Done last so no callback fires before the service is fully ready.
-    BackgroundAudioHandler.onPlayRequested       = play;
-BackgroundAudioHandler.onPauseRequested      = pause;
-BackgroundAudioHandler.onSkipNextRequested   = skipNext;
-BackgroundAudioHandler.onSkipPrevRequested   = skipPrevious;
-BackgroundAudioHandler.onSeekRequested       = seek;
-BackgroundAudioHandler.onSetRepeatRequested  = cycleLoopMode;
-BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
+    BackgroundAudioHandler.onPlayRequested = play;
+    BackgroundAudioHandler.onPauseRequested = pause;
+    BackgroundAudioHandler.onSkipNextRequested = skipNext;
+    BackgroundAudioHandler.onSkipPrevRequested = skipPrevious;
+    BackgroundAudioHandler.onSeekRequested = seek;
+    BackgroundAudioHandler.onSetRepeatRequested = cycleLoopMode;
+    BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     // Speed is a ValueNotifier — use addListener (not a stream subscription).
-    
-    AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
-    AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
 
-    
+    AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainPreamp.addListener(
+      _onReplayGainSettingChanged,
+    );
+
     LogService.log('AudioService', 'Initialized');
   }
 
@@ -131,14 +132,18 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
   static void _onSpeedChange() {
     final spd = AudioEffectsService.playbackSpeed.value;
     _setState(playbackState.value.copyWith(speed: spd));
-    LogService.verbose('AudioService',
-        'Speed changed: ${spd.toStringAsFixed(2)}x');
+    LogService.verbose(
+      'AudioService',
+      'Speed changed: ${spd.toStringAsFixed(2)}x',
+    );
   }
 
   static void _onGaplessChanged() {
     _schedulePreload();
-    LogService.verbose('AudioService',
-        'Gapless: ${AudioEffectsService.gaplessPlayback.value ? "on" : "off"}');
+    LogService.verbose(
+      'AudioService',
+      'Gapless: ${AudioEffectsService.gaplessPlayback.value ? "on" : "off"}',
+    );
   }
 
   // ── Primary-stream subscriptions ───────────────────────────────────────────
@@ -156,19 +161,21 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     _playerSubs.add(
       p.playerStateStream.listen((PlayerState state) {
-        _setState(playbackState.value.copyWith(
-          isPlaying:       state.playing,
-          processingState: state.processingState,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            isPlaying: state.playing,
+            processingState: state.processingState,
+          ),
+        );
 
         // Keep the notification / lockscreen in sync on every player-state
         // change (play, pause, buffering, completed …) without waiting for
         // an explicit _syncPlaybackState() call site.
         BackgroundAudioHandler.instance?.pushPlaybackState(
-          playing:         state.playing,
+          playing: state.playing,
           processingState: state.processingState,
-          updatePosition:  p.position,
-          speed:           AudioEffectsService.playbackSpeed.value,
+          updatePosition: p.position,
+          speed: AudioEffectsService.playbackSpeed.value,
         );
 
         if (state.processingState == ProcessingState.completed) {
@@ -180,26 +187,30 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     _playerSubs.add(
       p.durationStream.listen((Duration? duration) {
-        _setState(playbackState.value.copyWith(
-          duration: duration ?? Duration.zero,
-        ));
+        _setState(
+          playbackState.value.copyWith(duration: duration ?? Duration.zero),
+        );
         if (duration != null && duration > Duration.zero) {
           LogService.verbose(
-              'AudioService', 'Duration resolved: ${_fmtDur(duration)}');
+            'AudioService',
+            'Duration resolved: ${_fmtDur(duration)}',
+          );
         }
       }),
     );
 
     // Immediately sync from current player state.
-    _setState(playbackState.value.copyWith(
-      isPlaying:       p.playing,
-      processingState: p.processingState,
-      duration:        p.duration ?? Duration.zero,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        isPlaying: p.playing,
+        processingState: p.processingState,
+        duration: p.duration ?? Duration.zero,
+      ),
+    );
 
     // Periodic position correction so the lockscreen seek bar never drifts.
     //
-    // audio_service computes bar position as:
+    // Media notifications compute bar position as:
     //   updatePosition + (now - updateTime) * speed
     // which advances automatically while playing.  We only need to correct
     // for buffering gaps or clock skew — every 10 s is sufficient.
@@ -209,10 +220,10 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       Stream.periodic(const Duration(seconds: 10)).listen((_) {
         if (!p.playing) return;
         BackgroundAudioHandler.instance?.pushPlaybackState(
-          playing:         p.playing,
+          playing: p.playing,
           processingState: p.processingState,
-          updatePosition:  p.position,
-          speed:           AudioEffectsService.playbackSpeed.value,
+          updatePosition: p.position,
+          speed: AudioEffectsService.playbackSpeed.value,
         );
       }),
     );
@@ -228,12 +239,17 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     initialize();
 
     if (_isLoading) {
-      LogService.verbose('AudioService', 'playSongAt ignored — already loading');
+      LogService.verbose(
+        'AudioService',
+        'playSongAt ignored — already loading',
+      );
       return;
     }
     if (playlist.isEmpty || index < 0 || index >= playlist.length) {
-      LogService.warn('AudioService',
-          'playSongAt: invalid args (index=$index, count=${playlist.length})');
+      LogService.warn(
+        'AudioService',
+        'playSongAt: invalid args (index=$index, count=${playlist.length})',
+      );
       return;
     }
 
@@ -244,41 +260,48 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     CrossfadeController.reset();
     unawaited(DualPlayerManager.cancelPreload());
 
-    final immutablePlaylist  = List<LocalSong>.unmodifiable(playlist);
-    final selectedSong       = immutablePlaylist[index];
+    final immutablePlaylist = List<LocalSong>.unmodifiable(playlist);
+    final selectedSong = immutablePlaylist[index];
 
-    _playlist      = immutablePlaylist;
-    _currentIndex  = index;
+    _playlist = immutablePlaylist;
+    _currentIndex = index;
     if (_shuffleEnabled) _buildShuffleOrder();
 
     LogService.log(
       'AudioService',
       'Loading "${selectedSong.title}" — ${selectedSong.artist} '
-      '(track ${index + 1}/${playlist.length})',
+          '(track ${index + 1}/${playlist.length})',
     );
 
-    _setState(playbackState.value.copyWith(
-      currentSong:     selectedSong,
-      currentIndex:    index,
-      currentPlaylist: immutablePlaylist,
-      isLoading:       true,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: selectedSong,
+        currentIndex: index,
+        currentPlaylist: immutablePlaylist,
+        isLoading: true,
+      ),
+    );
 
     try {
       await player.setAudioSource(buildAudioSource(selectedSong));
-      LogService.verbose('AudioService', 'AudioSource set (single-track primary)');
+      LogService.verbose(
+        'AudioService',
+        'AudioSource set (single-track primary)',
+      );
 
       // Push track metadata to the notification / lockscreen.
       BackgroundAudioHandler.instance?.updateNowPlaying(
-        id:       selectedSong.id.toString(),
-        title:    selectedSong.title,
-        artist:   selectedSong.artist.isNotEmpty ? selectedSong.artist : null,
-        album:    selectedSong.album.isNotEmpty  ? selectedSong.album  : null,
+        id: selectedSong.id.toString(),
+        title: selectedSong.title,
+        artist: selectedSong.artist.isNotEmpty ? selectedSong.artist : null,
+        album: selectedSong.album.isNotEmpty ? selectedSong.album : null,
         duration: selectedSong.duration,
-        artUri:   selectedSong.albumId > 0
-            ? Uri.parse(
-                'content://media/external/audio/albumart/${selectedSong.albumId}')
-            : null,
+        artUri:
+            selectedSong.albumId > 0
+                ? Uri.parse(
+                  'content://media/external/audio/albumart/${selectedSong.albumId}',
+                )
+                : null,
       );
 
       // Apply ReplayGain gain before playback starts.
@@ -289,8 +312,11 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
         LogService.verbose('AudioService', 'Autoplay started');
       }
     } catch (e, st) {
-      LogService.error('AudioService', 'playSongAt failed: $e',
-          stackTrace: st.toString());
+      LogService.error(
+        'AudioService',
+        'playSongAt failed: $e',
+        stackTrace: st.toString(),
+      );
     } finally {
       _previousSong = selectedSong;
       _isLoading = false;
@@ -314,7 +340,9 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     final pos = _fmtDur(player.position);
     await player.pause();
     // Also pause secondary if it was fading in during a crossfade.
-    try { DualPlayerManager.secondaryPlayer?.pause(); } catch (_) {}
+    try {
+      DualPlayerManager.secondaryPlayer?.pause();
+    } catch (_) {}
     LogService.verbose('AudioService', 'Paused at $pos');
     _syncPlaybackState();
   }
@@ -337,13 +365,15 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     // Fast-path: secondary already has the correct next track buffered.
     // Promote it directly instead of discarding the buffer and reloading.
     final preloaded = DualPlayerManager.preloadedSong;
-    final nextSong  = _playlist.elementAtOrNull(nextIdx);
+    final nextSong = _playlist.elementAtOrNull(nextIdx);
     if (preloaded != null &&
-        nextSong   != null &&
+        nextSong != null &&
         preloaded.id == nextSong.id &&
         DualPlayerManager.secondaryPlayer != null) {
-      LogService.log('AudioService',
-          'Skip next → promote preloaded "${nextSong.title}"');
+      LogService.log(
+        'AudioService',
+        'Skip next → promote preloaded "${nextSong.title}"',
+      );
       // Do NOT pre-advance _currentIndex; _afterPromotion handles it via
       // _nextIndexValue so the index stays consistent.
       await DualPlayerManager.promote(fromCrossfade: false);
@@ -379,8 +409,10 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     CrossfadeController.reset();
     _currentIndex = index;
     await _playCurrentSong(autoplay: true);
-    LogService.log('AudioService',
-        'Queue jump → [${index + 1}]: "${_playlist[index].title}"');
+    LogService.log(
+      'AudioService',
+      'Queue jump → [${index + 1}]: "${_playlist[index].title}"',
+    );
   }
 
   // ── Loop / Shuffle ─────────────────────────────────────────────────────────
@@ -393,6 +425,7 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     };
     _loopMode = next;
     _setState(playbackState.value.copyWith(loopMode: next));
+    unawaited(Media3PlaybackBridge.setRepeatMode(next.name));
     _schedulePreload(); // update preload since "next" may have changed
     LogService.log('AudioService', 'Loop mode → ${next.name}');
   }
@@ -405,23 +438,28 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       _shuffleOrder = [];
     }
     _setState(playbackState.value.copyWith(shuffleEnabled: _shuffleEnabled));
+    unawaited(Media3PlaybackBridge.setShuffleMode(_shuffleEnabled));
     _schedulePreload();
-    LogService.log('AudioService',
-        'Shuffle → ${_shuffleEnabled ? "on" : "off"}');
+    LogService.log(
+      'AudioService',
+      'Shuffle → ${_shuffleEnabled ? "on" : "off"}',
+    );
   }
 
   // ── Queue management ───────────────────────────────────────────────────────
 
   static void addToQueueNext(LocalSong song) {
     if (_playlist.isEmpty) return;
-    final nextPos    = (_currentIndex + 1).clamp(0, _playlist.length);
-    final newList    = List<LocalSong>.from(_playlist)..insert(nextPos, song);
+    final nextPos = (_currentIndex + 1).clamp(0, _playlist.length);
+    final newList = List<LocalSong>.from(_playlist)..insert(nextPos, song);
     _playlist = List<LocalSong>.unmodifiable(newList);
     if (_shuffleEnabled) _buildShuffleOrder();
     _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     _schedulePreload();
-    LogService.log('AudioService',
-        'Queued next: "${song.title}" at position ${nextPos + 1}');
+    LogService.log(
+      'AudioService',
+      'Queued next: "${song.title}" at position ${nextPos + 1}',
+    );
   }
 
   static void addToQueue(LocalSong song) {
@@ -431,8 +469,10 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     if (_shuffleEnabled) _buildShuffleOrder();
     _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     _schedulePreload();
-    LogService.log('AudioService',
-        'Queued at end: "${song.title}" (queue size: ${_playlist.length})');
+    LogService.log(
+      'AudioService',
+      'Queued at end: "${song.title}" (queue size: ${_playlist.length})',
+    );
   }
 
   /// Reorders the queue by moving the item at [oldIndex] to [newIndex].
@@ -448,8 +488,10 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     // Flutter's ReorderableListView passes newIndex as the position to insert
     // AFTER the old item has been conceptually removed. We must adjust.
-    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex)
-        .clamp(0, _playlist.length - 1);
+    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex).clamp(
+      0,
+      _playlist.length - 1,
+    );
 
     final mutable = List<LocalSong>.from(_playlist);
     final item = mutable.removeAt(oldIndex);
@@ -470,14 +512,18 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     if (_shuffleEnabled) _buildShuffleOrder();
 
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: _playlist,
-      currentIndex: _currentIndex,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentPlaylist: _playlist,
+        currentIndex: _currentIndex,
+      ),
+    );
 
     _schedulePreload();
     LogService.log(
-        'AudioService', 'Queue reordered: [$oldIndex] → [$adjustedNew]');
+      'AudioService',
+      'Queue reordered: [$oldIndex] → [$adjustedNew]',
+    );
   }
 
   // ── Internal — playback helpers ────────────────────────────────────────────
@@ -493,11 +539,13 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     _isLoading = true;
     final song = _playlist[_currentIndex];
 
-    _setState(playbackState.value.copyWith(
-      currentSong:  song,
-      currentIndex: _currentIndex,
-      isLoading:    true,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: song,
+        currentIndex: _currentIndex,
+        isLoading: true,
+      ),
+    );
 
     try {
       await player.setAudioSource(buildAudioSource(song));
@@ -506,15 +554,17 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       // Covers skip-next (slow path), skip-previous, queue-jump, and
       // the gapless-fallback path — all of which call _playCurrentSong.
       BackgroundAudioHandler.instance?.updateNowPlaying(
-        id:       song.id.toString(),
-        title:    song.title,
-        artist:   song.artist.isNotEmpty ? song.artist : null,
-        album:    song.album.isNotEmpty  ? song.album  : null,
+        id: song.id.toString(),
+        title: song.title,
+        artist: song.artist.isNotEmpty ? song.artist : null,
+        album: song.album.isNotEmpty ? song.album : null,
         duration: song.duration,
-        artUri:   song.albumId > 0
-            ? Uri.parse(
-                'content://media/external/audio/albumart/${song.albumId}')
-            : null,
+        artUri:
+            song.albumId > 0
+                ? Uri.parse(
+                  'content://media/external/audio/albumart/${song.albumId}',
+                )
+                : null,
       );
 
       // Apply ReplayGain before playback starts.
@@ -525,12 +575,15 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       LogService.log(
         'AudioService',
         'Now playing [${_currentIndex + 1}/${_playlist.length}]: '
-        '"${song.title}" — ${song.artist}',
+            '"${song.title}" — ${song.artist}',
       );
       unawaited(HistoryService.trackPlay(song));
     } catch (e, st) {
-      LogService.error('AudioService', '_playCurrentSong failed: $e',
-          stackTrace: st.toString());
+      LogService.error(
+        'AudioService',
+        '_playCurrentSong failed: $e',
+        stackTrace: st.toString(),
+      );
     } finally {
       _previousSong = song;
       _isLoading = false;
@@ -554,29 +607,32 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       unawaited(DualPlayerManager.cancelPreload());
       CrossfadeController.updateContext(
         nextIsGapless: false,
-        loopOne:       _loopMode == LoopMode.one,
+        loopOne: _loopMode == LoopMode.one,
       );
       return;
     }
 
     final current = _playlist[_currentIndex];
-    final next    = _playlist[nextIdx];
+    final next = _playlist[nextIdx];
 
     // Respect the gapless toggle: when off, treat every transition as
     // crossfade-eligible (even same-album tracks).
-    final gapless = AudioEffectsService.gaplessPlayback.value &&
+    final gapless =
+        AudioEffectsService.gaplessPlayback.value &&
         GaplessAlbumDetector.isGapless(current, next);
 
     CrossfadeController.updateContext(
       nextIsGapless: gapless,
-      loopOne:       _loopMode == LoopMode.one,
+      loopOne: _loopMode == LoopMode.one,
     );
 
     unawaited(DualPlayerManager.preloadTrack(next));
 
-    LogService.verbose('AudioService',
-        'Preloading "${next.title}" '
-        '(${gapless ? "gapless — no crossfade" : "crossfade eligible"})');
+    LogService.verbose(
+      'AudioService',
+      'Preloading "${next.title}" '
+          '(${gapless ? "gapless — no crossfade" : "crossfade eligible"})',
+    );
   }
 
   // ── Promotion callback (fired by DualPlayerManager) ────────────────────────
@@ -594,27 +650,31 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     final song = _playlist.elementAtOrNull(_currentIndex);
     if (song != null) {
-      _setState(playbackState.value.copyWith(
-        currentSong:  song,
-        currentIndex: _currentIndex,
-      ));
+      _setState(
+        playbackState.value.copyWith(
+          currentSong: song,
+          currentIndex: _currentIndex,
+        ),
+      );
       unawaited(HistoryService.trackPlay(song));
       LogService.log(
         'AudioService',
         'Promoted → [${_currentIndex + 1}/${_playlist.length}]: '
-        '"${song.title}" — ${song.artist}',
+            '"${song.title}" — ${song.artist}',
       );
       // Update notification with the promoted track's metadata.
       BackgroundAudioHandler.instance?.updateNowPlaying(
-        id:       song.id.toString(),
-        title:    song.title,
-        artist:   song.artist.isNotEmpty ? song.artist : null,
-        album:    song.album.isNotEmpty  ? song.album  : null,
+        id: song.id.toString(),
+        title: song.title,
+        artist: song.artist.isNotEmpty ? song.artist : null,
+        album: song.album.isNotEmpty ? song.album : null,
         duration: song.duration,
-        artUri:   song.albumId > 0
-            ? Uri.parse(
-                'content://media/external/audio/albumart/${song.albumId}')
-            : null,
+        artUri:
+            song.albumId > 0
+                ? Uri.parse(
+                  'content://media/external/audio/albumart/${song.albumId}',
+                )
+                : null,
       );
     }
 
@@ -655,8 +715,8 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     LogService.verbose(
       'Validation',
       '[promotion] type=${fromCrossfade ? "crossfade" : "gapless"} '
-      'track=${song != null ? '"${song.title}"' : "(none)"} '
-      'index=$_currentIndex/${_playlist.length}',
+          'track=${song != null ? '"${song.title}"' : "(none)"} '
+          'index=$_currentIndex/${_playlist.length}',
     );
 
     final p = AudioEngine.player;
@@ -669,26 +729,26 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       LogService.warn(
         'Validation',
         '[crossfade] new primary is NOT playing after promotion — '
-        'state=${p.processingState.name}',
+            'state=${p.processingState.name}',
       );
     } else {
       LogService.verbose(
         'Validation',
         '[${fromCrossfade ? "crossfade" : "gapless"}] '
-        'playing=${p.playing} state=${p.processingState.name} '
-        '— ${expectedPlaying == p.playing ? "OK" : "mismatch"}',
+            'playing=${p.playing} state=${p.processingState.name} '
+            '— ${expectedPlaying == p.playing ? "OK" : "mismatch"}',
       );
     }
 
     // ── DSP references ────────────────────────────────────────────────────────
     if (AudioEngine.isAndroid) {
-      final eqOk = AudioEngine.equalizer        != null;
+      final eqOk = AudioEngine.equalizer != null;
       final leOk = AudioEngine.loudnessEnhancer != null;
       if (!eqOk || !leOk) {
         LogService.warn(
           'Validation',
           '[DSP] references null after promotion — eq=$eqOk le=$leOk '
-          '(AudioEngine._onPrimaryChanged may not have fired)',
+              '(AudioEngine._onPrimaryChanged may not have fired)',
         );
       } else {
         LogService.verbose('Validation', '[DSP] eq=$eqOk le=$leOk — OK');
@@ -698,8 +758,8 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
       LogService.verbose(
         'Validation',
         '[effects] virt=${AudioEngine.virtualizerSupported} '
-        'bass=${AudioEngine.bassBoostSupported} '
-        'reverb=${AudioEngine.reverbSupported}',
+            'bass=${AudioEngine.bassBoostSupported} '
+            'reverb=${AudioEngine.reverbSupported}',
       );
     }
 
@@ -707,23 +767,23 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     LogService.verbose(
       'Validation',
       '[replaygain] mode=${AudioEffectsService.replayGainMode.value.name} '
-      'preamp=${AudioEffectsService.replayGainPreamp.value.toStringAsFixed(1)} dB '
-      '— will re-apply asynchronously',
+          'preamp=${AudioEffectsService.replayGainPreamp.value.toStringAsFixed(1)} dB '
+          '— will re-apply asynchronously',
     );
 
     // ── Equalizer enabled state ───────────────────────────────────────────────
     LogService.verbose(
       'Validation',
       '[eq] enabled=${AudioEffectsService.equalizerEnabled.value} '
-      'preset=${AudioEffectsService.roomPreset.value}',
+          'preset=${AudioEffectsService.roomPreset.value}',
     );
 
     // ── Bass / Loudness / Reverb ──────────────────────────────────────────────
     LogService.verbose(
       'Validation',
       '[dsp-params] bass=${AudioEffectsService.bassBoost.value} '
-      'reverb=${AudioEffectsService.reverbPreset.value} '
-      'spatial=${AudioEffectsService.spatialAudio.value}',
+          'reverb=${AudioEffectsService.reverbPreset.value} '
+          'spatial=${AudioEffectsService.spatialAudio.value}',
     );
   }
 
@@ -741,8 +801,8 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     }
 
     final data = await LoudnessSourceResolver.resolve(
-      song:         song,
-      mode:         mode,
+      song: song,
+      mode: mode,
       previousSong: _previousSong,
     );
 
@@ -753,10 +813,7 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
 
     final preamp = AudioEffectsService.replayGainPreamp.value;
     final gainDb = data.safeGain(preamp: preamp);
-    AudioEngine.applyNormalize(
-      enabled:     true,
-      targetGainMb: gainDb * 100.0,
-    );
+    AudioEngine.applyNormalize(enabled: true, targetGainMb: gainDb * 100.0);
   }
 
   // ── Track-completed handler ────────────────────────────────────────────────
@@ -787,7 +844,9 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     if (DualPlayerManager.secondaryPlayer == null) {
       // Fallback: secondary wasn't ready — load track directly.
       LogService.warn(
-          'AudioService', 'Gapless: secondary not ready, loading directly');
+        'AudioService',
+        'Gapless: secondary not ready, loading directly',
+      );
       _currentIndex = _nextIndexValue;
       await _playCurrentSong(autoplay: true);
       return;
@@ -809,16 +868,18 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
   // ── Misc internals ─────────────────────────────────────────────────────────
 
   static void _syncPlaybackState() {
-    _setState(playbackState.value.copyWith(
-      isPlaying:       player.playing,
-      processingState: player.processingState,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        isPlaying: player.playing,
+        processingState: player.processingState,
+      ),
+    );
     // Keep the Android notification / lockscreen in sync.
     BackgroundAudioHandler.instance?.pushPlaybackState(
-      playing:         player.playing,
+      playing: player.playing,
       processingState: player.processingState,
-      updatePosition:  player.position,
-      speed:           AudioEffectsService.playbackSpeed.value,
+      updatePosition: player.position,
+      speed: AudioEffectsService.playbackSpeed.value,
     );
   }
 
@@ -868,8 +929,12 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
   static Future<void> dispose() async {
     CrossfadeController.dispose();
     AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
-    AudioEffectsService.replayGainMode.removeListener(_onReplayGainSettingChanged);
-    AudioEffectsService.replayGainPreamp.removeListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainMode.removeListener(
+      _onReplayGainSettingChanged,
+    );
+    AudioEffectsService.replayGainPreamp.removeListener(
+      _onReplayGainSettingChanged,
+    );
     for (final sub in [..._playerSubs, ..._staticSubs]) {
       await sub.cancel();
     }
@@ -878,13 +943,13 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
     _initialized = false;
     DualPlayerManager.onPromoted = null;
     // Clear notification handler callbacks.
-    BackgroundAudioHandler.onPlayRequested       = null;
-    BackgroundAudioHandler.onPauseRequested      = null;
-    BackgroundAudioHandler.onSkipNextRequested   = null;
-    BackgroundAudioHandler.onSkipPrevRequested   = null;
-    BackgroundAudioHandler.onSeekRequested       = null;
-    BackgroundAudioHandler.onStopRequested       = null;
-    BackgroundAudioHandler.onSetRepeatRequested  = null;
+    BackgroundAudioHandler.onPlayRequested = null;
+    BackgroundAudioHandler.onPauseRequested = null;
+    BackgroundAudioHandler.onSkipNextRequested = null;
+    BackgroundAudioHandler.onSkipPrevRequested = null;
+    BackgroundAudioHandler.onSeekRequested = null;
+    BackgroundAudioHandler.onStopRequested = null;
+    BackgroundAudioHandler.onSetRepeatRequested = null;
     BackgroundAudioHandler.onSetShuffleRequested = null;
     LogService.log('AudioService', 'Disposed');
     await AudioEngine.dispose();

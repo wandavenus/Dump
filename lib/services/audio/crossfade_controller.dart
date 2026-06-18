@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:just_audio/just_audio.dart';
+import 'media3/media3_audio_player.dart';
 
 import '../log_service.dart';
 import 'audio_effects_service.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import 'audio/media3/media3_audio_player.dart';
 
 import '../models/local_song.dart';
 

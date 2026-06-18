@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import 'media3/media3_audio_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/replay_gain_mode.dart';

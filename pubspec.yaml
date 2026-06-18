@@ -14,8 +14,6 @@ dependencies:
   http: ^1.6.0
   glassmorphism: ^3.0.0
   cached_network_image: ^3.4.1
-  just_audio: ^0.10.5
-  audio_service: ^0.18.13
   audio_session: ^0.2.3
   permission_handler: ^12.0.3
   shared_preferences: ^2.5.3

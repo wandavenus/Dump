@@ -18,12 +18,15 @@ import java.io.File
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.plugin.common.EventChannel
+import androidx.media3.common.util.UnstableApi
+import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : AudioServiceActivity() {
+class MainActivity : FlutterActivity() {
 
     private val mediaStoreChannel   = "musicplayer/media_store"
     private val audioEffectsChannel = "musicplayer/audio_effects"
+    private val media3PlaybackChannel = "musicplayer/media3_playback"
 
     // ── Audio effects ─────────────────────────────────────────────────────────
     private var virtualizer:  Virtualizer?   = null
@@ -35,6 +38,28 @@ class MainActivity : AudioServiceActivity() {
         super.configureFlutterEngine(flutterEngine)
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
+        setupMedia3PlaybackChannels(flutterEngine)
+    }
+
+    // ── Media3 playback channels ───────────────────────────────────────────────
+
+    @OptIn(UnstableApi::class)
+    private fun setupMedia3PlaybackChannels(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
+            val intent = Intent(this, Media3PlaybackService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                startService(intent)
+            }
+            Media3PlaybackService.instance?.handle(call, result)
+                ?: result.error("not_ready", "Media3 service is starting", null)
+        }
+        listOf("playbackState", "position", "duration", "currentTrack", "queue", "bufferingState").forEach { name ->
+            EventChannel(messenger, "musicplayer/media3_$name")
+                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+        }
     }
 
     // ── MediaStore channel ────────────────────────────────────────────────────

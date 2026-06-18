@@ -8,8 +8,8 @@ part of '../audio_effects_service.dart';
 ///   • Bass boost           → Android BassBoost native effect
 ///   • Reverb               → Android PresetReverb native effect
 ///   • Spatial audio        → Android Virtualizer native effect + strength
-///   • Pitch shift          → just_audio setPitch()
-///   • Playback speed       → just_audio setSpeed()
+///   • Pitch shift          → Media3 PlaybackParameters pitch
+///   • Playback speed       → Media3 PlaybackParameters speed
 ///   • Crossfade            → CrossfadeController
 ///   • Gapless              → DualPlayerManager secondary preload (always active)
 ///   • Audio output mode    → AAudio / OpenSL ES / MIUI Hi-Fi
@@ -18,22 +18,25 @@ class AudioEffectsService {
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool>           gaplessPlayback  = ValueNotifier(true);
-  static final ValueNotifier<bool>           audioNormalize   = ValueNotifier(false);
-  static final ValueNotifier<ReplayGainMode> replayGainMode   = ValueNotifier(ReplayGainMode.off);
-  static final ValueNotifier<double>         replayGainPreamp = ValueNotifier(0.0);
-  static final ValueNotifier<double>         crossfadeDuration= ValueNotifier(0.0);
-  static final ValueNotifier<double> pitchShift       = ValueNotifier(0.0);
-  static final ValueNotifier<bool>   spatialAudio     = ValueNotifier(false);
-  static final ValueNotifier<int>    spatialStrength  = ValueNotifier(1000);
-  static final ValueNotifier<int>    bassBoost        = ValueNotifier(0);
-  static final ValueNotifier<int>    reverbPreset     = ValueNotifier(0);
-  static final ValueNotifier<double> playbackSpeed    = ValueNotifier(1.0);
-  static final ValueNotifier<bool>   equalizerEnabled = ValueNotifier(false);
-  static final ValueNotifier<int>    roomPreset       = ValueNotifier(0);
-  static final ValueNotifier<int>    audioOutputMode  = ValueNotifier(0);
+  static final ValueNotifier<bool> gaplessPlayback = ValueNotifier(true);
+  static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
+  static final ValueNotifier<ReplayGainMode> replayGainMode = ValueNotifier(
+    ReplayGainMode.off,
+  );
+  static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
+  static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
+  static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
+  static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
+  static final ValueNotifier<int> spatialStrength = ValueNotifier(1000);
+  static final ValueNotifier<int> bassBoost = ValueNotifier(0);
+  static final ValueNotifier<int> reverbPreset = ValueNotifier(0);
+  static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
+  static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
+  static final ValueNotifier<int> roomPreset = ValueNotifier(0);
+  static final ValueNotifier<int> audioOutputMode = ValueNotifier(0);
+
   /// Lyrics folder path (e.g. /sdcard/Music/Lyrics)
-  static final ValueNotifier<String> lyricsPath       = ValueNotifier('');
+  static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
   // ── Reverb preset labels ───────────────────────────────────────────────────
 
@@ -128,22 +131,23 @@ class AudioEffectsService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    gaplessPlayback.value  = prefs.getBool('gapless')     ?? true;
-    audioNormalize.value   = prefs.getBool('normalize')   ?? false;
-    final rgIdx            = prefs.getInt('replayGainMode') ?? 0;
-    replayGainMode.value   = ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
+    gaplessPlayback.value = prefs.getBool('gapless') ?? true;
+    audioNormalize.value = prefs.getBool('normalize') ?? false;
+    final rgIdx = prefs.getInt('replayGainMode') ?? 0;
+    replayGainMode.value =
+        ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
     replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
-    crossfadeDuration.value= prefs.getDouble('crossfade') ?? 0.0;
-    pitchShift.value       = prefs.getDouble('pitch')     ?? 0.0;
-    spatialAudio.value     = prefs.getBool('spatial')     ?? false;
-    spatialStrength.value  = prefs.getInt('spatialStr')   ?? 1000;
-    bassBoost.value        = prefs.getInt('bassBoost')    ?? 0;
-    reverbPreset.value     = prefs.getInt('reverb')       ?? 0;
-    playbackSpeed.value    = prefs.getDouble('speed')     ?? 1.0;
-    equalizerEnabled.value = prefs.getBool('eqEnabled')   ?? false;
-    roomPreset.value       = prefs.getInt('roomPreset')   ?? 0;
-    audioOutputMode.value  = prefs.getInt('audioOutputMode') ?? 0;
-    lyricsPath.value       = prefs.getString('lyricsPath') ?? '';
+    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
+    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
+    spatialAudio.value = prefs.getBool('spatial') ?? false;
+    spatialStrength.value = prefs.getInt('spatialStr') ?? 1000;
+    bassBoost.value = prefs.getInt('bassBoost') ?? 0;
+    reverbPreset.value = prefs.getInt('reverb') ?? 0;
+    playbackSpeed.value = prefs.getDouble('speed') ?? 1.0;
+    equalizerEnabled.value = prefs.getBool('eqEnabled') ?? false;
+    roomPreset.value = prefs.getInt('roomPreset') ?? 0;
+    audioOutputMode.value = prefs.getInt('audioOutputMode') ?? 0;
+    lyricsPath.value = prefs.getString('lyricsPath') ?? '';
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -257,7 +261,8 @@ class AudioEffectsService {
     try {
       final params = await eq.parameters;
       for (var b = 0; b < params.bands.length && b < gains.length; b++) {
-        final clamped = gains[b].clamp(params.minDecibels, params.maxDecibels).toDouble();
+        final clamped =
+            gains[b].clamp(params.minDecibels, params.maxDecibels).toDouble();
         await params.bands[b].setGain(clamped);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setDouble('eqBand_$b', clamped);
@@ -284,16 +289,46 @@ class AudioEffectsService {
 
   // Legacy EQ presets kept for backward compat
   static const List<Map<String, dynamic>> eqPresets = [
-    {'name': 'Normal',      'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Classical',   'gains': [5.0, 3.0, 0.0, 3.0, 4.0]},
-    {'name': 'Dance',       'gains': [6.0, 0.0, 2.0, 4.0, 1.0]},
-    {'name': 'Flat',        'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Folk',        'gains': [3.0, 0.0, 0.0, 2.0, -1.0]},
-    {'name': 'Heavy Metal', 'gains': [4.0, 1.0, 9.0, 3.0, 0.0]},
-    {'name': 'Hip-Hop',     'gains': [5.0, 4.0, 1.0, 1.0, 3.0]},
-    {'name': 'Jazz',        'gains': [4.0, 2.0, -2.0, 2.0, 5.0]},
-    {'name': 'Pop',         'gains': [-1.0, 2.0, 5.0, 1.0, -2.0]},
-    {'name': 'Rock',        'gains': [5.0, 3.0, -1.0, 3.0, 5.0]},
+    {
+      'name': 'Normal',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Classical',
+      'gains': [5.0, 3.0, 0.0, 3.0, 4.0],
+    },
+    {
+      'name': 'Dance',
+      'gains': [6.0, 0.0, 2.0, 4.0, 1.0],
+    },
+    {
+      'name': 'Flat',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Folk',
+      'gains': [3.0, 0.0, 0.0, 2.0, -1.0],
+    },
+    {
+      'name': 'Heavy Metal',
+      'gains': [4.0, 1.0, 9.0, 3.0, 0.0],
+    },
+    {
+      'name': 'Hip-Hop',
+      'gains': [5.0, 4.0, 1.0, 1.0, 3.0],
+    },
+    {
+      'name': 'Jazz',
+      'gains': [4.0, 2.0, -2.0, 2.0, 5.0],
+    },
+    {
+      'name': 'Pop',
+      'gains': [-1.0, 2.0, 5.0, 1.0, -2.0],
+    },
+    {
+      'name': 'Rock',
+      'gains': [5.0, 3.0, -1.0, 3.0, 5.0],
+    },
   ];
 
   static Future<void> applyEqPreset(int presetIndex) async {
@@ -304,7 +339,8 @@ class AudioEffectsService {
     try {
       final params = await eq.parameters;
       for (var i = 0; i < params.bands.length && i < gains.length; i++) {
-        final clamped = gains[i].clamp(params.minDecibels, params.maxDecibels).toDouble();
+        final clamped =
+            gains[i].clamp(params.minDecibels, params.maxDecibels).toDouble();
         await params.bands[i].setGain(clamped);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setDouble('eqBand_$i', clamped);
@@ -375,7 +411,10 @@ class AudioEffectsService {
     reverbPreset.value = preset.clamp(0, reverbPresetNames.length - 1).toInt();
     await _saveInt('reverb', reverbPreset.value);
     await AudioEngine.setReverb(reverbPreset.value);
-    LogService.log('AudioEffects', 'Reverb: ${reverbPresetNames[reverbPreset.value]}');
+    LogService.log(
+      'AudioEffects',
+      'Reverb: ${reverbPresetNames[reverbPreset.value]}',
+    );
   }
 
   // ── Spatial Audio ─────────────────────────────────────────────────────────
