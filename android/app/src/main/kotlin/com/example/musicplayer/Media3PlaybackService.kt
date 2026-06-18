@@ -146,7 +146,9 @@ class Media3PlaybackService : MediaSessionService() {
         // Attach MediaSession token so the notification renders as a media
         // notification (transport controls, lockscreen art, Bluetooth sync).
         if (sess != null) {
-            builder.setStyle(MediaStyleNotificationHelper.buildMediaStyle(sess))
+            builder.setStyle(
+    MediaStyleNotificationHelper.MediaStyle(sess)
+)
         }
 
         // Try to set artwork from the current track if available.
@@ -200,7 +202,9 @@ class Media3PlaybackService : MediaSessionService() {
             .setContentIntent(pendingIntent)
             .setOngoing(p.isPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setStyle(MediaStyleNotificationHelper.buildMediaStyle(sess))
+            .setStyle(
+    MediaStyleNotificationHelper.MediaStyle(sess)
+)
 
         val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
