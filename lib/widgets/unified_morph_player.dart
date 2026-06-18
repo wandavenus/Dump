@@ -383,7 +383,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       child: AnimatedScale(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
-        scale: state.isPlaying ? 1.04 : 1.0,
+        scale: state.isPlaying ? 1.0 : 0.96,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(artRadius),
           child: SongArtwork(
