@@ -91,6 +91,14 @@ class AudioService {
     // Register promotion callback from DualPlayerManager.
     DualPlayerManager.onPromoted = _afterPromotion;
 
+    // Subscribe to native queue/item transitions before primary-player streams so
+    // Media3-driven advances keep the Dart facade in sync.
+    _staticSubs.add(
+      Media3PlaybackBridge.currentTrackStream.listen(
+        _onNativeCurrentTrackChanged,
+      ),
+    );
+
     // Subscribe to primary player streams.
     _resubscribeToPrimaryStreams();
 
@@ -227,6 +235,81 @@ class AudioService {
         );
       }),
     );
+  }
+
+  static void _onNativeCurrentTrackChanged(Map<dynamic, dynamic>? event) {
+    if (event == null || _playlist.isEmpty) return;
+
+    final nativeIndex = (event['index'] as num?)?.toInt();
+    final nativeId = (event['id'] as num?)?.toInt();
+    final resolvedIndex =
+        nativeIndex != null &&
+            nativeIndex >= 0 &&
+            nativeIndex < _playlist.length
+        ? nativeIndex
+        : _playlist.indexWhere((song) => song.id == nativeId);
+
+    if (resolvedIndex < 0 || resolvedIndex >= _playlist.length) {
+      LogService.warn(
+        'AudioService',
+        'Ignoring Media3 track event for unknown item '
+            '(index=$nativeIndex id=$nativeId)',
+      );
+      return;
+    }
+
+    if (resolvedIndex == _currentIndex &&
+        playbackState.value.currentSong?.id == _playlist[resolvedIndex].id) {
+      return;
+    }
+
+    _syncCurrentTrackFromNative(resolvedIndex);
+  }
+
+  static void _syncCurrentTrackFromNative(int index) {
+    final song = _playlist[index];
+    final previousIndex = _currentIndex;
+    _currentIndex = index;
+
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: song,
+        currentIndex: index,
+        currentPlaylist: _playlist,
+        duration: song.duration,
+      ),
+    );
+
+    BackgroundAudioHandler.instance?.updateNowPlaying(
+      id: song.id.toString(),
+      title: song.title,
+      artist: song.artist.isNotEmpty ? song.artist : null,
+      album: song.album.isNotEmpty ? song.album : null,
+      duration: song.duration,
+      artUri: song.albumId > 0
+          ? Uri.parse('content://media/external/audio/albumart/${song.albumId}')
+          : null,
+    );
+
+    LogService.log(
+      'AudioService',
+      'Media3 advanced → [${index + 1}/${_playlist.length}]: '
+          '"${song.title}" — ${song.artist}',
+    );
+
+    if (index != previousIndex) {
+      unawaited(HistoryService.trackPlay(song));
+    }
+
+    AudioEffectsService.applyAll();
+    Future.delayed(
+      const Duration(milliseconds: 350),
+      AudioEffectsService.applyAll,
+    );
+    unawaited(_applyReplayGain(song));
+    _previousSong = song;
+    _schedulePreload();
+    _syncPlaybackState();
   }
 
   // ── Playback ───────────────────────────────────────────────────────────────
@@ -926,6 +1009,7 @@ class AudioService {
   static Future<void> dispose() async {
     CrossfadeController.dispose();
     AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
+    AudioEffectsService.gaplessPlayback.removeListener(_onGaplessChanged);
     AudioEffectsService.replayGainMode.removeListener(
       _onReplayGainSettingChanged,
     );
