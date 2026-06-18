@@ -46,7 +46,7 @@ class _DebugSection extends StatelessWidget {
         // Notification icon picker
         ValueListenableBuilder<int>(
           valueListenable: _DebugState.notifIcon,
-          builder: (_, idx, __) => _NotifIconRow(selectedIdx: idx),
+          builder: (_, idx, _) => _NotifIconRow(selectedIdx: idx),
         ),
         const SettingsDivider(),
 
@@ -84,7 +84,7 @@ class _DebugFakePlaybackRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AudioPlaybackState>(
       valueListenable: AudioService.playbackState,
-      builder: (_, state, __) {
+      builder: (_, state, _) {
         final isFake = AudioService.debugFakePlaying;
         return SettingsActionRow(
           title: isFake ? 'Hentikan Pemutaran Palsu' : 'Aktifkan Pemutaran Palsu',

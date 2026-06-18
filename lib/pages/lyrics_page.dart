@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../models/local_song.dart';
 import '../models/lyrics_settings.dart';
 import '../services/lyrics_service.dart';
-import '../services/media_store_service.dart';
 import '../widgets/player/synced_lyrics_view.dart';
 
 part 'lyrics_page/page.dart';

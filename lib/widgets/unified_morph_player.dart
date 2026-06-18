@@ -18,7 +18,8 @@ class UnifiedMorphPlayer extends StatefulWidget {
   State<UnifiedMorphPlayer> createState() => _UnifiedMorphPlayerState();
 }
 
-class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
+class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
+    with SingleTickerProviderStateMixin {
   // ── Gesture state ──────────────────────────────────────────────────────────
   double _panDx = 0;
   double _panDy = 0;
@@ -31,17 +32,56 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
   bool _showLyrics = false;
   bool _showQueue = false;
 
+  // ── Release animation ──────────────────────────────────────────────────────
+  late final AnimationController _releaseAnim;
+  double _animStartVal = 0.0;
+  double _animTarget = 0.0;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
+    _releaseAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    )..addListener(_onReleaseAnimTick);
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
   }
 
   @override
   void dispose() {
+    _releaseAnim.dispose();
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
+  }
+
+  void _onReleaseAnimTick() {
+    // easeOutCubic applied in listener so we drive the raw controller linearly
+    final u = 1.0 - _releaseAnim.value;
+    final eased = 1.0 - u * u * u;
+    final value = _animStartVal + (_animTarget - _animStartVal) * eased;
+    PlayerSheetController.setProgress(value.clamp(0.0, 1.0));
+  }
+
+  void _animateTo(double target) {
+    // Cancel any timer-based animation running in the controller
+    PlayerSheetController.cancelAnimation();
+    _releaseAnim.stop();
+
+    _animStartVal = PlayerSheetController.progress.value;
+    _animTarget = target;
+
+    final distance = (_animTarget - _animStartVal).abs();
+    if (distance < 0.001) {
+      PlayerSheetController.setProgress(target);
+      return;
+    }
+
+    // Duration proportional to remaining travel — feels natural on flings
+    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    _releaseAnim.duration = Duration(milliseconds: durationMs);
+    _releaseAnim.value = 0.0;
+    _releaseAnim.animateTo(1.0, curve: Curves.linear);
   }
 
   void _onExpandedChanged() {
@@ -74,6 +114,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
 
   // ── Gesture callbacks ──────────────────────────────────────────────────────
   void _onPanStart(DragStartDetails d) {
+    // Stop any in-flight release animation so the finger takes over immediately
+    PlayerSheetController.cancelAnimation();
+    _releaseAnim.stop();
+
     _panDx = 0;
     _panDy = 0;
     _isHorizontal = false;
@@ -120,10 +164,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
       setState(() => _swipeOffset = 0);
     } else if (!_isHorizontal && !(_showLyrics || _showQueue)) {
       final vy = d.velocity.pixelsPerSecond.dy;
-      if (progress > 0.35 || vy < -200) {
-        PlayerSheetController.open();
+      if (vy > 500 || (progress <= 0.35 && vy >= 0)) {
+        _animateTo(0.0);
+      } else if (progress > 0.35 || vy < -200) {
+        _animateTo(1.0);
       } else {
-        PlayerSheetController.close();
+        _animateTo(0.0);
       }
     }
     _panDx = 0;
@@ -179,7 +225,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
     final fullAlpha = ((progress - 0.12) / 0.38).clamp(0.0, 1.0);
     final bgAlpha = (progress / 0.35).clamp(0.0, 1.0);
-    final blurSigma = (progress * 22.0).clamp(0.01, 22.0);
 
     // ── Artwork morph positions ──────────────────────────────────────────────
     const miniArtSize = 46.3;
@@ -226,41 +271,47 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
             clipBehavior: Clip.antiAlias,
             children: [
               // ── Dark base (glass-aware at mini state) ──────────────────
+              // BackdropFilter is isolated in its own RepaintBoundary so it
+              // does not re-composite when the rest of the player animates.
               ValueListenableBuilder<bool>(
                 valueListenable: ThemeController.glassTheme,
-                builder: (_, masterGlass, __) =>
+                builder: (_, masterGlass, _) =>
                     ValueListenableBuilder<bool>(
                   valueListenable: ThemeController.glassMiniPlayer,
-                  builder: (_, compGlass, __) {
+                  builder: (_, compGlass, _) {
+                    // Use glass only when fully at rest in mini state.
+                    // Threshold 0.05 collapses the glass before drag starts
+                    // so BackdropFilter never runs during the morph animation.
                     final useGlass =
-                        masterGlass && compGlass && progress < 0.15;
+                        masterGlass && compGlass && progress < 0.05;
                     if (useGlass) {
-                      return BackdropFilter(
-                        filter:
-                            ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.0),
+                      return RepaintBoundary(
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                            child: ColoredBox(
+                              color: Colors.black.withValues(alpha: 0.0),
+                            ),
+                          ),
                         ),
                       );
                     }
-                    return const ColoredBox(
-                        color: Color(0xFF1C1C1E));
+                    return const ColoredBox(color: Color(0xFF1C1C1E));
                   },
                 ),
               ),
 
-              // ── Blurred artwork background (fades in with progress) ────────
+              // ── Pre-blurred artwork background (fades in with progress) ────
+              // AnimatedBlurredPlayerBackground now serves a cached ui.Image
+              // blit — no runtime ImageFilter cost per frame.
+              // The outer ImageFiltered(blurSigma) that previously changed
+              // every drag frame is removed; the inner artwork is already at
+              // sigma 28 which is visually equivalent.
               if (bgAlpha > 0)
                 Opacity(
                   opacity: bgAlpha,
-                  child: ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(
-                        sigmaX: blurSigma,
-                        sigmaY: blurSigma,
-                      ),
-                      child: AnimatedBlurredPlayerBackground(songId: song.id),
-                    ),
+                  child: RepaintBoundary(
+                    child: AnimatedBlurredPlayerBackground(songId: song.id),
                   ),
                 ),
 
@@ -274,8 +325,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Color.fromARGB(80, 0, 0, 0),
-                          Color.fromARGB(80, 0, 0, 0),
+                          Color.fromARGB(50, 0, 0, 0),
+                          Color.fromARGB(50, 0, 0, 0),
                         ],
                       ),
                     ),
@@ -311,23 +362,40 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
 
               // ── Morphing artwork (bridges mini → full) ─────────────────────
               Positioned(
-                left: artLeft,
-                top: artTop,
-                width: artSize,
-                height: artSize,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 220),
-                  opacity: morphArtVisible ? 1.0 : 0.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(artRadius),
-                    child: SongArtwork(
-                      songId: song.id,
-                      size: artSize,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                  ),
-                ),
-              ),
+  left: artLeft,
+  top: artTop,
+  width: artSize,
+  height: artSize,
+  child: AnimatedOpacity(
+    duration: const Duration(milliseconds: 220),
+    opacity: morphArtVisible ? 1.0 : 0.0,
+    child: Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(artRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.40),
+            blurRadius: 50,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        scale: state.isPlaying ? 1.0 : 0.96,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(artRadius),
+          child: SongArtwork(
+            songId: song.id,
+            size: artSize,
+            borderRadius: BorderRadius.zero,
+          ),
+        ),
+      ),
+    ),
+  ),
+),
 
               // ── Mini player overlay (fades out in first 28% of progress) ───
               if (miniAlpha > 0)
@@ -335,7 +403,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                   opacity: miniAlpha,
                   child: IgnorePointer(
                     ignoring: progress > 0.08,
-                    child: _buildMiniOverlay(song, state),
+                    child: _buildMiniOverlay(
+  song,
+  state,
+  progress,
+),
                   ),
                 ),
 
@@ -352,11 +424,18 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
-  Widget _buildMiniOverlay(LocalSong song, AudioPlaybackState state) {
+  Widget _buildMiniOverlay(
+  LocalSong song,
+  AudioPlaybackState state,
+  double progress,
+) {
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
-    final swipeFraction = (_swipeOffset.abs() / 80).clamp(0.0, 1.0);
+    final miniContentAlpha =
+    (1.0 - progress / 0.03).clamp(0.0, 1.0);
 
+    final miniContentOffset =
+    -5.0 * (1.0 - miniContentAlpha);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -373,56 +452,69 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
 
               // Judul lagu dengan Hero tag
               Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: PlayerSheetController.open,
-                  child: Hero(
-                    tag: PlayerHeroTags.title(song),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+  child: GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: () => _animateTo(1.0),
+    child: Transform.translate(
+      offset: Offset(0, miniContentOffset),
+      child: Opacity(
+        opacity: miniContentAlpha,
+        child: Hero(
+          tag: PlayerHeroTags.title(song),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Text(
+              song.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
               ),
-
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+),
+                  
               // Play / Pause
-              Opacity(
-                opacity: 1.0,
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => state.isPlaying
-                          ? AudioService.pause()
-                          : AudioService.play(),
-                      icon: Icon(
-                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 36,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: canGoNext
-                          ? () => AudioService.skipNext()
-                          : null,
-                      icon: Icon(
-                        Icons.fast_forward_rounded,
-                        size: 36,
-                        color: canGoNext ? Colors.white : Colors.white24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+Transform.translate(
+  offset: Offset(0, miniContentOffset),
+  child: Opacity(
+    opacity: miniContentAlpha,
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: () => state.isPlaying
+              ? AudioService.pause()
+              : AudioService.play(),
+          icon: Icon(
+            state.isPlaying
+                ? Icons.pause_rounded
+                : Icons.play_arrow_rounded,
+            size: 36,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext
+              ? () => AudioService.skipNext()
+              : null,
+          icon: Icon(
+            Icons.fast_forward_rounded,
+            size: 36,
+            color: canGoNext
+                ? Colors.white
+                : Colors.white24,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
+                ],
           ),
         ),
       ],

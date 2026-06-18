@@ -1,8 +1,9 @@
 import 'dart:typed_data';
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../../services/blurred_image_cache.dart';
 import '../../services/media_store_service.dart';
 
 part 'player_background/animated.dart';

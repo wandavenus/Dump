@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'theme_controller.dart';
 
 /// Widget pembungkus yang menerapkan efek liquid glass pada komponen manapun.
-/// Setiap komponen bisa menggunakan ini secara mandiri (per komponen).
+/// RepaintBoundary mengisolasi BackdropFilter agar tidak rekomposit saat
+/// widget lain di luar boundary berubah.
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double sigmaBlur;
@@ -23,14 +24,16 @@ class GlassContainer extends StatelessWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: sigmaBlur, sigmaY: sigmaBlur),
-              child: DecoratedBox(
-                decoration: decoration ??
-                    BoxDecoration(
-                      color: Colors.white.withValues(alpha: tintOpacity),
-                    ),
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: sigmaBlur, sigmaY: sigmaBlur),
+                child: DecoratedBox(
+                  decoration: decoration ??
+                      BoxDecoration(
+                        color: Colors.white.withValues(alpha: tintOpacity),
+                      ),
+                ),
               ),
             ),
           ),
@@ -42,7 +45,6 @@ class GlassContainer extends StatelessWidget {
 }
 
 /// Versi reactive: otomatis aktif/nonaktif berdasarkan ThemeController.glassTheme.
-/// Gunakan ini agar komponen glass bisa toggled dari pengaturan.
 class GlassWidget extends StatelessWidget {
   final Widget child;
   final Widget? fallback;

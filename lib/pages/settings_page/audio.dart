@@ -157,6 +157,7 @@ class _ReplayGainSection extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ModeChip extends StatelessWidget {
   const _ModeChip({required this.mode});
   final ReplayGainMode mode;

@@ -17,10 +17,9 @@ class _MiniPlayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
-    final canGoPrev = playbackState.currentIndex > 0;
     final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
-
+    final fastAnim = (anim / 0.05).clamp(0.0, 1.0);
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassMiniPlayer,
       builder: (context, glassComp, _) {
@@ -93,20 +92,23 @@ class _MiniPlayerBody extends StatelessWidget {
                                   Expanded(
   child: Transform.translate(
     offset: Offset(
-  8 * anim,
-  -(8 * anim),
-),
-    child: Hero(
-      tag: PlayerHeroTags.title(song),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Text(
-          song.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15 + anim,
+      0,
+      -(2 * fastAnim),
+    ),
+    child: Opacity(
+      opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
+      child: Hero(
+        tag: PlayerHeroTags.title(song),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+            ),
           ),
         ),
       ),
@@ -118,39 +120,45 @@ class _MiniPlayerBody extends StatelessWidget {
                             ),
                           ),
                           
-                            Opacity(
-  opacity: 1 - anim,
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  onPressed: () {
-                                    playbackState.isPlaying
-                                        ? AudioService.pause()
-                                        : AudioService.play();
-                                  },
-                                  icon: Icon(
-                                    playbackState.isPlaying
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
-                                    size: 34,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: canGoNext
-                                      ? () => AudioService.skipNext()
-                                      : null,
-                                  icon: Icon(
-                                    Icons.skip_next,
-                                    size: 30,
-                                    color: canGoNext
-                                        ? Colors.white
-                                        : Colors.white24,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                            Transform.translate(
+  offset: Offset(
+    0,
+    -(2 * fastAnim),
+  ),
+  child: Opacity(
+    opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: () {
+            playbackState.isPlaying
+                ? AudioService.pause()
+                : AudioService.play();
+          },
+          icon: Icon(
+            playbackState.isPlaying
+                ? Icons.pause
+                : Icons.play_arrow,
+            size: 34,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext
+              ? () => AudioService.skipNext()
+              : null,
+          icon: Icon(
+            Icons.skip_next,
+            size: 30,
+            color: canGoNext
+                ? Colors.white
+                : Colors.white24,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                         ],
                       ),
                     ),

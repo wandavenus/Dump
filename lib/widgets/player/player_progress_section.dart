@@ -32,7 +32,7 @@ class PlayerProgressSection extends StatelessWidget {
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 6,
                 activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0xFF505050),
+                inactiveTrackColor: const Color(0xFF808080),
                 thumbShape: SliderComponentShape.noThumb,
                 overlayShape: SliderComponentShape.noOverlay,
               ),

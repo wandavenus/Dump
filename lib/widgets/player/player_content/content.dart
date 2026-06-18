@@ -103,7 +103,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 43,
+                      bottom: 58,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
@@ -338,9 +338,12 @@ height: showOverlay
                           Opacity(
   opacity: ((progress - 0.2) / 0.8)
       .clamp(0.0, 1.0),
+  child: Transform.translate(
+  offset: const Offset(0, -15),
   child: PlayerProgressSection(
     formatTime: widget.formatTime,
   ),
+),
 ),
                           const SizedBox(height: 20),
                           Opacity(
@@ -823,16 +826,16 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
+    // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.75),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Container(
+        color: const Color(0xBF0D0D0D),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,7 +901,6 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 
