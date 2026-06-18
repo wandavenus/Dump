@@ -73,12 +73,15 @@ class Media3PlaybackBridge {
     String method, [
     Map<String, Object?>? arguments,
   ]) async {
-    for (var attempt = 0; attempt < 3; attempt++) {
+    // Retry logic for 'not_ready' — the native service starts asynchronously.
+    // On MIUI 12, service startup can be slower than stock Android, so we use
+    // a longer back-off: 200 ms → 400 ms → 800 ms → 1600 ms (5 attempts total).
+    for (var attempt = 0; attempt < 5; attempt++) {
       try {
         return await _commands.invokeMethod<T>(method, arguments);
       } on PlatformException catch (error) {
-        if (error.code != 'not_ready' || attempt == 2) rethrow;
-        await Future<void>.delayed(Duration(milliseconds: 120 * (attempt + 1)));
+        if (error.code != 'not_ready' || attempt == 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 200 * (1 << attempt)));
       }
     }
     return null;

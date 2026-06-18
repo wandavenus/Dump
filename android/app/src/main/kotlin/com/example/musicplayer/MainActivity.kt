@@ -46,13 +46,19 @@ class MainActivity : FlutterActivity() {
     @OptIn(UnstableApi::class)
     private fun setupMedia3PlaybackChannels(flutterEngine: FlutterEngine) {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        // Start the service ONCE eagerly so it has time to call startForeground()
+        // within Android 11's 5-second window before any MethodChannel calls arrive.
+        // Do NOT repeat this inside the handler — repeated startForegroundService()
+        // calls on MIUI 12 can reset the OS timer and trigger a crash.
+        val intent = Intent(this, Media3PlaybackService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ContextCompat.startForegroundService(this, intent)
+        } else {
+            startService(intent)
+        }
+
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
-            val intent = Intent(this, Media3PlaybackService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ContextCompat.startForegroundService(this, intent)
-            } else {
-                startService(intent)
-            }
             Media3PlaybackService.instance?.handle(call, result)
                 ?: result.error("not_ready", "Media3 service is starting", null)
         }

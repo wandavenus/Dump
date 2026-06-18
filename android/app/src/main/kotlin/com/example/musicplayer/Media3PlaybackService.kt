@@ -1,10 +1,14 @@
 package com.example.musicplayer
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -43,7 +47,7 @@ class Media3PlaybackService : MediaSessionService() {
     private var eqEnabled = false
     private val bandGains = mutableMapOf<Short, Short>()
     private var loudnessEnabled = false
-    private var loudnessTargetMb = 0
+    private var loudnessTargetMb = 0f
 
     private val positionTicker = object : Runnable {
         override fun run() {
@@ -86,6 +90,43 @@ class Media3PlaybackService : MediaSessionService() {
             }
         }
         emitAll()
+    }
+
+    // ── Foreground service ─────────────────────────────────────────────────────
+    //
+    // Android 11 (API 30) requires startForeground() to be called within 5 s of
+    // startForegroundService().  MediaSessionService does this lazily (only when
+    // a MediaController connects or playback starts), which is too late when the
+    // service is driven via MethodChannel.  We override onStartCommand to call
+    // startForeground() immediately with a minimal media-style notification so
+    // the OS timer is satisfied on every start — including MIUI restarts.
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        ensureForeground()
+        return START_STICKY
+    }
+
+    private fun ensureForeground() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Music Playback", NotificationManager.IMPORTANCE_LOW)
+                    .apply { setSound(null, null); enableVibration(false) }
+            )
+        }
+        val notification = Notification.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Music Player")
+            .setContentText("Playback service running")
+            .setOngoing(true)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onCreate() {
@@ -192,7 +233,7 @@ class Media3PlaybackService : MediaSessionService() {
             "setPitch" -> { val pitch = (call.argument<Number>("pitch")?.toFloat() ?: 1f).coerceIn(0.5f, 2f); p.playbackParameters = PlaybackParameters(p.playbackParameters.speed, pitch); result.success(null) }
             "setEqualizerEnabled" -> { setEqualizerEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
             "setEqualizerBandGain" -> { setEqualizerBandGain((call.argument<Number>("band")?.toInt() ?: 0).toShort(), ((call.argument<Number>("gainDb")?.toDouble() ?: 0.0) * 100).toInt().toShort()); result.success(null) }
-            "setLoudnessTargetGain" -> { setLoudnessTargetGain((call.argument<Number>("gainMb")?.toInt() ?: 0)); result.success(null) }
+            "setLoudnessTargetGain" -> { setLoudnessTargetGain((call.argument<Number>("gainMb")?.toFloat() ?: 0f)); result.success(null) }
             "setLoudnessEnabled" -> { setLoudnessEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
             "getEqualizerParameters" -> result.success(equalizerParameters())
             else -> result.notImplemented()
@@ -223,17 +264,21 @@ class Media3PlaybackService : MediaSessionService() {
         if (sessionId <= 0) return
         releaseEffects()
         try { equalizer = Equalizer(0, sessionId).apply { enabled = eqEnabled; bandGains.forEach { (b, g) -> setBandLevel(b, g.coerceIn(bandLevelRange[0], bandLevelRange[1])) } } } catch (_: Exception) {}
-        try { loudness = LoudnessEnhancer(sessionId).apply { setTargetGain(loudnessTargetMb); enabled = loudnessEnabled } } catch (_: Exception) {}
+        try { loudness = LoudnessEnhancer(sessionId).apply { setTargetGain(loudnessTargetMb.toInt()); enabled = loudnessEnabled } } catch (_: Exception) {}
     }
 
     private fun releaseEffects() { try { equalizer?.release() } catch (_: Exception) {}; try { loudness?.release() } catch (_: Exception) {}; equalizer = null; loudness = null }
     private fun setEqualizerEnabled(enabled: Boolean) { eqEnabled = enabled; try { equalizer?.enabled = enabled } catch (_: Exception) {} }
     private fun setEqualizerBandGain(band: Short, gain: Short) { bandGains[band] = gain; try { equalizer?.let { it.setBandLevel(band, gain.coerceIn(it.bandLevelRange[0], it.bandLevelRange[1])) } } catch (_: Exception) {} }
-    private fun setLoudnessTargetGain(gainMb: Int) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb) } catch (_: Exception) {} }
+    private fun setLoudnessTargetGain(gainMb: Float) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb.toInt()) } catch (_: Exception) {} }
     private fun setLoudnessEnabled(enabled: Boolean) { loudnessEnabled = enabled; try { loudness?.enabled = enabled } catch (_: Exception) {} }
     private fun equalizerParameters(): Map<String, Any> = try { val eq = equalizer ?: Equalizer(0, player?.audioSessionId ?: 0).also { equalizer = it }; mapOf("minDecibels" to eq.bandLevelRange[0] / 100.0, "maxDecibels" to eq.bandLevelRange[1] / 100.0, "bands" to List(eq.numberOfBands.toInt()) { it }) } catch (e: Exception) { android.util.Log.e("Media3", "Equalizer params error", e); mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4)) }
 
-    companion object { var instance: Media3PlaybackService? = null }
+    companion object {
+        var instance: Media3PlaybackService? = null
+        private const val CHANNEL_ID     = "media3_playback"
+        private const val NOTIFICATION_ID = 1001
+    }
     object Events {
         private val sinks = mutableMapOf<String, EventChannel.EventSink?>()
         fun handler(name: String) = object : EventChannel.StreamHandler { override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sinks[name] = events; instance?.emitAll() }; override fun onCancel(arguments: Any?) { sinks[name] = null } }
