@@ -375,7 +375,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.40),
-            blurRadius: 70,
+            blurRadius: 50,
             offset: const Offset(0, 20),
           ),
         ],
