@@ -153,15 +153,29 @@ class Media3PlaybackService : MediaSessionService() {
 
         // Try to set artwork from the current track if available.
         val artworkUri = t?.get("artworkUri") as? String
-        if (!artworkUri.isNullOrBlank()) {
-            try {
-                val uri = Uri.parse(artworkUri)
-                val bitmap = contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it)
-                }
-                if (bitmap != null) builder.setLargeIcon(bitmap)
-            } catch (_: Exception) {}
+
+if (!artworkUri.isNullOrBlank()) {
+    try {
+        val uri = Uri.parse(artworkUri)
+
+        if (
+            uri.toString().contains("/albumart/-") ||
+            uri.toString().endsWith("/0")
+        ) {
+            nativeLog("warn", "Skipping invalid artwork URI: $uri")
+        } else {
+            val bitmap = contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it)
+            }
+
+            if (bitmap != null) {
+                builder.setLargeIcon(bitmap)
+            }
         }
+    } catch (e: Exception) {
+        nativeLog("warn", "Artwork load failed: ${e.message}")
+    }
+}
 
         val notification = builder.build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -176,7 +190,7 @@ class Media3PlaybackService : MediaSessionService() {
     // Called whenever track or playback state changes to update the media
     // notification content (title, artist, artwork, transport controls).
 
-    private fun refreshNotification() {
+    /*private fun refreshNotification() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val sess = session ?: return
         val nm = getSystemService(NotificationManager::class.java)
@@ -220,7 +234,7 @@ class Media3PlaybackService : MediaSessionService() {
         try {
             nm.notify(NOTIFICATION_ID, builder.build())
         } catch (_: Exception) {}
-    }
+    }*/
 
     override fun onCreate() {
         super.onCreate()
