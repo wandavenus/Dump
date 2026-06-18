@@ -11,7 +11,6 @@ class _SystemSection extends StatelessWidget {
         const SettingsSectionHeader('SISTEM'),
         const SizedBox(height: 6),
 
-        // Logging toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
           builder: (_, enabled, _) => SettingsToggleRow(
@@ -23,7 +22,6 @@ class _SystemSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Errors only toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
           builder: (_, logEnabled, _) => ValueListenableBuilder<bool>(
@@ -40,7 +38,6 @@ class _SystemSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Verbose toggle
         ValueListenableBuilder<bool>(
           valueListenable: LogService.loggingEnabled,
           builder: (_, logEnabled, _) => ValueListenableBuilder<bool>(
@@ -62,7 +59,6 @@ class _SystemSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Log viewer button
         ValueListenableBuilder<int>(
           valueListenable: LogService.logCount,
           builder: (_, count, _) => SettingsActionRow(
@@ -73,7 +69,6 @@ class _SystemSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // Clear logs
         SettingsActionRow(
           title: 'Bersihkan Log',
           trailing: '',
@@ -88,7 +83,7 @@ class _SystemSection extends StatelessWidget {
   void _showLogs(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: const Color(0xFF080808),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
@@ -98,7 +93,7 @@ class _SystemSection extends StatelessWidget {
   }
 }
 
-// ─── Log viewer modal (live-updating, searchable, filterable) ─────────────────
+// ─── Log viewer modal ─────────────────────────────────────────────────────────
 
 class _LogViewerModal extends StatefulWidget {
   const _LogViewerModal();
@@ -109,7 +104,7 @@ class _LogViewerModal extends StatefulWidget {
 
 class _LogViewerModalState extends State<_LogViewerModal> {
   LogLevel? _levelFilter;
-  String? _categoryFilter;
+  String?   _categoryFilter;
   final TextEditingController _searchCtrl = TextEditingController();
   final Set<int> _expandedIndices = {};
 
@@ -124,79 +119,92 @@ class _LogViewerModalState extends State<_LogViewerModal> {
     return ValueListenableBuilder<int>(
       valueListenable: LogService.logCount,
       builder: (context, _, _) {
-        final search = _searchCtrl.text;
+        final search  = _searchCtrl.text;
         final allLogs = LogService.getLogs(
-          level: _levelFilter,
+          level:    _levelFilter,
           category: _categoryFilter,
-          search: search.isEmpty ? null : search,
+          search:   search.isEmpty ? null : search,
         );
-        final reversed = allLogs.reversed.toList();
+        final reversed   = allLogs.reversed.toList();
         final categories = LogService.getCategories();
 
         return DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          maxChildSize: 0.95,
-          minChildSize: 0.4,
-          expand: false,
+          initialChildSize: 0.9,
+          maxChildSize:     1.0,
+          minChildSize:     0.4,
+          expand:           false,
           builder: (context, sc) => Column(
             children: [
-              // ── Handle + header ──────────────────────────────────────────
-              const SizedBox(height: 8),
+              // ── Handle ───────────────────────────────────────────────────
+              const SizedBox(height: 10),
               Container(
-                width: 36,
-                height: 4,
+                width: 30,
+                height: 3,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+
+              // ── Header ───────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const Text(
-                      'Log Aktivitas',
+                      'Log',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${reversed.length}',
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 12),
+                    Text(
+                      '${reversed.length}',
+                      style: const TextStyle(
+                        color: Color(0xFF48484A),
+                        fontSize: 12,
+                        fontFamily: 'monospace',
                       ),
                     ),
                     const Spacer(),
-                    // Copy all button
+                    // Error / warning badge summary
+                    _LevelBadge(
+                      count: LogService.countByLevel(LogLevel.error),
+                      color: const Color(0xFFF92D48),
+                    ),
+                    const SizedBox(width: 6),
+                    _LevelBadge(
+                      count: LogService.countByLevel(LogLevel.warning),
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 10),
+                    // Copy button
                     GestureDetector(
                       onTap: () => _copyAll(reversed),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.copy_rounded,
-                                color: Colors.white54, size: 14),
-                            SizedBox(width: 4),
-                            Text('Salin',
-                                style: TextStyle(
-                                    color: Colors.white54, fontSize: 12)),
+                            Icon(Icons.copy_rounded, color: Color(0xFF636366), size: 13),
+                            SizedBox(width: 5),
+                            Text(
+                              'salin',
+                              style: TextStyle(
+                                color: Color(0xFF636366),
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -206,251 +214,112 @@ class _LogViewerModalState extends State<_LogViewerModal> {
               ),
               const SizedBox(height: 10),
 
-              // ── Search field ─────────────────────────────────────────────
+              // ── Search ───────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 10),
-                      const Icon(Icons.search_rounded,
-                          color: Colors.white38, size: 18),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
-                          decoration: const InputDecoration(
-                            hintText: 'Cari pesan atau kategori...',
-                            hintStyle:
-                                TextStyle(color: Colors.white38, fontSize: 13),
-                            border: InputBorder.none,
-                            isDense: true,
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, color: Color(0xFF3A3A3C), size: 14),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        style: const TextStyle(
+                          color: Color(0xFFAEAEB2),
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'filter...',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF3A3A3C),
+                            fontSize: 12,
+                            fontFamily: 'monospace',
                           ),
-                          onChanged: (_) => setState(() {}),
+                          border:          InputBorder.none,
+                          isDense:         true,
+                          contentPadding:  EdgeInsets.zero,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    if (_searchCtrl.text.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          _searchCtrl.clear();
+                          setState(() {});
+                        },
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF3A3A3C),
+                          size: 13,
                         ),
                       ),
-                      if (_searchCtrl.text.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            _searchCtrl.clear();
-                            setState(() {});
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(Icons.close_rounded,
-                                color: Colors.white38, size: 16),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(height: 8),
 
-              // ── Level filter chips ────────────────────────────────────────
+              // ── Filter tabs — level + categories in one scroll row ───────
               SizedBox(
-                height: 30,
+                height: 22,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    _levelChip(null, 'Semua', Colors.white38),
-                    const SizedBox(width: 6),
-                    _levelChip(LogLevel.error, 'ERR',
-                        const Color(0xFFF92D48)),
-                    const SizedBox(width: 6),
-                    _levelChip(
-                        LogLevel.warning, 'WRN', Colors.orange),
-                    const SizedBox(width: 6),
-                    _levelChip(LogLevel.info, 'INF',
-                        const Color(0xFF30D158)),
-                    const SizedBox(width: 6),
-                    _levelChip(LogLevel.verbose, 'VRB',
-                        const Color(0xFF636366)),
+                    _levelTab(null,              'ALL'),
+                    _levelTab(LogLevel.error,    'ERR'),
+                    _levelTab(LogLevel.warning,  'WRN'),
+                    _levelTab(LogLevel.info,     'INF'),
+                    _levelTab(LogLevel.verbose,  'VRB'),
+                    if (categories.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          '│',
+                          style: TextStyle(
+                            color: Color(0xFF2C2C2E),
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      ...categories.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(right: 14),
+                          child: _catTab(c),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+
               const SizedBox(height: 6),
-
-              // ── Category filter chips ─────────────────────────────────────
-              if (categories.isNotEmpty)
-                SizedBox(
-                  height: 28,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      _categoryChip(null, 'Semua'),
-                      ...categories.map((c) => Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: _categoryChip(c, c),
-                          )),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 8),
-              const Divider(
-                  color: Color(0xFF38383A), height: 1, thickness: 0.5),
+              Container(height: 0.5, color: const Color(0xFF1C1C1E)),
 
               // ── Log list ─────────────────────────────────────────────────
               Expanded(
                 child: reversed.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
-                          'Tidak ada log',
-                          style: TextStyle(color: Color(0xFF8E8E93)),
+                          _searchCtrl.text.isNotEmpty ||
+                                  _levelFilter != null ||
+                                  _categoryFilter != null
+                              ? 'tidak ada hasil'
+                              : 'belum ada log',
+                          style: const TextStyle(
+                            color: Color(0xFF3A3A3C),
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
                         ),
                       )
-                    : ListView.separated(
+                    : ListView.builder(
                         controller: sc,
-                        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
-                        itemCount: reversed.length,
-                        separatorBuilder: (_, _) => const Divider(
-                          color: Color(0xFF38383A),
-                          height: 1,
-                          thickness: 0.3,
-                          indent: 16,
-                          endIndent: 16,
-                        ),
-                        itemBuilder: (_, i) {
-                          final entry = reversed[i];
-                          final hasStack = entry.stackTrace != null &&
-                              entry.stackTrace!.isNotEmpty;
-                          final expanded = _expandedIndices.contains(i);
-
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: hasStack
-                                ? () => setState(() {
-                                      if (expanded) {
-                                        _expandedIndices.remove(i);
-                                      } else {
-                                        _expandedIndices.add(i);
-                                      }
-                                    })
-                                : null,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  16, 8, 16, 8),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Level badge
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: _levelColor(entry.level)
-                                              .withValues(alpha: 0.15),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          entry.levelTag,
-                                          style: TextStyle(
-                                            color:
-                                                _levelColor(entry.level),
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      // Category
-                                      Text(
-                                        entry.category,
-                                        style: const TextStyle(
-                                          color: Color(0xFF8E8E93),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      // Timestamp with centiseconds
-                                      Text(
-                                        entry.formattedTime,
-                                        style: const TextStyle(
-                                          color: Color(0xFF48484A),
-                                          fontSize: 10,
-                                          fontFeatures: [
-                                            FontFeature.tabularFigures()
-                                          ],
-                                        ),
-                                      ),
-                                      if (hasStack) ...[
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          expanded
-                                              ? Icons.expand_less_rounded
-                                              : Icons.expand_more_rounded,
-                                          color: Colors.white24,
-                                          size: 14,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    entry.message,
-                                    style: TextStyle(
-                                      color: entry.level == LogLevel.error
-                                          ? const Color(0xFFF92D48)
-                                              .withValues(alpha: 0.9)
-                                          : entry.level ==
-                                                  LogLevel.warning
-                                              ? Colors.orange
-                                                  .withValues(alpha: 0.9)
-                                              : entry.level ==
-                                                      LogLevel.verbose
-                                                  ? Colors.white30
-                                                  : Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  // Stack trace (expandable)
-                                  if (hasStack && expanded) ...[
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black38,
-                                        borderRadius:
-                                            BorderRadius.circular(6),
-                                        border: Border.all(
-                                            color: Colors.white12,
-                                            width: 0.5),
-                                      ),
-                                      child: Text(
-                                        entry.stackTrace!,
-                                        style: const TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 10,
-                                          fontFamily: 'monospace',
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        padding:    const EdgeInsets.only(bottom: 40),
+                        itemCount:  reversed.length,
+                        itemBuilder: (_, i) => _buildEntry(reversed[i], i),
                       ),
               ),
             ],
@@ -460,62 +329,167 @@ class _LogViewerModalState extends State<_LogViewerModal> {
     );
   }
 
-  Widget _levelChip(LogLevel? level, String label, Color color) {
+  // ── Entry row ──────────────────────────────────────────────────────────────
+
+  Widget _buildEntry(LogEntry entry, int i) {
+    final hasStack = entry.stackTrace != null && entry.stackTrace!.isNotEmpty;
+    final expanded = _expandedIndices.contains(i);
+    final barColor = _levelColor(entry.level);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: hasStack
+          ? () => setState(() {
+                if (expanded) _expandedIndices.remove(i);
+                else _expandedIndices.add(i);
+              })
+          : null,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Left level color bar ──────────────────────────────────────
+            Container(
+              width: 2.5,
+              color: barColor.withValues(alpha: 0.55),
+            ),
+
+            // ── Content ───────────────────────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Meta: category + timestamp
+                    Row(
+                      children: [
+                        Text(
+                          entry.category,
+                          style: TextStyle(
+                            color: barColor.withValues(alpha: 0.5),
+                            fontSize: 9.5,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          entry.formattedTime,
+                          style: const TextStyle(
+                            color: Color(0xFF3A3A3C),
+                            fontSize: 9.5,
+                            fontFamily: 'monospace',
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        if (hasStack) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            expanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: const Color(0xFF3A3A3C),
+                            size: 12,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+
+                    // Message
+                    Text(
+                      entry.message,
+                      style: TextStyle(
+                        color: switch (entry.level) {
+                          LogLevel.error   => const Color(0xFFF92D48).withValues(alpha: 0.85),
+                          LogLevel.warning => Colors.orange.withValues(alpha: 0.85),
+                          LogLevel.verbose => const Color(0xFF48484A),
+                          _                => const Color(0xFFAEAEB2),
+                        },
+                        fontSize:   11.5,
+                        fontFamily: 'monospace',
+                        height:     1.45,
+                      ),
+                    ),
+
+                    // Stack trace (expandable)
+                    if (hasStack && expanded) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        width:   double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:        const Color(0xFF111111),
+                          borderRadius: BorderRadius.circular(4),
+                          border:       Border(
+                            left: BorderSide(
+                              color: barColor.withValues(alpha: 0.3),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          entry.stackTrace!,
+                          style: const TextStyle(
+                            color:      Color(0xFF636366),
+                            fontSize:   9.5,
+                            fontFamily: 'monospace',
+                            height:     1.6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Filter tab helpers ─────────────────────────────────────────────────────
+
+  Widget _levelTab(LogLevel? level, String label) {
     final active = _levelFilter == level;
+    final color  = level == null ? Colors.white : _levelColor(level);
     return GestureDetector(
       onTap: () => setState(() {
         _levelFilter = level;
         _expandedIndices.clear();
       }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.2) : Colors.white12,
-          borderRadius: BorderRadius.circular(8),
-          border: active
-              ? Border.all(color: color.withValues(alpha: 0.6), width: 1)
-              : Border.all(color: Colors.transparent, width: 1),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.only(right: 14),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? color : Colors.white38,
-            fontSize: 11,
-            fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+            color:      active ? color : const Color(0xFF48484A),
+            fontSize:   11,
+            fontFamily: 'monospace',
+            fontWeight: active ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
       ),
     );
   }
 
-  Widget _categoryChip(String? category, String label) {
+  Widget _catTab(String category) {
     final active = _categoryFilter == category;
     return GestureDetector(
       onTap: () => setState(() {
-        _categoryFilter = category;
+        _categoryFilter = active ? null : category;
         _expandedIndices.clear();
       }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: active
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(6),
-          border: active
-              ? Border.all(
-                  color: Colors.white.withValues(alpha: 0.3), width: 0.8)
-              : Border.all(color: Colors.transparent, width: 0.8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? Colors.white70 : Colors.white38,
-            fontSize: 11,
-            fontWeight: active ? FontWeight.w500 : FontWeight.normal,
-          ),
+      child: Text(
+        category,
+        style: TextStyle(
+          color:      active ? const Color(0xFFAEAEB2) : const Color(0xFF48484A),
+          fontSize:   11,
+          fontFamily: 'monospace',
+          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
         ),
       ),
     );
@@ -537,12 +511,43 @@ class _LogViewerModalState extends State<_LogViewerModal> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${entries.length} entri log disalin',
-          style: const TextStyle(fontSize: 13),
+          '${entries.length} entri disalin',
+          style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
         ),
-        backgroundColor: const Color(0xFF2C2C2E),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF1C1C1E),
+        behavior:        SnackBarBehavior.floating,
+        duration:        const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+// ── Small error/warning count badge in header ──────────────────────────────
+
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge({required this.count, required this.color});
+
+  final int   count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color:        color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color:      color.withValues(alpha: 0.8),
+          fontSize:   10,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

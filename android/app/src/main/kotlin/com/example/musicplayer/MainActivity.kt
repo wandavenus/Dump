@@ -66,6 +66,10 @@ class MainActivity : FlutterActivity() {
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
         }
+
+        // Native log EventChannel — forwards Kotlin service logs to the Dart log viewer.
+        EventChannel(messenger, "musicplayer/native_logs")
+            .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
     }
 
     // ── MediaStore channel ────────────────────────────────────────────────────

@@ -104,6 +104,7 @@ class Media3PlaybackService : MediaSessionService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         ensureForeground()
+        nativeLog("verbose", "onStartCommand (API ${Build.VERSION.SDK_INT}): foreground ensured")
         return START_STICKY
     }
 
@@ -154,17 +155,29 @@ class Media3PlaybackService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = emitAll()
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = emitAll()
             override fun onRepeatModeChanged(repeatMode: Int) = emitAll()
-            override fun onAudioSessionIdChanged(audioSessionId: Int) { attachEffects(audioSessionId); emitAll() }
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                nativeLog("info", "audioSessionId → $audioSessionId")
+                attachEffects(audioSessionId)
+                emitAll()
+            }
         })
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
         handler.post(positionTicker)
+        nativeLog("info", "onCreate: ExoPlayer ready, MediaSession created (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})")
         emitAll()
     }
+
+    private fun isMiui(): Boolean = try {
+        val cls = Class.forName("android.os.SystemProperties")
+        val get = cls.getMethod("get", String::class.java)
+        (get.invoke(cls, "ro.miui.ui.version.name") as? String)?.isNotEmpty() == true
+    } catch (_: Exception) { false }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onDestroy() {
+        nativeLog("info", "onDestroy: releasing ExoPlayer, MediaSession, effects")
         handler.removeCallbacks(positionTicker)
         try { unregisterReceiver(noisyReceiver) } catch (e: Exception) { android.util.Log.w("Media3", "Noisy receiver unregister failed", e) }
         abandonAudioFocus()
@@ -212,18 +225,44 @@ class Media3PlaybackService : MediaSessionService() {
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         val p = player ?: return result.error("not_ready", "Media3 service is not ready", null)
         when (call.method) {
-            "play" -> { if (requestAudioFocus()) p.play(); result.success(null) }
-            "pause" -> { p.pause(); abandonAudioFocus(); result.success(null) }
-            "stop" -> { p.stop(); abandonAudioFocus(); result.success(null) }
-            "seek" -> { p.seekTo((call.argument<Number>("position")?.toLong() ?: 0L).coerceAtLeast(0L)); result.success(null) }
-            "skipNext" -> { p.seekToNextMediaItem(); result.success(null) }
-            "skipPrevious" -> { p.seekToPreviousMediaItem(); result.success(null) }
+            "play" -> {
+                val granted = requestAudioFocus()
+                if (granted) {
+                    p.play()
+                    val t = currentTrackMap()
+                    val title  = t?.get("title")  as? String ?: "?"
+                    val artist = t?.get("artist") as? String ?: "?"
+                    nativeLog("info", "play → '$title' · $artist  [${p.currentMediaItemIndex + 1}/${queue.size}]")
+                } else {
+                    nativeLog("warn", "play: audio focus denied by OS")
+                }
+                result.success(null)
+            }
+            "pause" -> {
+                p.pause()
+                abandonAudioFocus()
+                val ms = p.currentPosition
+                nativeLog("info", "pause @ %d:%02d.%02d".format(ms / 60000, (ms % 60000) / 1000, (ms % 1000) / 10))
+                result.success(null)
+            }
+            "stop" -> { p.stop(); abandonAudioFocus(); nativeLog("info", "stop"); result.success(null) }
+            "seek" -> {
+                val pos = (call.argument<Number>("position")?.toLong() ?: 0L).coerceAtLeast(0L)
+                p.seekTo(pos)
+                nativeLog("verbose", "seek → %d:%02d.%02d".format(pos / 60000, (pos % 60000) / 1000, (pos % 1000) / 10))
+                result.success(null)
+            }
+            "skipNext" -> { p.seekToNextMediaItem(); nativeLog("verbose", "skipNext"); result.success(null) }
+            "skipPrevious" -> { p.seekToPreviousMediaItem(); nativeLog("verbose", "skipPrevious"); result.success(null) }
             "setQueue" -> {
                 @Suppress("UNCHECKED_CAST") val items = call.argument<List<Map<String, Any?>>>("queue") ?: emptyList()
                 val index = call.argument<Number>("index")?.toInt() ?: 0
                 queue = items
                 p.setMediaItems(items.map { mediaItemFrom(it) }, index.coerceIn(0, (items.size - 1).coerceAtLeast(0)), 0L)
-                p.prepare(); emitAll(); result.success(null)
+                p.prepare()
+                val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
+                nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
+                emitAll(); result.success(null)
             }
             "setTrack" -> { p.seekToDefaultPosition(call.argument<Number>("index")?.toInt() ?: 0); result.success(null) }
             "setRepeatMode" -> { p.repeatMode = when (call.argument<String>("mode")) { "one" -> Player.REPEAT_MODE_ONE; "all" -> Player.REPEAT_MODE_ALL; else -> Player.REPEAT_MODE_OFF }; result.success(null) }
@@ -263,8 +302,30 @@ class Media3PlaybackService : MediaSessionService() {
     private fun attachEffects(sessionId: Int) {
         if (sessionId <= 0) return
         releaseEffects()
-        try { equalizer = Equalizer(0, sessionId).apply { enabled = eqEnabled; bandGains.forEach { (b, g) -> setBandLevel(b, g.coerceIn(bandLevelRange[0], bandLevelRange[1])) } } } catch (_: Exception) {}
-        try { loudness = LoudnessEnhancer(sessionId).apply { setTargetGain(loudnessTargetMb.toInt()); enabled = loudnessEnabled } } catch (_: Exception) {}
+        var eqOk = false
+        var leOk = false
+        try {
+            equalizer = Equalizer(0, sessionId).apply {
+                enabled = eqEnabled
+                bandGains.forEach { (b, g) -> setBandLevel(b, g.coerceIn(bandLevelRange[0], bandLevelRange[1])) }
+            }
+            eqOk = true
+        } catch (e: Exception) {
+            nativeLog("warn", "Equalizer init failed (session=$sessionId): ${e.message}")
+        }
+        try {
+            loudness = LoudnessEnhancer(sessionId).apply {
+                setTargetGain(loudnessTargetMb.toInt())
+                enabled = loudnessEnabled
+            }
+            leOk = true
+        } catch (e: Exception) {
+            nativeLog("warn", "LoudnessEnhancer init failed (session=$sessionId): ${e.message}")
+        }
+        nativeLog(
+            if (eqOk && leOk) "info" else "warn",
+            "attachEffects(session=$sessionId) eq=${if (eqOk) "ok" else "fail"}, loudness=${if (leOk) "ok" else "fail"}"
+        )
     }
 
     private fun releaseEffects() { try { equalizer?.release() } catch (_: Exception) {}; try { loudness?.release() } catch (_: Exception) {}; equalizer = null; loudness = null }
@@ -273,6 +334,8 @@ class Media3PlaybackService : MediaSessionService() {
     private fun setLoudnessTargetGain(gainMb: Float) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb.toInt()) } catch (_: Exception) {} }
     private fun setLoudnessEnabled(enabled: Boolean) { loudnessEnabled = enabled; try { loudness?.enabled = enabled } catch (_: Exception) {} }
     private fun equalizerParameters(): Map<String, Any> = try { val eq = equalizer ?: Equalizer(0, player?.audioSessionId ?: 0).also { equalizer = it }; mapOf("minDecibels" to eq.bandLevelRange[0] / 100.0, "maxDecibels" to eq.bandLevelRange[1] / 100.0, "bands" to List(eq.numberOfBands.toInt()) { it }) } catch (e: Exception) { android.util.Log.e("Media3", "Equalizer params error", e); mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4)) }
+
+    private fun nativeLog(level: String, msg: String) = NativeLogs.emit(level, "Media3", msg)
 
     companion object {
         var instance: Media3PlaybackService? = null
@@ -283,5 +346,15 @@ class Media3PlaybackService : MediaSessionService() {
         private val sinks = mutableMapOf<String, EventChannel.EventSink?>()
         fun handler(name: String) = object : EventChannel.StreamHandler { override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sinks[name] = events; instance?.emitAll() }; override fun onCancel(arguments: Any?) { sinks[name] = null } }
         fun emit(name: String, value: Any?) { sinks[name]?.success(value) }
+    }
+    object NativeLogs {
+        private var sink: EventChannel.EventSink? = null
+        fun handler() = object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
+            override fun onCancel(arguments: Any?) { sink = null }
+        }
+        fun emit(level: String, category: String, message: String) {
+            sink?.success(mapOf("level" to level, "category" to category, "message" to message))
+        }
     }
 }
