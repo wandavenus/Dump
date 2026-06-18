@@ -123,7 +123,7 @@ class _LogViewerModalState extends State<_LogViewerModal> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: LogService.logCount,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final search = _searchCtrl.text;
         final allLogs = LogService.getLogs(
           level: _levelFilter,
@@ -313,7 +313,7 @@ class _LogViewerModalState extends State<_LogViewerModal> {
                         controller: sc,
                         padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
                         itemCount: reversed.length,
-                        separatorBuilder: (_, __) => const Divider(
+                        separatorBuilder: (_, _) => const Divider(
                           color: Color(0xFF38383A),
                           height: 1,
                           thickness: 0.3,

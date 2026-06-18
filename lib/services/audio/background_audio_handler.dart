@@ -129,8 +129,8 @@ class BackgroundAudioHandler extends BaseAudioHandler with SeekHandler {
       onSetRepeatRequested?.call();
 
   @override
-  Future<void> setShuffleMode(AudioServiceShuffleMode mode) async =>
-      onSetShuffleRequested?.call(mode != AudioServiceShuffleMode.none);
+  Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async =>
+      onSetShuffleRequested?.call(shuffleMode != AudioServiceShuffleMode.none);
 
   // ── Internal ──────────────────────────────────────────────────────────────
 

@@ -9,7 +9,7 @@ part of '../replay_gain_service.dart';
 ///   4. No data → [LoudnessData.none]
 ///
 /// Results are cached in SharedPreferences to avoid re-reading tags on
-/// every playback.  Cache key: 'rg_<songId>'.
+/// every playback.  Cache key format: `rg_SONGID`.
 class ReplayGainService {
   ReplayGainService._();
 

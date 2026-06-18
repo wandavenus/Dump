@@ -275,10 +275,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               // does not re-composite when the rest of the player animates.
               ValueListenableBuilder<bool>(
                 valueListenable: ThemeController.glassTheme,
-                builder: (_, masterGlass, __) =>
+                builder: (_, masterGlass, _) =>
                     ValueListenableBuilder<bool>(
                   valueListenable: ThemeController.glassMiniPlayer,
-                  builder: (_, compGlass, __) {
+                  builder: (_, compGlass, _) {
                     // Use glass only when fully at rest in mini state.
                     // Threshold 0.05 collapses the glass before drag starts
                     // so BackdropFilter never runs during the morph animation.
@@ -406,8 +406,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   Widget _buildMiniOverlay(LocalSong song, AudioPlaybackState state) {
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
-    final swipeFraction = (_swipeOffset.abs() / 80).clamp(0.0, 1.0);
-
     return Stack(
       fit: StackFit.expand,
       children: [

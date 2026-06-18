@@ -898,7 +898,6 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

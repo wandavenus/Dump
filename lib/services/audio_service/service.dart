@@ -3,7 +3,7 @@ part of '../audio_service.dart';
 /// Main facade for all audio playback operations.
 ///
 /// After the Dual-Player upgrade the queue is managed manually here
-/// (no [ConcatenatingAudioSource]).  [DualPlayerManager] preloads the
+/// (no ConcatenatingAudioSource).  [DualPlayerManager] preloads the
 /// next track in a secondary [AudioPlayer]; when a track ends (gapless)
 /// or a crossfade completes, [DualPlayerManager.promote] atomically
 /// swaps secondary → primary and fires [_afterPromotion].
@@ -486,7 +486,9 @@ BackgroundAudioHandler.onSetShuffleRequested = (_) => toggleShuffle();
   static Future<void> _playCurrentSong({bool autoplay = true}) async {
     if (_playlist.isEmpty ||
         _currentIndex < 0 ||
-        _currentIndex >= _playlist.length) return;
+        _currentIndex >= _playlist.length) {
+      return;
+    }
 
     _isLoading = true;
     final song = _playlist[_currentIndex];

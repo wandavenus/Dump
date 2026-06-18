@@ -81,7 +81,6 @@ class _LyricsAppearanceSheet extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

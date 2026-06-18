@@ -17,7 +17,6 @@ class _MiniPlayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
-    final canGoPrev = playbackState.currentIndex > 0;
     final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
 
