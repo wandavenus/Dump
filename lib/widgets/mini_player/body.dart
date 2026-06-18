@@ -19,9 +19,7 @@ class _MiniPlayerBody extends StatelessWidget {
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
     final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
-    final fastAnim = Curves.easeOutCubic.transform(
-  (anim * 0.5).clamp(0.0, 1.0),
-);
+    final fastAnim = (anim / 0.05).clamp(0.0, 1.0);
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassMiniPlayer,
       builder: (context, glassComp, _) {
