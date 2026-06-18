@@ -255,7 +255,7 @@ class Media3PlaybackService : MediaSessionService() {
         })
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
-        handler.post(positionTicker)
+        // Ticker will be started dynamically when playback starts
         nativeLog("info", "onCreate: ExoPlayer ready, MediaSession created (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})")
         emitAll()
     }
