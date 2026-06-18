@@ -20,7 +20,7 @@ class _MiniPlayerBody extends StatelessWidget {
     final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
     final fastAnim = Curves.easeOutCubic.transform(
-  (anim * 3.0).clamp(0.0, 1.0),
+  (anim * 0.5).clamp(0.0, 1.0),
 );
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassMiniPlayer,
@@ -98,7 +98,7 @@ class _MiniPlayerBody extends StatelessWidget {
       -(2 * fastAnim),
     ),
     child: Opacity(
-      opacity: (1 - fastAnim * 2.0).clamp(0.0, 1.0),
+      opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
       child: Hero(
         tag: PlayerHeroTags.title(song),
         child: Material(
@@ -128,7 +128,7 @@ class _MiniPlayerBody extends StatelessWidget {
     -(2 * fastAnim),
   ),
   child: Opacity(
-    opacity: (1 - fastAnim * 2.0).clamp(0.0, 1.0),
+    opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
     child: Row(
       children: [
         IconButton(
