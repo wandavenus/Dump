@@ -361,32 +361,41 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 ),
 
               // ── Morphing artwork (bridges mini → full) ─────────────────────
-              child: Container(
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(artRadius),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.40),
-        blurRadius: 70,
-        offset: const Offset(0, 20),
+              Positioned(
+  left: artLeft,
+  top: artTop,
+  width: artSize,
+  height: artSize,
+  child: AnimatedOpacity(
+    duration: const Duration(milliseconds: 220),
+    opacity: morphArtVisible ? 1.0 : 0.0,
+    child: Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(artRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.40),
+            blurRadius: 70,
+            offset: const Offset(0, 20),
+          ),
+        ],
       ),
-    ],
-  ),
-  child: AnimatedScale(
-    duration: const Duration(milliseconds: 300),
-    curve: Curves.easeOutCubic,
-    scale: state.isPlaying ? 1.04 : 1.0,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(artRadius),
-      child: SongArtwork(
-        songId: song.id,
-        size: artSize,
-        borderRadius: BorderRadius.zero,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        scale: state.isPlaying ? 1.04 : 1.0,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(artRadius),
+          child: SongArtwork(
+            songId: song.id,
+            size: artSize,
+            borderRadius: BorderRadius.zero,
+          ),
+        ),
       ),
     ),
   ),
 ),
-              ),
 
               // ── Mini player overlay (fades out in first 28% of progress) ───
               if (miniAlpha > 0)
