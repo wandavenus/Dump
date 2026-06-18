@@ -190,7 +190,7 @@ if (!artworkUri.isNullOrBlank()) {
     // Called whenever track or playback state changes to update the media
     // notification content (title, artist, artwork, transport controls).
 
-    /*private fun refreshNotification() {
+    private fun refreshNotification() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val sess = session ?: return
         val nm = getSystemService(NotificationManager::class.java)
@@ -220,7 +220,7 @@ if (!artworkUri.isNullOrBlank()) {
     MediaStyleNotificationHelper.MediaStyle(sess)
 )
 
-        val artworkUri = t?.get("artworkUri") as? String
+      /*  val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
             try {
                 val uri = Uri.parse(artworkUri)
@@ -229,12 +229,12 @@ if (!artworkUri.isNullOrBlank()) {
                 }
                 if (bitmap != null) builder.setLargeIcon(bitmap)
             } catch (_: Exception) {}
-        }
+        }*/
 
         try {
             nm.notify(NOTIFICATION_ID, builder.build())
         } catch (_: Exception) {}
-    }*/
+    }
 
     override fun onCreate() {
         super.onCreate()
