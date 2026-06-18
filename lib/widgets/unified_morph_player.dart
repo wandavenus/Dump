@@ -325,8 +325,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Color.fromARGB(80, 0, 0, 0),
-                          Color.fromARGB(80, 0, 0, 0),
+                          Color.fromARGB(50, 0, 0, 0),
+                          Color.fromARGB(50, 0, 0, 0),
                         ],
                       ),
                     ),
