@@ -70,7 +70,6 @@ class _FirstPageState extends State<FirstPage> {
                     bottomNavigationBar: ValueListenableBuilder<double>(
                       valueListenable: PlayerSheetController.progress,
                       builder: (context, progress, _) {
-                        final opacity = (1 - progress).clamp(0.0, 1.0);
 
                         final column = Column(
                           mainAxisSize: MainAxisSize.min,
@@ -88,9 +87,8 @@ class _FirstPageState extends State<FirstPage> {
                         );
 
                         return Transform.translate(
-                          offset: Offset(0, 24 * progress),
-                          child: Opacity(
-                            opacity: opacity,
+                          offset: Offset(0, 55 * progress),
+                          
                             child: isGlass ? GlassNavBar(child: column) : column,
                           ),
                         );
