@@ -239,7 +239,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                         filter:
                             ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                         child: ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.45),
+                          color: Colors.black.withValues(alpha: 0.05),
                         ),
                       );
                     }
@@ -275,7 +275,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Color.fromARGB(80, 0, 0, 0),
-                          Color.fromARGB(180, 0, 0, 0),
+                          Color.fromARGB(80, 0, 0, 0),
                         ],
                       ),
                     ),
@@ -339,52 +339,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                   ),
                 ),
 
-              // ── Drag handle pill (visible during opening) ──────────────────
-              if (progress > 0.04 && progress < 0.96)
-                Positioned(
-                  top: safeTop + 10,
-                  left: 0,
-                  right: 0,
-                  child: Opacity(
-                    opacity: (progress * 5).clamp(0.0, 1.0) *
-                        ((0.95 - progress) / 0.3).clamp(0.0, 1.0),
-                    child: Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+            
+              
 
               // ── Collapse chevron (top-left of full player) ─────────────────
-              if (progress > 0.5)
-                Positioned(
-                  top: safeTop + 6,
-                  left: 4,
-                  child: Opacity(
-                    opacity: ((progress - 0.5) / 0.25).clamp(0.0, 1.0),
-                    child: IgnorePointer(
-                      ignoring: progress < 0.85,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 32,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          _showLyrics = false;
-                          _showQueue = false;
-                          PlayerSheetController.close();
-                        },
-                      ),
-                    ),
-                  ),
-                ),
+              
             ],
           ),
         ),
@@ -402,21 +361,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
       fit: StackFit.expand,
       children: [
         // Swipe arrow hint (kiri = prev, kanan = next)
-        if (swipeFraction > 0.05)
-          Positioned(
-            top: 0,
-            bottom: 0,
-            left: _swipeOffset < 0 ? null : 14,
-            right: _swipeOffset < 0 ? 14 : null,
-            child: Opacity(
-              opacity: swipeFraction,
-              child: Icon(
-                _swipeOffset < 0 ? Icons.skip_next : Icons.skip_previous,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-          ),
+        
 
         // Row utama: [artwork spacer] [title] [controls]
         Padding(
@@ -459,8 +404,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           ? AudioService.pause()
                           : AudioService.play(),
                       icon: Icon(
-                        state.isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 34,
+                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        size: 30,
                         color: Colors.white,
                       ),
                     ),
@@ -469,7 +414,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           ? () => AudioService.skipNext()
                           : null,
                       icon: Icon(
-                        Icons.skip_next,
+                        Icons.fast_forward_rounded,
                         size: 30,
                         color: canGoNext ? Colors.white : Colors.white24,
                       ),
