@@ -125,7 +125,7 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(positionTicker)
-        try { unregisterReceiver(noisyReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(noisyReceiver) } catch (e: Exception) { android.util.Log.w("Media3", "Noisy receiver unregister failed", e) }
         abandonAudioFocus()
         releaseEffects()
         instance = null
