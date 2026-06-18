@@ -129,7 +129,7 @@ class Media3PlaybackService : MediaSessionService() {
         abandonAudioFocus()
         releaseEffects()
         instance = null
-        session?.run { player.release(); release() }
+        session?.run { player?.release(); release() }
         session = null
         player = null
         super.onDestroy()
