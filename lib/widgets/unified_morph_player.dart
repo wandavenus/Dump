@@ -162,9 +162,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final safeTop = mq.padding.top;
 
     const miniH = 64.0;
-    const miniHorizMargin = 8.0;
+    const miniHorizMargin = 0.0;
     const navBarH = 70.0;
-    const miniBottomGap = 6.0;
+    const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
@@ -173,7 +173,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: linear so corners snap crisply at 0
-    final radius = lerpDouble(16.0, 0.0, progress)!;
+    final radius = lerpDouble(0.0, 0.0, progress)!;
 
     // Cross-fade timing
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
