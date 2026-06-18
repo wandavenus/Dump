@@ -18,7 +18,8 @@ class UnifiedMorphPlayer extends StatefulWidget {
   State<UnifiedMorphPlayer> createState() => _UnifiedMorphPlayerState();
 }
 
-class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
+class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
+    with SingleTickerProviderStateMixin {
   // ── Gesture state ──────────────────────────────────────────────────────────
   double _panDx = 0;
   double _panDy = 0;
@@ -31,17 +32,56 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
   bool _showLyrics = false;
   bool _showQueue = false;
 
+  // ── Release animation ──────────────────────────────────────────────────────
+  late final AnimationController _releaseAnim;
+  double _animStartVal = 0.0;
+  double _animTarget = 0.0;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
+    _releaseAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    )..addListener(_onReleaseAnimTick);
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
   }
 
   @override
   void dispose() {
+    _releaseAnim.dispose();
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
+  }
+
+  void _onReleaseAnimTick() {
+    // easeOutCubic applied in listener so we drive the raw controller linearly
+    final u = 1.0 - _releaseAnim.value;
+    final eased = 1.0 - u * u * u;
+    final value = _animStartVal + (_animTarget - _animStartVal) * eased;
+    PlayerSheetController.setProgress(value.clamp(0.0, 1.0));
+  }
+
+  void _animateTo(double target) {
+    // Cancel any timer-based animation running in the controller
+    PlayerSheetController.cancelAnimation();
+    _releaseAnim.stop();
+
+    _animStartVal = PlayerSheetController.progress.value;
+    _animTarget = target;
+
+    final distance = (_animTarget - _animStartVal).abs();
+    if (distance < 0.001) {
+      PlayerSheetController.setProgress(target);
+      return;
+    }
+
+    // Duration proportional to remaining travel — feels natural on flings
+    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    _releaseAnim.duration = Duration(milliseconds: durationMs);
+    _releaseAnim.value = 0.0;
+    _releaseAnim.animateTo(1.0, curve: Curves.linear);
   }
 
   void _onExpandedChanged() {
@@ -74,6 +114,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
 
   // ── Gesture callbacks ──────────────────────────────────────────────────────
   void _onPanStart(DragStartDetails d) {
+    // Stop any in-flight release animation so the finger takes over immediately
+    PlayerSheetController.cancelAnimation();
+    _releaseAnim.stop();
+
     _panDx = 0;
     _panDy = 0;
     _isHorizontal = false;
@@ -120,10 +164,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
       setState(() => _swipeOffset = 0);
     } else if (!_isHorizontal && !(_showLyrics || _showQueue)) {
       final vy = d.velocity.pixelsPerSecond.dy;
-      if (progress > 0.35 || vy < -200) {
-        PlayerSheetController.open();
+      if (vy > 500 || (progress <= 0.35 && vy >= 0)) {
+        _animateTo(0.0);
+      } else if (progress > 0.35 || vy < -200) {
+        _animateTo(1.0);
       } else {
-        PlayerSheetController.close();
+        _animateTo(0.0);
       }
     }
     _panDx = 0;
@@ -375,7 +421,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: PlayerSheetController.open,
+                  onTap: () => _animateTo(1.0),
                   child: Hero(
                     tag: PlayerHeroTags.title(song),
                     child: Material(
