@@ -152,7 +152,7 @@ class Media3PlaybackService : MediaSessionService() {
         }
 
         // Try to set artwork from the current track if available.
-        val artworkUri = t?.get("artworkUri") as? String
+      /*  val artworkUri = t?.get("artworkUri") as? String
 
 if (!artworkUri.isNullOrBlank()) {
     try {
@@ -175,7 +175,7 @@ if (!artworkUri.isNullOrBlank()) {
     } catch (e: Exception) {
         nativeLog("warn", "Artwork load failed: ${e.message}")
     }
-}
+}*/
 
         val notification = builder.build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
