@@ -161,9 +161,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final safeBottom = mq.padding.bottom;
     final safeTop = mq.padding.top;
 
-    const miniH = 64.0;
+    const miniH = 64.5;
     const miniHorizMargin = 0.0;
-    const navBarH = 57.0;
+    const navBarH = 55.1;
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
@@ -182,7 +182,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final blurSigma = (progress * 22.0).clamp(0.01, 22.0);
 
     // ── Artwork morph positions ──────────────────────────────────────────────
-    const miniArtSize = 46.0;
+    const miniArtSize = 46.3;
     const miniArtLeft = 12.0;
     const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
 
@@ -405,7 +405,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           : AudioService.play(),
                       icon: Icon(
                         state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 35,
+                        size: 36,
                         color: Colors.white,
                       ),
                     ),
@@ -415,7 +415,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           : null,
                       icon: Icon(
                         Icons.fast_forward_rounded,
-                        size: 35,
+                        size: 36,
                         color: canGoNext ? Colors.white : Colors.white24,
                       ),
                     ),
