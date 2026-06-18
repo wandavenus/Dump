@@ -103,7 +103,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 43,
+                      bottom: 58,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
@@ -338,9 +338,12 @@ height: showOverlay
                           Opacity(
   opacity: ((progress - 0.2) / 0.8)
       .clamp(0.0, 1.0),
+  child: Transform.translate(
+  offset: const Offset(0, -15),
   child: PlayerProgressSection(
     formatTime: widget.formatTime,
   ),
+),
 ),
                           const SizedBox(height: 20),
                           Opacity(
