@@ -163,7 +163,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
 
     const miniH = 64.0;
     const miniHorizMargin = 0.0;
-    const navBarH = 70.0;
+    const navBarH = 40.0;
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
@@ -202,7 +202,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
     final artLeft = lerpDouble(miniArtLeft, artFullLeft, t)!;
     final artTop = lerpDouble(miniArtTop, artFullTop, t)!;
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
-    final artRadius = lerpDouble(8.0, 12.0, t)!;
+    final artRadius = lerpDouble(4.0, 12.0, t)!;
 
     // When overlay (lyrics/queue) is active, PlayerContent manages the
     // small artwork itself — hide the morph artwork so they don't overlap.
@@ -239,7 +239,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                         filter:
                             ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                         child: ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withValues(alpha: 0.0),
                         ),
                       );
                     }
@@ -405,7 +405,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           : AudioService.play(),
                       icon: Icon(
                         state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        size: 30,
+                        size: 35,
                         color: Colors.white,
                       ),
                     ),
@@ -415,7 +415,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer> {
                           : null,
                       icon: Icon(
                         Icons.fast_forward_rounded,
-                        size: 30,
+                        size: 35,
                         color: canGoNext ? Colors.white : Colors.white24,
                       ),
                     ),
