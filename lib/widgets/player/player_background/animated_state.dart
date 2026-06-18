@@ -35,6 +35,7 @@ class _AnimatedBlurredPlayerBackgroundState
             ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
             : BlurredArtworkBackground(
                 key: ValueKey<int>(widget.songId),
+                songId: widget.songId,
                 artwork: artwork,
               );
 

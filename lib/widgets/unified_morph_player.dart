@@ -225,7 +225,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
     final fullAlpha = ((progress - 0.12) / 0.38).clamp(0.0, 1.0);
     final bgAlpha = (progress / 0.35).clamp(0.0, 1.0);
-    final blurSigma = (progress * 22.0).clamp(0.01, 22.0);
 
     // ── Artwork morph positions ──────────────────────────────────────────────
     const miniArtSize = 46.3;
@@ -272,41 +271,47 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
             clipBehavior: Clip.antiAlias,
             children: [
               // ── Dark base (glass-aware at mini state) ──────────────────
+              // BackdropFilter is isolated in its own RepaintBoundary so it
+              // does not re-composite when the rest of the player animates.
               ValueListenableBuilder<bool>(
                 valueListenable: ThemeController.glassTheme,
                 builder: (_, masterGlass, __) =>
                     ValueListenableBuilder<bool>(
                   valueListenable: ThemeController.glassMiniPlayer,
                   builder: (_, compGlass, __) {
+                    // Use glass only when fully at rest in mini state.
+                    // Threshold 0.05 collapses the glass before drag starts
+                    // so BackdropFilter never runs during the morph animation.
                     final useGlass =
-                        masterGlass && compGlass && progress < 0.15;
+                        masterGlass && compGlass && progress < 0.05;
                     if (useGlass) {
-                      return BackdropFilter(
-                        filter:
-                            ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.0),
+                      return RepaintBoundary(
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                            child: ColoredBox(
+                              color: Colors.black.withValues(alpha: 0.0),
+                            ),
+                          ),
                         ),
                       );
                     }
-                    return const ColoredBox(
-                        color: Color(0xFF1C1C1E));
+                    return const ColoredBox(color: Color(0xFF1C1C1E));
                   },
                 ),
               ),
 
-              // ── Blurred artwork background (fades in with progress) ────────
+              // ── Pre-blurred artwork background (fades in with progress) ────
+              // AnimatedBlurredPlayerBackground now serves a cached ui.Image
+              // blit — no runtime ImageFilter cost per frame.
+              // The outer ImageFiltered(blurSigma) that previously changed
+              // every drag frame is removed; the inner artwork is already at
+              // sigma 28 which is visually equivalent.
               if (bgAlpha > 0)
                 Opacity(
                   opacity: bgAlpha,
-                  child: ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(
-                        sigmaX: blurSigma,
-                        sigmaY: blurSigma,
-                      ),
-                      child: AnimatedBlurredPlayerBackground(songId: song.id),
-                    ),
+                  child: RepaintBoundary(
+                    child: AnimatedBlurredPlayerBackground(songId: song.id),
                   ),
                 ),
 

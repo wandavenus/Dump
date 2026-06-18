@@ -23,11 +23,13 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
           backgroundColor: isGlass ? Colors.transparent : Colors.black,
           surfaceTintColor: Colors.transparent,
           flexibleSpace: isGlass
-              ? ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      color: Colors.white.withValues(alpha: 0.055),
+              ? RepaintBoundary(
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        color: Colors.white.withValues(alpha: 0.055),
+                      ),
                     ),
                   ),
                 )
