@@ -367,17 +367,29 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 width: artSize,
                 height: artSize,
                 child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 220),
-                  opacity: morphArtVisible ? 1.0 : 0.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(artRadius),
-                    child: SongArtwork(
-                      songId: song.id,
-                      size: artSize,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                  ),
-                ),
+  duration: const Duration(milliseconds: 220),
+  opacity: morphArtVisible ? 1.0 : 0.0,
+  child: Container(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(artRadius),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.40),
+          blurRadius: 70,
+          offset: const Offset(0, 20),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(artRadius),
+      child: SongArtwork(
+        songId: song.id,
+        size: artSize,
+        borderRadius: BorderRadius.zero,
+      ),
+    ),
+  ),
+),
               ),
 
               // ── Mini player overlay (fades out in first 28% of progress) ───
@@ -415,10 +427,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
     final miniContentAlpha =
-    (1.0 - progress / 0.08).clamp(0.0, 1.0);
+    (1.0 - progress / 0.03).clamp(0.0, 1.0);
 
     final miniContentOffset =
-    -12.0 * (1.0 - miniContentAlpha);
+    -5.0 * (1.0 - miniContentAlpha);
     return Stack(
       fit: StackFit.expand,
       children: [
