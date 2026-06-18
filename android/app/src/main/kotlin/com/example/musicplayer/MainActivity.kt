@@ -56,7 +56,7 @@ class MainActivity : FlutterActivity() {
             Media3PlaybackService.instance?.handle(call, result)
                 ?: result.error("not_ready", "Media3 service is starting", null)
         }
-        listOf("playbackState", "position", "duration", "currentTrack", "queue", "bufferingState").forEach { name ->
+        listOf("playbackState", "position", "duration", "currentTrack", "queue", "bufferingState", "audioSessionId").forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
         }

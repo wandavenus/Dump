@@ -283,10 +283,10 @@ class AudioService {
     );
 
     try {
-      await player.setAudioSource(buildAudioSource(selectedSong));
+      await player.setQueue(immutablePlaylist, index);
       LogService.verbose(
         'AudioService',
-        'AudioSource set (single-track primary)',
+        'Media3 queue set (${immutablePlaylist.length} tracks, index=$index)',
       );
 
       // Push track metadata to the notification / lockscreen.
@@ -296,12 +296,11 @@ class AudioService {
         artist: selectedSong.artist.isNotEmpty ? selectedSong.artist : null,
         album: selectedSong.album.isNotEmpty ? selectedSong.album : null,
         duration: selectedSong.duration,
-        artUri:
-            selectedSong.albumId > 0
-                ? Uri.parse(
-                  'content://media/external/audio/albumart/${selectedSong.albumId}',
-                )
-                : null,
+        artUri: selectedSong.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${selectedSong.albumId}',
+              )
+            : null,
       );
 
       // Apply ReplayGain gain before playback starts.
@@ -548,7 +547,7 @@ class AudioService {
     );
 
     try {
-      await player.setAudioSource(buildAudioSource(song));
+      await player.setQueue(_playlist, _currentIndex);
 
       // Push track metadata to the notification / lockscreen.
       // Covers skip-next (slow path), skip-previous, queue-jump, and
@@ -559,12 +558,11 @@ class AudioService {
         artist: song.artist.isNotEmpty ? song.artist : null,
         album: song.album.isNotEmpty ? song.album : null,
         duration: song.duration,
-        artUri:
-            song.albumId > 0
-                ? Uri.parse(
-                  'content://media/external/audio/albumart/${song.albumId}',
-                )
-                : null,
+        artUri: song.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${song.albumId}',
+              )
+            : null,
       );
 
       // Apply ReplayGain before playback starts.
@@ -669,12 +667,11 @@ class AudioService {
         artist: song.artist.isNotEmpty ? song.artist : null,
         album: song.album.isNotEmpty ? song.album : null,
         duration: song.duration,
-        artUri:
-            song.albumId > 0
-                ? Uri.parse(
-                  'content://media/external/audio/albumart/${song.albumId}',
-                )
-                : null,
+        artUri: song.albumId > 0
+            ? Uri.parse(
+                'content://media/external/audio/albumart/${song.albumId}',
+              )
+            : null,
       );
     }
 

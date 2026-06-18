@@ -36,6 +36,9 @@ class AudioPlayer {
       _duration = value;
       _durationController.add(value);
     });
+    _sessionSub = Media3PlaybackBridge.audioSessionIdStream.listen((value) {
+      _sessionController.add(value);
+    });
   }
 
   final _playerStateController = StreamController<PlayerState>.broadcast();
@@ -46,6 +49,7 @@ class AudioPlayer {
   StreamSubscription<Map<dynamic, dynamic>>? _stateSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<int>? _sessionSub;
 
   bool _playing = false;
   ProcessingState _processingState = ProcessingState.idle;
@@ -68,10 +72,12 @@ class AudioPlayer {
   Stream<Duration?> get durationStream => _durationController.stream;
   Stream<int?> get androidAudioSessionIdStream => _sessionController.stream;
 
-  Future<void> setAudioSource(AudioSource source) async {
+  Future<void> setAudioSource(AudioSource source) => setQueue([source.song], 0);
+
+  Future<void> setQueue(List<LocalSong> queue, int index) async {
     _processingState = ProcessingState.loading;
     _playerStateController.add(PlayerState(_playing, _processingState));
-    await Media3PlaybackBridge.setQueue([source.song], 0);
+    await Media3PlaybackBridge.setQueue(queue, index);
   }
 
   Future<void> play() => Media3PlaybackBridge.play();
@@ -98,6 +104,7 @@ class AudioPlayer {
     await _stateSub?.cancel();
     await _positionSub?.cancel();
     await _durationSub?.cancel();
+    await _sessionSub?.cancel();
     await _playerStateController.close();
     await _positionController.close();
     await _durationController.close();

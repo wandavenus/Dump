@@ -34,6 +34,9 @@ class Media3PlaybackBridge {
   static const EventChannel bufferingStateEvents = EventChannel(
     'musicplayer/media3_bufferingState',
   );
+  static const EventChannel audioSessionIdEvents = EventChannel(
+    'musicplayer/media3_audioSessionId',
+  );
 
   static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
       playbackStateEvents
@@ -53,16 +56,18 @@ class Media3PlaybackBridge {
           .receiveBroadcastStream()
           .where((e) => e == null || e is Map)
           .cast<Map<dynamic, dynamic>?>();
-  static Stream<List<dynamic>> get queueStream =>
-      queueEvents
-          .receiveBroadcastStream()
-          .where((e) => e is List)
-          .cast<List<dynamic>>();
-  static Stream<bool> get bufferingStateStream =>
-      bufferingStateEvents
-          .receiveBroadcastStream()
-          .where((e) => e is bool)
-          .cast<bool>();
+  static Stream<List<dynamic>> get queueStream => queueEvents
+      .receiveBroadcastStream()
+      .where((e) => e is List)
+      .cast<List<dynamic>>();
+  static Stream<bool> get bufferingStateStream => bufferingStateEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>();
+  static Stream<int> get audioSessionIdStream => audioSessionIdEvents
+      .receiveBroadcastStream()
+      .where((e) => e is num)
+      .map((e) => (e as num).toInt());
 
   static Future<T?> _invoke<T>(
     String method, [
@@ -119,10 +124,9 @@ class Media3PlaybackBridge {
     final raw = rawDynamic?.map(
       (key, value) => MapEntry(key.toString(), value),
     );
-    final bands =
-        (raw?['bands'] as List<dynamic>? ?? const [0, 1, 2, 3, 4])
-            .map((band) => AndroidEqualizerBand((band as num).toInt()))
-            .toList();
+    final bands = (raw?['bands'] as List<dynamic>? ?? const [0, 1, 2, 3, 4])
+        .map((band) => AndroidEqualizerBand((band as num).toInt()))
+        .toList();
     return AndroidEqualizerParameters(
       minDecibels: (raw?['minDecibels'] as num?)?.toDouble() ?? -15.0,
       maxDecibels: (raw?['maxDecibels'] as num?)?.toDouble() ?? 15.0,
