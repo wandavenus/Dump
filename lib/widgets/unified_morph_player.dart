@@ -386,7 +386,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   opacity: miniAlpha,
                   child: IgnorePointer(
                     ignoring: progress > 0.08,
-                    child: _buildMiniOverlay(song, state),
+                    child: _buildMiniOverlay(
+  song,
+  state,
+  progress,
+),
                   ),
                 ),
 
@@ -403,9 +407,18 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
-  Widget _buildMiniOverlay(LocalSong song, AudioPlaybackState state) {
+  Widget _buildMiniOverlay(
+  LocalSong song,
+  AudioPlaybackState state,
+  double progress,
+) {
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
+    final miniContentAlpha =
+    (1.0 - progress / 0.08).clamp(0.0, 1.0);
+
+    final miniContentOffset =
+    -12.0 * (1.0 - miniContentAlpha);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -422,31 +435,39 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
               // Judul lagu dengan Hero tag
               Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _animateTo(1.0),
-                  child: Hero(
-                    tag: PlayerHeroTags.title(song),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+  child: GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: () => _animateTo(1.0),
+    child: Transform.translate(
+      offset: Offset(0, miniContentOffset),
+      child: Opacity(
+        opacity: miniContentAlpha,
+        child: Hero(
+          tag: PlayerHeroTags.title(song),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Text(
+              song.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
               ),
-
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+),
+                  
               // Play / Pause
-              Opacity(
-                opacity: 1.0,
-                child: Row(
+              Transform.translate(
+  offset: Offset(0, miniContentOffset),
+  child: Opacity(
+    opacity: miniContentAlpha,
+    child: Row(
                   children: [
                     IconButton(
                       onPressed: () => state.isPlaying
@@ -471,7 +492,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   ],
                 ),
               ),
-            ],
+         ),
+  ),
+),
+                ],
           ),
         ),
       ],
