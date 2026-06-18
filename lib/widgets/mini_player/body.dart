@@ -161,7 +161,6 @@ class _MiniPlayerBody extends StatelessWidget {
     ),
   ),
 ),
-                          ),
                         ],
                       ),
                     ),
