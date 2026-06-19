@@ -178,20 +178,21 @@ class Media3PlaybackService : MediaSessionService() {
          ACTION_STOP -> {
     nativeLog("info", "transport: stop (notification/BT button)")
 
-    player?.stop()
+    player?.pause()
+    player?.seekTo(0)
     abandonAudioFocus()
 
-    isForeground = false          // allow ensureMediaForeground() on next cold start
+    isForeground = false
     stopForeground(STOP_FOREGROUND_REMOVE)
-    stopSelf()
 
     emitAll()
-         }
+}
             
             else -> {
-                ensureMediaForeground()
-                nativeLog("verbose", "onStartCommand (API ${Build.VERSION.SDK_INT}): foreground ensured")
-            }
+    if ((player?.mediaItemCount ?: 0) > 0) {
+        ensureMediaForeground()
+    }
+}
         }
         return START_STICKY
     }
@@ -222,6 +223,12 @@ class Media3PlaybackService : MediaSessionService() {
     private fun ensureMediaForeground() {
         if (isForeground) return   // MIUI 12 / Android 11: run once per lifecycle only
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+       val p = player ?: return
+
+if (queue.isEmpty() || p.mediaItemCount == 0) {
+    nativeLog("verbose", "ensureMediaForeground skipped: empty queue")
+    return
+}
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
