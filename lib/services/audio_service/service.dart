@@ -147,7 +147,7 @@ class AudioService {
 
   /// Called when the native Media3 player transitions to a new media item.
   /// Syncs [_currentIndex] and [playbackState] with the native index.
-  static void _onNativeCurrentTrackChanged(Map<String, dynamic>? trackMap) {
+  static void _onNativeCurrentTrackChanged(Map<dynamic, dynamic>? trackMap) {
     if (_playlist.isEmpty) return;
     if (trackMap == null) return;
 
