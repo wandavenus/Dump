@@ -313,54 +313,54 @@ if (!artworkUri.isNullOrBlank()) {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(
-                if (p.isPlaying) android.R.drawable.ic_media_pause
-                else android.R.drawable.ic_media_play
-            )
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setContentIntent(pendingIntent)
-            .setOngoing(p.isPlaying)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(NotificationCompat.Action(
-                .addAction(
-    NotificationCompat.Action(
-        R.drawable.ic_prev,
-        "Previous",
-        buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+    .setSmallIcon(
+        if (p.isPlaying) android.R.drawable.ic_media_pause
+        else android.R.drawable.ic_media_play
     )
-)
-.addAction(
-    NotificationCompat.Action(
-        if (p.isPlaying)
-            R.drawable.ic_pause
-        else
-            R.drawable.ic_play,
-        if (p.isPlaying) "Pause" else "Play",
-        buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+    .setContentTitle(title)
+    .setContentText(artist)
+    .setContentIntent(pendingIntent)
+    .setOngoing(p.isPlaying)
+    .setOnlyAlertOnce(true)
+    .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_prev,
+            "Previous",
+            buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+        )
     )
-)
-.addAction(
-    NotificationCompat.Action(
-        R.drawable.ic_next,
-        "Next",
-        buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+    .addAction(
+        NotificationCompat.Action(
+            if (p.isPlaying)
+                R.drawable.ic_pause
+            else
+                R.drawable.ic_play,
+            if (p.isPlaying) "Pause" else "Play",
+            buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+        )
     )
-)
-.addAction(
-    NotificationCompat.Action(
-        R.drawable.ic_stop,
-        "Stop",
-        buildTransportPendingIntent(ACTION_STOP, 4)
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_next,
+            "Next",
+            buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+        )
     )
-)
-.setStyle(
-    MediaStyleNotificationHelper.MediaStyle(sess)
-        .setShowActionsInCompactView(0, 1, 2)
-)
-            
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_stop,
+            "Stop",
+            buildTransportPendingIntent(ACTION_STOP, 4)
+        )
+    )
+    .setStyle(
+        MediaStyleNotificationHelper.MediaStyle(sess)
+            .setShowActionsInCompactView(0, 1, 2)
+    )
+                
         val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
             try {
@@ -389,7 +389,10 @@ if (!artworkUri.isNullOrBlank()) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         )
     } else {
-        startForeground(NOTIFICATION_ID, notification)
+        startForeground(
+            NOTIFICATION_ID,
+            notification
+        )
     }
 } catch (e: Exception) {
     nativeLog(
