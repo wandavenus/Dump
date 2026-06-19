@@ -39,7 +39,11 @@ import io.flutter.plugin.common.MethodChannel
 
 @UnstableApi
 class Media3PlaybackService : MediaSessionService() {
-    private var player: ExoPlayer? = null
+    private var primaryPlayer: ExoPlayer? = null
+    private var secondaryPlayer: ExoPlayer? = null
+    private var activePlayer: ExoPlayer? = null 
+    private val player: ExoPlayer?
+    get() = activePlayer
     private var session: MediaSession? = null
     private var queue: List<Map<String, Any?>> = emptyList()
     private val handler = Handler(Looper.getMainLooper())
@@ -444,15 +448,11 @@ if (!artworkUri.isNullOrBlank()) {
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val exoPlayer = ExoPlayer.Builder(this).build().apply {
-            val attrs = androidx.media3.common.AudioAttributes.Builder()
-                .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
-                .build()
-            setAudioAttributes(attrs, false)
-            setHandleAudioBecomingNoisy(true)
-        }
-        player = exoPlayer
+        primaryPlayer = ExoPlayer.Builder(this).build()
+secondaryPlayer = ExoPlayer.Builder(this).build()
+
+val exoPlayer = primaryPlayer!!
+activePlayer = exoPlayer
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
