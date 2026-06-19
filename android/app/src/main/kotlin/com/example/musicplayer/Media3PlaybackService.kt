@@ -1082,6 +1082,8 @@ if (remaining <= 250L && !promotionTriggered) {
     promotionTriggered = true
 
     p.pause()
+    p.clearMediaItems() 
+    p.stop()
     promoteSecondaryPlayer()
 }
 }
