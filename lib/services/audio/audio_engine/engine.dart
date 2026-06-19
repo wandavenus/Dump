@@ -22,7 +22,7 @@ class AudioEngine {
   static bool _reverbSupported      = false;
 
   static bool _initialized = false;
-
+  static int _lastSessionId = -1;
   // ── Public getters ─────────────────────────────────────────────────────────
 
   static bool get isAndroid =>
@@ -80,9 +80,13 @@ class AudioEngine {
   // UI capability flags stay fresh after a session ID rotation.
 
   static Future<void> attachEffectsToSession(int sessionId) async {
-    if (!isAndroid || sessionId <= 0) return;
-    await queryEffectSupport();
-  }
+  if (!isAndroid || sessionId <= 0) return;
+
+  if (_lastSessionId == sessionId) return;
+  _lastSessionId = sessionId;
+
+  await queryEffectSupport();
+}
 
   // ── Normalize / ReplayGain ─────────────────────────────────────────────────
 
