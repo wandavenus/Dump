@@ -519,9 +519,15 @@ activePlayer = exoPlayer
         abandonAudioFocus()
         releaseEffects()
         instance = null
-        session?.run { player?.release(); release() }
-        session = null
-        player = null
+        primaryPlayer?.release()
+secondaryPlayer?.release()
+
+primaryPlayer = null
+secondaryPlayer = null
+activePlayer = null
+
+session?.release()
+session = null
         super.onDestroy()
     }
 
