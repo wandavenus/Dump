@@ -334,7 +334,7 @@ if (!artworkUri.isNullOrBlank()) {
             .setTitle(map["title"] as? String)
             .setArtist(map["artist"] as? String)
             .setAlbumTitle(map["album"] as? String)
-            .setArtworkUri(artworkUri)
+            .setArtworkUri(null)
             .build()
 
         return MediaItem.Builder()
