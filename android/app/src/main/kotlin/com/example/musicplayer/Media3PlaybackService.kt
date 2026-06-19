@@ -641,6 +641,10 @@ session = null
                 val granted = requestAudioFocus()
                 if (granted) {
                     p.play()
+               
+                    handler.removeCallbacks(positionTicker)
+handler.post(positionTicker)  
+                    
                     val t = currentTrackMap()
                     val title  = t?.get("title")  as? String ?: "?"
                     val artist = t?.get("artist") as? String ?: "?"
@@ -652,12 +656,19 @@ session = null
             }
             "pause" -> {
                 p.pause()
+               
+             handler.removeCallbacks(positionTicker)
+                
                 abandonAudioFocus()
                 val ms = p.currentPosition
                 nativeLog("info", "pause @ %d:%02d.%02d".format(ms / 60000, (ms % 60000) / 1000, (ms % 1000) / 10))
                 result.success(null)
             }
-            "stop" -> { p.stop(); abandonAudioFocus(); nativeLog("info", "stop"); result.success(null) }
+            "stop" -> { p.stop(); 
+             
+                handler.removeCallbacks(positionTicker)   
+                
+                abandonAudioFocus(); nativeLog("info", "stop"); result.success(null) }
             "seek" -> {
                 val pos = (call.argument<Number>("position")?.toLong() ?: 0L).coerceAtLeast(0L)
                 p.seekTo(pos)
