@@ -971,7 +971,7 @@ session = null
     private fun preloadNextTrack() {
     val primary = primaryPlayer ?: return
     val secondary = standbyPlayer() ?: return
-
+    if (secondary.mediaItemCount > 0) return
     val nextIndex = primary.nextMediaItemIndex
 
     if (nextIndex == C.INDEX_UNSET) return
@@ -1002,6 +1002,8 @@ private fun promoteSecondaryPlayer() {
     val next = standbyPlayer() ?: return
     val current = activePlayer ?: return
 
+    if (next.mediaItemCount == 0) return
+
     nativeLog("info", "Promoting standby player")
 
     current.pause()
@@ -1027,6 +1029,7 @@ private fun promoteSecondaryPlayer() {
         .setSessionActivity(pendingIntent)
         .build()
 
+    next.volume = volumeBeforeDuck
     next.play()
 
     preloadNextTrack()
@@ -1057,7 +1060,8 @@ private fun promoteSecondaryPlayer() {
 
 if (remaining <= 250L) {
     promoteSecondaryPlayer()
-   }
+} 
+}
 }
 
     private fun startCrossfadeFadeIn() {
