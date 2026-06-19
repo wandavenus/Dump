@@ -6,15 +6,18 @@ import 'media3_audio_player.dart'
 
 /// Flutter ↔ Android Media3 bridge.
 ///
-/// The UI continues to talk to `AudioService` / `PlayerController` style
-/// facades; this class is the native playback edge used when the Media3 engine
-/// feature flag is enabled.
+/// All DSP, buffering, playback scheduling, and audio processing is handled
+/// natively inside `Media3PlaybackService.kt`. This class is the sole
+/// MethodChannel / EventChannel edge.  The UI talks to `AudioService`; this
+/// class is an implementation detail.
 class Media3PlaybackBridge {
   Media3PlaybackBridge._();
 
   static const MethodChannel _commands = MethodChannel(
     'musicplayer/media3_playback',
   );
+
+  // ── EventChannels ──────────────────────────────────────────────────────────
 
   static const EventChannel playbackStateEvents = EventChannel(
     'musicplayer/media3_playbackState',
@@ -38,44 +41,54 @@ class Media3PlaybackBridge {
     'musicplayer/media3_audioSessionId',
   );
 
+  // ── Streams ────────────────────────────────────────────────────────────────
+
   static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
       playbackStateEvents
           .receiveBroadcastStream()
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>();
+
   static Stream<Duration> get positionStream => positionEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
       .map((e) => Duration(milliseconds: (e as num).toInt()));
+
   static Stream<Duration> get durationStream => durationEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
       .map((e) => Duration(milliseconds: (e as num).toInt()));
+
   static Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
       currentTrackEvents
           .receiveBroadcastStream()
           .where((e) => e == null || e is Map)
           .cast<Map<dynamic, dynamic>?>();
+
   static Stream<List<dynamic>> get queueStream => queueEvents
       .receiveBroadcastStream()
       .where((e) => e is List)
       .cast<List<dynamic>>();
+
   static Stream<bool> get bufferingStateStream => bufferingStateEvents
       .receiveBroadcastStream()
       .where((e) => e is bool)
       .cast<bool>();
+
   static Stream<int> get audioSessionIdStream => audioSessionIdEvents
       .receiveBroadcastStream()
       .where((e) => e is num)
       .map((e) => (e as num).toInt());
 
+  // ── Internal invoke with retry ─────────────────────────────────────────────
+  //
+  // MIUI 12 / Android 11: the native service starts asynchronously.
+  // Back-off: 200 ms → 400 ms → 800 ms → 1600 ms (5 attempts total).
+
   static Future<T?> _invoke<T>(
     String method, [
     Map<String, Object?>? arguments,
   ]) async {
-    // Retry logic for 'not_ready' — the native service starts asynchronously.
-    // On MIUI 12, service startup can be slower than stock Android, so we use
-    // a longer back-off: 200 ms → 400 ms → 800 ms → 1600 ms (5 attempts total).
     for (var attempt = 0; attempt < 5; attempt++) {
       try {
         return await _commands.invokeMethod<T>(method, arguments);
@@ -86,6 +99,8 @@ class Media3PlaybackBridge {
     }
     return null;
   }
+
+  // ── Playback transport ─────────────────────────────────────────────────────
 
   static Future<void> play() => _invoke<void>('play');
   static Future<void> pause() => _invoke<void>('pause');
@@ -107,18 +122,20 @@ class Media3PlaybackBridge {
       _invoke<void>('setShuffleMode', {'enabled': enabled});
   static Future<void> setVolume(double volume) =>
       _invoke<void>('setVolume', {'volume': volume});
+
+  // ── Playback parameters ────────────────────────────────────────────────────
+
   static Future<void> setSpeed(double speed) =>
       _invoke<void>('setSpeed', {'speed': speed});
   static Future<void> setPitch(double pitch) =>
       _invoke<void>('setPitch', {'pitch': pitch});
+
+  // ── Equalizer ─────────────────────────────────────────────────────────────
+
   static Future<void> setEqualizerEnabled(bool enabled) =>
       _invoke<void>('setEqualizerEnabled', {'enabled': enabled});
   static Future<void> setEqualizerBandGain(int band, double gainDb) =>
       _invoke<void>('setEqualizerBandGain', {'band': band, 'gainDb': gainDb});
-  static Future<void> setLoudnessTargetGain(double gainMb) =>
-      _invoke<void>('setLoudnessTargetGain', {'gainMb': gainMb});
-  static Future<void> setLoudnessEnabled(bool enabled) =>
-      _invoke<void>('setLoudnessEnabled', {'enabled': enabled});
 
   static Future<AndroidEqualizerParameters> getEqualizerParameters() async {
     final rawDynamic = await _invoke<Map<dynamic, dynamic>>(
@@ -137,18 +154,61 @@ class Media3PlaybackBridge {
     );
   }
 
+  // ── Loudness / ReplayGain ─────────────────────────────────────────────────
+
+  static Future<void> setLoudnessTargetGain(double gainMb) =>
+      _invoke<void>('setLoudnessTargetGain', {'gainMb': gainMb});
+  static Future<void> setLoudnessEnabled(bool enabled) =>
+      _invoke<void>('setLoudnessEnabled', {'enabled': enabled});
+
+  /// Send a pre-computed ReplayGain value to native.
+  /// [gainDb] is in dB; native converts to millibels and applies via LoudnessEnhancer.
+  static Future<void> setTrackGain({
+    required bool enabled,
+    required double gainDb,
+  }) =>
+      _invoke<void>('setTrackGain', {'enabled': enabled, 'gainDb': gainDb});
+
+  // ── Bass Boost ─────────────────────────────────────────────────────────────
+
+  static Future<void> setBassBoostEnabled(bool enabled) =>
+      _invoke<void>('setBassBoostEnabled', {'enabled': enabled});
+  static Future<void> setBassBoostStrength(int strength) =>
+      _invoke<void>('setBassBoostStrength', {'strength': strength});
+
+  // ── Virtualizer / Spatial Audio ────────────────────────────────────────────
+
+  static Future<void> setVirtualizerEnabled(bool enabled) =>
+      _invoke<void>('setVirtualizerEnabled', {'enabled': enabled});
+  static Future<void> setVirtualizerStrength(int strength) =>
+      _invoke<void>('setVirtualizerStrength', {'strength': strength});
+
+  // ── Reverb ────────────────────────────────────────────────────────────────
+
+  static Future<void> setReverbPreset(int preset) =>
+      _invoke<void>('setReverbPreset', {'preset': preset});
+
+  // ── Crossfade ─────────────────────────────────────────────────────────────
+
+  static Future<void> setCrossfadeDuration(double seconds) =>
+      _invoke<void>('setCrossfadeDuration', {'duration': seconds});
+
+  // ── Effect support query ───────────────────────────────────────────────────
+
+  /// Returns which Android audio effects are available on this device/ROM.
+  /// Keys: `virtualizerSupported`, `bassBoostSupported`, `reverbSupported` (all bool).
+  static Future<Map<String, dynamic>?> getEffectSupport() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getEffectSupport');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── State snapshot ─────────────────────────────────────────────────────────
+
   /// Pull a complete playback snapshot from the running native service.
-  ///
-  /// Returns a map with keys:
-  ///   queue           – List of song maps (same shape as [LocalSong.toMap])
-  ///   currentIndex    – int
-  ///   isPlaying       – bool
-  ///   processingState – String ("idle"|"buffering"|"ready"|"completed")
-  ///   positionMs      – int (milliseconds)
-  ///   durationMs      – int (milliseconds)
-  ///   audioSessionId  – int
-  ///
-  /// Returns null if the service is not ready or the queue is empty.
   static Future<Map<String, dynamic>?> getPlaybackSnapshot() async {
     try {
       final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackSnapshot');

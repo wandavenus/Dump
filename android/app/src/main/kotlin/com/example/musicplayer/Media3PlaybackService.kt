@@ -12,8 +12,12 @@ import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.audiofx.AudioEffect
+import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.PresetReverb
+import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -51,9 +55,37 @@ class Media3PlaybackService : MediaSessionService() {
     private var loudnessEnabled = false
     private var loudnessTargetMb = 0f
 
+    // ── Bass Boost ─────────────────────────────────────────────────────────────
+    private var bassBoost: BassBoost? = null
+    private var bassBoostStrength: Short = 0
+    private var bassBoostEnabled: Boolean = false
+    private var bassBoostSupported: Boolean = false
+
+    // ── Virtualizer / Spatial Audio ────────────────────────────────────────────
+    private var virtualizer: Virtualizer? = null
+    private var virtualizerStrength: Short = 1000
+    private var virtualizerEnabled: Boolean = false
+    private var virtualizerSupported: Boolean = false
+
+    // ── Preset Reverb ──────────────────────────────────────────────────────────
+    private var reverb: PresetReverb? = null
+    private var reverbPreset: Short = 0
+    private var reverbSupported: Boolean = false
+
+    // ── Crossfade (fade-out near track end, fade-in on transition) ─────────────
+    private var crossfadeDurationSec: Float = 0f
+    private var crossfadeFadeRunnable: Runnable? = null
+
+    // Android 11 / MIUI 12: ensureMediaForeground() must only be called once per
+    // service lifecycle.  MIUI aggressively kills services that call startForeground()
+    // repeatedly, and Android 11 requires startForeground() within 5 s of
+    // startForegroundService() — subsequent calls reset the timer unnecessarily.
+    private var isForeground = false
+
     private val positionTicker = object : Runnable {
         override fun run() {
             emitAll()
+            maybeCrossfadeOut()
             handler.postDelayed(this, positionUpdateMs)
         }
     }
@@ -149,6 +181,7 @@ class Media3PlaybackService : MediaSessionService() {
     player?.stop()
     abandonAudioFocus()
 
+    isForeground = false          // allow ensureMediaForeground() on next cold start
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
 
@@ -187,6 +220,7 @@ class Media3PlaybackService : MediaSessionService() {
     }
 
     private fun ensureMediaForeground() {
+        if (isForeground) return   // MIUI 12 / Android 11: run once per lifecycle only
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
@@ -289,6 +323,7 @@ if (!artworkUri.isNullOrBlank()) {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        isForeground = true   // guard: subsequent calls are no-ops until ACTION_STOP
     }
 
     // ── Notification refresh ───────────────────────────────────────────────────
@@ -421,7 +456,13 @@ if (!artworkUri.isNullOrBlank()) {
         exoPlayer.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) { emitAll(); refreshNotification() }
             override fun onIsPlayingChanged(isPlaying: Boolean) { emitAll(); refreshNotification() }
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { emitAll(); refreshNotification() }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                emitAll()
+                refreshNotification()
+                if (crossfadeDurationSec > 0f && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    startCrossfadeFadeIn()
+                }
+            }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = emitAll()
             override fun onRepeatModeChanged(repeatMode: Int) = emitAll()
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -478,7 +519,13 @@ if (!artworkUri.isNullOrBlank()) {
 
     private fun currentTrackMap(): Map<String, Any?>? {
         val index = player?.currentMediaItemIndex ?: return null
-        return queue.getOrNull(index)?.plus("index" to index)
+        val songMap = queue.getOrNull(index) ?: return null
+        // Compute artworkUri from albumId so refreshNotification() can load album art.
+        // content://media/external/audio/albumart/<albumId> works on Android 10+
+        // (API 29) and is the standard MediaStore album-art content URI.
+        val albumId = (songMap["albumId"] as? Number)?.toLong() ?: 0L
+        val artUri  = if (albumId > 0) "content://media/external/audio/albumart/$albumId" else null
+        return songMap + mapOf("index" to index, "artworkUri" to artUri)
     }
 
     private fun mediaItemFrom(map: Map<*, *>): MediaItem {
@@ -568,6 +615,44 @@ if (!artworkUri.isNullOrBlank()) {
             "setEqualizerBandGain" -> { setEqualizerBandGain((call.argument<Number>("band")?.toInt() ?: 0).toShort(), ((call.argument<Number>("gainDb")?.toDouble() ?: 0.0) * 100).toInt().toShort()); result.success(null) }
             "setLoudnessTargetGain" -> { setLoudnessTargetGain((call.argument<Number>("gainMb")?.toFloat() ?: 0f)); result.success(null) }
             "setLoudnessEnabled" -> { setLoudnessEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
+
+            // ── ReplayGain (pre-computed by Dart, applied via LoudnessEnhancer) ──────
+            "setTrackGain" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                val gainDb  = call.argument<Number>("gainDb")?.toFloat() ?: 0f
+                val gainMb  = gainDb * 100f
+                setLoudnessTargetGain(gainMb)
+                setLoudnessEnabled(enabled)
+                result.success(null)
+            }
+
+            // ── Bass Boost ──────────────────────────────────────────────────────────
+            "setBassBoostEnabled"   -> { nativeBassBoostEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
+            "setBassBoostStrength"  -> { nativeBassBoostStrength((call.argument<Number>("strength")?.toInt() ?: 0).toShort()); result.success(null) }
+
+            // ── Virtualizer / Spatial Audio ─────────────────────────────────────────
+            "setVirtualizerEnabled"  -> { nativeVirtualizerEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
+            "setVirtualizerStrength" -> { nativeVirtualizerStrength((call.argument<Number>("strength")?.toInt() ?: 1000).toShort()); result.success(null) }
+
+            // ── Preset Reverb ───────────────────────────────────────────────────────
+            "setReverbPreset" -> { nativeReverbPreset((call.argument<Number>("preset")?.toInt() ?: 0).toShort()); result.success(null) }
+
+            // ── Crossfade ───────────────────────────────────────────────────────────
+            "setCrossfadeDuration" -> {
+                crossfadeDurationSec = (call.argument<Number>("duration")?.toFloat() ?: 0f).coerceAtLeast(0f)
+                nativeLog("verbose", "setCrossfadeDuration: ${crossfadeDurationSec}s")
+                result.success(null)
+            }
+
+            // ── Effect support query ────────────────────────────────────────────────
+            "getEffectSupport" -> {
+                result.success(mapOf(
+                    "virtualizerSupported" to virtualizerSupported,
+                    "bassBoostSupported"   to bassBoostSupported,
+                    "reverbSupported"      to reverbSupported,
+                ))
+            }
+
             "getEqualizerParameters" -> result.success(equalizerParameters())
 
             // ── State sync APIs ──────────────────────────────────────────────────
@@ -619,128 +704,262 @@ if (!artworkUri.isNullOrBlank()) {
     }
 
     private var lastAttachedSessionId = -1
-private val effectHandler = Handler(Looper.getMainLooper())
+    private val effectHandler = Handler(Looper.getMainLooper())
 
-private fun attachEffects(sessionId: Int, attempt: Int = 0) {
-    if (sessionId <= 0) return
+    private fun attachEffects(sessionId: Int, attempt: Int = 0) {
+        if (sessionId <= 0) return
 
-    if (sessionId == lastAttachedSessionId) {
-        nativeLog("verbose", "attachEffects skipped for session=$sessionId")
-        return
-    }
+        if (sessionId == lastAttachedSessionId) {
+            nativeLog("verbose", "attachEffects skipped for session=$sessionId")
+            return
+        }
 
-    releaseEffects()
+        releaseEffects()
 
-    var eqOk = false
-    var leOk = false
+        var eqOk = false
+        var leOk = false
 
-    try {
-        equalizer = Equalizer(0, sessionId).apply {
-            enabled = eqEnabled
-            bandGains.forEach { (b, g) ->
-                setBandLevel(
-                    b,
-                    g.coerceIn(
-                        bandLevelRange[0],
-                        bandLevelRange[1]
-                    )
-                )
+        try {
+            equalizer = Equalizer(0, sessionId).apply {
+                enabled = eqEnabled
+                bandGains.forEach { (b, g) ->
+                    setBandLevel(b, g.coerceIn(bandLevelRange[0], bandLevelRange[1]))
+                }
+            }
+            eqOk = true
+        } catch (e: Exception) {
+            nativeLog("warn", "Equalizer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}")
+        }
+
+        try {
+            loudness = LoudnessEnhancer(sessionId).apply {
+                setTargetGain(loudnessTargetMb.toInt())
+                enabled = loudnessEnabled
+            }
+            leOk = true
+        } catch (e: Exception) {
+            nativeLog("warn", "LoudnessEnhancer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}")
+        }
+
+        // ── Bass Boost ──────────────────────────────────────────────────────
+        bassBoostSupported = false
+        if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_BASS_BOOST)) {
+            try {
+                bassBoost = BassBoost(0, sessionId).apply {
+                    setStrength(bassBoostStrength)
+                    enabled = bassBoostEnabled
+                }
+                bassBoostSupported = true
+            } catch (e: Exception) {
+                nativeLog("warn", "BassBoost init failed (attempt=${attempt + 1}): ${e.message}")
             }
         }
-        eqOk = true
-    } catch (e: Exception) {
-        nativeLog(
-            "warn",
-            "Equalizer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}"
-        )
-    }
 
-    try {
-        loudness = LoudnessEnhancer(sessionId).apply {
-            setTargetGain(loudnessTargetMb.toInt())
-            enabled = loudnessEnabled
-        }
-        leOk = true
-    } catch (e: Exception) {
-        nativeLog(
-            "warn",
-            "LoudnessEnhancer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}"
-        )
-    }
-
-    if (eqOk || leOk) {
-        lastAttachedSessionId = sessionId
-
-        nativeLog(
-            "info",
-            "attachEffects(session=$sessionId) success attempt=${attempt + 1}"
-        )
-        return
-    }
-
-    if (attempt < 2) {
-        val delayMs = when (attempt) {
-            0 -> 100L
-            1 -> 200L
-            else -> 400L
+        // ── Virtualizer ─────────────────────────────────────────────────────
+        virtualizerSupported = false
+        if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) {
+            try {
+                virtualizer = Virtualizer(0, sessionId).apply {
+                    setStrength(virtualizerStrength)
+                    enabled = virtualizerEnabled
+                }
+                virtualizerSupported = true
+            } catch (e: Exception) {
+                nativeLog("warn", "Virtualizer init failed (attempt=${attempt + 1}): ${e.message}")
+            }
         }
 
-        nativeLog(
-            "warn",
-            "attachEffects(session=$sessionId) retry in ${delayMs}ms"
-        )
+        // ── Preset Reverb ────────────────────────────────────────────────────
+        reverbSupported = false
+        if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) {
+            try {
+                reverb = PresetReverb(0, sessionId).apply {
+                    preset  = toAndroidReverbPreset(reverbPreset)
+                    enabled = reverbPreset > 0
+                }
+                reverbSupported = true
+            } catch (e: Exception) {
+                nativeLog("warn", "PresetReverb init failed (attempt=${attempt + 1}): ${e.message}")
+            }
+        }
 
-        effectHandler.postDelayed({
-            attachEffects(sessionId, attempt + 1)
-        }, delayMs)
+        if (eqOk || leOk) {
+            lastAttachedSessionId = sessionId
+            nativeLog(
+                "info",
+                "attachEffects(session=$sessionId) success attempt=${attempt + 1} " +
+                "bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported"
+            )
+            return
+        }
 
-        return
+        if (attempt < 2) {
+            val delayMs = when (attempt) { 0 -> 100L; 1 -> 200L; else -> 400L }
+            nativeLog("warn", "attachEffects(session=$sessionId) retry in ${delayMs}ms")
+            effectHandler.postDelayed({ attachEffects(sessionId, attempt + 1) }, delayMs)
+            return
+        }
+
+        nativeLog("warn", "attachEffects(session=$sessionId) failed after retries")
     }
 
-    nativeLog(
-        "warn",
-        "attachEffects(session=$sessionId) failed after retries"
-    )
-}
-
-    private fun releaseEffects() { try { equalizer?.release() } catch (_: Exception) {}; try { loudness?.release() } catch (_: Exception) {}; equalizer = null; loudness = null }
+    private fun releaseEffects() {
+        try { equalizer?.release()  } catch (_: Exception) {}
+        try { loudness?.release()   } catch (_: Exception) {}
+        try { bassBoost?.release()  } catch (_: Exception) {}
+        try { virtualizer?.release()} catch (_: Exception) {}
+        try { reverb?.release()     } catch (_: Exception) {}
+        equalizer   = null
+        loudness    = null
+        bassBoost   = null
+        virtualizer = null
+        reverb      = null
+    }
     private fun setEqualizerEnabled(enabled: Boolean) { eqEnabled = enabled; try { equalizer?.enabled = enabled } catch (_: Exception) {} }
     private fun setEqualizerBandGain(band: Short, gain: Short) { bandGains[band] = gain; try { equalizer?.let { it.setBandLevel(band, gain.coerceIn(it.bandLevelRange[0], it.bandLevelRange[1])) } } catch (_: Exception) {} }
     private fun setLoudnessTargetGain(gainMb: Float) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb.toInt()) } catch (_: Exception) {} }
     private fun setLoudnessEnabled(enabled: Boolean) { loudnessEnabled = enabled; try { loudness?.enabled = enabled } catch (_: Exception) {} }
-    private fun equalizerParameters(): Map<String, Any> {
-    return try {
-        val sessionId = player?.audioSessionId ?: 0
 
-        val eq = equalizer ?: if (sessionId > 0) {
-            Equalizer(0, sessionId).also { equalizer = it }
-        } else {
-            null
-        }
-
-        if (eq == null) {
-            mapOf(
-                "minDecibels" to -15.0,
-                "maxDecibels" to 15.0,
-                "bands" to listOf(0, 1, 2, 3, 4)
-            )
-        } else {
-            mapOf(
-                "minDecibels" to eq.bandLevelRange[0] / 100.0,
-                "maxDecibels" to eq.bandLevelRange[1] / 100.0,
-                "bands" to List(eq.numberOfBands.toInt()) { it }
-            )
-        }
-    } catch (e: Exception) {
-        android.util.Log.e("Media3", "Equalizer params error", e)
-
-        mapOf(
-            "minDecibels" to -15.0,
-            "maxDecibels" to 15.0,
-            "bands" to listOf(0, 1, 2, 3, 4)
-        )
+    // ── Bass Boost controls ────────────────────────────────────────────────────
+    private fun nativeBassBoostEnabled(enabled: Boolean) {
+        bassBoostEnabled = enabled
+        try { bassBoost?.enabled = enabled } catch (_: Exception) {}
     }
-}
+    private fun nativeBassBoostStrength(strength: Short) {
+        bassBoostStrength = strength
+        try { bassBoost?.setStrength(strength) } catch (_: Exception) {}
+        if (bassBoostEnabled != (strength > 0)) nativeBassBoostEnabled(strength > 0)
+    }
+
+    // ── Virtualizer controls ───────────────────────────────────────────────────
+    private fun nativeVirtualizerEnabled(enabled: Boolean) {
+        virtualizerEnabled = enabled
+        try {
+            virtualizer?.run {
+                if (enabled) {
+                    setStrength(virtualizerStrength)
+                    this.enabled = true
+                } else {
+                    this.enabled = false
+                }
+            }
+        } catch (_: Exception) {}
+    }
+    private fun nativeVirtualizerStrength(strength: Short) {
+        virtualizerStrength = strength
+        try { if (virtualizerEnabled) virtualizer?.setStrength(strength) } catch (_: Exception) {}
+    }
+
+    // ── Preset Reverb controls ────────────────────────────────────────────────
+    private fun nativeReverbPreset(preset: Short) {
+        reverbPreset = preset
+        try {
+            reverb?.run {
+                this.preset  = toAndroidReverbPreset(preset)
+                this.enabled = preset > 0
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun toAndroidReverbPreset(preset: Short): Short = when (preset.toInt()) {
+        1    -> PresetReverb.PRESET_SMALLROOM
+        2    -> PresetReverb.PRESET_MEDIUMROOM
+        3    -> PresetReverb.PRESET_LARGEROOM
+        4    -> PresetReverb.PRESET_MEDIUMHALL
+        5    -> PresetReverb.PRESET_LARGEHALL
+        6    -> PresetReverb.PRESET_PLATE
+        else -> PresetReverb.PRESET_NONE
+    }
+
+    // ── Effect-type availability check ────────────────────────────────────────
+    //
+    // MIUI 12 / Android 11: AudioEffect.queryEffects() returns the list of
+    // hardware-supported effects. Some MIUI builds only support a subset of the
+    // standard Android effects (e.g., no virtualizer), so we check before
+    // attempting to create the effect to avoid noisy exceptions.
+
+    private fun isEffectTypeAvailable(type: java.util.UUID): Boolean =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) true
+        else try {
+            AudioEffect.queryEffects()?.any { it.type == type } ?: false
+        } catch (_: Exception) { false }
+
+    // ── Crossfade helpers ─────────────────────────────────────────────────────
+    //
+    // True simultaneous crossfade requires two ExoPlayers. We implement a
+    // practical approximation:
+    //   • maybeCrossfadeOut() — called every 200 ms by positionTicker;
+    //     linearly reduces volume as the track approaches its end
+    //   • startCrossfadeFadeIn() — called on MEDIA_ITEM_TRANSITION_REASON_AUTO;
+    //     starts volume at 0 and ramps up over crossfadeDurationSec
+
+    private fun maybeCrossfadeOut() {
+        if (crossfadeDurationSec <= 0f) return
+        val p   = player ?: return
+        val dur = p.duration
+        if (dur <= 0L || dur == Long.MIN_VALUE) return
+        // Only fade when there is a next item or repeat mode loops the queue.
+        val hasNext = p.hasNextMediaItem() || p.repeatMode != Player.REPEAT_MODE_OFF
+        if (!hasNext) return
+
+        val crossMs    = (crossfadeDurationSec * 1000f).toLong()
+        val remaining  = dur - p.currentPosition
+        if (remaining in 1L..crossMs) {
+            // Progress from 0.0 (just entered window) → 1.0 (track ends)
+            val progress = 1f - (remaining.toFloat() / crossMs.toFloat())
+            val target   = (volumeBeforeDuck * (1f - progress)).coerceAtLeast(0f)
+            if (p.volume > target) p.volume = target
+        }
+    }
+
+    private fun startCrossfadeFadeIn() {
+        // Cancel any in-flight fade.
+        crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
+        val p      = player ?: return
+        p.volume   = 0f
+        val durationMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(100L)
+        val steps      = 25
+        val stepMs     = (durationMs / steps).coerceAtLeast(8L)
+        val targetVol  = volumeBeforeDuck
+        var step       = 0
+        val runnable   = object : Runnable {
+            override fun run() {
+                val pl = player ?: return
+                if (step >= steps) {
+                    pl.volume = targetVol
+                    crossfadeFadeRunnable = null
+                    return
+                }
+                pl.volume = (targetVol * step.toFloat() / steps.toFloat()).coerceIn(0f, 1f)
+                step++
+                handler.postDelayed(this, stepMs)
+            }
+        }
+        crossfadeFadeRunnable = runnable
+        handler.post(runnable)
+    }
+    private fun equalizerParameters(): Map<String, Any> {
+        return try {
+            val sessionId = player?.audioSessionId ?: 0
+            val eq = equalizer ?: if (sessionId > 0) {
+                Equalizer(0, sessionId).also { equalizer = it }
+            } else {
+                null
+            }
+            if (eq == null) {
+                mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
+            } else {
+                mapOf(
+                    "minDecibels" to eq.bandLevelRange[0] / 100.0,
+                    "maxDecibels" to eq.bandLevelRange[1] / 100.0,
+                    "bands" to List(eq.numberOfBands.toInt()) { it }
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Media3", "Equalizer params error", e)
+            mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
+        }
+    }
     private fun nativeLog(level: String, msg: String) = NativeLogs.emit(level, "Media3", msg)
 
     companion object {

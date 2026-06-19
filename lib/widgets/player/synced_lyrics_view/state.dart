@@ -28,7 +28,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
             final textAlign   = LyricsSettings.resolvedTextAlign;
 
             return StreamBuilder<Duration>(
-              stream: AudioService.player.positionStream,
+              stream: AudioService.positionStream,
               builder: (context, snapshot) {
                 final position = snapshot.data ?? Duration.zero;
                 _updateCurrentLine(position, fs);
