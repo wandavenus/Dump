@@ -321,16 +321,18 @@ if (!artworkUri.isNullOrBlank()) {
         val path = map["path"] as? String ?: ""
         val uri = if (path.startsWith("content://") || path.startsWith("file://")) path.toUri() else Uri.fromFile(java.io.File(path))
 
-        // Build artwork URI from albumId or explicit artworkUri field.
-        val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
-        val artworkUriStr = map["artworkUri"] as? String
-        val artworkUri: Uri? = when {
-            !artworkUriStr.isNullOrBlank() -> Uri.parse(artworkUriStr)
-            albumId > 0 -> Uri.parse("content://media/external/audio/albumart/$albumId")
-            else -> null
-        }
+        // Build artwork URI from albumId only.
+// Ignore artworkUriStr temporarily while debugging notification crashes.
+val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
 
-        val metadataBuilder = MediaMetadata.Builder()
+val artworkUri: Uri? =
+    if (albumId > 0) {
+        Uri.parse("content://media/external/audio/albumart/$albumId")
+    } else {
+        null
+    }
+
+val metadataBuilder = MediaMetadata.Builder()
     .setTitle(map["title"] as? String)
     .setArtist(map["artist"] as? String)
     .setAlbumTitle(map["album"] as? String)
@@ -340,12 +342,12 @@ if (artworkUri != null) {
 }
 
 val metadata = metadataBuilder.build()
-        return MediaItem.Builder()
-            .setMediaId((map["id"] ?: path).toString())
-            .setUri(uri)
-            .setMediaMetadata(metadata)
-            .build()
-    }
+
+return MediaItem.Builder()
+    .setMediaId((map["id"] ?: path).toString())
+    .setUri(uri)
+    .setMediaMetadata(metadata)
+    .build()
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         val p = player ?: return result.error("not_ready", "Media3 service is not ready", null)
