@@ -1,61 +1,38 @@
 ---
 name: Dual-Player Architecture
-description: Callback pattern used to break AudioEngine↔DualPlayerManager circular dependency; promotion flow; crossfade tick approach.
+description: Fully native dual ExoPlayer crossfade in Media3PlaybackService.kt; Dart DualPlayerManager + CrossfadeController are no-op stubs.
 ---
 
-# Dual-Player Architecture (Phase 1–3)
+# Dual-Player Crossfade Architecture (Fully Native)
 
-## Rule: DualPlayerManager must NOT import AudioEngine
-DualPlayerManager and AudioEngine would form a circular import if both imported each other.
-DualPlayerManager exposes three static callbacks instead of calling AudioEngine directly:
+## The Rule
+All crossfade logic — standby player preload, fade-in/fade-out, MediaSession promotion — runs in `Media3PlaybackService.kt`.
+`DualPlayerManager.dart` and `CrossfadeController.dart` are **no-op stubs** retained only for call-site compatibility.
 
-```dart
-static void Function()?           onPrimaryChanged;     // AudioEngine registers
-static void Function(int)?        onSecondarySessionId; // AudioEngine registers
-static void Function(bool)?       onPromoted;           // AudioService registers
-```
+**Why:** Dart-side crossfade used a 20ms timer on the Dart VM which was unreliable in background. Native Handler tick fires precisely even when the Dart isolate is paused.
 
-AudioEngine.initialize() sets both its callbacks BEFORE calling DualPlayerManager.initialize().
+## Architecture
+- `primaryPlayer` + `secondaryPlayer` (ExoPlayer instances)
+- `activePlayer` pointer — the one connected to MediaSession + emitting events
+- `standbyPlayer()` — the other one; silently preloads next track at volume=0
+- Position ticker: `positionTicker` Runnable (200ms) → `maybeCrossfadeOut()`
+- When remaining ≤ crossfadeDurationSec: `promoteSecondaryPlayer()`
+  - Switches `activePlayer` to standby
+  - Calls `session.setPlayer(newPlayer)`
+  - Starts `startCrossfadeFadeIn(new, old)` — 25-step linear fade over crossfadeDuration
+  - After fade completes: `restoreQueueOnActivePlayer(newPlayer)` so it knows full queue for next preload
+- `crossfadeInProgress` flag prevents duplicate promotions
+- `promotionOwner` stores old player reference to ignore its events during transition
 
-**Why:** Dart does not allow circular imports between non-part files. The callback pattern is the clean solution.
+## Key Variables
+- `crossfadeDurationSec: Float` — 0 = gapless only, >0 = dual-player crossfade
+- `activeQueueIndex: Int` — Dart-visible current index; updated on transition
+- `preloadedQueueIndex: Int` — which queue index standby currently has loaded
+- `playerListeners: IdentityHashMap<ExoPlayer, Player.Listener>` — listener per player
 
-**How to apply:** Any future code that needs DualPlayerManager to call into AudioEngine must go through a callback, not a direct import.
+## applyAll() after transition
+After track transition, `AudioEffectsService.applyAll()` is called twice from Dart (immediate + 350ms delay) triggered by `_syncCurrentTrackFromNative` inside AudioService. Delay covers native audio session re-attach race on MIUI 12.
 
----
-
-## Promotion flow
-
-```
-DualPlayerManager.promote(fromCrossfade)
-  └─ onPrimaryChanged()         → AudioEngine._onPrimaryChanged()
-       ├─ _player = DualPlayerManager.primaryPlayer
-       ├─ _equalizer = DualPlayerManager.primaryEqualizer
-       └─ re-subscribe _sessionSub to new primary's androidAudioSessionIdStream
-  └─ onPromoted(fromCrossfade)  → AudioService._afterPromotion(fromCrossfade)
-       ├─ advance _currentIndex via _nextIndexValue (computed BEFORE assignment)
-       ├─ update playbackState (currentSong, currentIndex)
-       ├─ _resubscribeToPrimaryStreams()
-       ├─ if !fromCrossfade: primaryPlayer.play()  (gapless path — secondary was paused)
-       ├─ AudioEffectsService.applyAll()           (immediate)
-       ├─ Future.delayed(350ms, applyAll)           (native effects session race)
-       └─ _schedulePreload()                        (preload track-after-next)
-```
-
-**Why:** Secondary player was pre-loaded (paused) for gapless, already playing for crossfade — hence the `fromCrossfade` flag distinguishes whether `play()` is needed.
-
----
-
-## CrossfadeController tick (20 ms)
-
-- Pure static tick with a `Timer.periodic(20ms)`.
-- `updateContext(nextIsGapless, loopOne)` called by AudioService._schedulePreload every preload so controller has up-to-date context.
-- Skips crossfade when `loopOne || nextIsGapless`.
-- On fade complete: calls `DualPlayerManager.promote(fromCrossfade: true)`.
-- `reset()` is public — called by AudioService on manual skips to abort in-flight crossfade.
-
----
-
-## applyAll() called twice after promotion
-After each `promote()`, `AudioEffectsService.applyAll()` is called immediately AND after a 350 ms delay. The delay is intentional — it gives the new audio session time to fire `androidAudioSessionIdStream`, which triggers `_attachNativeEffects` (BassBoost/Reverb/Spatial session setup), after which a second `applyAll()` sets their strength values.
-
-**Why:** Without the delay, `_attachNativeEffects` hasn't fired yet for the new session, so native effects aren't attached when the first `applyAll()` runs.
+## Dart stubs (do not use for logic)
+- `DualPlayerManager` — stub, exposes `AudioPlayer` adapter but real playback is native
+- `CrossfadeController` — all methods are no-ops; `isFading` always returns false
