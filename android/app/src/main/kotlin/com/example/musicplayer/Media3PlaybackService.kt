@@ -1051,6 +1051,14 @@ private fun promoteSecondaryPlayer() {
 
         val crossMs    = (crossfadeDurationSec * 1000f).toLong()
         val remaining  = dur - p.currentPosition
+     
+        if (remaining <= 3000L) {
+    nativeLog(
+        "verbose",
+        "remaining=${remaining}ms cross=${crossMs}ms"
+    )
+        } 
+        
         if (remaining in 1L..crossMs) {
             // Progress from 0.0 (just entered window) → 1.0 (track ends)
             val progress = 1f - (remaining.toFloat() / crossMs.toFloat())
