@@ -12,6 +12,7 @@ class AudioPlaybackState {
   final List<LocalSong> currentPlaylist;
   final ProcessingState processingState;
   final Duration duration;
+  final Duration position;
   final LoopMode loopMode;
   final bool shuffleEnabled;
   final double speed;
@@ -24,6 +25,7 @@ class AudioPlaybackState {
     this.currentPlaylist = const [],
     this.processingState = ProcessingState.idle,
     this.duration = Duration.zero,
+    this.position = Duration.zero, 
     this.loopMode = LoopMode.off,
     this.shuffleEnabled = false,
     this.speed = 1.0,
@@ -38,6 +40,7 @@ class AudioPlaybackState {
     List<LocalSong>? currentPlaylist,
     ProcessingState? processingState,
     Duration? duration,
+    Duration? position,    
     LoopMode? loopMode,
     bool? shuffleEnabled,
     double? speed,
@@ -50,6 +53,7 @@ class AudioPlaybackState {
       currentPlaylist: currentPlaylist ?? this.currentPlaylist,
       processingState: processingState ?? this.processingState,
       duration: duration ?? this.duration,
+      position: position ?? this.position,
       loopMode: loopMode ?? this.loopMode,
       shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
       speed: speed ?? this.speed,
