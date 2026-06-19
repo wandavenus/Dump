@@ -711,36 +711,38 @@ private fun attachEffects(sessionId: Int, attempt: Int = 0) {
     private fun setEqualizerBandGain(band: Short, gain: Short) { bandGains[band] = gain; try { equalizer?.let { it.setBandLevel(band, gain.coerceIn(it.bandLevelRange[0], it.bandLevelRange[1])) } } catch (_: Exception) {} }
     private fun setLoudnessTargetGain(gainMb: Float) { loudnessTargetMb = gainMb; try { loudness?.setTargetGain(gainMb.toInt()) } catch (_: Exception) {} }
     private fun setLoudnessEnabled(enabled: Boolean) { loudnessEnabled = enabled; try { loudness?.enabled = enabled } catch (_: Exception) {} }
-    private fun equalizerParameters(): Map<String, Any> = try {
-    val sessionId = player?.audioSessionId ?: 0
+    private fun equalizerParameters(): Map<String, Any> {
+    return try {
+        val sessionId = player?.audioSessionId ?: 0
 
-    val eq = equalizer ?: if (sessionId > 0) {
-        Equalizer(0, sessionId).also { equalizer = it }
-    } else {
-        null
-    }
+        val eq = equalizer ?: if (sessionId > 0) {
+            Equalizer(0, sessionId).also { equalizer = it }
+        } else {
+            null
+        }
 
-    if (eq == null) {
-        return mapOf(
+        if (eq == null) {
+            mapOf(
+                "minDecibels" to -15.0,
+                "maxDecibels" to 15.0,
+                "bands" to listOf(0, 1, 2, 3, 4)
+            )
+        } else {
+            mapOf(
+                "minDecibels" to eq.bandLevelRange[0] / 100.0,
+                "maxDecibels" to eq.bandLevelRange[1] / 100.0,
+                "bands" to List(eq.numberOfBands.toInt()) { it }
+            )
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("Media3", "Equalizer params error", e)
+
+        mapOf(
             "minDecibels" to -15.0,
             "maxDecibels" to 15.0,
             "bands" to listOf(0, 1, 2, 3, 4)
         )
     }
-
-    mapOf(
-        "minDecibels" to eq.bandLevelRange[0] / 100.0,
-        "maxDecibels" to eq.bandLevelRange[1] / 100.0,
-        "bands" to List(eq.numberOfBands.toInt()) { it }
-    )
-} catch (e: Exception) {
-    android.util.Log.e("Media3", "Equalizer params error", e)
-
-    mapOf(
-        "minDecibels" to -15.0,
-        "maxDecibels" to 15.0,
-        "bands" to listOf(0, 1, 2, 3, 4)
-    )
 }
     private fun nativeLog(level: String, msg: String) = NativeLogs.emit(level, "Media3", msg)
 
