@@ -1085,10 +1085,9 @@ if (remaining <= crossMs && !promotionTriggered) {
     "info",
     "Triggering promotion at ${remaining}ms"
 )
-   
-    p.pause()
     
     promoteSecondaryPlayer()
+    return
 }
 }
 }
