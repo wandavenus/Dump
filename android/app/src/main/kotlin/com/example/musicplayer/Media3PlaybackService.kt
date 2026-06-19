@@ -220,24 +220,41 @@ class Media3PlaybackService : MediaSessionService() {
         // AND in the lockscreen / Bluetooth head-unit.
         if (sess != null) {
             val isPlaying = player?.isPlaying ?: false
-            builder
-                .addAction(NotificationCompat.Action(
-                    android.R.drawable.ic_media_previous, "Previous",
-                    buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
-                ))
-                .addAction(NotificationCompat.Action(
-                    if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                    if (isPlaying) "Pause" else "Play",
-                    buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
-                ))
-                .addAction(NotificationCompat.Action(
-                    android.R.drawable.ic_media_next, "Next",
-                    buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
-                ))
-                .setStyle(
-                    MediaStyleNotificationHelper.MediaStyle(sess)
-                        .setShowActionsInCompactView(0, 1, 2)
-                )
+
+builder
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_prev,
+            "Previous",
+            buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+        )
+    )
+    .addAction(
+        NotificationCompat.Action(
+            if (isPlaying) R.drawable.ic_pause
+            else R.drawable.ic_play,
+            if (isPlaying) "Pause" else "Play",
+            buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+        )
+    )
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_next,
+            "Next",
+            buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+        )
+    )
+    .addAction(
+        NotificationCompat.Action(
+            R.drawable.ic_stop,
+            "Stop",
+            buildTransportPendingIntent(ACTION_STOP, 4)
+        )
+    )
+    .setStyle(
+        MediaStyleNotificationHelper.MediaStyle(sess)
+            .setShowActionsInCompactView(0, 1, 2)
+    )
         }
 
         // Try to set artwork from the current track if available.
