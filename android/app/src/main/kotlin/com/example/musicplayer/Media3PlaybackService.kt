@@ -313,10 +313,7 @@ if (!artworkUri.isNullOrBlank()) {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-    .setSmallIcon(
-        if (p.isPlaying) android.R.drawable.ic_media_pause
-        else android.R.drawable.ic_media_play
-    )
+    .setSmallIcon(R.drawable.ic_notification)
     .setContentTitle(title)
     .setContentText(artist)
     .setContentIntent(pendingIntent)
