@@ -109,9 +109,69 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        ensureMediaForeground()
-        nativeLog("verbose", "onStartCommand (API ${Build.VERSION.SDK_INT}): foreground ensured")
+        when (intent?.action) {
+            ACTION_PLAY_PAUSE -> {
+                val p = player
+                if (p != null) {
+                    if (p.isPlaying) {
+                        p.pause()
+                        abandonAudioFocus()
+                        nativeLog("info", "transport: pause (notification/BT button)")
+                    } else {
+                        if (requestAudioFocus()) {
+                            p.play()
+                            nativeLog("info", "transport: play (notification/BT button)")
+                        } else {
+                            nativeLog("warn", "transport: play denied — audio focus not granted")
+                        }
+                    }
+                    emitAll()
+                    refreshNotification()
+                } else {
+                    nativeLog("warn", "transport: ACTION_PLAY_PAUSE received but player is null")
+                }
+            }
+            ACTION_SKIP_NEXT -> {
+                player?.seekToNextMediaItem()
+                nativeLog("info", "transport: skipNext (notification/BT button)")
+                emitAll()
+                refreshNotification()
+            }
+            ACTION_SKIP_PREV -> {
+                player?.seekToPreviousMediaItem()
+                nativeLog("info", "transport: skipPrev (notification/BT button)")
+                emitAll()
+                refreshNotification()
+            }
+            else -> {
+                ensureMediaForeground()
+                nativeLog("verbose", "onStartCommand (API ${Build.VERSION.SDK_INT}): foreground ensured")
+            }
+        }
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        nativeLog("info", "onTaskRemoved: app removed from recents — service continues in background (stopWithTask=false)")
+        // Do NOT stop the service here. android:stopWithTask="false" keeps us alive.
+        // When the user reopens the app, AudioService.syncFromNative() restores Dart state.
+    }
+
+    /** Creates a PendingIntent that re-enters this service with the given [action]. */
+    private fun buildTransportPendingIntent(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(this, Media3PlaybackService::class.java).setAction(action)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                this, requestCode, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        } else {
+            PendingIntent.getService(
+                this, requestCode, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
     }
 
     private fun ensureMediaForeground() {
@@ -143,12 +203,29 @@ class Media3PlaybackService : MediaSessionService() {
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        // Attach MediaSession token so the notification renders as a media
-        // notification (transport controls, lockscreen art, Bluetooth sync).
+        // Attach MediaSession token and transport controls (Prev / Play-Pause / Next).
+        // setShowActionsInCompactView(0, 1, 2) puts all three buttons in the collapsed view
+        // AND in the lockscreen / Bluetooth head-unit.
         if (sess != null) {
-            builder.setStyle(
-    MediaStyleNotificationHelper.MediaStyle(sess)
-)
+            val isPlaying = player?.isPlaying ?: false
+            builder
+                .addAction(NotificationCompat.Action(
+                    android.R.drawable.ic_media_previous, "Previous",
+                    buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+                ))
+                .addAction(NotificationCompat.Action(
+                    if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                    if (isPlaying) "Pause" else "Play",
+                    buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+                ))
+                .addAction(NotificationCompat.Action(
+                    android.R.drawable.ic_media_next, "Next",
+                    buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+                ))
+                .setStyle(
+                    MediaStyleNotificationHelper.MediaStyle(sess)
+                        .setShowActionsInCompactView(0, 1, 2)
+                )
         }
 
         // Try to set artwork from the current track if available.
@@ -216,24 +293,47 @@ if (!artworkUri.isNullOrBlank()) {
             .setContentIntent(pendingIntent)
             .setOngoing(p.isPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(NotificationCompat.Action(
+                android.R.drawable.ic_media_previous, "Previous",
+                buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+            ))
+            .addAction(NotificationCompat.Action(
+                if (p.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                if (p.isPlaying) "Pause" else "Play",
+                buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+            ))
+            .addAction(NotificationCompat.Action(
+                android.R.drawable.ic_media_next, "Next",
+                buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+            ))
             .setStyle(
-    MediaStyleNotificationHelper.MediaStyle(sess)
-)
+                MediaStyleNotificationHelper.MediaStyle(sess)
+                    .setShowActionsInCompactView(0, 1, 2)
+            )
 
-      /*  val artworkUri = t?.get("artworkUri") as? String
+        val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
             try {
                 val uri = Uri.parse(artworkUri)
-                val bitmap = contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it)
+                if (!uri.toString().contains("/albumart/-") && !uri.toString().endsWith("/0")) {
+                    val bitmap = contentResolver.openInputStream(uri)?.use {
+                        BitmapFactory.decodeStream(it)
+                    }
+                    if (bitmap != null) {
+                        builder.setLargeIcon(bitmap)
+                        nativeLog("verbose", "refreshNotification: artwork loaded for '$title'")
+                    }
                 }
-                if (bitmap != null) builder.setLargeIcon(bitmap)
-            } catch (_: Exception) {}
-        }*/
+            } catch (e: Exception) {
+                nativeLog("verbose", "refreshNotification: artwork load skipped — ${e.message}")
+            }
+        }
 
         try {
             nm.notify(NOTIFICATION_ID, builder.build())
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            nativeLog("warn", "refreshNotification: notify failed — ${e.message}")
+        }
     }
 
     override fun onCreate() {
@@ -494,8 +594,13 @@ if (!artworkUri.isNullOrBlank()) {
 
     companion object {
         var instance: Media3PlaybackService? = null
-        private const val CHANNEL_ID     = "media3_playback"
+        private const val CHANNEL_ID      = "media3_playback"
         private const val NOTIFICATION_ID = 1001
+
+        // Transport-control actions broadcast to the service via PendingIntent.
+        const val ACTION_PLAY_PAUSE = "com.example.musicplayer.ACTION_PLAY_PAUSE"
+        const val ACTION_SKIP_NEXT  = "com.example.musicplayer.ACTION_SKIP_NEXT"
+        const val ACTION_SKIP_PREV  = "com.example.musicplayer.ACTION_SKIP_PREV"
     }
     object Events {
         private val sinks = mutableMapOf<String, EventChannel.EventSink?>()

@@ -16,3 +16,4 @@
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
 - [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
 - [ReplayGain architecture](replay-gain.md) — Phase 4: LoudnessData model, ReplayGainService (native tags via jaudiotagger), LoudnessSourceResolver (branching priority), wired into AudioService; target Android 11 + MIUI 12.
+- [Media3 transport controls](media3-transport.md) — notification buttons via addAction()+setShowActionsInCompactView(0,1,2); PendingIntent→onStartCommand ACTION_PLAY_PAUSE/SKIP_NEXT/SKIP_PREV; stopWithTask=false+MEDIA_BUTTON filter in manifest; syncFromNative() called from main.dart+app_state.dart.
