@@ -448,8 +448,26 @@ if (!artworkUri.isNullOrBlank()) {
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        primaryPlayer = ExoPlayer.Builder(this).build()
-secondaryPlayer = ExoPlayer.Builder(this).build()
+
+primaryPlayer = ExoPlayer.Builder(this).build().apply {
+    val attrs = androidx.media3.common.AudioAttributes.Builder()
+        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
+
+    setAudioAttributes(attrs, false)
+    setHandleAudioBecomingNoisy(true)
+}
+
+secondaryPlayer = ExoPlayer.Builder(this).build().apply {
+    val attrs = androidx.media3.common.AudioAttributes.Builder()
+        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
+
+    setAudioAttributes(attrs, false)
+    setHandleAudioBecomingNoisy(true)
+}
 
 val exoPlayer = primaryPlayer!!
 activePlayer = exoPlayer
