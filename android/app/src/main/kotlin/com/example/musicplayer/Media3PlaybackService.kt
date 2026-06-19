@@ -1078,9 +1078,14 @@ private fun promoteSecondaryPlayer() {
     p.volume = target
 }
 
-if (remaining <= 1000L && !promotionTriggered) {
+if (remaining <= crossMs && !promotionTriggered) {
     promotionTriggered = true
 
+    nativeLog(
+    "info",
+    "Triggering promotion at ${remaining}ms"
+)
+   
     p.pause()
     
     promoteSecondaryPlayer()
