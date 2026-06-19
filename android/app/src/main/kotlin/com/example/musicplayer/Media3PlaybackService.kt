@@ -56,6 +56,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val positionUpdateMs = 200L
     private lateinit var audioManager: AudioManager
     private var focusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus = false
     private var resumeAfterFocusGain = false
     private var volumeBeforeDuck = 1f
     private var equalizer: Equalizer? = null
@@ -87,6 +88,7 @@ class Media3PlaybackService : MediaSessionService() {
     private var crossfadeFadeRunnable: Runnable? = null
     private var promotionTriggered = false
     private var crossfadeInProgress = false
+    private var promotionOwner: ExoPlayer? = null
     private var preloadedQueueIndex = C.INDEX_UNSET
     private var activeQueueIndex = 0
     private val playerListeners = IdentityHashMap<ExoPlayer, Player.Listener>()
@@ -98,16 +100,36 @@ class Media3PlaybackService : MediaSessionService() {
 
     private val positionTicker = object : Runnable {
         override fun run() {
-            emitAll()
+            nativeLog("debug", "Ticker running on active player")
+            emitAll(emitQueue = false)
             maybeCrossfadeOut()
-            handler.postDelayed(this, positionUpdateMs)
+            if (player?.isPlaying == true) {
+                handler.postDelayed(this, positionUpdateMs)
+            } else {
+                nativeLog("debug", "Position ticker stopped")
+            }
         }
+    }
+
+
+    private fun startPositionTicker() {
+        handler.removeCallbacks(positionTicker)
+        if (player?.isPlaying == true) {
+            nativeLog("debug", "Position ticker started")
+            handler.post(positionTicker)
+        }
+    }
+
+    private fun stopPositionTicker() {
+        handler.removeCallbacks(positionTicker)
+        nativeLog("debug", "Position ticker stopped")
     }
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
                 player?.pause()
+                stopPositionTicker()
                 emitAll()
             }
         }
@@ -161,11 +183,13 @@ class Media3PlaybackService : MediaSessionService() {
                 if (p != null) {
                     if (p.isPlaying) {
                         p.pause()
+                        stopPositionTicker()
                         abandonAudioFocus()
                         nativeLog("info", "transport: pause (notification/BT button)")
                     } else {
                         if (requestAudioFocus()) {
                             p.play()
+                            startPositionTicker()
                             nativeLog("info", "transport: play (notification/BT button)")
                         } else {
                             nativeLog("warn", "transport: play denied — audio focus not granted")
@@ -475,11 +499,17 @@ if (!artworkUri.isNullOrBlank()) {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isActiveEvent()) return
+                if (isPlaying) startPositionTicker() else stopPositionTicker()
                 emitAll()
                 refreshNotification()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                nativeLog("debug", "Player transition reason=$reason active=${player === activePlayer}")
+                if (player === promotionOwner && crossfadeInProgress) {
+                    nativeLog("debug", "Ignored transition from old player during promotion")
+                    return
+                }
                 if (!isActiveEvent()) return
                 if (!crossfadeInProgress && player.currentMediaItemIndex >= 0) {
                     activeQueueIndex = player.currentMediaItemIndex
@@ -491,11 +521,11 @@ if (!artworkUri.isNullOrBlank()) {
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (isActiveEvent()) emitAll()
+                if (isActiveEvent()) emitAll(emitQueue = true)
             }
 
             override fun onRepeatModeChanged(repeatMode: Int) {
-                if (isActiveEvent()) emitAll()
+                if (isActiveEvent()) emitAll(emitQueue = true)
             }
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -519,6 +549,7 @@ if (!artworkUri.isNullOrBlank()) {
         if (standby != null) return standby
         val created = createConfiguredPlayer()
         if (activePlayer === primaryPlayer) secondaryPlayer = created else primaryPlayer = created
+        nativeLog("debug", "Standby player = ${if (created === primaryPlayer) "PRIMARY" else "SECONDARY"}")
         attachPlayerListener(created)
         return created
     }
@@ -530,6 +561,7 @@ if (!artworkUri.isNullOrBlank()) {
             try { standby.clearMediaItems() } catch (_: Exception) {}
         }
         preloadedQueueIndex = C.INDEX_UNSET
+        nativeLog("debug", "Old player queue cleared")
     }
 
     private fun releaseStandbyPlayer() {
@@ -546,6 +578,7 @@ if (!artworkUri.isNullOrBlank()) {
         crossfadeFadeRunnable = null
         crossfadeInProgress = false
         promotionTriggered = false
+        promotionOwner = null
         if (resetVolume) player?.volume = volumeBeforeDuck
     }
 
@@ -556,6 +589,7 @@ if (!artworkUri.isNullOrBlank()) {
         primaryPlayer = createConfiguredPlayer()
         val exoPlayer = primaryPlayer!!
         activePlayer = exoPlayer
+        nativeLog("debug", "Active player = PRIMARY")
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -602,7 +636,7 @@ session = null
         super.onDestroy()
     }
 
-    private fun emitAll() {
+    private fun emitAll(emitQueue: Boolean = false) {
         val p = player ?: return
         val state = when (p.playbackState) {
             Player.STATE_BUFFERING -> "buffering"
@@ -615,7 +649,7 @@ session = null
         Events.emit("position", p.currentPosition.coerceAtLeast(0L))
         Events.emit("duration", p.duration.coerceAtLeast(0L))
         Events.emit("currentTrack", currentTrackMap())
-        Events.emit("queue", queue)
+        if (emitQueue) Events.emit("queue", queue)
         Events.emit("audioSessionId", p.audioSessionId)
     }
 
@@ -673,9 +707,7 @@ session = null
                 val granted = requestAudioFocus()
                 if (granted) {
                     p.play()
-               
-                    handler.removeCallbacks(positionTicker)
-handler.post(positionTicker)  
+                    startPositionTicker()
                     
                     val t = currentTrackMap()
                     val title  = t?.get("title")  as? String ?: "?"
@@ -688,9 +720,8 @@ handler.post(positionTicker)
             }
             "pause" -> {
                 p.pause()
-               
-             handler.removeCallbacks(positionTicker)
-                
+
+                stopPositionTicker()
                 abandonAudioFocus()
                 val ms = p.currentPosition
                 nativeLog("info", "pause @ %d:%02d.%02d".format(ms / 60000, (ms % 60000) / 1000, (ms % 1000) / 10))
@@ -698,7 +729,7 @@ handler.post(positionTicker)
             }
             "stop" -> { p.stop(); 
              
-                handler.removeCallbacks(positionTicker)   
+                stopPositionTicker()   
                 
                 abandonAudioFocus(); nativeLog("info", "stop"); result.success(null) }
             "seek" -> {
@@ -736,7 +767,7 @@ handler.post(positionTicker)
                 
                 val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
                 nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
-                emitAll(); refreshNotification(); result.success(null)
+                emitAll(emitQueue = true); refreshNotification(); result.success(null)
             }
             "setTrack" -> {
                 val target = (call.argument<Number>("index")?.toInt() ?: 0).coerceIn(0, (queue.size - 1).coerceAtLeast(0))
@@ -751,12 +782,14 @@ handler.post(positionTicker)
                 p.repeatMode = when (call.argument<String>("mode")) { "one" -> Player.REPEAT_MODE_ONE; "all" -> Player.REPEAT_MODE_ALL; else -> Player.REPEAT_MODE_OFF }
                 clearStandbyQueue()
                 if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+                emitAll(emitQueue = true)
                 result.success(null)
             }
             "setShuffleMode" -> {
                 p.shuffleModeEnabled = call.argument<Boolean>("enabled") ?: false
                 clearStandbyQueue()
                 if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+                emitAll(emitQueue = true)
                 result.success(null)
             }
             "setVolume" -> { p.volume = (call.argument<Number>("volume")?.toFloat() ?: 1f).coerceIn(0f, 1f); volumeBeforeDuck = p.volume; result.success(null) }
@@ -843,7 +876,8 @@ handler.post(positionTicker)
     }
 
     private fun requestAudioFocus(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (hasAudioFocus) return true
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
             val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attrs).setOnAudioFocusChangeListener(focusChangeListener).setWillPauseWhenDucked(false).build()
@@ -853,12 +887,15 @@ handler.post(positionTicker)
             @Suppress("DEPRECATION")
             audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         }
+        hasAudioFocus = granted
+        return granted
     }
 
     private fun abandonAudioFocus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         else @Suppress("DEPRECATION") audioManager.abandonAudioFocus(focusChangeListener)
         focusRequest = null
+        hasAudioFocus = false
     }
 
     private var lastAttachedSessionId = -1
@@ -1066,14 +1103,16 @@ handler.post(positionTicker)
         try {
             standby.pause()
             standby.stop()
+            nativeLog("debug", "Preparing standby player")
             standby.clearMediaItems()
             standby.volume = 0f
             standby.repeatMode = current.repeatMode
             standby.shuffleModeEnabled = current.shuffleModeEnabled
             standby.playbackParameters = current.playbackParameters
-            standby.setMediaItems(queue.map { mediaItemFrom(it) }, nextIndex, 0L)
+            standby.setMediaItem(mediaItemFrom(queue[nextIndex]))
             standby.prepare()
             preloadedQueueIndex = nextIndex
+            nativeLog("debug", "Standby preloaded single track index=$nextIndex")
             nativeLog("info", "preloadNextTrack → [$nextIndex] '${queue[nextIndex]["title"]}'")
         } catch (e: Exception) {
             preloadedQueueIndex = C.INDEX_UNSET
@@ -1082,7 +1121,11 @@ handler.post(positionTicker)
     }
 
     private fun promoteSecondaryPlayer() {
-        if (crossfadeInProgress) return
+        nativeLog("debug", "Promotion requested")
+        if (crossfadeInProgress) {
+            nativeLog("debug", "Promotion ignored because already in progress")
+            return
+        }
         val next = standbyPlayer() ?: return
         val current = activePlayer ?: return
         val nextIndex = preloadedQueueIndex
@@ -1090,7 +1133,9 @@ handler.post(positionTicker)
 
         crossfadeInProgress = true
         promotionTriggered = true
+        promotionOwner = current
         activeQueueIndex = nextIndex
+        nativeLog("debug", "Promotion accepted")
         nativeLog("info", "Promoting standby player")
 
         try {
@@ -1104,25 +1149,27 @@ handler.post(positionTicker)
 
         next.volume = 0f
         activePlayer = next
-        rebuildMediaSession(next)
-        if (requestAudioFocus()) next.play()
+        nativeLog("debug", "Active player = ${if (next === primaryPlayer) "PRIMARY" else "SECONDARY"}")
+        nativeLog("debug", "Standby player = ${if (current === primaryPlayer) "PRIMARY" else "SECONDARY"}")
+        switchMediaSessionPlayer(next)
+        if (hasAudioFocus) {
+            nativeLog("debug", "Promotion reusing existing audio focus")
+            next.play()
+        } else if (requestAudioFocus()) {
+            next.play()
+        }
         startCrossfadeFadeIn(next, current)
         emitAll()
         refreshNotification()
     }
 
-    private fun rebuildMediaSession(newPlayer: ExoPlayer) {
-        session?.release()
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        session = MediaSession.Builder(this, newPlayer)
-            .setSessionActivity(pendingIntent)
-            .build()
+    private fun switchMediaSessionPlayer(newPlayer: ExoPlayer) {
+        try {
+            session?.setPlayer(newPlayer)
+            nativeLog("debug", "MediaSession switched to promoted player")
+        } catch (e: Exception) {
+            nativeLog("warn", "MediaSession player switch failed: ${e.message}")
+        }
     }
 
     private fun maybeCrossfadeOut() {
@@ -1139,8 +1186,28 @@ handler.post(positionTicker)
         val crossMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
         val remaining = dur - p.currentPosition
         if (remaining in 1L..crossMs) {
+            nativeLog("debug", "Crossfade window entered remaining=${remaining}ms")
             nativeLog("info", "Triggering promotion at ${remaining}ms")
             promoteSecondaryPlayer()
+        }
+    }
+
+    private fun restoreQueueOnActivePlayer(active: ExoPlayer) {
+        if (queue.isEmpty()) return
+        val wasPlaying = active.isPlaying
+        val position = active.currentPosition.coerceAtLeast(0L)
+        val repeatMode = active.repeatMode
+        val shuffle = active.shuffleModeEnabled
+        val params = active.playbackParameters
+        try {
+            active.setMediaItems(queue.map { mediaItemFrom(it) }, activeQueueIndex.coerceIn(0, queue.lastIndex), position)
+            active.repeatMode = repeatMode
+            active.shuffleModeEnabled = shuffle
+            active.playbackParameters = params
+            active.prepare()
+            if (wasPlaying) active.play()
+        } catch (e: Exception) {
+            nativeLog("warn", "restoreQueueOnActivePlayer failed: ${e.message}")
         }
     }
 
@@ -1153,26 +1220,41 @@ handler.post(positionTicker)
         var step = 0
         val runnable = object : Runnable {
             override fun run() {
-                if (activePlayer !== newPlayer) return
+                if (activePlayer !== newPlayer) {
+                    handler.removeCallbacks(this)
+                    crossfadeInProgress = false
+                    promotionTriggered = false
+                    promotionOwner = null
+                    crossfadeFadeRunnable = null
+                    nativeLog("warn", "Crossfade cancelled due to player switch")
+                    return
+                }
                 if (step >= steps) {
                     newPlayer.volume = targetVol
                     try { oldPlayer.pause() } catch (_: Exception) {}
+                    nativeLog("debug", "Old player stopped")
                     try { oldPlayer.stop() } catch (_: Exception) {}
                     try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
+                    nativeLog("debug", "Old player queue cleared")
+                    restoreQueueOnActivePlayer(newPlayer)
                     crossfadeInProgress = false
                     promotionTriggered = false
+                    promotionOwner = null
                     crossfadeFadeRunnable = null
                     preloadedQueueIndex = C.INDEX_UNSET
+                    nativeLog("debug", "Crossfade completed")
                     preloadNextTrack(force = true)
                     return
                 }
                 val progress = step.toFloat() / steps.toFloat()
+                nativeLog("debug", "Crossfade progress=$progress")
                 oldPlayer.volume = (targetVol * (1f - progress)).coerceIn(0f, 1f)
                 newPlayer.volume = (targetVol * progress).coerceIn(0f, 1f)
                 step++
                 handler.postDelayed(this, stepMs)
             }
         }
+        nativeLog("debug", "Crossfade started")
         crossfadeFadeRunnable = runnable
         handler.post(runnable)
     }
@@ -1214,7 +1296,7 @@ handler.post(positionTicker)
     }
     object Events {
         private val sinks = mutableMapOf<String, EventChannel.EventSink?>()
-        fun handler(name: String) = object : EventChannel.StreamHandler { override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sinks[name] = events; instance?.emitAll() }; override fun onCancel(arguments: Any?) { sinks[name] = null } }
+        fun handler(name: String) = object : EventChannel.StreamHandler { override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sinks[name] = events; instance?.emitAll(emitQueue = true) }; override fun onCancel(arguments: Any?) { sinks[name] = null } }
         fun emit(name: String, value: Any?) { sinks[name]?.success(value) }
     }
     object NativeLogs {
