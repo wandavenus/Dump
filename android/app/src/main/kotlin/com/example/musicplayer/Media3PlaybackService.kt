@@ -27,6 +27,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -632,6 +633,7 @@ session = null
                 queue = items
                 p.setMediaItems(items.map { mediaItemFrom(it) }, index.coerceIn(0, (items.size - 1).coerceAtLeast(0)), 0L)
                 p.prepare()
+                preloadNextTrack() 
                 val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
                 nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
                 emitAll(); refreshNotification(); result.success(null)
@@ -924,6 +926,36 @@ session = null
     //   • startCrossfadeFadeIn() — called on MEDIA_ITEM_TRANSITION_REASON_AUTO;
     //     starts volume at 0 and ramps up over crossfadeDurationSec
 
+    private fun preloadNextTrack() {
+    val primary = primaryPlayer ?: return
+    val secondary = secondaryPlayer ?: return
+
+    val nextIndex = primary.nextMediaItemIndex
+
+    if (nextIndex == C.INDEX_UNSET) return
+    if (nextIndex >= queue.size) return
+
+    val nextSong = queue[nextIndex]
+
+    try {
+        secondary.stop()
+        secondary.clearMediaItems()
+
+        secondary.setMediaItem(mediaItemFrom(nextSong))
+        secondary.prepare()
+        
+        nativeLog(
+            "info",
+            "preloadNextTrack → [$nextIndex] '${nextSong["title"]}'"
+        )
+    } catch (e: Exception) {
+        nativeLog(
+            "warn",
+            "preloadNextTrack failed: ${e.message}"
+        )
+    }
+    }
+    
     private fun maybeCrossfadeOut() {
         if (crossfadeDurationSec <= 0f) return
         val p   = player ?: return
