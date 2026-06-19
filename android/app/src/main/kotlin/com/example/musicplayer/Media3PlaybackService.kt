@@ -634,6 +634,40 @@ session = null
                 p.setMediaItems(items.map { mediaItemFrom(it) }, index.coerceIn(0, (items.size - 1).coerceAtLeast(0)), 0L)
                 p.prepare()
                 preloadNextTrack() 
+              
+                private fun promoteSecondaryPlayer() {
+    val next = secondaryPlayer ?: return
+    val oldPrimary = primaryPlayer ?: return
+
+    nativeLog("info", "Promoting secondary player")
+
+    activePlayer = next
+    primaryPlayer = next
+    secondaryPlayer = oldPrimary
+
+    oldPrimary.stop()
+    oldPrimary.clearMediaItems()
+
+    session?.player?.pause()
+    session?.release()
+
+    session = MediaSession.Builder(this, next)
+        .setSessionActivity(
+            packageManager.getLaunchIntentForPackage(packageName)?.let {
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    it,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            }
+        )
+        .build()
+
+    emitAll()
+    refreshNotification()
+                }  
+                
                 val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
                 nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
                 emitAll(); refreshNotification(); result.success(null)
