@@ -635,41 +635,7 @@ session = null
                 p.prepare()
                 preloadNextTrack() 
               
-                private fun promoteSecondaryPlayer() {
-    val next = secondaryPlayer ?: return
-    val oldPrimary = primaryPlayer ?: return
-
-    nativeLog("info", "Promoting secondary player")
-
-    activePlayer = next
-    primaryPlayer = next
-    secondaryPlayer = oldPrimary
-
-    oldPrimary.stop()
-    oldPrimary.clearMediaItems()
-
-    session?.player?.pause()
-    session?.release()
-
-    session?.release()
-
-val launchIntent =
-    packageManager.getLaunchIntentForPackage(packageName)
-
-val pendingIntent = PendingIntent.getActivity(
-    this,
-    0,
-    launchIntent,
-    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-)
-
-session = MediaSession.Builder(this, next)
-    .setSessionActivity(pendingIntent)
-    .build()
-
-    emitAll()
-    refreshNotification()
-                }  
+               
                 
                 val firstTitle = items.getOrNull(index)?.get("title") as? String ?: "?"
                 nativeLog("info", "setQueue: ${items.size} tracks → [$index] '$firstTitle'")
@@ -992,6 +958,24 @@ session = MediaSession.Builder(this, next)
         )
     }
     }
+    
+private fun promoteSecondaryPlayer() {
+    val next = secondaryPlayer ?: return
+    val oldPrimary = primaryPlayer ?: return
+
+    nativeLog("info", "Promoting secondary player")
+
+    activePlayer = next
+    primaryPlayer = next
+    secondaryPlayer = oldPrimary
+
+    oldPrimary.stop()
+    oldPrimary.clearMediaItems()
+
+    emitAll()
+    refreshNotification()
+}
+    
     
     private fun maybeCrossfadeOut() {
         if (crossfadeDurationSec <= 0f) return
