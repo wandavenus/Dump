@@ -94,13 +94,29 @@ class AudioService {
     // Subscribe to native queue/item transitions before primary-player streams so
     // Media3-driven advances keep the Dart facade in sync.
     _staticSubs.add(
-      Media3PlaybackBridge.currentTrackStream.listen(
-        _onNativeCurrentTrackChanged,
-      ),
-    );
+  Media3PlaybackBridge.currentTrackStream.listen(
+    _onNativeCurrentTrackChanged,
+  ),
+);
 
-    // Subscribe to primary player streams.
-    _resubscribeToPrimaryStreams();
+_staticSubs.add(
+  Media3PlaybackBridge.positionStream.listen((position) {
+    _setState(
+      playbackState.value.copyWith(position: position),
+    );
+  }),
+);
+
+_staticSubs.add(
+  Media3PlaybackBridge.durationStream.listen((duration) {
+    _setState(
+      playbackState.value.copyWith(duration: duration),
+    );
+  }),
+);
+
+// Subscribe to primary player streams.
+_resubscribeToPrimaryStreams();
 
     // Speed is a ValueNotifier — use addListener (not a stream subscription).
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
