@@ -230,10 +230,7 @@ class Media3PlaybackService : MediaSessionService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
        val p = player ?: return
 
-if (queue.isEmpty() || p.mediaItemCount == 0) {
-    nativeLog("verbose", "ensureMediaForeground skipped: empty queue")
-    return
-}
+
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
@@ -499,6 +496,7 @@ activePlayer = exoPlayer
         })
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
+ensureMediaForeground()
         // Ticker will be started dynamically when playback starts
         nativeLog("info", "onCreate: ExoPlayer ready, MediaSession created (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})")
         emitAll()
