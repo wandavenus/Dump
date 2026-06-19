@@ -321,32 +321,45 @@ if (!artworkUri.isNullOrBlank()) {
             .setContentText(artist)
             .setContentIntent(pendingIntent)
             .setOngoing(p.isPlaying)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(NotificationCompat.Action(
-                android.R.drawable.ic_media_previous, "Previous",
-                buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
-            ))
-            .addAction(NotificationCompat.Action(
-                if (p.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                if (p.isPlaying) "Pause" else "Play",
-                buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
-            ))
-            .addAction(NotificationCompat.Action(
-                android.R.drawable.ic_media_next, "Next",
-                buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
-            ))
-            .addAction(
+                .addAction(
+    NotificationCompat.Action(
+        R.drawable.ic_prev,
+        "Previous",
+        buildTransportPendingIntent(ACTION_SKIP_PREV, 1)
+    )
+)
+.addAction(
+    NotificationCompat.Action(
+        if (p.isPlaying)
+            R.drawable.ic_pause
+        else
+            R.drawable.ic_play,
+        if (p.isPlaying) "Pause" else "Play",
+        buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)
+    )
+)
+.addAction(
+    NotificationCompat.Action(
+        R.drawable.ic_next,
+        "Next",
+        buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)
+    )
+)
+.addAction(
     NotificationCompat.Action(
         R.drawable.ic_stop,
         "Stop",
         buildTransportPendingIntent(ACTION_STOP, 4)
     )
 )
-                        
-            .setStyle(
-                MediaStyleNotificationHelper.MediaStyle(sess)
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
+.setStyle(
+    MediaStyleNotificationHelper.MediaStyle(sess)
+        .setShowActionsInCompactView(0, 1, 2)
+)
             
         val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
@@ -367,10 +380,23 @@ if (!artworkUri.isNullOrBlank()) {
         }
 
         try {
-            nm.notify(NOTIFICATION_ID, builder.build())
-        } catch (e: Exception) {
-            nativeLog("warn", "refreshNotification: notify failed — ${e.message}")
-        }
+    val notification = builder.build()
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        )
+    } else {
+        startForeground(NOTIFICATION_ID, notification)
+    }
+} catch (e: Exception) {
+    nativeLog(
+        "warn",
+        "refreshNotification: update failed — ${e.message}"
+    )
+}
     }
 
     override fun onCreate() {
