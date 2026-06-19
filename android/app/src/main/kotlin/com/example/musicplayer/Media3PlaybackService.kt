@@ -554,34 +554,90 @@ if (!artworkUri.isNullOrBlank()) {
         focusRequest = null
     }
 
-    private fun attachEffects(sessionId: Int) {
-        if (sessionId <= 0) return
-        releaseEffects()
-        var eqOk = false
-        var leOk = false
-        try {
-            equalizer = Equalizer(0, sessionId).apply {
-                enabled = eqEnabled
-                bandGains.forEach { (b, g) -> setBandLevel(b, g.coerceIn(bandLevelRange[0], bandLevelRange[1])) }
+    private var lastAttachedSessionId = -1
+private val effectHandler = Handler(Looper.getMainLooper())
+
+private fun attachEffects(sessionId: Int, attempt: Int = 0) {
+    if (sessionId <= 0) return
+
+    if (sessionId == lastAttachedSessionId) {
+        nativeLog("verbose", "attachEffects skipped for session=$sessionId")
+        return
+    }
+
+    releaseEffects()
+
+    var eqOk = false
+    var leOk = false
+
+    try {
+        equalizer = Equalizer(0, sessionId).apply {
+            enabled = eqEnabled
+            bandGains.forEach { (b, g) ->
+                setBandLevel(
+                    b,
+                    g.coerceIn(
+                        bandLevelRange[0],
+                        bandLevelRange[1]
+                    )
+                )
             }
-            eqOk = true
-        } catch (e: Exception) {
-            nativeLog("warn", "Equalizer init failed (session=$sessionId): ${e.message}")
         }
-        try {
-            loudness = LoudnessEnhancer(sessionId).apply {
-                setTargetGain(loudnessTargetMb.toInt())
-                enabled = loudnessEnabled
-            }
-            leOk = true
-        } catch (e: Exception) {
-            nativeLog("warn", "LoudnessEnhancer init failed (session=$sessionId): ${e.message}")
-        }
+        eqOk = true
+    } catch (e: Exception) {
         nativeLog(
-            if (eqOk && leOk) "info" else "warn",
-            "attachEffects(session=$sessionId) eq=${if (eqOk) "ok" else "fail"}, loudness=${if (leOk) "ok" else "fail"}"
+            "warn",
+            "Equalizer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}"
         )
     }
+
+    try {
+        loudness = LoudnessEnhancer(sessionId).apply {
+            setTargetGain(loudnessTargetMb.toInt())
+            enabled = loudnessEnabled
+        }
+        leOk = true
+    } catch (e: Exception) {
+        nativeLog(
+            "warn",
+            "LoudnessEnhancer init failed (session=$sessionId, attempt=${attempt + 1}): ${e.message}"
+        )
+    }
+
+    if (eqOk || leOk) {
+        lastAttachedSessionId = sessionId
+
+        nativeLog(
+            "info",
+            "attachEffects(session=$sessionId) success attempt=${attempt + 1}"
+        )
+        return
+    }
+
+    if (attempt < 2) {
+        val delayMs = when (attempt) {
+            0 -> 100L
+            1 -> 200L
+            else -> 400L
+        }
+
+        nativeLog(
+            "warn",
+            "attachEffects(session=$sessionId) retry in ${delayMs}ms"
+        )
+
+        effectHandler.postDelayed({
+            attachEffects(sessionId, attempt + 1)
+        }, delayMs)
+
+        return
+    }
+
+    nativeLog(
+        "warn",
+        "attachEffects(session=$sessionId) failed after retries"
+    )
+}
 
     private fun releaseEffects() { try { equalizer?.release() } catch (_: Exception) {}; try { loudness?.release() } catch (_: Exception) {}; equalizer = null; loudness = null }
     private fun setEqualizerEnabled(enabled: Boolean) { eqEnabled = enabled; try { equalizer?.enabled = enabled } catch (_: Exception) {} }
