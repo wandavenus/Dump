@@ -330,13 +330,16 @@ if (!artworkUri.isNullOrBlank()) {
             else -> null
         }
 
-        val metadata = MediaMetadata.Builder()
-            .setTitle(map["title"] as? String)
-            .setArtist(map["artist"] as? String)
-            .setAlbumTitle(map["album"] as? String)
-            .setArtworkUri(null)
-            .build()
+        val metadataBuilder = MediaMetadata.Builder()
+    .setTitle(map["title"] as? String)
+    .setArtist(map["artist"] as? String)
+    .setAlbumTitle(map["album"] as? String)
 
+if (artworkUri != null) {
+    metadataBuilder.setArtworkUri(artworkUri)
+}
+
+val metadata = metadataBuilder.build()
         return MediaItem.Builder()
             .setMediaId((map["id"] ?: path).toString())
             .setUri(uri)
