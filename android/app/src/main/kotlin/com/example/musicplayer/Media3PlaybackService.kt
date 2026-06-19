@@ -651,18 +651,21 @@ session = null
     session?.player?.pause()
     session?.release()
 
-    session = MediaSession.Builder(this, next)
-        .setSessionActivity(
-            packageManager.getLaunchIntentForPackage(packageName)?.let {
-                PendingIntent.getActivity(
-                    this,
-                    0,
-                    it,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            }
-        )
-        .build()
+    session?.release()
+
+val launchIntent =
+    packageManager.getLaunchIntentForPackage(packageName)
+
+val pendingIntent = PendingIntent.getActivity(
+    this,
+    0,
+    launchIntent,
+    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+)
+
+session = MediaSession.Builder(this, next)
+    .setSessionActivity(pendingIntent)
+    .build()
 
     emitAll()
     refreshNotification()
