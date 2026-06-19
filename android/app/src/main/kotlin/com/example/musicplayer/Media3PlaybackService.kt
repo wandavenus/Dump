@@ -45,6 +45,14 @@ class Media3PlaybackService : MediaSessionService() {
     private var activePlayer: ExoPlayer? = null 
     private val player: ExoPlayer?
     get() = activePlayer
+    private fun standbyPlayer(): ExoPlayer? {
+    return if (activePlayer === primaryPlayer) {
+        secondaryPlayer
+    } else {
+        primaryPlayer
+    }
+    }
+    
     private var session: MediaSession? = null
     private var queue: List<Map<String, Any?>> = emptyList()
     private val handler = Handler(Looper.getMainLooper())
@@ -443,6 +451,53 @@ if (!artworkUri.isNullOrBlank()) {
 }
     }
 
+    private fun attachPlayerListener(player: ExoPlayer) {
+    player.addListener(object : Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            emitAll()
+            refreshNotification()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            emitAll()
+            refreshNotification()
+        }
+
+        override fun onMediaItemTransition(
+            mediaItem: MediaItem?,
+            reason: Int
+        ) {
+            emitAll()
+            refreshNotification()
+
+            if (
+                crossfadeDurationSec > 0f &&
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+            ) {
+                startCrossfadeFadeIn()
+            }
+        }
+
+        override fun onShuffleModeEnabledChanged(
+            shuffleModeEnabled: Boolean
+        ) = emitAll()
+
+        override fun onRepeatModeChanged(repeatMode: Int) =
+            emitAll()
+
+        override fun onAudioSessionIdChanged(
+            audioSessionId: Int
+        ) {
+            nativeLog(
+                "info",
+                "audioSessionId → $audioSessionId"
+            )
+            attachEffects(audioSessionId)
+            emitAll()
+        }
+    })
+    }
+    
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -476,24 +531,10 @@ activePlayer = exoPlayer
         session = MediaSession.Builder(this, exoPlayer)
             .setSessionActivity(pendingIntent)
             .build()
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) { emitAll(); refreshNotification() }
-            override fun onIsPlayingChanged(isPlaying: Boolean) { emitAll(); refreshNotification() }
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                emitAll()
-                refreshNotification()
-                if (crossfadeDurationSec > 0f && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                    startCrossfadeFadeIn()
-                }
-            }
-            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = emitAll()
-            override fun onRepeatModeChanged(repeatMode: Int) = emitAll()
-            override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                nativeLog("info", "audioSessionId → $audioSessionId")
-                attachEffects(audioSessionId)
-                emitAll()
-            }
-        })
+
+attachPlayerListener(primaryPlayer!!)
+attachPlayerListener(secondaryPlayer!!)
+        
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
 ensureMediaForeground()
@@ -929,7 +970,7 @@ session = null
 
     private fun preloadNextTrack() {
     val primary = primaryPlayer ?: return
-    val secondary = secondaryPlayer ?: return
+    val secondary = standbyPlayer() ?: return
 
     val nextIndex = primary.nextMediaItemIndex
 
@@ -958,17 +999,37 @@ session = null
     }
     
 private fun promoteSecondaryPlayer() {
-    val next = secondaryPlayer ?: return
-    val oldPrimary = primaryPlayer ?: return
+    val next = standbyPlayer() ?: return
+    val current = activePlayer ?: return
 
-    nativeLog("info", "Promoting secondary player")
+    nativeLog("info", "Promoting standby player")
+
+    current.pause()
+    current.stop()
+    current.clearMediaItems()
 
     activePlayer = next
-    primaryPlayer = next
-    secondaryPlayer = oldPrimary
 
-    oldPrimary.stop()
-    oldPrimary.clearMediaItems()
+    session?.release()
+
+    val launchIntent =
+        packageManager.getLaunchIntentForPackage(packageName)
+
+    val pendingIntent = PendingIntent.getActivity(
+        this,
+        0,
+        launchIntent,
+        PendingIntent.FLAG_IMMUTABLE or
+            PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    session = MediaSession.Builder(this, next)
+        .setSessionActivity(pendingIntent)
+        .build()
+
+    next.play()
+
+    preloadNextTrack()
 
     emitAll()
     refreshNotification()
@@ -990,9 +1051,14 @@ private fun promoteSecondaryPlayer() {
             // Progress from 0.0 (just entered window) → 1.0 (track ends)
             val progress = 1f - (remaining.toFloat() / crossMs.toFloat())
             val target   = (volumeBeforeDuck * (1f - progress)).coerceAtLeast(0f)
-            if (p.volume > target) p.volume = target
-        }
-    }
+            if (p.volume > target) {
+    p.volume = target
+}
+
+if (remaining <= 250L) {
+    promoteSecondaryPlayer()
+   }
+}
 
     private fun startCrossfadeFadeIn() {
         // Cancel any in-flight fade.
