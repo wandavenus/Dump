@@ -318,37 +318,40 @@ if (!artworkUri.isNullOrBlank()) {
     }
 
     private fun mediaItemFrom(map: Map<*, *>): MediaItem {
-        val path = map["path"] as? String ?: ""
-        val uri = if (path.startsWith("content://") || path.startsWith("file://")) path.toUri() else Uri.fromFile(java.io.File(path))
+    val path = map["path"] as? String ?: ""
 
-        // Build artwork URI from albumId only.
-// Ignore artworkUriStr temporarily while debugging notification crashes.
-val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
+    val uri =
+        if (path.startsWith("content://") || path.startsWith("file://"))
+            path.toUri()
+        else
+            Uri.fromFile(java.io.File(path))
 
-val artworkUri: Uri? =
-    if (albumId > 0) {
-        Uri.parse("content://media/external/audio/albumart/$albumId")
-    } else {
-        null
+    val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
+
+    val artworkUri: Uri? =
+        if (albumId > 0) {
+            Uri.parse("content://media/external/audio/albumart/$albumId")
+        } else {
+            null
+        }
+
+    val metadataBuilder = MediaMetadata.Builder()
+        .setTitle(map["title"] as? String)
+        .setArtist(map["artist"] as? String)
+        .setAlbumTitle(map["album"] as? String)
+
+    if (artworkUri != null) {
+        metadataBuilder.setArtworkUri(artworkUri)
     }
 
-val metadataBuilder = MediaMetadata.Builder()
-    .setTitle(map["title"] as? String)
-    .setArtist(map["artist"] as? String)
-    .setAlbumTitle(map["album"] as? String)
+    val metadata = metadataBuilder.build()
 
-if (artworkUri != null) {
-    metadataBuilder.setArtworkUri(artworkUri)
+    return MediaItem.Builder()
+        .setMediaId((map["id"] ?: path).toString())
+        .setUri(uri)
+        .setMediaMetadata(metadata)
+        .build()
 }
-
-val metadata = metadataBuilder.build()
-
-return MediaItem.Builder()
-    .setMediaId((map["id"] ?: path).toString())
-    .setUri(uri)
-    .setMediaMetadata(metadata)
-    .build()
-
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         val p = player ?: return result.error("not_ready", "Media3 service is not ready", null)
         when (call.method) {
