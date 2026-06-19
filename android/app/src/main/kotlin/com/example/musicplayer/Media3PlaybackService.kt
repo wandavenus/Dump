@@ -1078,12 +1078,11 @@ private fun promoteSecondaryPlayer() {
     p.volume = target
 }
 
-if (remaining <= 250L && !promotionTriggered) {
+if (remaining <= 1000L && !promotionTriggered) {
     promotionTriggered = true
 
     p.pause()
-    p.clearMediaItems() 
-    p.stop()
+    
     promoteSecondaryPlayer()
 }
 }
