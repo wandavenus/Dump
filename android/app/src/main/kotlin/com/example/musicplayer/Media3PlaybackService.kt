@@ -88,7 +88,7 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Crossfade (fade-out near track end, fade-in on transition) ─────────────
     private var crossfadeDurationSec: Float = 0f
     private var crossfadeFadeRunnable: Runnable? = null
-
+    private var promotionTriggered = false
     // Android 11 / MIUI 12: ensureMediaForeground() must only be called once per
     // service lifecycle.  MIUI aggressively kills services that call startForeground()
     // repeatedly, and Android 11 requires startForeground() within 5 s of
@@ -999,6 +999,7 @@ session = null
     }
     
 private fun promoteSecondaryPlayer() {
+    promotionTriggered = false
     val next = standbyPlayer() ?: return
     val current = activePlayer ?: return
 
@@ -1058,9 +1059,12 @@ private fun promoteSecondaryPlayer() {
     p.volume = target
 }
 
-if (remaining <= 250L) {
+if (remaining <= 250L && !promotionTriggered) {
+    promotionTriggered = true
+
+    p.pause()
     promoteSecondaryPlayer()
-} 
+}
 }
 }
 
