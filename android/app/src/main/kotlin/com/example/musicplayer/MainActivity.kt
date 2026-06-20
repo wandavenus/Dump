@@ -128,7 +128,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "attachEffects" -> {
                     result.success(
-                        mapOf<String, Any>(
+                        mapOf(
                             "virtualizerSupported" to true,
                             "bassBoostSupported" to true,
                             "reverbSupported" to true
@@ -138,34 +138,29 @@ class MainActivity : FlutterActivity() {
                 "setSpatialEnabled" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: false
                     val strength = call.argument<Int>("strength") ?: 1000
-                    service.handle(
-                        MethodCall("setVirtualizerEnabled", mapOf<String, Any>("enabled" to enabled)),
-                        result
-                    )
+                    val args1 = mutableMapOf<String, Any?>()
+                    args1["enabled"] = enabled
+                    service.handle(MethodCall("setVirtualizerEnabled", args1), result)
                     if (enabled) {
-                        service.handle(
-                            MethodCall("setVirtualizerStrength", mapOf<String, Any>("strength" to strength)),
-                            result
-                        )
+                        val args2 = mutableMapOf<String, Any?>()
+                        args2["strength"] = strength
+                        service.handle(MethodCall("setVirtualizerStrength", args2), result)
                     }
                 }
                 "setBassBoost" -> {
                     val strength = call.argument<Int>("strength") ?: 0
-                    service.handle(
-                        MethodCall("setBassBoostEnabled", mapOf<String, Any>("enabled" to strength > 0)),
-                        result
-                    )
-                    service.handle(
-                        MethodCall("setBassBoostStrength", mapOf<String, Any>("strength" to strength)),
-                        result
-                    )
+                    val args1 = mutableMapOf<String, Any?>()
+                    args1["enabled"] = strength > 0
+                    service.handle(MethodCall("setBassBoostEnabled", args1), result)
+                    val args2 = mutableMapOf<String, Any?>()
+                    args2["strength"] = strength
+                    service.handle(MethodCall("setBassBoostStrength", args2), result)
                 }
                 "setReverb" -> {
                     val preset = call.argument<Int>("preset") ?: 0
-                    service.handle(
-                        MethodCall("setReverbPreset", mapOf<String, Any>("preset" to preset)),
-                        result
-                    )
+                    val args = mutableMapOf<String, Any?>()
+                    args["preset"] = preset
+                    service.handle(MethodCall("setReverbPreset", args), result)
                 }
                 "setAudioOutputMode" -> {
                     result.success(null)
@@ -173,7 +168,7 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-    }
+}
 
     // ── ReplayGain tag reader ──────────────────────────────────────────────────
 
