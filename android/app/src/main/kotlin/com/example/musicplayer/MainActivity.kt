@@ -89,6 +89,19 @@ class MainActivity : FlutterActivity() {
         ?: result.error("not_ready", "Media3 service is starting", null)
 }
 
+       listOf(
+    "playbackState",
+    "position",
+    "duration",
+    "currentTrack",
+    "queue",
+    "bufferingState",
+    "audioSessionId"
+).forEach { name ->
+    EventChannel(messenger, "musicplayer/media3_$name")
+        .setStreamHandler(Media3PlaybackService.Events.handler(name))
+       }
+        
         // EventChannels — mode state (new: shuffle, repeat, sleepTimer)
         listOf("shuffleMode", "repeatMode", "sleepTimer").forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
