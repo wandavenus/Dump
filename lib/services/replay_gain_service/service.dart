@@ -170,10 +170,12 @@ class ReplayGainService {
 
   /// Parses "  -3.45 dB" → -3.45.  Returns null if not parseable.
   static double? _parseGainDb(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final cleaned = raw.trim().toLowerCase().replaceAll(RegExp(r'[^0-9.\-+]'), '');
-    return double.tryParse(cleaned);
-  }
+  if (raw == null || raw.trim().isEmpty) return null;
+  // Ambil angka desimal dengan tanda opsional di awal
+  final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
+  if (match == null) return null;
+  return double.tryParse(match.group(1)!);
+}
 
   /// Parses peak value "0.987654" → 0.987654.
   static double? _parsePeak(String? raw) {
