@@ -130,54 +130,57 @@ class MainActivity : FlutterActivity() {
                 return@setMethodCallHandler
             }
             when (call.method) {
-                "attachEffects" -> {
-                    // Service handles this automatically; just return support info
-                    result.success(mapOf(
-                        "virtualizerSupported" to true,
-                        "bassBoostSupported"   to true,
-                        "reverbSupported"      to true
-                    ))
-                }
-                "setSpatialEnabled" -> {
-                    val enabled  = call.argument<Boolean>("enabled") ?: false
-                    val strength = call.argument<Int>("strength") ?: 1000
-                    service.handle(
-                        MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
-                        result
-                    )
-                    if (enabled) {
-                        service.handle(
-                            MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
-                            result
-                        )
-                    } else {
-                        result.success(null)
-                    }
-                }
-                "setBassBoost" -> {
-                    val strength = call.argument<Int>("strength") ?: 0
-                    service.handle(
-                        MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
-                        result
-                    )
-                    service.handle(
-                        MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
-                        result
-                    )
-                }
-                "setReverb" -> {
-                    val preset = call.argument<Int>("preset") ?: 0
-                    service.handle(
-                        MethodCall("setReverbPreset", mapOf("preset" to preset)),
-                        result
-                    )
-                }
-                "setAudioOutputMode" -> {
-                    // Not supported in service; ignore
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
+    "attachEffects" -> {
+        // Service handles this automatically; just return support info
+        result.success(mapOf(
+            "virtualizerSupported" to true,
+            "bassBoostSupported"   to true,
+            "reverbSupported"      to true
+        ))
+    }
+    "setSpatialEnabled" -> {
+        val enabled = call.argument<Boolean>("enabled") ?: false
+        val strength = call.argument<Int>("strength") ?: 1000
+        // Panggil service.handle tanpa result, lalu sukses di sini
+        service.handle(
+            MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
+            result
+        )
+        if (enabled) {
+            service.handle(
+                MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
+                result
+            )
+        }
+        // Hanya satu result.success di akhir
+        result.success(null)
+    }
+    "setBassBoost" -> {
+        val strength = call.argument<Int>("strength") ?: 0
+        service.handle(
+            MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
+            result
+        )
+        service.handle(
+            MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
+            result
+        )
+        result.success(null)
+    }
+    "setReverb" -> {
+        val preset = call.argument<Int>("preset") ?: 0
+        service.handle(
+            MethodCall("setReverbPreset", mapOf("preset" to preset)),
+            result
+        )
+        result.success(null)
+    }
+    "setAudioOutputMode" -> {
+        // Not supported in service; ignore
+        result.success(null)
+    }
+    else -> result.notImplemented()
+}
         }
 }
 
