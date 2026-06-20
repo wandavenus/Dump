@@ -18,6 +18,7 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
+import kotlin.math.sqrt
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -952,81 +953,115 @@ emitAll()
             // ── Queue mutations (native owns queue, mutations sync immediately) ──
 
             "insertNext" -> {
-                @Suppress("UNCHECKED_CAST")
-                val song = call.argument<Map<String, Any?>>("song")
-                    ?: run { result.success(null); return }
-                val insertAt = (activeQueueIndex + 1).coerceIn(0, queue.size)
-                val mutable  = queue.toMutableList()
-                mutable.add(insertAt, song)
-                queue = mutable
-                p.addMediaItem(insertAt, mediaItemFrom(song))
-                if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
-                saveQueueToPrefs()
-                emitAll(emitQueue = true)
-                nativeLog("info", "insertNext: '${song["title"]}' at idx $insertAt")
-                result.success(null)
-            }
+    val item = call.argument<Map<String, Any>>("item") ?: run { result.success(null); return }
+    val mutable = queue.toMutableList()
+    
+    // Pake +1 ini udah standar industri beb, paling logis buat UX
+    val insertIdx = (activeQueueIndex + 1).coerceIn(0, queue.size)
+    
+    mutable.add(insertIdx, item)
+    queue = mutable
+    
+    // Kunci buat jaga biar ga crash pas transisi
+    if (!crossfadeInProgress) {
+        p.addMediaItem(insertIdx, mediaItemFrom(item))
+    } else {
+        nativeLog("info", "insertNext: list updated, skipping p.addMediaItem for safety")
+    }
+
+    saveQueueToPrefs()
+    emitAll(emitQueue = true)
+    result.success(null)
+}
+
+
+
+
 
             "appendToQueue" -> {
-                @Suppress("UNCHECKED_CAST")
-                val song = call.argument<Map<String, Any?>>("song")
-                    ?: run { result.success(null); return }
-                val mutable = queue.toMutableList()
-                mutable.add(song)
-                queue = mutable
-                p.addMediaItem(mediaItemFrom(song))
-                saveQueueToPrefs()
-                emitAll(emitQueue = true)
-                nativeLog("info", "appendToQueue: '${song["title"]}' at idx ${queue.size - 1}")
-                result.success(null)
-            }
+    val item = call.argument<Map<String, Any>>("item") ?: run { result.success(null); return }
+    val mutable = queue.toMutableList()
+    mutable.add(item)
+    queue = mutable
+    
+    // KUNCI DISINI JUGA (ノಠ益ಠ)ノ
+    if (!crossfadeInProgress) {
+        p.addMediaItem(mediaItemFrom(item))
+    } else {
+        nativeLog("warn", "skip appendToQueue ke exoplayer, lagi crossfade beb")
+    }
+
+    if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+    saveQueueToPrefs()
+    emitAll(emitQueue = true)
+    result.success(null)
+}
+
 
             "removeFromQueue" -> {
-                val index = call.argument<Number>("index")?.toInt()
-                    ?: run { result.success(null); return }
-                if (index !in queue.indices) { result.success(null); return }
-                val mutable = queue.toMutableList()
-                mutable.removeAt(index)
-                queue = mutable
-                p.removeMediaItem(index)
-                // Keep activeQueueIndex in bounds
-                if (activeQueueIndex >= queue.size) {
-                    activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
-                }
-                if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
-                saveQueueToPrefs()
-                emitAll(emitQueue = true)
-                nativeLog("info", "removeFromQueue: idx=$index remaining=${queue.size}")
-                result.success(null)
-            }
+    val index = call.argument<Number>("index")?.toInt() ?: run { result.success(null); return }
+    if (index !in queue.indices) { result.success(null); return }
+    
+    // update list native kita dulu
+    val mutable = queue.toMutableList()
+    mutable.removeAt(index)
+    queue = mutable
+    
+    // GANTI BAGIAN INI:
+    // Cuma eksekusi removeMediaItem kalo crossfade lagi ga jalan
+    if (!crossfadeInProgress) {
+        p.removeMediaItem(index)
+    } else {
+        nativeLog("warn", "skip removeMediaItem ke exoplayer, lagi crossfade beb")
+    }
+
+    // Keep activeQueueIndex in bounds
+    if (activeQueueIndex >= queue.size) {
+        activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
+    }
+    
+    if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+    saveQueueToPrefs()
+    emitAll(emitQueue = true)
+    nativeLog("info", "removeFromQueue: idx=$index remaining=${queue.size}")
+    result.success(null)
+}
+
 
             "reorderQueue" -> {
-                val oldIndex = call.argument<Number>("oldIndex")?.toInt()
-                    ?: run { result.success(null); return }
-                val newIndex = call.argument<Number>("newIndex")?.toInt()
-                    ?: run { result.success(null); return }
-                if (oldIndex !in queue.indices || newIndex !in queue.indices ||
-                    oldIndex == newIndex) {
-                    result.success(null); return
-                }
-                val mutable = queue.toMutableList()
-                val item    = mutable.removeAt(oldIndex)
-                mutable.add(newIndex, item)
-                queue = mutable
-                p.moveMediaItem(oldIndex, newIndex)
-                // Keep activeQueueIndex accurate
-                activeQueueIndex = when {
-                    oldIndex == activeQueueIndex                              -> newIndex
-                    oldIndex < activeQueueIndex && newIndex >= activeQueueIndex -> activeQueueIndex - 1
-                    oldIndex > activeQueueIndex && newIndex <= activeQueueIndex -> activeQueueIndex + 1
-                    else                                                     -> activeQueueIndex
-                }
-                if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
-                saveQueueToPrefs()
-                emitAll(emitQueue = true)
-                nativeLog("info", "reorderQueue: [$oldIndex] → [$newIndex]")
-                result.success(null)
-            }
+    val oldIndex = call.argument<Number>("oldIndex")?.toInt() ?: run { result.success(null); return }
+    val newIndex = call.argument<Number>("newIndex")?.toInt() ?: run { result.success(null); return }
+    
+    if (oldIndex !in queue.indices || newIndex !in queue.indices || oldIndex == newIndex) {
+        result.success(null); return
+    }
+    
+    val mutable = queue.toMutableList()
+    val item    = mutable.removeAt(oldIndex)
+    mutable.add(newIndex, item)
+    queue = mutable
+
+    // KUNCI DISINI BEB (づ｡◕‿‿◕｡)づ
+    if (!crossfadeInProgress) {
+        p.moveMediaItem(oldIndex, newIndex)
+    } else {
+        nativeLog("warn", "skip moveMediaItem ke exoplayer, lagi crossfade beb")
+    }
+
+    // Keep activeQueueIndex accurate
+    activeQueueIndex = when {
+        oldIndex == activeQueueIndex                              -> newIndex
+        oldIndex < activeQueueIndex && newIndex >= activeQueueIndex -> activeQueueIndex - 1
+        oldIndex > activeQueueIndex && newIndex <= activeQueueIndex -> activeQueueIndex + 1
+        else                                                      -> activeQueueIndex
+    }
+    
+    if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+    saveQueueToPrefs()
+    emitAll(emitQueue = true)
+    nativeLog("info", "reorderQueue: [$oldIndex] → [$newIndex]")
+    result.success(null)
+}
 
             // ── Playback modes ───────────────────────────────────────────────────
 
@@ -1547,10 +1582,12 @@ emitAll()
                     return
                 }
                 val progress = step.toFloat() / steps.toFloat()
-                oldPlayer.volume = (targetVol * (1f - progress)).coerceIn(0f, 1f)
-                newPlayer.volume = (targetVol * progress).coerceIn(0f, 1f)
-                step++
-                handler.postDelayed(this, stepMs)
+
+oldPlayer.volume =
+    (targetVol * sqrt(1f - progress)).coerceIn(0f, 1f)
+
+newPlayer.volume =
+    (targetVol * sqrt(progress)).coerceIn(0f, 1f)
             }
         }
         crossfadeFadeRunnable = runnable
