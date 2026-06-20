@@ -387,27 +387,22 @@ class Media3PlaybackService : MediaSessionService() {
             )
 
         val artworkUri = t?.get("artworkUri") as? String
-        if (!artworkUri.isNullOrBlank()) {
-    thread {
-        try {
-            val uri = Uri.parse(artworkUri)
+if (!artworkUri.isNullOrBlank()) {
+    try {
+        val uri = Uri.parse(artworkUri)
 
-            if (!uri.toString().contains("/albumart/-") &&
-                !uri.toString().endsWith("/0")) {
+        if (!uri.toString().contains("/albumart/-") &&
+            !uri.toString().endsWith("/0")) {
 
-                val bitmap = contentResolver.openInputStream(uri)?.use {
-                    BitmapFactory.decodeStream(it)
-                }
-
-                if (bitmap != null) {
-                    builder.setLargeIcon(bitmap)
-
-                    getSystemService(NotificationManager::class.java)
-                        ?.notify(NOTIFICATION_ID, builder.build())
-                }
+            val bitmap = contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it)
             }
-        } catch (_: Exception) {}
-    }
+
+            if (bitmap != null) {
+                builder.setLargeIcon(bitmap)
+            }
+        }
+    } catch (_: Exception) {}
 }
 
         try {
