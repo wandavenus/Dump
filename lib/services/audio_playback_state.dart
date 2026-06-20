@@ -16,6 +16,8 @@ class AudioPlaybackState {
   final LoopMode loopMode;
   final bool shuffleEnabled;
   final double speed;
+  final bool sleepTimerActive;
+  final int sleepTimerRemainingMs;
 
   const AudioPlaybackState({
     this.currentSong,
@@ -25,10 +27,12 @@ class AudioPlaybackState {
     this.currentPlaylist = const [],
     this.processingState = ProcessingState.idle,
     this.duration = Duration.zero,
-    this.position = Duration.zero, 
+    this.position = Duration.zero,
     this.loopMode = LoopMode.off,
     this.shuffleEnabled = false,
     this.speed = 1.0,
+    this.sleepTimerActive = false,
+    this.sleepTimerRemainingMs = 0,
   });
 
   AudioPlaybackState copyWith({
@@ -40,10 +44,12 @@ class AudioPlaybackState {
     List<LocalSong>? currentPlaylist,
     ProcessingState? processingState,
     Duration? duration,
-    Duration? position,    
+    Duration? position,
     LoopMode? loopMode,
     bool? shuffleEnabled,
     double? speed,
+    bool? sleepTimerActive,
+    int? sleepTimerRemainingMs,
   }) {
     return AudioPlaybackState(
       currentSong: clearCurrentSong ? null : currentSong ?? this.currentSong,
@@ -57,6 +63,8 @@ class AudioPlaybackState {
       loopMode: loopMode ?? this.loopMode,
       shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
       speed: speed ?? this.speed,
+      sleepTimerActive: sleepTimerActive ?? this.sleepTimerActive,
+      sleepTimerRemainingMs: sleepTimerRemainingMs ?? this.sleepTimerRemainingMs,
     );
   }
 }

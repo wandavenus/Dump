@@ -26,6 +26,7 @@ Future<void> main() async {
   await AudioEffectsService.init();
   AudioService.initialize();
   AudioFocusService.initialize();
+  SleepTimerService.initialize();
 
   // Sync playback state from the native Media3 service before rendering UI.
   // This restores the mini player when the app is reopened while playback
