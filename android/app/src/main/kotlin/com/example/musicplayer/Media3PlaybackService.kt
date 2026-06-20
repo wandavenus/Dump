@@ -112,7 +112,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val effectHandler = Handler(Looper.getMainLooper())
 
     // ── Queue persistence keys ─────────────────────────────────────────────────
-    private companion object {
+    companion object {
         const val CHANNEL_ID       = "media3_playback"
         const val NOTIFICATION_ID  = 1001
         const val ACTION_PLAY_PAUSE = "com.example.musicplayer.ACTION_PLAY_PAUSE"
