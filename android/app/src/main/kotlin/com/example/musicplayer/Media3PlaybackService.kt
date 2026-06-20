@@ -240,7 +240,8 @@ ACTION_SKIP_PREV -> {
     refreshNotification()
 }
             ACTION_STOP -> {
-    nativeLog("info", "transport: stop (notification/BT)")
+    cancelSleepTimer()
+  nativeLog("info", "transport: stop (notification/BT)")
 
     cancelCrossfade(resetVolume = true)
 
