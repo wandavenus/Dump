@@ -255,7 +255,7 @@ class Media3PlaybackService : MediaSessionService() {
     emitAll()
 }
             else -> {
-    if (isForeground && (primaryPlayer?.mediaItemCount ?: 0) > 0) {
+    if ((player?.mediaItemCount ?: 0) > 0) {
         ensureMediaForeground()
     }
 }
