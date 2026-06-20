@@ -293,7 +293,7 @@ class Media3PlaybackService : MediaSessionService() {
     if (isForeground) return
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
-    val p = player ?: return
+    val p = player
 
     ensureNotificationChannel()
 
@@ -301,7 +301,7 @@ class Media3PlaybackService : MediaSessionService() {
     val t = currentTrackMap()
     val title  = t?.get("title") as? String ?: "Music Player"
     val artist = t?.get("artist") as? String ?: ""
-    val isPlaying = p.isPlaying
+    val isPlaying = p?.isPlaying ?: false
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
