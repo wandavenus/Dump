@@ -254,13 +254,13 @@ class Media3PlaybackService : MediaSessionService() {
         ?.cancel(NOTIFICATION_ID)
 
     emitAll()
-    refreshNotification()
 }
             else -> {
     if ((player?.mediaItemCount ?: 0) > 0) {
         ensureMediaForeground()
     }
 }
+    
         }
         return START_STICKY
     }
@@ -287,21 +287,18 @@ class Media3PlaybackService : MediaSessionService() {
 
     // Called ONCE per lifecycle — satisfies Android 11's 5-second startForeground window.
     private fun ensureMediaForeground() {
-        if (isForeground) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val p = player ?: return
-        val title = if (p.mediaItemCount > 0) {
-    currentTrackMap()?.get("title") as? String ?: "Music Player"
-} else {
-    "Music Player"
-}
-        ensureNotificationChannel()
+    if (isForeground) return
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
-        val sess = session
-        val t = currentTrackMap()
-        val title  = t?.get("title")  as? String ?: "Music Player"
-        val artist = t?.get("artist") as? String ?: ""
-        val isPlaying = p.isPlaying
+    val p = player ?: return
+
+    ensureNotificationChannel()
+
+    val sess = session
+    val t = currentTrackMap()
+    val title  = t?.get("title") as? String ?: "Music Player"
+    val artist = t?.get("artist") as? String ?: ""
+    val isPlaying = p.isPlaying
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pendingIntent = PendingIntent.getActivity(
@@ -570,13 +567,14 @@ class Media3PlaybackService : MediaSessionService() {
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
 
-        ensureMediaForeground()
+     // Restore persisted queue so music continues after app restart.
+restoreQueueFromPrefs()
 
-        // Restore persisted queue so music continues after app restart.
-        restoreQueueFromPrefs()
-
-        nativeLog("info", "onCreate: ExoPlayer ready (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})")
-        emitAll()
+nativeLog(
+    "info",
+    "onCreate: ExoPlayer ready (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
+)
+emitAll()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
