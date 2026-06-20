@@ -9,17 +9,18 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import java.io.File
 import androidx.core.content.ContextCompat
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.EventChannel
 import androidx.media3.common.util.UnstableApi
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
 
-    private val mediaStoreChannel   = "musicplayer/media_store"
+    private val mediaStoreChannel = "musicplayer/media_store"
     private val audioEffectsChannel = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
 
@@ -37,55 +38,50 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
+            val needsService = call.method in setOf(
+                "play",
+                "pause",
+                "stop",
+                "seek",
+                "setQueue",
+                "setTrack",
+                "skipNext",
+                "skipPrevious"
+            )
 
-    val needsService = call.method in setOf(
-        "play",
-        "pause",
-        "stop",
-        "seek",
-        "setQueue",
-        "setTrack",
-        "skipNext",
-        "skipPrevious"
-    )
+            if (Media3PlaybackService.instance == null && needsService) {
+                val intent = Intent(this, Media3PlaybackService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ContextCompat.startForegroundService(this, intent)
+                } else {
+                    startService(intent)
+                }
+                result.error("not_ready", "Media3 service is starting", null)
+                return@setMethodCallHandler
+            }
 
-    if (Media3PlaybackService.instance == null && needsService) {
-        val intent = Intent(this, Media3PlaybackService::class.java)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ContextCompat.startForegroundService(this, intent)
-        } else {
-            startService(intent)
+            Media3PlaybackService.instance?.handle(call, result)
+                ?: result.error("not_ready", "Media3 service is starting", null)
         }
 
-        result.error("not_ready", "Media3 service is starting", null)
-        return@setMethodCallHandler
-    }
+        listOf(
+            "playbackState",
+            "position",
+            "duration",
+            "currentTrack",
+            "queue",
+            "bufferingState",
+            "audioSessionId"
+        ).forEach { name ->
+            EventChannel(messenger, "musicplayer/media3_$name")
+                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+        }
 
-    Media3PlaybackService.instance?.handle(call, result)
-        ?: result.error("not_ready", "Media3 service is starting", null)
-}
-
-       listOf(
-    "playbackState",
-    "position",
-    "duration",
-    "currentTrack",
-    "queue",
-    "bufferingState",
-    "audioSessionId"
-).forEach { name ->
-    EventChannel(messenger, "musicplayer/media3_$name")
-        .setStreamHandler(Media3PlaybackService.Events.handler(name))
-       }
-        
-        // EventChannels — mode state (new: shuffle, repeat, sleepTimer)
         listOf("shuffleMode", "repeatMode", "sleepTimer").forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
         }
 
-        // Native log bridge → Dart LogService viewer
         EventChannel(messenger, "musicplayer/native_logs")
             .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
     }
@@ -96,13 +92,13 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaStoreChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "getSongs"         -> result.success(getSongs())
-                    "getArtwork"       -> {
+                    "getSongs" -> result.success(getSongs())
+                    "getArtwork" -> {
                         val songId = call.argument<Int>("songId")
                         result.success(getArtwork(songId ?: 0))
                     }
                     "getAudioMetadata" -> {
-                        val path   = call.argument<String>("path")
+                        val path = call.argument<String>("path")
                         val songId = call.argument<Int>("songId")
                         result.success(getAudioMetadata(path, songId ?: 0))
                     }
@@ -122,117 +118,101 @@ class MainActivity : FlutterActivity() {
     // ── Audio effects channel (Activity-context operations only) ───────────────
 
     private fun setupAudioEffectsChannel(flutterEngine: FlutterEngine) {
-    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
-        .setMethodCallHandler { call, result ->
-            val service = Media3PlaybackService.instance
-            if (service == null) {
-                result.error("not_ready", "Media3 service is not ready", null)
-                return@setMethodCallHandler
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
+            .setMethodCallHandler { call, result ->
+                val service = Media3PlaybackService.instance
+                if (service == null) {
+                    result.error("not_ready", "Media3 service is not ready", null)
+                    return@setMethodCallHandler
+                }
+                when (call.method) {
+                    "attachEffects" -> {
+                        result.success(
+                            mapOf(
+                                "virtualizerSupported" to true,
+                                "bassBoostSupported" to true,
+                                "reverbSupported" to true
+                            )
+                        )
+                    }
+                    "setSpatialEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        val strength = call.argument<Int>("strength") ?: 1000
+                        service.handle(
+                            MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
+                            result
+                        )
+                        if (enabled) {
+                            service.handle(
+                                MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
+                                result
+                            )
+                        }
+                        // result sudah diselesaikan oleh service.handle di atas
+                    }
+                    "setBassBoost" -> {
+                        val strength = call.argument<Int>("strength") ?: 0
+                        service.handle(
+                            MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
+                            result
+                        )
+                        service.handle(
+                            MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
+                            result
+                        )
+                    }
+                    "setReverb" -> {
+                        val preset = call.argument<Int>("preset") ?: 0
+                        service.handle(
+                            MethodCall("setReverbPreset", mapOf("preset" to preset)),
+                            result
+                        )
+                    }
+                    "setAudioOutputMode" -> {
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
             }
-            when (call.method) {
-    "attachEffects" -> {
-        // Service handles this automatically; just return support info
-        result.success(mapOf(
-            "virtualizerSupported" to true,
-            "bassBoostSupported"   to true,
-            "reverbSupported"      to true
-        ))
     }
-    "setSpatialEnabled" -> {
-        val enabled = call.argument<Boolean>("enabled") ?: false
-        val strength = call.argument<Int>("strength") ?: 1000
-        // Panggil service.handle – dia akan menyelesaikan result
-        service.handle(
-            MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
-            result
-        )
-        if (enabled) {
-            service.handle(
-                MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
-                result
-            )
-        }
-        // JANGAN panggil result.success(null) di sini!
-    }
-    "setBassBoost" -> {
-        val strength = call.argument<Int>("strength") ?: 0
-        service.handle(
-            MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
-            result
-        )
-        service.handle(
-            MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
-            result
-        )
-        // JANGAN panggil result.success(null) di sini!
-    }
-    "setReverb" -> {
-        val preset = call.argument<Int>("preset") ?: 0
-        service.handle(
-            MethodCall("setReverbPreset", mapOf("preset" to preset)),
-            result
-        )
-        // JANGAN panggil result.success(null) di sini!
-    }
-    "setAudioOutputMode" -> {
-        // Tidak pakai service.handle → perlu result.success
-        result.success(null)
-    }
-    else -> result.notImplemented()
-}
-        }
-}
-
-    
 
     // ── ReplayGain tag reader ──────────────────────────────────────────────────
 
     private fun getReplayGainTags(path: String): Map<String, String?> {
-    if (path.isBlank()) return emptyMap()
-    val file = File(path)
-    if (!file.exists()) return emptyMap()
+        if (path.isBlank()) return emptyMap()
+        val file = File(path)
+        if (!file.exists()) return emptyMap()
 
-    try {
-        val af = org.jaudiotagger.audio.AudioFileIO.read(file)
-        val tag = af?.tag
-        if (tag != null) {
-            val result = mutableMapOf<String, String?>()
-            result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
-            result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
-            result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
-            result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
-            result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
-                ?: readCustomTag(tag, "r128_track_gain")
-            result["r128AlbumGain"] = readCustomTag(tag, "R128_ALBUM_GAIN")
-                ?: readCustomTag(tag, "r128_album_gain")
-            result["iTunNORM"] = readCustomTag(tag, "iTunNORM")
+        try {
+            val af = org.jaudiotagger.audio.AudioFileIO.read(file)
+            val tag = af?.tag
+            if (tag != null) {
+                val result = mutableMapOf<String, String?>()
+                result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
+                result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
+                result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
+                result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
+                result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
+                    ?: readCustomTag(tag, "r128_track_gain")
+                result["r128AlbumGain"] = readCustomTag(tag, "R128_ALBUM_GAIN")
+                    ?: readCustomTag(tag, "r128_album_gain")
+                result["iTunNORM"] = readCustomTag(tag, "iTunNORM")
 
-            // Jika ada nilai yang terbaca, kembalikan
-            if (result.values.any { it != null }) return result
+                if (result.values.any { it != null }) return result
+            }
+        } catch (_: Exception) {
+            // fallback ke default
         }
-    } catch (_: Exception) {
-        // Ignore — fallback ke default di bawah
-    }
 
-    // Fallback default: selalu kembalikan nilai default jika tidak ada data
-    return mapOf(
-        "replayGainTrackGain" to "0.0 dB",
-        "replayGainTrackPeak" to "1.0",
-        "replayGainAlbumGain" to "0.0 dB",
-        "replayGainAlbumPeak" to "1.0",
-        "r128TrackGain"       to "0.0",
-        "r128AlbumGain"       to "0.0",
-        "iTunNORM"            to "0.0"
-    )
-}
-        } catch (_: Exception) {}
-
-        return try {
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(path)
-            retriever.release()
-            emptyMap()
-        } catch (_: Exception) { emptyMap() }
+        return mapOf(
+            "replayGainTrackGain" to "0.0 dB",
+            "replayGainTrackPeak" to "1.0",
+            "replayGainAlbumGain" to "0.0 dB",
+            "replayGainAlbumPeak" to "1.0",
+            "r128TrackGain" to "0.0",
+            "r128AlbumGain" to "0.0",
+            "iTunNORM" to "0.0"
+        )
     }
 
     private fun readCustomTag(tag: org.jaudiotagger.tag.Tag, key: String): String? {
@@ -255,7 +235,7 @@ class MainActivity : FlutterActivity() {
     ): String? {
         return try {
             val frames = tag.getFrame("TXXX") ?: return null
-            val list   = if (frames is List<*>) frames else listOf(frames)
+            val list = if (frames is List<*>) frames else listOf(frames)
             for (frame in list) {
                 val f = frame as? org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX ?: continue
                 if (f.description.equals(description, ignoreCase = true)) {
@@ -271,20 +251,19 @@ class MainActivity : FlutterActivity() {
     private fun getEmbeddedLyrics(path: String): String? {
         if (path.isBlank()) return null
         return try {
-            val file      = File(path)
+            val file = File(path)
             if (!file.exists()) return null
             val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-            val tag       = audioFile?.tag ?: return null
-            val lyrics    = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)
+            val tag = audioFile?.tag ?: return null
+            val lyrics = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)
             if (!lyrics.isNullOrBlank()) return lyrics.trim()
-            val comment   = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
+            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
             if (!comment.isNullOrBlank() && comment.contains('\n')) return comment.trim()
             null
         } catch (_: Exception) { null }
     }
 
     override fun onDestroy() {
-    
         super.onDestroy()
     }
 
@@ -301,10 +280,10 @@ class MainActivity : FlutterActivity() {
 
     private fun getArtwork(songId: Int): ByteArray? {
         return try {
-            val uri      = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
+            val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(this, uri)
-            val artwork  = retriever.embeddedPicture
+            val artwork = retriever.embeddedPicture
             retriever.release()
             artwork
         } catch (_: Exception) { null }
@@ -321,10 +300,10 @@ class MainActivity : FlutterActivity() {
                 retriever.setDataSource(this, uri)
             }
             mapOf(
-                "year"       to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
-                "bitrate"    to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
+                "year" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
+                "bitrate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
                 "sampleRate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE),
-                "fileSize"   to getFileSize(path),
+                "fileSize" to getFileSize(path),
             )
         } catch (_: Exception) { emptyMap() } finally { retriever.release() }
     }
@@ -337,7 +316,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getSongs(): List<Map<String, Any?>> {
         if (!hasMediaPermission()) return emptyList()
-        val songs      = mutableListOf<Map<String, Any?>>()
+        val songs = mutableListOf<Map<String, Any?>>()
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -354,24 +333,26 @@ class MainActivity : FlutterActivity() {
             null,
             "${MediaStore.Audio.Media.TITLE} ASC",
         )?.use { cursor ->
-            val idCol      = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val pathCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val durCol     = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             while (cursor.moveToNext()) {
                 val albumId = cursor.getInt(albumIdCol)
-                songs.add(mapOf(
-                    "id"         to cursor.getLong(idCol).toInt(),
-                    "title"      to cursor.getString(titleCol),
-                    "artist"     to (cursor.getString(artistCol) ?: "Unknown Artist"),
-                    "album"      to (cursor.getString(albumCol)  ?: "Unknown Album"),
-                    "albumId"    to albumId,
-                    "path"       to cursor.getString(pathCol),
-                    "duration"   to cursor.getLong(durCol),
-                ))
+                songs.add(
+                    mapOf(
+                        "id" to cursor.getLong(idCol).toInt(),
+                        "title" to cursor.getString(titleCol),
+                        "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
+                        "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
+                        "albumId" to albumId,
+                        "path" to cursor.getString(pathCol),
+                        "duration" to cursor.getLong(durCol),
+                    )
+                )
             }
         }
         return songs
