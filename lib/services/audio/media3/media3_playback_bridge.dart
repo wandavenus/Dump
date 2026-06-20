@@ -41,61 +41,68 @@ class Media3PlaybackBridge {
 
   // ── Streams ────────────────────────────────────────────────────────────────
 
-  static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
-      _playbackStateEvents
-          .receiveBroadcastStream()
-          .where((e) => e is Map)
-          .cast<Map<dynamic, dynamic>>();
+  static final Stream<Map<dynamic, dynamic>> playbackStateStream =
+    _playbackStateEvents
+        .receiveBroadcastStream()
+        .where((e) => e is Map)
+        .cast<Map<dynamic, dynamic>>()
+        .asBroadcastStream();
 
-  static Stream<Duration> get positionStream => _positionEvents
-      .receiveBroadcastStream()
-      .where((e) => e is num)
-      .map((e) => Duration(milliseconds: (e as num).toInt()));
+static final Stream<Duration> positionStream = _positionEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => Duration(milliseconds: (e as num).toInt()))
+    .asBroadcastStream();
 
-  static Stream<Duration> get durationStream => _durationEvents
-      .receiveBroadcastStream()
-      .where((e) => e is num)
-      .map((e) => Duration(milliseconds: (e as num).toInt()));
+static final Stream<Duration> durationStream = _durationEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => Duration(milliseconds: (e as num).toInt()))
+    .asBroadcastStream();
 
-  static Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
-      _currentTrackEvents
-          .receiveBroadcastStream()
-          .where((e) => e == null || e is Map)
-          .cast<Map<dynamic, dynamic>?>();
+static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
+    _currentTrackEvents
+        .receiveBroadcastStream()
+        .where((e) => e == null || e is Map)
+        .cast<Map<dynamic, dynamic>?>()
+        .asBroadcastStream();
 
-  static Stream<List<dynamic>> get queueStream => _queueEvents
-      .receiveBroadcastStream()
-      .where((e) => e is List)
-      .cast<List<dynamic>>();
+static final Stream<List<dynamic>> queueStream = _queueEvents
+    .receiveBroadcastStream()
+    .where((e) => e is List)
+    .cast<List<dynamic>>()
+    .asBroadcastStream();
 
-  static Stream<bool> get bufferingStateStream => _bufferingStateEvents
-      .receiveBroadcastStream()
-      .where((e) => e is bool)
-      .cast<bool>();
+static final Stream<bool> bufferingStateStream = _bufferingStateEvents
+    .receiveBroadcastStream()
+    .where((e) => e is bool)
+    .cast<bool>()
+    .asBroadcastStream();
 
-  static Stream<int> get audioSessionIdStream => _audioSessionIdEvents
-      .receiveBroadcastStream()
-      .where((e) => e is num)
-      .map((e) => (e as num).toInt());
+static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => (e as num).toInt())
+    .asBroadcastStream();
 
-  /// `true` when shuffle is on, `false` when off.
-  static Stream<bool> get shuffleModeStream => _shuffleModeEvents
-      .receiveBroadcastStream()
-      .where((e) => e is bool)
-      .cast<bool>();
+static final Stream<bool> shuffleModeStream = _shuffleModeEvents
+    .receiveBroadcastStream()
+    .where((e) => e is bool)
+    .cast<bool>()
+    .asBroadcastStream();
 
-  /// `"off"`, `"one"`, or `"all"`.
-  static Stream<String> get repeatModeStream => _repeatModeEvents
-      .receiveBroadcastStream()
-      .where((e) => e is String)
-      .cast<String>();
+static final Stream<String> repeatModeStream = _repeatModeEvents
+    .receiveBroadcastStream()
+    .where((e) => e is String)
+    .cast<String>()
+    .asBroadcastStream();
 
-  /// `{active: bool, endOfSong: bool, remainingMs: int}`
-  static Stream<Map<dynamic, dynamic>> get sleepTimerStream => _sleepTimerEvents
-      .receiveBroadcastStream()
-      .where((e) => e is Map)
-      .cast<Map<dynamic, dynamic>>();
-
+static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
+    _sleepTimerEvents
+        .receiveBroadcastStream()
+        .where((e) => e is Map)
+        .cast<Map<dynamic, dynamic>>()
+        .asBroadcastStream();
   // ── Internal invoke with retry ─────────────────────────────────────────────
   //
   // MIUI 12 / Android 11: the native service starts asynchronously.
