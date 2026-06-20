@@ -87,7 +87,7 @@ class _FirstPageState extends State<FirstPage> {
                         );
 
                         return Transform.translate(
-                          offset: Offset(0, 55 * progress),
+                          offset: Offset(0, 70 * progress),
                           
                             child: isGlass ? GlassNavBar(child: column) : column,
                           
