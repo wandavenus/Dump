@@ -234,8 +234,13 @@ class Media3PlaybackService : MediaSessionService() {
             ACTION_STOP -> {
     nativeLog("info", "transport: stop (notification/BT)")
 
-    player?.stop()
-    player?.clearMediaItems()
+    cancelCrossfade(resetVolume = true)
+
+    primaryPlayer?.stop()
+    secondaryPlayer?.stop()
+
+    primaryPlayer?.clearMediaItems()
+    secondaryPlayer?.clearMediaItems()
 
     stopPositionTicker()
     abandonAudioFocus()
