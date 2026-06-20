@@ -1002,22 +1002,27 @@ emitAll()
     val index = call.argument<Number>("index")?.toInt() ?: run { result.success(null); return }
     if (index !in queue.indices) { result.success(null); return }
     
-    // update list native kita dulu
     val mutable = queue.toMutableList()
     mutable.removeAt(index)
     queue = mutable
     
-    // GANTI BAGIAN INI:
-    // Cuma eksekusi removeMediaItem kalo crossfade lagi ga jalan
+    // Sesuaikan activeQueueIndex jika item yang dihapus berada sebelum indeks aktif
+    if (index < activeQueueIndex) {
+        activeQueueIndex--
+    } else if (index == activeQueueIndex && queue.isNotEmpty()) {
+        // item aktif dihapus, item berikutnya bergeser ke indeks yang sama → tidak perlu ubah
+    } else if (queue.isEmpty()) {
+        activeQueueIndex = 0
+    }
+    // Pastikan indeks tetap dalam batas
+    if (activeQueueIndex >= queue.size) {
+        activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
+    }
+    
     if (!crossfadeInProgress) {
         p.removeMediaItem(index)
     } else {
         nativeLog("warn", "skip removeMediaItem ke exoplayer, lagi crossfade beb")
-    }
-
-    // Keep activeQueueIndex in bounds
-    if (activeQueueIndex >= queue.size) {
-        activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
     }
     
     if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
@@ -1026,7 +1031,6 @@ emitAll()
     nativeLog("info", "removeFromQueue: idx=$index remaining=${queue.size}")
     result.success(null)
 }
-
 
             "reorderQueue" -> {
     val oldIndex = call.argument<Number>("oldIndex")?.toInt() ?: run { result.success(null); return }
@@ -1548,52 +1552,50 @@ emitAll()
     }
 
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer) {
-        crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
-        val durationMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(100L)
-        val steps      = 100
-        val stepMs     = (durationMs / steps).coerceAtLeast(8L)
-        val targetVol  = volumeBeforeDuck.coerceIn(0f, 1f)
-        var step       = 0
+    crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
+    val durationMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(100L)
+    val steps      = 100
+    val stepMs     = (durationMs / steps).coerceAtLeast(8L)
+    val targetVol  = volumeBeforeDuck.coerceIn(0f, 1f)
+    var step       = 0
 
-        val runnable = object : Runnable {
-            override fun run() {
-                if (activePlayer !== newPlayer) {
-                    crossfadeInProgress = false
-                    promotionTriggered  = false
-                    promotionOwner      = null
-                    crossfadeFadeRunnable = null
-                    nativeLog("warn", "Crossfade cancelled — player switched")
-                    return
-                }
-                if (step >= steps) {
-                    newPlayer.volume = targetVol
-                    try { oldPlayer.pause() }           catch (_: Exception) {}
-                    try { oldPlayer.stop() }            catch (_: Exception) {}
-                    try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
-                    restoreQueueOnActivePlayer(newPlayer)
-                    crossfadeInProgress   = false
-                    promotionTriggered    = false
-                    promotionOwner        = null
-                    crossfadeFadeRunnable = null
-                    preloadedQueueIndex   = C.INDEX_UNSET
-                    saveQueueToPrefs()
-                    nativeLog("debug", "Crossfade completed")
-                    preloadNextTrack(force = true)
-                    return
-                }
-                val progress = step.toFloat() / steps.toFloat()
-
-oldPlayer.volume =
-    (targetVol * sqrt(1f - progress)).coerceIn(0f, 1f)
-
-newPlayer.volume =
-    (targetVol * sqrt(progress)).coerceIn(0f, 1f)
+    val runnable = object : Runnable {
+        override fun run() {
+            if (activePlayer !== newPlayer) {
+                crossfadeInProgress = false
+                promotionTriggered  = false
+                promotionOwner      = null
+                crossfadeFadeRunnable = null
+                nativeLog("warn", "Crossfade cancelled — player switched")
+                return
             }
+            if (step >= steps) {
+                newPlayer.volume = targetVol
+                try { oldPlayer.pause() }           catch (_: Exception) {}
+                try { oldPlayer.stop() }            catch (_: Exception) {}
+                try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
+                restoreQueueOnActivePlayer(newPlayer)
+                crossfadeInProgress   = false
+                promotionTriggered    = false
+                promotionOwner        = null
+                crossfadeFadeRunnable = null
+                preloadedQueueIndex   = C.INDEX_UNSET
+                saveQueueToPrefs()
+                nativeLog("debug", "Crossfade completed")
+                preloadNextTrack(force = true)
+                return
+            }
+            val progress = step.toFloat() / steps.toFloat()
+            oldPlayer.volume = (targetVol * sqrt(1f - progress)).coerceIn(0f, 1f)
+            newPlayer.volume = (targetVol * sqrt(progress)).coerceIn(0f, 1f)
+            step++
+            handler.postDelayed(this, stepMs)
         }
-        crossfadeFadeRunnable = runnable
-        handler.post(runnable)
-        nativeLog("debug", "Crossfade fade-in started (${durationMs}ms, $steps steps)")
     }
+    crossfadeFadeRunnable = runnable
+    handler.post(runnable)
+    nativeLog("debug", "Crossfade fade-in started (${durationMs}ms, $steps steps)")
+}
 
     // ── Utilities ──────────────────────────────────────────────────────────────
 
