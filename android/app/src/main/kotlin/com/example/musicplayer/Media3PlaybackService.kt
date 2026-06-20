@@ -1515,7 +1515,7 @@ emitAll()
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val durationMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(100L)
-        val steps      = 25
+        val steps      = 100
         val stepMs     = (durationMs / steps).coerceAtLeast(8L)
         val targetVol  = volumeBeforeDuck.coerceIn(0f, 1f)
         var step       = 0
