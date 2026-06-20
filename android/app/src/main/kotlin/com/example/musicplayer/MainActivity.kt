@@ -186,38 +186,43 @@ class MainActivity : FlutterActivity() {
     // ── ReplayGain tag reader ──────────────────────────────────────────────────
 
     private fun getReplayGainTags(path: String): Map<String, String?> {
-        if (path.isBlank()) return emptyMap()
-        val file = File(path)
-        if (!file.exists()) return emptyMap()
+    if (path.isBlank()) return emptyMap()
+    val file = File(path)
+    if (!file.exists()) return emptyMap()
 
-        try {
-            val af  = org.jaudiotagger.audio.AudioFileIO.read(file)
-            val tag = af?.tag
-            if (tag != null) {
-                val result = mutableMapOf<String, String?>()
-                result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
-                result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
-                result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
-                result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
-                result["r128TrackGain"]        = readCustomTag(tag, "R128_TRACK_GAIN")
-                    ?: readCustomTag(tag, "r128_track_gain")
-                result["r128AlbumGain"]        = readCustomTag(tag, "R128_ALBUM_GAIN")
-                    ?: readCustomTag(tag, "r128_album_gain")
-                result["iTunNORM"]             = readCustomTag(tag, "iTunNORM")
-                // Jika ada nilai yang terbaca, kembalikan
-if (result.values.any { it != null }) return result
+    try {
+        val af = org.jaudiotagger.audio.AudioFileIO.read(file)
+        val tag = af?.tag
+        if (tag != null) {
+            val result = mutableMapOf<String, String?>()
+            result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
+            result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
+            result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
+            result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
+            result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
+                ?: readCustomTag(tag, "r128_track_gain")
+            result["r128AlbumGain"] = readCustomTag(tag, "R128_ALBUM_GAIN")
+                ?: readCustomTag(tag, "r128_album_gain")
+            result["iTunNORM"] = readCustomTag(tag, "iTunNORM")
 
-// Fallback: beri nilai default 0.0 dB untuk semua field
-return mapOf(
-    "replayGainTrackGain" to "0.0 dB",
-    "replayGainTrackPeak" to "1.0",
-    "replayGainAlbumGain" to "0.0 dB",
-    "replayGainAlbumPeak" to "1.0",
-    "r128TrackGain"       to "0.0",
-    "r128AlbumGain"       to "0.0",
-    "iTunNORM"            to "0.0"
-)
-            }
+            // Jika ada nilai yang terbaca, kembalikan
+            if (result.values.any { it != null }) return result
+        }
+    } catch (_: Exception) {
+        // Ignore — fallback ke default di bawah
+    }
+
+    // Fallback default: selalu kembalikan nilai default jika tidak ada data
+    return mapOf(
+        "replayGainTrackGain" to "0.0 dB",
+        "replayGainTrackPeak" to "1.0",
+        "replayGainAlbumGain" to "0.0 dB",
+        "replayGainAlbumPeak" to "1.0",
+        "r128TrackGain"       to "0.0",
+        "r128AlbumGain"       to "0.0",
+        "iTunNORM"            to "0.0"
+    )
+}
         } catch (_: Exception) {}
 
         return try {
