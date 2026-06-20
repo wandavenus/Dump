@@ -232,15 +232,24 @@ class Media3PlaybackService : MediaSessionService() {
                 refreshNotification()
             }
             ACTION_STOP -> {
-                nativeLog("info", "transport: stop (notification/BT)")
-                player?.pause()
-                player?.seekTo(0)
-                stopPositionTicker()
-                abandonAudioFocus()
-                isForeground = false
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                emitAll()
-            }
+    nativeLog("info", "transport: stop (notification/BT)")
+
+    player?.stop()
+    player?.clearMediaItems()
+
+    stopPositionTicker()
+    abandonAudioFocus()
+
+    isForeground = false
+    stopForeground(STOP_FOREGROUND_REMOVE)
+
+    getSystemService(NotificationManager::class.java)
+        ?.cancel(NOTIFICATION_ID)
+
+    emitAll(emitQueue = true)
+
+    stopSelf()
+}
             else -> {
                 if ((player?.mediaItemCount ?: 0) > 0) ensureMediaForeground()
             }
@@ -479,19 +488,27 @@ class Media3PlaybackService : MediaSessionService() {
                 refreshNotification()
             }
 
-            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (isActiveEvent()) {
-                    emitAll(emitQueue = true)
-                    saveQueueToPrefs()
-                }
-            }
+            override fun onShuffleModeEnabledChanged(
+    shuffleModeEnabled: Boolean
+) {
+    if (!isActiveEvent()) return
+
+    Events.emit("shuffleMode", shuffleModeEnabled)
+    saveQueueToPrefs()
+}
 
             override fun onRepeatModeChanged(repeatMode: Int) {
-                if (isActiveEvent()) {
-                    emitAll(emitQueue = true)
-                    saveQueueToPrefs()
-                }
-            }
+    if (!isActiveEvent()) return
+
+    val repeat = when (repeatMode) {
+        Player.REPEAT_MODE_ONE -> "one"
+        Player.REPEAT_MODE_ALL -> "all"
+        else -> "off"
+    }
+
+    Events.emit("repeatMode", repeat)
+    saveQueueToPrefs()
+}
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (!isActiveEvent()) return
@@ -733,8 +750,7 @@ class Media3PlaybackService : MediaSessionService() {
         Events.emit("position",       p.currentPosition.coerceAtLeast(0L))
         Events.emit("duration",       p.duration.coerceAtLeast(0L))
         Events.emit("currentTrack",   currentTrackMap())
-        Events.emit("shuffleMode",    p.shuffleModeEnabled)
-        Events.emit("repeatMode",     repeatStr)
+        
         if (emitQueue) Events.emit("queue", queue)
         Events.emit("audioSessionId", p.audioSessionId)
         emitSleepTimer()
