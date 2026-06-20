@@ -760,10 +760,14 @@ emitAll()
     }
 
     private fun cancelSleepTimer() {
-        cancelSleepTimerInternal()
-        emitSleepTimer()
-        nativeLog("info", "Sleep timer cancelled")
+    if (!sleepTimerActive) {
+        nativeLog("verbose", "cancelSleepTimer called but no active timer")
+        return
     }
+    cancelSleepTimerInternal()
+    emitSleepTimer()
+    nativeLog("info", "Sleep timer cancelled")
+}
 
     private fun emitSleepTimer() {
         val remaining = if (sleepTimerActive && !sleepEndOfSong) {
