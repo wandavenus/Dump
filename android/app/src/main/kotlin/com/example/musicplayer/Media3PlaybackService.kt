@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaStyleNotificationHelper
+import kotlin.concurrent.thread
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.IdentityHashMap
@@ -253,6 +254,7 @@ class Media3PlaybackService : MediaSessionService() {
         ?.cancel(NOTIFICATION_ID)
 
     emitAll()
+    refreshNotification()
 }
             else -> {
     if ((player?.mediaItemCount ?: 0) > 0) {
@@ -288,7 +290,11 @@ class Media3PlaybackService : MediaSessionService() {
         if (isForeground) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val p = player ?: return
-        if (p.mediaItemCount == 0) return
+        val title = if (p.mediaItemCount > 0) {
+    currentTrackMap()?.get("title") as? String ?: "Music Player"
+} else {
+    "Music Player"
+}
         ensureNotificationChannel()
 
         val sess = session
@@ -385,16 +391,27 @@ class Media3PlaybackService : MediaSessionService() {
 
         val artworkUri = t?.get("artworkUri") as? String
         if (!artworkUri.isNullOrBlank()) {
-            try {
-                val uri = Uri.parse(artworkUri)
-                if (!uri.toString().contains("/albumart/-") && !uri.toString().endsWith("/0")) {
-                    val bitmap = contentResolver.openInputStream(uri)?.use {
-                        BitmapFactory.decodeStream(it)
-                    }
-                    if (bitmap != null) builder.setLargeIcon(bitmap)
+    thread {
+        try {
+            val uri = Uri.parse(artworkUri)
+
+            if (!uri.toString().contains("/albumart/-") &&
+                !uri.toString().endsWith("/0")) {
+
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
                 }
-            } catch (_: Exception) {}
-        }
+
+                if (bitmap != null) {
+                    builder.setLargeIcon(bitmap)
+
+                    getSystemService(NotificationManager::class.java)
+                        ?.notify(NOTIFICATION_ID, builder.build())
+                }
+            }
+        } catch (_: Exception) {}
+    }
+}
 
         try {
             val notification = builder.build()
@@ -587,36 +604,62 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Queue persistence ──────────────────────────────────────────────────────
 
     private fun saveQueueToPrefs() {
-        if (queue.isEmpty()) return
+    if (queue.isEmpty()) return
+
+    thread {
         try {
             val arr = JSONArray()
+
             for (song in queue) {
                 val obj = JSONObject()
+
                 for ((k, v) in song) {
                     when (v) {
-                        null        -> obj.put(k, JSONObject.NULL)
-                        is Number   -> obj.put(k, v)
-                        is Boolean  -> obj.put(k, v)
-                        else        -> obj.put(k, v.toString())
+                        null      -> obj.put(k, JSONObject.NULL)
+                        is Number -> obj.put(k, v)
+                        is Boolean -> obj.put(k, v)
+                        else      -> obj.put(k, v.toString())
                     }
                 }
+
                 arr.put(obj)
             }
+
             val p = player
-            val idx = if (crossfadeDurationSec > 0f) activeQueueIndex
-                      else (p?.currentMediaItemIndex ?: activeQueueIndex)
-            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-                .putString(KEY_QUEUE,       arr.toString())
-                .putInt(KEY_INDEX,          idx.coerceIn(0, (queue.size - 1).coerceAtLeast(0)))
-                .putLong(KEY_POS_MS,        p?.currentPosition?.coerceAtLeast(0L) ?: 0L)
-                .putInt(KEY_REPEAT_MODE,    p?.repeatMode ?: Player.REPEAT_MODE_OFF)
-                .putBoolean(KEY_SHUFFLE,    p?.shuffleModeEnabled ?: false)
+            val idx = if (crossfadeDurationSec > 0f)
+                activeQueueIndex
+            else
+                (p?.currentMediaItemIndex ?: activeQueueIndex)
+
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_QUEUE, arr.toString())
+                .putInt(
+                    KEY_INDEX,
+                    idx.coerceIn(
+                        0,
+                        (queue.size - 1).coerceAtLeast(0)
+                    )
+                )
+                .putLong(
+                    KEY_POS_MS,
+                    p?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                )
+                .putInt(
+                    KEY_REPEAT_MODE,
+                    p?.repeatMode ?: Player.REPEAT_MODE_OFF
+                )
+                .putBoolean(
+                    KEY_SHUFFLE,
+                    p?.shuffleModeEnabled ?: false
+                )
                 .apply()
+
         } catch (e: Exception) {
             nativeLog("warn", "saveQueueToPrefs: ${e.message}")
         }
     }
-
+}
     private fun restoreQueueFromPrefs() {
         try {
             val prefs    = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
