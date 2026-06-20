@@ -1479,25 +1479,26 @@ emitAll()
     }
 
     private fun maybeCrossfadeOut() {
-        if (crossfadeDurationSec <= 0f || promotionTriggered || crossfadeInProgress) return
-        val p   = player ?: return
-        val dur = p.duration
-        if (dur <= 0L || dur == Long.MIN_VALUE || dur == C.TIME_UNSET) return
-        if (!p.hasNextMediaItem()) return
+    if (crossfadeDurationSec <= 0f || promotionTriggered || crossfadeInProgress) return
+    val p   = player ?: return
+    val dur = p.duration
+    if (dur <= 0L || dur == Long.MIN_VALUE || dur == C.TIME_UNSET) return
+    if (!p.hasNextMediaItem()) return
 
-        preloadNextTrack()
-        val standby = standbyPlayer() ?: return
-        if (standby.mediaItemCount == 0) return
+    preloadNextTrack()
+    val standby = standbyPlayer() ?: return
+    if (standby.mediaItemCount == 0) return
 
-       val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
-       val triggerMs = crossMs
-       val remaining = dur - p.currentPosition
+    val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
+    val bufferMs  = 1000L // buffer 1 detik agar fade selesai sebelum lagu lama berakhir
+    val triggerMs = crossMs + bufferMs
+    val remaining = dur - p.currentPosition
 
-       if (remaining in 1L..triggerMs) {
-       nativeLog("info", "Triggering crossfade at ${remaining}ms remaining")
-       promoteSecondaryPlayer()
-      }
+    if (remaining in 1L..triggerMs) {
+        nativeLog("info", "Triggering crossfade at ${remaining}ms remaining (buffer=${bufferMs}ms)")
+        promoteSecondaryPlayer()
     }
+}
 
     private fun promoteSecondaryPlayer() {
         if (crossfadeInProgress) return
