@@ -1595,15 +1595,12 @@ emitAll()
         }
 
         fun emit(level: String, category: String, message: String) {
-    
-        sink?.success(
-            mapOf(
-                "level" to level,
-                "category" to category,
-                "message" to message
-            )
+    sink?.success(
+        mapOf(
+            "level" to level,
+            "category" to category,
+            "message" to message
         )
-    }
-
-    }
+    )
+}
 }
