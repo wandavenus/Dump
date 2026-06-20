@@ -204,7 +204,19 @@ class MainActivity : FlutterActivity() {
                 result["r128AlbumGain"]        = readCustomTag(tag, "R128_ALBUM_GAIN")
                     ?: readCustomTag(tag, "r128_album_gain")
                 result["iTunNORM"]             = readCustomTag(tag, "iTunNORM")
-                if (result.values.any { it != null }) return result
+                // Jika ada nilai yang terbaca, kembalikan
+if (result.values.any { it != null }) return result
+
+// Fallback: beri nilai default 0.0 dB untuk semua field
+return mapOf(
+    "replayGainTrackGain" to "0.0 dB",
+    "replayGainTrackPeak" to "1.0",
+    "replayGainAlbumGain" to "0.0 dB",
+    "replayGainAlbumPeak" to "1.0",
+    "r128TrackGain"       to "0.0",
+    "r128AlbumGain"       to "0.0",
+    "iTunNORM"            to "0.0"
+)
             }
         } catch (_: Exception) {}
 
@@ -262,17 +274,6 @@ class MainActivity : FlutterActivity() {
             if (!comment.isNullOrBlank() && comment.contains('\n')) return comment.trim()
             null
         } catch (_: Exception) { null }
-    }
-
-    // ── Release ────────────────────────────────────────────────────────────────
-
-    private fun releaseEffects() {
-        try { virtualizer?.release()  } catch (_: Exception) {}
-        try { bassBoost?.release()    } catch (_: Exception) {}
-        try { presetReverb?.release() } catch (_: Exception) {}
-        virtualizer  = null
-        bassBoost    = null
-        presetReverb = null
     }
 
     override fun onDestroy() {
