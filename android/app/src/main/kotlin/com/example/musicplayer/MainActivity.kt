@@ -4,12 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
 import android.media.MediaMetadataRetriever
-import android.media.audiofx.AudioEffect
-import android.media.audiofx.BassBoost
-import android.media.audiofx.PresetReverb
-import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -41,18 +36,6 @@ class MainActivity : FlutterActivity() {
     private fun setupMedia3PlaybackChannels(flutterEngine: FlutterEngine) {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        // Start the service eagerly — Android 11 requires startForeground() within 5 s
-        // of startForegroundService(). We start here so the service has time to call
-        // ensureMediaForeground() before any MethodChannel calls arrive.
-        // Do NOT call startForegroundService() again inside the handler.
-      /*  val intent = Intent(this, Media3PlaybackService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ContextCompat.startForegroundService(this, intent)
-        } else {
-            startService(intent)
-        } */
-
-        // MethodChannel: all playback commands → Media3PlaybackService.handle()
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
 
     val needsService = call.method in setOf(
@@ -198,120 +181,7 @@ class MainActivity : FlutterActivity() {
         }
 }
 
-    // ── attachEffects (Activity-side, legacy compat) ───────────────────────────
-
-    private fun attachEffects(sessionId: Int): Map<String, Boolean> {
-        if (sessionId == 0) return emptyMap()
-        if (sessionId == currentSessionId) {
-            return mapOf(
-                "virtualizerSupported" to (virtualizer  != null),
-                "bassBoostSupported"   to (bassBoost    != null),
-                "reverbSupported"      to (presetReverb != null),
-            )
-        }
-        currentSessionId = sessionId
-        releaseEffects()
-
-        val virt   = tryCreateVirtualizer(sessionId)
-        val bass   = tryCreateBassBoost(sessionId)
-        val reverb = tryCreateReverb(sessionId)
-
-        virtualizer  = virt
-        bassBoost    = bass
-        presetReverb = reverb
-
-        return mapOf(
-            "virtualizerSupported" to (virt   != null),
-            "bassBoostSupported"   to (bass   != null),
-            "reverbSupported"      to (reverb != null),
-        )
-    }
-
-    private fun tryCreateVirtualizer(sessionId: Int): Virtualizer? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) return null
-        return try { Virtualizer(0, sessionId).apply { enabled = false } }
-        catch (_: Exception) { null }
-    }
-
-    private fun tryCreateBassBoost(sessionId: Int): BassBoost? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_BASS_BOOST)) return null
-        return try { BassBoost(0, sessionId).apply { setStrength(0); enabled = false } }
-        catch (_: Exception) { null }
-    }
-
-    private fun tryCreateReverb(sessionId: Int): PresetReverb? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) return null
-        return try { PresetReverb(0, sessionId).apply { preset = PresetReverb.PRESET_NONE; enabled = false } }
-        catch (_: Exception) { null }
-    }
-
-    private fun isEffectTypeSupported(type: java.util.UUID): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return true
-        return try { AudioEffect.queryEffects()?.any { it.type == type } ?: false }
-        catch (_: Exception) { false }
-    }
-
-    private fun setSpatialEnabled(enabled: Boolean, strength: Short) {
-        try {
-            virtualizer?.run {
-                if (enabled && virtualizer != null) {
-                    setStrength(strength.coerceIn(0, 1000))
-                    this.enabled = true
-                } else {
-                    this.enabled = false
-                }
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun setBassBoost(strength: Short) {
-        try { bassBoost?.run { setStrength(strength); this.enabled = strength > 0 } }
-        catch (_: Exception) {}
-    }
-
-    private fun setReverb(preset: Short) {
-        try {
-            presetReverb?.run {
-                this.preset = when (preset.toInt()) {
-                    1 -> PresetReverb.PRESET_SMALLROOM
-                    2 -> PresetReverb.PRESET_MEDIUMROOM
-                    3 -> PresetReverb.PRESET_LARGEROOM
-                    4 -> PresetReverb.PRESET_MEDIUMHALL
-                    5 -> PresetReverb.PRESET_LARGEHALL
-                    6 -> PresetReverb.PRESET_PLATE
-                    else -> PresetReverb.PRESET_NONE
-                }
-                this.enabled = preset.toInt() > 0
-            }
-        } catch (_: Exception) {}
-    }
-
-    // ── Audio output mode (Hi-Res) ─────────────────────────────────────────────
-    //  0 = Auto/AAudio  1 = OpenSL ES  2 = Hi-Res Audio
-
-    private fun setAudioOutputMode(mode: Int) {
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        enableHiRes(am, mode == 2)
-    }
-
-    private fun enableHiRes(am: AudioManager, enable: Boolean) {
-        val onOff = if (enable) "on" else "off"
-        try { am.setParameters("hifi_audio=$onOff") }               catch (_: Exception) {}
-        try { am.setParameters("high_resolution_audio=$onOff") }    catch (_: Exception) {}
-        try { am.setParameters("hifi_enable=$onOff") }              catch (_: Exception) {}
-        try {
-            val action = if (enable) "miui.intent.action.ACTION_HEADSET_HIFI_ENABLE"
-                         else        "miui.intent.action.ACTION_HEADSET_HIFI_DISABLE"
-            sendBroadcast(Intent(action).apply { setPackage("com.android.phone") })
-        } catch (_: Exception) {}
-        try {
-            android.provider.Settings.System.putString(
-                contentResolver, "hifi_audio", if (enable) "1" else "0"
-            )
-        } catch (_: Exception) {}
-        try { am.setParameters("audio_qoe_enable=$onOff") }         catch (_: Exception) {}
-        try { am.setParameters("hi_res_audio_enabled=$onOff") }     catch (_: Exception) {}
-    }
+    
 
     // ── ReplayGain tag reader ──────────────────────────────────────────────────
 
