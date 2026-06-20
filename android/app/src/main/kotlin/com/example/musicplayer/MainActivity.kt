@@ -60,8 +60,21 @@ class MainActivity : FlutterActivity() {
 
         // MethodChannel: all playback commands → Media3PlaybackService.handle()
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
-            Media3PlaybackService.instance?.handle(call, result)
-                ?: result.error("not_ready", "Media3 service is starting", null)
+
+    if (Media3PlaybackService.instance == null) {
+        val intent = Intent(this, Media3PlaybackService::class.java)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ContextCompat.startForegroundService(this, intent)
+        } else {
+            startService(intent)
+        }
+
+        result.error("not_ready", "Media3 service is starting", null)
+        return@setMethodCallHandler
+    }
+
+    Media3PlaybackService.instance!!.handle(call, result)
         }
 
         // EventChannels — standard playback state
