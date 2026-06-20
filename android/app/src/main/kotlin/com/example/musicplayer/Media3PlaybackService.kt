@@ -236,28 +236,29 @@ class Media3PlaybackService : MediaSessionService() {
 
     cancelCrossfade(resetVolume = true)
 
-    primaryPlayer?.stop()
-    secondaryPlayer?.stop()
+    primaryPlayer?.pause()
+    secondaryPlayer?.pause()
 
-    primaryPlayer?.clearMediaItems()
-    secondaryPlayer?.clearMediaItems()
+    primaryPlayer?.seekTo(0)
+    secondaryPlayer?.seekTo(0)
 
     stopPositionTicker()
     abandonAudioFocus()
 
     isForeground = false
+
     stopForeground(STOP_FOREGROUND_REMOVE)
 
     getSystemService(NotificationManager::class.java)
         ?.cancel(NOTIFICATION_ID)
 
-    emitAll(emitQueue = true)
-
-    stopSelf()
+    emitAll()
 }
             else -> {
-                if ((player?.mediaItemCount ?: 0) > 0) ensureMediaForeground()
-            }
+    if (isForeground && (primaryPlayer?.mediaItemCount ?: 0) > 0) {
+        ensureMediaForeground()
+    }
+}
         }
         return START_STICKY
     }
@@ -287,7 +288,7 @@ class Media3PlaybackService : MediaSessionService() {
         if (isForeground) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val p = player ?: return
-
+        if (p.mediaItemCount == 0) return
         ensureNotificationChannel()
 
         val sess = session
