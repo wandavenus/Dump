@@ -901,23 +901,68 @@ emitAll()
                 result.success(null)
             }
 
-            "skipNext" -> {
-                cancelSleepTimer()  
-                cancelCrossfade(resetVolume = true)
-                clearStandbyQueue()
-                p.seekToNextMediaItem()
-                nativeLog("verbose", "skipNext")
-                result.success(null)
-            }
-
             "skipPrevious" -> {
-                cancelSleepTimer()  
-                cancelCrossfade(resetVolume = true)
-                clearStandbyQueue()
-                p.seekToPreviousMediaItem()
-                nativeLog("verbose", "skipPrevious")
-                result.success(null)
+    cancelSleepTimer()
+    cancelCrossfade(resetVolume = true)
+    clearStandbyQueue()
+    
+    // Jika player sudah di STATE_ENDED, set ke previous secara manual
+    if (p.playbackState == Player.STATE_ENDED) {
+        val prevIndex = p.previousMediaItemIndex
+        if (prevIndex != C.INDEX_UNSET) {
+            p.seekToDefaultPosition(prevIndex)
+            p.prepare()
+            // Jika tidak ada audio focus, tetap pause
+            if (!hasAudioFocus) {
+                p.pause()
             }
+            nativeLog("info", "skipPrevious (from ENDED) → index $prevIndex")
+        } else {
+            // Tidak ada previous item, restart dari awal jika queue tidak kosong
+            if (p.mediaItemCount > 0) {
+                p.seekToDefaultPosition(0)
+                p.prepare()
+                nativeLog("info", "skipPrevious (ENDED, no prev) → restart queue")
+            } else {
+                nativeLog("warn", "skipPrevious: no previous item, queue empty")
+            }
+        }
+    } else {
+        p.seekToPreviousMediaItem()
+    }
+    result.success(null)
+}
+
+"skipNext" -> {
+    cancelSleepTimer()
+    cancelCrossfade(resetVolume = true)
+    clearStandbyQueue()
+    
+    // Jika player sudah di STATE_ENDED, set ke next secara manual
+    if (p.playbackState == Player.STATE_ENDED) {
+        val nextIndex = p.nextMediaItemIndex
+        if (nextIndex != C.INDEX_UNSET) {
+            p.seekToDefaultPosition(nextIndex)
+            p.prepare()
+            if (!hasAudioFocus) {
+                p.pause()
+            }
+            nativeLog("info", "skipNext (from ENDED) → index $nextIndex")
+        } else {
+            // Tidak ada next item, restart dari awal jika queue tidak kosong
+            if (p.mediaItemCount > 0) {
+                p.seekToDefaultPosition(0)
+                p.prepare()
+                nativeLog("info", "skipNext (ENDED, no next) → restart queue")
+            } else {
+                nativeLog("warn", "skipNext: no next item, queue empty")
+            }
+        }
+    } else {
+        p.seekToNextMediaItem()
+    }
+    result.success(null)
+}
 
             // ── Queue management ─────────────────────────────────────────────────
 
