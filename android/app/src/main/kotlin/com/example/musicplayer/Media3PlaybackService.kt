@@ -1435,12 +1435,14 @@ emitAll()
         val standby = standbyPlayer() ?: return
         if (standby.mediaItemCount == 0) return
 
-        val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
-        val remaining = dur - p.currentPosition
-        if (remaining in 1L..crossMs) {
-            nativeLog("info", "Triggering crossfade at ${remaining}ms remaining")
-            promoteSecondaryPlayer()
-        }
+       val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
+       val triggerMs = crossMs + 2000L
+       val remaining = dur - p.currentPosition
+
+       if (remaining in 1L..triggerMs) {
+       nativeLog("info", "Triggering crossfade at ${remaining}ms remaining")
+       promoteSecondaryPlayer()
+      }
     }
 
     private fun promoteSecondaryPlayer() {
