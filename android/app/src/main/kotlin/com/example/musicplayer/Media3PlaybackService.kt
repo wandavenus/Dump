@@ -1490,7 +1490,7 @@ emitAll()
     if (standby.mediaItemCount == 0) return
 
     val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
-    val bufferMs  = 1000L // buffer 1 detik agar fade selesai sebelum lagu lama berakhir
+    val bufferMs  = 200L // buffer 1 detik agar fade selesai sebelum lagu lama berakhir
     val triggerMs = crossMs + bufferMs
     val remaining = dur - p.currentPosition
 
