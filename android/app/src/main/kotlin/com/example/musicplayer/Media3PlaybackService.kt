@@ -599,6 +599,17 @@ emitAll()
     private fun saveQueueToPrefs() {
     if (queue.isEmpty()) return
 
+    // ambil snapshot di main thread dulu
+    val p = player
+    val idx = if (crossfadeDurationSec > 0f)
+        activeQueueIndex
+    else
+        (p?.currentMediaItemIndex ?: activeQueueIndex)
+
+    val posMs = p?.currentPosition?.coerceAtLeast(0L) ?: 0L
+    val repeatMode = p?.repeatMode ?: Player.REPEAT_MODE_OFF
+    val shuffle = p?.shuffleModeEnabled ?: false
+
     thread {
         try {
             val arr = JSONArray()
@@ -608,48 +619,32 @@ emitAll()
 
                 for ((k, v) in song) {
                     when (v) {
-                        null      -> obj.put(k, JSONObject.NULL)
+                        null -> obj.put(k, JSONObject.NULL)
                         is Number -> obj.put(k, v)
                         is Boolean -> obj.put(k, v)
-                        else      -> obj.put(k, v.toString())
+                        else -> obj.put(k, v.toString())
                     }
                 }
 
                 arr.put(obj)
             }
 
-            val p = player
-            val idx = if (crossfadeDurationSec > 0f)
-                activeQueueIndex
-            else
-                (p?.currentMediaItemIndex ?: activeQueueIndex)
-
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_QUEUE, arr.toString())
                 .putInt(
                     KEY_INDEX,
-                    idx.coerceIn(
-                        0,
-                        (queue.size - 1).coerceAtLeast(0)
-                    )
+                    idx.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
                 )
-                .putLong(
-                    KEY_POS_MS,
-                    p?.currentPosition?.coerceAtLeast(0L) ?: 0L
-                )
-                .putInt(
-                    KEY_REPEAT_MODE,
-                    p?.repeatMode ?: Player.REPEAT_MODE_OFF
-                )
-                .putBoolean(
-                    KEY_SHUFFLE,
-                    p?.shuffleModeEnabled ?: false
-                )
+                .putLong(KEY_POS_MS, posMs)
+                .putInt(KEY_REPEAT_MODE, repeatMode)
+                .putBoolean(KEY_SHUFFLE, shuffle)
                 .apply()
 
         } catch (e: Exception) {
-            nativeLog("warn", "saveQueueToPrefs: ${e.message}")
+            handler.post {
+                nativeLog("warn", "saveQueueToPrefs: ${e.message}")
+            }
         }
     }
 }
@@ -1578,8 +1573,10 @@ emitAll()
         }
 
         fun emit(name: String, value: Any?) {
-            sinks[name]?.success(value)
-        }
+    Handler(Looper.getMainLooper()).post {
+        sinks[name]?.success(value)
+      }
+     }
     }
 
     object NativeLogs {
@@ -1591,7 +1588,15 @@ emitAll()
         }
 
         fun emit(level: String, category: String, message: String) {
-            sink?.success(mapOf("level" to level, "category" to category, "message" to message))
-        }
+    Handler(Looper.getMainLooper()).post {
+        sink?.success(
+            mapOf(
+                "level" to level,
+                "category" to category,
+                "message" to message
+            )
+        )
+    }
+}
     }
 }
