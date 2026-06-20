@@ -1580,10 +1580,10 @@ emitAll()
         }
 
         fun emit(name: String, value: Any?) {
-    Handler(Looper.getMainLooper()).post {
+    
         sinks[name]?.success(value)
       }
-     }
+     
     }
 
     object NativeLogs {
@@ -1595,7 +1595,7 @@ emitAll()
         }
 
         fun emit(level: String, category: String, message: String) {
-    Handler(Looper.getMainLooper()).post {
+    
         sink?.success(
             mapOf(
                 "level" to level,
@@ -1604,6 +1604,6 @@ emitAll()
             )
         )
     }
-}
+
     }
 }
