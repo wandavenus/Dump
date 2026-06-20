@@ -222,22 +222,23 @@ class Media3PlaybackService : MediaSessionService() {
                 }
             }
             ACTION_SKIP_NEXT -> {
-                cancelCrossfade(resetVolume = true)
-                clearStandbyQueue()
-                player?.seekToNextMediaItem()
-                nativeLog("info", "transport: skipNext (notification/BT)")
-                emitAll()
-                refreshNotification()
-            }
-            ACTION_SKIP_PREV -> {
-                cancelCrossfade(resetVolume = true)
-                clearStandbyQueue()
-                player?.seekToPreviousMediaItem()
-                nativeLog("info", "transport: skipPrev (notification/BT)")
-                emitAll()
-                refreshNotification()
-                
-            }
+    cancelSleepTimer()  // <-- tambahkan
+    cancelCrossfade(resetVolume = true)
+    clearStandbyQueue()
+    player?.seekToNextMediaItem()
+    nativeLog("info", "transport: skipNext (notification/BT)")
+    emitAll()
+    refreshNotification()
+}
+ACTION_SKIP_PREV -> {
+    cancelSleepTimer()  // <-- tambahkan
+    cancelCrossfade(resetVolume = true)
+    clearStandbyQueue()
+    player?.seekToPreviousMediaItem()
+    nativeLog("info", "transport: skipPrev (notification/BT)")
+    emitAll()
+    refreshNotification()
+}
             ACTION_STOP -> {
     nativeLog("info", "transport: stop (notification/BT)")
 
@@ -469,9 +470,7 @@ if (!artworkUri.isNullOrBlank()) {
                 if (playbackState == Player.STATE_READY && crossfadeDurationSec > 0f) {
                     preloadNextTrack()
                 }
-                if (playbackState == Player.STATE_ENDED) {
-                    checkEndOfSongSleepTimer()
-                }
+                
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -482,31 +481,34 @@ if (!artworkUri.isNullOrBlank()) {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                nativeLog("debug", "Player transition reason=$reason active=${player === activePlayer}")
-                if (player === promotionOwner && crossfadeInProgress) {
-                    nativeLog("debug", "Ignored transition from old player during promotion")
-                    return
-                }
-                if (!isActiveEvent()) return
+    nativeLog("debug", "Player transition reason=$reason active=${player === activePlayer}")
+    if (player === promotionOwner && crossfadeInProgress) {
+        nativeLog("debug", "Ignored transition from old player during promotion")
+        return
+    }
+    if (!isActiveEvent()) return
 
-                // End-of-song sleep timer: fires when ExoPlayer auto-advances.
-                // Pause immediately before the next track starts.
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && sleepEndOfSong && sleepTimerActive) {
-                    nativeLog("info", "Sleep timer (end-of-song): stopping at track boundary")
-                    handler.post { triggerSleepStop() }
-                    return
-                }
+    // Jika user mengubah lagu secara manual (bukan auto), batalkan sleep timer end-of-song
+    if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && sleepTimerActive && sleepEndOfSong) {
+        cancelSleepTimer()
+    }
 
-                if (!crossfadeInProgress && player.currentMediaItemIndex >= 0) {
-                    activeQueueIndex = player.currentMediaItemIndex
-                    promotionTriggered = false
-                    if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
-                }
-                saveQueueToPrefs()
-                emitAll()
-                refreshNotification()
-            }
+    // End-of-song sleep timer: hanya jika transisi AUTO dan mode end-of-song aktif
+    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && sleepEndOfSong && sleepTimerActive) {
+        nativeLog("info", "Sleep timer (end-of-song): stopping at track boundary")
+        handler.post { triggerSleepStop() }
+        return  // keluar agar tidak lanjut ke logika di bawah
+    }
 
+    if (!crossfadeInProgress && player.currentMediaItemIndex >= 0) {
+        activeQueueIndex = player.currentMediaItemIndex
+        promotionTriggered = false
+        if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
+    }
+    saveQueueToPrefs()
+    emitAll()
+    refreshNotification()
+}
             override fun onShuffleModeEnabledChanged(
     shuffleModeEnabled: Boolean
 ) {
@@ -579,6 +581,7 @@ emitAll()
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onDestroy() {
+        cancelCrossfade(resetVolume = true) 
         nativeLog("info", "onDestroy: releasing resources")
         saveQueueToPrefs()
         cancelSleepTimer()
@@ -730,12 +733,13 @@ emitAll()
     }
 
     private fun triggerSleepStop() {
-        nativeLog("info", "Sleep timer fired — pausing")
-        player?.pause()
-        stopPositionTicker()
-        cancelSleepTimerInternal()
-        emitAll()
-    }
+    if (!sleepTimerActive) return  // <-- tambahkan guard
+    nativeLog("info", "Sleep timer fired — pausing")
+    player?.pause()
+    stopPositionTicker()
+    cancelSleepTimerInternal()
+    emitAll()
+}
 
     private fun checkEndOfSongSleepTimer() {
         if (sleepTimerActive && sleepEndOfSong) {
@@ -897,6 +901,7 @@ emitAll()
             }
 
             "skipNext" -> {
+                cancelSleepTimer()  
                 cancelCrossfade(resetVolume = true)
                 clearStandbyQueue()
                 p.seekToNextMediaItem()
@@ -905,6 +910,7 @@ emitAll()
             }
 
             "skipPrevious" -> {
+                cancelSleepTimer()  
                 cancelCrossfade(resetVolume = true)
                 clearStandbyQueue()
                 p.seekToPreviousMediaItem()
@@ -915,6 +921,7 @@ emitAll()
             // ── Queue management ─────────────────────────────────────────────────
 
             "setQueue" -> {
+                cancelSleepTimer()  
                 @Suppress("UNCHECKED_CAST")
                 val items = call.argument<List<Map<String, Any?>>>("queue") ?: emptyList()
                 val index = call.argument<Number>("index")?.toInt() ?: 0
@@ -939,6 +946,7 @@ emitAll()
             }
 
             "setTrack" -> {
+                cancelSleepTimer()  
                 val target = (call.argument<Number>("index")?.toInt() ?: 0)
                     .coerceIn(0, (queue.size - 1).coerceAtLeast(0))
                 cancelCrossfade(resetVolume = true)
@@ -973,10 +981,6 @@ emitAll()
     emitAll(emitQueue = true)
     result.success(null)
 }
-
-
-
-
 
             "appendToQueue" -> {
     val item = call.argument<Map<String, Any>>("item") ?: run { result.success(null); return }
@@ -1379,20 +1383,31 @@ emitAll()
         else try { AudioEffect.queryEffects()?.any { it.type == type } ?: false } catch (_: Exception) { false }
 
     private fun equalizerParameters(): Map<String, Any> = try {
-        val sessionId = player?.audioSessionId ?: 0
-        val eq = equalizer ?: if (sessionId > 0) Equalizer(0, sessionId).also { equalizer = it } else null
-        if (eq == null) {
-            mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
-        } else {
-            mapOf(
-                "minDecibels" to eq.bandLevelRange[0] / 100.0,
-                "maxDecibels" to eq.bandLevelRange[1] / 100.0,
-                "bands"       to List(eq.numberOfBands.toInt()) { it },
-            )
+    val sessionId = player?.audioSessionId ?: 0
+    val eq = equalizer ?: if (sessionId > 0) {
+        // Buat temporary Equalizer hanya untuk query, jangan simpan ke field
+        Equalizer(0, sessionId).also { temp ->
+            // Kita akan release setelah selesai
         }
-    } catch (e: Exception) {
+    } else null
+
+    if (eq == null) {
         mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
+    } else {
+        val result = mapOf(
+            "minDecibels" to eq.bandLevelRange[0] / 100.0,
+            "maxDecibels" to eq.bandLevelRange[1] / 100.0,
+            "bands"       to List(eq.numberOfBands.toInt()) { it },
+        )
+        // Jika eq adalah temporary (bukan equalizer yang tersimpan), release
+        if (equalizer == null) {
+            try { eq.release() } catch (_: Exception) {}
+        }
+        result
     }
+} catch (e: Exception) {
+    mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
+}
 
     // ── Crossfade helpers ──────────────────────────────────────────────────────
 
