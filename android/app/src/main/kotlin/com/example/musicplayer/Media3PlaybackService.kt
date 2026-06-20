@@ -231,6 +231,7 @@ class Media3PlaybackService : MediaSessionService() {
                 nativeLog("info", "transport: skipPrev (notification/BT)")
                 emitAll()
                 refreshNotification()
+                
             }
             ACTION_STOP -> {
     nativeLog("info", "transport: stop (notification/BT)")
@@ -564,7 +565,7 @@ if (!artworkUri.isNullOrBlank()) {
 
      // Restore persisted queue so music continues after app restart.
 restoreQueueFromPrefs()
-
+ensureMediaForeground()
 nativeLog(
     "info",
     "onCreate: ExoPlayer ready (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
