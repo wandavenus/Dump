@@ -208,6 +208,9 @@ class Media3PlaybackService : MediaSessionService() {
                     } else {
                         if (requestAudioFocus()) {
                             p.play()
+
+                            ensureMediaForeground()
+                            
                             startPositionTicker()
                             nativeLog("info", "transport: play (notification/BT)")
                         }
@@ -565,10 +568,10 @@ if (!artworkUri.isNullOrBlank()) {
 
      // Restore persisted queue so music continues after app restart.
 restoreQueueFromPrefs()
-ensureMediaForeground()
+
 nativeLog(
     "info",
-    "onCreate: ExoPlayer ready (Android ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
+    "onCreate: ExoPlayer ready (Android SDK ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
 )
 emitAll()
     }
