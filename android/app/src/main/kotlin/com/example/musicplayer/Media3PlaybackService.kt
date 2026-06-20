@@ -1587,20 +1587,22 @@ emitAll()
     }
 
     object NativeLogs {
-        private var sink: EventChannel.EventSink? = null
+    private var sink: EventChannel.EventSink? = null
 
-        fun handler() = object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
-            override fun onCancel(arguments: Any?) { sink = null }
-        }
+    fun handler() = object : EventChannel.StreamHandler {
+        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
+        override fun onCancel(arguments: Any?) { sink = null }
+    }
 
-        fun emit(level: String, category: String, message: String) {
-    sink?.success(
-        mapOf(
-            "level" to level,
-            "category" to category,
-            "message" to message
+    fun emit(level: String, category: String, message: String) {
+        sink?.success(
+            mapOf(
+                "level" to level,
+                "category" to category,
+                "message" to message
+            )
         )
-    )
+    }
 }
+
 }
