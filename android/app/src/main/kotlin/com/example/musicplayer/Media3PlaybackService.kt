@@ -255,8 +255,8 @@ class Media3PlaybackService : MediaSessionService() {
 
     getSystemService(NotificationManager::class.java)
         ?.cancel(NOTIFICATION_ID)
-
     emitAll()
+    stopSelf()
 }
             else -> {
     if ((player?.mediaItemCount ?: 0) > 0) {
