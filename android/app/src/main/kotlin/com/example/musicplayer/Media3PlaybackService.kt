@@ -210,6 +210,7 @@ class Media3PlaybackService : MediaSessionService() {
                             p.play()
 
                             ensureMediaForeground()
+                            refreshNotification()
                             
                             startPositionTicker()
                             nativeLog("info", "transport: play (notification/BT)")
@@ -249,8 +250,6 @@ class Media3PlaybackService : MediaSessionService() {
 
     stopPositionTicker()
     abandonAudioFocus()
-
-    isForeground = false
 
     stopForeground(STOP_FOREGROUND_REMOVE)
 
@@ -859,6 +858,10 @@ emitAll()
                 val granted = requestAudioFocus()
                 if (granted) {
                     p.play()
+                  
+                    ensureMediaForeground()
+                    refreshNotification()   
+                    
                     startPositionTicker()
                     val t = currentTrackMap()
                     nativeLog("info", "play → '${t?.get("title")}' · ${t?.get("artist")} " +
