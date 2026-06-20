@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/media_store_service.dart';
 
-class SongArtwork extends StatelessWidget {
+class SongArtwork extends StatefulWidget {
   final int songId;
   final double size;
   final BorderRadius borderRadius;
@@ -19,13 +19,34 @@ class SongArtwork extends StatelessWidget {
   });
 
   @override
+  State<SongArtwork> createState() => _SongArtworkState();
+}
+
+class _SongArtworkState extends State<SongArtwork> {
+  late final Future<Uint8List?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = MediaStoreService.getArtwork(widget.songId);
+  }
+
+  @override
+  void didUpdateWidget(covariant SongArtwork oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.songId != widget.songId) {
+      _future = MediaStoreService.getArtwork(widget.songId);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-    final cacheSize = (size * pixelRatio).round();
+    final cacheSize = (widget.size * pixelRatio).round();
 
     return RepaintBoundary(
       child: FutureBuilder<Uint8List?>(
-        future: MediaStoreService.getArtwork(songId),
+        future: _future,
         builder: (context, snapshot) {
           final artwork = snapshot.data;
           if (artwork == null || artwork.isEmpty) {
@@ -33,12 +54,12 @@ class SongArtwork extends StatelessWidget {
           }
 
           return ClipRRect(
-            borderRadius: borderRadius,
+            borderRadius: widget.borderRadius,
             child: Image.memory(
               artwork,
-              width: size,
-              height: size,
-              fit: fit,
+              width: widget.size,
+              height: widget.size,
+              fit: widget.fit,
               gaplessPlayback: true,
               cacheWidth: cacheSize,
               cacheHeight: cacheSize,
@@ -53,10 +74,10 @@ class SongArtwork extends StatelessWidget {
 
   Widget _fallback() {
     return Container(
-      width: size,
-      height: size,
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
-        borderRadius: borderRadius,
+        borderRadius: widget.borderRadius,
         color: Colors.grey.shade900,
       ),
       child: const Icon(Icons.music_note),
