@@ -118,62 +118,61 @@ class MainActivity : FlutterActivity() {
     // ── Audio effects channel (Activity-context operations only) ───────────────
 
     private fun setupAudioEffectsChannel(flutterEngine: FlutterEngine) {
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
-            .setMethodCallHandler { call, result ->
-                val service = Media3PlaybackService.instance
-                if (service == null) {
-                    result.error("not_ready", "Media3 service is not ready", null)
-                    return@setMethodCallHandler
-                }
-                when (call.method) {
-                    "attachEffects" -> {
-                        result.success(
-                            mapOf(
-                                "virtualizerSupported" to true,
-                                "bassBoostSupported" to true,
-                                "reverbSupported" to true
-                            )
-                        )
-                    }
-                    "setSpatialEnabled" -> {
-                        val enabled = call.argument<Boolean>("enabled") ?: false
-                        val strength = call.argument<Int>("strength") ?: 1000
-                        service.handle(
-                            MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
-                            result
-                        )
-                        if (enabled) {
-                            service.handle(
-                                MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
-                                result
-                            )
-                        }
-                        // result sudah diselesaikan oleh service.handle di atas
-                    }
-                    "setBassBoost" -> {
-                        val strength = call.argument<Int>("strength") ?: 0
-                        service.handle(
-                            MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
-                            result
-                        )
-                        service.handle(
-                            MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
-                            result
-                        )
-                    }
-                    "setReverb" -> {
-                        val preset = call.argument<Int>("preset") ?: 0
-                        service.handle(
-                            MethodCall("setReverbPreset", mapOf("preset" to preset)),
-                            result
-                        )
-                    }
-                    "setAudioOutputMode" -> {
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
+    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
+        .setMethodCallHandler { call, result ->
+            val service = Media3PlaybackService.instance
+            if (service == null) {
+                result.error("not_ready", "Media3 service is not ready", null)
+                return@setMethodCallHandler
             }
+            when (call.method) {
+                "attachEffects" -> {
+                    result.success(
+                        mapOf<String, Any>(
+                            "virtualizerSupported" to true,
+                            "bassBoostSupported" to true,
+                            "reverbSupported" to true
+                        )
+                    )
+                }
+                "setSpatialEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    val strength = call.argument<Int>("strength") ?: 1000
+                    service.handle(
+                        MethodCall("setVirtualizerEnabled", mapOf<String, Any>("enabled" to enabled)),
+                        result
+                    )
+                    if (enabled) {
+                        service.handle(
+                            MethodCall("setVirtualizerStrength", mapOf<String, Any>("strength" to strength)),
+                            result
+                        )
+                    }
+                }
+                "setBassBoost" -> {
+                    val strength = call.argument<Int>("strength") ?: 0
+                    service.handle(
+                        MethodCall("setBassBoostEnabled", mapOf<String, Any>("enabled" to strength > 0)),
+                        result
+                    )
+                    service.handle(
+                        MethodCall("setBassBoostStrength", mapOf<String, Any>("strength" to strength)),
+                        result
+                    )
+                }
+                "setReverb" -> {
+                    val preset = call.argument<Int>("preset") ?: 0
+                    service.handle(
+                        MethodCall("setReverbPreset", mapOf<String, Any>("preset" to preset)),
+                        result
+                    )
+                }
+                "setAudioOutputMode" -> {
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     // ── ReplayGain tag reader ──────────────────────────────────────────────────
