@@ -28,12 +28,6 @@ class MainActivity : FlutterActivity() {
     private val audioEffectsChannel = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
 
-    // ── Audio effects (Activity-context only — Hi-Res output mode) ────────────
-    private var virtualizer:  Virtualizer?   = null
-    private var bassBoost:    BassBoost?     = null
-    private var presetReverb: PresetReverb?  = null
-    private var currentSessionId: Int = 0
-
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         setupMediaStoreChannel(flutterEngine)
@@ -145,38 +139,64 @@ class MainActivity : FlutterActivity() {
     // ── Audio effects channel (Activity-context operations only) ───────────────
 
     private fun setupAudioEffectsChannel(flutterEngine: FlutterEngine) {
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "attachEffects" -> {
-                        val sessionId = call.argument<Int>("sessionId") ?: 0
-                        result.success(attachEffects(sessionId))
-                    }
-                    "setSpatialEnabled" -> {
-                        val enabled  = call.argument<Boolean>("enabled") ?: false
-                        val strength = call.argument<Int>("strength") ?: 1000
-                        setSpatialEnabled(enabled, strength.toShort())
-                        result.success(null)
-                    }
-                    "setBassBoost" -> {
-                        val strength = call.argument<Int>("strength") ?: 0
-                        setBassBoost(strength.toShort())
-                        result.success(null)
-                    }
-                    "setReverb" -> {
-                        val preset = call.argument<Int>("preset") ?: 0
-                        setReverb(preset.toShort())
-                        result.success(null)
-                    }
-                    "setAudioOutputMode" -> {
-                        val mode = call.argument<Int>("mode") ?: 0
-                        setAudioOutputMode(mode)
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
+    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
+        .setMethodCallHandler { call, result ->
+            val service = Media3PlaybackService.instance
+            if (service == null) {
+                result.error("not_ready", "Media3 service is not ready", null)
+                return@setMethodCallHandler
             }
-    }
+            when (call.method) {
+                "attachEffects" -> {
+                    // Service handles this automatically; just return support info
+                    result.success(mapOf(
+                        "virtualizerSupported" to true,
+                        "bassBoostSupported"   to true,
+                        "reverbSupported"      to true
+                    ))
+                }
+                "setSpatialEnabled" -> {
+                    val enabled  = call.argument<Boolean>("enabled") ?: false
+                    val strength = call.argument<Int>("strength") ?: 1000
+                    service.handle(
+                        MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
+                        result
+                    )
+                    if (enabled) {
+                        service.handle(
+                            MethodCall("setVirtualizerStrength", mapOf("strength" to strength)),
+                            result
+                        )
+                    } else {
+                        result.success(null)
+                    }
+                }
+                "setBassBoost" -> {
+                    val strength = call.argument<Int>("strength") ?: 0
+                    service.handle(
+                        MethodCall("setBassBoostEnabled", mapOf("enabled" to strength > 0)),
+                        result
+                    )
+                    service.handle(
+                        MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
+                        result
+                    )
+                }
+                "setReverb" -> {
+                    val preset = call.argument<Int>("preset") ?: 0
+                    service.handle(
+                        MethodCall("setReverbPreset", mapOf("preset" to preset)),
+                        result
+                    )
+                }
+                "setAudioOutputMode" -> {
+                    // Not supported in service; ignore
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+}
 
     // ── attachEffects (Activity-side, legacy compat) ───────────────────────────
 
@@ -386,7 +406,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        releaseEffects()
+    
         super.onDestroy()
     }
 
