@@ -1,7 +1,5 @@
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-
 import '../services/media_store_service.dart';
 
 class SongArtwork extends StatefulWidget {
@@ -23,19 +21,42 @@ class SongArtwork extends StatefulWidget {
 }
 
 class _SongArtworkState extends State<SongArtwork> {
-  late final Future<Uint8List?> _future;
+  // Menyimpan artwork yang sedang ditampilkan
+  Uint8List? _currentArtwork;
+  // ID yang sedang dimuat (untuk mencegah race condition)
+  int _loadingId = -1;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _future = MediaStoreService.getArtwork(widget.songId);
+    _loadingId = widget.songId;
+    _loadArtwork();
   }
 
   @override
   void didUpdateWidget(covariant SongArtwork oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.songId != widget.songId) {
-      _future = MediaStoreService.getArtwork(widget.songId);
+      _loadingId = widget.songId;
+      _loadArtwork();
+    }
+  }
+
+  Future<void> _loadArtwork() async {
+    if (_isLoading) return;
+    _isLoading = true;
+
+    final data = await MediaStoreService.getArtwork(_loadingId);
+
+    // Hanya update jika ID masih sesuai (mencegah race condition)
+    if (mounted && _loadingId == widget.songId) {
+      setState(() {
+        _currentArtwork = data;
+        _isLoading = false;
+      });
+    } else {
+      _isLoading = false;
     }
   }
 
@@ -44,32 +65,26 @@ class _SongArtworkState extends State<SongArtwork> {
     final pixelRatio = MediaQuery.of(context).devicePixelRatio;
     final cacheSize = (widget.size * pixelRatio).round();
 
-    return RepaintBoundary(
-      child: FutureBuilder<Uint8List?>(
-        future: _future,
-        builder: (context, snapshot) {
-          final artwork = snapshot.data;
-          if (artwork == null || artwork.isEmpty) {
-            return _fallback();
-          }
+    // Jika artwork tersedia, tampilkan tanpa kedipan
+    if (_currentArtwork != null && _currentArtwork!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: widget.borderRadius,
+        child: Image.memory(
+          _currentArtwork!,
+          width: widget.size,
+          height: widget.size,
+          fit: widget.fit,
+          gaplessPlayback: true,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
+          filterQuality: FilterQuality.medium,
+          errorBuilder: (_, _, _) => _fallback(),
+        ),
+      );
+    }
 
-          return ClipRRect(
-            borderRadius: widget.borderRadius,
-            child: Image.memory(
-              artwork,
-              width: widget.size,
-              height: widget.size,
-              fit: widget.fit,
-              gaplessPlayback: true,
-              cacheWidth: cacheSize,
-              cacheHeight: cacheSize,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (_, _, _) => _fallback(),
-            ),
-          );
-        },
-      ),
-    );
+    // Fallback jika tidak ada artwork
+    return _fallback();
   }
 
   Widget _fallback() {
