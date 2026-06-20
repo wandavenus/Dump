@@ -141,7 +141,7 @@ class MainActivity : FlutterActivity() {
     "setSpatialEnabled" -> {
         val enabled = call.argument<Boolean>("enabled") ?: false
         val strength = call.argument<Int>("strength") ?: 1000
-        // Panggil service.handle tanpa result, lalu sukses di sini
+        // Panggil service.handle – dia akan menyelesaikan result
         service.handle(
             MethodCall("setVirtualizerEnabled", mapOf("enabled" to enabled)),
             result
@@ -152,8 +152,7 @@ class MainActivity : FlutterActivity() {
                 result
             )
         }
-        // Hanya satu result.success di akhir
-        result.success(null)
+        // JANGAN panggil result.success(null) di sini!
     }
     "setBassBoost" -> {
         val strength = call.argument<Int>("strength") ?: 0
@@ -165,7 +164,7 @@ class MainActivity : FlutterActivity() {
             MethodCall("setBassBoostStrength", mapOf("strength" to strength)),
             result
         )
-        result.success(null)
+        // JANGAN panggil result.success(null) di sini!
     }
     "setReverb" -> {
         val preset = call.argument<Int>("preset") ?: 0
@@ -173,10 +172,10 @@ class MainActivity : FlutterActivity() {
             MethodCall("setReverbPreset", mapOf("preset" to preset)),
             result
         )
-        result.success(null)
+        // JANGAN panggil result.success(null) di sini!
     }
     "setAudioOutputMode" -> {
-        // Not supported in service; ignore
+        // Tidak pakai service.handle → perlu result.success
         result.success(null)
     }
     else -> result.notImplemented()
