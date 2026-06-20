@@ -178,31 +178,40 @@ class AudioService {
 
   /// Track changed — driven by native ExoPlayer (gapless, skip, or queue jump).
   static void _onNativeCurrentTrackChanged(Map<dynamic, dynamic>? trackMap) {
-    if (_playlist.isEmpty || trackMap == null) return;
+  if (_playlist.isEmpty || trackMap == null) return;
 
-    final nativeIndex = trackMap['index'] as int? ?? -1;
-    final nativeId    = trackMap['id'];
+  final nativeIndex = trackMap['index'] as int? ?? -1;
+  final nativeId    = trackMap['id'];
 
-    final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
-        ? nativeIndex
-        : _playlist.indexWhere((s) => s.id == nativeId);
+  final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
+      ? nativeIndex
+      : _playlist.indexWhere((s) {
+          // nativeId bisa String atau int, konversi ke int jika perlu
+          if (nativeId is String) {
+            final id = int.tryParse(nativeId);
+            return id != null && s.id == id;
+          } else if (nativeId is int) {
+            return s.id == nativeId;
+          }
+          return false;
+        });
 
-    if (resolved < 0 || resolved >= _playlist.length) {
-      LogService.warn(
-        'AudioService',
-        'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
-      );
-      return;
-    }
-
-    // Skip redundant updates.
-    if (resolved == _currentIndex &&
-        playbackState.value.currentSong?.id == _playlist[resolved].id) {
-      return;
-    }
-
-    _syncCurrentTrackFromNative(resolved);
+  if (resolved < 0 || resolved >= _playlist.length) {
+    LogService.warn(
+      'AudioService',
+      'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
+    );
+    return;
   }
+
+  // Skip redundant updates.
+  if (resolved == _currentIndex &&
+      playbackState.value.currentSong?.id == _playlist[resolved].id) {
+    return;
+  }
+
+  _syncCurrentTrackFromNative(resolved);
+}
 
   static void _syncCurrentTrackFromNative(int index) {
     final song          = _playlist[index];
