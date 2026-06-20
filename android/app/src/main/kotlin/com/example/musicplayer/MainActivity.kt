@@ -61,7 +61,18 @@ class MainActivity : FlutterActivity() {
         // MethodChannel: all playback commands → Media3PlaybackService.handle()
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
 
-    if (Media3PlaybackService.instance == null) {
+    val needsService = call.method in setOf(
+        "play",
+        "pause",
+        "stop",
+        "seek",
+        "setQueue",
+        "setTrack",
+        "skipNext",
+        "skipPrevious"
+    )
+
+    if (Media3PlaybackService.instance == null && needsService) {
         val intent = Intent(this, Media3PlaybackService::class.java)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -74,22 +85,9 @@ class MainActivity : FlutterActivity() {
         return@setMethodCallHandler
     }
 
-    Media3PlaybackService.instance!!.handle(call, result)
-        }
-
-        // EventChannels — standard playback state
-        listOf(
-            "playbackState",
-            "position",
-            "duration",
-            "currentTrack",
-            "queue",
-            "bufferingState",
-            "audioSessionId",
-        ).forEach { name ->
-            EventChannel(messenger, "musicplayer/media3_$name")
-                .setStreamHandler(Media3PlaybackService.Events.handler(name))
-        }
+    Media3PlaybackService.instance?.handle(call, result)
+        ?: result.error("not_ready", "Media3 service is starting", null)
+}
 
         // EventChannels — mode state (new: shuffle, repeat, sleepTimer)
         listOf("shuffleMode", "repeatMode", "sleepTimer").forEach { name ->
