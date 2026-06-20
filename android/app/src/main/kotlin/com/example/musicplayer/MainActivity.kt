@@ -51,12 +51,12 @@ class MainActivity : FlutterActivity() {
         // of startForegroundService(). We start here so the service has time to call
         // ensureMediaForeground() before any MethodChannel calls arrive.
         // Do NOT call startForegroundService() again inside the handler.
-        val intent = Intent(this, Media3PlaybackService::class.java)
+      /*  val intent = Intent(this, Media3PlaybackService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ContextCompat.startForegroundService(this, intent)
         } else {
             startService(intent)
-        }
+        } */
 
         // MethodChannel: all playback commands → Media3PlaybackService.handle()
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
