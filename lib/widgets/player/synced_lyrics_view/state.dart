@@ -4,7 +4,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   final ScrollController _scroll = ScrollController();
   int _currentIndex = 0;
 
-  // Tinggi rata-rata tiap baris — diperbarui setelah layout pertama
+  // Tinggi rata-rata tiap baris — dihitung ulang saat font size berubah
   double _itemHeight = 52.0;
 
   @override
@@ -17,13 +17,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
-      builder: (_, fs, _) =>
+      builder: (_, fs, __) =>
           ValueListenableBuilder<String>(
         valueListenable: LyricsSettings.textAlign,
-        builder: (_, align, _) =>
+        builder: (_, align, __) =>
             ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.activeColor,
-          builder: (_, colorKey, _) {
+          builder: (_, colorKey, __) {
             final activeColor = LyricsSettings.resolvedActiveColor;
             final textAlign   = LyricsSettings.resolvedTextAlign;
 
@@ -42,11 +42,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                     final activeFontSize = fs;
                     final inactiveFontSize = (fs * 0.82).clamp(12.0, 22.0).toDouble();
 
+                    // ⭐ KUNCI: Key berdasarkan index agar widget direuse
                     return Padding(
+                      key: ValueKey(index),
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeOut,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
                         style: TextStyle(
                           fontSize: active ? activeFontSize : inactiveFontSize,
                           fontWeight:
@@ -86,27 +88,38 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
 
     if (activeIndex == _currentIndex) return;
 
+    // Update tinggi item sebelum scroll
+    _itemHeight = _computeItemHeight(fontSize);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _currentIndex = activeIndex);
-      _scrollToIndex(activeIndex, fontSize);
+      _scrollToIndex(activeIndex);
     });
   }
 
-  void _scrollToIndex(int index, double fontSize) {
+  double _computeItemHeight(double fontSize) {
+    // Line-height: fontSize * 1.4 (dari style.height)
+    // Vertical padding: 6 + 6 = 12
+    return fontSize * 1.4 + 12.0;
+  }
+
+  void _scrollToIndex(int index) {
     if (!_scroll.hasClients) return;
-    // Perkiraan tinggi tiap item berdasarkan font size
-    _itemHeight = fontSize * 1.4 + 12 + 12; // line-height + vertical padding
+
     final viewportHalf = _scroll.position.viewportDimension / 2;
     final itemOffset = index * _itemHeight;
     final target = (itemOffset - viewportHalf + _itemHeight / 2)
-        .clamp(0.0, _scroll.position.maxScrollExtent)
-        .toDouble();
+        .clamp(0.0, _scroll.position.maxScrollExtent);
 
-    _scroll.animateTo(
-      target,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutCubic,
-    );
+    // Hanya scroll jika jarak cukup signifikan
+    final currentOffset = _scroll.offset;
+    if ((target - currentOffset).abs() > 1.0) {
+      _scroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 }
