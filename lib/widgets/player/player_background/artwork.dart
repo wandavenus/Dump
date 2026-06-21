@@ -19,7 +19,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   ui.Image? _blurredImage;
-  int _loadingId = -1;
+  
   
   @override
   void initState() {
@@ -41,15 +41,34 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   }
 
   Future<void> _loadBlurred() async {
-    // Return the cached image immediately if available.
-    final cached = BlurredImageCache.getSync(widget.songId);
-    if (cached != null) {
-      if (mounted) setState(() => _blurredImage = cached);
-      return;
+  final requestSongId = widget.songId;
+
+  final cached = BlurredImageCache.getSync(
+    requestSongId,
+  );
+
+  if (cached != null) {
+    if (mounted && requestSongId == widget.songId) {
+      setState(() => _blurredImage = cached);
     }
-    final img = await BlurredImageCache.get(widget.songId, widget.artwork);
-    if (mounted) setState(() => _blurredImage = img);
+    return;
   }
+
+  final img = await BlurredImageCache.get(
+    requestSongId,
+    widget.artwork,
+  );
+
+  if (!mounted) return;
+
+  if (requestSongId != widget.songId) {
+    return;
+  }
+
+  setState(() {
+    _blurredImage = img;
+  });
+}
 
   @override
   void dispose() {
