@@ -66,7 +66,7 @@ class _AnimatedBlurredPlayerBackgroundState
                   duration: const Duration(
                     milliseconds: 900,
                   ),
-                  Curves.easeInOutQuart,
+                  curve: Curves.easeInOutQuart,
                   onEnd: () {
                     if (mounted) {
                       setState(() {
@@ -85,7 +85,7 @@ class _AnimatedBlurredPlayerBackgroundState
                   duration: const Duration(
                     milliseconds: 700,
                   ),
-                  Curves.easeInOutQuart,
+                  curve: Curves.easeInOutQuart,
                   child: _currentLayer!,
                 ),
               ),
