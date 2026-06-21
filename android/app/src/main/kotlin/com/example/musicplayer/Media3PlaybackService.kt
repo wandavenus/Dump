@@ -1050,18 +1050,32 @@ if (emitQueue) Events.emit("queue", queue)
         val nextIndex = p.nextMediaItemIndex
 
         if (nextIndex != C.INDEX_UNSET) {
+
             activeQueueIndex = nextIndex
+
             p.seekToDefaultPosition(nextIndex)
-        } else if (queue.isNotEmpty()) {
+            p.prepare()
+            p.play()
+
+            if (crossfadeDurationSec > 0f) {
+                preloadNextTrack(force = true)
+            }
+
+            nativeLog("info", "skipNext (ENDED) → index $nextIndex")
+
+        } else if (p.mediaItemCount > 0) {
+
             activeQueueIndex = 0
+
             p.seekToDefaultPosition(0)
-        }
+            p.prepare()
+            p.play()
 
-        p.prepare()
-        p.play()
+            if (crossfadeDurationSec > 0f) {
+                preloadNextTrack(force = true)
+            }
 
-        if (crossfadeDurationSec > 0f) {
-            preloadNextTrack(force = true)
+            nativeLog("info", "skipNext (ENDED) → restart queue")
         }
 
         emitAll()
@@ -1069,6 +1083,17 @@ if (emitQueue) Events.emit("queue", queue)
         result.success(null)
         return
     }
+
+    p.seekToNextMediaItem()
+
+    if (crossfadeDurationSec > 0f) {
+        preloadNextTrack(force = true)
+    }
+
+    emitAll()
+    refreshNotification()
+    result.success(null)
+}
 
     
             // ── Queue management ─────────────────────────────────────────────────
