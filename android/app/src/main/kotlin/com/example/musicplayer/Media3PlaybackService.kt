@@ -1649,12 +1649,12 @@ emitAll()
         }
     }
 
-    private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
+   private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
     if (queue.isEmpty()) return
 
     val targetIndex = activeQueueIndex.coerceIn(0, queue.lastIndex)
-    val targetItemId = queue.getOrNull(targetIndex)?.get("id")?.toString()
-    val currentItemId = active.currentMediaItem?.mediaId
+    val targetKey = queueItemKey(queue.getOrNull(targetIndex))
+    val currentKey = active.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }
     val currentPosition = active.currentPosition.coerceAtLeast(0L)
 
     val wasPlaying = active.isPlaying
@@ -1662,11 +1662,15 @@ emitAll()
     val shuffleMode = active.shuffleModeEnabled
     val params = active.playbackParameters
 
-    // udah sinkron, skip rebuild
+    val isSameItem = when {
+        targetKey != null && currentKey != null -> targetKey == currentKey
+        else -> active.currentMediaItemIndex == targetIndex
+    }
+
     if (
         active.mediaItemCount == queue.size &&
         active.currentMediaItemIndex == targetIndex &&
-        currentItemId == targetItemId
+        isSameItem
     ) {
         return
     }
