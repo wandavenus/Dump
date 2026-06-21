@@ -293,90 +293,41 @@ ACTION_SKIP_PREV -> {
 
     // Called ONCE per lifecycle — satisfies Android 11's 5-second startForeground window.
     private fun ensureMediaForeground() {
-    if (isForeground) return
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    if (isForeground) return
 
-    val p = player
-
+    val p = player ?: return
     ensureNotificationChannel()
 
     val sess = session
     val t = currentTrackMap()
-    val title  = t?.get("title") as? String ?: "Music Player"
+    val title = t?.get("title") as? String ?: "Music Player"
     val artist = t?.get("artist") as? String ?: ""
-    val isPlaying = p?.isPlaying ?: false
+    val isPlaying = p.isPlaying
 
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, launchIntent,
+    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+    val pendingIntent = if (launchIntent != null) {
+        PendingIntent.getActivity(
+            this,
+            0,
+            launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+    } else null
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+    val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_media_play)
+        .setContentTitle(title)
+        .setContentText(artist)
+        .setOngoing(true)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        if (sess != null) {
-            builder
-                .addAction(NotificationCompat.Action(R.drawable.ic_prev, "Previous",
-                    buildTransportPendingIntent(ACTION_SKIP_PREV, 1)))
-                .addAction(NotificationCompat.Action(
-                    if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
-                    if (isPlaying) "Pause" else "Play",
-                    buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)))
-                .addAction(NotificationCompat.Action(R.drawable.ic_next, "Next",
-                    buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)))
-                .addAction(NotificationCompat.Action(R.drawable.ic_stop, "Stop",
-                    buildTransportPendingIntent(ACTION_STOP, 4)))
-                .setStyle(
-                    MediaStyleNotificationHelper.MediaStyle(sess)
-                        .setShowActionsInCompactView(0, 1, 2)
-                )
-        }
-
-        val notification = builder.build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
-        isForeground = true
+    if (pendingIntent != null) {
+        builder.setContentIntent(pendingIntent)
     }
 
-    // For all subsequent notification updates — uses NotificationManager.notify()
-    // to avoid repeated startForeground() calls (MIUI 12 / Android 11 safety).
-    private fun refreshNotification() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val sess = session ?: return
-        val p = player ?: return
-
-        ensureNotificationChannel()
-
-        val t = currentTrackMap()
-        val title  = t?.get("title")  as? String ?: "Music Player"
-        val artist = t?.get("artist") as? String ?: ""
-        val isPlaying = p.isPlaying
-
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setContentIntent(pendingIntent)
-            .setOngoing(isPlaying)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+    if (sess != null) {
+        builder
             .addAction(NotificationCompat.Action(R.drawable.ic_prev, "Previous",
                 buildTransportPendingIntent(ACTION_SKIP_PREV, 1)))
             .addAction(NotificationCompat.Action(
@@ -391,46 +342,107 @@ ACTION_SKIP_PREV -> {
                 MediaStyleNotificationHelper.MediaStyle(sess)
                     .setShowActionsInCompactView(0, 1, 2)
             )
+    }
 
-        val artworkUri = t?.get("artworkUri") as? String
-if (!artworkUri.isNullOrBlank()) {
-    try {
-        val uri = Uri.parse(artworkUri)
-
-        if (!uri.toString().contains("/albumart/-") &&
-            !uri.toString().endsWith("/0")) {
-
-            val bitmap = contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it)
-            }
-
-            if (bitmap != null) {
-                builder.setLargeIcon(bitmap)
-            }
-        }
-    } catch (_: Exception) {}
+    val notification = builder.build()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        )
+    } else {
+        startForeground(NOTIFICATION_ID, notification)
+    }
+    isForeground = true
 }
 
-        try {
-            val notification = builder.build()
-            if (!isForeground) {
-                // First call — must use startForeground
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NOTIFICATION_ID, notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-                } else {
-                    startForeground(NOTIFICATION_ID, notification)
-                }
-                isForeground = true
-            } else {
-                // Subsequent calls — use NotificationManager to avoid MIUI 12 issues
-                getSystemService(NotificationManager::class.java)
-                    .notify(NOTIFICATION_ID, notification)
-            }
-        } catch (e: Exception) {
-            nativeLog("warn", "refreshNotification failed: ${e.message}")
-        }
+    // For all subsequent notification updates — uses NotificationManager.notify()
+    // to avoid repeated startForeground() calls (MIUI 12 / Android 11 safety).
+    private fun refreshNotification() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val sess = session ?: return
+    val p = player ?: return
+
+    ensureNotificationChannel()
+
+    val t = currentTrackMap()
+    val title = t?.get("title") as? String ?: "Music Player"
+    val artist = t?.get("artist") as? String ?: ""
+    val isPlaying = p.isPlaying
+
+    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+    val pendingIntent = if (launchIntent != null) {
+        PendingIntent.getActivity(
+            this,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    } else null
+
+    val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle(title)
+        .setContentText(artist)
+        .setOngoing(isPlaying)
+        .setOnlyAlertOnce(true)
+        .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .addAction(NotificationCompat.Action(R.drawable.ic_prev, "Previous",
+            buildTransportPendingIntent(ACTION_SKIP_PREV, 1)))
+        .addAction(NotificationCompat.Action(
+            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
+            if (isPlaying) "Pause" else "Play",
+            buildTransportPendingIntent(ACTION_PLAY_PAUSE, 2)))
+        .addAction(NotificationCompat.Action(R.drawable.ic_next, "Next",
+            buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)))
+        .addAction(NotificationCompat.Action(R.drawable.ic_stop, "Stop",
+            buildTransportPendingIntent(ACTION_STOP, 4)))
+        .setStyle(
+            MediaStyleNotificationHelper.MediaStyle(sess)
+                .setShowActionsInCompactView(0, 1, 2)
+        )
+
+    if (pendingIntent != null) {
+        builder.setContentIntent(pendingIntent)
     }
+
+    val artworkUri = t?.get("artworkUri") as? String
+    if (!artworkUri.isNullOrBlank()) {
+        try {
+            val uri = Uri.parse(artworkUri)
+            if (!uri.toString().contains("/albumart/-") && !uri.toString().endsWith("/0")) {
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it)
+                }
+                if (bitmap != null) {
+                    builder.setLargeIcon(bitmap)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    try {
+        val notification = builder.build()
+        if (!isForeground) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            isForeground = true
+        } else {
+            getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification)
+        }
+    } catch (e: Exception) {
+        nativeLog("warn", "refreshNotification failed: ${e.message}")
+    }
+}
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -1060,30 +1072,31 @@ emitAll()
             "removeFromQueue" -> {
     val index = call.argument<Number>("index")?.toInt() ?: run { result.success(null); return }
     if (index !in queue.indices) { result.success(null); return }
-    
+
     val mutable = queue.toMutableList()
     mutable.removeAt(index)
     queue = mutable
-    
-    // Sesuaikan activeQueueIndex jika item yang dihapus berada sebelum indeks aktif
+
     if (index < activeQueueIndex) {
         activeQueueIndex--
-    } else if (index == activeQueueIndex && queue.isNotEmpty()) {
-        // item aktif dihapus, item berikutnya bergeser ke indeks yang sama → tidak perlu ubah
-    } else if (queue.isEmpty()) {
-        activeQueueIndex = 0
+    } else if (index == activeQueueIndex) {
+        if (queue.isEmpty()) {
+            activeQueueIndex = 0
+        } else if (activeQueueIndex >= queue.size) {
+            activeQueueIndex = queue.size - 1
+        }
     }
-    // Pastikan indeks tetap dalam batas
-    if (activeQueueIndex >= queue.size) {
+
+    if (activeQueueIndex !in queue.indices) {
         activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
     }
-    
+
     if (!crossfadeInProgress) {
         p.removeMediaItem(index)
     } else {
         nativeLog("warn", "skip removeMediaItem ke exoplayer, lagi crossfade beb")
     }
-    
+
     if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
     saveQueueToPrefs()
     emitAll(emitQueue = true)
@@ -1094,31 +1107,33 @@ emitAll()
             "reorderQueue" -> {
     val oldIndex = call.argument<Number>("oldIndex")?.toInt() ?: run { result.success(null); return }
     val newIndex = call.argument<Number>("newIndex")?.toInt() ?: run { result.success(null); return }
-    
+
     if (oldIndex !in queue.indices || newIndex !in queue.indices || oldIndex == newIndex) {
         result.success(null); return
     }
-    
+
     val mutable = queue.toMutableList()
-    val item    = mutable.removeAt(oldIndex)
+    val item = mutable.removeAt(oldIndex)
     mutable.add(newIndex, item)
     queue = mutable
 
-    // KUNCI DISINI BEB (づ｡◕‿‿◕｡)づ
     if (!crossfadeInProgress) {
         p.moveMediaItem(oldIndex, newIndex)
     } else {
         nativeLog("warn", "skip moveMediaItem ke exoplayer, lagi crossfade beb")
     }
 
-    // Keep activeQueueIndex accurate
     activeQueueIndex = when {
-        oldIndex == activeQueueIndex                              -> newIndex
+        oldIndex == activeQueueIndex -> newIndex
         oldIndex < activeQueueIndex && newIndex >= activeQueueIndex -> activeQueueIndex - 1
         oldIndex > activeQueueIndex && newIndex <= activeQueueIndex -> activeQueueIndex + 1
-        else                                                      -> activeQueueIndex
+        else -> activeQueueIndex
     }
-    
+
+    if (activeQueueIndex !in queue.indices) {
+        activeQueueIndex = (queue.size - 1).coerceAtLeast(0)
+    }
+
     if (crossfadeDurationSec > 0f) preloadNextTrack(force = true)
     saveQueueToPrefs()
     emitAll(emitQueue = true)
@@ -1439,29 +1454,39 @@ emitAll()
 
     private fun equalizerParameters(): Map<String, Any> = try {
     val sessionId = player?.audioSessionId ?: 0
-    val eq = equalizer ?: if (sessionId > 0) {
-        // Buat temporary Equalizer hanya untuk query, jangan simpan ke field
-        Equalizer(0, sessionId).also { temp ->
-            // Kita akan release setelah selesai
-        }
-    } else null
-
-    if (eq == null) {
-        mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
-    } else {
-        val result = mapOf(
-            "minDecibels" to eq.bandLevelRange[0] / 100.0,
-            "maxDecibels" to eq.bandLevelRange[1] / 100.0,
-            "bands"       to List(eq.numberOfBands.toInt()) { it },
+    if (sessionId <= 0) {
+        mapOf(
+            "minDecibels" to -15.0,
+            "maxDecibels" to 15.0,
+            "bands" to listOf(0, 1, 2, 3, 4)
         )
-        // Jika eq adalah temporary (bukan equalizer yang tersimpan), release
-        if (equalizer == null) {
-            try { eq.release() } catch (_: Exception) {}
+    } else {
+        val temp = if (equalizer == null) Equalizer(0, sessionId) else null
+        val eq = equalizer ?: temp
+        if (eq == null) {
+            mapOf(
+                "minDecibels" to -15.0,
+                "maxDecibels" to 15.0,
+                "bands" to listOf(0, 1, 2, 3, 4)
+            )
+        } else {
+            val result = mapOf(
+                "minDecibels" to eq.bandLevelRange[0] / 100.0,
+                "maxDecibels" to eq.bandLevelRange[1] / 100.0,
+                "bands" to List(eq.numberOfBands.toInt()) { it }
+            )
+            if (temp != null) {
+                try { temp.release() } catch (_: Exception) {}
+            }
+            result
         }
-        result
     }
-} catch (e: Exception) {
-    mapOf("minDecibels" to -15.0, "maxDecibels" to 15.0, "bands" to listOf(0, 1, 2, 3, 4))
+} catch (_: Exception) {
+    mapOf(
+        "minDecibels" to -15.0,
+        "maxDecibels" to 15.0,
+        "bands" to listOf(0, 1, 2, 3, 4)
+    )
 }
 
     // ── Crossfade helpers ──────────────────────────────────────────────────────
