@@ -1047,26 +1047,30 @@ if (emitQueue) Events.emit("queue", queue)
 
     if (p.playbackState == Player.STATE_ENDED) {
 
-    val nextIndex = p.nextMediaItemIndex
+        val nextIndex = p.nextMediaItemIndex
 
-    if (nextIndex != C.INDEX_UNSET) {
-        activeQueueIndex = nextIndex
-        p.seekToDefaultPosition(nextIndex)
-    } else if (queue.isNotEmpty()) {
-        activeQueueIndex = 0
-        p.seekToDefaultPosition(0)
+        if (nextIndex != C.INDEX_UNSET) {
+            activeQueueIndex = nextIndex
+            p.seekToDefaultPosition(nextIndex)
+        } else if (queue.isNotEmpty()) {
+            activeQueueIndex = 0
+            p.seekToDefaultPosition(0)
+        }
+
+        p.prepare()
+        p.play()
+
+        if (crossfadeDurationSec > 0f) {
+            preloadNextTrack(force = true)
+        }
+
+        emitAll()
+        refreshNotification()
+        result.success(null)
+        return
     }
 
-    p.prepare()
-    p.play()
-
-    if (crossfadeDurationSec > 0f) {
-        preloadNextTrack(force = true)
-    }
-
-    emitAll()
-    refreshNotification()
-}
+    
             // ── Queue management ─────────────────────────────────────────────────
 
             "setQueue" -> {
