@@ -2,51 +2,64 @@ part of '../player_background.dart';
 
 class _AnimatedBlurredPlayerBackgroundState
     extends State<AnimatedBlurredPlayerBackground> {
-  Future<Uint8List?>? _artworkFuture;
+  int? _currentSongId;
+  Uint8List? _currentArtwork;
 
   @override
   void initState() {
     super.initState();
-    _updateArtworkFuture();
+    _loadArtwork();
   }
 
   @override
   void didUpdateWidget(AnimatedBlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.songId != widget.songId) {
-      _updateArtworkFuture();
+      _loadArtwork();
     }
   }
 
-  void _updateArtworkFuture() {
-    _artworkFuture = widget.songId > 0
-        ? MediaStoreService.getArtwork(widget.songId)
-        : Future<Uint8List?>.value();
-        
+  void _loadArtwork() {
+    final targetSongId = widget.songId;
+    
+    if (targetSongId <= 0) {
+      setState(() {
+        _currentSongId = targetSongId;
+        _currentArtwork = null;
+      });
+      return;
+    }
+
+    // Ambil data di background tanpa ngerusak UI yang lagi tampil
+    MediaStoreService.getArtwork(targetSongId).then((artwork) {
+      if (!mounted || widget.songId != targetSongId) return;
+
+      // State diganti barengan pas data udah fix siap (⌐■_■)
+      setState(() {
+        _currentSongId = targetSongId;
+        _currentArtwork = artwork;
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-     key: ValueKey<int>(widget.songId),
-        future: _artworkFuture,
-      builder: (context, snapshot) {
-        final artwork = snapshot.data;
-        final child = artwork == null || artwork.isEmpty
-            ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
-            : BlurredArtworkBackground(
-             key: ValueKey<int>(widget.songId),    
-                songId: widget.songId,
-                artwork: artwork,
-              );
+    final showFallback = _currentArtwork == null || _currentArtwork!.isEmpty;
 
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 420),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeOutCubic,
-          child: child,
-        );
-      },
+    // Key dan data dijamin selalu sinkron karena pake state yang sama
+    final child = showFallback
+        ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
+        : BlurredArtworkBackground(
+            key: ValueKey<int>(_currentSongId ?? 0),    
+            songId: _currentSongId ?? 0,
+            artwork: _currentArtwork!,
+          );
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 420),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeOutCubic,
+      child: child,
     );
   }
 }
