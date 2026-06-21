@@ -96,7 +96,7 @@ class Media3PlaybackService : MediaSessionService() {
     private var preloadedQueueIndex = C.INDEX_UNSET
     private var activeQueueIndex = 0
     private val playerListeners = IdentityHashMap<ExoPlayer, Player.Listener>()
-
+    private var lastEmittedRepeatMode: String? = null
     // ── Sleep timer ────────────────────────────────────────────────────────────
     private var sleepTimerRunnable: Runnable? = null
     private var sleepTimerTickRunnable: Runnable? = null
@@ -852,20 +852,23 @@ emitAll()
             else                   -> "idle"
         }
         val repeatStr = when (p.repeatMode) {
-            Player.REPEAT_MODE_ONE -> "one"
-            Player.REPEAT_MODE_ALL -> "all"
-            else                   -> "off"
-        }
-        Events.emit("playbackState",  mapOf("playing" to p.isPlaying, "processingState" to state))
-        Events.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
-        Events.emit("position",       p.currentPosition.coerceAtLeast(0L))
-        Events.emit("duration",       p.duration.coerceAtLeast(0L))
-        Events.emit("currentTrack",   currentTrackMap())
-        // PATCH: repeatStr dihitung tapi sebelumnya gak pernah di-emit (dead code) →
-        // Dart-side gak ke-sync soal repeatMode kecuali pas listener onRepeatModeChanged nyala.
-        Events.emit("repeatMode",     repeatStr)
-        
-        if (emitQueue) Events.emit("queue", queue)
+    Player.REPEAT_MODE_ONE -> "one"
+    Player.REPEAT_MODE_ALL -> "all"
+    else                   -> "off"
+}
+
+Events.emit("playbackState",  mapOf("playing" to p.isPlaying, "processingState" to state))
+Events.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
+Events.emit("position",       p.currentPosition.coerceAtLeast(0L))
+Events.emit("duration",       p.duration.coerceAtLeast(0L))
+Events.emit("currentTrack",   currentTrackMap())
+
+if (repeatStr != lastEmittedRepeatMode) {
+    lastEmittedRepeatMode = repeatStr
+    Events.emit("repeatMode", repeatStr)
+}
+
+if (emitQueue) Events.emit("queue", queue)
         Events.emit("audioSessionId", p.audioSessionId)
         emitSleepTimer()
     }
@@ -1021,6 +1024,7 @@ emitAll()
         }
 
         p.prepare()
+        p.play()
 
         if (crossfadeDurationSec > 0f) {
             preloadNextTrack(force = true)
@@ -1043,32 +1047,26 @@ emitAll()
 
     if (p.playbackState == Player.STATE_ENDED) {
 
-        val nextIndex = p.nextMediaItemIndex
+    val nextIndex = p.nextMediaItemIndex
 
-        if (nextIndex != C.INDEX_UNSET) {
-            activeQueueIndex = nextIndex
-            p.seekToDefaultPosition(nextIndex)
-        } else if (queue.isNotEmpty()) {
-            activeQueueIndex = 0
-            p.seekToDefaultPosition(0)
-        }
-
-        p.prepare()
-
-        if (crossfadeDurationSec > 0f) {
-            preloadNextTrack(force = true)
-        }
-
-        emitAll()
-        refreshNotification()
-
-    } else {
-        p.seekToNextMediaItem()
+    if (nextIndex != C.INDEX_UNSET) {
+        activeQueueIndex = nextIndex
+        p.seekToDefaultPosition(nextIndex)
+    } else if (queue.isNotEmpty()) {
+        activeQueueIndex = 0
+        p.seekToDefaultPosition(0)
     }
 
-    result.success(null)
-}
+    p.prepare()
+    p.play()
 
+    if (crossfadeDurationSec > 0f) {
+        preloadNextTrack(force = true)
+    }
+
+    emitAll()
+    refreshNotification()
+}
             // ── Queue management ─────────────────────────────────────────────────
 
             "setQueue" -> {
