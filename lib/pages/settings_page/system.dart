@@ -504,7 +504,7 @@ class _LogViewerModalState extends State<_LogViewerModal> {
 
   void _copyAll(List<LogEntry> entries) {
     final buf = StringBuffer();
-    for (final e in entries.reversed) {
+    for (final e in entries) {
       buf.writeln(e.toString());
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
