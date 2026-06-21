@@ -1,42 +1,18 @@
 part of '../player_background.dart';
 
 class _AnimatedBlurredPlayerBackgroundState
-    extends State<AnimatedBlurredPlayerBackground>
-    with TickerProviderStateMixin {
+    extends State<AnimatedBlurredPlayerBackground> {
   Future<Uint8List?>? _artworkFuture;
-
-  Widget? _previousLayer;
-  Widget? _currentLayer;
-
-  late final AnimationController _fadeController;
 
   @override
   void initState() {
     super.initState();
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-      value: 1,
-    );
-
-    _fadeController.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        setState(() {
-          _previousLayer = null;
-        });
-      }
-    });
-
     _updateArtworkFuture();
   }
 
   @override
-  void didUpdateWidget(
-    AnimatedBlurredPlayerBackground oldWidget,
-  ) {
+  void didUpdateWidget(AnimatedBlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.songId != widget.songId) {
       _updateArtworkFuture();
     }
@@ -46,74 +22,29 @@ class _AnimatedBlurredPlayerBackgroundState
     _artworkFuture = widget.songId > 0
         ? MediaStoreService.getArtwork(widget.songId)
         : Future<Uint8List?>.value();
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    super.dispose();
+        
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: _artworkFuture,
+     key: ValueKey<int>(widget.songId),
+        future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
+        final child = artwork == null || artwork.isEmpty
+            ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
+            : BlurredArtworkBackground(
+             key: ValueKey<int>(widget.songId),    
+                songId: widget.songId,
+                artwork: artwork,
+              );
 
-        if (artwork != null && artwork.isNotEmpty) {
-          final newLayer = BlurredArtworkBackground(
-            key: ValueKey<int>(widget.songId),
-            songId: widget.songId,
-            artwork: artwork,
-          );
-
-          if (_currentLayer == null) {
-            _currentLayer = newLayer;
-          } else if (_currentLayer!.key != newLayer.key) {
-            _previousLayer = _currentLayer;
-            _currentLayer = newLayer;
-
-            _fadeController
-              ..stop()
-              ..reset()
-              ..forward();
-          }
-        }
-
-        _currentLayer ??= const PlayerFallbackBackground(
-          key: ValueKey<String>('fallback'),
-        );
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            if (_previousLayer != null)
-              Positioned.fill(
-                child: _previousLayer!,
-              ),
-
-            Positioned.fill(
-              child: FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: _fadeController,
-                  curve: Curves.easeInOutQuart,
-                ),
-                child: ScaleTransition(
-                  scale: Tween<double>(
-                    begin: 1.03,
-                    end: 1.0,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: _fadeController,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  ),
-                  child: _currentLayer!,
-                ),
-              ),
-            ),
-          ],
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 420),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          child: child,
         );
       },
     );
