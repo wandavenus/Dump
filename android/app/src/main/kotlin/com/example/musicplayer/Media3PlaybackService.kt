@@ -255,6 +255,10 @@ ACTION_SKIP_PREV -> {
     abandonAudioFocus()
 
     stopForeground(STOP_FOREGROUND_REMOVE)
+    // PATCH: isForeground gak direset → kalau service somehow re-entry sebelum
+    // bener2 destroyed, refreshNotification() bakal salah pakai .notify() padahal
+    // udah bukan foreground lagi (harus startForeground() ulang).
+    isForeground = false
 
     getSystemService(NotificationManager::class.java)
         ?.cancel(NOTIFICATION_ID)
@@ -316,7 +320,10 @@ ACTION_SKIP_PREV -> {
     } else null
 
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.ic_media_play)
+        // PATCH: sebelumnya pakai android.R.drawable.ic_media_play di sini tapi
+        // refreshNotification() pakai R.drawable.ic_notification → icon kedip ganti
+        // begitu update pertama lewat refreshNotification(). Disamain.
+        .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(title)
         .setContentText(artist)
         .setOngoing(true)
@@ -569,14 +576,19 @@ ACTION_SKIP_PREV -> {
         activePlayer  = primaryPlayer
         attachPlayerListener(primaryPlayer!!)
 
+        // PATCH: sebelumnya launchIntent gak di-null-check di sini (beda sama
+        // ensureMediaForeground()/refreshNotification() yang udah benar) → berpotensi
+        // NPE/crash kalau packageManager.getLaunchIntentForPackage() return null.
         val launchIntent   = packageManager.getLaunchIntentForPackage(packageName)
-        val pendingIntent  = PendingIntent.getActivity(
-            this, 0, launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        session = MediaSession.Builder(this, primaryPlayer!!)
-            .setSessionActivity(pendingIntent)
-            .build()
+        val sessionBuilder = MediaSession.Builder(this, primaryPlayer!!)
+        if (launchIntent != null) {
+            val pendingIntent = PendingIntent.getActivity(
+                this, 0, launchIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            sessionBuilder.setSessionActivity(pendingIntent)
+        }
+        session = sessionBuilder.build()
 
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         instance = this
@@ -629,12 +641,16 @@ emitAll()
     val posMs = p?.currentPosition?.coerceAtLeast(0L) ?: 0L
     val repeatMode = p?.repeatMode ?: Player.REPEAT_MODE_OFF
     val shuffle = p?.shuffleModeEnabled ?: false
+    // PATCH: sebelumnya thread { } baca property `queue` langsung, bukan snapshot →
+    // kalau ada mutasi queue (insertNext/removeFromQueue/dst) pas background thread
+    // belum sempat jalan, data yang ke-save bisa gak sinkron sama idx/posMs di atas.
+    val queueSnapshot = queue
 
     thread {
         try {
             val arr = JSONArray()
 
-            for (song in queue) {
+            for (song in queueSnapshot) {
                 val obj = JSONObject()
 
                 for ((k, v) in song) {
@@ -654,7 +670,7 @@ emitAll()
                 .putString(KEY_QUEUE, arr.toString())
                 .putInt(
                     KEY_INDEX,
-                    idx.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
+                    idx.coerceIn(0, (queueSnapshot.size - 1).coerceAtLeast(0))
                 )
                 .putLong(KEY_POS_MS, posMs)
                 .putInt(KEY_REPEAT_MODE, repeatMode)
@@ -812,6 +828,9 @@ emitAll()
         Events.emit("position",       p.currentPosition.coerceAtLeast(0L))
         Events.emit("duration",       p.duration.coerceAtLeast(0L))
         Events.emit("currentTrack",   currentTrackMap())
+        // PATCH: repeatStr dihitung tapi sebelumnya gak pernah di-emit (dead code) →
+        // Dart-side gak ke-sync soal repeatMode kecuali pas listener onRepeatModeChanged nyala.
+        Events.emit("repeatMode",     repeatStr)
         
         if (emitQueue) Events.emit("queue", queue)
         Events.emit("audioSessionId", p.audioSessionId)
@@ -1028,7 +1047,9 @@ emitAll()
             // ── Queue mutations (native owns queue, mutations sync immediately) ──
 
             "insertNext" -> {
-    val item = call.argument<Map<String, Any>>("item") ?: run { result.success(null); return }
+    // PATCH: tipe sebelumnya Map<String, Any> gak konsisten sama tipe queue
+    // (List<Map<String, Any?>>) — field kayak albumId/artworkUri boleh null.
+    val item = call.argument<Map<String, Any?>>("item") ?: run { result.success(null); return }
     val mutable = queue.toMutableList()
     
     // Pake +1 ini udah standar industri beb, paling logis buat UX
@@ -1050,7 +1071,8 @@ emitAll()
 }
 
             "appendToQueue" -> {
-    val item = call.argument<Map<String, Any>>("item") ?: run { result.success(null); return }
+    // PATCH: sama kayak insertNext, samain tipe ke Any? biar konsisten.
+    val item = call.argument<Map<String, Any?>>("item") ?: run { result.success(null); return }
     val mutable = queue.toMutableList()
     mutable.add(item)
     queue = mutable
@@ -1653,8 +1675,15 @@ emitAll()
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer, actualFadeMs: Long) {
     crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
     val durationMs = actualFadeMs.coerceAtLeast(100L) // minimal 100ms
-    val steps      = 100
-    val stepMs     = (durationMs / steps).coerceAtLeast(8L)
+    // PATCH: sebelumnya steps di-hardcode 100 sementara stepMs di-floor minimal 8ms →
+    // buat fade pendek (mis. durationMs=100ms) total waktu fade asli jadi
+    // 100 * 8ms = 800ms, 8x lebih lama dari target. Ini bisa bikin crossfade
+    // overlap/glitch pas trigger-nya mepet banget ke akhir lagu.
+    // Sekarang steps dihitung dari durationMs supaya steps * stepMs ≈ durationMs,
+    // tetap dijaga stepMs >= 8ms (biar gak nge-spam Handler) dan steps <= 100 (biar mulus).
+    val minStepMs  = 8L
+    val steps      = (durationMs / minStepMs).coerceIn(8L, 100L).toInt()
+    val stepMs     = (durationMs / steps).coerceAtLeast(minStepMs)
     val targetVol  = volumeBeforeDuck.coerceIn(0f, 1f)
     var step       = 0
 
