@@ -31,8 +31,10 @@ class _SystemSection extends StatelessWidget {
       subtitle: 'Sembunyikan log info & verbose',
       value: errOnly,
       onChanged: logEnabled
-          ? (v) async => await LogService.setErrorsOnly(v)
-          : null, // nonaktifkan interaksi
+      ? (v) async {
+        await LogService.setErrorsOnly(v);
+      }
+    : (_) async {},
     ),
   ),
 ),
