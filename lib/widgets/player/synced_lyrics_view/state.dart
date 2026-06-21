@@ -127,4 +127,5 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
       curve: Curves.easeOutCubic,
     );
   }
-}
+  }
+  }
