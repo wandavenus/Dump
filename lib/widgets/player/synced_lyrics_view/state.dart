@@ -105,21 +105,26 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   }
 
   void _scrollToIndex(int index) {
-    if (!_scroll.hasClients) return;
+  if (!_scroll.hasClients) return;
+  
+  // Ambil top padding dari widget (default 0 jika tidak ada)
+  final topPadding = widget.padding.resolve(TextDirection.ltr).top;
+  
+  final viewportHalf = _scroll.position.viewportDimension / 2;
+  final itemOffset = index * _itemHeight;
+  
+  // ── FORMULA PERBAIKAN ──
+  // Tambahkan topPadding agar item benar-benar berada di tengah viewport
+  final target = (itemOffset + topPadding - viewportHalf + _itemHeight / 2)
+      .clamp(0.0, _scroll.position.maxScrollExtent)
+      .toDouble();
 
-    final viewportHalf = _scroll.position.viewportDimension / 2;
-    final itemOffset = index * _itemHeight;
-    final target = (itemOffset - viewportHalf + _itemHeight / 2)
-        .clamp(0.0, _scroll.position.maxScrollExtent);
-
-    // Hanya scroll jika jarak cukup signifikan
-    final currentOffset = _scroll.offset;
-    if ((target - currentOffset).abs() > 1.0) {
-      _scroll.animateTo(
-        target,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      );
-    }
+  final currentOffset = _scroll.offset;
+  if ((target - currentOffset).abs() > 1.0) {
+    _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
   }
 }
