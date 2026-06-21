@@ -35,8 +35,9 @@ class SleepTimerManager(
         tickRunnable = tick
         handler.postDelayed(tick, 1000L)
 
-        stopRunnable = Runnable { triggerStop() }
-        handler.postDelayed(stopRunnable!!, durationMs)
+        val runnable = Runnable { triggerStop() }
+        stopRunnable = runnable
+        handler.postDelayed(runnable, durationMs)
         emitState()
         log("Sleep timer started: ${durationMs}ms")
     }
