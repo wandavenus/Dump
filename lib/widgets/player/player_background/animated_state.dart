@@ -57,7 +57,7 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      key: ValueKey<int>(widget.songId),
+      
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
@@ -102,7 +102,7 @@ class _AnimatedBlurredPlayerBackgroundState
                   ),
                   child: ScaleTransition(
                     scale: Tween<double>(
-                      begin: 1.03,
+                      begin: 1.0,
                       end: 1.0,
                     ).animate(
                       CurvedAnimation(
