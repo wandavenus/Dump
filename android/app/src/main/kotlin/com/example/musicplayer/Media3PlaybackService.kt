@@ -644,7 +644,7 @@ emitAll()
     // PATCH: sebelumnya thread { } baca property `queue` langsung, bukan snapshot →
     // kalau ada mutasi queue (insertNext/removeFromQueue/dst) pas background thread
     // belum sempat jalan, data yang ke-save bisa gak sinkron sama idx/posMs di atas.
-    val queueSnapshot = queue
+    val queueSnapshot = queue.map { HashMap(it) }
 
     thread {
         try {
@@ -1649,28 +1649,44 @@ emitAll()
         }
     }
 
-    private fun restoreQueueOnActivePlayer(active: ExoPlayer) {
-        if (queue.isEmpty()) return
-        val wasPlaying = active.isPlaying
-        val position   = active.currentPosition.coerceAtLeast(0L)
-        val repeatMode = active.repeatMode
-        val shuffle    = active.shuffleModeEnabled
-        val params     = active.playbackParameters
-        try {
-            active.setMediaItems(
-                queue.map { mediaItemFrom(it) },
-                activeQueueIndex.coerceIn(0, queue.lastIndex),
-                position
-            )
-            active.repeatMode         = repeatMode
-            active.shuffleModeEnabled = shuffle
-            active.playbackParameters = params
-            active.prepare()
-            if (wasPlaying) active.play()
-        } catch (e: Exception) {
-            nativeLog("warn", "restoreQueueOnActivePlayer: ${e.message}")
-        }
+    private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
+    if (queue.isEmpty()) return
+
+    val targetIndex = activeQueueIndex.coerceIn(0, queue.lastIndex)
+    val targetItemId = queue.getOrNull(targetIndex)?.get("id")?.toString()
+    val currentItemId = active.currentMediaItem?.mediaId
+    val currentPosition = active.currentPosition.coerceAtLeast(0L)
+
+    val wasPlaying = active.isPlaying
+    val repeatMode = active.repeatMode
+    val shuffleMode = active.shuffleModeEnabled
+    val params = active.playbackParameters
+
+    // udah sinkron, skip rebuild
+    if (
+        active.mediaItemCount == queue.size &&
+        active.currentMediaItemIndex == targetIndex &&
+        currentItemId == targetItemId
+    ) {
+        return
     }
+
+    try {
+        active.pause()
+        active.setMediaItems(
+            queue.map { mediaItemFrom(it) },
+            targetIndex,
+            currentPosition
+        )
+        active.repeatMode = repeatMode
+        active.shuffleModeEnabled = shuffleMode
+        active.playbackParameters = params
+        active.prepare()
+        if (wasPlaying) active.play()
+    } catch (e: Exception) {
+        nativeLog("warn", "syncActivePlayerQueueIfNeeded: ${e.message}")
+    }
+}
 
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer, actualFadeMs: Long) {
     crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
@@ -1702,7 +1718,7 @@ emitAll()
                 try { oldPlayer.pause() }           catch (_: Exception) {}
                 try { oldPlayer.stop() }            catch (_: Exception) {}
                 try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
-                restoreQueueOnActivePlayer(newPlayer)
+                syncActivePlayerQueueIfNeeded(newPlayer)
                 crossfadeInProgress   = false
                 promotionTriggered    = false
                 promotionOwner        = null
