@@ -35,7 +35,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   void didUpdateWidget(covariant BlurredArtworkBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      _loadingId = widget.songId;
+      
       _loadBlurred();
     }
   }
