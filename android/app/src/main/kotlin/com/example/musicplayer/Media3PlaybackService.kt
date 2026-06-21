@@ -1691,12 +1691,7 @@ emitAll()
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer, actualFadeMs: Long) {
     crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
     val durationMs = actualFadeMs.coerceAtLeast(100L) // minimal 100ms
-    // PATCH: sebelumnya steps di-hardcode 100 sementara stepMs di-floor minimal 8ms →
-    // buat fade pendek (mis. durationMs=100ms) total waktu fade asli jadi
-    // 100 * 8ms = 800ms, 8x lebih lama dari target. Ini bisa bikin crossfade
-    // overlap/glitch pas trigger-nya mepet banget ke akhir lagu.
-    // Sekarang steps dihitung dari durationMs supaya steps * stepMs ≈ durationMs,
-    // tetap dijaga stepMs >= 8ms (biar gak nge-spam Handler) dan steps <= 100 (biar mulus).
+    // nge-spam Handler) dan steps <= 100 (biar mulus).
     val minStepMs  = 8L
     val steps      = (durationMs / minStepMs).coerceIn(8L, 100L).toInt()
     val stepMs     = (durationMs / steps).coerceAtLeast(minStepMs)
@@ -1716,18 +1711,25 @@ emitAll()
             if (step >= steps) {
                 newPlayer.volume = targetVol
                 try { oldPlayer.pause() }           catch (_: Exception) {}
-                try { oldPlayer.stop() }            catch (_: Exception) {}
-                try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
-                syncActivePlayerQueueIfNeeded(newPlayer)
-                crossfadeInProgress   = false
-                promotionTriggered    = false
-                promotionOwner        = null
-                crossfadeFadeRunnable = null
-                preloadedQueueIndex   = C.INDEX_UNSET
-                saveQueueToPrefs()
-                nativeLog("debug", "Crossfade completed (${durationMs}ms)")
-                preloadNextTrack(force = true)
-                return
+try { oldPlayer.stop() }            catch (_: Exception) {}
+try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
+
+// JANGAN rebuild queue di sini.
+// newPlayer udah jadi activePlayer dan lagi playback.
+
+crossfadeInProgress   = false
+promotionTriggered    = false
+promotionOwner        = null
+crossfadeFadeRunnable = null
+preloadedQueueIndex   = C.INDEX_UNSET
+
+emitAll()
+refreshNotification()
+
+saveQueueToPrefs()
+nativeLog("debug", "Crossfade completed (${durationMs}ms)")
+preloadNextTrack(force = true)
+return
             }
             val progress = step.toFloat() / steps.toFloat()
             oldPlayer.volume = (targetVol * sqrt(1f - progress)).coerceIn(0f, 1f)
