@@ -199,42 +199,75 @@ class Media3PlaybackService : MediaSessionService() {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_PLAY_PAUSE -> {
-                val p = player
-                if (p != null) {
-                    if (p.isPlaying) {
-                        p.pause()
-                        stopPositionTicker()
-                        abandonAudioFocus()
-                        nativeLog("info", "transport: pause (notification/BT)")
-                    } else {
-                        if (requestAudioFocus()) {
-                            p.play()
-
-                            ensureMediaForeground()
-                            refreshNotification()
-                            
-                            startPositionTicker()
-                            nativeLog("info", "transport: play (notification/BT)")
-                        }
-                    }
-                    emitAll()
-                    refreshNotification()
+    val p = player
+    if (p != null) {
+        if (p.isPlaying) {
+            p.pause()
+            stopPositionTicker()
+            abandonAudioFocus()
+            nativeLog("info", "transport: pause (notification/BT)")
+        } else {
+            if (requestAudioFocus()) {
+                if (p.playbackState == Player.STATE_ENDED && p.mediaItemCount > 0) {
+                    p.seekToDefaultPosition(0)
+                    p.prepare()
                 }
+
+                p.play()
+
+                ensureMediaForeground()
+                refreshNotification()
+
+                startPositionTicker()
+                nativeLog("info", "transport: play (notification/BT)")
             }
+        }
+        emitAll()
+        refreshNotification()
+    }
+}
             ACTION_SKIP_NEXT -> {
-    cancelSleepTimer()  // <-- tambahkan
+    cancelSleepTimer()
     cancelCrossfade(resetVolume = true)
     clearStandbyQueue()
-    player?.seekToNextMediaItem()
+
+    if (player?.playbackState == Player.STATE_ENDED) {
+        val p = player!!
+        val nextIndex = p.nextMediaItemIndex
+        if (nextIndex != C.INDEX_UNSET) {
+            p.seekToDefaultPosition(nextIndex)
+            p.prepare()
+        } else if (p.mediaItemCount > 0) {
+            p.seekToDefaultPosition(0)
+            p.prepare()
+        }
+    } else {
+        player?.seekToNextMediaItem()
+    }
+
     nativeLog("info", "transport: skipNext (notification/BT)")
     emitAll()
     refreshNotification()
 }
 ACTION_SKIP_PREV -> {
-    cancelSleepTimer()  // <-- tambahkan
+    cancelSleepTimer()
     cancelCrossfade(resetVolume = true)
     clearStandbyQueue()
-    player?.seekToPreviousMediaItem()
+
+    if (player?.playbackState == Player.STATE_ENDED) {
+        val p = player!!
+        val prevIndex = p.previousMediaItemIndex
+        if (prevIndex != C.INDEX_UNSET) {
+            p.seekToDefaultPosition(prevIndex)
+            p.prepare()
+        } else if (p.mediaItemCount > 0) {
+            p.seekToDefaultPosition(0)
+            p.prepare()
+        }
+    } else {
+        player?.seekToPreviousMediaItem()
+    }
+
     nativeLog("info", "transport: skipPrev (notification/BT)")
     emitAll()
     refreshNotification()
@@ -896,22 +929,56 @@ emitAll()
 
             // ── Transport ────────────────────────────────────────────────────────
             "play" -> {
-                val granted = requestAudioFocus()
-                if (granted) {
-                    p.play()
-                  
-                    ensureMediaForeground()
-                    refreshNotification()   
-                    
-                    startPositionTicker()
-                    val t = currentTrackMap()
-                    nativeLog("info", "play → '${t?.get("title")}' · ${t?.get("artist")} " +
-                        "[${p.currentMediaItemIndex + 1}/${queue.size}]")
-                } else {
-                    nativeLog("warn", "play: audio focus denied")
+    val granted = requestAudioFocus()
+
+    if (granted) {
+
+        // Kalau queue udah selesai di lagu terakhir,
+        // restart dari awal biar tombol Play tetap berfungsi.
+        if (p.playbackState == Player.STATE_ENDED) {
+
+            if (p.mediaItemCount > 0) {
+
+                val restartIndex = when {
+                    activeQueueIndex in queue.indices -> activeQueueIndex
+                    else -> 0
                 }
-                result.success(null)
+
+                p.seekToDefaultPosition(restartIndex)
+                p.prepare()
+
+                activeQueueIndex = restartIndex
+
+                if (crossfadeDurationSec > 0f) {
+                    preloadNextTrack(force = true)
+                }
             }
+        }
+
+        p.play()
+
+        ensureMediaForeground()
+        refreshNotification()
+
+        startPositionTicker()
+
+        val t = currentTrackMap()
+
+        nativeLog(
+            "info",
+            "play → '${t?.get("title")}' · ${t?.get("artist")} " +
+            "[${p.currentMediaItemIndex + 1}/${queue.size}]"
+        )
+
+    } else {
+        nativeLog("warn", "play: audio focus denied")
+    }
+
+    emitAll()
+    refreshNotification()
+
+    result.success(null)
+}
 
             "pause" -> {
                 p.pause()
@@ -940,32 +1007,32 @@ emitAll()
     cancelSleepTimer()
     cancelCrossfade(resetVolume = true)
     clearStandbyQueue()
-    
+
     if (p.playbackState == Player.STATE_ENDED) {
+
         val prevIndex = p.previousMediaItemIndex
+
         if (prevIndex != C.INDEX_UNSET) {
+            activeQueueIndex = prevIndex
             p.seekToDefaultPosition(prevIndex)
-            p.prepare()
-            emitAll()              // <-- TAMBAHKAN
-            refreshNotification()  // <-- TAMBAHKAN
-            if (!hasAudioFocus) {
-                p.pause()
-            }
-            nativeLog("info", "skipPrevious (from ENDED) → index $prevIndex")
-        } else {
-            if (p.mediaItemCount > 0) {
-                p.seekToDefaultPosition(0)
-                p.prepare()
-                emitAll()              // <-- TAMBAHKAN
-                refreshNotification()  // <-- TAMBAHKAN
-                nativeLog("info", "skipPrevious (ENDED, no prev) → restart queue")
-            } else {
-                nativeLog("warn", "skipPrevious: no previous item, queue empty")
-            }
+        } else if (queue.isNotEmpty()) {
+            activeQueueIndex = queue.lastIndex
+            p.seekToDefaultPosition(queue.lastIndex)
         }
+
+        p.prepare()
+
+        if (crossfadeDurationSec > 0f) {
+            preloadNextTrack(force = true)
+        }
+
+        emitAll()
+        refreshNotification()
+
     } else {
         p.seekToPreviousMediaItem()
     }
+
     result.success(null)
 }
 
@@ -973,34 +1040,32 @@ emitAll()
     cancelSleepTimer()
     cancelCrossfade(resetVolume = true)
     clearStandbyQueue()
-    
-    // Jika player sudah di STATE_ENDED, set ke next secara manual
+
     if (p.playbackState == Player.STATE_ENDED) {
+
         val nextIndex = p.nextMediaItemIndex
+
         if (nextIndex != C.INDEX_UNSET) {
+            activeQueueIndex = nextIndex
             p.seekToDefaultPosition(nextIndex)
-            p.prepare()
-            emitAll()              // <-- TAMBAHKAN
-            refreshNotification() 
-            if (!hasAudioFocus) {
-                p.pause()
-            }
-            nativeLog("info", "skipNext (from ENDED) → index $nextIndex")
-        } else {
-            // Tidak ada next item, restart dari awal jika queue tidak kosong
-            if (p.mediaItemCount > 0) {
-                p.seekToDefaultPosition(0)
-                p.prepare()
-                emitAll()              // <-- TAMBAHKAN
-                refreshNotification() 
-                nativeLog("info", "skipNext (ENDED, no next) → restart queue")
-            } else {
-                nativeLog("warn", "skipNext: no next item, queue empty")
-            }
+        } else if (queue.isNotEmpty()) {
+            activeQueueIndex = 0
+            p.seekToDefaultPosition(0)
         }
+
+        p.prepare()
+
+        if (crossfadeDurationSec > 0f) {
+            preloadNextTrack(force = true)
+        }
+
+        emitAll()
+        refreshNotification()
+
     } else {
         p.seekToNextMediaItem()
     }
+
     result.success(null)
 }
 
