@@ -27,14 +27,12 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
         final child = artwork == null || artwork.isEmpty
             ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
             : BlurredArtworkBackground(
-                key: ValueKey<int>(widget.songId),
                 songId: widget.songId,
                 artwork: artwork,
               );
