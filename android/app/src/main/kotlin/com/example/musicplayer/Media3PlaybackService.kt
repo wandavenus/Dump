@@ -1714,7 +1714,14 @@ emitAll()
         }
     }
 
-   private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
+    private fun queueItemKey(map: Map<String, Any?>?): String? {
+    if (map == null) return null
+    return (map["id"] ?: map["path"])
+        ?.toString()
+        ?.takeIf { it.isNotBlank() }
+    } 
+    
+    private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
     if (queue.isEmpty()) return
 
     val targetIndex = activeQueueIndex.coerceIn(0, queue.lastIndex)
