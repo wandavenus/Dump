@@ -32,20 +32,29 @@ Widget build(BuildContext context) {
     trackHeight: 6,
     activeTrackColor: Colors.white,
     inactiveTrackColor: const Color(0xFF808080),
-    // Thumb transparan namun tetap memiliki area sentuh
-    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-    overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
+
+    thumbShape: const RoundSliderThumbShape(
+      enabledThumbRadius: 0,
+      disabledThumbRadius: 0,
+    ),
+
+    overlayShape: SliderComponentShape.noOverlay,
     thumbColor: Colors.transparent,
+    overlayColor: Colors.transparent,
   ),
   child: Slider(
     min: 0,
-    max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
+    max: durationSeconds == 0
+        ? 1
+        : durationSeconds.toDouble(),
     value: value,
     onChanged: durationSeconds == 0
         ? null
         : (newValue) {
             AudioService.seek(
-              Duration(seconds: newValue.toInt()),
+              Duration(
+                seconds: newValue.toInt(),
+              ),
             );
           },
   ),
