@@ -3,7 +3,7 @@ part of '../player_background.dart';
 class _AnimatedBlurredPlayerBackgroundState
     extends State<AnimatedBlurredPlayerBackground> {
   Future<Uint8List?>? _artworkFuture;
-
+key: ValueKey<int>(widget.songId),
   @override
   void initState() {
     super.initState();
@@ -27,7 +27,8 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: _artworkFuture,
+     key: ValueKey<int>(widget.songId),
+        future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
         final child = artwork == null || artwork.isEmpty
