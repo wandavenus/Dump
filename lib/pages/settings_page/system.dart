@@ -23,19 +23,19 @@ class _SystemSection extends StatelessWidget {
         const SettingsDivider(),
 
         ValueListenableBuilder<bool>(
-          valueListenable: LogService.loggingEnabled,
-          builder: (_, logEnabled, _) => ValueListenableBuilder<bool>(
-            valueListenable: LogService.errorsOnly,
-            builder: (_, errOnly, _) => SettingsToggleRow(
-              title: 'Error & Peringatan Saja',
-              subtitle: 'Sembunyikan log info & verbose',
-              value: errOnly,
-              onChanged: (v) async {
-                if (logEnabled) await LogService.setErrorsOnly(v);
-              },
-            ),
-          ),
-        ),
+  valueListenable: LogService.loggingEnabled,
+  builder: (_, logEnabled, __) => ValueListenableBuilder<bool>(
+    valueListenable: LogService.errorsOnly,
+    builder: (_, errOnly, __) => SettingsToggleRow(
+      title: 'Error & Peringatan Saja',
+      subtitle: 'Sembunyikan log info & verbose',
+      value: errOnly,
+      onChanged: logEnabled
+          ? (v) async => await LogService.setErrorsOnly(v)
+          : null, // nonaktifkan interaksi
+    ),
+  ),
+),
         const SettingsDivider(),
 
         ValueListenableBuilder<bool>(
