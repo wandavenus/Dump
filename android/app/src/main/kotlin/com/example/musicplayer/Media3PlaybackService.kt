@@ -1721,48 +1721,7 @@ emitAll()
         ?.takeIf { it.isNotBlank() }
     } 
     
-    private fun syncActivePlayerQueueIfNeeded(active: ExoPlayer) {
-    if (queue.isEmpty()) return
-
-    val targetIndex = activeQueueIndex.coerceIn(0, queue.lastIndex)
-    val targetKey = queueItemKey(queue.getOrNull(targetIndex))
-    val currentKey = active.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }
-    val currentPosition = active.currentPosition.coerceAtLeast(0L)
-
-    val wasPlaying = active.isPlaying
-    val repeatMode = active.repeatMode
-    val shuffleMode = active.shuffleModeEnabled
-    val params = active.playbackParameters
-
-    val isSameItem = when {
-        targetKey != null && currentKey != null -> targetKey == currentKey
-        else -> active.currentMediaItemIndex == targetIndex
-    }
-
-    if (
-        active.mediaItemCount == queue.size &&
-        active.currentMediaItemIndex == targetIndex &&
-        isSameItem
-    ) {
-        return
-    }
-
-    try {
-        active.pause()
-        active.setMediaItems(
-            queue.map { mediaItemFrom(it) },
-            targetIndex,
-            currentPosition
-        )
-        active.repeatMode = repeatMode
-        active.shuffleModeEnabled = shuffleMode
-        active.playbackParameters = params
-        active.prepare()
-        if (wasPlaying) active.play()
-    } catch (e: Exception) {
-        nativeLog("warn", "syncActivePlayerQueueIfNeeded: ${e.message}")
-    }
-}
+    
 
     private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer, actualFadeMs: Long) {
     crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
