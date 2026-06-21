@@ -1540,51 +1540,54 @@ emitAll()
     if (standby.mediaItemCount == 0) return
 
     val crossMs   = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(250L)
-    val bufferMs  = 200L // buffer 1 detik agar fade selesai sebelum lagu lama berakhir
-    val triggerMs = crossMs + bufferMs
+    val bufferMs  = 200L
     val remaining = dur - p.currentPosition
 
-    if (remaining in 1L..triggerMs) {
-        nativeLog("info", "Triggering crossfade at ${remaining}ms remaining (buffer=${bufferMs}ms)")
-        promoteSecondaryPlayer()
+    // ── SYARAT: sisa waktu tidak boleh 0, dan ≤ crossMs + buffer ──
+    if (remaining in 1L..(crossMs + bufferMs)) {
+        // Hitung durasi fade sebenarnya = min(crossMs, remaining)
+        val actualFadeMs = minOf(crossMs, remaining)
+        nativeLog("info", "Triggering crossfade: remaining=${remaining}ms, actualFade=${actualFadeMs}ms")
+        promoteSecondaryPlayer(actualFadeMs)
     }
 }
 
-    private fun promoteSecondaryPlayer() {
-        if (crossfadeInProgress) return
-        val next      = standbyPlayer() ?: return
-        val current   = activePlayer   ?: return
-        val nextIndex = preloadedQueueIndex
-        if (next.mediaItemCount == 0 || nextIndex !in queue.indices) return
+    private fun promoteSecondaryPlayer(actualFadeMs: Long) {
+    if (crossfadeInProgress) return
+    val next      = standbyPlayer() ?: return
+    val current   = activePlayer   ?: return
+    val nextIndex = preloadedQueueIndex
+    if (next.mediaItemCount == 0 || nextIndex !in queue.indices) return
 
-        crossfadeInProgress = true
-        promotionTriggered  = true
-        promotionOwner      = current
-        activeQueueIndex    = nextIndex
-        nativeLog("info", "Promoting standby player → [$nextIndex]")
+    crossfadeInProgress = true
+    promotionTriggered  = true
+    promotionOwner      = current
+    activeQueueIndex    = nextIndex
+    nativeLog("info", "Promoting standby player → [$nextIndex]")
 
-        try {
-            val ci = current.currentMediaItemIndex
-            if (current.mediaItemCount > ci + 1) {
-                current.removeMediaItems(ci + 1, current.mediaItemCount)
-            }
-        } catch (e: Exception) {
-            nativeLog("warn", "detach old queue tail: ${e.message}")
+    try {
+        val ci = current.currentMediaItemIndex
+        if (current.mediaItemCount > ci + 1) {
+            current.removeMediaItems(ci + 1, current.mediaItemCount)
         }
-
-        next.volume  = 0f
-        activePlayer = next
-        switchMediaSessionPlayer(next)
-
-        if (hasAudioFocus) {
-            next.play()
-        } else if (requestAudioFocus()) {
-            next.play()
-        }
-        startCrossfadeFadeIn(next, current)
-        emitAll()
-        refreshNotification()
+    } catch (e: Exception) {
+        nativeLog("warn", "detach old queue tail: ${e.message}")
     }
+
+    next.volume  = 0f
+    activePlayer = next
+    switchMediaSessionPlayer(next)
+
+    if (hasAudioFocus) {
+        next.play()
+    } else if (requestAudioFocus()) {
+        next.play()
+    }
+    // Kirim durasi aktual ke fade function
+    startCrossfadeFadeIn(next, current, actualFadeMs)
+    emitAll()
+    refreshNotification()
+}
 
     private fun switchMediaSessionPlayer(newPlayer: ExoPlayer) {
         try {
@@ -1617,9 +1620,9 @@ emitAll()
         }
     }
 
-    private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer) {
+    private fun startCrossfadeFadeIn(newPlayer: ExoPlayer, oldPlayer: ExoPlayer, actualFadeMs: Long) {
     crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
-    val durationMs = (crossfadeDurationSec * 1000f).toLong().coerceAtLeast(100L)
+    val durationMs = actualFadeMs.coerceAtLeast(100L) // minimal 100ms
     val steps      = 100
     val stepMs     = (durationMs / steps).coerceAtLeast(8L)
     val targetVol  = volumeBeforeDuck.coerceIn(0f, 1f)
@@ -1647,7 +1650,7 @@ emitAll()
                 crossfadeFadeRunnable = null
                 preloadedQueueIndex   = C.INDEX_UNSET
                 saveQueueToPrefs()
-                nativeLog("debug", "Crossfade completed")
+                nativeLog("debug", "Crossfade completed (${durationMs}ms)")
                 preloadNextTrack(force = true)
                 return
             }
@@ -1662,7 +1665,6 @@ emitAll()
     handler.post(runnable)
     nativeLog("debug", "Crossfade fade-in started (${durationMs}ms, $steps steps)")
 }
-
     // ── Utilities ──────────────────────────────────────────────────────────────
 
     private fun isMiui(): Boolean = try {
