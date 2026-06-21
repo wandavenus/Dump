@@ -19,7 +19,8 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   ui.Image? _blurredImage;
-
+  int _loadingId = -1;
+  
   @override
   void initState() {
     super.initState();
@@ -34,6 +35,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   void didUpdateWidget(covariant BlurredArtworkBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
+      _loadingId = widget.songId;
       _loadBlurred();
     }
   }
