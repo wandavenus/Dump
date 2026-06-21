@@ -1714,12 +1714,6 @@ emitAll()
         }
     }
 
-    private fun queueItemKey(map: Map<String, Any?>?): String? {
-    if (map == null) return null
-    return (map["id"] ?: map["path"])
-        ?.toString()
-        ?.takeIf { it.isNotBlank() }
-    } 
     
     
 
