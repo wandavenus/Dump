@@ -910,22 +910,23 @@ emitAll()
     cancelCrossfade(resetVolume = true)
     clearStandbyQueue()
     
-    // Jika player sudah di STATE_ENDED, set ke previous secara manual
     if (p.playbackState == Player.STATE_ENDED) {
         val prevIndex = p.previousMediaItemIndex
         if (prevIndex != C.INDEX_UNSET) {
             p.seekToDefaultPosition(prevIndex)
             p.prepare()
-            // Jika tidak ada audio focus, tetap pause
+            emitAll()              // <-- TAMBAHKAN
+            refreshNotification()  // <-- TAMBAHKAN
             if (!hasAudioFocus) {
                 p.pause()
             }
             nativeLog("info", "skipPrevious (from ENDED) → index $prevIndex")
         } else {
-            // Tidak ada previous item, restart dari awal jika queue tidak kosong
             if (p.mediaItemCount > 0) {
                 p.seekToDefaultPosition(0)
                 p.prepare()
+                emitAll()              // <-- TAMBAHKAN
+                refreshNotification()  // <-- TAMBAHKAN
                 nativeLog("info", "skipPrevious (ENDED, no prev) → restart queue")
             } else {
                 nativeLog("warn", "skipPrevious: no previous item, queue empty")
@@ -948,6 +949,8 @@ emitAll()
         if (nextIndex != C.INDEX_UNSET) {
             p.seekToDefaultPosition(nextIndex)
             p.prepare()
+            emitAll()              // <-- TAMBAHKAN
+            refreshNotification() 
             if (!hasAudioFocus) {
                 p.pause()
             }
@@ -957,6 +960,8 @@ emitAll()
             if (p.mediaItemCount > 0) {
                 p.seekToDefaultPosition(0)
                 p.prepare()
+                emitAll()              // <-- TAMBAHKAN
+                refreshNotification() 
                 nativeLog("info", "skipNext (ENDED, no next) → restart queue")
             } else {
                 nativeLog("warn", "skipNext: no next item, queue empty")
