@@ -27,7 +27,7 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      key: ValueKey<int>(widget.songId),
+      
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
