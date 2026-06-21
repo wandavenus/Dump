@@ -28,28 +28,28 @@ Widget build(BuildContext context) {
       return Column(
         children: [
           SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 6,
-              activeTrackColor: Colors.white,
-              inactiveTrackColor: const Color(0xFF808080),
-              thumbShape: SliderComponentShape.noThumb,
-              overlayShape: SliderComponentShape.noOverlay,
-            ),
-            child: Slider(
-              min: 0,
-              max: durationSeconds == 0
-                  ? 1
-                  : durationSeconds.toDouble(),
-              value: value,
-              onChanged: durationSeconds == 0
-                  ? null
-                  : (newValue) {
-                      AudioService.seek(
-                        Duration(seconds: newValue.toInt()),
-                      );
-                    },
-            ),
-          ),
+  data: SliderTheme.of(context).copyWith(
+    trackHeight: 6,
+    activeTrackColor: Colors.white,
+    inactiveTrackColor: const Color(0xFF808080),
+    // Thumb transparan namun tetap memiliki area sentuh
+    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+    overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
+    thumbColor: Colors.transparent,
+  ),
+  child: Slider(
+    min: 0,
+    max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
+    value: value,
+    onChanged: durationSeconds == 0
+        ? null
+        : (newValue) {
+            AudioService.seek(
+              Duration(seconds: newValue.toInt()),
+            );
+          },
+  ),
+),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
