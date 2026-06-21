@@ -30,11 +30,11 @@ class _SystemSection extends StatelessWidget {
       title: 'Error & Peringatan Saja',
       subtitle: 'Sembunyikan log info & verbose',
       value: errOnly,
-      onChanged: logEnabled
-      ? (v) async {
-        await LogService.setErrorsOnly(v);
-      }
-    : (_) async {},
+      onChanged: (v) async {
+  if (logEnabled) {
+    await LogService.setErrorsOnly(v);
+  }
+},
     ),
   ),
 ),
