@@ -1,121 +1,52 @@
 part of '../player_background.dart';
 
 class _AnimatedBlurredPlayerBackgroundState
-    extends State<AnimatedBlurredPlayerBackground>
-    with SingleTickerProviderStateMixin {
-
-  Uint8List? _currentArtwork;
-  Uint8List? _previousArtwork;
-
-  late final AnimationController _controller;
-  late final Animation<double> _fade;
-
-  int? _loadingSongId;
+    extends State<AnimatedBlurredPlayerBackground> {
+  Future<Uint8List?>? _artworkFuture;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    );
-
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        setState(() {
-          _previousArtwork = null;
-        });
-      }
-    });
-
-    _loadArtwork(widget.songId);
+    _updateArtworkFuture();
   }
 
   @override
-  void didUpdateWidget(
-    AnimatedBlurredPlayerBackground oldWidget,
-  ) {
+  void didUpdateWidget(AnimatedBlurredPlayerBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.songId != widget.songId) {
-      _loadArtwork(widget.songId);
+      _updateArtworkFuture();
     }
   }
 
-  Future<void> _loadArtwork(int songId) async {
-    _loadingSongId = songId;
-
-    final artwork = songId > 0
-        ? await MediaStoreService.getArtwork(songId)
-        : null;
-
-    if (!mounted) return;
-    if (_loadingSongId != songId) return;
-
-    if (_currentArtwork == null) {
-      setState(() {
-        _currentArtwork = artwork;
-      });
-      return;
-    }
-
-    setState(() {
-      _previousArtwork = _currentArtwork;
-      _currentArtwork = artwork;
-    });
-
-    _controller
-      ..reset()
-      ..forward();
-  }
-
-  Widget _buildLayer(Uint8List? artwork) {
-    if (artwork == null || artwork.isEmpty) {
-      return const PlayerFallbackBackground();
-    }
-
-    return BlurredArtworkBackground(
-      songId: widget.songId,
-      artwork: artwork,
-    );
+  void _updateArtworkFuture() {
+    _artworkFuture = widget.songId > 0
+        ? MediaStoreService.getArtwork(widget.songId)
+        : Future<Uint8List?>.value();
+        
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (_previousArtwork != null)
-          Positioned.fill(
-            child: _buildLayer(_previousArtwork),
-          ),
+    return FutureBuilder<Uint8List?>(
+     key: ValueKey<int>(widget.songId),
+        future: _artworkFuture,
+      builder: (context, snapshot) {
+        final artwork = snapshot.data;
+        final child = artwork == null || artwork.isEmpty
+            ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
+            : BlurredArtworkBackground(
+             key: ValueKey<int>(widget.songId),    
+                songId: widget.songId,
+                artwork: artwork,
+              );
 
-        if (_currentArtwork != null)
-          Positioned.fill(
-            child: FadeTransition(
-              opacity: _fade,
-              child: _buildLayer(_currentArtwork),
-            ),
-          ),
-
-        if (_currentArtwork == null &&
-            _previousArtwork == null)
-          const Positioned.fill(
-            child: PlayerFallbackBackground(),
-          ),
-      ],
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 420),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          child: child,
+        );
+      },
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
