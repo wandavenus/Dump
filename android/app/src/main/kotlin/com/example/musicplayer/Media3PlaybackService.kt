@@ -24,9 +24,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -39,9 +37,14 @@ import kotlin.concurrent.thread
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.IdentityHashMap
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.example.musicplayer.events.EventEmitter
+import com.example.musicplayer.events.NativeLogEmitter
+import com.example.musicplayer.queue.QueueManager
+import com.example.musicplayer.transport.TransportCommands
+import com.example.musicplayer.utils.MediaItemFactory
+import com.example.musicplayer.utils.TrackMapper
 
 @UnstableApi
 class Media3PlaybackService : MediaSessionService() {
@@ -57,7 +60,10 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── Session / transport ────────────────────────────────────────────────────
     private var session: MediaSession? = null
-    private var queue: List<Map<String, Any?>> = emptyList()
+    private val queueManager = QueueManager()
+    private var queue: List<Map<String, Any?>>
+        get() = queueManager.queue
+        set(value) { queueManager.set(value, activeQueueIndex) }
     private val handler = Handler(Looper.getMainLooper())
     private val positionUpdateMs = 200L
 
@@ -567,7 +573,7 @@ ACTION_SKIP_PREV -> {
 ) {
     if (!isActiveEvent()) return
 
-    Events.emit("shuffleMode", shuffleModeEnabled)
+    EventEmitter.emit("shuffleMode", shuffleModeEnabled)
     saveQueueToPrefs()
 }
 
@@ -580,7 +586,7 @@ ACTION_SKIP_PREV -> {
         else -> "off"
     }
 
-    Events.emit("repeatMode", repeat)
+    EventEmitter.emit("repeatMode", repeat)
     saveQueueToPrefs()
 }
 
@@ -834,7 +840,7 @@ emitAll()
         val remaining = if (sleepTimerActive && !sleepEndOfSong) {
             (sleepTimerEndMs - System.currentTimeMillis()).coerceAtLeast(0L)
         } else 0L
-        Events.emit("sleepTimer", mapOf(
+        EventEmitter.emit("sleepTimer", mapOf(
             "active"      to sleepTimerActive,
             "endOfSong"   to sleepEndOfSong,
             "remainingMs" to remaining,
@@ -843,68 +849,36 @@ emitAll()
 
     // ── State emission ─────────────────────────────────────────────────────────
 
-    private fun emitAll(emitQueue: Boolean = false) {
+    fun emitAll(emitQueue: Boolean = false) {
         val p = player ?: return
-        val state = when (p.playbackState) {
-            Player.STATE_BUFFERING -> "buffering"
-            Player.STATE_READY     -> "ready"
-            Player.STATE_ENDED     -> "completed"
-            else                   -> "idle"
+        val state = TransportCommands.processingState(p)
+        val repeatStr = TransportCommands.repeatMode(p)
+
+        EventEmitter.emit("playbackState", mapOf("playing" to p.isPlaying, "processingState" to state))
+        EventEmitter.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
+        EventEmitter.emit("position", p.currentPosition.coerceAtLeast(0L))
+        EventEmitter.emit("duration", p.duration.coerceAtLeast(0L))
+        EventEmitter.emit("currentTrack", currentTrackMap())
+
+        if (repeatStr != lastEmittedRepeatMode) {
+            lastEmittedRepeatMode = repeatStr
+            EventEmitter.emit("repeatMode", repeatStr)
         }
-        val repeatStr = when (p.repeatMode) {
-    Player.REPEAT_MODE_ONE -> "one"
-    Player.REPEAT_MODE_ALL -> "all"
-    else                   -> "off"
-}
 
-Events.emit("playbackState",  mapOf("playing" to p.isPlaying, "processingState" to state))
-Events.emit("bufferingState", p.playbackState == Player.STATE_BUFFERING)
-Events.emit("position",       p.currentPosition.coerceAtLeast(0L))
-Events.emit("duration",       p.duration.coerceAtLeast(0L))
-Events.emit("currentTrack",   currentTrackMap())
-
-if (repeatStr != lastEmittedRepeatMode) {
-    lastEmittedRepeatMode = repeatStr
-    Events.emit("repeatMode", repeatStr)
-}
-
-if (emitQueue) Events.emit("queue", queue)
-        Events.emit("audioSessionId", p.audioSessionId)
+        if (emitQueue) EventEmitter.emit("queue", queue)
+        EventEmitter.emit("audioSessionId", p.audioSessionId)
         emitSleepTimer()
     }
 
     private fun currentTrackMap(): Map<String, Any?>? {
-        val p     = player ?: return null
+        val p = player ?: return null
         val index = if (crossfadeDurationSec > 0f) activeQueueIndex else p.currentMediaItemIndex
-        val songMap = queue.getOrNull(index) ?: return null
-        val albumId = (songMap["albumId"] as? Number)?.toLong() ?: 0L
-        val artUri  = if (albumId > 0) "content://media/external/audio/albumart/$albumId" else null
-        return songMap + mapOf("index" to index, "artworkUri" to artUri)
+        return TrackMapper.currentTrack(queue, index)
     }
 
     // ── Media item builder ─────────────────────────────────────────────────────
 
-    private fun mediaItemFrom(map: Map<*, *>): MediaItem {
-        val path = map["path"] as? String ?: ""
-        val uri  = if (path.startsWith("content://") || path.startsWith("file://"))
-            path.toUri() else Uri.fromFile(java.io.File(path))
-
-        val albumId    = (map["albumId"] as? Number)?.toLong() ?: 0L
-        val artworkUri = if (albumId > 0)
-            Uri.parse("content://media/external/audio/albumart/$albumId") else null
-
-        val metaBuilder = MediaMetadata.Builder()
-            .setTitle(map["title"] as? String)
-            .setArtist(map["artist"] as? String)
-            .setAlbumTitle(map["album"] as? String)
-        if (artworkUri != null) metaBuilder.setArtworkUri(artworkUri)
-
-        return MediaItem.Builder()
-            .setMediaId((map["id"] ?: path).toString())
-            .setUri(uri)
-            .setMediaMetadata(metaBuilder.build())
-            .build()
-    }
+    private fun mediaItemFrom(map: Map<*, *>): MediaItem = MediaItemFactory.from(map)
 
     // ── MethodChannel handler ──────────────────────────────────────────────────
 
@@ -1806,45 +1780,19 @@ return
         (get.invoke(cls, "ro.miui.ui.version.name") as? String)?.isNotEmpty() == true
     } catch (_: Exception) { false }
 
-    private fun nativeLog(level: String, msg: String) = NativeLogs.emit(level, "Media3", msg)
+    private fun nativeLog(level: String, msg: String) = NativeLogEmitter.emit(level, "Media3", msg)
 
-    // ── EventChannel registry ──────────────────────────────────────────────────
+    // ── EventChannel registry compatibility aliases ────────────────────────────
 
     object Events {
-        private val sinks = mutableMapOf<String, EventChannel.EventSink?>()
-
-        fun handler(name: String) = object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                sinks[name] = events
-                instance?.emitAll(emitQueue = true)
-            }
-            override fun onCancel(arguments: Any?) { sinks[name] = null }
-        }
-
-        fun emit(name: String, value: Any?) {
-    
-        sinks[name]?.success(value)
-      }
-     
+        fun handler(name: String) = EventEmitter.handler(name)
+        fun emit(name: String, value: Any?) = EventEmitter.emit(name, value)
     }
 
     object NativeLogs {
-    private var sink: EventChannel.EventSink? = null
-
-    fun handler() = object : EventChannel.StreamHandler {
-        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
-        override fun onCancel(arguments: Any?) { sink = null }
+        fun handler() = NativeLogEmitter.handler()
+        fun emit(level: String, category: String, message: String) = NativeLogEmitter.emit(level, category, message)
     }
 
-    fun emit(level: String, category: String, message: String) {
-        sink?.success(
-            mapOf(
-                "level" to level,
-                "category" to category,
-                "message" to message
-            )
-        )
-    }
-}
 
 }
