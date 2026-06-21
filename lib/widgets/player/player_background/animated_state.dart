@@ -4,6 +4,9 @@ class _AnimatedBlurredPlayerBackgroundState
     extends State<AnimatedBlurredPlayerBackground> {
   Future<Uint8List?>? _artworkFuture;
 
+  Widget? _previousLayer;
+  Widget? _currentLayer;
+
   @override
   void initState() {
     super.initState();
@@ -11,8 +14,11 @@ class _AnimatedBlurredPlayerBackgroundState
   }
 
   @override
-  void didUpdateWidget(AnimatedBlurredPlayerBackground oldWidget) {
+  void didUpdateWidget(
+    AnimatedBlurredPlayerBackground oldWidget,
+  ) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.songId != widget.songId) {
       _updateArtworkFuture();
     }
@@ -31,19 +37,59 @@ class _AnimatedBlurredPlayerBackgroundState
       future: _artworkFuture,
       builder: (context, snapshot) {
         final artwork = snapshot.data;
-        final child = artwork == null || artwork.isEmpty
-            ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
-            : BlurredArtworkBackground(
-                key: ValueKey<int>(widget.songId),
-                songId: widget.songId,
-                artwork: artwork,
-              );
 
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 420),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeOutCubic,
-          child: child,
+        final newLayer =
+            artwork == null || artwork.isEmpty
+                ? const PlayerFallbackBackground(
+                    key: ValueKey<String>('fallback'),
+                  )
+                : BlurredArtworkBackground(
+                    key: ValueKey<int>(widget.songId),
+                    songId: widget.songId,
+                    artwork: artwork,
+                  );
+
+        if (_currentLayer == null) {
+          _currentLayer = newLayer;
+        } else if (_currentLayer!.key != newLayer.key) {
+          _previousLayer = _currentLayer;
+          _currentLayer = newLayer;
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_previousLayer != null)
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: 0,
+                  duration: const Duration(
+                    milliseconds: 900,
+                  ),
+                  Curves.easeInOutQuart,
+                  onEnd: () {
+                    if (mounted) {
+                      setState(() {
+                        _previousLayer = null;
+                      });
+                    }
+                  },
+                  child: _previousLayer!,
+                ),
+              ),
+
+            if (_currentLayer != null)
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: 1,
+                  duration: const Duration(
+                    milliseconds: 700,
+                  ),
+                  Curves.easeInOutQuart,
+                  child: _currentLayer!,
+                ),
+              ),
+          ],
         );
       },
     );
