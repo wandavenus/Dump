@@ -96,6 +96,10 @@ class ArtworkRepository {
 
     // Reuse existing FileImage to avoid allocating duplicate objects.
     FileImage img = _providers.putIfAbsent(songId, () => FileImage(File(path)));
+   
+    // Touch provider LRU.   
+    _providers.remove(songId);
+    _providers[songId] = img;
 
     // Trim provider cache in sync with path cache.
     while (_providers.length > _maxEntries) {
@@ -147,9 +151,11 @@ class ArtworkRepository {
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).
   void clearMemory() {
-    _paths.clear();
-    _providers.clear();
-  }
+  _paths.clear();
+  _providers.clear();
+
+  PaintingBinding.instance.imageCache.clear();
+}
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
