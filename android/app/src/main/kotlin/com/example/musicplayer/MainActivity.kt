@@ -20,12 +20,16 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
 
-    private val mediaStoreChannel = "musicplayer/media_store"
-    private val audioEffectsChannel = "musicplayer/audio_effects"
+    private val mediaStoreChannel     = "musicplayer/media_store"
+    private val audioEffectsChannel   = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
+
+    // Persistent artwork cache — initialised once in configureFlutterEngine.
+    private lateinit var artworkCacheManager: ArtworkCacheManager
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        artworkCacheManager = ArtworkCacheManager(this)
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
@@ -96,6 +100,33 @@ class MainActivity : FlutterActivity() {
                     "getArtwork" -> {
                         val songId = call.argument<Int>("songId")
                         result.success(getArtwork(songId ?: 0))
+                    }
+                    "getArtworkPath" -> {
+                        // Runs on a background thread so MediaStore I/O never blocks
+                        // the Flutter UI thread.  Returns the cached file path (String?)
+                        // so Flutter can use FileImage for zero-copy rendering.
+                        val songId = call.argument<Int>("songId") ?: 0
+                        Thread {
+                            try {
+                                val path = artworkCacheManager.getOrExtract(songId)
+                                result.success(path)
+                            } catch (e: Exception) {
+                                result.error("artwork_cache_error", e.message, null)
+                            }
+                        }.apply { name = "artwork-cache-$songId"; start() }
+                    }
+                    "cleanupArtworkCache" -> {
+                        // Optional: Flutter may pass a list of active-queue song IDs
+                        // so those files are never evicted during cleanup.
+                        val activeIds = call.argument<List<Int>>("activeIds")
+                            ?.toSet() ?: emptySet()
+                        Thread {
+                            artworkCacheManager.cleanupIfNeeded(activeIds)
+                            result.success(mapOf(
+                                "count" to artworkCacheManager.cacheCount(),
+                                "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
+                            ))
+                        }.apply { name = "artwork-cleanup"; start() }
                     }
                     "getAudioMetadata" -> {
                         val path = call.argument<String>("path")

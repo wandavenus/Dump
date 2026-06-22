@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../../services/artwork_repository.dart';
 import '../../services/blurred_image_cache.dart';
 import '../../services/media_store_service.dart';
 

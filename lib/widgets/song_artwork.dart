@@ -1,7 +1,15 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../services/media_store_service.dart';
 
+import '../services/artwork_repository.dart';
+
+/// Displays a song's artwork using the persistent [ArtworkRepository] cache.
+///
+/// Load order (handled by the repository):
+///   Memory cache → Disk WebP file → Native MediaStore extraction.
+///
+/// After first extraction artwork is served from disk ([FileImage]) with no
+/// MethodChannel calls.  Flutter's own [ImageCache] prevents re-decoding
+/// already-loaded images during the same session.
 class SongArtwork extends StatefulWidget {
   final int songId;
   final double size;
@@ -21,81 +29,84 @@ class SongArtwork extends StatefulWidget {
 }
 
 class _SongArtworkState extends State<SongArtwork> {
-  // Menyimpan artwork yang sedang ditampilkan
-  Uint8List? _currentArtwork;
-  // ID yang sedang dimuat (untuk mencegah race condition)
-  int _loadingId = -1;
-  bool _isLoading = false;
+  ImageProvider? _provider;
+
+  // _requestedId: ID of the most recent _load() call.
+  // _loading:     whether an async load is currently in flight.
+  // Together these implement a "latest-wins" strategy: if the widget's songId
+  // changes while a load is in flight, the loop picks up the new ID.
+  int  _requestedId = -1;
+  bool _loading     = false;
 
   @override
   void initState() {
     super.initState();
-    _loadingId = widget.songId;
-    _loadArtwork();
+    _load(widget.songId);
   }
 
   @override
-  void didUpdateWidget(covariant SongArtwork oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.songId != widget.songId) {
-      _loadingId = widget.songId;
-      _loadArtwork();
-    }
+  void didUpdateWidget(covariant SongArtwork old) {
+    super.didUpdateWidget(old);
+    if (old.songId != widget.songId) _load(widget.songId);
   }
 
-  Future<void> _loadArtwork() async {
-    if (_isLoading) return;
-    _isLoading = true;
+  Future<void> _load(int songId) async {
+    _requestedId = songId;
+    if (_loading) return; // running loop will pick up the new _requestedId
 
-    final data = await MediaStoreService.getArtwork(_loadingId);
+    _loading = true;
+    // Loop so a changed _requestedId is always served (covers fast scrolling).
+    while (mounted) {
+      final targetId = _requestedId;
 
-    // Hanya update jika ID masih sesuai (mencegah race condition)
-    if (mounted && _loadingId == widget.songId) {
-      setState(() {
-        _currentArtwork = data;
-        _isLoading = false;
-      });
-    } else {
-      _isLoading = false;
+      // Read pixel ratio before the await (safe on the UI isolate).
+      final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+      final targetPx = (widget.size * dpr).round();
+
+      final provider = await ArtworkRepository.instance.getProvider(
+        targetId,
+        targetSizePx: targetPx,
+      );
+
+      if (!mounted) break;
+
+      if (_requestedId == targetId) {
+        // Still the right song — apply and stop.
+        setState(() => _provider = provider);
+        break;
+      }
+      // _requestedId changed while we were awaiting — loop for the new ID.
     }
+    _loading = false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-    final cacheSize = (widget.size * pixelRatio).round();
-
-    // Jika artwork tersedia, tampilkan tanpa kedipan
-    if (_currentArtwork != null && _currentArtwork!.isNotEmpty) {
+    final p = _provider;
+    if (p != null) {
       return ClipRRect(
         borderRadius: widget.borderRadius,
-        child: Image.memory(
-          _currentArtwork!,
+        child: Image(
+          image: p,
           width: widget.size,
           height: widget.size,
           fit: widget.fit,
           gaplessPlayback: true,
-          cacheWidth: cacheSize,
-          cacheHeight: cacheSize,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) => _fallback(),
+          errorBuilder: (_, __, ___) => _fallback(),
         ),
       );
     }
-
-    // Fallback jika tidak ada artwork
     return _fallback();
   }
 
-  Widget _fallback() {
-    return Container(
-      width: widget.size,
-      height: widget.size,
-      decoration: BoxDecoration(
-        borderRadius: widget.borderRadius,
-        color: Colors.grey.shade900,
-      ),
-      child: const Icon(Icons.music_note),
-    );
-  }
+  Widget _fallback() => Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          borderRadius: widget.borderRadius,
+          color: Colors.grey.shade900,
+        ),
+        child: const Icon(Icons.music_note),
+      );
 }

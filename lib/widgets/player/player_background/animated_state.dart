@@ -21,22 +21,21 @@ class _AnimatedBlurredPlayerBackgroundState
 
   void _loadArtwork() {
     final targetSongId = widget.songId;
-    
+
     if (targetSongId <= 0) {
       setState(() {
-        _currentSongId = targetSongId;
+        _currentSongId  = targetSongId;
         _currentArtwork = null;
       });
       return;
     }
 
-    // Ambil data di background tanpa ngerusak UI yang lagi tampil
-    MediaStoreService.getArtwork(targetSongId).then((artwork) {
+    // Use ArtworkRepository so bytes come from the cached WebP file on disk
+    // rather than re-extracting from MediaStore on every player open.
+    ArtworkRepository.instance.getBytes(targetSongId).then((artwork) {
       if (!mounted || widget.songId != targetSongId) return;
-
-      // State diganti barengan pas data udah fix siap (⌐■_■)
       setState(() {
-        _currentSongId = targetSongId;
+        _currentSongId  = targetSongId;
         _currentArtwork = artwork;
       });
     });

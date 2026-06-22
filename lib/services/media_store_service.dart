@@ -88,4 +88,32 @@ class MediaStoreService {
   static void clearArtworkCache() {
     _artworkCache.clear();
   }
+
+  // ── Artwork path (persistent cache) ────────────────────────────────────────
+
+  /// Calls the native [ArtworkCacheManager] via MethodChannel.
+  /// Returns the absolute path to `{cacheDir}/artwork/{songId}.webp`.
+  ///
+  /// On a cache hit the native side returns immediately (file-exist check only).
+  /// On a miss it extracts from MediaStore, encodes WebP, saves atomically,
+  /// then returns the path.  The call runs on a native background thread so
+  /// the Flutter UI thread is never blocked.
+  ///
+  /// Prefer [ArtworkRepository.instance.getPath] which adds a Dart-side memory
+  /// cache and disk probe on top of this method.
+  static Future<String?> getArtworkPath(int songId) async {
+    if (songId <= 0) return null;
+    try {
+      return await _channel.invokeMethod<String>(
+        'getArtworkPath',
+        {'songId': songId},
+      );
+    } on PlatformException catch (e) {
+      debugPrint('getArtworkPath error songId=$songId: $e');
+      return null;
+    } catch (e) {
+      debugPrint('getArtworkPath unexpected error songId=$songId: $e');
+      return null;
+    }
+  }
 }
