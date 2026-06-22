@@ -20,7 +20,7 @@ class SongArtwork extends StatefulWidget {
     super.key,
     required this.songId,
     this.size = 55,
-    this.borderRadius = const BorderRadius.all(Radius.circular(5)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(4)),
     this.fit = BoxFit.cover,
   });
 
@@ -92,7 +92,7 @@ class _SongArtworkState extends State<SongArtwork> {
           height: widget.size,
           fit: widget.fit,
           gaplessPlayback: true,
-          filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.none,
           errorBuilder: (_, __, ___) => _fallback(),
         ),
       );
