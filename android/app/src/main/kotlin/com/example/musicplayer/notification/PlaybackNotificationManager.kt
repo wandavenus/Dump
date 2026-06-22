@@ -225,10 +225,10 @@ class PlaybackNotificationManager(
                     buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)))
                 .addAction(NotificationCompat.Action(R.drawable.ic_stop, "Stop",
                     buildTransportPendingIntent(ACTION_STOP, 4)))
-                .setStyle(
+              /*  .setStyle(
                     MediaStyleNotificationHelper.MediaStyle(session)
                         .setShowActionsInCompactView(0, 1, 2)
-                )
+                )*/
         }
         return builder.build()
     }
