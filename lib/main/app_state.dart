@@ -15,7 +15,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) applyEdgeToEdge();
+    if (state == AppLifecycleState.resumed) {
+      applyEdgeToEdge();
+      // Re-synchronize with the native Media3 service so the mini player
+      // reappears immediately if background playback was active.
+      unawaited(AudioService.syncFromNative());
+    }
   }
 
   @override

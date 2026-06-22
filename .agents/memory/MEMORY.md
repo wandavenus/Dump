@@ -8,7 +8,11 @@
 - [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
 - [AudioEngine architecture](audio-engine.md) — init order: ThemeController → LogService → LyricsSettings → AudioEngine → AudioEffectsService → AudioService.
-- [Dual-Player Architecture](dual-player-architecture.md) — callback pattern breaks AudioEngine↔DualPlayerManager circular dep; promotion flow; crossfade tick; applyAll() called twice after promote.
+- [Dual-Player Architecture](dual-player-architecture.md) — fully native now; Dart DualPlayerManager + CrossfadeController are no-op stubs; all crossfade/promotion runs in Media3PlaybackService.kt Handler tick.
+- [Native-First Queue Ownership](native-queue-ownership.md) — native owns queue, shuffle (ExoPlayer shuffleModeEnabled), repeat, sleep timer; Dart is pure EventChannel consumer; queue mutations: insertNext/appendToQueue/removeFromQueue/reorderQueue all go to native, queueStream confirms.
+- [Notification MIUI12 fix](notification-miui12.md) — startForeground() called ONCE (isForeground guard); all subsequent updates use NotificationManager.notify(); ensureMediaForeground() is the single callsite for first startForeground().
+- [Sleep timer native](sleep-timer-native.md) — sleep timer is now native Handler-based in Media3PlaybackService; SleepTimerService.dart delegates to native, subscribes to sleepTimerStream for UI ValueNotifiers; SleepTimerService.initialize() called in main().
+- [Queue persistence](queue-persistence.md) — SharedPreferences PREFS_NAME="media3_queue_prefs"; keys: queue_json/queue_index/position_ms/repeat_mode/shuffle_enabled; save after every mutation; restore on service onCreate() without autoplay.
 - [MiniPlayer swipe direction](mini-player-swipe.md) — onPan* bukan onVerticalDrag*; lock arah saat delta>8px; horizontal=skip, vertical=buka sheet.
 - [Settings modularization](settings-modular.md) — settings_page.dart + lib/pages/settings/settings_widgets.dart (SettingsToggleRow, SettingsSliderRow, SettingsActionRow dll).
 - [home_sections Dart parts](home-sections-parts.md) — home_sections.dart pakai `part` ke home/albums_section.dart, home/recently_played_section.dart, home/artists_section.dart.
@@ -16,3 +20,4 @@
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
 - [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
 - [ReplayGain architecture](replay-gain.md) — Phase 4: LoudnessData model, ReplayGainService (native tags via jaudiotagger), LoudnessSourceResolver (branching priority), wired into AudioService; target Android 11 + MIUI 12.
+- [Media3 transport controls](media3-transport.md) — notification buttons via addAction()+setShowActionsInCompactView(0,1,2); PendingIntent→onStartCommand ACTION_PLAY_PAUSE/SKIP_NEXT/SKIP_PREV; stopWithTask=false+MEDIA_BUTTON filter in manifest; syncFromNative() called from main.dart+app_state.dart.

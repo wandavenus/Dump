@@ -2,92 +2,96 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'audio_service.dart';
+import 'audio/media3/media3_playback_bridge.dart';
 import 'log_service.dart';
 
 enum SleepTimerMode { duration, endOfSong }
 
+/// Sleep timer — fully native-backed.
+///
+/// All timer logic runs inside Media3PlaybackService.kt on a Handler so it
+/// fires reliably while the app is backgrounded.
+///
+/// This class is a thin UI adapter:
+///   • Delegates start/cancel to native via MethodChannel.
+///   • Mirrors the native sleepTimerStream into [remaining] + [isActive]
+///     ValueNotifiers so UI widgets can react without polling.
+///
+/// AudioService automatically keeps [AudioPlaybackState.sleepTimerActive] and
+/// [AudioPlaybackState.sleepTimerRemainingMs] up-to-date from the same stream.
 class SleepTimerService {
   SleepTimerService._();
 
-  static Timer? _timer;
-  static Timer? _tick;
+  static StreamSubscription<Map<dynamic, dynamic>>? _sub;
   static SleepTimerMode? _mode;
 
   static final ValueNotifier<Duration?> remaining = ValueNotifier(null);
-  static final ValueNotifier<bool> isActive = ValueNotifier(false);
+  static final ValueNotifier<bool>      isActive  = ValueNotifier(false);
 
   static bool get endOfSongMode => _mode == SleepTimerMode.endOfSong;
 
-  // ── Start by duration ──────────────────────────────────────────────────────
+  // ── Initialize (subscribe to native stream) ───────────────────────────────
+
+  static void initialize() {
+    _sub?.cancel();
+    _sub = Media3PlaybackBridge.sleepTimerStream.listen((map) {
+      final active      = map['active']      as bool? ?? false;
+      final endOfSong   = map['endOfSong']   as bool? ?? false;
+      final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
+
+      isActive.value = active;
+
+      if (!active) {
+        remaining.value = null;
+        _mode = null;
+      } else if (endOfSong) {
+        _mode           = SleepTimerMode.endOfSong;
+        remaining.value = null;
+      } else {
+        _mode           = SleepTimerMode.duration;
+        remaining.value = Duration(milliseconds: remainingMs);
+      }
+    });
+  }
+
+  // ── Start by duration ─────────────────────────────────────────────────────
 
   static void startDuration(Duration duration) {
-    cancel();
-    _mode = SleepTimerMode.duration;
-    isActive.value = true;
+    _mode           = SleepTimerMode.duration;
+    isActive.value  = true;
     remaining.value = duration;
-
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      final cur = remaining.value;
-      if (cur == null || cur <= Duration.zero) {
-        _triggerStop();
-        return;
-      }
-      remaining.value = cur - const Duration(seconds: 1);
-    });
-
-    _timer = Timer(duration, _triggerStop);
-    LogService.log('SleepTimer', 'Dimulai: ${duration.inMinutes} menit');
+    unawaited(Media3PlaybackBridge.setSleepTimer(duration.inMilliseconds));
+    LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min (native)');
   }
 
   // ── Start at end of current song ──────────────────────────────────────────
 
   static void startEndOfSong() {
-    cancel();
-    _mode = SleepTimerMode.endOfSong;
-    isActive.value = true;
+    _mode           = SleepTimerMode.endOfSong;
+    isActive.value  = true;
     remaining.value = null;
-    LogService.log('SleepTimer', 'Mode akhir lagu aktif');
-  }
-
-  // ── Called by AudioService when song ends ─────────────────────────────────
-
-  static void onSongEnded() {
-    if (_mode == SleepTimerMode.endOfSong && isActive.value) {
-      LogService.log('SleepTimer', 'Lagu selesai — memicu stop');
-      _triggerStop();
-    }
-  }
-
-  // ── Internal ──────────────────────────────────────────────────────────────
-
-  static void _triggerStop() {
-    final wasActive = isActive.value;
-    cancel();
-    if (wasActive) {
-      try {
-        AudioService.pause();
-      } catch (error) {
-        LogService.warn('SleepTimer', 'Gagal pause audio: $error');
-      }
-      LogService.log('SleepTimer', 'Musik dihentikan oleh sleep timer');
-    }
+    unawaited(Media3PlaybackBridge.setSleepTimerEndOfSong());
+    LogService.log('SleepTimer', 'End-of-song mode (native)');
   }
 
   // ── Cancel ────────────────────────────────────────────────────────────────
 
   static void cancel() {
-    _timer?.cancel();
-    _tick?.cancel();
-    _timer = null;
-    _tick = null;
-    _mode = null;
-    isActive.value = false;
+    _mode           = null;
+    isActive.value  = false;
     remaining.value = null;
-    LogService.log('SleepTimer', 'Dibatalkan');
+    unawaited(Media3PlaybackBridge.cancelSleepTimer());
+    LogService.log('SleepTimer', 'Cancelled (native)');
   }
 
-  // ── Quick presets ─────────────────────────────────────────────────────────
+  // ── Dispose ───────────────────────────────────────────────────────────────
+
+  static void dispose() {
+    _sub?.cancel();
+    _sub = null;
+  }
+
+  // ── Quick presets (unchanged from previous impl) ──────────────────────────
 
   static const List<({String label, Duration? duration})> presets = [
     (label: '15 menit',   duration: Duration(minutes: 15)),

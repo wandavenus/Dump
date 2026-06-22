@@ -277,10 +277,10 @@ height: showOverlay
   boxShadow: [
     BoxShadow(
       color: Colors.black.withValues(
-        alpha: 0.15 + (0.25 * progress),
+        alpha: 0.0 + (0.25 * progress),
       ),
       blurRadius: 12 + (18 * progress),
-      spreadRadius: 1,
+      spreadRadius: 0.0 + (0.4 * progress),
       offset: Offset(
         0,
         4 + (8 * progress),

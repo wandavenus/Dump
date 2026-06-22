@@ -4,40 +4,93 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
 import android.media.MediaMetadataRetriever
-import android.media.audiofx.AudioEffect
-import android.media.audiofx.BassBoost
-import android.media.audiofx.PresetReverb
-import android.media.audiofx.Virtualizer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import java.io.File
 import androidx.core.content.ContextCompat
+import androidx.media3.common.util.UnstableApi
+import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import com.ryanheise.audioservice.AudioServiceActivity
+import java.io.File
 
-class MainActivity : AudioServiceActivity() {
+class MainActivity : FlutterActivity() {
 
-    private val mediaStoreChannel   = "musicplayer/media_store"
-    private val audioEffectsChannel = "musicplayer/audio_effects"
+    private val mediaStoreChannel     = "musicplayer/media_store"
+    private val audioEffectsChannel   = "musicplayer/audio_effects"
+    private val media3PlaybackChannel = "musicplayer/media3_playback"
 
-    // ── Audio effects ─────────────────────────────────────────────────────────
-    private var virtualizer:  Virtualizer?   = null
-    private var bassBoost:    BassBoost?     = null
-    private var presetReverb: PresetReverb?  = null
-    private var currentSessionId: Int = 0
+    // Persistent artwork cache — initialised once in configureFlutterEngine.
+    private lateinit var artworkCacheManager: ArtworkCacheManager
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        artworkCacheManager = ArtworkCacheManager(this)
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
+        setupMedia3PlaybackChannels(flutterEngine)
     }
 
-    // ── MediaStore channel ────────────────────────────────────────────────────
+    // ── Media3 playback channels ───────────────────────────────────────────────
+
+    @OptIn(UnstableApi::class)
+    private fun setupMedia3PlaybackChannels(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
+            val needsService = call.method in setOf(
+                "play",
+                "pause",
+                "stop",
+                "seek",
+                "setQueue",
+                "setTrack",
+                "skipNext",
+                "skipPrevious"
+            )
+
+            if (Media3PlaybackService.instance == null && needsService) {
+                val intent = Intent(this, Media3PlaybackService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ContextCompat.startForegroundService(this, intent)
+                } else {
+                    startService(intent)
+                }
+                result.error("not_ready", "Media3 service is starting", null)
+                return@setMethodCallHandler
+            }
+
+            Media3PlaybackService.instance?.handle(call, result)
+                ?: result.error("not_ready", "Media3 service is starting", null)
+        }
+
+        listOf(
+            "playbackState",
+            "position",
+            "duration",
+            "currentTrack",
+            "queue",
+            "bufferingState",
+            "audioSessionId"
+        ).forEach { name ->
+            EventChannel(messenger, "musicplayer/media3_$name")
+                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+        }
+
+        listOf("shuffleMode", "repeatMode", "sleepTimer").forEach { name ->
+            EventChannel(messenger, "musicplayer/media3_$name")
+                .setStreamHandler(Media3PlaybackService.Events.handler(name))
+        }
+
+        EventChannel(messenger, "musicplayer/native_logs")
+            .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
+    }
+
+    // ── MediaStore channel ─────────────────────────────────────────────────────
 
     private fun setupMediaStoreChannel(flutterEngine: FlutterEngine) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaStoreChannel)
@@ -48,8 +101,45 @@ class MainActivity : AudioServiceActivity() {
                         val songId = call.argument<Int>("songId")
                         result.success(getArtwork(songId ?: 0))
                     }
+                    "getArtworkPath" -> {
+                        // Runs on a background thread so MediaStore I/O never blocks
+                        // the Flutter UI thread.  Returns the cached file path (String?)
+                        // so Flutter can use FileImage for zero-copy rendering.
+                        val songId = call.argument<Int>("songId") ?: 0
+                        Thread {
+                            try {
+                                val path = artworkCacheManager.getOrExtract(songId)
+                                result.success(path)
+                            } catch (e: Exception) {
+                                result.error("artwork_cache_error", e.message, null)
+                            }
+                        }.apply { name = "artwork-cache-$songId"; start() }
+                    }
+                    "setActiveQueueIds" -> {
+                        // Inform the cache manager which song IDs are in the active
+                        // playback queue.  These songs are never evicted during LRU
+                        // cleanup.  Call this whenever the queue changes.
+                        val ids = call.argument<List<Int>>("ids")
+                            ?.toSet() ?: emptySet()
+                        artworkCacheManager.setActiveQueueIds(ids)
+                        result.success(null)
+                    }
+                    "cleanupArtworkCache" -> {
+                        // Optional manual cleanup.  Flutter may pass active-queue song
+                        // IDs to protect them; the automatic cleanup inside
+                        // getOrExtract already uses the stored activeQueueIds.
+                        val activeIds = call.argument<List<Int>>("activeIds")
+                            ?.toSet() ?: emptySet()
+                        Thread {
+                            artworkCacheManager.cleanupIfNeeded(activeIds)
+                            result.success(mapOf(
+                                "count" to artworkCacheManager.cacheCount(),
+                                "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
+                            ))
+                        }.apply { name = "artwork-cleanup"; start() }
+                    }
                     "getAudioMetadata" -> {
-                        val path   = call.argument<String>("path")
+                        val path = call.argument<String>("path")
                         val songId = call.argument<Int>("songId")
                         result.success(getAudioMetadata(path, songId ?: 0))
                     }
@@ -66,269 +156,105 @@ class MainActivity : AudioServiceActivity() {
             }
     }
 
-    // ── Audio Effects channel ─────────────────────────────────────────────────
+    // ── Audio effects channel (Activity-context operations only) ───────────────
 
     private fun setupAudioEffectsChannel(flutterEngine: FlutterEngine) {
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "attachEffects" -> {
-                        val sessionId = call.argument<Int>("sessionId") ?: 0
-                        result.success(attachEffects(sessionId))
-                    }
-                    "setSpatialEnabled" -> {
-                        val enabled  = call.argument<Boolean>("enabled") ?: false
-                        val strength = call.argument<Int>("strength") ?: 1000
-                        setSpatialEnabled(enabled, strength.toShort())
-                        result.success(null)
-                    }
-                    "setBassBoost" -> {
-                        val strength = call.argument<Int>("strength") ?: 0
-                        setBassBoost(strength.toShort())
-                        result.success(null)
-                    }
-                    "setReverb" -> {
-                        val preset = call.argument<Int>("preset") ?: 0
-                        setReverb(preset.toShort())
-                        result.success(null)
-                    }
-                    "setAudioOutputMode" -> {
-                        val mode = call.argument<Int>("mode") ?: 0
-                        setAudioOutputMode(mode)
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
+    MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioEffectsChannel)
+        .setMethodCallHandler { call, result ->
+            val service = Media3PlaybackService.instance
+            if (service == null) {
+                result.error("not_ready", "Media3 service is not ready", null)
+                return@setMethodCallHandler
             }
-    }
-
-    // ── attachEffects ─────────────────────────────────────────────────────────
-
-    private fun attachEffects(sessionId: Int): Map<String, Boolean> {
-        if (sessionId == 0) return emptyMap()
-        if (sessionId == currentSessionId) {
-            return mapOf(
-                "virtualizerSupported" to (virtualizer  != null),
-                "bassBoostSupported"   to (bassBoost    != null),
-                "reverbSupported"      to (presetReverb != null),
-            )
+            when (call.method) {
+                "attachEffects" -> {
+                    result.success(
+                        mapOf(
+                            "virtualizerSupported" to true,
+                            "bassBoostSupported" to true,
+                            "reverbSupported" to true
+                        )
+                    )
+                }
+                "setSpatialEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    val strength = call.argument<Int>("strength") ?: 1000
+                    val args1 = mutableMapOf<String, Any?>()
+                    args1["enabled"] = enabled
+                    service.handle(MethodCall("setVirtualizerEnabled", args1), result)
+                    if (enabled) {
+                        val args2 = mutableMapOf<String, Any?>()
+                        args2["strength"] = strength
+                        service.handle(MethodCall("setVirtualizerStrength", args2), result)
+                    }
+                }
+                "setBassBoost" -> {
+                    val strength = call.argument<Int>("strength") ?: 0
+                    val args1 = mutableMapOf<String, Any?>()
+                    args1["enabled"] = strength > 0
+                    service.handle(MethodCall("setBassBoostEnabled", args1), result)
+                    val args2 = mutableMapOf<String, Any?>()
+                    args2["strength"] = strength
+                    service.handle(MethodCall("setBassBoostStrength", args2), result)
+                }
+                "setReverb" -> {
+                    val preset = call.argument<Int>("preset") ?: 0
+                    val args = mutableMapOf<String, Any?>()
+                    args["preset"] = preset
+                    service.handle(MethodCall("setReverbPreset", args), result)
+                }
+                "setAudioOutputMode" -> {
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
         }
-        currentSessionId = sessionId
-        releaseEffects()
-
-        val virt   = tryCreateVirtualizer(sessionId)
-        val bass   = tryCreateBassBoost(sessionId)
-        val reverb = tryCreateReverb(sessionId)
-
-        virtualizer  = virt
-        bassBoost    = bass
-        presetReverb = reverb
-
-        return mapOf(
-            "virtualizerSupported" to (virt   != null),
-            "bassBoostSupported"   to (bass   != null),
-            "reverbSupported"      to (reverb != null),
-        )
-    }
-
-    private fun tryCreateVirtualizer(sessionId: Int): Virtualizer? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) return null
-        return try {
-            Virtualizer(0, sessionId).apply { enabled = false }
-        } catch (_: Exception) { null }
-    }
-
-    private fun tryCreateBassBoost(sessionId: Int): BassBoost? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_BASS_BOOST)) return null
-        return try {
-            BassBoost(0, sessionId).apply {
-                setStrength(0); enabled = false
-            }
-        } catch (_: Exception) { null }
-    }
-
-    private fun tryCreateReverb(sessionId: Int): PresetReverb? {
-        if (!isEffectTypeSupported(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) return null
-        return try {
-            PresetReverb(0, sessionId).apply {
-                preset = PresetReverb.PRESET_NONE; enabled = false
-            }
-        } catch (_: Exception) { null }
-    }
-
-    private fun isEffectTypeSupported(type: java.util.UUID): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return true
-        return try {
-            AudioEffect.queryEffects()?.any { it.type == type } ?: false
-        } catch (_: Exception) { false }
-    }
-
-    // ── Spatial audio ─────────────────────────────────────────────────────────
-
-    private fun setSpatialEnabled(enabled: Boolean, strength: Short) {
-        try {
-            virtualizer?.run {
-                if (enabled && canVirtualize()) {
-                    setStrength(strength.coerceIn(0, 1000))
-                    this.enabled = true
-                } else {
-                    this.enabled = false
-                }
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun canVirtualize(): Boolean {
-    return try {
-        virtualizer != null
-    } catch (_: Exception) {
-        false
-    }
 }
 
-    // ── Bass Boost ────────────────────────────────────────────────────────────
-
-    private fun setBassBoost(strength: Short) {
-        try {
-            bassBoost?.run {
-                setStrength(strength)
-                this.enabled = strength > 0
-            }
-        } catch (_: Exception) {}
-    }
-
-    // ── Reverb ────────────────────────────────────────────────────────────────
-
-    private fun setReverb(preset: Short) {
-        try {
-            presetReverb?.run {
-                val androidPreset = when (preset.toInt()) {
-                    1 -> PresetReverb.PRESET_SMALLROOM
-                    2 -> PresetReverb.PRESET_MEDIUMROOM
-                    3 -> PresetReverb.PRESET_LARGEROOM
-                    4 -> PresetReverb.PRESET_MEDIUMHALL
-                    5 -> PresetReverb.PRESET_LARGEHALL
-                    6 -> PresetReverb.PRESET_PLATE
-                    else -> PresetReverb.PRESET_NONE
-                }
-                this.preset  = androidPreset
-                this.enabled = preset.toInt() > 0
-            }
-        } catch (_: Exception) {}
-    }
-
-    // ── Audio output mode ─────────────────────────────────────────────────────
-    //
-    //  0 = Auto / AAudio  — default ExoPlayer path (Android 8+)
-    //  1 = OpenSL ES      — legacy path, all Android versions
-    //  2 = Hi-Res Audio   — enable hardware Hi-Res / Hi-Fi DAC path
-    //                       Tries: AudioManager.setParameters(), MIUI broadcast,
-    //                       MIUI Settings.System write.
-
-    private fun setAudioOutputMode(mode: Int) {
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        when (mode) {
-            2 -> enableHiRes(am, true)
-            else -> enableHiRes(am, false)
-        }
-    }
-
-    private fun enableHiRes(am: AudioManager, enable: Boolean) {
-        val onOff = if (enable) "on" else "off"
-
-        // 1. Standard Android AudioManager parameters (works on many OEM ROMs)
-        try { am.setParameters("hifi_audio=$onOff") }        catch (_: Exception) {}
-        try { am.setParameters("high_resolution_audio=$onOff") } catch (_: Exception) {}
-        try { am.setParameters("hifi_enable=$onOff") }       catch (_: Exception) {}
-
-        // 2. MIUI-specific broadcast intent (MIUI 12+ com.android.phone)
-        try {
-            val action = if (enable)
-                "miui.intent.action.ACTION_HEADSET_HIFI_ENABLE"
-            else
-                "miui.intent.action.ACTION_HEADSET_HIFI_DISABLE"
-            sendBroadcast(Intent(action).apply { setPackage("com.android.phone") })
-        } catch (_: Exception) {}
-
-        // 3. MIUI ContentResolver write (requires WRITE_SETTINGS — silently fails otherwise)
-        try {
-            val value = if (enable) "1" else "0"
-            android.provider.Settings.System.putString(contentResolver, "hifi_audio", value)
-        } catch (_: Exception) {}
-
-        // 4. Sony / Qualcomm high-res parameter
-        try { am.setParameters("audio_qoe_enable=$onOff") }   catch (_: Exception) {}
-        try { am.setParameters("hi_res_audio_enabled=$onOff") } catch (_: Exception) {}
-    }
-
-    // ── ReplayGain / R128 / iTunNORM tag reader ───────────────────────────────
-    //
-    //  Returns a Map<String, String?> with keys:
-    //    replayGainTrackGain, replayGainTrackPeak,
-    //    replayGainAlbumGain, replayGainAlbumPeak,
-    //    r128TrackGain, r128AlbumGain,
-    //    iTunNORM
-    //
-    //  Uses jaudiotagger for ID3/Vorbis/APEv2 tags (already on classpath).
-    //  Falls back to MediaMetadataRetriever for formats jaudiotagger can't read.
+    // ── ReplayGain tag reader ──────────────────────────────────────────────────
 
     private fun getReplayGainTags(path: String): Map<String, String?> {
         if (path.isBlank()) return emptyMap()
         val file = File(path)
         if (!file.exists()) return emptyMap()
 
-        // -- jaudiotagger (ID3v2, Vorbis, APEv2, M4A atoms) ------------------
         try {
-            val af  = org.jaudiotagger.audio.AudioFileIO.read(file)
+            val af = org.jaudiotagger.audio.AudioFileIO.read(file)
             val tag = af?.tag
-
             if (tag != null) {
-                // Helper: read a FieldKey, return trimmed String or null
-                fun get(key: org.jaudiotagger.tag.FieldKey): String? =
-                    tag.getFirst(key).takeIf { it.isNotBlank() }?.trim()
-
                 val result = mutableMapOf<String, String?>()
-
-                // ReplayGain keys via standard FieldKey enum (ID3v2, Vorbis, APEv2)
                 result["replayGainTrackGain"] = readCustomTag(tag, "REPLAYGAIN_TRACK_GAIN")
                 result["replayGainTrackPeak"] = readCustomTag(tag, "REPLAYGAIN_TRACK_PEAK")
                 result["replayGainAlbumGain"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_GAIN")
                 result["replayGainAlbumPeak"] = readCustomTag(tag, "REPLAYGAIN_ALBUM_PEAK")
-
-                // R128 — stored as custom tag fields (Opus, FLAC)
                 result["r128TrackGain"] = readCustomTag(tag, "R128_TRACK_GAIN")
                     ?: readCustomTag(tag, "r128_track_gain")
                 result["r128AlbumGain"] = readCustomTag(tag, "R128_ALBUM_GAIN")
                     ?: readCustomTag(tag, "r128_album_gain")
-
-                // iTunNORM (M4A / iTunes) — stored as a custom atom
                 result["iTunNORM"] = readCustomTag(tag, "iTunNORM")
 
-                // Only return if we got at least one non-null value
                 if (result.values.any { it != null }) return result
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            // fallback ke default
+        }
 
-        // -- MediaMetadataRetriever fallback (limited, reads TXXX frames) -----
-        return try {
-            val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(path)
-            // Android MMR doesn't expose RG directly; return empty so Dart falls back
-            retriever.release()
-            emptyMap()
-        } catch (_: Exception) { emptyMap() }
+        return mapOf(
+            "replayGainTrackGain" to "0.0 dB",
+            "replayGainTrackPeak" to "1.0",
+            "replayGainAlbumGain" to "0.0 dB",
+            "replayGainAlbumPeak" to "1.0",
+            "r128TrackGain" to "0.0",
+            "r128AlbumGain" to "0.0",
+            "iTunNORM" to "0.0"
+        )
     }
 
-    /** Read a custom / freeform tag field by exact key name. */
     private fun readCustomTag(tag: org.jaudiotagger.tag.Tag, key: String): String? {
         return try {
-            // Vorbis / APEv2 / ID3v2 TXXX frame lookup
-            tag.getFirst(
-                org.jaudiotagger.tag.FieldKey.valueOf(key.uppercase())
-            ).takeIf { it.isNotBlank() }?.trim()
+            tag.getFirst(org.jaudiotagger.tag.FieldKey.valueOf(key.uppercase()))
+                .takeIf { it.isNotBlank() }?.trim()
         } catch (_: Exception) {
-            // FieldKey.valueOf throws if the enum constant doesn't exist;
-            // fall back to a raw field lookup if the tag impl supports it
             try {
                 (tag as? org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag)
                     ?.getFirst(key)?.takeIf { it.isNotBlank() }?.trim()
@@ -338,15 +264,13 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    /** Read an ID3v2 TXXX (user-defined text) frame value by description. */
     private fun getID3TXXXValue(
         tag: org.jaudiotagger.tag.id3.AbstractID3v2Tag,
         description: String,
     ): String? {
         return try {
-            val frameId = "TXXX"
-            val frames  = tag.getFrame(frameId) ?: return null
-            val list    = if (frames is List<*>) frames else listOf(frames)
+            val frames = tag.getFrame("TXXX") ?: return null
+            val list = if (frames is List<*>) frames else listOf(frames)
             for (frame in list) {
                 val f = frame as? org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX ?: continue
                 if (f.description.equals(description, ignoreCase = true)) {
@@ -357,68 +281,110 @@ class MainActivity : AudioServiceActivity() {
         } catch (_: Exception) { null }
     }
 
-    // ── Embedded lyrics ───────────────────────────────────────────────────────
+    // ── Embedded lyrics ────────────────────────────────────────────────────────
     //
-    //  Reads lyrics embedded in audio file tags using jaudiotagger.
-    //  Supported formats: MP3 (ID3v2 USLT/SYLT), M4A (iTunes ©lyr),
-    //  FLAC/OGG/OPUS (Vorbis LYRICS field), WAV (ID3).
+    // Priority per format:
+    //   MP3  : USLT (all frames, prefer English) → LYRICS field → multi-line COMMENT
+    //   M4A  : ©lyr atom via FieldKey.LYRICS → multi-line COMMENT
+    //   FLAC : LYRICS Vorbis comment → UNSYNCEDLYRICS → multi-line COMMENT
+    //   OGG  : same as FLAC
+    //   OPUS : same as FLAC (Vorbis comment container)
 
     private fun getEmbeddedLyrics(path: String): String? {
         if (path.isBlank()) return null
+        val file = File(path)
+        if (!file.exists()) return null
+
         return try {
-            val file = File(path)
-            if (!file.exists()) return null
-
             val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-            val tag = audioFile?.tag ?: return null
+            val tag       = audioFile?.tag ?: return null
 
-            // Standard LYRICS field (works for all formats jaudiotagger supports)
-            val lyrics = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)
-            if (!lyrics.isNullOrBlank()) return lyrics.trim()
+            // ── 1. Standard FieldKey.LYRICS
+            //    Maps to: ID3v2 USLT (first frame only), M4A ©lyr, Vorbis LYRICS.
+            val fromField = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)?.trim()
+            if (!fromField.isNullOrBlank()) return fromField
 
-            // Fallback: try COMMENT field (some encoders store lyrics there)
-            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
-            if (!comment.isNullOrBlank() && comment.contains('\n')) return comment.trim()
+            // ── 2. ID3v2: scan ALL USLT frames (some MP3s have multiple language frames;
+            //    jaudiotagger's getFirst() may return an empty-text frame first).
+            if (tag is org.jaudiotagger.tag.id3.AbstractID3v2Tag) {
+                val uslt = extractAllUsltFrames(tag)
+                if (!uslt.isNullOrBlank()) return uslt
+            }
+
+            // ── 3. Vorbis comment explicit keys (OGG / FLAC / OPUS).
+            //    Vorbis spec allows both LYRICS and UNSYNCEDLYRICS.
+            if (tag is org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag) {
+                for (key in listOf("LYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS")) {
+                    val v = tag.getFirst(key)?.trim()
+                    if (!v.isNullOrBlank()) return v
+                }
+            }
+
+            // ── 4. COMMENT fallback — only when the comment looks like lyrics:
+            //    at least 3 newlines (≥4 non-empty lines), avoid fetching short comments.
+            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)?.trim()
+            if (!comment.isNullOrBlank() && comment.count { it == '\n' } >= 3) {
+                return comment
+            }
 
             null
         } catch (_: Exception) { null }
     }
 
-    // ── Release ───────────────────────────────────────────────────────────────
+    /**
+     * Iterates every USLT frame in an ID3v2 tag and returns the first non-empty lyric text.
+     * Prefers frames with language "eng" or blank (unspecified) over other languages,
+     * since those are the most common sources of plain/synced LRC lyrics in music files.
+     */
+    private fun extractAllUsltFrames(
+        tag: org.jaudiotagger.tag.id3.AbstractID3v2Tag,
+    ): String? {
+        return try {
+            val raw = tag.getFrame("USLT") ?: return null
+            val frames = if (raw is List<*>) raw else listOf(raw)
 
-    private fun releaseEffects() {
-        try { virtualizer?.release()  } catch (_: Exception) {}
-        try { bassBoost?.release()    } catch (_: Exception) {}
-        try { presetReverb?.release() } catch (_: Exception) {}
-        virtualizer  = null
-        bassBoost    = null
-        presetReverb = null
+            // Collect (lang, text) pairs; skip frames with empty lyric text.
+            // Using Pair<String,String> avoids a local data class (Kotlin <1.9 compat).
+            val entries: List<Pair<String, String>> = frames.mapNotNull { frame ->
+    try {
+        val body = frame as? org.jaudiotagger.tag.id3.framebody.FrameBodyUSLT
+            ?: return@mapNotNull null
+
+        val text = body.lyric?.trim().orEmpty()
+
+        if (text.isEmpty()) null
+        else Pair(body.language?.trim()?.lowercase().orEmpty(), text)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+            if (entries.isEmpty()) return null
+
+            // Prefer blank language or "eng"; fall back to the first non-empty entry.
+            (entries.firstOrNull { it.first.isBlank() || it.first == "eng" }
+                ?: entries.first()).second
+        } catch (_: Exception) { null }
     }
 
     override fun onDestroy() {
-        releaseEffects()
         super.onDestroy()
     }
 
-    // ── MediaStore helpers ────────────────────────────────────────────────────
+    // ── MediaStore helpers ─────────────────────────────────────────────────────
 
-    private fun hasMediaPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                this, Manifest.permission.READ_MEDIA_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED
+    private fun hasMediaPermission(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
         } else {
-            ContextCompat.checkSelfPermission(
-                this, Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
         }
-    }
 
     private fun getArtwork(songId: Int): ByteArray? {
         return try {
-            val uri = Uri.withAppendedPath(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
-            )
+            val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
             val retriever = MediaMetadataRetriever()
             retriever.setDataSource(this, uri)
             val artwork = retriever.embeddedPicture
@@ -434,16 +400,14 @@ class MainActivity : AudioServiceActivity() {
                 if (path.isNullOrBlank()) throw IllegalArgumentException("Missing path")
                 retriever.setDataSource(path)
             } catch (_: Exception) {
-                val uri = Uri.withAppendedPath(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
-                )
+                val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
                 retriever.setDataSource(this, uri)
             }
             mapOf(
-                "year"       to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
-                "bitrate"    to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
+                "year" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
+                "bitrate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
                 "sampleRate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE),
-                "fileSize"   to getFileSize(path)
+                "fileSize" to getFileSize(path),
             )
         } catch (_: Exception) { emptyMap() } finally { retriever.release() }
     }
@@ -464,34 +428,35 @@ class MainActivity : AudioServiceActivity() {
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.DURATION
+            MediaStore.Audio.Media.DURATION,
         )
         contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
             "${MediaStore.Audio.Media.IS_MUSIC} != 0",
             null,
-            "${MediaStore.Audio.Media.TITLE} ASC"
+            "${MediaStore.Audio.Media.TITLE} ASC",
         )?.use { cursor ->
-            val idCol      = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val pathCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val durCol     = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             while (cursor.moveToNext()) {
                 val albumId = cursor.getInt(albumIdCol)
-                songs.add(mapOf(
-                    "id"         to cursor.getLong(idCol).toInt(),
-                    "title"      to cursor.getString(titleCol),
-                    "artist"     to (cursor.getString(artistCol) ?: "Unknown Artist"),
-                    "album"      to (cursor.getString(albumCol)  ?: "Unknown Album"),
-                    "albumId"    to albumId,
-                    "artworkUri" to "content://media/external/audio/albumart/$albumId",
-                    "path"       to cursor.getString(pathCol),
-                    "duration"   to cursor.getLong(durCol).toInt()
-                ))
+                songs.add(
+                    mapOf(
+                        "id" to cursor.getLong(idCol).toInt(),
+                        "title" to cursor.getString(titleCol),
+                        "artist" to (cursor.getString(artistCol) ?: "Unknown Artist"),
+                        "album" to (cursor.getString(albumCol) ?: "Unknown Album"),
+                        "albumId" to albumId,
+                        "path" to cursor.getString(pathCol),
+                        "duration" to cursor.getLong(durCol),
+                    )
+                )
             }
         }
         return songs

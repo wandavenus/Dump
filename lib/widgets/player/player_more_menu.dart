@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:just_audio/just_audio.dart';
+import '../../services/audio/media3/media3_audio_player.dart';
 
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';

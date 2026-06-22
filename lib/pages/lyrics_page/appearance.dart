@@ -51,14 +51,6 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                   const SizedBox(height: 8),
                   const _ColorPicker(),
                   const SizedBox(height: 16),
-                  _sheetLabel('Kegelapan Latar'),
-                  const SizedBox(height: 4),
-                  const _DimSlider(),
-                  const SizedBox(height: 12),
-                  _sheetLabel('Kekuatan Blur'),
-                  const SizedBox(height: 4),
-                  const _BlurSlider(),
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       const Expanded(

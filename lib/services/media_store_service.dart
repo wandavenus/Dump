@@ -88,4 +88,36 @@ class MediaStoreService {
   static void clearArtworkCache() {
     _artworkCache.clear();
   }
+
+  // ── Artwork path (persistent cache) ────────────────────────────────────────
+
+  /// Updates the native [ArtworkCacheManager] with the current playback queue.
+  /// Songs in this set are never evicted during LRU cleanup.
+  /// Call whenever the queue is set, shuffled, or items are added/removed.
+  static Future<void> setActiveQueueIds(List<int> songIds) async {
+    try {
+      await _channel.invokeMethod<void>(
+        'setActiveQueueIds',
+        {'ids': songIds},
+      );
+    } catch (e) {
+      debugPrint('setActiveQueueIds error: $e');
+    }
+  }
+
+  static Future<String?> getArtworkPath(int songId) async {
+    if (songId <= 0) return null;
+    try {
+      return await _channel.invokeMethod<String>(
+        'getArtworkPath',
+        {'songId': songId},
+      );
+    } on PlatformException catch (e) {
+      debugPrint('getArtworkPath error songId=$songId: $e');
+      return null;
+    } catch (e) {
+      debugPrint('getArtworkPath unexpected error songId=$songId: $e');
+      return null;
+    }
+  }
 }

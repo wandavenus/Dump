@@ -4,19 +4,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb) {
-    await bg.AudioService.init(
-      builder: () => BackgroundAudioHandler(),
-      config: const bg.AudioServiceConfig(
-        androidNotificationChannelId:   'com.musicplayer.channel.audio',
-        androidNotificationChannelName: 'Music Playback',
-        androidNotificationIcon:        'drawable/ic_notification',
-        androidNotificationOngoing:     true,
-        androidNotificationClickStartsActivity: true,
-      ),
-    );
-  }
-
-  if (!kIsWeb) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -30,6 +17,7 @@ Future<void> main() async {
 
   await ThemeController.init();
   await LogService.init();
+  NativeLogBridge.init();
   await LyricsSettings.init();
 
   // Order matters: AudioEngine must be ready before AudioEffectsService,
@@ -38,6 +26,12 @@ Future<void> main() async {
   await AudioEffectsService.init();
   AudioService.initialize();
   AudioFocusService.initialize();
+  SleepTimerService.initialize();
+
+  // Sync playback state from the native Media3 service before rendering UI.
+  // This restores the mini player when the app is reopened while playback
+  // is already active in the background.
+  unawaited(AudioService.syncFromNative());
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Permission.storage.request();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
@@ -7,6 +9,7 @@ import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
 import 'package:musicplayer/services/log_service.dart';
+import 'package:musicplayer/services/sleep_timer_service.dart';
 import 'package:musicplayer/pages/list.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
@@ -23,8 +26,6 @@ import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/models/lyrics_settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pages/library_page.dart';
-import 'package:audio_service/audio_service.dart' as bg;
-import 'package:musicplayer/services/audio/background_audio_handler.dart';
 
 part 'main/main.dart';
 part 'main/edge.dart';
