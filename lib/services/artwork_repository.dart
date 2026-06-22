@@ -95,10 +95,7 @@ class ArtworkRepository {
     if (path == null) return null;
 
     // Reuse existing FileImage to avoid allocating duplicate objects.
-    FileImage img = _providers.putIfAbsent(songId, () => FileImage(File(path)));
-   
-    // Touch provider LRU.   
-    _providers.remove(songId);
+    final img = _providers.remove(songId) ?? FileImage(File(path));
     _providers[songId] = img;
 
     // Trim provider cache in sync with path cache.
