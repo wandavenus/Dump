@@ -92,13 +92,12 @@ class AudioFocusManager(
                 log("AUDIOFOCUS_DUCK → ${p.volume} (crossfade=${getCrossfadeInProgress()})")
             }
 
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_EXCLUSIVE -> {
-                resumeAfterFocusGain = p.isPlaying
-                p.pause()
-                stopTicker()
-                log("AUDIOFOCUS_LOSS_TRANSIENT → paused (will resume=$resumeAfterFocusGain)")
-            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+            resumeAfterFocusGain = p.isPlaying
+            p.pause()
+            stopTicker()
+            log("AUDIOFOCUS_LOSS_TRANSIENT → paused (will resume=$resumeAfterFocusGain)")
+           }
 
             AudioManager.AUDIOFOCUS_LOSS -> {
                 resumeAfterFocusGain = false
