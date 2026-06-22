@@ -107,13 +107,27 @@ class MainActivity : FlutterActivity() {
                         // so Flutter can use FileImage for zero-copy rendering.
                         val songId = call.argument<Int>("songId") ?: 0
                         Thread {
-                            try {
-                                val path = artworkCacheManager.getOrExtract(songId)
-                                result.success(path)
-                            } catch (e: Exception) {
-                                result.error("artwork_cache_error", e.message, null)
-                            }
-                        }.apply { name = "artwork-cache-$songId"; start() }
+    try {
+        val path = artworkCacheManager.getOrExtract(songId)
+
+        runOnUiThread {
+            result.success(path)
+        }
+
+    } catch (e: Exception) {
+
+        runOnUiThread {
+            result.error(
+                "artwork_cache_error",
+                e.message,
+                null
+            )
+        }
+    }
+}.apply {
+    name = "artwork-cache-$songId"
+    start()
+}
                     }
                     "setActiveQueueIds" -> {
                         // Inform the cache manager which song IDs are in the active
@@ -131,12 +145,20 @@ class MainActivity : FlutterActivity() {
                         val activeIds = call.argument<List<Int>>("activeIds")
                             ?.toSet() ?: emptySet()
                         Thread {
-                            artworkCacheManager.cleanupIfNeeded(activeIds)
-                            result.success(mapOf(
-                                "count" to artworkCacheManager.cacheCount(),
-                                "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
-                            ))
-                        }.apply { name = "artwork-cleanup"; start() }
+    artworkCacheManager.cleanupIfNeeded(activeIds)
+
+    val data = mapOf(
+        "count" to artworkCacheManager.cacheCount(),
+        "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
+    )
+
+    runOnUiThread {
+        result.success(data)
+    }
+}.apply {
+    name = "artwork-cleanup"
+    start()
+}.apply { name = "artwork-cleanup"; start() }
                     }
                     "getAudioMetadata" -> {
                         val path = call.argument<String>("path")
