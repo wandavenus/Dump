@@ -227,40 +227,40 @@ if (ok) {
      * Decode [raw] → Bitmap → compress to WebP → write atomically to [target].
      * Uses WEBP_LOSSY on API 30+ (Android 11) and the legacy WEBP format below.
      */
-    private fun saveAsWebP(raw: ByteArray, target: File): Boolean {
-    var bitmap: Bitmap? = null
-
-    return try {
-        bitmap = decodeScaledBitmap(raw) ?: return false
-
+        private fun saveAsWebP(raw: ByteArray, target: File): Boolean {
+        var bitmap: Bitmap? = null
         val tmp = File(target.parent, "${target.name}.tmp")
+        var ok = false
 
-        FileOutputStream(tmp).use { out ->
-            val fmt =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+        return try {
+            bitmap = decodeScaledBitmap(raw) ?: return false
+
+            FileOutputStream(tmp).use { out ->
+                val fmt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     Bitmap.CompressFormat.WEBP_LOSSY
-                else
+                } else {
                     @Suppress("DEPRECATION")
                     Bitmap.CompressFormat.WEBP
+                }
 
-            bitmap.compress(fmt, WEBP_QUALITY, out)
-            out.flush()
+                bitmap.compress(fmt, WEBP_QUALITY, out)
+                out.flush()
+            }
+
+            ok = tmp.renameTo(target)
+            ok
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
+            false
+        } finally {
+            bitmap?.recycle()
+            if (!ok) {
+                try {
+                    tmp.delete()
+                } catch (_: Exception) {}
+            }
         }
-
-        val ok = tmp.renameTo(target)
-
-        if (!ok) {
-            tmp.delete()
-        }
-
-        ok
-    } catch (e: Exception) {
-        Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
-        false
-    } finally {
-        bitmap?.recycle()
     }
-}
 
     /** Update lastModified so LRU order reflects access time. */
     private fun touch(file: File) {
