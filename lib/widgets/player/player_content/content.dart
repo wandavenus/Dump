@@ -279,11 +279,11 @@ height: showOverlay
       color: Colors.black.withValues(
         alpha: 0.0 + (0.25 * progress),
       ),
-      blurRadius: 12 + (18 * progress),
+      blurRadius: 0.0 + (15 * progress),
       spreadRadius: 0.0 + (0.4 * progress),
       offset: Offset(
         0,
-        4 + (8 * progress),
+        0 + (4 * progress),
       ),
     ),
   ],
@@ -373,10 +373,13 @@ height: showOverlay
                     ),
                   ),
 
-                  Container(
-  width: double.infinity,
-  height: 0.9,
-  color: Colors.white.withValues(alpha: 0.09),
+                  Padding(
+  padding: const EdgeInsets.only(bottom: 20),
+  child: Container(
+    width: double.infinity,
+    height: 1,
+    color: Colors.white.withValues(alpha: 0.15),
+  ),
 ),
                 ],
               ),
