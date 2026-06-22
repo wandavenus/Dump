@@ -103,9 +103,15 @@ class Media3PlaybackService : MediaSessionService() {
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                // Cancel any in-progress crossfade first so both players stop cleanly
+                if (crossfadeController.crossfadeInProgress) {
+                    crossfadeController.cancel(resetVolume = true)
+                }
                 player?.pause()
                 transportState.stopPositionTicker()
+                audioFocusManager.abandon()
                 transportState.emitAll()
+                NativeLogger.emit("info", "Media3", "Noisy event: headphones unplugged → paused")
             }
         }
     }
@@ -135,11 +141,12 @@ class Media3PlaybackService : MediaSessionService() {
         // Wire feature modules ────────────────────────────────────────────────
 
         audioFocusManager = AudioFocusManager(
-            audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager,
-            getPlayer    = { activePlayer },
-            startTicker  = { transportState.startPositionTicker() },
-            stopTicker   = { transportState.stopPositionTicker() },
-            onFocusEvent = { transportState.emitAll() },
+            audioManager           = getSystemService(Context.AUDIO_SERVICE) as AudioManager,
+            getPlayer              = { activePlayer },
+            startTicker            = { transportState.startPositionTicker() },
+            stopTicker             = { transportState.stopPositionTicker() },
+            onFocusEvent           = { transportState.emitAll() },
+            getCrossfadeInProgress = { crossfadeController.crossfadeInProgress },
         )
 
         notificationManager = PlaybackNotificationManager(
@@ -209,10 +216,17 @@ class Media3PlaybackService : MediaSessionService() {
             getActiveQueueIndex = { queueManager.activeQueueIndex },
             setActiveQueueIndex = { idx -> queueManager.setActiveQueueIndex(idx) },
             onCrossfadeComplete = {
-                // CE-03 fix: rebuild full player queue after promotion so
-                // skipNext and queue mutations work on the promoted player.
+                // CE-03 fix: rebuild full queue on promoted player (non-interrupting).
                 queueManager.rebuildPlayerQueue()
                 queueSync.save()
+                // Re-attach all audio effects to the new active player's audio session.
+                // The new player was a "cold" secondary player with no effects attached.
+                val newSessionId = activePlayer?.audioSessionId ?: 0
+                if (newSessionId > 0) {
+                    effectsManager.attachEffects(newSessionId)
+                    NativeLogger.emit("info", "Media3",
+                        "Post-crossfade effects reattach → session=$newSessionId")
+                }
             },
             emitAll             = { transportState.emitAll() },
             refreshNotification = { notificationManager.refresh() },
@@ -396,7 +410,11 @@ class Media3PlaybackService : MediaSessionService() {
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
         setAudioAttributes(attrs, false)
-        setHandleAudioBecomingNoisy(true)
+        // false: we handle ACTION_AUDIO_BECOMING_NOISY ourselves via noisyReceiver.
+        // With two simultaneous players (crossfade), setting this to true on both would
+        // cause both players to register independent BroadcastReceivers for the noisy
+        // intent, resulting in double-pause events and state corruption on MIUI 12.
+        setHandleAudioBecomingNoisy(false)
     }
 
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
