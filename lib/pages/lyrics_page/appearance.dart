@@ -5,12 +5,13 @@ class _LyricsAppearanceSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // BackdropFilter dihapus — container ini sudah 0.75 alpha hitam di atas
+    // latar gelap, sehingga blur di baliknya tidak memberikan efek visual.
+    // Menggunakan solid color menghemat satu fullscreen blur pass.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.75),
+      child: Container(
+        color: const Color(0xBF0D0D0D),
           child: SafeArea(
             top: false,
             child: Padding(
@@ -50,14 +51,6 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                   const SizedBox(height: 8),
                   const _ColorPicker(),
                   const SizedBox(height: 16),
-                  _sheetLabel('Kegelapan Latar'),
-                  const SizedBox(height: 4),
-                  const _DimSlider(),
-                  const SizedBox(height: 12),
-                  _sheetLabel('Kekuatan Blur'),
-                  const SizedBox(height: 4),
-                  const _BlurSlider(),
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       const Expanded(
@@ -80,7 +73,6 @@ class _LyricsAppearanceSheet extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

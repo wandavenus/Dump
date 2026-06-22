@@ -49,55 +49,59 @@ class _FirstPageState extends State<FirstPage> {
           ),
         );
 
-        return Stack(
-          children: [
-            Scaffold(
-              extendBody: isGlass,
-              body: IndexedStack(
-                index: _selectedIndex,
-                children: _pages.cast<Widget>(),
-              ),
-              bottomNavigationBar: ValueListenableBuilder<double>(
-                valueListenable: PlayerSheetController.progress,
-                builder: (context, progress, _) {
-                  final opacity = (1 - progress).clamp(0.0, 1.0);
-
-                  final column = Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Opacity(
-                        opacity: opacity,
-                        child: const MiniPlayer(),
-                      ),
-                      if (!isGlass)
-                        Container(
-                          height: 1.5,
-                          color: const Color(0xFF38383A),
-                        ),
-                      SizedBox(
-                        height: 70,
-                        child: navBar,
-                      ),
-                    ],
-                  );
-
-                  return Transform.translate(
-                    offset: Offset(0, 24 * progress),
-                    child: Opacity(
-                      opacity: opacity,
-                      child: isGlass ? GlassNavBar(child: column) : column,
-                    ),
-                  );
-                },
-              ),
-            ),
-            ValueListenableBuilder<bool>(
-              valueListenable: PlayerSheetController.expanded,
-              builder: (context, expanded, _) {
-                return PlayerSheet(expanded: expanded);
+        return ValueListenableBuilder<bool>(
+          valueListenable: PlayerSheetController.expanded,
+          builder: (context, expanded, _) {
+            return PopScope(
+              canPop: !expanded,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop && expanded) {
+                  PlayerSheetController.close();
+                }
               },
-            ),
-          ],
+              child: Stack(
+                children: [
+                  Scaffold(
+                    extendBody: isGlass,
+                    body: IndexedStack(
+                      index: _selectedIndex,
+                      children: _pages.cast<Widget>(),
+                    ),
+                    bottomNavigationBar: ValueListenableBuilder<double>(
+                      valueListenable: PlayerSheetController.progress,
+                      builder: (context, progress, _) {
+
+                        final column = Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isGlass)
+                              Container(
+                                height: 1.5,
+                                color: const Color(0xFF38383A),
+                              ),
+                            SizedBox(
+                              height: 70,
+                              child: navBar,
+                            ),
+                          ],
+                        );
+
+                        return Transform.translate(
+                          offset: Offset(0, 70 * progress),
+                          
+                            child: isGlass ? GlassNavBar(child: column) : column,
+                          
+                        );
+                      },
+                    ),
+                  ),
+                  // Unified morph player: handles both mini and full-player
+                  // as a single widget with a fluid Apple Music–style morph.
+                  const UnifiedMorphPlayer(),
+                ],
+              ),
+            );
+          },
         );
       },
     );

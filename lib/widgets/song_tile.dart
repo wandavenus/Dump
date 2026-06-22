@@ -57,7 +57,7 @@ class SongTile extends StatelessWidget {
               ],
             ),
             const Icon(
-              Icons.more_horiz,
+              Icons.more_vert,
               size: 25,
             ),
           ],

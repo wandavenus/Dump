@@ -13,45 +13,43 @@ class PlayerSheetController {
   static Timer? _timer;
 
   static void setProgress(double value) {
-  final clamped = value.clamp(0.0, 1.0).toDouble();
-
-  if ((progress.value - clamped).abs() < 0.001) {
-    return;
+    final clamped = value.clamp(0.0, 1.0).toDouble();
+    progress.value = clamped;
+    if (clamped > 0 && !expanded.value) {
+      expanded.value = true;
+    } else if (clamped == 0 && expanded.value) {
+      expanded.value = false;
+    }
   }
 
-  progress.value = clamped;
-
-  if (clamped > 0 && !expanded.value) {
-    expanded.value = true;
-  } else if (clamped == 0 && expanded.value) {
-    expanded.value = false;
+  static void cancelAnimation() {
+    _timer?.cancel();
+    _timer = null;
   }
-}
 
   static void _animateTo(double target) {
     _timer?.cancel();
 
-    const step = 0.08;
+    final startValue = progress.value;
+    final startMs = DateTime.now().millisecondsSinceEpoch;
+    final distance = (target - startValue).abs();
+    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
 
     _timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      final current = progress.value;
+      final elapsed = DateTime.now().millisecondsSinceEpoch - startMs;
+      final rawT = (elapsed / durationMs).clamp(0.0, 1.0);
 
-      if ((current - target).abs() <= step) {
+      // easeOutCubic: 1 - (1-t)^3
+      final u = 1.0 - rawT;
+      final eased = 1.0 - u * u * u;
+
+      setProgress(startValue + (target - startValue) * eased);
+
+      if (rawT >= 1.0) {
         setProgress(target);
-
-        if (target == 0) {
-          expanded.value = false;
-        } else {
-          expanded.value = true;
-        }
-
         timer.cancel();
-        return;
+        _timer = null;
       }
-
-      setProgress(
-  current + (target > current ? step : -step),
-);
     });
   }
 

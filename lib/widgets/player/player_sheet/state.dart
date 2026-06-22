@@ -11,7 +11,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
     if (widget.expanded && !oldWidget.expanded) {
       _dragDy = 0;
     }
-    // Reset both overlays when sheet collapses.
     if (!widget.expanded && (_showLyrics || _showQueue)) {
       _showLyrics = false;
       _showQueue = false;
@@ -34,7 +33,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
     PlayerSheetController.close();
   }
 
-  // Mutually exclusive: opening lyrics closes queue.
   void _toggleLyrics() {
     setState(() {
       _showLyrics = !_showLyrics;
@@ -42,7 +40,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
     });
   }
 
-  // Mutually exclusive: opening queue closes lyrics.
   void _toggleQueue() {
     setState(() {
       _showQueue = !_showQueue;
@@ -63,12 +60,12 @@ class _PlayerSheetState extends State<PlayerSheet> {
         final screenHeight = MediaQuery.of(context).size.height;
         final hiddenOffset = screenHeight * (1 - sheetProgress);
         final dragProgress = _dragProgress;
-        final blurSigma = dragProgress * 22.0;
+        final blurSigma = sheetProgress * 22.0;
 
         return IgnorePointer(
           ignoring: sheetProgress <= 0.001,
           child: Transform.translate(
-            offset: Offset(0, hiddenOffset + (_dragDy * 0.5)),
+            offset: Offset(0, hiddenOffset),
             child: ValueListenableBuilder<AudioPlaybackState>(
               valueListenable: AudioService.playbackState,
               builder: (context, playbackState, _) {
@@ -78,8 +75,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
                   opacity: sheetProgress.clamp(0.0, 1.0).toDouble(),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    // Disable drag-to-close while any overlay is shown so the
-                    // list/lyrics can scroll freely.
                     onVerticalDragUpdate: (_showLyrics || _showQueue)
                         ? null
                         : (details) {
@@ -111,7 +106,8 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                   sigmaY: blurSigma,
                                 ),
                                 child: AnimatedBlurredPlayerBackground(
-                                    songId: song.id),
+                                  songId: song.id,
+                                ),
                               ),
                             )
                           else
@@ -141,20 +137,14 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                         ),
                                       ),
                                     )
-                                  : Transform.translate(
-                                      offset: Offset(0, -dragProgress * 18),
-                                      child: Transform.scale(
-                                        scale: 1 - (dragProgress * 0.05),
-                                        child: PlayerContent(
-                                          song: song,
-                                          playbackState: playbackState,
-                                          formatTime: _formatTime,
-                                          showLyrics: _showLyrics,
-                                          onLyricsToggle: _toggleLyrics,
-                                          showQueue: _showQueue,
-                                          onQueueToggle: _toggleQueue,
-                                        ),
-                                      ),
+                                  : PlayerContent(
+                                      song: song,
+                                      playbackState: playbackState,
+                                      formatTime: _formatTime,
+                                      showLyrics: _showLyrics,
+                                      onLyricsToggle: _toggleLyrics,
+                                      showQueue: _showQueue,
+                                      onQueueToggle: _toggleQueue,
                                     ),
                             ),
                           ),

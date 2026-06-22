@@ -10,20 +10,18 @@ class PlayerTransportControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canGoPrevious = playbackState.currentIndex > 0;
-    final canGoNext =
-        playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
+    final hasPlaylist = playbackState.currentPlaylist.isNotEmpty;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: Icon(
+          icon: const Icon(
             Icons.fast_rewind_rounded,
             size: 64,
-            color: canGoPrevious ? Colors.white : Colors.white24,
+            color: Colors.white,
           ),
-          onPressed: canGoPrevious ? () => AudioService.skipPrevious() : null,
+          onPressed: hasPlaylist ? () => AudioService.skipPrevious() : null,
         ),
         const SizedBox(width: 15),
         IconButton(
@@ -42,12 +40,12 @@ class PlayerTransportControls extends StatelessWidget {
         ),
         const SizedBox(width: 15),
         IconButton(
-          icon: Icon(
+          icon: const Icon(
             Icons.fast_forward_rounded,
             size: 64,
-            color: canGoNext ? Colors.white : Colors.white24,
+            color: Colors.white,
           ),
-          onPressed: canGoNext ? () => AudioService.skipNext() : null,
+          onPressed: hasPlaylist ? () => AudioService.skipNext() : null,
         ),
       ],
     );

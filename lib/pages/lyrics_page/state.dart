@@ -44,11 +44,17 @@ class _LyricsPageState extends State<LyricsPage>
               builder: (_, blur, _) => Stack(
                 fit: StackFit.expand,
                 children: [
+                  // RepaintBoundary + ClipRect prevent the BackdropFilter
+                  // from contaminating surrounding layers during slider drag.
                   if (blur > 0)
-                    BackdropFilter(
-                      filter: ImageFilter.blur(
-                          sigmaX: blur * 0.3, sigmaY: blur * 0.3),
-                      child: const SizedBox.expand(),
+                    RepaintBoundary(
+                      child: ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                              sigmaX: blur * 0.3, sigmaY: blur * 0.3),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
                     ),
                   ColoredBox(
                       color: Colors.black.withValues(alpha: dim.clamp(0.0, 0.95).toDouble())),

@@ -17,10 +17,9 @@ class _MiniPlayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final canGoNext =
         playbackState.currentIndex < playbackState.currentPlaylist.length - 1;
-    final canGoPrev = playbackState.currentIndex > 0;
-    final artworkSize = 46 - (6 * anim);
+    final artworkSize = 46 + (50 * anim);
     final swipeFraction = (swipeOffset.abs() / 80).clamp(0.0, 1.0).toDouble();
-
+    final fastAnim = (anim / 0.05).clamp(0.0, 1.0);
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassMiniPlayer,
       builder: (context, glassComp, _) {
@@ -35,7 +34,6 @@ class _MiniPlayerBody extends StatelessWidget {
                 height: 55,
                 child: Stack(
                   children: [
-                    // Swipe direction indicator
                     if (swipeFraction > 0.05)
                       Positioned.fill(
                         child: Opacity(
@@ -64,7 +62,6 @@ class _MiniPlayerBody extends StatelessWidget {
                           ),
                         ),
                       ),
-                    // Main content
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
@@ -75,73 +72,93 @@ class _MiniPlayerBody extends StatelessWidget {
                               onTap: _openFullPlayer,
                               child: Row(
                                 children: [
-                                  Hero(
-                                    tag: PlayerHeroTags.artwork(song),
-                                    child: SongArtwork(
-                                      songId: song.id,
-                                      size: artworkSize,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
+                                  Transform.translate(
+  offset: Offset(
+    0,
+    -(20 * anim),
+  ),
+  child: Hero(
+    tag: PlayerHeroTags.artwork(song),
+    child: SongArtwork(
+      songId: song.id,
+      size: artworkSize,
+      borderRadius: BorderRadius.circular(
+        3 + (9 * anim),
+      ),
+    ),
+  ),
+),
+                                  SizedBox(width: 10 + (6 * anim)),
                                   Expanded(
-                                    child: Transform.translate(
-                                      offset: Offset(6 * anim, 0),
-                                      child: Hero(
-                                        tag: PlayerHeroTags.title(song),
-                                        child: Material(
-                                          type: MaterialType.transparency,
-                                          child: Text(
-                                            song.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+  child: Transform.translate(
+    offset: Offset(
+      0,
+      -(2 * fastAnim),
+    ),
+    child: Opacity(
+      opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
+      child: Hero(
+        tag: PlayerHeroTags.title(song),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+),
                                 ],
                               ),
                             ),
                           ),
-                          Opacity(
-                            opacity: 1 - anim,
-                            child: Row(
-                              children: [
-                                
-                                IconButton(
-                                  onPressed: () {
-                                    playbackState.isPlaying
-                                        ? AudioService.pause()
-                                        : AudioService.play();
-                                  },
-                                  icon: Icon(
-                                    playbackState.isPlaying
-                                        ? Icons.pause
-                                        : Icons.play_arrow,
-                                    size: 34,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: canGoNext
-                                      ? () => AudioService.skipNext()
-                                      : null,
-                                  icon: Icon(
-                                    Icons.skip_next,
-                                    size: 30,
-                                    color: canGoNext
-                                        ? Colors.white
-                                        : Colors.white24,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          
+                            Transform.translate(
+  offset: Offset(
+    0,
+    -(2 * fastAnim),
+  ),
+  child: Opacity(
+    opacity: (1 - fastAnim * 3.0).clamp(0.0, 1.0),
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: () {
+            playbackState.isPlaying
+                ? AudioService.pause()
+                : AudioService.play();
+          },
+          icon: Icon(
+            playbackState.isPlaying
+                ? Icons.pause
+                : Icons.play_arrow,
+            size: 34,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext
+              ? () => AudioService.skipNext()
+              : null,
+          icon: Icon(
+            Icons.skip_next,
+            size: 30,
+            color: canGoNext
+                ? Colors.white
+                : Colors.white24,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                         ],
                       ),
                     ),

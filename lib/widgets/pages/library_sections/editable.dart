@@ -1,11 +1,7 @@
 part of '../library_sections.dart';
 
 class _EditableRow extends StatelessWidget {
-  const _EditableRow({
-    super.key,
-    required this.icon,
-    required this.title,
-  });
+  const _EditableRow({super.key, required this.icon, required this.title});
 
   final IconData icon;
   final String title;
@@ -19,11 +15,7 @@ class _EditableRow extends StatelessWidget {
           child: Row(
             children: [
               // Drag handle
-              const Icon(
-                Icons.drag_handle,
-                color: Color(0xFF8E8E93),
-                size: 22,
-              ),
+              const Icon(Icons.drag_handle, color: Color(0xFF8E8E93), size: 22),
               const SizedBox(width: 6),
               Icon(icon, color: const Color(0xFFF92D48), size: 28),
               const SizedBox(width: 11),

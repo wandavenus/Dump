@@ -13,12 +13,16 @@ class GlassNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
+        // RepaintBoundary isolates the BackdropFilter so it is not
+        // recomposited when navigation items or overlying widgets change.
         Positioned.fill(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-              child: Container(
-                color: Colors.white.withValues(alpha: 0.055),
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  color: Colors.white.withValues(alpha: 0.055),
+                ),
               ),
             ),
           ),

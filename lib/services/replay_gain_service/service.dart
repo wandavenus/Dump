@@ -9,7 +9,7 @@ part of '../replay_gain_service.dart';
 ///   4. No data → [LoudnessData.none]
 ///
 /// Results are cached in SharedPreferences to avoid re-reading tags on
-/// every playback.  Cache key: 'rg_<songId>'.
+/// every playback.  Cache key format: `rg_SONGID`.
 class ReplayGainService {
   ReplayGainService._();
 
@@ -170,10 +170,12 @@ class ReplayGainService {
 
   /// Parses "  -3.45 dB" → -3.45.  Returns null if not parseable.
   static double? _parseGainDb(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final cleaned = raw.trim().toLowerCase().replaceAll(RegExp(r'[^0-9.\-+]'), '');
-    return double.tryParse(cleaned);
-  }
+  if (raw == null || raw.trim().isEmpty) return null;
+  // Ambil angka desimal dengan tanda opsional di awal
+  final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
+  if (match == null) return null;
+  return double.tryParse(match.group(1)!);
+}
 
   /// Parses peak value "0.987654" → 0.987654.
   static double? _parsePeak(String? raw) {

@@ -118,7 +118,7 @@ After `promote()`:
 2. `AudioEffectsService.applyAll()` — re-applies EQ band gains, pitch, speed (uses the new references).
 3. After 350 ms delay: `applyAll()` again — gives the new audio session time to fire its `androidAudioSessionIdStream`, triggering `_attachNativeEffects` (BassBoost, Reverb, Spatial), after which a second `applyAll()` ensures their strength values are set.
 
-> **Known limitation (Phase 1)**: The lock-screen notification continues to show the old track until the next `playSongAt()` call, because the secondary player's untagged source doesn't update `MediaItem`. Phase 1.5 will use `just_audio_background`'s `mediaItem` BehaviorSubject to update the notification in-flight without restarting playback.
+> **Media3 migration note**: The native `MediaSessionService` is now responsible for lock-screen metadata, queue state, and transport controls via platform channels.
 
 ---
 

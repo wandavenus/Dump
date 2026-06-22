@@ -8,6 +8,7 @@ class PlayerContent extends StatefulWidget {
   final VoidCallback onLyricsToggle;
   final bool showQueue;
   final VoidCallback onQueueToggle;
+  final bool hideArtwork;
 
   const PlayerContent({
     super.key,
@@ -18,6 +19,7 @@ class PlayerContent extends StatefulWidget {
     required this.onLyricsToggle,
     required this.showQueue,
     required this.onQueueToggle,
+    this.hideArtwork = false,
   });
 
   @override
@@ -67,6 +69,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
   @override
   Widget build(BuildContext context) {
+    final progress = PlayerSheetController.progress.value;
     final width = MediaQuery.of(context).size.width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
     final showLyrics = widget.showLyrics;
@@ -94,26 +97,38 @@ class _PlayerContentState extends State<PlayerContent> {
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 30.0;
             
-                const controlsHeight = 40.0;
+                const controlsHeight = 35.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 40,
+                      bottom: 58,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
-                        duration: _animDuration,
-                        curve: _animCurve,
-                        opacity: showOverlay ? 0.0 : 1.0,
-                        child: IgnorePointer(
-                          ignoring: showOverlay,
-                          child: PlayerSongHeader(song: widget.song),
-                        ),
-                      ),
-                    ),
-
+  duration: _animDuration,
+  curve: _animCurve,
+  opacity: showOverlay ? 0.0 : 1.0,
+  child: IgnorePointer(
+    ignoring: showOverlay,
+    child: Transform.translate(
+  offset: Offset(
+  0,
+  20 * (1 - progress),
+),
+  child: Opacity(
+    opacity: ((progress - 0.15) / 0.85)
+    .clamp(0.0, 1.0),
+    child: PlayerSongHeader(
+  song: widget.song,
+),
+),
+),
+  ),
+),
+),
+        
                     // ── Lyrics area — fades in in lyrics mode ─────────────────
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 250),
@@ -212,31 +227,83 @@ class _PlayerContentState extends State<PlayerContent> {
                     AnimatedPositioned(
                       duration: _animDuration,
                       curve: _animCurve,
-                      top: showOverlay ? 8.0 : coverTop,
-                      left: showOverlay ? 22.0 : coverLeft,
-                      child: AnimatedContainer(
+                      top: showOverlay
+    ? 8.0
+    : lerpDouble(
+        sh - 140,
+        coverTop,
+        progress,
+      )!,
+                      left: showOverlay
+    ? 22.0
+    : lerpDouble(
+        22.0,
+        coverLeft,
+        progress,
+      )!,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: (widget.hideArtwork && !showOverlay) ? 0.0 : 1.0,
+                        child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
-                        width: showOverlay ? _smallCoverSize : largeCoverSize,
-                        height: showOverlay ? _smallCoverSize : largeCoverSize,
+                        width: showOverlay
+    ? _smallCoverSize
+    : lerpDouble(
+        70,
+        largeCoverSize,
+        progress,
+      )!,
+
+height: showOverlay
+    ? _smallCoverSize
+    : lerpDouble(
+        70,
+        largeCoverSize,
+        progress,
+      )!,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(showOverlay ? 8 : 12),
-                          color: Colors.black,
-                        ),
+  borderRadius: BorderRadius.circular(
+    showOverlay
+        ? 8
+        : lerpDouble(
+            6,
+            12,
+            progress,
+          )!,
+  ),
+  color: Colors.black,
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(
+        alpha: 0.0 + (0.25 * progress),
+      ),
+      blurRadius: 0.0 + (15 * progress),
+      spreadRadius: 0.0 + (0.4 * progress),
+      offset: Offset(
+        0,
+        0 + (4 * progress),
+      ),
+    ),
+  ],
+),
                         child: FittedBox(
                           fit: BoxFit.cover,
                           child: SizedBox(
                             width: largeCoverSize,
                             height: largeCoverSize,
-                            child: SongArtwork(
-                              songId: widget.song.id,
-                              size: largeCoverSize,
-                              borderRadius: BorderRadius.zero,
-                            ),
+                            child: Hero(
+  tag: PlayerHeroTags.artwork(widget.song),
+  child: SongArtwork(
+    songId: widget.song.id,
+    size: largeCoverSize,
+    borderRadius: BorderRadius.zero,
+  ),
+),
                           ),
                         ),
+                      ),
                       ),
                     ),
                   ],
@@ -247,15 +314,20 @@ class _PlayerContentState extends State<PlayerContent> {
 
           // ─── Fixed bottom controls ────────────────────────────────────────────
           AnimatedOpacity(
-            duration: const Duration(milliseconds: 250),
-            opacity: 1.0 - _lyricsExpand,
-            child: IgnorePointer(
-              ignoring: _lyricsExpand > 0.0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+  duration: const Duration(milliseconds: 250),
+  opacity: 1.0 - _lyricsExpand,
+  child: IgnorePointer(
+  ignoring: _lyricsExpand > 0.0,
+  child: Opacity(
+  opacity: Curves.easeOut.transform(progress),
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
                 children: [
                   Transform.translate(
-  offset: const Offset(0, -20),
+  offset: Offset(
+  0,
+  40 * (1 - progress) - 20,
+),
   child: Padding(
     padding: EdgeInsets.symmetric(
       horizontal: _playerHorizontalPadding,
@@ -263,39 +335,60 @@ class _PlayerContentState extends State<PlayerContent> {
     child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          PlayerProgressSection(
-                            formatTime: widget.formatTime,
-                          ),
+                          Opacity(
+  opacity: ((progress - 0.2) / 0.8)
+      .clamp(0.0, 1.0),
+  child: Transform.translate(
+  offset: const Offset(0, -15),
+  child: PlayerProgressSection(
+    formatTime: widget.formatTime,
+  ),
+),
+),
                           const SizedBox(height: 20),
-                          PlayerTransportControls(
-                           playbackState: widget.playbackState,
-                          ),
+                          Opacity(
+  opacity: ((progress - 0.35) / 0.65)
+      .clamp(0.0, 1.0),
+  child: Transform.scale(
+    scale: 0.85 + (0.15 * progress),
+    child: PlayerTransportControls(
+      playbackState: widget.playbackState,
+    ),
+  ),
+),
                           const SizedBox(height: 24),
-                          PlayerSecondaryControls(
-                            song: widget.song,
-                            showLyrics: showLyrics,
-                            onLyricsToggle: widget.onLyricsToggle,
-                            showQueue: showQueue,
-                            onQueueToggle: widget.onQueueToggle,
-                          ),
+                          Opacity(
+  opacity: progress,
+  child: PlayerSecondaryControls(
+    song: widget.song,
+    showLyrics: showLyrics,
+    onLyricsToggle: widget.onLyricsToggle,
+    showQueue: showQueue,
+    onQueueToggle: widget.onQueueToggle,
+  ),
+),
                           const SizedBox(height: 15),
                         ],
                       ),
                     ),
                   ),
 
-                  Container(
-                    width: double.infinity,
-                    height: 0.9,
-                    color: Colors.white.withValues(alpha: 0.09),
-                  ),
+                  Padding(
+  padding: const EdgeInsets.only(top: 20),
+  child: Container(
+    width: double.infinity,
+    height: 1,
+    color: Colors.white.withValues(alpha: 0.15),
+  ),
+),
                 ],
               ),
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
 
   Widget _buildLyricsContent() {
@@ -736,16 +829,16 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
+    // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.75),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Container(
+        color: const Color(0xBF0D0D0D),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,7 +904,6 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

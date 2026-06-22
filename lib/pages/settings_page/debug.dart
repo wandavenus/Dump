@@ -39,6 +39,8 @@ class _DebugSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
 
+        
+
         // Notification icon picker
         ValueListenableBuilder<int>(
           valueListenable: _DebugState.notifIcon,
@@ -58,7 +60,11 @@ class _DebugSection extends StatelessWidget {
         SettingsActionRow(
           title: 'Keluar Mode Debug',
           trailing: '',
-          onTap: () => _DebugState.enabled.value = false,
+          onTap: () {
+
+            PlayerSheetController.close();
+            _DebugState.enabled.value = false;
+          },
           isDestructive: true,
         ),
         const SettingsDivider(),
@@ -66,3 +72,4 @@ class _DebugSection extends StatelessWidget {
     );
   }
 }
+
