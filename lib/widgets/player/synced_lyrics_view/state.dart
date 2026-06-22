@@ -4,8 +4,25 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   final ScrollController _scroll = ScrollController();
   int _currentIndex = 0;
 
-  // Tinggi rata-rata tiap baris — dihitung ulang saat font size berubah
-  double _itemHeight = 52.0;
+  // GlobalKey per item — used to query the actual rendered RenderObject so that
+  // RenderAbstractViewport.getOffsetToReveal() can compute the exact scroll
+  // offset that places the item's CENTER at the viewport's CENTER.
+  // This replaces the old estimated-height formula which could be 40+ px off.
+  final Map<int, GlobalKey> _itemKeys = {};
+
+  // Guard: prevent stacking multiple post-frame callbacks on rapid position ticks.
+  bool _scrollPending = false;
+
+  @override
+  void didUpdateWidget(SyncedLyricsView old) {
+    super.didUpdateWidget(old);
+    if (old.lyrics != widget.lyrics) {
+      // New song loaded: discard cached render keys and reset active index.
+      _itemKeys.clear();
+      _currentIndex = 0;
+      _scrollPending = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -31,26 +48,33 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
               stream: AudioService.positionStream,
               builder: (context, snapshot) {
                 final position = snapshot.data ?? Duration.zero;
-                _updateCurrentLine(position, fs);
+                // Called inside build() — must NOT call setState directly here.
+                _maybeUpdateCurrentLine(position);
 
                 return ListView.builder(
                   controller: _scroll,
                   padding: widget.padding,
                   itemCount: widget.lyrics.length,
                   itemBuilder: (context, index) {
-                    final active = index == _currentIndex;
-                    final activeFontSize = fs;
-                    final inactiveFontSize = (fs * 0.82).clamp(12.0, 22.0).toDouble();
+                    // putIfAbsent creates a key lazily on first build of each item.
+                    final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
+                    final active  = index == _currentIndex;
 
-                    // ⭐ KUNCI: Key berdasarkan index agar widget direuse
+                    final activeFontSize   = fs;
+                    // Inactive lines: 82% of active, clamped to readable minimum.
+                    final inactiveFontSize = (fs * 0.82).clamp(12.0, 22.0);
+
                     return Padding(
-                      key: ValueKey(index),
+                      // GlobalKey doubles as the widget tree key AND the render-object handle.
+                      key: itemKey,
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 300),
+                        // Duration matches the scroll animation for visual synchrony.
+                        duration: const Duration(milliseconds: 380),
                         curve: Curves.easeOutCubic,
                         style: TextStyle(
-                          fontSize: active ? activeFontSize : inactiveFontSize,
+                          fontSize:
+                              active ? activeFontSize : inactiveFontSize,
                           fontWeight:
                               active ? FontWeight.bold : FontWeight.w400,
                           color: active
@@ -74,58 +98,103 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
     );
   }
 
-  void _updateCurrentLine(Duration position, double fontSize) {
+  // ── Position tracking ───────────────────────────────────────────────────────
+
+  /// Called on every position tick from the StreamBuilder.
+  /// Must not call setState directly (we're inside build).
+  void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
 
-    int activeIndex = 0;
-    for (int i = 0; i < widget.lyrics.length; i++) {
-      if (widget.lyrics[i].timestamp <= position) {
-        activeIndex = i;
+    // Binary-search the last line whose timestamp ≤ position.
+    int lo = 0, hi = widget.lyrics.length - 1, activeIndex = 0;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (widget.lyrics[mid].timestamp <= position) {
+        activeIndex = mid;
+        lo = mid + 1;
       } else {
-        break;
+        hi = mid - 1;
       }
     }
 
     if (activeIndex == _currentIndex) return;
+    if (_scrollPending) return; // already waiting for a frame
 
-    // Update tinggi item sebelum scroll
-    _itemHeight = _computeItemHeight(fontSize);
+    _scrollPending = true;
 
+    // Frame 1: schedule setState so the new active index is reflected in the build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted) { _scrollPending = false; return; }
       setState(() => _currentIndex = activeIndex);
-      _scrollToIndex(activeIndex);
+
+      // Frame 2: after the rebuild has been painted, query actual render positions
+      // and scroll so the new active item's CENTER is at the viewport CENTER.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollPending = false;
+        if (!mounted) return;
+        _scrollToCenter(activeIndex);
+      });
     });
   }
 
-  double _computeItemHeight(double fontSize) {
-    // Line-height: fontSize * 1.4 (dari style.height)
-    // Vertical padding: 6 + 6 = 12
-    return fontSize * 1.4 + 12.0;
-  }
+  // ── Centering ───────────────────────────────────────────────────────────────
 
-  void _scrollToIndex(int index) {
-  if (!_scroll.hasClients) return;
-  
-  // Ambil top padding dari widget (default 0 jika tidak ada)
-  final topPadding = widget.padding.resolve(TextDirection.ltr).top;
-  
-  final viewportHalf = _scroll.position.viewportDimension / 2;
-  final itemOffset = index * _itemHeight;
-  
-  // ── FORMULA PERBAIKAN ──
-  // Tambahkan topPadding agar item benar-benar berada di tengah viewport
-  final target = (itemOffset + topPadding - viewportHalf + _itemHeight / 2)
-      .clamp(0.0, _scroll.position.maxScrollExtent)
-      .toDouble();
+  /// Scrolls so that item [index] is centered in the viewport.
+  ///
+  /// Uses [RenderAbstractViewport.getOffsetToReveal] with alignment=0.5 which
+  /// returns the exact scroll offset that places the item's midpoint at the
+  /// viewport's midpoint — regardless of varying item heights or multiline text.
+  void _scrollToCenter(int index) {
+    if (!_scroll.hasClients) return;
 
-  final currentOffset = _scroll.offset;
-  if ((target - currentOffset).abs() > 1.0) {
+    final key = _itemKeys[index];
+    if (key == null || key.currentContext == null) {
+      _scrollToCenterFallback(index);
+      return;
+    }
+
+    final RenderObject? renderObj = key.currentContext!.findRenderObject();
+    if (renderObj == null) { _scrollToCenterFallback(index); return; }
+
+    // Find the nearest scrollable viewport in the ancestor tree.
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
+    if (viewport == null) { _scrollToCenterFallback(index); return; }
+
+    // alignment=0.5 → item-center aligned with viewport-center.
+    final double rawOffset =
+        viewport.getOffsetToReveal(renderObj, 0.5).offset;
+
+    final double target = rawOffset.clamp(
+      _scroll.position.minScrollExtent,
+      _scroll.position.maxScrollExtent,
+    );
+
+    if ((target - _scroll.offset).abs() < 1.0) return;
+
     _scroll.animateTo(
       target,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
     );
   }
+
+  /// Fallback used when the render object is not yet available (very first build).
+  /// Uses a simple linear estimate; accurate enough for the initial scroll-to-top.
+  void _scrollToCenterFallback(int index) {
+    if (!_scroll.hasClients) return;
+    final fs = LyricsSettings.fontSize.value;
+    // Approximate item height: active font × line-height + vertical padding.
+    final double approxHeight = fs * 1.4 + 12.0;
+    final double topPad = widget.padding.resolve(TextDirection.ltr).top;
+    final double vpHalf  = _scroll.position.viewportDimension / 2;
+    final double target  = (index * approxHeight + topPad - vpHalf + approxHeight / 2)
+        .clamp(_scroll.position.minScrollExtent, _scroll.position.maxScrollExtent);
+
+    if ((target - _scroll.offset).abs() < 1.0) return;
+    _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
   }
-  }
+}

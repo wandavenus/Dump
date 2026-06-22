@@ -211,23 +211,62 @@ class LyricsService {
         .toList();
   }
 
-  /// Parse LRC format [mm:ss.xx]text — public so it can be used elsewhere.
+  /// Parse LRC format — public so it can be reused elsewhere.
+  ///
+  /// Handles:
+  ///   • Standard:            `[mm:ss.xx]text`
+  ///   • No centiseconds:     `[mm:ss]text`
+  ///   • Multi-timestamp:     `[mm:ss.xx][mm:ss.xx]text` → two LyricLines
+  ///   • Metadata tags:       `[ti:]`, `[ar:]`, `[al:]`, `[by:]`, `[offset:]` → skipped
+  ///   • Inline karaoke times:`<mm:ss.xx>` inside the text → stripped
+  ///   • Empty text lines:    skipped (keep list clean)
+  ///   • Windows line endings: `\r\n` → handled by trim()
   static List<LyricLine> parseLrc(String lrc) {
+    // Regex for a single [mm:ss] or [mm:ss.xx] or [mm:ss.xxx] timestamp.
+    final tsRe = RegExp(r'\[(\d+):(\d+(?:[.,]\d+)?)\]');
+
+    // Known metadata prefixes — skip these lines entirely.
+    final metaRe = RegExp(
+      r'^\[(?:ti|ar|al|by|offset|length|re|ve|total|author|created)\s*:',
+      caseSensitive: false,
+    );
+
+    // Inline karaoke word-timings like <01:23.45> — strip from text.
+    final inlineRe = RegExp(r'<\d+:\d+(?:[.,]\d+)?>');
+
     final result = <LyricLine>[];
-    for (final line in lrc.split('\n')) {
-      final match =
-          RegExp(r'^\[(\d+):(\d+(?:\.\d+)?)\](.*)$').firstMatch(line.trim());
-      if (match == null) continue;
-      final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
-      final seconds = double.tryParse(match.group(2) ?? '') ?? 0;
-      final text = (match.group(3) ?? '').trim();
-      result.add(LyricLine(
-        timestamp: Duration(
-          milliseconds: (((minutes * 60) + seconds) * 1000).round(),
-        ),
-        text: text,
-      ));
+
+    for (final rawLine in lrc.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      if (metaRe.hasMatch(line)) continue;
+
+      // Collect all leading timestamps.
+      final List<Duration> timestamps = [];
+      int cursor = 0;
+      for (final m in tsRe.allMatches(line)) {
+        // Only accept timestamps that appear before any non-timestamp text.
+        // A timestamp embedded mid-text (karaoke) is handled by inlineRe strip below.
+        if (m.start > cursor && line.substring(cursor, m.start).trim().isNotEmpty) break;
+        final min = int.tryParse(m.group(1) ?? '') ?? 0;
+        // Accept both '.' and ',' as decimal separator (regional LRC variants).
+        final secStr = (m.group(2) ?? '').replaceAll(',', '.');
+        final sec    = double.tryParse(secStr) ?? 0;
+        timestamps.add(Duration(milliseconds: ((min * 60 + sec) * 1000).round()));
+        cursor = m.end;
+      }
+
+      if (timestamps.isEmpty) continue;
+
+      // Text is everything after the last leading timestamp, with inline timings stripped.
+      final rawText = line.substring(cursor).replaceAll(inlineRe, '').trim();
+      if (rawText.isEmpty) continue;
+
+      for (final ts in timestamps) {
+        result.add(LyricLine(timestamp: ts, text: rawText));
+      }
     }
+
     result.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return result;
   }

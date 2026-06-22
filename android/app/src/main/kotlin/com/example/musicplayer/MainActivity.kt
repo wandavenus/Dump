@@ -241,19 +241,85 @@ class MainActivity : FlutterActivity() {
     }
 
     // ── Embedded lyrics ────────────────────────────────────────────────────────
+    //
+    // Priority per format:
+    //   MP3  : USLT (all frames, prefer English) → LYRICS field → multi-line COMMENT
+    //   M4A  : ©lyr atom via FieldKey.LYRICS → multi-line COMMENT
+    //   FLAC : LYRICS Vorbis comment → UNSYNCEDLYRICS → multi-line COMMENT
+    //   OGG  : same as FLAC
+    //   OPUS : same as FLAC (Vorbis comment container)
 
     private fun getEmbeddedLyrics(path: String): String? {
         if (path.isBlank()) return null
+        val file = File(path)
+        if (!file.exists()) return null
+
         return try {
-            val file = File(path)
-            if (!file.exists()) return null
             val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-            val tag = audioFile?.tag ?: return null
-            val lyrics = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)
-            if (!lyrics.isNullOrBlank()) return lyrics.trim()
-            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
-            if (!comment.isNullOrBlank() && comment.contains('\n')) return comment.trim()
+            val tag       = audioFile?.tag ?: return null
+
+            // ── 1. Standard FieldKey.LYRICS
+            //    Maps to: ID3v2 USLT (first frame only), M4A ©lyr, Vorbis LYRICS.
+            val fromField = tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS)?.trim()
+            if (!fromField.isNullOrBlank()) return fromField
+
+            // ── 2. ID3v2: scan ALL USLT frames (some MP3s have multiple language frames;
+            //    jaudiotagger's getFirst() may return an empty-text frame first).
+            if (tag is org.jaudiotagger.tag.id3.AbstractID3v2Tag) {
+                val uslt = extractAllUsltFrames(tag)
+                if (!uslt.isNullOrBlank()) return uslt
+            }
+
+            // ── 3. Vorbis comment explicit keys (OGG / FLAC / OPUS).
+            //    Vorbis spec allows both LYRICS and UNSYNCEDLYRICS.
+            if (tag is org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag) {
+                for (key in listOf("LYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS")) {
+                    val v = tag.getFirst(key)?.trim()
+                    if (!v.isNullOrBlank()) return v
+                }
+            }
+
+            // ── 4. COMMENT fallback — only when the comment looks like lyrics:
+            //    at least 3 newlines (≥4 non-empty lines), avoid fetching short comments.
+            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)?.trim()
+            if (!comment.isNullOrBlank() && comment.count { it == '\n' } >= 3) {
+                return comment
+            }
+
             null
+        } catch (_: Exception) { null }
+    }
+
+    /**
+     * Iterates every USLT frame in an ID3v2 tag and returns the first non-empty lyric text.
+     * Prefers frames with language "eng" or blank (unspecified) over other languages,
+     * since those are the most common sources of plain/synced LRC lyrics in music files.
+     */
+    private fun extractAllUsltFrames(
+        tag: org.jaudiotagger.tag.id3.AbstractID3v2Tag,
+    ): String? {
+        return try {
+            val raw = tag.getFrame("USLT") ?: return null
+            val frames = if (raw is List<*>) raw else listOf(raw)
+
+            // Collect (lang, text) pairs; skip frames with empty lyric text.
+            // Using Pair<String,String> avoids a local data class (Kotlin <1.9 compat).
+            val entries: List<Pair<String, String>> = frames.mapNotNull { frame ->
+                try {
+                    val body = (frame as? org.jaudiotagger.tag.id3.ID3v2Frame)?.body
+                        as? org.jaudiotagger.tag.id3.framebody.FrameBodyUSLT
+                        ?: return@mapNotNull null
+                    val text = body.getLyric()?.trim() ?: ""
+                    if (text.isEmpty()) null
+                    else Pair(body.language?.trim()?.lowercase() ?: "", text)
+                } catch (_: Exception) { null }
+            }
+
+            if (entries.isEmpty()) return null
+
+            // Prefer blank language or "eng"; fall back to the first non-empty entry.
+            (entries.firstOrNull { it.first.isBlank() || it.first == "eng" }
+                ?: entries.first()).second
         } catch (_: Exception) { null }
     }
 
