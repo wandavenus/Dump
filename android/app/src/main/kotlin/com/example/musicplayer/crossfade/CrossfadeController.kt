@@ -190,7 +190,7 @@ class CrossfadeController(
         crossfadeInProgress = true
         promotionTriggered  = true
         promotionOwner      = current
-        setActiveQueueIndex(nextIndex)
+        //setActiveQueueIndex(nextIndex)
 
         // Detach the old player's trailing queue tail to free memory
         try {
