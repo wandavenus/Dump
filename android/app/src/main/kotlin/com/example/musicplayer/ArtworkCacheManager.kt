@@ -33,8 +33,8 @@ class ArtworkCacheManager(private val context: Context) {
         private const val MAX_BYTES     = 500L * 1024 * 1024   // 500 MB hard cap
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
         private const val WEBP_QUALITY  = 85
-        private const val MAX_ARTWORK_SIZE = 1024     
-    }
+        private const val MAX_ARTWORK_SIZE = 512
+    
 
     // Lazily create the cache directory on first access.
     private val cacheDir: File by lazy {
