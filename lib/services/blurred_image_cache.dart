@@ -30,16 +30,13 @@ class BlurredImageCache {
     final completer = Completer<ui.Image?>();
     _pending[songId] = completer;
     _compute(songId, bytes).then((img) {
-      if (img != null) {
-
-  if (_cache.length >= _maxEntries) {
-    final oldestKey = _cache.keys.first;
-
-    _cache.remove(oldestKey)?.dispose();
-  }
-
-  _cache[songId] = img;
-}
+            if (img != null) {
+        if (_cache.length >= _maxEntries) {
+          final oldestKey = _cache.keys.first;
+          _cache.remove(oldestKey)?.dispose();
+        }
+        _cache[songId] = img;
+      }
       _pending.remove(songId);
       completer.complete(img);
     }).catchError((Object _) {
