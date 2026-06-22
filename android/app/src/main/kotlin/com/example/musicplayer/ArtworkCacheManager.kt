@@ -33,12 +33,23 @@ class ArtworkCacheManager(private val context: Context) {
         private const val MAX_BYTES     = 500L * 1024 * 1024   // 500 MB hard cap
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
         private const val WEBP_QUALITY  = 85
+        private const val MAX_ARTWORK_SIZE = 1024     
     }
 
     // Lazily create the cache directory on first access.
     private val cacheDir: File by lazy {
-        File(context.cacheDir, CACHE_SUBDIR).also { it.mkdirs() }
+    File(context.cacheDir, CACHE_SUBDIR).also { dir ->
+        dir.mkdirs()
+
+        dir.listFiles { file ->
+            file.name.endsWith(".tmp")
+        }?.forEach {
+            try {
+                it.delete()
+            } catch (_: Exception) {}
+        }
     }
+}
 
     // Global lock guards the per-songId lock map to prevent map corruption.
     private val globalLock  = ReentrantLock()
@@ -104,7 +115,13 @@ class ArtworkCacheManager(private val context: Context) {
                 val raw = extractRawBytes(songId) ?: return@withLock null
 
                 val ok = saveAsWebP(raw, target)
-                if (ok) target.absolutePath else null
+
+if (ok) {
+    touch(target)
+    target.absolutePath
+} else {
+    null
+}
             }
         } finally {
             // Remove from map only after the lock is fully released by withLock,
@@ -174,36 +191,76 @@ class ArtworkCacheManager(private val context: Context) {
         }
     }
 
+    private fun decodeScaledBitmap(raw: ByteArray): Bitmap? {
+    val bounds = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+    }
+
+    BitmapFactory.decodeByteArray(
+        raw,
+        0,
+        raw.size,
+        bounds
+    )
+
+    var sampleSize = 1
+
+    while (
+        bounds.outWidth / sampleSize > MAX_ARTWORK_SIZE ||
+        bounds.outHeight / sampleSize > MAX_ARTWORK_SIZE
+    ) {
+        sampleSize *= 2
+    }
+
+    return BitmapFactory.decodeByteArray(
+        raw,
+        0,
+        raw.size,
+        BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+    )
+    }
+
+    
     /**
      * Decode [raw] → Bitmap → compress to WebP → write atomically to [target].
      * Uses WEBP_LOSSY on API 30+ (Android 11) and the legacy WEBP format below.
      */
     private fun saveAsWebP(raw: ByteArray, target: File): Boolean {
-        return try {
-            val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return false
+    var bitmap: Bitmap? = null
 
-            val tmp = File(target.parent, "${target.name}.tmp")
-            FileOutputStream(tmp).use { out ->
-                val fmt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+    return try {
+        bitmap = decodeScaledBitmap(raw) ?: return false
+
+        val tmp = File(target.parent, "${target.name}.tmp")
+
+        FileOutputStream(tmp).use { out ->
+            val fmt =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                     Bitmap.CompressFormat.WEBP_LOSSY
-                } else {
+                else
                     @Suppress("DEPRECATION")
                     Bitmap.CompressFormat.WEBP
-                }
-                bitmap.compress(fmt, WEBP_QUALITY, out)
-                out.flush()
-            }
-            bitmap.recycle()
 
-            // Atomic rename — if rename fails, clean up tmp to avoid stale files.
-            val ok = tmp.renameTo(target)
-            if (!ok) tmp.delete()
-            ok
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
-            false
+            bitmap.compress(fmt, WEBP_QUALITY, out)
+            out.flush()
         }
+
+        val ok = tmp.renameTo(target)
+
+        if (!ok) {
+            tmp.delete()
+        }
+
+        ok
+    } catch (e: Exception) {
+        Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
+        false
+    } finally {
+        bitmap?.recycle()
     }
+}
 
     /** Update lastModified so LRU order reflects access time. */
     private fun touch(file: File) {
