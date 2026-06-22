@@ -107,26 +107,25 @@ class MainActivity : FlutterActivity() {
                         // so Flutter can use FileImage for zero-copy rendering.
                         val songId = call.argument<Int>("songId") ?: 0
                         Thread {
-    try {
-        val path = artworkCacheManager.getOrExtract(songId)
+                                try {
+                                val path = artworkCacheManager.getOrExtract(songId)
 
-        runOnUiThread {
-            result.success(path)
-        }
-
-    } catch (e: Exception) {
-
-        runOnUiThread {
-            result.error(
-                "artwork_cache_error",
-                e.message,
-                null
-            )
-        }
-    }
-}.apply {
-    name = "artwork-cache-$songId"
-    start()
+                                runOnUiThread {
+                                    result.success(path)
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error(
+                                        "artwork_cache_error",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
+                        }.apply {
+                            name = "artwork-cache-$songId"
+                            start()
+                        }
 }
                     }
                     "setActiveQueueIds" -> {
