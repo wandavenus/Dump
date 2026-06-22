@@ -126,7 +126,6 @@ class MainActivity : FlutterActivity() {
                             name = "artwork-cache-$songId"
                             start()
                         }
-}
                     }
                     "setActiveQueueIds" -> {
                         // Inform the cache manager which song IDs are in the active
