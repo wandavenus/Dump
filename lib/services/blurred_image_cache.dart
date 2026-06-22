@@ -11,6 +11,7 @@ import 'dart:ui' as ui;
 class BlurredImageCache {
   BlurredImageCache._();
 
+  static const int _maxEntries = 100;
   static final Map<int, ui.Image> _cache = {};
   static final Map<int, Completer<ui.Image?>> _pending = {};
 
@@ -29,7 +30,16 @@ class BlurredImageCache {
     final completer = Completer<ui.Image?>();
     _pending[songId] = completer;
     _compute(songId, bytes).then((img) {
-      if (img != null) _cache[songId] = img;
+      if (img != null) {
+
+  if (_cache.length >= _maxEntries) {
+    final oldestKey = _cache.keys.first;
+
+    _cache.remove(oldestKey)?.dispose();
+  }
+
+  _cache[songId] = img;
+}
       _pending.remove(songId);
       completer.complete(img);
     }).catchError((Object _) {
