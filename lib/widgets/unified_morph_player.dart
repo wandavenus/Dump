@@ -283,7 +283,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                     // Threshold 0.05 collapses the glass before drag starts
                     // so BackdropFilter never runs during the morph animation.
                     final useGlass =
-                        masterGlass && compGlass && progress < 0.05;
+                        masterGlass && compGlass && progress < 0.02;
                     if (useGlass) {
                       return RepaintBoundary(
                         child: ClipRect(
@@ -325,8 +325,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Color.fromARGB(50, 0, 0, 0),
-                          Color.fromARGB(50, 0, 0, 0),
+                          Color.fromARGB(40, 0, 0, 0),
+                          Color.fromARGB(40, 0, 0, 0),
                         ],
                       ),
                     ),
@@ -374,9 +374,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         borderRadius: BorderRadius.circular(artRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.40),
-            blurRadius: 50,
-            offset: const Offset(0, 20),
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: 40,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
@@ -404,10 +404,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   child: IgnorePointer(
                     ignoring: progress > 0.08,
                     child: _buildMiniOverlay(
-  song,
-  state,
-  progress,
-),
+                    song,
+                    state,
+                    progress,
+                    ),
                   ),
                 ),
 
@@ -432,7 +432,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final canGoNext =
         state.currentIndex < state.currentPlaylist.length - 1;
     final miniContentAlpha =
-    (1.0 - progress / 0.03).clamp(0.0, 1.0);
+    (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
     final miniContentOffset =
     -5.0 * (1.0 - miniContentAlpha);
@@ -499,15 +499,11 @@ Transform.translate(
           ),
         ),
         IconButton(
-          onPressed: canGoNext
-              ? () => AudioService.skipNext()
-              : null,
+          onPressed: () => AudioService.skipNext(),
           icon: Icon(
             Icons.fast_forward_rounded,
             size: 36,
-            color: canGoNext
-                ? Colors.white
-                : Colors.white24,
+            color: Colors.white,
           ),
         ),
       ],
