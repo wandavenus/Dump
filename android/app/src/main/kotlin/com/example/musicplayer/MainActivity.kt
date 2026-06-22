@@ -145,20 +145,20 @@ class MainActivity : FlutterActivity() {
                         val activeIds = call.argument<List<Int>>("activeIds")
                             ?.toSet() ?: emptySet()
                         Thread {
-    artworkCacheManager.cleanupIfNeeded(activeIds)
+                            artworkCacheManager.cleanupIfNeeded(activeIds)
 
-    val data = mapOf(
-        "count" to artworkCacheManager.cacheCount(),
-        "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
-    )
+                            val data = mapOf(
+                                "count" to artworkCacheManager.cacheCount(),
+                                "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
+                            )
 
-    runOnUiThread {
-        result.success(data)
-    }
-}.apply {
-    name = "artwork-cleanup"
-    start()
-}.apply { name = "artwork-cleanup"; start() }
+                            runOnUiThread {
+                                result.success(data)
+                            }
+                        }.apply {
+                            name = "artwork-cleanup"
+                            start()
+                        }
                     }
                     "getAudioMetadata" -> {
                         val path = call.argument<String>("path")
