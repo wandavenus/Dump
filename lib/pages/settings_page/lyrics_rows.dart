@@ -41,32 +41,6 @@ class _LyricsAppearanceRows extends StatelessWidget {
           },
         ),
         const SettingsDivider(),
-        ValueListenableBuilder<double>(
-          valueListenable: LyricsSettings.bgDim,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Kegelapan Latar',
-            subtitle: '${(v * 100).round()}%',
-            value: v,
-            min: 0.2,
-            max: 0.95,
-            divisions: 15,
-            onChanged: LyricsSettings.setBgDim,
-          ),
-        ),
-        const SettingsDivider(),
-        ValueListenableBuilder<double>(
-          valueListenable: LyricsSettings.blurStrength,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Blur Latar',
-            subtitle: v == 0 ? 'Nonaktif' : '${v.round()}',
-            value: v,
-            min: 0,
-            max: 50,
-            divisions: 10,
-            onChanged: LyricsSettings.setBlurStrength,
-          ),
-        ),
-        const SettingsDivider(),
         ValueListenableBuilder<bool>(
           valueListenable: LyricsSettings.showSource,
           builder: (_, v, _) => SettingsToggleRow(

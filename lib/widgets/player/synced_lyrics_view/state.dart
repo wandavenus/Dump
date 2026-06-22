@@ -64,27 +64,32 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                     // Inactive lines: 82% of active, clamped to readable minimum.
                     final inactiveFontSize = (fs * 0.82).clamp(12.0, 22.0);
 
-                    return Padding(
-                      // GlobalKey doubles as the widget tree key AND the render-object handle.
-                      key: itemKey,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: AnimatedDefaultTextStyle(
-                        // Duration matches the scroll animation for visual synchrony.
-                        duration: const Duration(milliseconds: 380),
-                        curve: Curves.easeOutCubic,
-                        style: TextStyle(
-                          fontSize:
-                              active ? activeFontSize : inactiveFontSize,
-                          fontWeight:
-                              active ? FontWeight.bold : FontWeight.w400,
-                          color: active
-                              ? activeColor
-                              : Colors.white.withValues(alpha: 0.35),
-                          height: 1.4,
-                        ),
-                        child: Text(
-                          widget.lyrics[index].text,
-                          textAlign: textAlign,
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () =>
+                          AudioService.seek(widget.lyrics[index].timestamp),
+                      child: Padding(
+                        // GlobalKey doubles as widget tree key AND render-object handle.
+                        key: itemKey,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: AnimatedDefaultTextStyle(
+                          // Duration matches scroll animation for visual synchrony.
+                          duration: const Duration(milliseconds: 380),
+                          curve: Curves.easeOutCubic,
+                          style: TextStyle(
+                            fontSize:
+                                active ? activeFontSize : inactiveFontSize,
+                            fontWeight:
+                                active ? FontWeight.bold : FontWeight.w400,
+                            color: active
+                                ? activeColor
+                                : Colors.white.withValues(alpha: 0.35),
+                            height: 1.4,
+                          ),
+                          child: Text(
+                            widget.lyrics[index].text,
+                            textAlign: textAlign,
+                          ),
                         ),
                       ),
                     );
