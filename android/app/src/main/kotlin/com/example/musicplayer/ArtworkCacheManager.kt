@@ -45,7 +45,21 @@ class ArtworkCacheManager(private val context: Context) {
     // Per-songId locks prevent double-extraction of the same song under concurrency.
     private val songLocks   = HashMap<Int, ReentrantLock>()
 
+    // Active-queue song IDs: never evicted during LRU cleanup.
+    // Written by Flutter via setActiveQueueIds(); read during cleanupIfNeeded().
+    @Volatile
+    private var activeQueueIds: Set<Int> = emptySet()
+
     // ── Public API ─────────────────────────────────────────────────────────────
+
+    /**
+     * Update the set of song IDs that are currently queued for playback.
+     * These songs will never be evicted during LRU cleanup.
+     * Call this from the Flutter side whenever the playback queue changes.
+     */
+    fun setActiveQueueIds(ids: Set<Int>) {
+        activeQueueIds = ids
+    }
 
     /**
      * Returns the absolute path to `{cacheDir}/artwork/{songId}.webp`.
@@ -54,6 +68,10 @@ class ArtworkCacheManager(private val context: Context) {
      * Slow path (cache miss): extract via MediaMetadataRetriever → encode WebP 85 →
      *   write atomically → return path.
      * Returns null only when artwork cannot be extracted (song has no embedded art).
+     *
+     * Thread-safety note: the per-songId lock is acquired before extraction and
+     * released (by withLock) before cleanupSongLock removes it from the map.
+     * This ensures no concurrent thread ever holds two locks for the same songId.
      */
     fun getOrExtract(songId: Int): String? {
         if (songId <= 0) return null
@@ -71,25 +89,35 @@ class ArtworkCacheManager(private val context: Context) {
             songLocks.getOrPut(songId) { ReentrantLock() }
         }
 
-        return lock.withLock {
-            // Re-check after acquiring the lock (another thread may have written it).
-            if (target.exists() && target.length() > 0L) {
-                touch(target)
-                return@withLock target.absolutePath
-            }
+        // NOTE: cleanupSongLock is called in the finally block, AFTER withLock has
+        // fully released the lock.  Calling it inside withLock would allow a
+        // concurrent thread to create a new lock and start extraction before the
+        // current thread's withLock lambda finishes — a subtle but real race.
+        val result: String? = try {
+            lock.withLock {
+                // Re-check after acquiring the lock (another thread may have written it).
+                if (target.exists() && target.length() > 0L) {
+                    touch(target)
+                    return@withLock target.absolutePath
+                }
 
-            val raw = extractRawBytes(songId) ?: run {
-                cleanupSongLock(songId)
-                return@withLock null
-            }
+                val raw = extractRawBytes(songId) ?: return@withLock null
 
-            val ok = saveAsWebP(raw, target)
-            // Run LRU cleanup after every successful save (only does real
-            // work when the cache exceeds MAX_BYTES — fast no-op otherwise).
-            if (ok) cleanupIfNeeded()
+                val ok = saveAsWebP(raw, target)
+                if (ok) target.absolutePath else null
+            }
+        } finally {
+            // Remove from map only after the lock is fully released by withLock,
+            // so no concurrent thread can ever observe the lock while it is held.
             cleanupSongLock(songId)
-            if (ok) target.absolutePath else null
         }
+
+        // Run LRU cleanup after a successful save, protecting the active queue.
+        // This runs outside the per-songId lock — cleanup is idempotent and only
+        // does real work when total cache size exceeds MAX_BYTES.
+        if (result != null) cleanupIfNeeded(activeQueueIds)
+
+        return result
     }
 
     /**

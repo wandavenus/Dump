@@ -91,16 +91,20 @@ class MediaStoreService {
 
   // ── Artwork path (persistent cache) ────────────────────────────────────────
 
-  /// Calls the native [ArtworkCacheManager] via MethodChannel.
-  /// Returns the absolute path to `{cacheDir}/artwork/{songId}.webp`.
-  ///
-  /// On a cache hit the native side returns immediately (file-exist check only).
-  /// On a miss it extracts from MediaStore, encodes WebP, saves atomically,
-  /// then returns the path.  The call runs on a native background thread so
-  /// the Flutter UI thread is never blocked.
-  ///
-  /// Prefer [ArtworkRepository.instance.getPath] which adds a Dart-side memory
-  /// cache and disk probe on top of this method.
+  /// Updates the native [ArtworkCacheManager] with the current playback queue.
+  /// Songs in this set are never evicted during LRU cleanup.
+  /// Call whenever the queue is set, shuffled, or items are added/removed.
+  static Future<void> setActiveQueueIds(List<int> songIds) async {
+    try {
+      await _channel.invokeMethod<void>(
+        'setActiveQueueIds',
+        {'ids': songIds},
+      );
+    } catch (e) {
+      debugPrint('setActiveQueueIds error: $e');
+    }
+  }
+
   static Future<String?> getArtworkPath(int songId) async {
     if (songId <= 0) return null;
     try {

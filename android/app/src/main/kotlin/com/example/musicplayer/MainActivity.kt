@@ -115,9 +115,19 @@ class MainActivity : FlutterActivity() {
                             }
                         }.apply { name = "artwork-cache-$songId"; start() }
                     }
+                    "setActiveQueueIds" -> {
+                        // Inform the cache manager which song IDs are in the active
+                        // playback queue.  These songs are never evicted during LRU
+                        // cleanup.  Call this whenever the queue changes.
+                        val ids = call.argument<List<Int>>("ids")
+                            ?.toSet() ?: emptySet()
+                        artworkCacheManager.setActiveQueueIds(ids)
+                        result.success(null)
+                    }
                     "cleanupArtworkCache" -> {
-                        // Optional: Flutter may pass a list of active-queue song IDs
-                        // so those files are never evicted during cleanup.
+                        // Optional manual cleanup.  Flutter may pass active-queue song
+                        // IDs to protect them; the automatic cleanup inside
+                        // getOrExtract already uses the stored activeQueueIds.
                         val activeIds = call.argument<List<Int>>("activeIds")
                             ?.toSet() ?: emptySet()
                         Thread {

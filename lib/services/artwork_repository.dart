@@ -123,6 +123,20 @@ class ArtworkRepository {
     }
   }
 
+  // ── Active-queue registration ──────────────────────────────────────────────
+
+  /// Tells the native cache manager which song IDs are currently in the
+  /// playback queue.  These songs are never evicted by LRU cleanup, even when
+  /// the cache exceeds the 500 MB limit.
+  ///
+  /// Call this whenever the playback queue changes (set, shuffle, add/remove).
+  /// The call is fire-and-forget: it returns immediately after the MethodChannel
+  /// invoke.  Errors are swallowed so a failure here never crashes the app.
+  static Future<void> setActiveQueueIds(List<int> songIds) =>
+      MediaStoreService.setActiveQueueIds(songIds);
+
+  // ── Memory cache management ────────────────────────────────────────────────
+
   /// Remove [songId] from memory caches (e.g. after a library change).
   /// The disk file is NOT deleted; call native cleanupIfNeeded for that.
   void evict(int songId) {

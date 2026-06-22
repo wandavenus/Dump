@@ -171,6 +171,10 @@ class AudioService {
       if (songs.isEmpty) return;
       _playlist = List<LocalSong>.unmodifiable(songs);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
+
+      // Tell the native artwork cache which songs are in the active queue so
+      // those WebP files are never evicted by LRU cleanup.
+      ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList());
     } catch (e) {
       LogService.warn('AudioService', 'onNativeQueueChanged parse error: $e');
     }

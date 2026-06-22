@@ -8,6 +8,7 @@ import '../models/local_song.dart';
 import '../models/replay_gain_mode.dart';
 import 'audio/audio_effects_service.dart';
 import 'audio/audio_engine.dart';
+import 'artwork_repository.dart';
 import 'audio_playback_state.dart';
 import 'history_service.dart';
 import 'log_service.dart';
