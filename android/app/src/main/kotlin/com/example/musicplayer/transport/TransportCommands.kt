@@ -368,37 +368,58 @@ class TransportCommands(
         result.success(null)
     }
 
-    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
+        private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
         sleepTimerManager.cancel()
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
 
         if (p.playbackState == Player.STATE_ENDED) {
             val nextIndex = p.nextMediaItemIndex
+
             if (nextIndex != C.INDEX_UNSET) {
                 queueManager.setActiveQueueIndex(nextIndex)
                 p.seekToDefaultPosition(nextIndex)
                 p.prepare()
                 p.play()
-                if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
+
+                if (crossfadeController.crossfadeDurationSec > 0f) {
+                    preloadManager.preloadNextTrack(force = true)
+                }
+
                 log("info", "skipNext (ENDED) → index $nextIndex")
             } else if (p.mediaItemCount > 0) {
                 queueManager.setActiveQueueIndex(0)
                 p.seekToDefaultPosition(0)
                 p.prepare()
                 p.play()
-                if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
+
+                if (crossfadeController.crossfadeDurationSec > 0f) {
+                    preloadManager.preloadNextTrack(force = true)
+                }
+
                 log("info", "skipNext (ENDED) → restart queue")
             }
+
             transportState.emitAll()
             notificationManager.refresh()
         } else {
-            p.seekToNextMediaItem()
-            if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
+            if (p.hasNextMediaItem()) {
+                p.seekToNextMediaItem()
+            } else if (p.mediaItemCount > 0) {
+                queueManager.setActiveQueueIndex(0)
+                p.seekToDefaultPosition(0)
+
+                log("info", "skipNext → wrapped to queue start")
+            }
+
+            if (crossfadeController.crossfadeDurationSec > 0f) {
+                preloadManager.preloadNextTrack(force = true)
+            }
+
             // Player listener handles emission
         }
+
         result.success(null)
     }
-
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Transport", msg)
 }
