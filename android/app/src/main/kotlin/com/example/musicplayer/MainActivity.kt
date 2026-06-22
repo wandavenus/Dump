@@ -107,13 +107,26 @@ class MainActivity : FlutterActivity() {
                         // so Flutter can use FileImage for zero-copy rendering.
                         val songId = call.argument<Int>("songId") ?: 0
                         Thread {
-                            try {
+                                try {
                                 val path = artworkCacheManager.getOrExtract(songId)
-                                result.success(path)
+
+                                runOnUiThread {
+                                    result.success(path)
+                                }
                             } catch (e: Exception) {
-                                result.error("artwork_cache_error", e.message, null)
+                                runOnUiThread {
+                                    result.error(
+                                        "artwork_cache_error",
+                                        e.message,
+                                        null
+                                    )
+                                }
                             }
-                        }.apply { name = "artwork-cache-$songId"; start() }
+                        }.apply {
+                            name = "artwork-cache-$songId"
+                            start()
+                        }
+}
                     }
                     "setActiveQueueIds" -> {
                         // Inform the cache manager which song IDs are in the active
@@ -132,11 +145,19 @@ class MainActivity : FlutterActivity() {
                             ?.toSet() ?: emptySet()
                         Thread {
                             artworkCacheManager.cleanupIfNeeded(activeIds)
-                            result.success(mapOf(
+
+                            val data = mapOf(
                                 "count" to artworkCacheManager.cacheCount(),
                                 "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
-                            ))
-                        }.apply { name = "artwork-cleanup"; start() }
+                            )
+
+                            runOnUiThread {
+                                result.success(data)
+                            }
+                        }.apply {
+                            name = "artwork-cleanup"
+                            start()
+                        }
                     }
                     "getAudioMetadata" -> {
                         val path = call.argument<String>("path")
