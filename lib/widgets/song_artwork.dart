@@ -64,8 +64,8 @@ class _SongArtworkState extends State<SongArtwork> {
       final targetPx = (widget.size * dpr).round();
 
       final provider = await ArtworkRepository.instance.getProvider(
-        targetId,
-        targetSizePx: targetPx,
+      targetId,
+      targetSizePx: widget.size >= 250 ? null : targetPx,
       );
 
       if (!mounted) break;
