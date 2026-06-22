@@ -218,8 +218,13 @@ class CrossfadeController(
         emitAll()
         refreshNotification()
 
-        runEqualPowerFade(standby, current, actualFadeMs)
-    }
+        runEqualPowerFade(
+        standby,
+        current,
+        nextIndex,
+        actualFadeMs,
+        )
+        }
 
     /**
      * Equal-power fade animation.
@@ -231,10 +236,11 @@ class CrossfadeController(
      * Step interval: FADE_STEP_MS (16 ms ≈ 62 fps) for a smooth perceptual curve.
      */
     private fun runEqualPowerFade(
-        newPlayer: ExoPlayer,
-        oldPlayer: ExoPlayer,
-        durationMs: Long,
-    ) {
+    newPlayer: ExoPlayer,
+    oldPlayer: ExoPlayer,
+    nextIndex: Int,
+    durationMs: Long,
+) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         val targetVol  = getVolumeBeforeDuck().coerceIn(0f, 1f)
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
@@ -256,6 +262,7 @@ class CrossfadeController(
 
                 if (step >= steps) {
                     // ── Crossfade complete ─────────────────────────────────────
+                    setActiveQueueIndex(nextIndex) 
                     newPlayer.volume = targetVol
 
                     // Stop and release the old player's audio resources
@@ -263,6 +270,9 @@ class CrossfadeController(
                     try { oldPlayer.stop()            } catch (_: Exception) {}
                     try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
 
+                    setActivePlayer(newPlayer)
+                    switchSessionPlayer(newPlayer)
+                   
                     crossfadeInProgress   = false
                     promotionTriggered    = false
                     prewarmTriggered      = false
