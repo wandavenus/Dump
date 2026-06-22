@@ -305,15 +305,18 @@ class MainActivity : FlutterActivity() {
             // Collect (lang, text) pairs; skip frames with empty lyric text.
             // Using Pair<String,String> avoids a local data class (Kotlin <1.9 compat).
             val entries: List<Pair<String, String>> = frames.mapNotNull { frame ->
-                try {
-                    val body = (frame as? org.jaudiotagger.tag.id3.ID3v2Frame)?.body
-                        as? org.jaudiotagger.tag.id3.framebody.FrameBodyUSLT
-                        ?: return@mapNotNull null
-                    val text = body.getLyric()?.trim() ?: ""
-                    if (text.isEmpty()) null
-                    else Pair(body.language?.trim()?.lowercase() ?: "", text)
-                } catch (_: Exception) { null }
-            }
+    try {
+        val body = frame as? org.jaudiotagger.tag.id3.framebody.FrameBodyUSLT
+            ?: return@mapNotNull null
+
+        val text = body.lyric?.trim().orEmpty()
+
+        if (text.isEmpty()) null
+        else Pair(body.language?.trim()?.lowercase().orEmpty(), text)
+    } catch (_: Exception) {
+        null
+    }
+}
 
             if (entries.isEmpty()) return null
 
