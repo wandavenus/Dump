@@ -134,8 +134,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 8,
-                      right: 8,
+                      left: 7,
+                      right: 7,
                       bottom: _lyricsExpand > 0 ? -200 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
