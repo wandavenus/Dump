@@ -134,9 +134,9 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 9,
-                      right: 9,
-                      bottom: _lyricsExpand > 0 ? -250 : 0,
+                      left: 8,
+                      right: 8,
+                      bottom: _lyricsExpand > 0 ? -200 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -185,8 +185,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
                     // ── Mini song header — shown next to small artwork ─────────
                     Positioned(
-                      top: 8,
-                      left: 22 + _smallCoverSize + 22,
+                      top: 4,
+                      left: 22 + _smallCoverSize + 25,
                       
                       child: AnimatedOpacity(
                         duration: _animDuration,
