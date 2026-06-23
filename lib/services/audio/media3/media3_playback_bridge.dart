@@ -29,6 +29,7 @@ class Media3PlaybackBridge {
   static const EventChannel _shuffleModeEvents     = EventChannel('musicplayer/media3_shuffleMode');
   static const EventChannel _repeatModeEvents      = EventChannel('musicplayer/media3_repeatMode');
   static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
+  static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
 
   // Keep deprecated public refs for callers that use them directly.
   static const EventChannel playbackStateEvents   = _playbackStateEvents;
@@ -47,6 +48,18 @@ class Media3PlaybackBridge {
         .where((e) => e is Map)
         .cast<Map<dynamic, dynamic>>()
         .asBroadcastStream();
+
+  /// Stream of offload state snapshots emitted by [AudioOffloadManager].
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with two boolean keys:
+  ///   `scheduling` — whether `experimentalSetOffloadSchedulingEnabled` is on.
+  ///   `osGranted`  — whether the OS has actually granted hardware offload.
+  static final Stream<Map<dynamic, dynamic>> offloadStateStream =
+      _offloadStateEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
 
 static final Stream<Duration> positionStream = _positionEvents
     .receiveBroadcastStream()

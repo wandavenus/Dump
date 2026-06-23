@@ -41,6 +41,7 @@ part 'settings_page/notif_icon.dart';
 part 'settings_page/session_info.dart';
 part 'settings_page/info_line.dart';
 part 'settings_page/effect_status.dart';
+part 'settings_page/offload_status.dart';
 part 'settings_page/about.dart';
 part 'settings_page/version.dart';
 part 'settings_page/version_state.dart';

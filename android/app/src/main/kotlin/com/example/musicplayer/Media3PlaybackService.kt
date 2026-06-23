@@ -133,7 +133,15 @@ class Media3PlaybackService : MediaSessionService() {
         // both can reference it.  Starts with scheduling disabled; TransportCommands
         // will call onCrossfadeDurationChanged() when the user sets a duration, which
         // re-evaluates eligibility at the right time.
-        offloadManager = AudioOffloadManager(getActivePlayer = { activePlayer })
+        offloadManager = AudioOffloadManager(
+            getActivePlayer = { activePlayer },
+            onOffloadStateChanged = { scheduling, osGranted ->
+                EventEmitter.emit(
+                    "offloadState",
+                    mapOf("scheduling" to scheduling, "osGranted" to osGranted),
+                )
+            },
+        )
         primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
 
         // Build MediaSession

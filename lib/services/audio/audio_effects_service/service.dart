@@ -30,13 +30,19 @@ class AudioEffectsService {
   static final ValueNotifier<int> audioOutputMode = ValueNotifier(0);
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
-  /// Whether audio offload scheduling is enabled.
+  /// Whether audio offload scheduling is enabled (user setting).
   ///
   /// When false, [AudioOffloadManager] keeps offload scheduling permanently off
   /// regardless of crossfade state.  Useful as a workaround on MIUI devices
   /// where AudioFlinger's offload path causes pops or stalls.
   /// Default: true (automatic, hardware-dependent).
   static final ValueNotifier<bool> offloadSchedulingEnabled = ValueNotifier(true);
+
+  /// Whether the OS has actually granted hardware offload on the active player.
+  ///
+  /// Updated in real time from the `musicplayer/media3_offloadState` EventChannel.
+  /// Always false on web.
+  static final ValueNotifier<bool> offloadOsGranted = ValueNotifier(false);
 
   // ── Reverb preset labels ───────────────────────────────────────────────────
 
@@ -152,7 +158,18 @@ class AudioEffectsService {
     replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
 
     applyAll();
+    _subscribeOffloadState();
     LogService.log('AudioEffects', 'Initialized');
+  }
+
+  /// Subscribe to the native offload state stream and keep [offloadOsGranted]
+  /// up to date.  The subscription lives for the lifetime of the app; no
+  /// cancellation is needed because the stream is app-scoped.
+  static void _subscribeOffloadState() {
+    if (kIsWeb) return;
+    Media3PlaybackBridge.offloadStateStream.listen((event) {
+      offloadOsGranted.value = event['osGranted'] as bool? ?? false;
+    });
   }
 
   // ── applyAll — send every setting to native in one burst ──────────────────

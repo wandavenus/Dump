@@ -72,10 +72,19 @@ import com.example.musicplayer.events.NativeLogger
 @UnstableApi
 class AudioOffloadManager(
     private val getActivePlayer: () -> ExoPlayer?,
+    /**
+     * Called on the main thread whenever the observed offload state changes.
+     * [scheduling] — whether experimentalSetOffloadSchedulingEnabled is currently true.
+     * [osGranted]  — whether the OS has granted hardware offload on the active player.
+     *
+     * Media3PlaybackService wires this to EventEmitter so Flutter can react in real time.
+     */
+    private val onOffloadStateChanged: (scheduling: Boolean, osGranted: Boolean) -> Unit = { _, _ -> },
 ) {
 
     private var schedulingEnabled = false
-    private var lastReason = "init"
+    private var osGranted         = false
+    private var lastReason        = "init"
 
     /**
      * When true, offload scheduling is force-disabled regardless of crossfade state.
@@ -184,6 +193,7 @@ class AudioOffloadManager(
 
             // Called when the OS grants or revokes hardware offload for this player.
             override fun onOffloadedPlayback(offloadedPlayback: Boolean) {
+                osGranted = offloadedPlayback
                 if (offloadedPlayback) {
                     NativeLogger.emit(
                         "info", "AudioOffload",
@@ -198,6 +208,8 @@ class AudioOffloadManager(
                         "or audio format not supported by hardware DSP on this device.",
                     )
                 }
+                // Notify Flutter of the new observed state.
+                onOffloadStateChanged(schedulingEnabled, osGranted)
             }
 
             // Called when experimentalSetOffloadSchedulingEnabled value changes.
@@ -232,5 +244,8 @@ class AudioOffloadManager(
         val verb = if (effective) "ENABLED " else "DISABLED"
         val suffix = if (!enable) "" else if (forceDisabled) " (overridden: user force-disabled)" else ""
         NativeLogger.emit("info", "AudioOffload", "Scheduling $verb — $reason$suffix")
+
+        // Notify Flutter so the debug status indicator updates immediately.
+        onOffloadStateChanged(schedulingEnabled, osGranted)
     }
 }
