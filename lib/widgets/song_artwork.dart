@@ -47,7 +47,21 @@ class _SongArtworkState extends State<SongArtwork> {
   @override
   void didUpdateWidget(covariant SongArtwork old) {
     super.didUpdateWidget(old);
-    if (old.songId != widget.songId) _load(widget.songId);
+    if (old.songId != widget.songId) {
+      _load(widget.songId);
+      return;
+    }
+    // Re-load when size crosses the full-res threshold (250 px).
+    // The morphing artwork widget starts at mini-player size (~46 px) and grows
+    // to full-player size (~350 px) during the open animation.  Because _load
+    // bakes targetSizePx from widget.size at call time, a provider obtained at
+    // mini-player size is a ResizeImage(FileImage, ~139, ~139) — permanently
+    // blurry when stretched to full-player dimensions.  Detecting the threshold
+    // crossing here forces a reload with targetSizePx: null so the full-res
+    // FileImage is used for the full player.
+    final wasSmall = old.size < 250;
+    final isLarge  = widget.size >= 250;
+    if (wasSmall && isLarge) _load(widget.songId);
   }
 
   Future<void> _load(int songId) async {

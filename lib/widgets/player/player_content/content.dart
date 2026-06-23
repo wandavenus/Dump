@@ -1,5 +1,5 @@
 part of '../player_content.dart';
-
+const double _playerHorizontalPadding = 32.0;
 class PlayerContent extends StatefulWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
@@ -28,7 +28,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
-  static const _playerHorizontalPadding = 32.0;
+  
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
-                const overlayTop = _smallCoverSize + 30.0;
+                const overlayTop = _smallCoverSize + 20.0;
             
                 const controlsHeight = 35.0;
                 return Stack(
@@ -103,7 +103,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 58,
+                      bottom: 59,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
@@ -134,9 +134,9 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 0,
-                      right: 0,
-                      bottom: _lyricsExpand > 0 ? -250 : 0,
+                      left: 7,
+                      right: 7,
+                      bottom: _lyricsExpand > 0 ? -200 : 30,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -151,8 +151,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Queue area — fades in in queue mode ───────────────────
                     Positioned(
                       top: overlayTop,
-                      left: 0,
-                      right: 0,
+                      left: 15.7,
+                      right: 15.7,
                       bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -170,8 +170,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
-                      top: 16,
-                      right: 22,
+                      top: 10,
+                      right: 27,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -185,9 +185,9 @@ class _PlayerContentState extends State<PlayerContent> {
 
                     // ── Mini song header — shown next to small artwork ─────────
                     Positioned(
-                      top: 14,
-                      left: 22 + _smallCoverSize + 12,
-                      right: 70,
+                      top: 4,
+                      left: 22 + _smallCoverSize + 25,
+                      
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -197,17 +197,45 @@ class _PlayerContentState extends State<PlayerContent> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                widget.song.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
+                              SizedBox(
+  width: 185,
+  child: ShaderMask(
+    shaderCallback: (rect) {
+      return const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.white,
+          Colors.white,
+          Colors.white,
+          Colors.transparent,
+        ],
+        stops: [
+          0.0,
+          0.12,
+          0.88,
+          1.0,
+        ],
+      ).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: TextScroll(
+      widget.song.title,
+      mode: TextScrollMode.endless,
+      velocity: const Velocity(
+        pixelsPerSecond: Offset(25, 0),
+      ),
+      delayBefore: const Duration(seconds: 2),
+      pauseBetween: const Duration(seconds: 2),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+),
+                              const SizedBox(height: 1),
                               Text(
                                 widget.song.artist,
                                 maxLines: 1,
@@ -228,19 +256,19 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: _animDuration,
                       curve: _animCurve,
                       top: showOverlay
-    ? 8.0
-    : lerpDouble(
-        sh - 140,
-        coverTop,
-        progress,
-      )!,
+                      ? -0.5
+                      : lerpDouble(
+                      sh - 140,
+                      coverTop,
+                      progress,
+                      )!,
                       left: showOverlay
-    ? 22.0
-    : lerpDouble(
-        22.0,
-        coverLeft,
-        progress,
-      )!,
+                      ? _playerHorizontalPadding
+                      : lerpDouble(
+                      22.0,
+                      coverLeft,
+                      progress,
+                      )!,
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 220),
                         opacity: (widget.hideArtwork && !showOverlay) ? 0.0 : 1.0,
@@ -277,13 +305,13 @@ height: showOverlay
   boxShadow: [
     BoxShadow(
       color: Colors.black.withValues(
-        alpha: 0.0 + (0.25 * progress),
+        alpha: 0.0 + (0.20 * progress),
       ),
-      blurRadius: 0.0 + (15 * progress),
-      spreadRadius: 0.0 + (0.4 * progress),
+      blurRadius: 0.0 + (10 * progress),
+      spreadRadius: 0.0 + (0.2 * progress),
       offset: Offset(
         0,
-        0 + (4 * progress),
+        0 + (3 * progress),
       ),
     ),
   ],
@@ -374,11 +402,11 @@ height: showOverlay
                   ),
 
                   Padding(
-  padding: const EdgeInsets.only(top: 20),
+  padding: const EdgeInsets.only(bottom: 14),
   child: Container(
     width: double.infinity,
-    height: 1,
-    color: Colors.white.withValues(alpha: 0.15),
+    height: 0.8,
+    color: Colors.white.withValues(alpha: 0.13),
   ),
 ),
                 ],
@@ -440,6 +468,8 @@ class _QueueOverlayBody extends StatefulWidget {
 class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   final _scroll = ScrollController();
 
+bool _autoplayEnabled = false;
+  
   @override
   void didUpdateWidget(_QueueOverlayBody old) {
     super.didUpdateWidget(old);
@@ -495,19 +525,127 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Antrian — ${playlist.length} lagu',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+
+Padding(
+  padding: const EdgeInsets.symmetric(
+    horizontal: 17,
+  ),
+  child: Row(
+    children: [
+      Expanded(
+  child: GestureDetector(
+    onTap: AudioService.toggleShuffle,
+    child: Container(
+      height: 36,
+      decoration: BoxDecoration(
+  color: Colors.white.withValues(alpha: 0.08),
+  borderRadius: BorderRadius.circular(8),
+),
+      child: Icon(
+  CupertinoIcons.shuffle,
+  color: Colors.white,
+  size: 20,
+),
+    ),
+  ),
+),
+      const SizedBox(width: 10),
+      Expanded(
+  child: GestureDetector(
+    onTap: AudioService.cycleLoopMode,
+    child: Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+  AudioService.loopMode == LoopMode.one
+      ? CupertinoIcons.repeat_1
+      : CupertinoIcons.repeat,
+      size: 20,
+        color: Colors.white,
+),
+    ),
+  ),
+),
+      const SizedBox(width: 10),
+      Expanded(
+  child: GestureDetector(
+    onTap: () {
+      setState(() {
+        _autoplayEnabled = !_autoplayEnabled;
+      });
+    },
+    child: Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        CupertinoIcons.infinite,
+        size: 20,
+        color: Colors.white,
+      ),
+    ),
+  ),
+),
+    ],
+  ),
+),
+
+const SizedBox(height: 17),
+            
+Padding(
+  padding: const EdgeInsets.symmetric(
+    horizontal: 17,
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Lanjutkan Memutar',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      SizedBox(height: 0.5),
+      Text(
+        'Memutar otomatis musik serupa',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.55),
+          fontSize: 14,
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 15),
+                
             Expanded(
-              child: ReorderableListView.builder(
+  child: ShaderMask(
+    shaderCallback: (rect) {
+      return const LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    Colors.white,
+    Colors.white,
+    Colors.transparent,
+  ],
+  stops: [
+    0.0,
+    0.70,
+    1.0,
+  ],
+).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: ReorderableListView.builder(
                 scrollController: _scroll,
                 padding: const EdgeInsets.only(bottom: 16),
                 itemCount: playlist.length,
@@ -526,7 +664,8 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                     },
                   );
                 },
-              ),
+              ),  
+             ),
             ),
           ],
         );
@@ -567,15 +706,7 @@ class _QueueRow extends StatelessWidget {
               SizedBox(
                 width: 44,
                 height: 44,
-                child: isCurrent
-                    ? const Center(
-                        child: Icon(
-                          Icons.equalizer_rounded,
-                          color: Color(0xFFF92D48),
-                          size: 22,
-                        ),
-                      )
-                    : SongArtwork(
+                child: SongArtwork(
                         songId: song.id,
                         size: 44,
                         borderRadius: BorderRadius.circular(6),
@@ -594,7 +725,7 @@ class _QueueRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isCurrent
-                            ? const Color(0xFFF92D48)
+                            ? const Color(0xFFFFFFFF)
                             : Colors.white,
                         fontSize: 14,
                         fontWeight: isCurrent
@@ -602,7 +733,7 @@ class _QueueRow extends StatelessWidget {
                             : FontWeight.w400,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1),
                     Text(
                       song.artist,
                       maxLines: 1,

@@ -62,7 +62,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
 
                     final activeFontSize   = fs;
                     // Inactive lines: 82% of active, clamped to readable minimum.
-                    final inactiveFontSize = (fs * 1.0).clamp(12.0, 22.0);
+                    final inactiveFontSize = fs;
 
                     return GestureDetector(
                       behavior: HitTestBehavior.opaque,
