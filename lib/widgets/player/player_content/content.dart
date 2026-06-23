@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
-                const overlayTop = _smallCoverSize + 10.0;
+                const overlayTop = _smallCoverSize + 20.0;
             
                 const controlsHeight = 35.0;
                 return Stack(
@@ -538,7 +538,7 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-  color: Colors.white,
+  color: Colors.white.withValues(alpha: 0.08),
   borderRadius: BorderRadius.circular(8),
 ),
       child: Icon(
@@ -556,7 +556,7 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
@@ -580,7 +580,7 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
