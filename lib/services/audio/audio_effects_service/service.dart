@@ -30,12 +30,13 @@ class AudioEffectsService {
   static final ValueNotifier<int> audioOutputMode = ValueNotifier(0);
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
-  /// Whether audio offload scheduling is enabled (user setting).
+  /// User preference for the "Audio Offload Scheduling" settings toggle.
   ///
-  /// When false, [AudioOffloadManager] keeps offload scheduling permanently off
-  /// regardless of crossfade state.  Useful as a workaround on MIUI devices
-  /// where AudioFlinger's offload path causes pops or stalls.
-  /// Default: true (automatic, hardware-dependent).
+  /// NOTE (Media3 1.10.1): The native `experimentalSetOffloadSchedulingEnabled`
+  /// API was removed. Scheduling is now managed internally by Media3 whenever
+  /// the OS grants hardware offload. This notifier is retained to preserve the
+  /// settings toggle UI; the value is persisted but has no effect on native
+  /// behaviour until a future Media3 version re-exposes scheduling control.
   static final ValueNotifier<bool> offloadSchedulingEnabled = ValueNotifier(true);
 
   /// Whether the OS has actually granted hardware offload on the active player.
@@ -426,18 +427,20 @@ class AudioEffectsService {
 
   // ── Audio Offload Scheduling ──────────────────────────────────────────────
 
-  /// Enable or disable audio offload scheduling.
+  /// Persist the user's "Audio Offload Scheduling" preference.
   ///
-  /// When [value] is false, native [AudioOffloadManager] keeps offload
-  /// scheduling permanently off.  Useful on MIUI devices where the offload
-  /// path is unstable.  Setting is persisted across app restarts.
+  /// NOTE (Media3 1.10.1): The native `experimentalSetOffloadSchedulingEnabled`
+  /// API no longer exists. The MethodChannel call is sent and acknowledged by
+  /// native as a no-op; Media3 manages scheduling internally. This method is
+  /// retained so the toggle works without UI changes; the preference is persisted
+  /// for when a future Media3 version re-exposes scheduling control.
   static Future<void> setOffloadSchedulingEnabled(bool value) async {
     offloadSchedulingEnabled.value = value;
     await _saveBool('offloadScheduling', value);
     if (!kIsWeb) {
       unawaited(Media3PlaybackBridge.setOffloadSchedulingEnabled(value));
     }
-    LogService.log('AudioEffects', 'OffloadScheduling: $value');
+    LogService.log('AudioEffects', 'OffloadScheduling preference: $value (no-op in Media3 1.10.1)');
   }
 
   // ── Audio Output ──────────────────────────────────────────────────────────

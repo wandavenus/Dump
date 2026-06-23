@@ -30,9 +30,8 @@ class _AudioOutputSection extends StatelessWidget {
           valueListenable: AudioEffectsService.offloadSchedulingEnabled,
           builder: (_, enabled, _) => SettingsToggleRow(
             title: 'Audio Offload Scheduling',
-            subtitle: enabled
-                ? 'CPU dapat tidur antar audio write — hemat baterai saat layar mati'
-                : 'Nonaktif — gunakan jika audio terputus pada perangkat MIUI',
+            subtitle: 'Preferensi disimpan — Media3 1.10.1 mengelola scheduling secara internal; '
+                'pengaturan ini tidak berpengaruh hingga versi Media3 berikutnya.',
             value: enabled,
             onChanged: AudioEffectsService.setOffloadSchedulingEnabled,
           ),

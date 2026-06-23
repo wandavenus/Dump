@@ -16,12 +16,17 @@ class _OffloadStatusInfo extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          // ── User setting (reactive) ──────────────────────────────────────
+          // ── Scheduling note (Media3 1.10.1) ─────────────────────────────
+          // experimentalSetOffloadSchedulingEnabled was removed in Media3 1.10.1.
+          // Scheduling is now managed internally by Media3; this row shows the
+          // stored preference only — it has no effect on native behaviour.
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.offloadSchedulingEnabled,
             builder: (_, enabled, _) => _InfoLine(
-              'Scheduling (setting)',
-              enabled ? 'ON — auto' : 'OFF — user disabled',
+              'Scheduling (pref)',
+              enabled
+                  ? 'ON (disimpan) — Media3 1.10.1 kelola internal; tidak berpengaruh'
+                  : 'OFF (disimpan) — Media3 1.10.1 kelola internal; tidak berpengaruh',
             ),
           ),
 

@@ -51,9 +51,13 @@ class Media3PlaybackBridge {
 
   /// Stream of offload state snapshots emitted by [AudioOffloadManager].
   ///
-  /// Each event is a `Map<dynamic, dynamic>` with two boolean keys:
-  ///   `scheduling` — whether `experimentalSetOffloadSchedulingEnabled` is on.
-  ///   `osGranted`  — whether the OS has actually granted hardware offload.
+  /// Each event is a `Map<dynamic, dynamic>` with one boolean key:
+  ///   `osGranted` — whether the OS has granted hardware offload on the active
+  ///                 player at this moment.
+  ///
+  /// NOTE (Media3 1.10.1): The former `scheduling` key has been removed.
+  /// `experimentalSetOffloadSchedulingEnabled` no longer exists; Media3 now
+  /// manages CPU scheduling internally when the OS grants offload.
   static final Stream<Map<dynamic, dynamic>> offloadStateStream =
       _offloadStateEvents
           .receiveBroadcastStream()
@@ -248,11 +252,12 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
 
   // ── Audio Offload ─────────────────────────────────────────────────────────
 
-  /// Enable or disable audio offload scheduling.
+  /// Send the user's "Audio Offload Scheduling" preference to native.
   ///
-  /// When disabled the ExoPlayer render loop runs at normal CPU priority and
-  /// offload scheduling is never granted even when the OS would allow it.
-  /// Use this as an escape hatch on devices where the offload path is unstable.
+  /// NOTE (Media3 1.10.1): `experimentalSetOffloadSchedulingEnabled` was removed
+  /// from ExoPlayer. The native handler acknowledges this call as a no-op and
+  /// logs a diagnostic message. The method is retained here so the Dart settings
+  /// toggle continues to work without a MethodChannel removal.
   static Future<void> setOffloadSchedulingEnabled(bool enabled) =>
       _invoke<void>('setOffloadSchedulingEnabled', {'enabled': enabled});
 

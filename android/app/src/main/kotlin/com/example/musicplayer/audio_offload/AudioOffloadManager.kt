@@ -5,264 +5,213 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.events.NativeLogger
 
 /**
- * Manages Audio Offload scheduling on the active ExoPlayer instance.
+ * Observes and reports Audio Offload state on the active ExoPlayer instance.
  *
  * ════════════════════════════════════════════════════════════════════
- * AUDIT RESULT — why full offload mode is NOT used
+ * MEDIA3 1.10.1 API AUDIT — WHAT CHANGED
  * ════════════════════════════════════════════════════════════════════
  *
- * Full Audio Offload (AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED) would
- * route decoded audio directly to the hardware DSP, bypassing the CPU-side
- * AudioFlinger rendering pipeline.  That is incompatible with three core features
- * of this app:
+ * REMOVED (no longer exist in Media3 1.10.1):
+ *   • ExoPlayer.experimentalSetOffloadSchedulingEnabled(Boolean)
+ *     → Removed from the public API surface entirely.  Media3 now manages
+ *       CPU scheduling internally when the OS grants hardware offload.
+ *       There is no replacement API; calling it in older code causes an
+ *       "Unresolved reference" compile error.
+ *
+ *   • ExoPlayer.AudioOffloadListener.onOffloadSchedulingEnabledChanged(Boolean)
+ *     → Removed alongside the scheduling control API.  Implementing this
+ *       override causes a "overrides nothing" compile error.
+ *
+ * AVAILABLE (still exists in Media3 1.10.1):
+ *   • ExoPlayer.AudioOffloadListener.onOffloadedPlayback(Boolean)
+ *     → Called whenever the OS grants or revokes hardware offload for a
+ *       specific audio session.  This is the only offload callback surface
+ *       available in 1.10.1.
+ *
+ *   • ExoPlayer.addAudioOffloadListener(AudioOffloadListener)
+ *     → Still valid for attaching a listener to any ExoPlayer instance.
+ *
+ * SCHEDULING BEHAVIOUR IN 1.10.1:
+ *   When the OS grants hardware offload (onOffloadedPlayback = true), Media3
+ *   automatically manages CPU scheduling — the render loop sleeps between
+ *   audio writes without any explicit API call.  This is not configurable.
+ *
+ * ════════════════════════════════════════════════════════════════════
+ * WHY FULL OFFLOAD IS STILL INCOMPATIBLE WITH THIS APP
+ * ════════════════════════════════════════════════════════════════════
  *
  * 1. CROSSFADE — FATAL
- *    The equal-power fade sets player.volume every 16 ms via a Handler runnable.
- *    Audio Offload does not support real-time volume changes on an offloaded track:
- *    the OS either silently ignores them or forces the player to exit offload mode
- *    mid-song, both of which produce an audible glitch.  Additionally,
- *    experimentalSetOffloadSchedulingEnabled(true) lets the CPU sleep between audio
- *    writes; that makes Handler.postDelayed(16 ms) unreliable — steps would be
- *    skipped and the fade would stutter.
+ *    The equal-power fade updates player.volume every 16 ms via Handler.
+ *    When the OS grants offload, Media3's internal scheduling allows the CPU
+ *    to sleep between audio writes, making Handler.postDelayed(16 ms) fire
+ *    at unpredictable intervals — volume steps are skipped and the fade
+ *    stutters.  Additionally, hardware offload supports only one DSP slot;
+ *    the dual-player overlap forces the primary off offload mid-song.
  *
  * 2. DUAL PLAYER — FATAL
- *    During the crossfade overlap window (up to 30 s) both ExoPlayer instances
- *    output audio simultaneously.  The hardware DSP provides at most one offloaded
- *    audio slot; the secondary player always falls back to CPU rendering.  Requesting
- *    offload on the primary while the secondary is also active causes AudioFlinger to
- *    forcibly de-offload the primary mid-song.
+ *    Two simultaneous ExoPlayer instances (crossfade overlap window up to
+ *    30 s).  The hardware DSP provides at most one offloaded audio slot.
+ *    The OS will de-offload the primary as soon as the secondary activates.
  *
  * 3. SOFTWARE AUDIO EFFECTS — FATAL
- *    Equalizer, LoudnessEnhancer, BassBoost, Virtualizer, and PresetReverb are
- *    Android software effects that live in the AudioFlinger effects chain.  Audio
- *    Offload routes audio around this chain directly to the DSP; the effects would
- *    silently stop processing audio while appearing to be enabled — users would
- *    hear no EQ, no bass boost, etc.
+ *    Equalizer, LoudnessEnhancer, BassBoost, Virtualizer, and PresetReverb
+ *    live in the AudioFlinger software effects chain.  Hardware offload routes
+ *    audio around this chain directly to the DSP; effects stop processing while
+ *    appearing to be enabled.
  *
  * ════════════════════════════════════════════════════════════════════
- * WHAT IS IMPLEMENTED
+ * IMPLEMENTATION: OBSERVER ONLY
  * ════════════════════════════════════════════════════════════════════
  *
- * Only experimentalSetOffloadSchedulingEnabled() is toggled.  This flag does NOT
- * force offload — it tells ExoPlayer's render loop to sleep between audio writes
- * *if and only if* the OS has already granted offload mode on its own.
+ * This class is now a pure observer.  It:
+ *   • Reports OS grant / revoke events via NativeLogger and the
+ *     [onOffloadStateChanged] callback so Flutter can update its UI.
+ *   • Tracks crossfade state to enrich "why is offload unavailable" log
+ *     messages — no scheduling control is attempted.
  *
- * The OS grants offload automatically when ALL of the following are true:
- *   • The audio format is supported by the hardware DSP (PCM / AAC / MP3 on most
- *     Android 10 + devices, including Snapdragon SoCs on MIUI 12).
- *   • No software effects are attached to the audio session.
- *   • Only one audio stream is being decoded (no dual-player overlap).
- *
- * When the OS does not grant offload this flag has zero effect — the render loop
- * stays in normal mode and battery usage is unchanged.
- *
- * ════════════════════════════════════════════════════════════════════
- * DYNAMIC CONTROL
- * ════════════════════════════════════════════════════════════════════
- *
- * Scheduling is DISABLED whenever crossfade is active or configured, then
- * re-evaluated after crossfade completes or is turned off.
- *
- * Callers:
- *   onCrossfadeDurationChanged(sec) — called from TransportCommands.setCrossfadeDuration
- *   onCrossfadeStarting()  — called from CrossfadeController.beginCrossfade
- *   onCrossfadeComplete()  — called from Media3PlaybackService.onCrossfadeComplete callback;
- *                            reads current duration via getCrossfadeDurationSec lambda so
- *                            the value is always authoritative regardless of call timing.
- *   makeOffloadListener()  — attach returned listener to each ExoPlayer instance
+ * Because scheduling is now managed by Media3 internally, all previous
+ * calls to experimentalSetOffloadSchedulingEnabled() are gone.  The
+ * [setForceDisabled] method is retained as a documented no-op so the Dart
+ * "Audio Offload Scheduling" settings toggle survives without a MethodChannel
+ * removal, but it no longer affects any native behaviour.
  */
 @UnstableApi
 class AudioOffloadManager(
-    private val getActivePlayer: () -> ExoPlayer?,
     /**
-     * Returns the live crossfade duration (in seconds) from [CrossfadeController].
-     *
-     * Read inside [onCrossfadeComplete] so the decision always uses the current,
-     * authoritative value — not a value captured at callback-dispatch time, which
-     * could be stale if the user changed the crossfade setting between the fade
-     * completing and the callback firing.
+     * Returns the live crossfade duration (in seconds) from CrossfadeController.
+     * Read inside [onCrossfadeComplete] so the decision always uses the current
+     * authoritative value.
      */
     private val getCrossfadeDurationSec: () -> Float = { 0f },
+
     /**
-     * Called on the main thread whenever the observed offload state changes.
-     * [scheduling] — whether experimentalSetOffloadSchedulingEnabled is currently true.
-     * [osGranted]  — whether the OS has granted hardware offload on the active player.
+     * Called on the main thread whenever the observed OS offload state changes.
+     * [osGranted] — whether the OS has granted hardware offload on the active
+     * player at this moment.
      *
-     * Media3PlaybackService wires this to EventEmitter so Flutter can react in real time.
+     * Media3PlaybackService wires this to EventEmitter so Flutter can react in
+     * real time.  The former `scheduling` parameter has been removed because
+     * Media3 1.10.1 no longer exposes scheduling control.
      */
-    private val onOffloadStateChanged: (scheduling: Boolean, osGranted: Boolean) -> Unit = { _, _ -> },
+    private val onOffloadStateChanged: (osGranted: Boolean) -> Unit = {},
 ) {
 
-    private var schedulingEnabled = false
-    private var osGranted         = false
-    private var lastReason        = "init"
+    private var osGranted          = false
+    private var crossfadeActive    = false
+    private var crossfadeDuration  = 0f
 
     /**
-     * When true, offload scheduling is force-disabled regardless of crossfade state.
-     * Toggled by the user via the "Audio Offload Scheduling" toggle in Settings →
-     * Jalur Audio.  Useful as a debug/workaround escape hatch on MIUI devices where
-     * AudioFlinger's offload path is unstable.
-     */
-    private var forceDisabled = false
-
-    // ── Public API ────────────────────────────────────────────────────────────
-
-    /**
-     * Called from the Settings toggle ("Audio Offload Scheduling").
-     *
-     * When [enabled] is false the flag is pinned off permanently, overriding all
-     * automatic logic.  When [enabled] is true automatic control resumes and
-     * eligibility is re-evaluated immediately.
+     * Retained for MethodChannel backward compatibility.
+     * In Media3 1.10.1 this is a NO-OP: there is no public API to force
+     * offload scheduling on or off.  The call is logged so the developer can
+     * observe that the setting was received but cannot be applied.
      */
     fun setForceDisabled(disabled: Boolean) {
-        forceDisabled = disabled
-        if (disabled) {
-            applyScheduling(
-                enable = false,
-                reason = "user force-disabled offload scheduling in Settings",
-            )
-        } else {
-            // Re-apply the last logical state.  Scheduling stays off until
-            // TransportCommands fires onCrossfadeDurationChanged next, which
-            // correctly re-evaluates based on current crossfade config.
-            applyScheduling(
-                enable = false,
-                reason = "user re-enabled offload scheduling — awaiting crossfade check",
-            )
-        }
+        NativeLogger.emit(
+            "info", "AudioOffload",
+            "setForceDisabled($disabled) received — NOTE: Media3 1.10.1 removed " +
+            "experimentalSetOffloadSchedulingEnabled(); scheduling is now managed " +
+            "internally by Media3 when the OS grants offload.  This call has no effect.",
+        )
     }
 
-    // ── State transitions ─────────────────────────────────────────────────────
+    // ── Crossfade state tracking (for logging only) ────────────────────────────
 
     /**
      * Called whenever the crossfade duration setting changes.
-     *
-     * With crossfade > 0 the standby player can come to life at any moment and
-     * overlap with the primary, so offload scheduling must stay off permanently
-     * until crossfade is disabled.
+     * Updates the internal state used to explain offload unavailability in logs.
      */
     fun onCrossfadeDurationChanged(durationSec: Float) {
+        crossfadeDuration = durationSec
         if (durationSec > 0f) {
-            applyScheduling(
-                enable = false,
-                reason = "crossfade enabled (${durationSec}s) — standby player may overlap at any time",
+            NativeLogger.emit(
+                "info", "AudioOffload",
+                "Offload eligibility note: crossfade enabled (${durationSec}s) — " +
+                "dual-player overlap and 16 ms volume ticks prevent hardware offload; " +
+                "OS will reject or de-offload if granted.",
             )
         } else {
-            applyScheduling(
-                enable = true,
-                reason = "crossfade disabled — OS may grant offload if format and effects allow",
+            NativeLogger.emit(
+                "info", "AudioOffload",
+                "Offload eligibility note: crossfade disabled — " +
+                "OS may grant offload if no software effects are attached " +
+                "and the audio format is DSP-supported on this device.",
             )
         }
     }
 
     /**
-     * Called at the very start of a crossfade (before the first volume-fade tick).
-     *
-     * Disabling offload scheduling here guarantees that Handler.postDelayed(16 ms)
-     * fires reliably for the equal-power fade ticks regardless of whether the OS
-     * previously granted offload on this player.
+     * Called at the very start of a crossfade.
+     * Updates the internal state used to enrich offload log messages.
      */
     fun onCrossfadeStarting() {
-        applyScheduling(
-            enable = false,
-            reason = "crossfade ACTIVE — 16 ms Handler ticks require CPU awake",
+        crossfadeActive = true
+        NativeLogger.emit(
+            "info", "AudioOffload",
+            "Offload eligibility note: crossfade ACTIVE — dual-player overlap in progress; " +
+            "OS will de-offload primary player if it had been granted.",
         )
     }
 
     /**
      * Called after crossfade fully completes and the new player is active.
-     *
-     * Reads the live crossfade duration directly from [getCrossfadeDurationSec] so
-     * the decision is always based on the value that [CrossfadeController] owns at
-     * this exact moment — immune to any change that occurred between the fade
-     * completing and this callback firing.
-     *
-     * Re-evaluates eligibility: if crossfade will be used again (duration > 0)
-     * keep scheduling off; otherwise re-enable so the OS can try offload on the
-     * promoted player's new audio session.
+     * Re-evaluates and logs the eligibility state based on the live crossfade
+     * duration from [getCrossfadeDurationSec].
      */
     fun onCrossfadeComplete() {
-        val currentDurationSec = getCrossfadeDurationSec()
-        if (currentDurationSec > 0f) {
-            applyScheduling(
-                enable = false,
-                reason = "post-promotion: crossfade still enabled (${currentDurationSec}s)",
+        crossfadeActive = false
+        val dur = getCrossfadeDurationSec()
+        if (dur > 0f) {
+            NativeLogger.emit(
+                "info", "AudioOffload",
+                "Offload eligibility note: post-promotion — crossfade still enabled (${dur}s); " +
+                "dual-player overlap will continue blocking hardware offload.",
             )
         } else {
-            applyScheduling(
-                enable = true,
-                reason = "post-promotion: crossfade=0 — re-evaluating offload eligibility",
+            NativeLogger.emit(
+                "info", "AudioOffload",
+                "Offload eligibility note: post-promotion — crossfade=0; " +
+                "OS may now grant offload on the promoted player if format and effects allow.",
             )
         }
     }
 
     /**
-     * Build an AudioOffloadListener suitable for attaching to any ExoPlayer instance.
+     * Build an AudioOffloadListener for attaching to any ExoPlayer instance.
      *
-     * The listener reports OS-level offload decisions to the native log stream so
-     * they appear in the app's in-app debug log:
-     *   • "OS GRANTED offload"   → battery saving is active
-     *   • "OS EXITED offload"    → fallback to CPU rendering (with reason)
-     *   • scheduling on/off      → driven by this manager
+     * Media3 1.10.1 AudioOffloadListener surface:
+     *   • onOffloadedPlayback(Boolean) — only valid callback; reports OS grant / revoke.
+     *
+     * Removed in 1.10.1 (not implemented here):
+     *   • onOffloadSchedulingEnabledChanged(Boolean) — removed from the interface.
      */
     fun makeOffloadListener(): ExoPlayer.AudioOffloadListener =
         object : ExoPlayer.AudioOffloadListener {
 
-            // Called when the OS grants or revokes hardware offload for this player.
             override fun onOffloadedPlayback(offloadedPlayback: Boolean) {
                 osGranted = offloadedPlayback
+
                 if (offloadedPlayback) {
                     NativeLogger.emit(
                         "info", "AudioOffload",
-                        "OS GRANTED offload mode — DSP decoding active, CPU can enter deeper sleep " +
-                        "(battery saving is NOW active)",
+                        "OS GRANTED hardware offload — audio decoded by DSP; " +
+                        "Media3 now manages CPU scheduling internally (sleeps between audio writes). " +
+                        "Battery saving is ACTIVE.",
                     )
                 } else {
+                    val reasons = buildList {
+                        if (crossfadeActive)          add("crossfade in progress (dual-player DSP slot conflict)")
+                        else if (crossfadeDuration > 0f) add("crossfade enabled (${crossfadeDuration}s) — dual-player risk")
+                        add("software effects attached (EQ/LoudnessEnhancer/BassBoost/Virtualizer/Reverb bypass offload path)")
+                        add("audio format not DSP-supported on this device / Android version")
+                    }
                     NativeLogger.emit(
                         "info", "AudioOffload",
-                        "OS EXITED / REJECTED offload — fallback to normal CPU rendering. " +
-                        "Likely cause: software effects attached, dual-player overlap, " +
-                        "or audio format not supported by hardware DSP on this device.",
+                        "OS REVOKED / REJECTED hardware offload — CPU rendering active. " +
+                        "Possible causes: ${reasons.joinToString("; ")}.",
                     )
                 }
-                // Notify Flutter of the new observed state.
-                onOffloadStateChanged(schedulingEnabled, osGranted)
-            }
-
-            // Called when experimentalSetOffloadSchedulingEnabled value changes.
-            override fun onOffloadSchedulingEnabledChanged(offloadSchedulingEnabled: Boolean) {
-                NativeLogger.emit(
-                    "info", "AudioOffload",
-                    "Offload scheduling changed → ${if (offloadSchedulingEnabled) "ON" else "OFF"}",
-                )
+                onOffloadStateChanged(osGranted)
             }
         }
-
-    // ── Internal ──────────────────────────────────────────────────────────────
-
-    private fun applyScheduling(enable: Boolean, reason: String) {
-        // forceDisabled overrides all automatic logic.
-        val effective = enable && !forceDisabled
-        val changed = schedulingEnabled != effective
-        schedulingEnabled = effective
-        lastReason = reason
-
-        if (changed) {
-            try {
-                getActivePlayer()?.experimentalSetOffloadSchedulingEnabled(effective)
-            } catch (e: Exception) {
-                NativeLogger.emit(
-                    "warn", "AudioOffload",
-                    "experimentalSetOffloadSchedulingEnabled($effective) threw: ${e.message}",
-                )
-            }
-        }
-
-        val verb = if (effective) "ENABLED " else "DISABLED"
-        val suffix = if (!enable) "" else if (forceDisabled) " (overridden: user force-disabled)" else ""
-        NativeLogger.emit("info", "AudioOffload", "Scheduling $verb — $reason$suffix")
-
-        // Notify Flutter so the debug status indicator updates immediately.
-        onOffloadStateChanged(schedulingEnabled, osGranted)
-    }
 }
