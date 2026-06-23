@@ -205,7 +205,7 @@ class _PlayerContentState extends State<PlayerContent> {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Colors.transparent,
+          Colors.white,
           Colors.white,
           Colors.white,
           Colors.transparent,
@@ -305,13 +305,13 @@ height: showOverlay
   boxShadow: [
     BoxShadow(
       color: Colors.black.withValues(
-        alpha: 0.0 + (0.25 * progress),
+        alpha: 0.0 + (0.20 * progress),
       ),
-      blurRadius: 0.0 + (15 * progress),
-      spreadRadius: 0.0 + (0.4 * progress),
+      blurRadius: 0.0 + (10 * progress),
+      spreadRadius: 0.0 + (0.2 * progress),
       offset: Offset(
         0,
-        0 + (4 * progress),
+        0 + (3 * progress),
       ),
     ),
   ],
