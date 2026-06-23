@@ -32,6 +32,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   bool _showLyrics = false;
   bool _showQueue = false;
 
+  // ── Overlay artwork transition animation ───────────────────────────────────
+  // Drives artwork from large full-player position → small thumbnail position.
+  // 0.0 = full player, 1.0 = overlay thumbnail
+  late final AnimationController _overlayAnim;
+
   // ── Release animation ──────────────────────────────────────────────────────
   late final AnimationController _releaseAnim;
   double _animStartVal = 0.0;
@@ -41,6 +46,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   @override
   void initState() {
     super.initState();
+    _overlayAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     _releaseAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
@@ -50,6 +59,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
   @override
   void dispose() {
+    _overlayAnim.dispose();
     _releaseAnim.dispose();
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
@@ -92,6 +102,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           _showQueue = false;
         });
       }
+      _overlayAnim.value = 0.0;
     }
   }
 
@@ -102,15 +113,33 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  void _toggleLyrics() => setState(() {
-        _showLyrics = !_showLyrics;
-        if (_showLyrics) _showQueue = false;
-      });
+  void _toggleLyrics() {
+    final wasOverlay = _showLyrics || _showQueue;
+    setState(() {
+      _showLyrics = !_showLyrics;
+      if (_showLyrics) _showQueue = false;
+    });
+    final isOverlay = _showLyrics || _showQueue;
+    if (!wasOverlay && isOverlay) {
+      _overlayAnim.forward();
+    } else if (wasOverlay && !isOverlay) {
+      _overlayAnim.reverse();
+    }
+  }
 
-  void _toggleQueue() => setState(() {
-        _showQueue = !_showQueue;
-        if (_showQueue) _showLyrics = false;
-      });
+  void _toggleQueue() {
+    final wasOverlay = _showLyrics || _showQueue;
+    setState(() {
+      _showQueue = !_showQueue;
+      if (_showQueue) _showLyrics = false;
+    });
+    final isOverlay = _showLyrics || _showQueue;
+    if (!wasOverlay && isOverlay) {
+      _overlayAnim.forward();
+    } else if (wasOverlay && !isOverlay) {
+      _overlayAnim.reverse();
+    }
+  }
 
   // ── Gesture callbacks ──────────────────────────────────────────────────────
   void _onPanStart(DragStartDetails d) {
@@ -249,11 +278,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
     final artRadius = lerpDouble(4.0, 12.0, t)!;
 
-    // When overlay (lyrics/queue) is active, PlayerContent manages the
-    // small artwork itself — hide the morph artwork so they don't overlap.
-    final showOverlay = _showLyrics || _showQueue;
-    final morphArtVisible = !showOverlay;
-
     return Positioned(
       bottom: bottom,
       left: horizMargin,
@@ -351,50 +375,76 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           onLyricsToggle: _toggleLyrics,
                           showQueue: _showQueue,
                           onQueueToggle: _toggleQueue,
-                          // Unified player owns the artwork during normal mode;
-                          // give it back to PlayerContent during overlay mode.
-                          hideArtwork: !showOverlay,
+                          // Unified player owns the artwork for all states;
+                          // PlayerContent always hides its own artwork widget.
+                          hideArtwork: true,
                         ),
                       ),
                     ),
                   ),
                 ),
 
-              // ── Morphing artwork (bridges mini → full) ─────────────────────
-              Positioned(
-  left: artLeft,
-  top: artTop,
-  width: artSize,
-  height: artSize,
-  child: AnimatedOpacity(
-    duration: const Duration(milliseconds: 220),
-    opacity: morphArtVisible ? 1.0 : 0.0,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(artRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.30),
-            blurRadius: 40,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        scale: state.isPlaying ? 1.0 : 0.96,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(artRadius),
-          child: SongArtwork(
-            songId: song.id,
-            size: artSize,
-            borderRadius: BorderRadius.zero,
+              // ── Morphing artwork (mini → full → overlay thumbnail) ─────────
+              // Single artwork widget handles all three states via _overlayAnim,
+              // so there is no crossfade between two separate artwork widgets.
+              AnimatedBuilder(
+  animation: _overlayAnim,
+  builder: (context, _) {
+    final overlayT = Curves.easeInOutCubic.transform(_overlayAnim.value);
+
+    // Absolute position of the small thumbnail when overlay is active.
+    // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
+    // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
+    const smallLeft = 32.0;
+    const smallSize = 55.0;
+    const smallRadius = 8.0;
+    final smallTop = safeTop + 36.5;
+
+    final finalLeft   = lerpDouble(artLeft,   smallLeft,   overlayT)!;
+    final finalTop    = lerpDouble(artTop,    smallTop,    overlayT)!;
+    final finalSize   = lerpDouble(artSize,   smallSize,   overlayT)!;
+    final finalRadius = lerpDouble(artRadius, smallRadius, overlayT)!;
+    final shadowAlpha = lerpDouble(0.30,      0.0,         overlayT)!;
+    final shadowBlur  = lerpDouble(40.0,      0.0,         overlayT)!;
+    final shadowOff   = lerpDouble(15.0,      0.0,         overlayT)!;
+
+    // Pulse scale only in full-player mode, not in thumbnail state.
+    final targetScale = overlayT > 0.5
+        ? 1.0
+        : (state.isPlaying ? 1.0 : 0.96);
+
+    return Positioned(
+      left:   finalLeft,
+      top:    finalTop,
+      width:  finalSize,
+      height: finalSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(finalRadius),
+          boxShadow: [
+            BoxShadow(
+              color:      Colors.black.withValues(alpha: shadowAlpha),
+              blurRadius: shadowBlur,
+              offset:     Offset(0, shadowOff),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 300),
+          curve:    Curves.easeOutCubic,
+          scale:    targetScale,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(finalRadius),
+            child: SongArtwork(
+              songId:       song.id,
+              size:         artSize,
+              borderRadius: BorderRadius.zero,
+            ),
           ),
         ),
       ),
-    ),
-  ),
+    );
+  },
 ),
 
               // ── Mini player overlay (fades out in first 28% of progress) ───

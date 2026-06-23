@@ -271,7 +271,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       )!,
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 220),
-                        opacity: (widget.hideArtwork && !showOverlay) ? 0.0 : 1.0,
+                        opacity: widget.hideArtwork ? 0.0 : 1.0,
                         child: AnimatedContainer(
                         duration: _animDuration,
                         curve: _animCurve,
