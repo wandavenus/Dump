@@ -442,5 +442,28 @@ class TransportCommands(
 
         result.success(null)
     }
+    // ── Native transport wrappers ─────────────────────────────────────────────
+    // Called from MediaSession.Callback and handleNotificationAction so that both
+    // paths share identical logic (audio focus, crossfade, SessionAuditLogger, etc.).
+
+    private val noopResult = object : MethodChannel.Result {
+        override fun success(result: Any?) {}
+        override fun error(code: String, msg: String?, details: Any?) {}
+        override fun notImplemented() {}
+    }
+
+    fun playNative()     { getPlayer()?.let { handlePlay(it, noopResult) } }
+    fun pauseNative()    { getPlayer()?.let { handlePause(it, noopResult) } }
+    fun stopNative()     { getPlayer()?.let { handleStop(it, noopResult) } }
+    fun skipNextNative() { getPlayer()?.let { handleSkipNext(it, noopResult) } }
+    fun skipPrevNative() { getPlayer()?.let { handleSkipPrevious(it, noopResult) } }
+
+    fun seekNative(posMs: Long) {
+        val p = getPlayer() ?: return
+        p.seekTo(posMs)
+        SessionAuditLogger.onSeek(posMs)
+        log("verbose", "seekNative → ${posMs}ms")
+    }
+
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Transport", msg)
 }

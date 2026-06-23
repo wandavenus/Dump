@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -58,8 +59,11 @@ class PlaybackNotificationManager(
         }
     }
 
-    // Simple per-URI bitmap cache — avoids repeated disk reads for same album art.
-    private val artworkCache = mutableMapOf<String, Bitmap?>()
+    // LRU bitmap cache (max 10 entries) — evicts least-recently-used album art automatically.
+    // LruCache does not accept null values, so we track "tried but no artwork" URIs separately
+    // with noArtworkUris. That set stays small in practice (one URI per unique playing track).
+    private val artworkCache    = LruCache<String, Bitmap>(10)
+    private val noArtworkUris   = mutableSetOf<String>()
     private var artworkLoadGeneration = 0L
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -122,9 +126,9 @@ class PlaybackNotificationManager(
         val isPlaying = p.isPlaying
         val artUri    = track?.get("artworkUri") as? String
 
-        // Post immediately with cached artwork
-        val cached = if (artUri != null) artworkCache[artUri] else null
-        val hasCached = artUri == null || artworkCache.containsKey(artUri)
+        // Post immediately with cached artwork (null if not yet loaded)
+        val cached   = artUri?.let { artworkCache.get(it) }
+        val hasCached = artUri == null || artworkCache.get(artUri) != null || artUri in noArtworkUris
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
         // If not cached yet, load async and update
@@ -152,7 +156,7 @@ class PlaybackNotificationManager(
             val bmp = loadBitmap(artUri)
             handler.post {
                 if (generation != artworkLoadGeneration) return@post  // superseded
-                artworkCache[artUri] = bmp
+                if (bmp != null) artworkCache.put(artUri, bmp) else noArtworkUris.add(artUri)
                 val sess = getSession() ?: return@post
                 val p2   = getPlayer()   ?: return@post
                 try {
@@ -225,22 +229,52 @@ class PlaybackNotificationManager(
                     buildTransportPendingIntent(ACTION_SKIP_NEXT, 3)))
                 .addAction(NotificationCompat.Action(R.drawable.ic_stop, "Stop",
                     buildTransportPendingIntent(ACTION_STOP, 4)))
-              /*  .setStyle(
+                .setStyle(
                     MediaStyleNotificationHelper.MediaStyle(session)
                         .setShowActionsInCompactView(0, 1, 2)
-                )*/
+                )
         }
         return builder.build()
     }
 
+    /**
+     * Loads and scales album artwork for use in the notification.
+     *
+     * Two-pass decode: first read bounds only (no pixel allocation), compute
+     * the power-of-two inSampleSize that fits within NOTIF_ART_PX, then decode
+     * at the reduced size. Content URIs (MediaStore) can be opened twice — each
+     * openInputStream call returns an independent stream.
+     *
+     * Before: large album art (3000×3000 JPEG) → ~34 MB Bitmap for a 128dp slot.
+     * After:  same art decoded at 512×512 → ~1 MB Bitmap.
+     */
     private fun loadBitmap(artUri: String?): Bitmap? {
         if (artUri.isNullOrBlank()) return null
         return try {
             val uri = Uri.parse(artUri)
-            // Skip known-invalid album art URIs
+            // Skip known-invalid album art URIs (negative / zero album IDs)
             if (uri.toString().contains("/albumart/-") || uri.toString().endsWith("/0")) return null
-            service.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+
+            // Pass 1: bounds only (no pixel allocation)
+            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            service.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, boundsOpts)
+            }
+
+            // Pass 2: scaled decode
+            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, NOTIF_ART_PX)
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+            service.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, decodeOpts)
+            }
         } catch (_: Exception) { null }
+    }
+
+    /** Smallest power-of-two sample size so that neither dimension exceeds [maxPx]. */
+    private fun computeSampleSize(w: Int, h: Int, maxPx: Int): Int {
+        var s = 1
+        while ((w / s) > maxPx || (h / s) > maxPx) s *= 2
+        return s
     }
 
     companion object {
@@ -250,5 +284,8 @@ class PlaybackNotificationManager(
         const val ACTION_SKIP_NEXT  = "com.example.musicplayer.ACTION_SKIP_NEXT"
         const val ACTION_SKIP_PREV  = "com.example.musicplayer.ACTION_SKIP_PREV"
         const val ACTION_STOP       = "com.example.musicplayer.ACTION_STOP"
+
+        /** Target long edge for notification artwork in pixels. 512 px is crisp at 3× density. */
+        private const val NOTIF_ART_PX = 512
     }
 }

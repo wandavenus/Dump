@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionResult
 import com.example.musicplayer.audio_focus.AudioFocusManager
 import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
@@ -150,8 +151,50 @@ class Media3PlaybackService : MediaSessionService() {
         primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
 
         // Build MediaSession
+        // The Callback references `transportCommands` (lateinit) and `activePlayer` which are
+        // both fully initialised later in onCreate().  Callbacks only fire once a controller
+        // (Bluetooth stack, OS widget) connects — that always happens after onCreate() returns
+        // — so accessing these lateinit vars from the callback is unconditionally safe.
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, primaryPlayer!!)
+            .setCallback(object : MediaSession.Callback {
+                override fun onPlay(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                ): Int {
+                    transportCommands.playNative()
+                    return SessionResult.RESULT_SUCCESS
+                }
+                override fun onPause(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                ): Int {
+                    transportCommands.pauseNative()
+                    return SessionResult.RESULT_SUCCESS
+                }
+                override fun onSkipToNext(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                ): Int {
+                    transportCommands.skipNextNative()
+                    return SessionResult.RESULT_SUCCESS
+                }
+                override fun onSkipToPrevious(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                ): Int {
+                    transportCommands.skipPrevNative()
+                    return SessionResult.RESULT_SUCCESS
+                }
+                override fun onSeekTo(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                    positionMs: Long,
+                ): Int {
+                    transportCommands.seekNative(positionMs)
+                    return SessionResult.RESULT_SUCCESS
+                }
+            })
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -371,76 +414,35 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── Notification / BT transport actions ───────────────────────────────────
 
+    /**
+     * Routes notification / Bluetooth transport button intents to [TransportCommands].
+     *
+     * Previously this duplicated skip/play/pause logic inline. Now every action goes
+     * through the same TransportCommands path as the Flutter MethodChannel, so audio
+     * focus, crossfade cleanup, SessionAuditLogger, and preload management are handled
+     * identically regardless of how the user triggers the action.
+     */
     private fun handleNotificationAction(action: String?) {
-        val p = player
         when (action) {
             ACTION_PLAY_PAUSE -> {
-                if (p != null) {
-                    if (p.isPlaying) {
-                        p.pause()
-                        transportState.stopPositionTicker()
-                        audioFocusManager.abandon()
-                        NativeLogger.emit("info", "Media3", "transport: pause (notification/BT)")
-                    } else {
-                        if (audioFocusManager.request()) {
-                            if (p.playbackState == Player.STATE_ENDED && p.mediaItemCount > 0) {
-                                p.seekToDefaultPosition(0)
-                                p.prepare()
-                            }
-                            p.play()
-                            notificationManager.ensureMediaForeground()
-                            notificationManager.refresh()
-                            transportState.startPositionTicker()
-                            NativeLogger.emit("info", "Media3", "transport: play (notification/BT)")
-                        }
-                    }
-                    transportState.emitAll()
-                    notificationManager.refresh()
-                }
+                val playing = player?.isPlaying ?: false
+                if (playing) transportCommands.pauseNative()
+                else         transportCommands.playNative()
+                NativeLogger.emit("info", "Media3",
+                    "transport: ${if (playing) "pause" else "play"} (notification/BT)")
             }
             ACTION_SKIP_NEXT -> {
-                sleepTimerManager.cancel()
-                crossfadeController.cancel(resetVolume = true)
-                preloadManager.clearStandbyQueue()
-                if (p != null) {
-                    if (p.playbackState == Player.STATE_ENDED) {
-                        val nextIndex = p.nextMediaItemIndex
-                        if (nextIndex != C.INDEX_UNSET) {
-                            p.seekToDefaultPosition(nextIndex); p.prepare()
-                        } else if (p.mediaItemCount > 0) {
-                            p.seekToDefaultPosition(0); p.prepare()
-                        }
-                    } else {
-                        p.seekToNextMediaItem()
-                    }
-                }
+                transportCommands.skipNextNative()
                 NativeLogger.emit("info", "Media3", "transport: skipNext (notification/BT)")
-                transportState.emitAll()
-                notificationManager.refresh()
             }
             ACTION_SKIP_PREV -> {
-                sleepTimerManager.cancel()
-                crossfadeController.cancel(resetVolume = true)
-                preloadManager.clearStandbyQueue()
-                if (p != null) {
-                    if (p.playbackState == Player.STATE_ENDED) {
-                        val prevIndex = p.previousMediaItemIndex
-                        if (prevIndex != C.INDEX_UNSET) {
-                            p.seekToDefaultPosition(prevIndex); p.prepare()
-                        } else if (p.mediaItemCount > 0) {
-                            p.seekToDefaultPosition(0); p.prepare()
-                        }
-                    } else {
-                        p.seekToPreviousMediaItem()
-                    }
-                }
+                transportCommands.skipPrevNative()
                 NativeLogger.emit("info", "Media3", "transport: skipPrev (notification/BT)")
-                transportState.emitAll()
-                notificationManager.refresh()
             }
             ACTION_STOP -> {
+                // STOP is not a standard TransportCommands flow — it tears down the
+                // foreground service.  Keep the inline logic here.
                 sleepTimerManager.cancel()
-                NativeLogger.emit("info", "Media3", "transport: stop (notification/BT)")
                 crossfadeController.cancel(resetVolume = true)
                 primaryPlayer?.pause();   primaryPlayer?.seekTo(0)
                 secondaryPlayer?.pause(); secondaryPlayer?.seekTo(0)
@@ -448,10 +450,11 @@ class Media3PlaybackService : MediaSessionService() {
                 audioFocusManager.abandon()
                 notificationManager.stopForeground()
                 transportState.emitAll()
+                NativeLogger.emit("info", "Media3", "transport: stop (notification/BT)")
                 stopSelf()
             }
             else -> {
-                if ((p?.mediaItemCount ?: 0) > 0) {
+                if ((player?.mediaItemCount ?: 0) > 0) {
                     notificationManager.ensureMediaForeground()
                 }
             }
