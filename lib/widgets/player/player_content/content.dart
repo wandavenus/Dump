@@ -198,19 +198,40 @@ class _PlayerContentState extends State<PlayerContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 120,
-  child: TextScroll(
-    widget.song.title,
-    mode: TextScrollMode.endless,
-    velocity: const Velocity(
-      pixelsPerSecond: Offset(25, 0),
-    ),
-    delayBefore: const Duration(seconds: 2),
-    pauseBetween: const Duration(seconds: 2),
-    style: const TextStyle(
-      color: Colors.white,
-      fontSize: 17,
-      fontWeight: FontWeight.w600,
+  width: 180,
+  child: ShaderMask(
+    shaderCallback: (rect) {
+      return const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.transparent,
+          Colors.white,
+          Colors.white,
+          Colors.transparent,
+        ],
+        stops: [
+          0.0,
+          0.12,
+          0.88,
+          1.0,
+        ],
+      ).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: TextScroll(
+      widget.song.title,
+      mode: TextScrollMode.endless,
+      velocity: const Velocity(
+        pixelsPerSecond: Offset(25, 0),
+      ),
+      delayBefore: const Duration(seconds: 2),
+      pauseBetween: const Duration(seconds: 2),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   ),
 ),
