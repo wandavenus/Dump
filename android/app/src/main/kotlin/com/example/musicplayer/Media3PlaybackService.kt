@@ -13,6 +13,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -276,6 +277,19 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
+    /**
+     * Block Media3's DefaultMediaNotificationProvider from managing the foreground
+     * notification. Starting from Media3 1.3, MediaSessionService automatically
+     * creates and posts its own notification (default ID 1001 — same as ours),
+     * which would conflict with our custom PlaybackNotificationManager on MIUI 12.
+     * By overriding with an empty body we retain full control of the notification
+     * lifecycle; PlaybackNotificationManager.ensureMediaForeground() is still the
+     * single code path that calls startForeground().
+     */
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // Intentionally empty — PlaybackNotificationManager owns the notification.
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         handleNotificationAction(intent?.action)
@@ -404,17 +418,41 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── Player factory ────────────────────────────────────────────────────────
 
-    private fun createConfiguredPlayer(): ExoPlayer = ExoPlayer.Builder(this).build().apply {
-        val attrs = androidx.media3.common.AudioAttributes.Builder()
-            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+    private fun createConfiguredPlayer(): ExoPlayer {
+        // Tuned for local (offline) file playback:
+        //  - 15 s min buffer  : local reads are near-instant; no need to buffer more before play.
+        //  - 50 s max buffer  : keeps enough audio pre-decoded for smooth gapless / crossfade.
+        //  - 1.5 s for playback start  : snappy initial start.
+        //  - 3 s after rebuffer : quick recovery if a slow storage device causes a hiccup.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs                        */ 15_000,
+                /* maxBufferMs                        */ 50_000,
+                /* bufferForPlaybackMs                */  1_500,
+                /* bufferForPlaybackAfterRebufferMs   */  3_000,
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
             .build()
-        setAudioAttributes(attrs, false)
-        // false: we handle ACTION_AUDIO_BECOMING_NOISY ourselves via noisyReceiver.
-        // With two simultaneous players (crossfade), setting this to true on both would
-        // cause both players to register independent BroadcastReceivers for the noisy
-        // intent, resulting in double-pause events and state corruption on MIUI 12.
-        setHandleAudioBecomingNoisy(false)
+
+        return ExoPlayer.Builder(this)
+            .setLoadControl(loadControl)
+            .build()
+            .apply {
+                val attrs = androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build()
+                setAudioAttributes(attrs, false)
+                // false: we handle ACTION_AUDIO_BECOMING_NOISY ourselves via noisyReceiver.
+                // With two simultaneous players (crossfade), setting this to true on both would
+                // cause both players to register independent BroadcastReceivers for the noisy
+                // intent, resulting in double-pause events and state corruption on MIUI 12.
+                setHandleAudioBecomingNoisy(false)
+                // Acquire a partial wake lock for the duration of local-file playback.
+                // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
+                // mid-track without this, causing playback to stall while the screen is off.
+                setWakeMode(C.WAKE_MODE_LOCAL)
+            }
     }
 
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
