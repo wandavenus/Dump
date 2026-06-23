@@ -30,6 +30,14 @@ class AudioEffectsService {
   static final ValueNotifier<int> audioOutputMode = ValueNotifier(0);
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
+  /// Whether audio offload scheduling is enabled.
+  ///
+  /// When false, [AudioOffloadManager] keeps offload scheduling permanently off
+  /// regardless of crossfade state.  Useful as a workaround on MIUI devices
+  /// where AudioFlinger's offload path causes pops or stalls.
+  /// Default: true (automatic, hardware-dependent).
+  static final ValueNotifier<bool> offloadSchedulingEnabled = ValueNotifier(true);
+
   // ── Reverb preset labels ───────────────────────────────────────────────────
 
   static const List<String> reverbPresetNames = [
@@ -136,6 +144,7 @@ class AudioEffectsService {
     roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
     audioOutputMode.value  = prefs.getInt('audioOutputMode')  ?? 0;
     lyricsPath.value       = prefs.getString('lyricsPath')    ?? '';
+    offloadSchedulingEnabled.value = prefs.getBool('offloadScheduling') ?? true;
 
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
     replayGainMode.value =
@@ -180,6 +189,9 @@ class AudioEffectsService {
 
     // Crossfade
     unawaited(Media3PlaybackBridge.setCrossfadeDuration(crossfadeDuration.value));
+
+    // Offload scheduling
+    unawaited(Media3PlaybackBridge.setOffloadSchedulingEnabled(offloadSchedulingEnabled.value));
   }
 
   // ── Gapless ────────────────────────────────────────────────────────────────
@@ -393,6 +405,22 @@ class AudioEffectsService {
       unawaited(Media3PlaybackBridge.setVirtualizerEnabled(true));
     }
     LogService.log('AudioEffects', 'Spatial strength: $v');
+  }
+
+  // ── Audio Offload Scheduling ──────────────────────────────────────────────
+
+  /// Enable or disable audio offload scheduling.
+  ///
+  /// When [value] is false, native [AudioOffloadManager] keeps offload
+  /// scheduling permanently off.  Useful on MIUI devices where the offload
+  /// path is unstable.  Setting is persisted across app restarts.
+  static Future<void> setOffloadSchedulingEnabled(bool value) async {
+    offloadSchedulingEnabled.value = value;
+    await _saveBool('offloadScheduling', value);
+    if (!kIsWeb) {
+      unawaited(Media3PlaybackBridge.setOffloadSchedulingEnabled(value));
+    }
+    LogService.log('AudioEffects', 'OffloadScheduling: $value');
   }
 
   // ── Audio Output ──────────────────────────────────────────────────────────

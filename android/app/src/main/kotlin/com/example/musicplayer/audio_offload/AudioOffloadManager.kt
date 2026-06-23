@@ -77,7 +77,42 @@ class AudioOffloadManager(
     private var schedulingEnabled = false
     private var lastReason = "init"
 
-    // ── Public state transitions ───────────────────────────────────────────────
+    /**
+     * When true, offload scheduling is force-disabled regardless of crossfade state.
+     * Toggled by the user via the "Audio Offload Scheduling" toggle in Settings →
+     * Jalur Audio.  Useful as a debug/workaround escape hatch on MIUI devices where
+     * AudioFlinger's offload path is unstable.
+     */
+    private var forceDisabled = false
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * Called from the Settings toggle ("Audio Offload Scheduling").
+     *
+     * When [enabled] is false the flag is pinned off permanently, overriding all
+     * automatic logic.  When [enabled] is true automatic control resumes and
+     * eligibility is re-evaluated immediately.
+     */
+    fun setForceDisabled(disabled: Boolean) {
+        forceDisabled = disabled
+        if (disabled) {
+            applyScheduling(
+                enable = false,
+                reason = "user force-disabled offload scheduling in Settings",
+            )
+        } else {
+            // Re-apply the last logical state.  Scheduling stays off until
+            // TransportCommands fires onCrossfadeDurationChanged next, which
+            // correctly re-evaluates based on current crossfade config.
+            applyScheduling(
+                enable = false,
+                reason = "user re-enabled offload scheduling — awaiting crossfade check",
+            )
+        }
+    }
+
+    // ── State transitions ─────────────────────────────────────────────────────
 
     /**
      * Called whenever the crossfade duration setting changes.
@@ -177,22 +212,25 @@ class AudioOffloadManager(
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private fun applyScheduling(enable: Boolean, reason: String) {
-        val changed = schedulingEnabled != enable
-        schedulingEnabled = enable
+        // forceDisabled overrides all automatic logic.
+        val effective = enable && !forceDisabled
+        val changed = schedulingEnabled != effective
+        schedulingEnabled = effective
         lastReason = reason
 
         if (changed) {
             try {
-                getActivePlayer()?.experimentalSetOffloadSchedulingEnabled(enable)
+                getActivePlayer()?.experimentalSetOffloadSchedulingEnabled(effective)
             } catch (e: Exception) {
                 NativeLogger.emit(
                     "warn", "AudioOffload",
-                    "experimentalSetOffloadSchedulingEnabled($enable) threw: ${e.message}",
+                    "experimentalSetOffloadSchedulingEnabled($effective) threw: ${e.message}",
                 )
             }
         }
 
-        val verb = if (enable) "ENABLED " else "DISABLED"
-        NativeLogger.emit("info", "AudioOffload", "Scheduling $verb — $reason")
+        val verb = if (effective) "ENABLED " else "DISABLED"
+        val suffix = if (!enable) "" else if (forceDisabled) " (overridden: user force-disabled)" else ""
+        NativeLogger.emit("info", "AudioOffload", "Scheduling $verb — $reason$suffix")
     }
 }

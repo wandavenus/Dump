@@ -232,6 +232,15 @@ class TransportCommands(
             "setVirtualizerStrength" -> { effectsManager.setVirtualizerStrength((call.argument<Number>("strength")?.toInt() ?: 1000).toShort()); result.success(null) }
             "setReverbPreset"        -> { effectsManager.setReverbPreset((call.argument<Number>("preset")?.toInt() ?: 0).toShort()); result.success(null) }
 
+            // ── Audio Offload ─────────────────────────────────────────────────
+
+            "setOffloadSchedulingEnabled" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: true
+                offloadManager.setForceDisabled(!enabled)
+                log("verbose", "setOffloadSchedulingEnabled: $enabled")
+                result.success(null)
+            }
+
             // ── Crossfade ─────────────────────────────────────────────────────
 
             "setCrossfadeDuration" -> {

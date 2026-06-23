@@ -233,6 +233,16 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setReverbPreset(int preset) =>
       _invoke<void>('setReverbPreset', {'preset': preset});
 
+  // ── Audio Offload ─────────────────────────────────────────────────────────
+
+  /// Enable or disable audio offload scheduling.
+  ///
+  /// When disabled the ExoPlayer render loop runs at normal CPU priority and
+  /// offload scheduling is never granted even when the OS would allow it.
+  /// Use this as an escape hatch on devices where the offload path is unstable.
+  static Future<void> setOffloadSchedulingEnabled(bool enabled) =>
+      _invoke<void>('setOffloadSchedulingEnabled', {'enabled': enabled});
+
   // ── Crossfade ─────────────────────────────────────────────────────────────
 
   static Future<void> setCrossfadeDuration(double seconds) =>

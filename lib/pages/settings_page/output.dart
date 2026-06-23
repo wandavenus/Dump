@@ -25,6 +25,18 @@ class _AudioOutputSection extends StatelessWidget {
             ),
           ),
         ),
+        const SettingsDivider(),
+        ValueListenableBuilder<bool>(
+          valueListenable: AudioEffectsService.offloadSchedulingEnabled,
+          builder: (_, enabled, _) => SettingsToggleRow(
+            title: 'Audio Offload Scheduling',
+            subtitle: enabled
+                ? 'CPU dapat tidur antar audio write — hemat baterai saat layar mati'
+                : 'Nonaktif — gunakan jika audio terputus pada perangkat MIUI',
+            value: enabled,
+            onChanged: AudioEffectsService.setOffloadSchedulingEnabled,
+          ),
+        ),
       ],
     );
   }
