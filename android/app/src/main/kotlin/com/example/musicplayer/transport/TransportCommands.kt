@@ -46,6 +46,17 @@ class TransportCommands(
     private val effectsManager: AudioEffectsManager,
     private val ensureMediaForeground: () -> Unit,
     private val offloadManager: AudioOffloadManager,
+    /**
+     * M4 — Applied to ALL live ExoPlayer instances (primary + secondary) whenever
+     * the skip-silence setting changes, so both players in a crossfade behave identically.
+     */
+    private val applySkipSilence: (Boolean) -> Unit = {},
+    /**
+     * M5 — Called when the output mode changes (0=Auto/AAudio, 1=OpenSL ES, 2=Hi-Res).
+     * The service uses this to update its hiResModeEnabled flag so the next player
+     * created by createConfiguredPlayer() uses the appropriate LoadControl parameters.
+     */
+    private val onOutputModeChanged: (Int) -> Unit = {},
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
