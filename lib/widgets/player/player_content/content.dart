@@ -607,7 +607,7 @@ Padding(
   ),
 ),
 
-const SizedBox(height: 24),
+const SizedBox(height: 17),
             
 Padding(
   padding: const EdgeInsets.symmetric(
