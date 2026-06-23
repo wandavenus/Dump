@@ -18,6 +18,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.example.musicplayer.audio_focus.AudioFocusManager
+import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
 import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
@@ -73,6 +74,7 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var effectsManager:       AudioEffectsManager
     private lateinit var transportState:       TransportState
     private lateinit var transportCommands:    TransportCommands
+    private lateinit var offloadManager:       AudioOffloadManager
 
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners = IdentityHashMap<ExoPlayer, Player.Listener>()
@@ -125,6 +127,14 @@ class Media3PlaybackService : MediaSessionService() {
         // Create primary player
         primaryPlayer = createConfiguredPlayer()
         activePlayer  = primaryPlayer
+
+        // ── Audio Offload Manager ─────────────────────────────────────────────
+        // Must be created before CrossfadeController and TransportCommands so that
+        // both can reference it.  Starts with scheduling disabled; TransportCommands
+        // will call onCrossfadeDurationChanged() when the user sets a duration, which
+        // re-evaluates eligibility at the right time.
+        offloadManager = AudioOffloadManager(getActivePlayer = { activePlayer })
+        primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
 
         // Build MediaSession
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
@@ -228,9 +238,17 @@ class Media3PlaybackService : MediaSessionService() {
                     NativeLogger.emit("info", "Media3",
                         "Post-crossfade effects reattach → session=$newSessionId")
                 }
+                // Re-evaluate offload scheduling on the newly promoted player.
+                // Also attach the offload listener to the new active player so OS
+                // grant/reject events are still reported after player promotion.
+                offloadManager.onCrossfadeComplete(crossfadeController.crossfadeDurationSec)
+                activePlayer?.addAudioOffloadListener(offloadManager.makeOffloadListener())
             },
             emitAll             = { transportState.emitAll() },
             refreshNotification = { notificationManager.refresh() },
+            // Disable offload scheduling before the first 16 ms Handler tick so the
+            // equal-power fade runs with reliable timing on the main looper.
+            onCrossfadeStarting = { offloadManager.onCrossfadeStarting() },
         )
 
         effectsManager = AudioEffectsManager(handler)
@@ -255,6 +273,7 @@ class Media3PlaybackService : MediaSessionService() {
             sleepTimerManager     = sleepTimerManager,
             effectsManager        = effectsManager,
             ensureMediaForeground = { notificationManager.ensureMediaForeground() },
+            offloadManager        = offloadManager,
         )
 
         // When Flutter subscribes to any event stream, push the full current state
@@ -452,6 +471,12 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
+                // Attach the offload listener when available (offloadManager is initialised
+                // after the primary player in onCreate; secondary players are always created
+                // after that point so the guard below covers the race-free case).
+                if (::offloadManager.isInitialized) {
+                    addAudioOffloadListener(offloadManager.makeOffloadListener())
+                }
             }
     }
 

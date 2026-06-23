@@ -6,6 +6,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.audio_focus.AudioFocusManager
+import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
 import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
@@ -43,6 +44,7 @@ class TransportCommands(
     private val sleepTimerManager: SleepTimerManager,
     private val effectsManager: AudioEffectsManager,
     private val ensureMediaForeground: () -> Unit,
+    private val offloadManager: AudioOffloadManager,
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
@@ -242,6 +244,10 @@ class TransportCommands(
                     preloadManager.ensureStandbyPlayer()
                     preloadManager.preloadNextTrack()
                 }
+                // Update offload scheduling eligibility whenever crossfade duration changes.
+                // Scheduling is disabled when crossfade > 0 (standby player may overlap at any
+                // time) and re-enabled when crossfade = 0 (single-player, OS may grant offload).
+                offloadManager.onCrossfadeDurationChanged(sec)
                 log("verbose", "setCrossfadeDuration: ${sec}s")
                 result.success(null)
             }

@@ -58,6 +58,9 @@ class CrossfadeController(
     private val onCrossfadeComplete:  () -> Unit,
     private val emitAll:              () -> Unit,
     private val refreshNotification:  () -> Unit,
+    // Called at the very start of beginCrossfade() so offload scheduling can be
+    // disabled before the first 16 ms Handler tick fires.
+    private val onCrossfadeStarting:  () -> Unit = {},
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -190,6 +193,10 @@ class CrossfadeController(
         crossfadeInProgress = true
         promotionTriggered  = true
         promotionOwner      = current
+
+        // Notify AudioOffloadManager BEFORE the first Handler tick so offload
+        // scheduling is disabled before the 16 ms volume-fade runnable starts.
+        onCrossfadeStarting()
         //setActiveQueueIndex(nextIndex)
 
         // Detach the old player's trailing queue tail to free memory
