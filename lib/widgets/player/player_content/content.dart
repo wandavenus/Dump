@@ -136,7 +136,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       top: overlayTop,
                       left: 7,
                       right: 7,
-                      bottom: _lyricsExpand > 0 ? -200 : 0,
+                      bottom: _lyricsExpand > 0 ? -200 : 30,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -611,7 +611,25 @@ Padding(
 const SizedBox(height: 15),
                 
             Expanded(
-              child: ReorderableListView.builder(
+  child: ShaderMask(
+    shaderCallback: (rect) {
+      return const LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    Colors.white,
+    Colors.white,
+    Colors.transparent,
+  ],
+  stops: [
+    0.0,
+    0.70,
+    1.0,
+  ],
+).createShader(rect);
+    },
+    blendMode: BlendMode.dstIn,
+    child: ReorderableListView.builder(
                 scrollController: _scroll,
                 padding: const EdgeInsets.only(bottom: 16),
                 itemCount: playlist.length,
@@ -630,7 +648,8 @@ const SizedBox(height: 15),
                     },
                   );
                 },
-              ),
+              ),  
+             ),
             ),
           ],
         );
