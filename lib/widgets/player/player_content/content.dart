@@ -500,7 +500,7 @@ bool _autoplayEnabled = true;
 
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 18,
+    horizontal: 17,
   ),
   child: Row(
     children: [
@@ -541,7 +541,8 @@ Padding(
   AudioService.loopMode == LoopMode.one
       ? CupertinoIcons.repeat_1
       : CupertinoIcons.repeat,
-  color: AudioService.loopMode != LoopMode.off
+      size: 20,
+        color: AudioService.loopMode != LoopMode.off
       ? const Color(0xFFF92D48)
       : Colors.white,
 ),
@@ -566,6 +567,7 @@ Padding(
       ),
       child: Icon(
         CupertinoIcons.infinite,
+        size: 20,
         color: _autoplayEnabled
             ? const Color(0xFFF92D48)
             : Colors.white,
@@ -581,7 +583,7 @@ const SizedBox(height: 24),
             
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 20,
+    horizontal: 17,
   ),
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
