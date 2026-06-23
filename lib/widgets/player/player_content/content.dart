@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
-                const overlayTop = _smallCoverSize + 30.0;
+                const overlayTop = _smallCoverSize + 10.0;
             
                 const controlsHeight = 35.0;
                 return Stack(
@@ -134,8 +134,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 30,
-                      right: 30,
+                      left: 17,
+                      right: 17,
                       bottom: _lyricsExpand > 0 ? -250 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -151,8 +151,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Queue area — fades in in queue mode ───────────────────
                     Positioned(
                       top: overlayTop,
-                      left: 20,
-                      right: 20,
+                      left: 17,
+                      right: 17,
                       bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -171,7 +171,7 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
                       top: 16,
-                      right: 22,
+                      right: 19,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -374,7 +374,7 @@ height: showOverlay
                   ),
 
                   Padding(
-  padding: const EdgeInsets.only(bottom: 12),
+  padding: const EdgeInsets.only(bottom: 13),
   child: Container(
     width: double.infinity,
     height: 1,
