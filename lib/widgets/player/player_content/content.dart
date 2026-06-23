@@ -440,6 +440,8 @@ class _QueueOverlayBody extends StatefulWidget {
 class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   final _scroll = ScrollController();
 
+bool _autoplayEnabled = true;
+  
   @override
   void didUpdateWidget(_QueueOverlayBody old) {
     super.didUpdateWidget(old);
@@ -495,52 +497,88 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
+
+Padding(
   padding: EdgeInsets.symmetric(
     horizontal: _playerHorizontalPadding,
   ),
   child: Row(
     children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SongArtwork(
-          songId: playlist[currentIdx].id,
-          size: 56,
-        ),
-      ),
-      const SizedBox(width: 12),
       Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              playlist[currentIdx].title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              playlist[currentIdx].artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+  child: GestureDetector(
+    onTap: AudioService.toggleShuffle,
+    child: Container(
+      height: 56,
+      decoration: BoxDecoration(
+  color: AudioService.shuffleEnabled
+      ? const Color(0xFFF92D48).withValues(alpha: 0.25)
+      : Colors.white.withValues(alpha: 0.08),
+  borderRadius: BorderRadius.circular(16),
+),
+      child: Icon(
+  Icons.shuffle_rounded,
+  color: AudioService.shuffleEnabled
+      ? const Color(0xFFF92D48)
+      : Colors.white,
+  size: 20,
+),
+    ),
+  ),
+),
+      const SizedBox(width: 10),
+      Expanded(
+  child: GestureDetector(
+    onTap: AudioService.cycleLoopMode,
+    child: Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: AudioService.loopMode != LoopMode.off
+    ? const Color(0xFFF92D48).withValues(alpha: 0.25)
+    : Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: Icon(
+  AudioService.loopMode == LoopMode.one
+      ? Icons.repeat_one_rounded
+      : Icons.repeat_rounded,
+  color: AudioService.loopMode != LoopMode.off
+      ? const Color(0xFFF92D48)
+      : Colors.white,
+),
+    ),
+  ),
+),
+      const SizedBox(width: 10),
+      Expanded(
+  child: GestureDetector(
+    onTap: () {
+      setState(() {
+        _autoplayEnabled = !_autoplayEnabled;
+      });
+    },
+    child: Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: _autoplayEnabled
+            ? const Color(0xFFF92D48).withValues(alpha: 0.25)
+            : Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(
+        Icons.auto_awesome_rounded,
+        color: _autoplayEnabled
+            ? const Color(0xFFF92D48)
+            : Colors.white,
+      ),
+    ),
+  ),
+),
     ],
   ),
 ),
 
-const SizedBox(height: 20),
-
+const SizedBox(height: 24),
+            
 Padding(
   padding: EdgeInsets.symmetric(
     horizontal: _playerHorizontalPadding,
