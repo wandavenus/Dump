@@ -197,17 +197,25 @@ class _PlayerContentState extends State<PlayerContent> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                widget.song.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
+                              SizedBox(
+  width: 180,
+  height: 24,
+  child: TextScroll(
+    widget.song.title,
+    mode: TextScrollMode.endless,
+    velocity: const Velocity(
+      pixelsPerSecond: Offset(25, 0),
+    ),
+    delayBefore: const Duration(seconds: 2),
+    pauseBetween: const Duration(seconds: 2),
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+),
+                              const SizedBox(height: 1),
                               Text(
                                 widget.song.artist,
                                 maxLines: 1,
