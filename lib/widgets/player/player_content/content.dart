@@ -134,8 +134,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 15,
-                      right: 15,
+                      left: 13,
+                      right: 13,
                       bottom: _lyricsExpand > 0 ? -250 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -151,8 +151,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Queue area — fades in in queue mode ───────────────────
                     Positioned(
                       top: overlayTop,
-                      left: 15,
-                      right: 15,
+                      left: 15.5,
+                      right: 15.5,
                       bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -170,8 +170,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
-                      top: 16,
-                      right: 19,
+                      top: 10,
+                      right: 15,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -228,19 +228,19 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: _animDuration,
                       curve: _animCurve,
                       top: showOverlay
-    ? 8.0
-    : lerpDouble(
-        sh - 140,
-        coverTop,
-        progress,
-      )!,
+                      ? 0.0
+                      : lerpDouble(
+                      sh - 140,
+                      coverTop,
+                      progress,
+                      )!,
                       left: showOverlay
-    ? 22.0
-    : lerpDouble(
-        22.0,
-        coverLeft,
-        progress,
-      )!,
+                      ? _playerHorizontalPadding
+                      : lerpDouble(
+                      22.0,
+                      coverLeft,
+                      progress,
+                      )!,
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 220),
                         opacity: (widget.hideArtwork && !showOverlay) ? 0.0 : 1.0,
@@ -377,8 +377,8 @@ height: showOverlay
   padding: const EdgeInsets.only(bottom: 14),
   child: Container(
     width: double.infinity,
-    height: 1,
-    color: Colors.white.withValues(alpha: 0.15),
+    height: 0.9,
+    color: Colors.white.withValues(alpha: 0.13),
   ),
 ),
                 ],
