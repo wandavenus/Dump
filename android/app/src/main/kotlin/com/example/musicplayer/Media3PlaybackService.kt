@@ -252,7 +252,7 @@ class Media3PlaybackService : MediaSessionService() {
                 // Re-evaluate offload scheduling on the newly promoted player.
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
-                offloadManager.onCrossfadeComplete(crossfadeController.crossfadeDurationSec)
+                offloadManager.onCrossfadeComplete()
                 activePlayer?.addAudioOffloadListener(offloadManager.makeOffloadListener())
             },
             emitAll             = { transportState.emitAll() },
