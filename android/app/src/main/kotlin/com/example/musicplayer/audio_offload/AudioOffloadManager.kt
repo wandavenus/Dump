@@ -65,13 +65,24 @@ import com.example.musicplayer.events.NativeLogger
  *
  * Callers:
  *   onCrossfadeDurationChanged(sec) — called from TransportCommands.setCrossfadeDuration
- *   onCrossfadeStarting()           — called from CrossfadeController.beginCrossfade
- *   onCrossfadeComplete(sec)        — called from Media3PlaybackService.onCrossfadeComplete
- *   makeOffloadListener()           — attach returned listener to each ExoPlayer instance
+ *   onCrossfadeStarting()  — called from CrossfadeController.beginCrossfade
+ *   onCrossfadeComplete()  — called from Media3PlaybackService.onCrossfadeComplete callback;
+ *                            reads current duration via getCrossfadeDurationSec lambda so
+ *                            the value is always authoritative regardless of call timing.
+ *   makeOffloadListener()  — attach returned listener to each ExoPlayer instance
  */
 @UnstableApi
 class AudioOffloadManager(
     private val getActivePlayer: () -> ExoPlayer?,
+    /**
+     * Returns the live crossfade duration (in seconds) from [CrossfadeController].
+     *
+     * Read inside [onCrossfadeComplete] so the decision always uses the current,
+     * authoritative value — not a value captured at callback-dispatch time, which
+     * could be stale if the user changed the crossfade setting between the fade
+     * completing and the callback firing.
+     */
+    private val getCrossfadeDurationSec: () -> Float = { 0f },
     /**
      * Called on the main thread whenever the observed offload state changes.
      * [scheduling] — whether experimentalSetOffloadSchedulingEnabled is currently true.
@@ -161,11 +172,17 @@ class AudioOffloadManager(
     /**
      * Called after crossfade fully completes and the new player is active.
      *
+     * Reads the live crossfade duration directly from [getCrossfadeDurationSec] so
+     * the decision is always based on the value that [CrossfadeController] owns at
+     * this exact moment — immune to any change that occurred between the fade
+     * completing and this callback firing.
+     *
      * Re-evaluates eligibility: if crossfade will be used again (duration > 0)
      * keep scheduling off; otherwise re-enable so the OS can try offload on the
      * promoted player's new audio session.
      */
-    fun onCrossfadeComplete(currentDurationSec: Float) {
+    fun onCrossfadeComplete() {
+        val currentDurationSec = getCrossfadeDurationSec()
         if (currentDurationSec > 0f) {
             applyScheduling(
                 enable = false,

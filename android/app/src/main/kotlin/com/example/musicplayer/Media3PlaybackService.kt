@@ -134,8 +134,11 @@ class Media3PlaybackService : MediaSessionService() {
         // will call onCrossfadeDurationChanged() when the user sets a duration, which
         // re-evaluates eligibility at the right time.
         offloadManager = AudioOffloadManager(
-            getActivePlayer = { activePlayer },
-            onOffloadStateChanged = { scheduling, osGranted ->
+            getActivePlayer          = { activePlayer },
+            // Read crossfadeDurationSec directly from the controller so
+            // onCrossfadeComplete() always gets the live, authoritative value.
+            getCrossfadeDurationSec  = { crossfadeController.crossfadeDurationSec },
+            onOffloadStateChanged    = { scheduling, osGranted ->
                 EventEmitter.emit(
                     "offloadState",
                     mapOf("scheduling" to scheduling, "osGranted" to osGranted),
