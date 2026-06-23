@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
-                const overlayTop = _smallCoverSize + 10.0;
+                const overlayTop = _smallCoverSize + 0.0;
             
                 const controlsHeight = 35.0;
                 return Stack(
@@ -103,7 +103,7 @@ class _PlayerContentState extends State<PlayerContent> {
                   children: [
                     // ── Song info — fades out when any overlay is active ──────
                     Positioned(
-                      bottom: 58,
+                      bottom: 59,
                       left: _playerHorizontalPadding,
                       right: _playerHorizontalPadding,
                       child: AnimatedOpacity(
@@ -134,8 +134,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 17,
-                      right: 17,
+                      left: 15,
+                      right: 15,
                       bottom: _lyricsExpand > 0 ? -250 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -151,8 +151,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Queue area — fades in in queue mode ───────────────────
                     Positioned(
                       top: overlayTop,
-                      left: 17,
-                      right: 17,
+                      left: 15,
+                      right: 15,
                       bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -374,7 +374,7 @@ height: showOverlay
                   ),
 
                   Padding(
-  padding: const EdgeInsets.only(bottom: 13),
+  padding: const EdgeInsets.only(bottom: 14),
   child: Container(
     width: double.infinity,
     height: 1,
