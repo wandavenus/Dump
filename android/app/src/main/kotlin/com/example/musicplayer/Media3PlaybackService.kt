@@ -325,6 +325,32 @@ class Media3PlaybackService : MediaSessionService() {
             queueManager        = queueManager,
             crossfadeController = crossfadeController,
             sleepTimerManager   = sleepTimerManager,
+            // WD-01: stuck-playback recovery.
+            // retry 1 → re-prepare current item (resets codec pipeline without skipping).
+            // retry 2 → skip to next track (permanently bad / undecodable file).
+            onStuck = { retryCount ->
+                val p = activePlayer
+                if (p != null) {
+                    val pos = p.currentPosition
+                    NativeLogger.emit("warn", "Watchdog",
+                        "Recovery attempt $retryCount — pos=${pos}ms " +
+                        "state=${p.playbackState} crossfade=${crossfadeController.crossfadeInProgress}")
+                    SessionAuditLogger.warn("Watchdog",
+                        "stuck at ${pos}ms retry=$retryCount")
+                    if (retryCount <= 1) {
+                        // Attempt 1: re-initialise the decoder pipeline for the current item.
+                        // This resolves transient hardware codec freezes and post-call pipeline
+                        // corruption without losing the user's playback position.
+                        NativeLogger.emit("warn", "Watchdog", "Re-preparing decoder pipeline")
+                        p.prepare()
+                    } else {
+                        // Attempt 2: the file itself is undecodable — skip it.
+                        NativeLogger.emit("warn", "Watchdog",
+                            "Re-prepare had no effect — skipping to next track")
+                        transportCommands.skipNextNative()
+                    }
+                }
+            },
         )
 
         transportCommands = TransportCommands(
