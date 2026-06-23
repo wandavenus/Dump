@@ -171,7 +171,7 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
                       top: 10,
-                      right: 20,
+                      right: 25,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -228,7 +228,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: _animDuration,
                       curve: _animCurve,
                       top: showOverlay
-                      ? -0.4
+                      ? -0.5
                       : lerpDouble(
                       sh - 140,
                       coverTop,
