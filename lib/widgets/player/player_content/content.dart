@@ -95,7 +95,7 @@ class _PlayerContentState extends State<PlayerContent> {
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
-                const overlayTop = _smallCoverSize + 100.0;
+                const overlayTop = _smallCoverSize + 10.0;
             
                 const controlsHeight = 35.0;
                 return Stack(
@@ -171,7 +171,7 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
                       top: 10,
-                      right: 30,
+                      right: 20,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -228,7 +228,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: _animDuration,
                       curve: _animCurve,
                       top: showOverlay
-                      ? -0.2
+                      ? -0.4
                       : lerpDouble(
                       sh - 140,
                       coverTop,
