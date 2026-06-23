@@ -134,8 +134,8 @@ class _PlayerContentState extends State<PlayerContent> {
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
                       top: overlayTop,
-                      left: 13,
-                      right: 13,
+                      left: 10,
+                      right: 10,
                       bottom: _lyricsExpand > 0 ? -250 : 0,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -151,8 +151,8 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Queue area — fades in in queue mode ───────────────────
                     Positioned(
                       top: overlayTop,
-                      left: 15.5,
-                      right: 15.5,
+                      left: 15.6,
+                      right: 15.6,
                       bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -185,9 +185,9 @@ class _PlayerContentState extends State<PlayerContent> {
 
                     // ── Mini song header — shown next to small artwork ─────────
                     Positioned(
-                      top: 14,
+                      top: 10,
                       left: 22 + _smallCoverSize + 12,
-                      right: 70,
+                      
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
