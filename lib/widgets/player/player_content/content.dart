@@ -374,7 +374,7 @@ height: showOverlay
                   ),
 
                   Padding(
-  padding: const EdgeInsets.only(bottom: 10),
+  padding: const EdgeInsets.only(bottom: 12),
   child: Container(
     width: double.infinity,
     height: 1,
