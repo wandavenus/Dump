@@ -500,7 +500,7 @@ bool _autoplayEnabled = true;
 
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 20,
+    horizontal: 18,
   ),
   child: Row(
     children: [
@@ -513,10 +513,10 @@ Padding(
   color: AudioService.shuffleEnabled
       ? const Color(0xFFF92D48).withValues(alpha: 0.25)
       : Colors.white.withValues(alpha: 0.08),
-  borderRadius: BorderRadius.circular(4),
+  borderRadius: BorderRadius.circular(8),
 ),
       child: Icon(
-  Icons.shuffle_rounded,
+  CupertinoIcons.shuffle,
   color: AudioService.shuffleEnabled
       ? const Color(0xFFF92D48)
       : Colors.white,
@@ -535,12 +535,12 @@ Padding(
         color: AudioService.loopMode != LoopMode.off
     ? const Color(0xFFF92D48).withValues(alpha: 0.25)
     : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
   AudioService.loopMode == LoopMode.one
-      ? Icons.repeat_one_rounded
-      : Icons.repeat_rounded,
+      ? CupertinoIcons.repeat_1
+      : CupertinoIcons.repeat,
   color: AudioService.loopMode != LoopMode.off
       ? const Color(0xFFF92D48)
       : Colors.white,
@@ -562,10 +562,10 @@ Padding(
         color: _autoplayEnabled
             ? const Color(0xFFF92D48).withValues(alpha: 0.25)
             : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
-        Icons.auto_awesome_rounded,
+        CupertinoIcons.infinite,
         color: _autoplayEnabled
             ? const Color(0xFFF92D48)
             : Colors.white,
@@ -606,7 +606,7 @@ Padding(
   ),
 ),
 
-const SizedBox(height: 16),
+const SizedBox(height: 15),
                 
             Expanded(
               child: ReorderableListView.builder(
