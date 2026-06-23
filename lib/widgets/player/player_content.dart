@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'player_hero_tags.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:text_scroll/text_scroll.dart';
 import 'package:flutter/material.dart';
 import '../../../services/player_sheet_controller.dart';
 import '../../models/local_song.dart';
