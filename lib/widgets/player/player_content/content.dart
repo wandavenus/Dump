@@ -1,5 +1,5 @@
 part of '../player_content.dart';
-
+const double _playerHorizontalPadding = 32.0;
 class PlayerContent extends StatefulWidget {
   final LocalSong song;
   final AudioPlaybackState playbackState;
@@ -28,7 +28,7 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
-  static const _playerHorizontalPadding = 32.0;
+  
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
   static const _animCurve = Curves.easeInOutCubic;
@@ -502,7 +502,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   child: Row(
     children: [
       ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         child: SongArtwork(
           songId: playlist[currentIdx].id,
           size: 56,
@@ -569,13 +569,7 @@ Padding(
 ),
 
 const SizedBox(height: 16),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+                
             Expanded(
               child: ReorderableListView.builder(
                 scrollController: _scroll,
