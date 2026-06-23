@@ -567,15 +567,7 @@ class _QueueRow extends StatelessWidget {
               SizedBox(
                 width: 44,
                 height: 44,
-                child: isCurrent
-                    ? const Center(
-                        child: Icon(
-                          Icons.equalizer_rounded,
-                          color: Color(0xFFF92D48),
-                          size: 22,
-                        ),
-                      )
-                    : SongArtwork(
+                child: SongArtwork(
                         songId: song.id,
                         size: 44,
                         borderRadius: BorderRadius.circular(6),
@@ -594,7 +586,7 @@ class _QueueRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isCurrent
-                            ? const Color(0xFFF92D48)
+                            ? const Color(0xFFFFFFFF)
                             : Colors.white,
                         fontSize: 14,
                         fontWeight: isCurrent
@@ -602,7 +594,7 @@ class _QueueRow extends StatelessWidget {
                             : FontWeight.w400,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1),
                     Text(
                       song.artist,
                       maxLines: 1,
