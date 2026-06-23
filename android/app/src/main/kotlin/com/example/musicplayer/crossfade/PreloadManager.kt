@@ -5,6 +5,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.events.NativeLogger
+import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.utils.MediaItemFactory
 
 /**
@@ -86,7 +87,9 @@ class PreloadManager(
             standby.prepare()
             isPrewarmed         = false
             preloadedQueueIndex = nextIndex
-            log("preloadNextTrack → [$nextIndex] '${queue[nextIndex]["title"]}'")
+            val title = queue[nextIndex]["title"] as? String ?: "Unknown"
+            log("preloadNextTrack → [$nextIndex] '$title'")
+            SessionAuditLogger.onPreload(nextIndex, title)
         } catch (e: Exception) {
             preloadedQueueIndex = C.INDEX_UNSET
             isPrewarmed         = false
@@ -120,6 +123,7 @@ class PreloadManager(
         standby.play()
         isPrewarmed = true
         log("prewarmStandby: standby audio pipeline warming (volume=0)")
+        SessionAuditLogger.onPrewarm()
     }
 
     /** Stops and clears the standby player's queue without releasing it. */

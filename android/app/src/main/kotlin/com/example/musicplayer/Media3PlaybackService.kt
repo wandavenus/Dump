@@ -24,6 +24,7 @@ import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
 import com.example.musicplayer.events.EventEmitter
 import com.example.musicplayer.events.NativeLogger
+import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
@@ -250,7 +251,17 @@ class Media3PlaybackService : MediaSessionService() {
                     NativeLogger.emit("info", "Media3",
                         "Post-crossfade effects reattach → session=$newSessionId")
                 }
-                // Re-evaluate offload scheduling on the newly promoted player.
+                // Open a fresh audit chapter for the newly promoted track.
+                // SessionAuditLogger.onCrossfadeComplete() was already called inside
+                // CrossfadeController.runEqualPowerFade before this callback fires,
+                // so the fade-complete line appears in the outgoing chapter first.
+                val promotedMap = queueManager.queue.getOrNull(queueManager.activeQueueIndex)
+                SessionAuditLogger.openChapter(
+                    title          = promotedMap?.get("title")  as? String ?: "Unknown",
+                    artist         = promotedMap?.get("artist") as? String ?: "",
+                    audioSessionId = newSessionId,
+                )
+                // Re-evaluate offload state on the newly promoted player.
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
                 offloadManager.onCrossfadeComplete()
@@ -553,6 +564,16 @@ class Media3PlaybackService : MediaSessionService() {
                     if (crossfadeController.crossfadeDurationSec > 0f) {
                         preloadManager.preloadNextTrack(force = true)
                     }
+                    // Open a new audit chapter for this track transition.
+                    // Done here (inside the non-crossfade guard) so crossfade promotions
+                    // open their chapter from the onCrossfadeComplete callback instead,
+                    // avoiding a double-open on the same track.
+                    val trackMap = queueManager.queue.getOrNull(queueManager.activeQueueIndex)
+                    SessionAuditLogger.openChapter(
+                        title          = trackMap?.get("title")  as? String ?: "Unknown",
+                        artist         = trackMap?.get("artist") as? String ?: "",
+                        audioSessionId = p.audioSessionId,
+                    )
                 }
                 queueSync.save()
                 transportState.emitAll()
@@ -575,6 +596,7 @@ class Media3PlaybackService : MediaSessionService() {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (!isActiveEvent()) return
                 NativeLogger.emit("info", "Media3", "audioSessionId → $audioSessionId")
+                SessionAuditLogger.onAudioSessionAssigned(audioSessionId)
                 effectsManager.attachEffects(audioSessionId)
                 transportState.emitAll()
             }

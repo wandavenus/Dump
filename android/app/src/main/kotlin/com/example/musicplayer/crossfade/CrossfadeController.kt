@@ -6,6 +6,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.events.NativeLogger
+import com.example.musicplayer.events.SessionAuditLogger
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -140,6 +141,7 @@ class CrossfadeController(
 
         // Stop the old player if we're mid-fade
         if (crossfadeInProgress) {
+            SessionAuditLogger.onCrossfadeCancelled("external cancel, resetVolume=$resetVolume")
             promotionOwner?.let { old ->
                 try { old.pause()           } catch (_: Exception) {}
                 try { old.stop()            } catch (_: Exception) {}
@@ -197,6 +199,8 @@ class CrossfadeController(
         // Notify AudioOffloadManager BEFORE the first Handler tick so offload
         // scheduling is disabled before the 16 ms volume-fade runnable starts.
         onCrossfadeStarting()
+        val standbyTitle = queue.getOrNull(nextIndex)?.get("title") as? String ?: "Unknown"
+        SessionAuditLogger.onCrossfadeStarting(actualFadeMs, standbyTitle)
         //setActiveQueueIndex(nextIndex)
 
         // Detach the old player's trailing queue tail to free memory
@@ -288,6 +292,7 @@ class CrossfadeController(
                     preloadManager.resetPreloadedIndex()
 
                     log("Crossfade complete: ${durationMs}ms, $steps steps @ ${stepMs}ms/step")
+                    SessionAuditLogger.onCrossfadeComplete(durationMs, steps)
 
                     // Rebuild full queue on promoted player + re-attach effects
                     onCrossfadeComplete()

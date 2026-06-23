@@ -12,6 +12,7 @@ import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
 import com.example.musicplayer.events.EventEmitter
 import com.example.musicplayer.events.NativeLogger
+import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
@@ -79,6 +80,7 @@ class TransportCommands(
             "seek" -> {
                 val pos = (call.argument<Number>("position")?.toLong() ?: 0L).coerceAtLeast(0L)
                 p.seekTo(pos)
+                SessionAuditLogger.onSeek(pos)
                 log("verbose", "seek → ${pos}ms")
                 // Player listener (onPlaybackStateChanged/onIsPlayingChanged) handles emission
                 result.success(null)
@@ -321,6 +323,7 @@ class TransportCommands(
                 if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
             }
             p.play()
+            SessionAuditLogger.onPlay(p.currentPosition)
             ensureMediaForeground()
             notificationManager.refresh()
             transportState.startPositionTicker()
@@ -337,6 +340,7 @@ class TransportCommands(
 
     private fun handlePause(p: ExoPlayer, result: MethodChannel.Result) {
         p.pause()
+        SessionAuditLogger.onPause(p.currentPosition)
         transportState.stopPositionTicker()
         audioFocusManager.abandon()
         log("info", "pause @ ${p.currentPosition}ms")
@@ -357,6 +361,7 @@ class TransportCommands(
     }
 
     private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
+        SessionAuditLogger.onSkipPrev()
         sleepTimerManager.cancel()
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
@@ -383,7 +388,8 @@ class TransportCommands(
         result.success(null)
     }
 
-        private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
+    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
+        SessionAuditLogger.onSkipNext()
         sleepTimerManager.cancel()
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()

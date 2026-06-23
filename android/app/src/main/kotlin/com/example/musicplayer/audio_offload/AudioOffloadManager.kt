@@ -3,6 +3,7 @@ package com.example.musicplayer.audio_offload
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.musicplayer.events.NativeLogger
+import com.example.musicplayer.events.SessionAuditLogger
 
 /**
  * Observes and reports Audio Offload state on the active ExoPlayer instance.
@@ -198,6 +199,7 @@ class AudioOffloadManager(
                         "Media3 now manages CPU scheduling internally (sleeps between audio writes). " +
                         "Battery saving is ACTIVE.",
                     )
+                    SessionAuditLogger.onOffloadGranted()
                 } else {
                     val reasons = buildList {
                         if (crossfadeActive)          add("crossfade in progress (dual-player DSP slot conflict)")
@@ -205,11 +207,13 @@ class AudioOffloadManager(
                         add("software effects attached (EQ/LoudnessEnhancer/BassBoost/Virtualizer/Reverb bypass offload path)")
                         add("audio format not DSP-supported on this device / Android version")
                     }
+                    val reasonStr = reasons.joinToString("; ")
                     NativeLogger.emit(
                         "info", "AudioOffload",
                         "OS REVOKED / REJECTED hardware offload — CPU rendering active. " +
-                        "Possible causes: ${reasons.joinToString("; ")}.",
+                        "Possible causes: $reasonStr.",
                     )
+                    SessionAuditLogger.onOffloadRevoked(reasonStr)
                 }
                 onOffloadStateChanged(osGranted)
             }
