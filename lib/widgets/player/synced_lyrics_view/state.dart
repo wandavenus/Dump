@@ -34,13 +34,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
-      builder: (_, fs, __) =>
+      builder: (_, fs, _) =>
           ValueListenableBuilder<String>(
         valueListenable: LyricsSettings.textAlign,
-        builder: (_, align, __) =>
+        builder: (_, align, _) =>
             ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.activeColor,
-          builder: (_, colorKey, __) {
+          builder: (_, colorKey, _) {
             final activeColor = LyricsSettings.resolvedActiveColor;
             final textAlign   = LyricsSettings.resolvedTextAlign;
 
@@ -162,6 +162,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
     if (renderObj == null) { _scrollToCenterFallback(index); return; }
 
     // Find the nearest scrollable viewport in the ancestor tree.
+    // ignore: unnecessary_nullable_for_final_variable_declarations
     final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
     if (viewport == null) { _scrollToCenterFallback(index); return; }
 

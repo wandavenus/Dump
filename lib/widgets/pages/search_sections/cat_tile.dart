@@ -3,7 +3,7 @@ part of '../search_sections.dart';
 class _SearchCategoryTile extends StatelessWidget {
   const _SearchCategoryTile({required this.category});
 
-  final Map category;
+  final Map<String, dynamic> category;
 
   @override
   Widget build(BuildContext context) {

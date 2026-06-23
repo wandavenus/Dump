@@ -21,7 +21,7 @@ class _SearchBar extends StatelessWidget {
       padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 10),
       child: GestureDetector(
         // Request focus ONLY when user explicitly taps the search bar
-        onTap: () => focusNode.requestFocus(),
+        onTap: focusNode.requestFocus,
         child: Container(
           height: 38,
           decoration: BoxDecoration(

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../services/artwork_repository.dart';
 import '../../services/blurred_image_cache.dart';
-import '../../services/media_store_service.dart';
 
 part 'player_background/animated.dart';
 part 'player_background/animated_state.dart';

@@ -107,7 +107,7 @@ class _SongArtworkState extends State<SongArtwork> {
           fit: widget.fit,
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, __, ___) => _fallback(),
+          errorBuilder: (_, _, _) => _fallback(),
         ),
       );
     }

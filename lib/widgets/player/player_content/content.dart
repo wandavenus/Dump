@@ -541,7 +541,7 @@ Padding(
   color: Colors.white.withValues(alpha: 0.08),
   borderRadius: BorderRadius.circular(8),
 ),
-      child: Icon(
+      child: const Icon(
   CupertinoIcons.shuffle,
   color: Colors.white,
   size: 20,
@@ -583,7 +583,7 @@ Padding(
         color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(
+      child: const Icon(
         CupertinoIcons.infinite,
         size: 20,
         color: Colors.white,
@@ -612,7 +612,7 @@ Padding(
           fontWeight: FontWeight.w500,
         ),
       ),
-      SizedBox(height: 0.5),
+      const SizedBox(height: 0.5),
       Text(
         'Memutar otomatis musik serupa',
         style: TextStyle(
@@ -964,7 +964,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: Container(
+      child: ColoredBox(
         color: const Color(0xBF0D0D0D),
         child: SafeArea(
           top: false,

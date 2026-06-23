@@ -21,7 +21,7 @@ class PlayerTransportControls extends StatelessWidget {
             size: 64,
             color: Colors.white,
           ),
-          onPressed: hasPlaylist ? () => AudioService.skipPrevious() : null,
+          onPressed: hasPlaylist ? AudioService.skipPrevious : null,
         ),
         const SizedBox(width: 15),
         IconButton(
@@ -45,7 +45,7 @@ class PlayerTransportControls extends StatelessWidget {
             size: 64,
             color: Colors.white,
           ),
-          onPressed: hasPlaylist ? () => AudioService.skipNext() : null,
+          onPressed: hasPlaylist ? AudioService.skipNext : null,
         ),
       ],
     );

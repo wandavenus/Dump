@@ -1,4 +1,5 @@
 part of '../lyrics_page.dart';
+// ignore_for_file: unused_element
 
 class _BlurSlider extends StatelessWidget {
   const _BlurSlider();

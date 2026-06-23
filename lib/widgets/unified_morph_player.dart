@@ -369,7 +369,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   child: AnimatedOpacity(
     duration: const Duration(milliseconds: 220),
     opacity: morphArtVisible ? 1.0 : 0.0,
-    child: Container(
+    child: DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(artRadius),
         boxShadow: [
@@ -429,8 +429,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   AudioPlaybackState state,
   double progress,
 ) {
-    final canGoNext =
-        state.currentIndex < state.currentPlaylist.length - 1;
     final miniContentAlpha =
     (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
@@ -499,8 +497,8 @@ Transform.translate(
           ),
         ),
         IconButton(
-          onPressed: () => AudioService.skipNext(),
-          icon: Icon(
+          onPressed: AudioService.skipNext,
+          icon: const Icon(
             Icons.fast_forward_rounded,
             size: 36,
             color: Colors.white,

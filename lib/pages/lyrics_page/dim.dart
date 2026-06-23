@@ -1,4 +1,5 @@
 part of '../lyrics_page.dart';
+// ignore_for_file: unused_element
 
 class _DimSlider extends StatelessWidget {
   const _DimSlider();
