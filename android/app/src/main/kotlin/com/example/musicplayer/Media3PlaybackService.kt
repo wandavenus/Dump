@@ -17,7 +17,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.session.SessionResult
+import androidx.media3.common.ForwardingPlayer
 import com.example.musicplayer.audio_focus.AudioFocusManager
 import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
@@ -151,50 +151,22 @@ class Media3PlaybackService : MediaSessionService() {
         primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
 
         // Build MediaSession
-        // The Callback references `transportCommands` (lateinit) and `activePlayer` which are
-        // both fully initialised later in onCreate().  Callbacks only fire once a controller
-        // (Bluetooth stack, OS widget) connects — that always happens after onCreate() returns
-        // — so accessing these lateinit vars from the callback is unconditionally safe.
+        // ForwardingPlayer intercepts transport commands from external controllers
+        // (Bluetooth, OS widgets) and routes them through transportCommands.*Native()
+        // so audio focus, crossfade, and state emission are handled correctly.
+        // transportCommands is lateinit but always initialised before any external
+        // controller can connect (which only happens after onCreate() returns).
+        val sessionPlayer = object : ForwardingPlayer(primaryPlayer!!) {
+            override fun play()                    { transportCommands.playNative() }
+            override fun pause()                   { transportCommands.pauseNative() }
+            override fun seekToNextMediaItem()     { transportCommands.skipNextNative() }
+            override fun seekToPreviousMediaItem() { transportCommands.skipPrevNative() }
+            override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
+                transportCommands.seekNative(positionMs)
+            }
+        }
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val sessionBuilder = MediaSession.Builder(this, primaryPlayer!!)
-            .setCallback(object : MediaSession.Callback {
-                override fun onPlay(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                ): Int {
-                    transportCommands.playNative()
-                    return SessionResult.RESULT_SUCCESS
-                }
-                override fun onPause(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                ): Int {
-                    transportCommands.pauseNative()
-                    return SessionResult.RESULT_SUCCESS
-                }
-                override fun onSkipToNext(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                ): Int {
-                    transportCommands.skipNextNative()
-                    return SessionResult.RESULT_SUCCESS
-                }
-                override fun onSkipToPrevious(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                ): Int {
-                    transportCommands.skipPrevNative()
-                    return SessionResult.RESULT_SUCCESS
-                }
-                override fun onSeekTo(
-                    session: MediaSession,
-                    controller: MediaSession.ControllerInfo,
-                    positionMs: Long,
-                ): Int {
-                    transportCommands.seekNative(positionMs)
-                    return SessionResult.RESULT_SUCCESS
-                }
-            })
+        val sessionBuilder = MediaSession.Builder(this, sessionPlayer)
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
