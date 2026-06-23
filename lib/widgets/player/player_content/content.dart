@@ -198,8 +198,7 @@ class _PlayerContentState extends State<PlayerContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 180,
-  height: 24,
+  width: 120,
   child: TextScroll(
     widget.song.title,
     mode: TextScrollMode.endless,
