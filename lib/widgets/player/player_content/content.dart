@@ -377,7 +377,7 @@ height: showOverlay
   padding: const EdgeInsets.only(bottom: 14),
   child: Container(
     width: double.infinity,
-    height: 0.9,
+    height: 0.8,
     color: Colors.white.withValues(alpha: 0.13),
   ),
 ),
@@ -499,8 +499,8 @@ bool _autoplayEnabled = true;
           children: [
 
 Padding(
-  padding: EdgeInsets.symmetric(
-    horizontal: _playerHorizontalPadding,
+  padding: const EdgeInsets.symmetric(
+    horizontal: 20,
   ),
   child: Row(
     children: [
@@ -508,12 +508,12 @@ Padding(
   child: GestureDetector(
     onTap: AudioService.toggleShuffle,
     child: Container(
-      height: 56,
+      height: 36,
       decoration: BoxDecoration(
   color: AudioService.shuffleEnabled
       ? const Color(0xFFF92D48).withValues(alpha: 0.25)
       : Colors.white.withValues(alpha: 0.08),
-  borderRadius: BorderRadius.circular(16),
+  borderRadius: BorderRadius.circular(4),
 ),
       child: Icon(
   Icons.shuffle_rounded,
@@ -530,12 +530,12 @@ Padding(
   child: GestureDetector(
     onTap: AudioService.cycleLoopMode,
     child: Container(
-      height: 56,
+      height: 36,
       decoration: BoxDecoration(
         color: AudioService.loopMode != LoopMode.off
     ? const Color(0xFFF92D48).withValues(alpha: 0.25)
     : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Icon(
   AudioService.loopMode == LoopMode.one
@@ -557,12 +557,12 @@ Padding(
       });
     },
     child: Container(
-      height: 56,
+      height: 36,
       decoration: BoxDecoration(
         color: _autoplayEnabled
             ? const Color(0xFFF92D48).withValues(alpha: 0.25)
             : Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Icon(
         Icons.auto_awesome_rounded,
@@ -580,8 +580,8 @@ Padding(
 const SizedBox(height: 24),
             
 Padding(
-  padding: EdgeInsets.symmetric(
-    horizontal: _playerHorizontalPadding,
+  padding: const EdgeInsets.symmetric(
+    horizontal: 20,
   ),
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,10 +591,10 @@ Padding(
         style: TextStyle(
           color: Colors.white,
           fontSize: 20,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      SizedBox(height: 4),
+      SizedBox(height: 2),
       Text(
         'Memutar otomatis musik serupa',
         style: TextStyle(
