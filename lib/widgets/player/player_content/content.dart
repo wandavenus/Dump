@@ -198,7 +198,7 @@ class _PlayerContentState extends State<PlayerContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 180,
+  width: 185,
   child: ShaderMask(
     shaderCallback: (rect) {
       return const LinearGradient(
@@ -538,16 +538,12 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-  color: AudioService.shuffleEnabled
-      ? const Color(0xFFF92D48).withValues(alpha: 0.25)
-      : Colors.white.withValues(alpha: 0.08),
+  color: Colors.white,
   borderRadius: BorderRadius.circular(8),
 ),
       child: Icon(
   CupertinoIcons.shuffle,
-  color: AudioService.shuffleEnabled
-      ? const Color(0xFFF92D48)
-      : Colors.white,
+  color: Colors.white,
   size: 20,
 ),
     ),
@@ -560,9 +556,7 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-        color: AudioService.loopMode != LoopMode.off
-    ? const Color(0xFFF92D48).withValues(alpha: 0.25)
-    : Colors.white.withValues(alpha: 0.08),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
@@ -570,9 +564,7 @@ Padding(
       ? CupertinoIcons.repeat_1
       : CupertinoIcons.repeat,
       size: 20,
-        color: AudioService.loopMode != LoopMode.off
-      ? const Color(0xFFF92D48)
-      : Colors.white,
+        color: Colors.white,
 ),
     ),
   ),
@@ -588,17 +580,13 @@ Padding(
     child: Container(
       height: 36,
       decoration: BoxDecoration(
-        color: _autoplayEnabled
-            ? const Color(0xFFF92D48).withValues(alpha: 0.25)
-            : Colors.white.withValues(alpha: 0.08),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
         CupertinoIcons.infinite,
         size: 20,
-        color: _autoplayEnabled
-            ? const Color(0xFFF92D48)
-            : Colors.white,
+        color: Colors.white,
       ),
     ),
   ),
@@ -624,7 +612,7 @@ Padding(
           fontWeight: FontWeight.w500,
         ),
       ),
-      SizedBox(height: 1),
+      SizedBox(height: 0.5),
       Text(
         'Memutar otomatis musik serupa',
         style: TextStyle(
