@@ -496,9 +496,79 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Antrian — ${playlist.length} lagu',
+  padding: EdgeInsets.symmetric(
+    horizontal: _playerHorizontalPadding,
+  ),
+  child: Row(
+    children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SongArtwork(
+          songId: playlist[currentIdx].id,
+          size: 56,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              playlist[currentIdx].title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              playlist[currentIdx].artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 20),
+
+Padding(
+  padding: EdgeInsets.symmetric(
+    horizontal: _playerHorizontalPadding,
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Lanjutkan Memutar',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      SizedBox(height: 4),
+      Text(
+        'Memutar otomatis musik serupa',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.55),
+          fontSize: 14,
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 16),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.45),
                   fontSize: 12,
