@@ -171,7 +171,7 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
                       top: 10,
-                      right: 25,
+                      right: 27,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
