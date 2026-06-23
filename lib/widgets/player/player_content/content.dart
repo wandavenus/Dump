@@ -447,7 +447,7 @@ class _QueueOverlayBody extends StatefulWidget {
 class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   final _scroll = ScrollController();
 
-bool _autoplayEnabled = true;
+bool _autoplayEnabled = false;
   
   @override
   void didUpdateWidget(_QueueOverlayBody old) {
@@ -603,7 +603,7 @@ Padding(
           fontWeight: FontWeight.w500,
         ),
       ),
-      SizedBox(height: 2),
+      SizedBox(height: 1),
       Text(
         'Memutar otomatis musik serupa',
         style: TextStyle(
