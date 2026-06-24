@@ -1,40 +1,42 @@
 package com.example.musicplayer.metadata
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.MetadataRetriever
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
-import androidx.media3.extractor.metadata.id3.UnsynchronizedLyricsFrame
-import androidx.media3.extractor.metadata.mp4.MdtaMetadataEntry
 import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * Reads audio metadata tags using ExoPlayer's [MetadataRetriever].
+ * Reads audio metadata tags using a two-layer strategy:
  *
- * Replaces jaudiotagger for:
- *  - ReplayGain / R128 / iTunNORM tag reading (all standard audio formats)
- *  - Embedded lyrics (USLT for MP3, Vorbis LYRICS for FLAC/OGG/OPUS, ©lyr for M4A)
+ *  Layer A — [MediaMetadataRetriever] (Android standard API)
+ *    • Lyrics: METADATA_KEY_LYRICS covers USLT (MP3), ©lyr (M4A), and most other
+ *      containers.  Available from API 12; reliable on all Android 10+ / MIUI 11+.
+ *
+ *  Layer B — ExoPlayer [MetadataRetriever] (@UnstableApi)
+ *    • ReplayGain / R128 / iTunNORM tags via:
+ *        ID3v2 TXXX frames → [TextInformationFrame]   (MP3, WAV-with-ID3)
+ *        Vorbis Comments   → [VorbisComment]           (FLAC, OGG, OPUS)
+ *    • Vorbis LYRICS comment (priority over Layer A for FLAC/OGG/OPUS files).
+ *
+ * Why not use [UnsynchronizedLyricsFrame] / [MdtaMetadataEntry]:
+ *   These classes are not in the public API surface of media3-extractor:1.10.1 —
+ *   they either don't exist at that version or are @InternalOnly.
+ *   [MediaMetadataRetriever.METADATA_KEY_LYRICS] covers all the same containers.
  *
  * Must be called from a background thread — [read] blocks for up to [TIMEOUT_SEC].
  * Never throws; returns empty [AudioTags] on any error.
  *
- * Supported formats (via ExoPlayer container demuxers):
- *  MP3   → ID3v2 TXXX frames for RG; USLT frames for lyrics
- *  FLAC  → Vorbis comments for RG + lyrics
- *  OGG   → Vorbis comments for RG + lyrics
- *  OPUS  → Vorbis comments for RG + lyrics
- *  M4A   → MdtaMetadataEntry atoms for RG + ©lyr for lyrics
- *  WAV   → ID3v2 TXXX (when ID3 chunk is present)
- *
  * MIUI note: [Uri.fromFile] is used so ExoPlayer reads directly from the
- * file system path rather than via a content resolver, which avoids MIUI's
- * occasional URI permission quirks for external storage files.
+ * file system path rather than via the content resolver, avoiding MIUI's
+ * occasional permission issues with content:// URIs for external-storage files.
  */
 @OptIn(UnstableApi::class)
 object ExoMetadataReader {
@@ -63,26 +65,23 @@ object ExoMetadataReader {
             rgTrackGain != null || r128Track != null || iTunNorm != null
     }
 
-    // ── Internal builder ──────────────────────────────────────────────────────
+    // ── Internal builder (ReplayGain + Vorbis lyrics only) ───────────────────
 
     private class TagBuilder {
-        var rgTrackGain  : String? = null
-        var rgTrackPeak  : String? = null
-        var rgAlbumGain  : String? = null
-        var rgAlbumPeak  : String? = null
-        var r128Track    : String? = null
-        var r128Album    : String? = null
-        var iTunNorm     : String? = null
-
-        // Prefer blank-language or "eng" USLT; keep non-eng as fallback
-        private var lyricsEng   : String? = null
-        private var lyricsOther : String? = null
-        val lyrics: String? get() = lyricsEng ?: lyricsOther
+        var rgTrackGain : String? = null
+        var rgTrackPeak : String? = null
+        var rgAlbumGain : String? = null
+        var rgAlbumPeak : String? = null
+        var r128Track   : String? = null
+        var r128Album   : String? = null
+        var iTunNorm    : String? = null
+        // Vorbis LYRICS comment — used for FLAC/OGG/OPUS files
+        var vorbisLyrics: String? = null
 
         fun consume(entry: androidx.media3.common.Metadata.Entry) {
             when (entry) {
 
-                // ── ID3v2 TXXX — MP3 ReplayGain ───────────────────────────
+                // ── ID3v2 TXXX — MP3 / WAV ReplayGain ─────────────────────
                 is TextInformationFrame -> {
                     if (!entry.id.equals("TXXX", ignoreCase = true)) return
                     val desc  = entry.description?.uppercase()?.trim() ?: return
@@ -102,72 +101,30 @@ object ExoMetadataReader {
                     }
                 }
 
-                // ── ID3v2 USLT — MP3 embedded lyrics ──────────────────────
-                is UnsynchronizedLyricsFrame -> {
-                    val text = entry.lyrics?.trim()?.takeIf { it.isNotBlank() } ?: return
-                    val lang = entry.language?.trim()?.lowercase() ?: ""
-                    if (lang.isEmpty() || lang == "eng") {
-                        if (lyricsEng == null) lyricsEng = text
-                    } else {
-                        if (lyricsOther == null) lyricsOther = text
-                    }
-                }
-
                 // ── Vorbis Comment — FLAC / OGG / OPUS ────────────────────
                 is VorbisComment -> {
                     val key   = entry.key.uppercase().trim()
                     val value = entry.value.trim().takeIf { it.isNotBlank() } ?: return
                     when (key) {
-                        "REPLAYGAIN_TRACK_GAIN"  -> if (rgTrackGain == null) rgTrackGain = value
-                        "REPLAYGAIN_TRACK_PEAK"  -> if (rgTrackPeak == null) rgTrackPeak = value
-                        "REPLAYGAIN_ALBUM_GAIN"  -> if (rgAlbumGain == null) rgAlbumGain = value
-                        "REPLAYGAIN_ALBUM_PEAK"  -> if (rgAlbumPeak == null) rgAlbumPeak = value
-                        "R128_TRACK_GAIN"        -> if (r128Track   == null) r128Track   = value
-                        "R128_ALBUM_GAIN"        -> if (r128Album   == null) r128Album   = value
+                        "REPLAYGAIN_TRACK_GAIN"  -> if (rgTrackGain   == null) rgTrackGain   = value
+                        "REPLAYGAIN_TRACK_PEAK"  -> if (rgTrackPeak   == null) rgTrackPeak   = value
+                        "REPLAYGAIN_ALBUM_GAIN"  -> if (rgAlbumGain   == null) rgAlbumGain   = value
+                        "REPLAYGAIN_ALBUM_PEAK"  -> if (rgAlbumPeak   == null) rgAlbumPeak   = value
+                        "R128_TRACK_GAIN"        -> if (r128Track     == null) r128Track     = value
+                        "R128_ALBUM_GAIN"        -> if (r128Album     == null) r128Album     = value
                         "LYRICS",
                         "UNSYNCEDLYRICS",
-                        "UNSYNCED LYRICS"        -> if (lyricsEng   == null) lyricsEng   = value
+                        "UNSYNCED LYRICS"        -> if (vorbisLyrics  == null) vorbisLyrics  = value
                     }
                 }
 
-                // ── MdtaMetadataEntry — M4A / MP4 atoms ───────────────────
-                // Standard atoms use a 4-char key (e.g. "©lyr").
-                // iTunes free-form atoms (----) may surface as longer keys.
-                is MdtaMetadataEntry -> {
-                    val keyRaw   = entry.key?.trim() ?: return
-                    val rawBytes = entry.value     ?: return
-                    val value    = runCatching {
-                        String(rawBytes, Charsets.UTF_8).trim()
-                    }.getOrNull()?.takeIf { it.isNotBlank() } ?: return
-
-                    val keyLower = keyRaw.lowercase()
-                    when {
-                        // Standard lyrics atom  ©lyr  (unicode copyright + "lyr")
-                        keyRaw == "\u00a9lyr" || keyLower.endsWith(".lyrics") ->
-                            if (lyricsEng == null) lyricsEng = value
-
-                        // iTunes free-form ReplayGain atoms
-                        keyLower.contains("replaygain_track_gain") ->
-                            if (rgTrackGain == null) rgTrackGain = value
-                        keyLower.contains("replaygain_track_peak") ->
-                            if (rgTrackPeak == null) rgTrackPeak = value
-                        keyLower.contains("replaygain_album_gain") ->
-                            if (rgAlbumGain == null) rgAlbumGain = value
-                        keyLower.contains("replaygain_album_peak") ->
-                            if (rgAlbumPeak == null) rgAlbumPeak = value
-                        keyLower.contains("r128_track_gain")       ->
-                            if (r128Track   == null) r128Track   = value
-                        keyLower.contains("r128_album_gain")       ->
-                            if (r128Album   == null) r128Album   = value
-                        keyLower.contains("itunnorm") ||
-                        keyLower.contains("itun norm")              ->
-                            if (iTunNorm    == null) iTunNorm    = value
-                    }
-                }
+                // All other entry types (BinaryFrame, etc.) are ignored — any
+                // lyrics they would carry are already handled by Layer A (MMR).
+                else -> {}
             }
         }
 
-        fun build() = AudioTags(
+        fun build(mmrLyrics: String?) = AudioTags(
             rgTrackGain = rgTrackGain,
             rgTrackPeak = rgTrackPeak,
             rgAlbumGain = rgAlbumGain,
@@ -175,33 +132,50 @@ object ExoMetadataReader {
             r128Track   = r128Track,
             r128Album   = r128Album,
             iTunNorm    = iTunNorm,
-            lyrics      = lyrics,
+            // Vorbis LYRICS comment takes priority (proper tag format);
+            // fall back to MMR result which covers USLT (MP3) and ©lyr (M4A).
+            lyrics      = vorbisLyrics ?: mmrLyrics,
         )
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Reads all metadata tags for the audio file at [path].
+     * Reads all audio metadata for the file at [path].
      *
-     * Uses ExoPlayer [MetadataRetriever] which creates an internal
-     * [android.os.HandlerThread] — safe to call from any background thread.
-     * Blocks for up to [TIMEOUT_SEC] seconds.
+     * Layer A ([MediaMetadataRetriever]) runs synchronously first to extract lyrics.
+     * Layer B (ExoPlayer [MetadataRetriever]) then reads ReplayGain / R128 tags.
+     * Both layers are called from the same background thread.
      *
      * @param context Application or activity context.
      * @param path    Absolute file path.
-     * @return [AudioTags] with populated fields; all-null if nothing found or error.
+     * @return [AudioTags] with populated fields; all-null if nothing found or on error.
      */
     fun read(context: Context, path: String): AudioTags {
         if (path.isBlank()) return AudioTags()
         val file = File(path)
         if (!file.exists()) return AudioTags()
 
+        // ── Layer A: MediaMetadataRetriever — lyrics (all formats) ────────
+        // METADATA_KEY_LYRICS reads:
+        //   USLT frames in MP3  (all languages, returns first match)
+        //   ©lyr atom in M4A / AAC
+        //   Lyrics tag in other containers where supported
+        val mmrLyrics: String? = try {
+            val mmr = MediaMetadataRetriever()
+            mmr.setDataSource(path)
+            val raw = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LYRICS)
+            mmr.release()
+            raw?.trim()?.takeIf { it.isNotBlank() }
+        } catch (_: Exception) { null }
+
+        // ── Layer B: ExoPlayer MetadataRetriever — ReplayGain + Vorbis ────
+        // Uses Uri.fromFile so ExoPlayer's FileDataSource reads directly from
+        // the filesystem path, bypassing content-resolver on MIUI.
         return try {
-            // Use Uri.fromFile so ExoPlayer reads directly via FileDataSource,
-            // bypassing any content-resolver redirects that MIUI may intercept.
-            val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
-            val future    = MetadataRetriever.retrieveMetadata(context, mediaItem)
+            val future = MetadataRetriever.retrieveMetadata(
+                context, MediaItem.fromUri(Uri.fromFile(file))
+            )
             val trackGroups = future.get(TIMEOUT_SEC, TimeUnit.SECONDS)
 
             val builder = TagBuilder()
@@ -214,17 +188,17 @@ object ExoMetadataReader {
                     }
                 }
             }
-            builder.build().also {
-                Log.d(TAG, "Read ${path.substringAfterLast('/')}: " +
-                    "rg=${it.rgTrackGain} r128=${it.r128Track} " +
-                    "lyrics=${it.lyrics?.length?.let { n -> "${n}ch" } ?: "none"}")
+            builder.build(mmrLyrics).also { tags ->
+                Log.d(TAG, "Read ${file.name}: " +
+                    "rg=${tags.rgTrackGain} r128=${tags.r128Track} " +
+                    "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}")
             }
         } catch (e: TimeoutException) {
-            Log.w(TAG, "Timed out reading: $path")
-            AudioTags()
+            Log.w(TAG, "ExoPlayer timed out for: $path — returning MMR data only")
+            AudioTags(lyrics = mmrLyrics)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed reading $path: ${e.message}")
-            AudioTags()
+            Log.w(TAG, "ExoPlayer failed for $path: ${e.message} — returning MMR data only")
+            AudioTags(lyrics = mmrLyrics)
         }
     }
 }
