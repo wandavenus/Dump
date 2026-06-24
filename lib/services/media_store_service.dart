@@ -49,6 +49,15 @@ class MediaStoreService {
     _songsCache = null;
   }
 
+  /// Cancels the native background metadata pre-scanner.
+  ///
+  /// Call this when the user starts playback so the pre-scanner yields all
+  /// I/O bandwidth to ExoPlayer's audio decode pipeline.
+  /// Fire-and-forget — result is not awaited.
+  static void cancelMetadataPrescanner() {
+    _channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {});
+  }
+
   static Future<Uint8List?> getArtwork(int songId) {
     if (songId <= 0) return Future<Uint8List?>.value();
 

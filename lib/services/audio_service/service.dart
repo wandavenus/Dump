@@ -280,6 +280,10 @@ class AudioService {
     ));
 
     try {
+      // Yield I/O bandwidth to the audio decode pipeline by stopping the
+      // background metadata pre-scanner before sending the queue to native.
+      MediaStoreService.cancelMetadataPrescanner();
+
       // Send full playlist to native — ExoPlayer owns queue + gapless.
       await Media3PlaybackBridge.setQueue(immutable, index);
       await _applyReplayGain(selectedSong);
