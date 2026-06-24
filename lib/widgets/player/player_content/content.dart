@@ -580,64 +580,30 @@ Padding(
   child: Row(
     children: [
       Expanded(
-  child: GestureDetector(
-    onTap: AudioService.toggleShuffle,
-    child: Container(
-      height: 36,
-      decoration: BoxDecoration(
-  color: Colors.white.withValues(alpha: 0.08),
-  borderRadius: BorderRadius.circular(8),
-),
-      child: const Icon(
-  CupertinoIcons.shuffle,
-  color: Colors.white,
-  size: 20,
-),
-    ),
-  ),
-),
+        child: _QueueControlButton(
+          icon: CupertinoIcons.shuffle,
+          active: state.shuffleEnabled,
+          onTap: AudioService.toggleShuffle,
+        ),
+      ),
       const SizedBox(width: 10),
       Expanded(
-  child: GestureDetector(
-    onTap: AudioService.cycleLoopMode,
-    child: Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        child: _QueueControlButton(
+          icon: state.loopMode == LoopMode.one
+              ? CupertinoIcons.repeat_1
+              : CupertinoIcons.repeat,
+          active: state.loopMode != LoopMode.off,
+          onTap: AudioService.cycleLoopMode,
+        ),
       ),
-      child: Icon(
-  AudioService.loopMode == LoopMode.one
-      ? CupertinoIcons.repeat_1
-      : CupertinoIcons.repeat,
-      size: 20,
-        color: Colors.white,
-),
-    ),
-  ),
-),
       const SizedBox(width: 10),
       Expanded(
-  child: GestureDetector(
-    onTap: () {
-      setState(() {
-        _autoplayEnabled = !_autoplayEnabled;
-      });
-    },
-    child: Container(
-      height: 36,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        child: _QueueControlButton(
+          icon: CupertinoIcons.infinite,
+          active: _autoplayEnabled,
+          onTap: () => setState(() => _autoplayEnabled = !_autoplayEnabled),
+        ),
       ),
-      child: const Icon(
-        CupertinoIcons.infinite,
-        size: 20,
-        color: Colors.white,
-      ),
-    ),
-  ),
-),
     ],
   ),
 ),
@@ -1301,6 +1267,48 @@ class _BlurSlider extends StatelessWidget {
           ),
           const Icon(Icons.blur_on, color: Colors.white38, size: 16),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Queue control button (shuffle / loop / autoplay) ─────────────────────────
+
+class _QueueControlButton extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _QueueControlButton({
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+
+  static const _activeColor   = Color(0xFF8E8E93);
+  static const _inactiveColor = Colors.white;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        height: 36,
+        decoration: BoxDecoration(
+          color: active
+              ? _activeColor.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            size: 20,
+            color: active ? _activeColor : _inactiveColor,
+          ),
+        ),
       ),
     );
   }
