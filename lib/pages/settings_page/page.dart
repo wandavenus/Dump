@@ -42,8 +42,8 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const LargePageTitle(title: 'Pengaturan'),
-            const HeaderDivider(),
+             LargePageTitle(title: 'Pengaturan'),
+             HeaderDivider(),
             _SettingsBody(),
           ],
         ),
