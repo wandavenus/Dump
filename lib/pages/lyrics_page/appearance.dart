@@ -10,7 +10,7 @@ class _LyricsAppearanceSheet extends StatelessWidget {
     // Menggunakan solid color menghemat satu fullscreen blur pass.
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: Container(
+      child: ColoredBox(
         color: const Color(0xBF0D0D0D),
           child: SafeArea(
             top: false,
