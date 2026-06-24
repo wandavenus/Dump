@@ -3,7 +3,7 @@ part of '../sleep_timer_page.dart';
 class _PresetList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(12),
