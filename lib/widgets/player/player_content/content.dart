@@ -36,10 +36,20 @@ class _PlayerContentState extends State<PlayerContent> {
   Future<LyricsResult>? _lyricsFuture;
   int? _lastFetchedSongId;
 
+  final _lyricsScrollController = ScrollController();
+  final _queueScrollController  = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _fetchLyricsIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _lyricsScrollController.dispose();
+    _queueScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -163,10 +173,37 @@ class _PlayerContentState extends State<PlayerContent> {
                           child: _QueueOverlayBody(
                             isVisible: showQueue,
                             onClose: widget.onQueueToggle,
+                            scrollController: _queueScrollController,
                           ),
                         ),
                       ),
                     ),
+
+                    // ── Bottom-zone scroll relay ───────────────────────────────
+                    // Transparent overlay covering gap between list bottom and
+                    // stack bottom. Forwards vertical drags to the active list.
+                    if (showLyrics || showQueue)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: controlsHeight + 10,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragUpdate: (d) {
+                            final ctrl = showLyrics
+                                ? _lyricsScrollController
+                                : _queueScrollController;
+                            if (!ctrl.hasClients) return;
+                            ctrl.jumpTo(
+                              (ctrl.offset - d.delta.dy).clamp(
+                                0.0,
+                                ctrl.position.maxScrollExtent,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
 
                     // ── Appearance button — visible only in lyrics mode ───────
                     Positioned(
@@ -341,7 +378,24 @@ height: showOverlay
           ),
 
           // ─── Fixed bottom controls ────────────────────────────────────────────
-          AnimatedOpacity(
+          // GestureDetector forwards vertical drags from controls area to list.
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragUpdate: (showLyrics || showQueue)
+                ? (d) {
+                    final ctrl = showLyrics
+                        ? _lyricsScrollController
+                        : _queueScrollController;
+                    if (!ctrl.hasClients) return;
+                    ctrl.jumpTo(
+                      (ctrl.offset - d.delta.dy).clamp(
+                        0.0,
+                        ctrl.position.maxScrollExtent,
+                      ),
+                    );
+                  }
+                : null,
+            child: AnimatedOpacity(
   duration: const Duration(milliseconds: 250),
   opacity: 1.0 - _lyricsExpand,
   child: IgnorePointer(
@@ -438,6 +492,7 @@ height: showOverlay
         }
         return _LyricsOverlayBody(
           result: result,
+          scrollController: _lyricsScrollController,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
             setState(() {

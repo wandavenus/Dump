@@ -2,6 +2,7 @@ part of '../synced_lyrics_view.dart';
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   final ScrollController _scroll = ScrollController();
+  ScrollController get _eff => widget.controller ?? _scroll;
   int _currentIndex = 0;
 
   // GlobalKey per item — used to query the actual rendered RenderObject so that
@@ -26,7 +27,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
 
   @override
   void dispose() {
-    _scroll.dispose();
+    if (widget.controller == null) _scroll.dispose();
     super.dispose();
   }
 
@@ -52,7 +53,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                 _maybeUpdateCurrentLine(position);
 
                 return ListView.builder(
-                  controller: _scroll,
+                  controller: _eff,
                   padding: widget.padding,
                   dragStartBehavior: DragStartBehavior.down,
                   itemCount: widget.lyrics.length,
@@ -151,7 +152,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   /// returns the exact scroll offset that places the item's midpoint at the
   /// viewport's midpoint — regardless of varying item heights or multiline text.
   void _scrollToCenter(int index) {
-    if (!_scroll.hasClients) return;
+    if (!_eff.hasClients) return;
 
     final key = _itemKeys[index];
     if (key == null || key.currentContext == null) {
@@ -172,13 +173,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
         viewport.getOffsetToReveal(renderObj, 0.5).offset;
 
     final double target = rawOffset.clamp(
-      _scroll.position.minScrollExtent,
-      _scroll.position.maxScrollExtent,
+      _eff.position.minScrollExtent,
+      _eff.position.maxScrollExtent,
     );
 
-    if ((target - _scroll.offset).abs() < 1.0) return;
+    if ((target - _eff.offset).abs() < 1.0) return;
 
-    _scroll.animateTo(
+    _eff.animateTo(
       target,
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
@@ -188,17 +189,17 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   /// Fallback used when the render object is not yet available (very first build).
   /// Uses a simple linear estimate; accurate enough for the initial scroll-to-top.
   void _scrollToCenterFallback(int index) {
-    if (!_scroll.hasClients) return;
+    if (!_eff.hasClients) return;
     final fs = LyricsSettings.fontSize.value;
     // Approximate item height: active font × line-height + vertical padding.
     final double approxHeight = fs * 1.4 + 12.0;
     final double topPad = widget.padding.resolve(TextDirection.ltr).top;
-    final double vpHalf  = _scroll.position.viewportDimension / 2;
+    final double vpHalf  = _eff.position.viewportDimension / 2;
     final double target  = (index * approxHeight + topPad - vpHalf + approxHeight / 2)
-        .clamp(_scroll.position.minScrollExtent, _scroll.position.maxScrollExtent);
+        .clamp(_eff.position.minScrollExtent, _eff.position.maxScrollExtent);
 
-    if ((target - _scroll.offset).abs() < 1.0) return;
-    _scroll.animateTo(
+    if ((target - _eff.offset).abs() < 1.0) return;
+    _eff.animateTo(
       target,
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
