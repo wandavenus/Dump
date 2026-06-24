@@ -10,7 +10,7 @@ class _SleepTimerBody extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           children: [
             if (active) ...[
-              _ActiveTimerCard(),
+              const _ActiveTimerCard(),
               const SizedBox(height: 24),
             ],
             const Padding(
@@ -25,7 +25,7 @@ class _SleepTimerBody extends StatelessWidget {
                 ),
               ),
             ),
-            _PresetList(),
+            const _PresetList(),
           ],
         );
       },

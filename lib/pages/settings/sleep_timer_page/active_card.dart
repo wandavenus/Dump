@@ -1,6 +1,8 @@
 part of '../sleep_timer_page.dart';
 
 class _ActiveTimerCard extends StatelessWidget {
+  const _ActiveTimerCard();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -31,7 +33,6 @@ class _ActiveTimerCard extends StatelessWidget {
             valueListenable: SleepTimerService.remaining,
             builder: (_, remaining, _) {
               if (remaining == null) {
-                // End-of-song mode
                 return const Text(
                   'Berhenti setelah lagu ini selesai',
                   style: TextStyle(
@@ -57,7 +58,7 @@ class _ActiveTimerCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Musik akan berhenti saat timer habis',
+            'Musik akan fade out perlahan saat timer habis',
             style: TextStyle(color: Color(0xFF636366), fontSize: 12),
           ),
         ],

@@ -1,6 +1,11 @@
 part of '../sleep_timer_page.dart';
 
 class _PresetList extends StatelessWidget {
+  /// When true (bottom-sheet mode), dismiss the sheet after selecting a preset.
+  final bool dismissOnSelect;
+
+  const _PresetList({this.dismissOnSelect = false});
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
@@ -67,6 +72,12 @@ class _PresetList extends StatelessWidget {
     } else {
       SleepTimerService.startDuration(preset.duration!);
     }
+
+    if (dismissOnSelect) {
+      Navigator.of(context).pop();
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

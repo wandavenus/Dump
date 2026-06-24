@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../pages/settings/sleep_timer_page.dart';
 import '../../services/audio/media3/media3_audio_player.dart';
-
+import '../../services/sleep_timer_service.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import 'player_scan_rg_sheet.dart';
@@ -42,6 +43,8 @@ class PlayerMoreMenu extends StatelessWidget {
               _showSongInfo(context);
             case _PlayerMoreAction.scanRg:
               showScanRgSheet(context, song);
+            case _PlayerMoreAction.sleepTimer:
+              showSleepTimerSheet(context);
           }
         },
         itemBuilder: (context) {
@@ -100,8 +103,61 @@ class PlayerMoreMenu extends StatelessWidget {
                 ],
               ),
             ),
+            const PopupMenuDivider(height: 4),
+            _sleepTimerItem(),
           ];
         },
+      ),
+    );
+  }
+
+  PopupMenuItem<_PlayerMoreAction> _sleepTimerItem() {
+    final active    = SleepTimerService.isActive.value;
+    final remaining = SleepTimerService.remaining.value;
+
+    String? statusLabel;
+    if (active) {
+      if (remaining == null) {
+        statusLabel = 'Akhir lagu';
+      } else {
+        final m = remaining.inMinutes;
+        final s = (remaining.inSeconds % 60).toString().padLeft(2, '0');
+        statusLabel = '${m}m ${s}s';
+      }
+    }
+
+    return PopupMenuItem<_PlayerMoreAction>(
+      value: _PlayerMoreAction.sleepTimer,
+      child: Row(
+        children: [
+          Icon(
+            Icons.bedtime_rounded,
+            color: active ? const Color(0xFFF92D48) : Colors.white70,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Sleep Timer',
+                style: TextStyle(
+                  color: active ? const Color(0xFFF92D48) : Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (statusLabel != null)
+                Text(
+                  statusLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -159,4 +215,4 @@ class PlayerMoreMenu extends StatelessWidget {
   }
 }
 
-enum _PlayerMoreAction { shuffle, loop, songInfo, scanRg }
+enum _PlayerMoreAction { shuffle, loop, songInfo, scanRg, sleepTimer }

@@ -7,11 +7,9 @@ import 'package:musicplayer/models/replay_gain_mode.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio/audio_engine.dart';
 import 'package:musicplayer/services/log_service.dart';
-import 'package:musicplayer/services/sleep_timer_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
-import 'settings/sleep_timer_page.dart';
 
 export 'settings/settings_widgets.dart';
 
