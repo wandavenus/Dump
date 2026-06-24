@@ -279,6 +279,38 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setReverbPreset(int preset) =>
       _invoke<void>('setReverbPreset', {'preset': preset});
 
+  // ── Skip silence (Item 1) ─────────────────────────────────────────────────
+
+  static Future<void> setSkipSilence(bool enabled) =>
+      _invoke<void>('setSkipSilence', {'enabled': enabled});
+
+  // ── Tunneling (Item 5) ────────────────────────────────────────────────────
+
+  static Future<void> setTunnelingEnabled(bool enabled) =>
+      _invoke<void>('setTunnelingEnabled', {'enabled': enabled});
+
+  // ── Stereo widening (Item 8) ──────────────────────────────────────────────
+
+  static Future<void> setStereoWidening({
+    required bool enabled,
+    required double strength,
+  }) =>
+      _invoke<void>('setStereoWidening', {
+        'enabled': enabled,
+        'strength': strength,
+      });
+
+  // ── Playback stats (Item 6) ───────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getPlaybackStats() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackStats');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ── Audio Offload ─────────────────────────────────────────────────────────
 
   /// Send the user's "Audio Offload Scheduling" preference to native.

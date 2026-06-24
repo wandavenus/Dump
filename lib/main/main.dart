@@ -24,6 +24,7 @@ Future<void> main() async {
   // which must be ready before AudioService.
   await AudioEngine.initialize();
   await AudioEffectsService.init();
+  await MediaCapabilitiesService.initialize();
   AudioService.initialize();
   AudioFocusService.initialize();
   SleepTimerService.initialize();
