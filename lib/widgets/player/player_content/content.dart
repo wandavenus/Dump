@@ -96,6 +96,8 @@ class _PlayerContentState extends State<PlayerContent> {
 
                 // Overlay content starts just below the small thumbnail.
                 const overlayTop = _smallCoverSize + 20.0;
+            
+                const controlsHeight = 35.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -134,7 +136,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       top: overlayTop,
                       left: 7,
                       right: 7,
-                      bottom: _lyricsExpand > 0 ? -200 : 0,
+                      bottom: _lyricsExpand > 0 ? -200 : 30,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
@@ -151,7 +153,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       top: overlayTop,
                       left: 15.7,
                       right: 15.7,
-                      bottom: 0,
+                      bottom: controlsHeight,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
