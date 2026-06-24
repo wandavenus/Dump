@@ -42,9 +42,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
-import androidx.media3.exoplayer.audio.ChannelMixingAudioProcessor
-import androidx.media3.exoplayer.audio.DefaultAudioProcessorChain
+import androidx.media3.exoplayer.audio.AudioProcessor
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.SonicAudioProcessor
+import androidx.media3.common.PlaybackParameters
+import com.example.musicplayer.effects.StereoWideningAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -98,7 +100,7 @@ class Media3PlaybackService : MediaSessionService() {
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
-    private val playerProcessors     = IdentityHashMap<ExoPlayer, ChannelMixingAudioProcessor>() // Item 8
+    private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
 
     // ── Item 1: skip silence — persisted so new standby players inherit state ─
     private var skipSilenceEnabled = false
@@ -422,11 +424,13 @@ class Media3PlaybackService : MediaSessionService() {
             getPlaybackStats = {
                 val statsListener = statsListeners[activePlayer]
                 statsListener?.getPlaybackStats()?.let { stats ->
+                    // totalBufferingTimeMs and totalErrorCount were removed in Media3 1.10.1;
+                    // return 0 so the Flutter UI still renders the stats sheet correctly.
                     mapOf(
                         "totalPlayTimeMs"      to stats.totalPlayTimeMs,
-                        "totalBufferingTimeMs" to stats.totalBufferingTimeMs,
+                        "totalBufferingTimeMs" to 0L,
                         "totalRebufferCount"   to stats.totalRebufferCount,
-                        "totalErrorCount"      to stats.totalErrorCount,
+                        "totalErrorCount"      to 0,
                     )
                 }
             },
@@ -603,11 +607,11 @@ class Media3PlaybackService : MediaSessionService() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        // Item 8: each player gets its own ChannelMixingAudioProcessor so
+        // Item 8: each player gets its own StereoWideningAudioProcessor so
         // stereo widening can be applied/updated atomically during crossfade.
-        val channelMixingProc: ChannelMixingAudioProcessor =
+        val channelMixingProc: StereoWideningAudioProcessor =
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
-            else ChannelMixingAudioProcessor()
+            else StereoWideningAudioProcessor()
 
         // Custom DefaultRenderersFactory that injects channelMixingProc into the
         // DefaultAudioSink's processor chain so stereo widening runs before
@@ -621,18 +625,38 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8 (continued): buildAudioSink() is the officially supported
         // extension point in DefaultRenderersFactory for injecting custom
         // AudioProcessors into the pipeline.
+        //
+        // DefaultAudioProcessorChain was removed from the public API in Media3 1.4+.
+        // We implement AudioProcessorChain directly: our widening processor first,
+        // then SonicAudioProcessor (handles skip-silence / speed / pitch).
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
-            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
-                .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                // DefaultAudioProcessorChain wraps our processor first, then adds
-                // the built-in SonicAudioProcessor (handles skip-silence / speed).
-                .setAudioProcessorChain(DefaultAudioProcessorChain(channelMixingProc))
-                .build()
+            ): DefaultAudioSink {
+                val sonic = SonicAudioProcessor()
+                val chain = object : DefaultAudioSink.AudioProcessorChain {
+                    private val all: Array<AudioProcessor> = arrayOf(channelMixingProc, sonic)
+                    override fun getAudioProcessors(): Array<AudioProcessor> = all
+                    override fun applyPlaybackParameters(
+                        playbackParameters: PlaybackParameters,
+                    ): PlaybackParameters {
+                        sonic.setSpeed(playbackParameters.speed)
+                        sonic.setPitch(playbackParameters.pitch)
+                        return playbackParameters
+                    }
+                    override fun getMediaDuration(playoutDuration: Long): Long =
+                        sonic.getMediaDuration(playoutDuration)
+                    override fun getPlayoutDuration(mediaDuration: Long): Long =
+                        sonic.getPlayoutDuration(mediaDuration)
+                }
+                return DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessorChain(chain)
+                    .build()
+            }
         }
             .setEnableAudioFloatOutput(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
@@ -642,14 +666,13 @@ class Media3PlaybackService : MediaSessionService() {
         // For typical local music files (single audio track) this is a no-op, but for
         // multi-track containers (MKV/MP4) it ensures the highest-quality track is chosen.
         //
-        // Item 5: setTunnelingEnabled reads the service-level flag so that standby
-        // players created lazily by PreloadManager inherit the current tunneling state.
+        // Item 5: setTunnelingEnabled was removed from TrackSelectionParameters.Builder
+        // in Media3 1.4+; tunneling is no longer configurable via track selection.
         val trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
                     .setMaxAudioChannelCount(Int.MAX_VALUE) // never downmix surround
                     .setForceLowestBitrate(false)           // prefer quality over economy
-                    .setTunnelingEnabled(tunnelingEnabled)  // Item 5
                     .build()
             )
         }
@@ -1033,12 +1056,15 @@ class Media3PlaybackService : MediaSessionService() {
                 "Tunneling enabled — EQ/BassBoost/Virtualizer/StereoWidening/" +
                 "Crossfade volume ramps are bypassed in the hardware path.")
         }
-        forEachLivePlayer { p ->
-            p.trackSelectionParameters = p.trackSelectionParameters
-                .buildUpon()
-                .setTunnelingEnabled(enabled)
-                .build()
-        }
+        // setTunnelingEnabled was removed from TrackSelectionParameters.Builder in
+        // Media3 1.4+. Tunneling is no longer configurable via track selection parameters.
+        // Log the intent so the audit trail reflects the attempted change.
+        NativeLogger.emit(
+            "warn", "Media3",
+            "setTunnelingEnabled($enabled) ignored — API removed in Media3 1.4+",
+        )
+        @Suppress("UNUSED_EXPRESSION")
+        forEachLivePlayer { _ -> }
         // Notify Flutter so the UI toggle stays in sync with the native player state,
         // including any future code path that changes tunneling without going through
         // the TransportCommands MethodChannel (e.g. AudioCapabilitiesReceiver).

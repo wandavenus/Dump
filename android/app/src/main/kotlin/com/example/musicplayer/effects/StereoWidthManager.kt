@@ -1,16 +1,14 @@
 package com.example.musicplayer.effects
 
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.audio.ChannelMixingAudioProcessor
-import androidx.media3.exoplayer.audio.ChannelMixingMatrix
 import com.example.musicplayer.events.NativeLogger
 
 /**
- * Manages ChannelMixingAudioProcessor instances for software stereo widening.
+ * Manages [StereoWideningAudioProcessor] instances for software stereo widening.
  *
  * Each ExoPlayer instance (primary + secondary for crossfade) gets its own
- * ChannelMixingAudioProcessor embedded in its DefaultAudioSink pipeline.
- * StereoWidthManager tracks all live instances so a single setStereoWidening()
+ * [StereoWideningAudioProcessor] embedded in its DefaultAudioSink pipeline.
+ * StereoWidthManager tracks all live instances so a single [setStereoWidening]
  * call updates every active player simultaneously — no race between active
  * and standby players during crossfade overlap.
  *
@@ -32,8 +30,8 @@ import com.example.musicplayer.events.NativeLogger
  *   strength=0.5 → diag=1.125, cross=−0.125
  *   strength=1.0 → diag=1.25,  cross=−0.25 (25 % separation increase)
  *
- * MONO and multi-channel audio: no matrix is set for those combinations, so
- * the processor is a transparent no-op for mono and surround content.
+ * MONO and multi-channel audio: the processor reports NOT_SET for those formats
+ * in [StereoWideningAudioProcessor.onConfigure], so it is a transparent no-op.
  *
  * TUNNELING incompatibility: when tunneling is enabled, audio bypasses the
  * ExoPlayer software pipeline entirely, so this processor has no effect.
@@ -48,26 +46,26 @@ class StereoWidthManager {
     var stereoWideningStrength: Float = 0.5f
         private set
 
-    private val processors = mutableListOf<ChannelMixingAudioProcessor>()
+    private val processors = mutableListOf<StereoWideningAudioProcessor>()
     private val lock = Any()
 
-    fun createProcessor(): ChannelMixingAudioProcessor {
-        val p = ChannelMixingAudioProcessor()
-        applyMatrix(p, stereoWideningEnabled, stereoWideningStrength)
+    fun createProcessor(): StereoWideningAudioProcessor {
+        val p = StereoWideningAudioProcessor()
+        p.setMatrix(stereoWideningEnabled, stereoWideningStrength)
         synchronized(lock) { processors.add(p) }
         return p
     }
 
-    fun removeProcessor(p: ChannelMixingAudioProcessor) {
+    fun removeProcessor(p: StereoWideningAudioProcessor) {
         synchronized(lock) { processors.remove(p) }
     }
 
     fun setStereoWidening(enabled: Boolean, strength: Float = stereoWideningStrength) {
         stereoWideningEnabled = enabled
         stereoWideningStrength = strength.coerceIn(0f, 1f)
-        val snapshot: List<ChannelMixingAudioProcessor>
+        val snapshot: List<StereoWideningAudioProcessor>
         synchronized(lock) { snapshot = processors.toList() }
-        snapshot.forEach { applyMatrix(it, enabled, stereoWideningStrength) }
+        snapshot.forEach { it.setMatrix(enabled, stereoWideningStrength) }
         NativeLogger.emit(
             "info", "StereoWidth",
             "stereoWidening=$enabled strength=$stereoWideningStrength " +
@@ -77,24 +75,5 @@ class StereoWidthManager {
 
     fun releaseAll() {
         synchronized(lock) { processors.clear() }
-    }
-
-    private fun applyMatrix(
-        processor: ChannelMixingAudioProcessor,
-        enabled: Boolean,
-        strength: Float,
-    ) {
-        val coefficients: FloatArray = if (!enabled) {
-            floatArrayOf(1f, 0f, 0f, 1f)
-        } else {
-            val w     = 1f + strength * 0.5f
-            val diag  = (1f + w) / 2f
-            val cross = (1f - w) / 2f
-            floatArrayOf(diag, cross, cross, diag)
-        }
-        try {
-            processor.putChannelMixingMatrix(ChannelMixingMatrix(2, 2, coefficients))
-        } catch (_: Exception) {
-        }
     }
 }
