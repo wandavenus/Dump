@@ -8,15 +8,20 @@ import java.nio.ByteOrder
 import kotlin.math.*
 
 /**
- * Standalone EBU R128 loudness scanner + ReplayGain tag writer.
+ * Standalone EBU R128 loudness scanner.
  *
  * Algorithm:
- *  1. Decode PCM via MediaExtractor + MediaCodec.
+ *  1. Decode PCM via MediaExtractor + MediaCodec (fully native, no third-party libs).
  *  2. Apply K-weighting filter (two biquad stages per ITU-R BS.1770-4).
  *  3. Compute mean-square power in non-overlapping 400 ms blocks.
  *  4. Apply absolute gate (−70 LUFS) then relative gate (−10 LU) per EBU R128.
  *  5. Integrated loudness → trackGain = TARGET_LUFS − integratedLufs.
- *  6. Write REPLAYGAIN_TRACK_GAIN / REPLAYGAIN_TRACK_PEAK via jaudiotagger.
+ *
+ * Scan results are returned to the caller and stored in the native
+ * [com.example.musicplayer.metadata.MetadataCacheDb] instead of being
+ * written back into the audio file.  This approach is reliable on
+ * Android 10+ (including MIUI 11+) where direct file-tag writes often
+ * fail due to scoped storage restrictions.
  */
 object ReplayGainScanner {
 
@@ -26,10 +31,10 @@ object ReplayGainScanner {
         val trackPeak: Double,
     )
 
-    private const val TARGET_LUFS   = -18.0   // ReplayGain reference (−18 LUFS = 89 dB SPL)
-    private const val GATE_ABS      = -70.0   // EBU R128 absolute gate threshold
-    private const val GATE_REL_OFFS = -10.0   // EBU R128 relative gate offset (LU)
-    private const val BLOCK_MS      = 400     // gating block duration (ms)
+    private const val TARGET_LUFS   = -18.0
+    private const val GATE_ABS      = -70.0
+    private const val GATE_REL_OFFS = -10.0
+    private const val BLOCK_MS      = 400
 
     // ── K-weighting biquad coefficients ────────────────────────────────────────
 
@@ -38,15 +43,10 @@ object ReplayGainScanner {
     private data class BiquadState(var x1: Double = 0.0, var x2: Double = 0.0,
                                     var y1: Double = 0.0, var y2: Double = 0.0)
 
-    /**
-     * Computes K-weighting filter coefficients at the given sample rate.
-     * Returns (stage1_preFilter, stage2_rlbHighPass).
-     */
     private fun kWeightingCoeffs(sampleRate: Int): Pair<BiquadCoeffs, BiquadCoeffs> {
         val fs = sampleRate.toDouble()
         val pi = Math.PI
 
-        // Stage 1 — Pre-filter (high-shelf, f0 ≈ 1682 Hz, G ≈ +4 dB)
         val f0Pre = 1681.974450955533
         val G     = 3.999843853973347
         val qPre  = 0.7071752369554196
@@ -62,7 +62,6 @@ object ReplayGainScanner {
             a2 = (1.0 - k1 / qPre + k1 * k1) * n1,
         )
 
-        // Stage 2 — RLB high-pass (f0 ≈ 38 Hz)
         val f0Rlb = 38.13547087602444
         val qRlb  = 0.5003270373238773
         val k2    = tan(pi * f0Rlb / fs)
@@ -89,6 +88,7 @@ object ReplayGainScanner {
     /**
      * Decodes [path], measures integrated loudness (EBU R128), and returns a
      * [ScanResult].  [onProgress] is called with 0.0–1.0 on the calling thread.
+     * Returns null if the file cannot be decoded.
      */
     fun scan(path: String, onProgress: (Float) -> Unit): ScanResult? {
         val file = File(path)
@@ -98,7 +98,6 @@ object ReplayGainScanner {
         try { extractor.setDataSource(path) }
         catch (_: Exception) { extractor.release(); return null }
 
-        // Locate first audio track
         var trackIndex = -1
         var format: MediaFormat? = null
         for (i in 0 until extractor.trackCount) {
@@ -130,7 +129,6 @@ object ReplayGainScanner {
         val blockSizeSamples = (sampleRate * BLOCK_MS / 1000).coerceAtLeast(1)
         val blockMeanSquares = mutableListOf<Double>()
 
-        // Per-block accumulators
         var blockMsAcc   = 0.0
         var blockSamples = 0
         var peakAbs      = 0.0
@@ -140,7 +138,6 @@ object ReplayGainScanner {
 
         try {
             while (!eos) {
-                // ── Feed input ─────────────────────────────────────────────────
                 val inIdx = codec.dequeueInputBuffer(8_000L)
                 if (inIdx >= 0) {
                     val inBuf = codec.getInputBuffer(inIdx)
@@ -160,7 +157,6 @@ object ReplayGainScanner {
                     }
                 }
 
-                // ── Drain output ───────────────────────────────────────────────
                 val outIdx = codec.dequeueOutputBuffer(info, 8_000L)
                 if (outIdx >= 0) {
                     val outBuf = codec.getOutputBuffer(outIdx)
@@ -171,7 +167,6 @@ object ReplayGainScanner {
                         val sb = outBuf.asShortBuffer()
 
                         while (sb.hasRemaining()) {
-                            // One interleaved frame across all channels
                             var frameMsSum = 0.0
                             for (ch in 0 until channels) {
                                 val raw = if (sb.hasRemaining()) sb.get().toDouble() / 32768.0 else 0.0
@@ -203,10 +198,8 @@ object ReplayGainScanner {
         onProgress(1.0f)
         if (blockMeanSquares.isEmpty()) return null
 
-        // ── EBU R128 gating ────────────────────────────────────────────────────
         val eps = 1e-10
 
-        // Absolute gate: discard blocks below −70 LUFS
         val absThreshLinear = 10.0.pow((GATE_ABS + 0.691) / 10.0)
         val passAbs = blockMeanSquares.filter { it >= absThreshLinear }
         if (passAbs.isEmpty()) {
@@ -214,7 +207,6 @@ object ReplayGainScanner {
             return ScanResult(lufs, TARGET_LUFS - lufs, peakAbs)
         }
 
-        // Relative gate: mean of abs-gated blocks − 10 LU
         val relThreshLinear = (passAbs.sum() / passAbs.size) * 10.0.pow(GATE_REL_OFFS / 10.0)
         val passRel = passAbs.filter { it >= relThreshLinear }
         if (passRel.isEmpty()) {
@@ -227,87 +219,5 @@ object ReplayGainScanner {
         val trackGainDb      = TARGET_LUFS - integratedLufs
 
         return ScanResult(integratedLufs, trackGainDb, peakAbs)
-    }
-
-    // ── Tag writing ─────────────────────────────────────────────────────────────
-
-    /**
-     * Writes REPLAYGAIN_TRACK_GAIN and REPLAYGAIN_TRACK_PEAK tags to [path].
-     * Returns true on success.  May fail on Android 10+ if the file is not
-     * in the app sandbox and no write permission is granted.
-     */
-    fun writeTags(path: String, result: ScanResult): Boolean {
-        return try {
-            val file      = File(path)
-            val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-            var tag       = audioFile.tag
-            if (tag == null) { audioFile.createDefaultTag(); tag = audioFile.tag }
-
-            val gainStr = "%+.2f dB".format(result.trackGainDb)
-            val peakStr = "%.6f".format(result.trackPeak.coerceAtMost(1.0))
-
-            when (tag) {
-                is org.jaudiotagger.tag.id3.AbstractID3v2Tag -> {
-                    // MP3 — TXXX frames (same as existing reader expects)
-                    writeTxxx(tag, "REPLAYGAIN_TRACK_GAIN", gainStr)
-                    writeTxxx(tag, "REPLAYGAIN_TRACK_PEAK", peakStr)
-                }
-                is org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag -> {
-                    // OGG / FLAC — raw Vorbis comment string fields
-                    writeVorbisField(tag, "REPLAYGAIN_TRACK_GAIN", gainStr)
-                    writeVorbisField(tag, "REPLAYGAIN_TRACK_PEAK", peakStr)
-                }
-                else -> {
-                    // M4A / other — generic FieldKey (may throw for unsupported formats)
-                    tag.setField(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_TRACK_GAIN, gainStr)
-                    tag.setField(org.jaudiotagger.tag.FieldKey.REPLAYGAIN_TRACK_PEAK, peakStr)
-                }
-            }
-
-            org.jaudiotagger.audio.AudioFileIO.write(audioFile)
-            true
-        } catch (_: Exception) { false }
-    }
-
-    private fun writeVorbisField(
-        tag: org.jaudiotagger.tag.vorbiscomment.VorbisCommentTag,
-        key: String,
-        value: String,
-    ) {
-        runCatching { tag.deleteField(key) }
-        runCatching {
-            // VorbisCommentTagField accepts a raw key=value string pair
-            val field = org.jaudiotagger.tag.vorbiscomment.VorbisCommentTagField(key, value)
-            tag.setField(field)
-        }
-    }
-
-    private fun writeTxxx(tag: org.jaudiotagger.tag.id3.AbstractID3v2Tag,
-                          description: String, value: String) {
-        // Remove existing TXXX frame(s) with matching description
-        runCatching {
-            val raw = tag.getFrame("TXXX")
-            val frames = when (raw) { is List<*> -> raw; null -> emptyList<Any>(); else -> listOf(raw) }
-            frames.filterIsInstance<org.jaudiotagger.tag.id3.AbstractTagFrame>()
-                .filter {
-                    (it.body as? org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX)
-                        ?.description.equals(description, ignoreCase = true)
-                }
-                .forEach { tag.removeFrame(it) }
-        }
-        // Write new TXXX frame
-        runCatching {
-            val body = org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX().apply {
-                this.description      = description
-                this.userFriendlyValue = value
-            }
-            // Use ID3v24Frame or ID3v23Frame depending on tag version
-            val frame: org.jaudiotagger.tag.id3.AbstractTagFrame =
-                if (tag is org.jaudiotagger.tag.id3.ID3v24Tag)
-                    org.jaudiotagger.tag.id3.ID3v24Frame("TXXX").also { it.body = body }
-                else
-                    org.jaudiotagger.tag.id3.ID3v23Frame("TXXX").also { it.body = body }
-            tag.setFrame(frame)
-        }
     }
 }

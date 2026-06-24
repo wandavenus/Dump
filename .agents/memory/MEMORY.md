@@ -1,9 +1,9 @@
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
 - [LyricsSettings model](lyrics-settings.md) — LyricsSettings singleton (fontSize/textAlign/bgDim/blurStrength/activeColor/showSource/karaokeMode); init di main() setelah LogService.init().
-- [LyricsService cascade](lyrics-service-cascade.md) — urutan: embedded tag (jaudiotagger native) → file .lrc same dir → file .lrc configured folder → internet (lrclib.net); hasilnya LyricsResult{lines, source}.
+- [LyricsService cascade](lyrics-service-cascade.md) — urutan: embedded tag (ExoPlayer MetadataRetriever + SQLite cache) → file .lrc same dir → file .lrc configured folder → internet (lrclib.net); hasilnya LyricsResult{lines, source}.
 - [LyricsPage full-screen](lyrics-page-fullscreen.md) — LyricsPage adalah full-screen route (bukan modal); dibuka via Navigator.push dengan SlideTransition dari bawah; punya tombol tampilan lirik (ikon textformat) yang buka _LyricsAppearanceSheet.
-- [jaudiotagger Android](jaudiotagger-android.md) — net.jthink:jaudiotagger:2.2.5 ditambah ke android/app/build.gradle; getEmbeddedLyrics() via MethodChannel musicplayer/media_store; packagingOptions exclude duplicate META-INF files.
+- [Hybrid metadata engine](hybrid-metadata-engine.md) — jaudiotagger dihapus; diganti ExoMetadataReader (ExoPlayer MetadataRetriever) + MetadataCacheDb (SQLite, mtime-keyed); scan result ke cache bukan file.
 - [Hi-Res Audio mode](hires-audio.md) — mode 2 sekarang "Hi-Res Audio" (bukan MIUI Hi-Fi); enableHiRes() coba 5 metode: AudioManager.setParameters() berbagai key, MIUI broadcast, ContentResolver, Sony/Qualcomm parameters.
 - [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
 - [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
@@ -19,5 +19,5 @@
 - [Debug mode activation](debug-mode.md) — ketuk area Versi 3x dalam 2 detik → debug section muncul; notif icon picker, effect status, audio session info.
 - [AudioOutputMode](audio-output-mode.md) — 3 mode: Auto/AAudio, OpenSL ES, Hi-Res; LoudnessEnhancer.setTargetGain() butuh double bukan int.
 - [LogService persistent](log-service-persistent.md) — init di main() sebelum AudioEngine; loggingEnabled & errorsOnly persist; max 500 entri FIFO.
-- [ReplayGain architecture](replay-gain.md) — Phase 4: LoudnessData model, ReplayGainService (native tags via jaudiotagger), LoudnessSourceResolver (branching priority), wired into AudioService; target Android 11 + MIUI 12.
+- [ReplayGain architecture](replay-gain.md) — LoudnessData model + ReplayGainService (tags via ExoPlayer MetadataRetriever + MetadataCacheDb SQLite); scan→cache; LoudnessSourceResolver; target Android 10+ MIUI 11+.
 - [Media3 transport controls](media3-transport.md) — notification buttons via addAction()+setShowActionsInCompactView(0,1,2); PendingIntent→onStartCommand ACTION_PLAY_PAUSE/SKIP_NEXT/SKIP_PREV; stopWithTask=false+MEDIA_BUTTON filter in manifest; syncFromNative() called from main.dart+app_state.dart.
