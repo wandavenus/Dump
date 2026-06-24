@@ -74,4 +74,8 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.10.1'
     implementation 'androidx.media3:media3-session:1.10.1'
     implementation 'androidx.media3:media3-ui:1.10.1'
+    // Required for MdtaMetadataEntry (M4A ©lyr lyrics, mdta atoms).
+    // MdtaMetadataEntry was relocated from media3-extractor to media3-container
+    // at some point in the 1.x line; in 1.10.1 it lives in media3-container.
+    implementation 'androidx.media3:media3-container:1.10.1'
 }

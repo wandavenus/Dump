@@ -6,8 +6,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.container.MdtaMetadataEntry
 import androidx.media3.exoplayer.MetadataRetriever
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
+import androidx.media3.extractor.metadata.id3.UnsynchronizedLyricsFrame
 import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -16,27 +18,70 @@ import java.util.concurrent.TimeoutException
 /**
  * Reads audio metadata tags using a two-layer strategy:
  *
- *  Layer A — [MediaMetadataRetriever] (Android standard API)
- *    • Lyrics: METADATA_KEY_LYRICS covers USLT (MP3), ©lyr (M4A), and most other
- *      containers.  Available from API 12; reliable on all Android 10+ / MIUI 11+.
+ * ════════════════════════════════════════════════════════════════════════
+ *  AUDIT RESULT — Media3 1.10.1 Lyrics Extraction Capability
+ * ════════════════════════════════════════════════════════════════════════
  *
- *  Layer B — ExoPlayer [MetadataRetriever] (@UnstableApi)
- *    • ReplayGain / R128 / iTunNORM tags via:
- *        ID3v2 TXXX frames → [TextInformationFrame]   (MP3, WAV-with-ID3)
- *        Vorbis Comments   → [VorbisComment]           (FLAC, OGG, OPUS)
- *    • Vorbis LYRICS comment (priority over Layer A for FLAC/OGG/OPUS files).
+ *  Pure Media3 lyrics extraction is NOT fully achievable in 1.10.1.
+ *  MediaMetadataRetriever remains required for MP3 USLT frames.
  *
- * Why not use [UnsynchronizedLyricsFrame] / [MdtaMetadataEntry]:
- *   These classes are not in the public API surface of media3-extractor:1.10.1 —
- *   they either don't exist at that version or are @InternalOnly.
- *   [MediaMetadataRetriever.METADATA_KEY_LYRICS] covers all the same containers.
+ *  Root cause: Media3 issue #922 (open, "low priority" as of June 2026).
+ *  The MP3 ID3 parser in Media3 1.10.1 emits USLT frames as BinaryFrame
+ *  instead of UnsynchronizedLyricsFrame. The class UnsynchronizedLyricsFrame
+ *  EXISTS in the public API (@UnstableApi, androidx.media3.extractor.metadata
+ *  .id3) but the extractor never instantiates it for MP3 files.
  *
- * Must be called from a background thread — [read] blocks for up to [TIMEOUT_SEC].
- * Never throws; returns empty [AudioTags] on any error.
+ *  See: https://github.com/androidx/media/issues/922
+ *       https://github.com/androidx/media/issues/1435
  *
- * MIUI note: [Uri.fromFile] is used so ExoPlayer reads directly from the
- * file system path rather than via the content resolver, avoiding MIUI's
- * occasional permission issues with content:// URIs for external-storage files.
+ * ════════════════════════════════════════════════════════════════════════
+ *  Implemented architecture (final, post-audit):
+ * ════════════════════════════════════════════════════════════════════════
+ *
+ *  MediaStore
+ *       ↓
+ *  Layer A — android.media.MediaMetadataRetriever  (MP3 USLT only)
+ *    • METADATA_KEY_LYRICS — reads USLT from MP3, ©lyr from M4A.
+ *    • Necessary because Media3 1.10.1 MP3 extractor emits USLT as
+ *      BinaryFrame (issue #922). Skipped for FLAC/OGG/OPUS because
+ *      Layer B covers those containers completely.
+ *
+ *  Layer B — androidx.media3.exoplayer.MetadataRetriever  (@UnstableApi)
+ *    • TextInformationFrame (TXXX) → ReplayGain / R128 / iTunNORM (MP3, WAV)
+ *    • VorbisComment         → ReplayGain / R128 + LYRICS (FLAC, OGG, OPUS)
+ *    • UnsynchronizedLyricsFrame → MP3 USLT (class is public @UnstableApi;
+ *        extractor does not yet populate it for MP3 — future-proof guard)
+ *    • MdtaMetadataEntry (©lyr) → M4A lyrics as UTF-8 bytes
+ *        Requires: androidx.media3:media3-container:1.10.1
+ *        Fallback: MMR Layer A covers this case when Media3 cannot parse it.
+ *       ↓
+ *  MetadataCacheDb  (SQLite, keyed by song_id + mtime)
+ *       ↓
+ *  Flutter
+ *
+ * ════════════════════════════════════════════════════════════════════════
+ *  Per-class public API status in media3 1.10.1:
+ * ════════════════════════════════════════════════════════════════════════
+ *
+ *  Class                      | Artifact              | Status
+ *  ─────────────────────────────────────────────────────────────────────
+ *  TextInformationFrame       | media3-extractor      | Public @UnstableApi
+ *  VorbisComment              | media3-extractor      | Public @UnstableApi
+ *  UnsynchronizedLyricsFrame  | media3-extractor      | Public @UnstableApi;
+ *                             |                       | extractor emits
+ *                             |                       | BinaryFrame for MP3
+ *                             |                       | (bug #922, open)
+ *  MdtaMetadataEntry          | media3-container      | Public @UnstableApi;
+ *                             |                       | separate artifact dep
+ *  BinaryFrame                | media3-extractor      | Public @UnstableApi;
+ *                             |                       | used for unhandled ID3
+ *
+ * MIUI note: Uri.fromFile is used so ExoPlayer reads directly from the
+ * filesystem path instead of via the content resolver, avoiding MIUI's
+ * occasional permission issues with content:// URIs on external storage.
+ *
+ * Must be called from a background thread — [read] blocks for up to
+ * [TIMEOUT_SEC]. Never throws; returns empty [AudioTags] on any error.
  */
 @OptIn(UnstableApi::class)
 object ExoMetadataReader {
@@ -65,23 +110,36 @@ object ExoMetadataReader {
             rgTrackGain != null || r128Track != null || iTunNorm != null
     }
 
-    // ── Internal builder (ReplayGain + Vorbis lyrics only) ───────────────────
+    // ── Internal tag accumulator ──────────────────────────────────────────────
 
+    /**
+     * Accumulates tags from every metadata entry emitted by Media3.
+     *
+     * Priority rules for lyrics (highest → lowest):
+     *   1. VorbisComment LYRICS / UNSYNCEDLYRICS — exact tag for FLAC/OGG/OPUS.
+     *   2. UnsynchronizedLyricsFrame             — USLT via Media3 (future: when
+     *                                              issue #922 is fixed upstream).
+     *   3. MdtaMetadataEntry "©lyr"              — M4A iTunes lyrics atom.
+     *   4. mmrLyrics (MMR fallback)              — USLT in MP3 (necessary now),
+     *                                              ©lyr in M4A (MMR backup).
+     */
     private class TagBuilder {
-        var rgTrackGain : String? = null
-        var rgTrackPeak : String? = null
-        var rgAlbumGain : String? = null
-        var rgAlbumPeak : String? = null
-        var r128Track   : String? = null
-        var r128Album   : String? = null
-        var iTunNorm    : String? = null
-        // Vorbis LYRICS comment — used for FLAC/OGG/OPUS files
-        var vorbisLyrics: String? = null
+        var rgTrackGain     : String? = null
+        var rgTrackPeak     : String? = null
+        var rgAlbumGain     : String? = null
+        var rgAlbumPeak     : String? = null
+        var r128Track       : String? = null
+        var r128Album       : String? = null
+        var iTunNorm        : String? = null
+        // Media3-sourced lyrics (formats where Media3 works)
+        var vorbisLyrics    : String? = null   // FLAC/OGG/OPUS — VorbisComment
+        var usltLyrics      : String? = null   // MP3 — UnsynchronizedLyricsFrame
+        var mdtaLyrics      : String? = null   // M4A — MdtaMetadataEntry "©lyr"
 
         fun consume(entry: androidx.media3.common.Metadata.Entry) {
             when (entry) {
 
-                // ── ID3v2 TXXX — MP3 / WAV ReplayGain ─────────────────────
+                // ── ID3v2 TXXX — MP3 / WAV (ReplayGain, R128, iTunNORM) ───────
                 is TextInformationFrame -> {
                     if (!entry.id.equals("TXXX", ignoreCase = true)) return
                     val desc  = entry.description?.uppercase()?.trim() ?: return
@@ -101,29 +159,79 @@ object ExoMetadataReader {
                     }
                 }
 
-                // ── Vorbis Comment — FLAC / OGG / OPUS ────────────────────
+                // ── Vorbis Comment — FLAC / OGG / OPUS ────────────────────────
                 is VorbisComment -> {
                     val key   = entry.key.uppercase().trim()
                     val value = entry.value.trim().takeIf { it.isNotBlank() } ?: return
                     when (key) {
-                        "REPLAYGAIN_TRACK_GAIN"  -> if (rgTrackGain   == null) rgTrackGain   = value
-                        "REPLAYGAIN_TRACK_PEAK"  -> if (rgTrackPeak   == null) rgTrackPeak   = value
-                        "REPLAYGAIN_ALBUM_GAIN"  -> if (rgAlbumGain   == null) rgAlbumGain   = value
-                        "REPLAYGAIN_ALBUM_PEAK"  -> if (rgAlbumPeak   == null) rgAlbumPeak   = value
-                        "R128_TRACK_GAIN"        -> if (r128Track     == null) r128Track     = value
-                        "R128_ALBUM_GAIN"        -> if (r128Album     == null) r128Album     = value
+                        "REPLAYGAIN_TRACK_GAIN"  -> if (rgTrackGain == null) rgTrackGain = value
+                        "REPLAYGAIN_TRACK_PEAK"  -> if (rgTrackPeak == null) rgTrackPeak = value
+                        "REPLAYGAIN_ALBUM_GAIN"  -> if (rgAlbumGain == null) rgAlbumGain = value
+                        "REPLAYGAIN_ALBUM_PEAK"  -> if (rgAlbumPeak == null) rgAlbumPeak = value
+                        "R128_TRACK_GAIN"        -> if (r128Track   == null) r128Track   = value
+                        "R128_ALBUM_GAIN"        -> if (r128Album   == null) r128Album   = value
                         "LYRICS",
                         "UNSYNCEDLYRICS",
-                        "UNSYNCED LYRICS"        -> if (vorbisLyrics  == null) vorbisLyrics  = value
+                        "UNSYNCED LYRICS"        -> if (vorbisLyrics == null) vorbisLyrics = value
                     }
                 }
 
-                // All other entry types (BinaryFrame, etc.) are ignored — any
-                // lyrics they would carry are already handled by Layer A (MMR).
+                // ── UnsynchronizedLyricsFrame — ID3v2 USLT (MP3) ─────────────
+                //
+                // API status: public @UnstableApi in media3-extractor:1.10.1.
+                // Extractor status: Media3 1.10.1 MP3 parser emits BinaryFrame
+                // for USLT frames instead of this class (issue #922, open).
+                // This branch is a future-proof guard: it will activate
+                // automatically when the upstream fix is released without
+                // requiring changes here. Until then, mmrLyrics (Layer A)
+                // covers MP3 USLT.
+                is UnsynchronizedLyricsFrame -> {
+                    val value = entry.lyrics.trim().takeIf { it.isNotBlank() } ?: return
+                    if (usltLyrics == null) usltLyrics = value
+                }
+
+                // ── MdtaMetadataEntry — M4A / QuickTime ©lyr atom ────────────
+                //
+                // API status: public @UnstableApi in media3-container:1.10.1.
+                // Artifact: androidx.media3:media3-container (separate dep).
+                // M4A lyrics are stored in the "©lyr" mdta key as a UTF-8
+                // string (typeIndicator = TYPE_INDICATOR_STRING = 1).
+                // Layer A (MMR) provides a fallback in case Media3 cannot
+                // parse this atom for a specific encoder variant.
+                is MdtaMetadataEntry -> {
+                    if (entry.key == "\u00a9lyr") {         // "©lyr"
+                        if (mdtaLyrics == null) {
+                            val decoded = runCatching {
+                                entry.value.toString(Charsets.UTF_8)
+                                    .trim().takeIf { it.isNotBlank() }
+                            }.getOrNull()
+                            mdtaLyrics = decoded
+                        }
+                    }
+                }
+
+                // ── All other entry types are ignored ─────────────────────────
+                //
+                // Notable ignored type: BinaryFrame.
+                // In MP3, USLT currently arrives as BinaryFrame (issue #922).
+                // We intentionally do NOT attempt to decode BinaryFrame raw
+                // bytes here — the encoding, language prefix, and content
+                // descriptor fields make manual decoding unreliable across
+                // ID3v2.3 / v2.4 variants. MMR (Layer A) is the correct
+                // fallback and handles encoding transparently.
                 else -> {}
             }
         }
 
+        /**
+         * Merges all collected tags into a final [AudioTags].
+         *
+         * Lyrics priority (first non-null wins):
+         *   vorbisLyrics > usltLyrics > mdtaLyrics > mmrLyrics
+         *
+         * [mmrLyrics] is the result from [MediaMetadataRetriever] (Layer A).
+         * It covers MP3 USLT (primary use now) and M4A ©lyr (backup).
+         */
         fun build(mmrLyrics: String?) = AudioTags(
             rgTrackGain = rgTrackGain,
             rgTrackPeak = rgTrackPeak,
@@ -132,9 +240,7 @@ object ExoMetadataReader {
             r128Track   = r128Track,
             r128Album   = r128Album,
             iTunNorm    = iTunNorm,
-            // Vorbis LYRICS comment takes priority (proper tag format);
-            // fall back to MMR result which covers USLT (MP3) and ©lyr (M4A).
-            lyrics      = vorbisLyrics ?: mmrLyrics,
+            lyrics      = vorbisLyrics ?: usltLyrics ?: mdtaLyrics ?: mmrLyrics,
         )
     }
 
@@ -143,9 +249,10 @@ object ExoMetadataReader {
     /**
      * Reads all audio metadata for the file at [path].
      *
-     * Layer A ([MediaMetadataRetriever]) runs synchronously first to extract lyrics.
-     * Layer B (ExoPlayer [MetadataRetriever]) then reads ReplayGain / R128 tags.
-     * Both layers are called from the same background thread.
+     * Layer A ([MediaMetadataRetriever]) runs synchronously to extract lyrics
+     * for containers where Media3 cannot yet read them (primarily MP3 USLT —
+     * see issue #922). Layer B (ExoPlayer [MetadataRetriever]) reads
+     * ReplayGain / R128 tags and lyrics for FLAC/OGG/OPUS/M4A.
      *
      * @param context Application or activity context.
      * @param path    Absolute file path.
@@ -156,22 +263,32 @@ object ExoMetadataReader {
         val file = File(path)
         if (!file.exists()) return AudioTags()
 
-        // ── Layer A: MediaMetadataRetriever — lyrics (all formats) ────────
-        // METADATA_KEY_LYRICS reads:
-        //   USLT frames in MP3  (all languages, returns first match)
-        //   ©lyr atom in M4A / AAC
-        //   Lyrics tag in other containers where supported
-        val mmrLyrics: String? = try {
-            val mmr = MediaMetadataRetriever()
-            mmr.setDataSource(path)
-            val raw = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LYRICS)
-            mmr.release()
-            raw?.trim()?.takeIf { it.isNotBlank() }
-        } catch (_: Exception) { null }
+        val ext = file.extension.lowercase()
 
-        // ── Layer B: ExoPlayer MetadataRetriever — ReplayGain + Vorbis ────
+        // ── Layer A: MediaMetadataRetriever — lyrics for MP3 and M4A ─────────
+        //
+        // We only run MMR for containers where Media3 cannot supply lyrics:
+        //   • MP3  — USLT → BinaryFrame in Media3 (issue #922, still open)
+        //   • M4A  — ©lyr backup when MdtaMetadataEntry parsing fails
+        //
+        // FLAC / OGG / OPUS are fully covered by VorbisComment in Layer B;
+        // running MMR on those files would be wasted I/O.
+        val needsMmrLyrics = ext == "mp3" || ext == "m4a" || ext == "aac" || ext == "mp4"
+
+        val mmrLyrics: String? = if (needsMmrLyrics) {
+            try {
+                val mmr = MediaMetadataRetriever()
+                mmr.setDataSource(path)
+                val raw = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LYRICS)
+                mmr.release()
+                raw?.trim()?.takeIf { it.isNotBlank() }
+            } catch (_: Exception) { null }
+        } else null
+
+        // ── Layer B: ExoPlayer MetadataRetriever — ReplayGain + Media3 lyrics ─
+        //
         // Uses Uri.fromFile so ExoPlayer's FileDataSource reads directly from
-        // the filesystem path, bypassing content-resolver on MIUI.
+        // the filesystem path, bypassing the content resolver on MIUI.
         return try {
             val future = MetadataRetriever.retrieveMetadata(
                 context, MediaItem.fromUri(Uri.fromFile(file))
@@ -191,7 +308,11 @@ object ExoMetadataReader {
             builder.build(mmrLyrics).also { tags ->
                 Log.d(TAG, "Read ${file.name}: " +
                     "rg=${tags.rgTrackGain} r128=${tags.r128Track} " +
-                    "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}")
+                    "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"} " +
+                    "(src: vorbis=${builder.vorbisLyrics != null} " +
+                    "uslt=${builder.usltLyrics != null} " +
+                    "mdta=${builder.mdtaLyrics != null} " +
+                    "mmr=${mmrLyrics != null})")
             }
         } catch (e: TimeoutException) {
             Log.w(TAG, "ExoPlayer timed out for: $path — returning MMR data only")
