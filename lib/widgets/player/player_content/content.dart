@@ -377,93 +377,91 @@ height: showOverlay
             ),
           ),
 
-          // ─── Fixed bottom controls ────────────────────────────────────────────
-          // GestureDetector forwards vertical drags from controls area to list.
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onVerticalDragUpdate: (showLyrics || showQueue)
-                ? (d) {
-                    final ctrl = showLyrics
-                        ? _lyricsScrollController
-                        : _queueScrollController;
-                    if (!ctrl.hasClients) return;
-                    ctrl.jumpTo(
-                      (ctrl.offset - d.delta.dy).clamp(
-                        0.0,
-                        ctrl.position.maxScrollExtent,
-                      ),
-                    );
-                  }
-                : null,
-            child: AnimatedOpacity(
-  duration: const Duration(milliseconds: 250),
-  opacity: 1.0 - _lyricsExpand,
-  child: IgnorePointer(
-  ignoring: _lyricsExpand > 0.0,
-  child: Opacity(
-  opacity: Curves.easeOut.transform(progress),
-  child: Column(
-    mainAxisSize: MainAxisSize.min,
-                children: [
-                  Transform.translate(
-  offset: Offset(
-  0,
-  40 * (1 - progress) - 20,
-),
-  child: Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: _playerHorizontalPadding,
-    ),
-    child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Opacity(
-  opacity: ((progress - 0.2) / 0.8)
-      .clamp(0.0, 1.0),
-  child: Transform.translate(
-  offset: const Offset(0, -15),
-  child: PlayerProgressSection(
-    formatTime: widget.formatTime,
-  ),
-),
-),
-                          const SizedBox(height: 20),
-                          Opacity(
-  opacity: ((progress - 0.35) / 0.65)
-      .clamp(0.0, 1.0),
-  child: Transform.scale(
-    scale: 0.85 + (0.15 * progress),
-    child: PlayerTransportControls(
-      playbackState: widget.playbackState,
-    ),
-  ),
-),
-                          const SizedBox(height: 24),
-                          Opacity(
-  opacity: progress,
-  child: PlayerSecondaryControls(
-    song: widget.song,
-    showLyrics: showLyrics,
-    onLyricsToggle: widget.onLyricsToggle,
-    showQueue: showQueue,
-    onQueueToggle: widget.onQueueToggle,
-  ),
-),
-                          const SizedBox(height: 15),
-                        ],
+
+        // ─── Fixed bottom controls ────────────────────────────────────────────
+        // GestureDetector forwards vertical drags from controls area to list.
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (showLyrics || showQueue)
+              ? (d) {
+                  final ctrl = showLyrics
+                      ? _lyricsScrollController
+                      : _queueScrollController;
+                  if (!ctrl.hasClients) return;
+                  ctrl.jumpTo(
+                    (ctrl.offset - d.delta.dy).clamp(
+                      0.0,
+                      ctrl.position.maxScrollExtent,
+                    ),
+                  );
+                }
+              : null,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            opacity: 1.0 - _lyricsExpand,
+            child: IgnorePointer(
+              ignoring: _lyricsExpand > 0.0,
+              child: Opacity(
+                opacity: Curves.easeOut.transform(progress),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Transform.translate(
+                      offset: Offset(0, 40 * (1 - progress) - 20),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _playerHorizontalPadding,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Opacity(
+                              opacity: ((progress - 0.2) / 0.8)
+                                  .clamp(0.0, 1.0),
+                              child: Transform.translate(
+                                offset: const Offset(0, -15),
+                                child: PlayerProgressSection(
+                                  formatTime: widget.formatTime,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Opacity(
+                              opacity: ((progress - 0.35) / 0.65)
+                                  .clamp(0.0, 1.0),
+                              child: Transform.scale(
+                                scale: 0.85 + (0.15 * progress),
+                                child: PlayerTransportControls(
+                                  playbackState: widget.playbackState,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Opacity(
+                              opacity: progress,
+                              child: PlayerSecondaryControls(
+                                song: widget.song,
+                                showLyrics: showLyrics,
+                                onLyricsToggle: widget.onLyricsToggle,
+                                showQueue: showQueue,
+                                onQueueToggle: widget.onQueueToggle,
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-
-                  Padding(
-  padding: const EdgeInsets.only(bottom: 14),
-  child: Container(
-    width: double.infinity,
-    height: 0.8,
-    color: Colors.white.withValues(alpha: 0.13),
-  ),
-),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Container(
+                        width: double.infinity,
+                        height: 0.8,
+                        color: Colors.white.withValues(alpha: 0.13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -471,7 +469,7 @@ height: showOverlay
       ],
     ),
   );
-  }
+}
 
   Widget _buildLyricsContent() {
     return FutureBuilder<LyricsResult>(
@@ -510,10 +508,12 @@ height: showOverlay
 class _QueueOverlayBody extends StatefulWidget {
   final bool isVisible;
   final VoidCallback onClose;
+  final ScrollController scrollController;
 
   const _QueueOverlayBody({
     required this.isVisible,
     required this.onClose,
+    required this.scrollController,
   });
 
   @override
@@ -521,9 +521,7 @@ class _QueueOverlayBody extends StatefulWidget {
 }
 
 class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
-  final _scroll = ScrollController();
-
-bool _autoplayEnabled = false;
+  bool _autoplayEnabled = false;
   
   @override
   void didUpdateWidget(_QueueOverlayBody old) {
@@ -535,22 +533,16 @@ bool _autoplayEnabled = false;
     }
   }
 
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
   void _scrollToCurrent() {
-    if (!_scroll.hasClients) return;
+    if (!widget.scrollController.hasClients) return;
     final idx = AudioService.playbackState.value.currentIndex;
     if (idx <= 0) return;
     // Standard ListTile height (with subtitle) is ~72 px.
     // Scroll so the item above current is visible, centring the current row.
     const itemH = 72.0;
     final target = ((idx - 1) * itemH)
-        .clamp(0.0, _scroll.position.maxScrollExtent);
-    _scroll.animateTo(
+        .clamp(0.0, widget.scrollController.position.maxScrollExtent);
+    widget.scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOut,
@@ -701,7 +693,7 @@ const SizedBox(height: 15),
     },
     blendMode: BlendMode.dstIn,
     child: ReorderableListView.builder(
-                scrollController: _scroll,
+                scrollController: widget.scrollController,
                 padding: const EdgeInsets.only(bottom: 16),
                 dragStartBehavior: DragStartBehavior.down,
                 itemCount: playlist.length,
@@ -826,10 +818,12 @@ class _QueueRow extends StatelessWidget {
 
 class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
+  final ScrollController scrollController;
   final ValueChanged<bool> onExpandChanged;
 
   const _LyricsOverlayBody({
     required this.result,
+    required this.scrollController,
     required this.onExpandChanged,
   });
 
