@@ -81,7 +81,10 @@ class MainActivity : FlutterActivity() {
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
         }
 
-        listOf("shuffleMode", "repeatMode", "sleepTimer", "offloadState").forEach { name ->
+        listOf(
+            "shuffleMode", "repeatMode", "sleepTimer", "offloadState",
+            "audioFormat", "skipSilence",
+        ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
         }

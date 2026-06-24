@@ -1,6 +1,7 @@
 package com.example.musicplayer.transport
 
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
@@ -276,6 +277,42 @@ class TransportCommands(
 
             // ── Query ─────────────────────────────────────────────────────────
 
+            /**
+             * Returns the currently active audio format reported by Media3's track
+             * selection.  Reads ExoPlayer.currentTracks at call-time; returns null
+             * when no audio track is selected (e.g. player is idle).
+             *
+             * Fields (all 0 / empty-string when not available):
+             *   sampleRate   — Hz (e.g. 44100, 48000, 96000)
+             *   channelCount — 1 = mono, 2 = stereo, 6 = 5.1, etc.
+             *   bitrate      — bits/second (0 for lossless like FLAC)
+             *   mimeType     — MIME type string (e.g. "audio/flac", "audio/mpeg")
+             *   codecs       — codec-specific string from container (may be empty)
+             *   pcmEncoding  — AudioFormat.ENCODING_* int (0 when not PCM)
+             */
+            "getAudioFormat" -> {
+                val p2 = getPlayer()
+                if (p2 == null) { result.success(null); return }
+                val audioGroup = p2.currentTracks.groups.firstOrNull {
+                    it.type == C.TRACK_TYPE_AUDIO && it.isSelected
+                }
+                val fmt = audioGroup?.let { g ->
+                    (0 until g.length)
+                        .firstOrNull { i -> g.isTrackSelected(i) }
+                        ?.let { i -> g.getTrackFormat(i) }
+                }
+                result.success(
+                    if (fmt != null) mapOf(
+                        "sampleRate"   to (fmt.sampleRate.takeIf   { it != Format.NO_VALUE } ?: 0),
+                        "channelCount" to (fmt.channelCount.takeIf { it != Format.NO_VALUE } ?: 0),
+                        "bitrate"      to (fmt.bitrate.takeIf      { it != Format.NO_VALUE } ?: 0),
+                        "mimeType"     to (fmt.sampleMimeType ?: ""),
+                        "codecs"       to (fmt.codecs        ?: ""),
+                        "pcmEncoding"  to (fmt.pcmEncoding.takeIf  { it != Format.NO_VALUE } ?: 0),
+                    ) else null
+                )
+            }
+
             "getEffectSupport" -> result.success(effectsManager.effectSupportMap())
 
             "getEqualizerParameters" -> result.success(effectsManager.equalizerParameters())
@@ -293,6 +330,18 @@ class TransportCommands(
                     else                   -> "off"
                 }
                 val st = sleepTimerManager
+
+                // Audio format from active track selection (null-safe; fields are
+                // 0 / empty-string when the player is idle or no track is selected).
+                val audioGroup = p.currentTracks.groups.firstOrNull {
+                    it.type == C.TRACK_TYPE_AUDIO && it.isSelected
+                }
+                val fmt = audioGroup?.let { g ->
+                    (0 until g.length)
+                        .firstOrNull { i -> g.isTrackSelected(i) }
+                        ?.let { i -> g.getTrackFormat(i) }
+                }
+
                 result.success(mapOf(
                     "queue"                 to queueManager.queue,
                     "currentIndex"          to (if (crossfadeController.crossfadeDurationSec > 0f)
@@ -309,6 +358,13 @@ class TransportCommands(
                     "sleepTimerRemainingMs" to if (st.sleepTimerActive && !st.sleepEndOfSong)
                         (st.sleepTimerEndMs - System.currentTimeMillis()).coerceAtLeast(0L)
                     else 0L,
+                    // Audio format fields (Media3 1.10.1 — Format.NO_VALUE = -1 sentinel)
+                    "audioSampleRate"   to (fmt?.sampleRate?.takeIf   { it != Format.NO_VALUE } ?: 0),
+                    "audioChannelCount" to (fmt?.channelCount?.takeIf { it != Format.NO_VALUE } ?: 0),
+                    "audioBitrate"      to (fmt?.bitrate?.takeIf      { it != Format.NO_VALUE } ?: 0),
+                    "audioMimeType"     to (fmt?.sampleMimeType ?: ""),
+                    "audioCodecs"       to (fmt?.codecs        ?: ""),
+                    "audioPcmEncoding"  to (fmt?.pcmEncoding?.takeIf  { it != Format.NO_VALUE } ?: 0),
                 ))
             }
 

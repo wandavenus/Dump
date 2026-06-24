@@ -35,6 +35,12 @@ import com.example.musicplayer.transport.TransportState
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.IdentityHashMap
+import androidx.media3.common.Format
+import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.session.CommandButton
 
 /**
  * Thin orchestration layer.
@@ -79,7 +85,8 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var offloadManager:       AudioOffloadManager
 
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
-    private val playerListeners = IdentityHashMap<ExoPlayer, Player.Listener>()
+    private val playerListeners    = IdentityHashMap<ExoPlayer, Player.Listener>()
+    private val analyticsListeners = IdentityHashMap<ExoPlayer, AnalyticsListener>()
 
     // ── Companion ─────────────────────────────────────────────────────────────
     companion object {
@@ -176,6 +183,25 @@ class Media3PlaybackService : MediaSessionService() {
             )
         }
         session = sessionBuilder.build()
+
+        // Media3 1.4+: setMediaButtonPreferences controls which buttons external OS
+        // surfaces show (lock screen widget, Android Auto, Wear OS, Bluetooth AVRCP).
+        // This does NOT affect our custom PlaybackNotificationManager notification —
+        // that is fully controlled by onUpdateNotification() override (empty body).
+        session?.setMediaButtonPreferences(listOf(
+            CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .setDisplayName("Previous")
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+                .setDisplayName("Play / Pause")
+                .build(),
+            CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setDisplayName("Next")
+                .build(),
+        ))
 
         // Wire feature modules ────────────────────────────────────────────────
 
@@ -477,8 +503,28 @@ class Media3PlaybackService : MediaSessionService() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        return ExoPlayer.Builder(this)
+        // 32-bit float audio pipeline — enables higher-precision mixing for
+        // 24/32-bit FLAC/WAV on Android 11 devices with float-capable audio HALs.
+        // EXTENSION_RENDERER_MODE_ON: load codec extensions (e.g. ffmpeg) when present.
+        val renderersFactory = DefaultRenderersFactory(this)
+            .setEnableAudioFloatOutput(true)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
+        // DefaultTrackSelector with explicit audio preferences.
+        // For typical local music files (single audio track) this is a no-op, but for
+        // multi-track containers (MKV/MP4) it ensures the highest-quality track is chosen.
+        val trackSelector = DefaultTrackSelector(this).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMaxAudioChannelCount(Int.MAX_VALUE) // never downmix surround
+                    .setForceLowestBitrate(false)           // prefer quality over economy
+                    .build()
+            )
+        }
+
+        return ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
             .build()
             .apply {
                 val attrs = androidx.media3.common.AudioAttributes.Builder()
@@ -601,13 +647,172 @@ class Media3PlaybackService : MediaSessionService() {
                 effectsManager.attachEffects(audioSessionId)
                 transportState.emitAll()
             }
+
+            // ── Media3 1.10.1 — additional Player.Listener callbacks ──────────
+
+            /**
+             * Fired whenever ExoPlayer's software volume changes (e.g. during
+             * ducking or user-initiated setVolume).  Emits a state snapshot so
+             * Flutter's volume indicator stays in sync without a separate poll.
+             */
+            override fun onVolumeChanged(volume: Float) {
+                if (!isActiveEvent()) return
+                NativeLogger.emit("verbose", "Media3", "volume → $volume")
+                transportState.emitAll()
+            }
+
+            /**
+             * Fired when the AudioAttributes on the ExoPlayer instance change.
+             * In this app they are set once at construction and never mutated,
+             * so this is primarily a diagnostic log.
+             */
+            override fun onAudioAttributesChanged(
+                audioAttributes: androidx.media3.common.AudioAttributes,
+            ) {
+                if (!isActiveEvent()) return
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "audioAttributes → usage=${audioAttributes.usage} " +
+                    "contentType=${audioAttributes.contentType} " +
+                    "flags=${audioAttributes.flags}",
+                )
+            }
+
+            /**
+             * Fires when skip-silence is toggled on the player.
+             * Emitted to Flutter via the "skipSilence" EventChannel so the UI
+             * toggle stays in sync with the native player state.
+             */
+            override fun onSkipSilenceEnabledChanged(skipSilenceEnabled: Boolean) {
+                if (!isActiveEvent()) return
+                NativeLogger.emit("info", "Media3", "skipSilence → $skipSilenceEnabled")
+                EventEmitter.emit("skipSilence", skipSilenceEnabled)
+            }
+
+            /**
+             * Fires when the selected audio track changes — i.e. after decoder
+             * initialisation on every new media item.  Emits the active audio
+             * format (sample rate, channels, bitrate, MIME type, codecs,
+             * PCM encoding) via the "audioFormat" EventChannel for the
+             * Flutter UI to display bit-depth / sample-rate info.
+             */
+            override fun onTracksChanged(tracks: Tracks) {
+                if (!isActiveEvent()) return
+                val audioGroup = tracks.groups.firstOrNull {
+                    it.type == C.TRACK_TYPE_AUDIO && it.isSelected
+                }
+                val fmt = audioGroup?.let { g ->
+                    (0 until g.length)
+                        .firstOrNull { i -> g.isTrackSelected(i) }
+                        ?.let { i -> g.getTrackFormat(i) }
+                }
+                val fmtMap: Map<String, Any> = if (fmt != null) mapOf(
+                    "sampleRate"   to (fmt.sampleRate.takeIf   { it != Format.NO_VALUE } ?: 0),
+                    "channelCount" to (fmt.channelCount.takeIf { it != Format.NO_VALUE } ?: 0),
+                    "bitrate"      to (fmt.bitrate.takeIf      { it != Format.NO_VALUE } ?: 0),
+                    "mimeType"     to (fmt.sampleMimeType ?: ""),
+                    "codecs"       to (fmt.codecs        ?: ""),
+                    "pcmEncoding"  to (fmt.pcmEncoding.takeIf  { it != Format.NO_VALUE } ?: 0),
+                ) else emptyMap()
+                EventEmitter.emit("audioFormat", fmtMap)
+                if (fmt != null) {
+                    NativeLogger.emit(
+                        "info", "Media3",
+                        "Audio format: ${fmt.sampleMimeType} " +
+                        "${if (fmt.sampleRate    != Format.NO_VALUE) "${fmt.sampleRate}Hz " else ""}" +
+                        "${if (fmt.channelCount  != Format.NO_VALUE) "${fmt.channelCount}ch " else ""}" +
+                        "${if (fmt.bitrate       != Format.NO_VALUE) "${fmt.bitrate}bps" else ""}",
+                    )
+                }
+            }
+
+            /**
+             * Logs seek-driven position discontinuities for session audit.
+             * Emits a state snapshot so Flutter position indicator snaps
+             * immediately on seek completion instead of waiting for the next
+             * position tick.
+             */
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                @Player.DiscontinuityReason reason: Int,
+            ) {
+                if (!isActiveEvent()) return
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    transportState.emitAll()
+                    NativeLogger.emit(
+                        "verbose", "Media3",
+                        "seek discontinuity → " +
+                        "${oldPosition.positionMs}ms → ${newPosition.positionMs}ms",
+                    )
+                }
+            }
         }
         playerListeners[p] = listener
         p.addListener(listener)
+
+        // ── AnalyticsListener — ExoPlayer-specific decoder/sink diagnostics ──
+        // These events are not surfaced via Player.Listener; they require the
+        // ExoPlayer-specific AnalyticsListener interface.
+        val analyticsListener = object : AnalyticsListener {
+
+            /**
+             * Logs the audio decoder name and initialisation duration.
+             * Useful to confirm float-output codecs are being selected (e.g.
+             * raw/float decoder for FLAC vs. MediaCodec for AAC/MP3).
+             */
+            override fun onAudioDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long,
+            ) {
+                if (p !== activePlayer) return
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioDecoder: $decoderName init=${initializationDurationMs}ms",
+                )
+            }
+
+            /**
+             * Audio underrun = the audio sink ran out of data to write to the
+             * hardware. On MIUI 12 this can happen when the OS suspends the CPU
+             * mid-track; it does NOT indicate a bug but should be logged.
+             */
+            override fun onAudioUnderrun(
+                eventTime: AnalyticsListener.EventTime,
+                bufferSize: Int,
+                bufferSizeMs: Long,
+                elapsedSinceLastFeedMs: Long,
+            ) {
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioUnderrun: size=${bufferSize}B " +
+                    "duration=${bufferSizeMs}ms " +
+                    "elapsedSinceLastFeed=${elapsedSinceLastFeedMs}ms",
+                )
+            }
+
+            /**
+             * Audio sink errors (e.g. AudioTrack write failure, AudioFlinger
+             * disconnect). Logged and forwarded to the SessionAuditLogger so
+             * the full audit trail captures hardware-level failures.
+             */
+            override fun onAudioSinkError(
+                eventTime: AnalyticsListener.EventTime,
+                audioSinkError: Exception,
+            ) {
+                NativeLogger.emit("warn", "Media3", "AudioSink error: ${audioSinkError.message}")
+                SessionAuditLogger.warn("AudioSink", audioSinkError.message ?: "unknown")
+            }
+        }
+        analyticsListeners[p] = analyticsListener
+        p.addAnalyticsListener(analyticsListener)
     }
 
     private fun detachPlayerListener(p: ExoPlayer) {
         playerListeners.remove(p)?.let { p.removeListener(it) }
+        analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────
