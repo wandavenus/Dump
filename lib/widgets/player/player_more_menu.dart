@@ -4,6 +4,7 @@ import '../../services/audio/media3/media3_audio_player.dart';
 
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
+import 'player_scan_rg_sheet.dart';
 import 'player_song_info_sheet.dart';
 
 class PlayerMoreMenu extends StatelessWidget {
@@ -39,6 +40,8 @@ class PlayerMoreMenu extends StatelessWidget {
               AudioService.cycleLoopMode();
             case _PlayerMoreAction.songInfo:
               _showSongInfo(context);
+            case _PlayerMoreAction.scanRg:
+              showScanRgSheet(context, song);
           }
         },
         itemBuilder: (context) {
@@ -69,6 +72,26 @@ class PlayerMoreMenu extends StatelessWidget {
                   SizedBox(width: 12),
                   Text(
                     'Song Info',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuItem<_PlayerMoreAction>(
+              value: _PlayerMoreAction.scanRg,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.graphic_eq_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Scan ReplayGain',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -136,4 +159,4 @@ class PlayerMoreMenu extends StatelessWidget {
   }
 }
 
-enum _PlayerMoreAction { shuffle, loop, songInfo }
+enum _PlayerMoreAction { shuffle, loop, songInfo, scanRg }

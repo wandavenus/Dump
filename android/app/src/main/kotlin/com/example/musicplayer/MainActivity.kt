@@ -171,6 +171,36 @@ class MainActivity : FlutterActivity() {
                         val path = call.argument<String>("path") ?: ""
                         result.success(getReplayGainTags(path))
                     }
+                    "scanReplayGain" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        Thread {
+                            try {
+                                val scanResult = com.example.musicplayer.replay_gain
+                                    .ReplayGainScanner.scan(path) { _ -> }
+                                val tagsWritten = if (scanResult != null)
+                                    com.example.musicplayer.replay_gain
+                                        .ReplayGainScanner.writeTags(path, scanResult)
+                                else false
+                                runOnUiThread {
+                                    if (scanResult != null) {
+                                        result.success(mapOf(
+                                            "integratedLufs" to scanResult.integratedLufs,
+                                            "trackGainDb"    to scanResult.trackGainDb,
+                                            "trackPeak"      to scanResult.trackPeak,
+                                            "tagsWritten"    to tagsWritten,
+                                        ))
+                                    } else {
+                                        result.error("scan_failed",
+                                            "Could not decode audio", null)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("scan_error", e.message, null)
+                                }
+                            }
+                        }.apply { name = "rg-scanner"; start() }
+                    }
                     else -> result.notImplemented()
                 }
             }
