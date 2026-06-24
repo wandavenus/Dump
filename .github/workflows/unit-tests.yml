@@ -30,7 +30,6 @@ jobs:
           key: gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/app/build.gradle') }}
           restore-keys: gradle-
       - name: Run unit tests
-        working-directory: android
         run: ./gradlew :app:test --no-daemon
 
   lint:
@@ -50,5 +49,4 @@ jobs:
           channel: stable
           cache: true
       - name: Run lint
-        working-directory: android
         run: ./gradlew :app:lintDebug --no-daemon
