@@ -34,13 +34,23 @@ import com.example.musicplayer.transport.TransportCommands
 import com.example.musicplayer.transport.TransportState
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.Collections
 import java.util.IdentityHashMap
 import androidx.media3.common.Format
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.PlaybackStatsListener
+import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
+import androidx.media3.exoplayer.audio.ChannelMixingAudioProcessor
+import androidx.media3.exoplayer.audio.DefaultAudioProcessorChain
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.session.CommandButton
+import com.example.musicplayer.effects.StereoWidthManager
 
 /**
  * Thin orchestration layer.
@@ -85,8 +95,20 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var offloadManager:       AudioOffloadManager
 
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
-    private val playerListeners    = IdentityHashMap<ExoPlayer, Player.Listener>()
-    private val analyticsListeners = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
+    private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
+    private val playerProcessors     = IdentityHashMap<ExoPlayer, ChannelMixingAudioProcessor>() // Item 8
+
+    // ── Item 1: skip silence — persisted so new standby players inherit state ─
+    private var skipSilenceEnabled = false
+
+    // ── Item 5: tunneling — persisted so new standby players inherit state ────
+    private var tunnelingEnabled = false
+
+    // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
+    private var audioCapReceiver: AudioCapabilitiesReceiver? = null
+    private lateinit var stereoWidthManager: StereoWidthManager
 
     // ── Companion ─────────────────────────────────────────────────────────────
     companion object {
@@ -132,6 +154,11 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Item 8: StereoWidthManager MUST be initialised before the first
+        // createConfiguredPlayer() call so the primary player's processor is
+        // correctly tracked from the start.
+        stereoWidthManager = StereoWidthManager()
 
         // Create primary player
         primaryPlayer = createConfiguredPlayer()
@@ -364,6 +391,38 @@ class Media3PlaybackService : MediaSessionService() {
             effectsManager        = effectsManager,
             ensureMediaForeground = { notificationManager.ensureMediaForeground() },
             offloadManager        = offloadManager,
+
+            // Item 1: skip silence — applied to ALL live players atomically so
+            // both active and standby behave identically during crossfade overlap.
+            applySkipSilence = { enabled ->
+                skipSilenceEnabled = enabled
+                forEachLivePlayer { it.skipSilenceEnabled = enabled }
+                NativeLogger.emit("info", "Media3",
+                    "skipSilence=$enabled applied to all live players")
+            },
+
+            // Item 5: tunneling — updates TrackSelectionParameters on all live
+            // players and stores flag so new standby players inherit the state.
+            onTunnelingChanged = { enabled -> applyTunnelingToAllPlayers(enabled) },
+
+            // Item 8: stereo widening — delegate to StereoWidthManager which
+            // updates all ChannelMixingAudioProcessor instances atomically.
+            onStereoWideningChanged = { enabled, strength ->
+                stereoWidthManager.setStereoWidening(enabled, strength)
+            },
+
+            // Item 6: return current PlaybackStats for the active player session.
+            getPlaybackStats = {
+                val statsListener = statsListeners[activePlayer]
+                statsListener?.getPlaybackStats()?.let { stats ->
+                    mapOf(
+                        "totalPlayTimeMs"      to stats.totalPlayTimeMs,
+                        "totalBufferingTimeMs" to stats.totalBufferingTimeMs,
+                        "totalRebufferCount"   to stats.totalRebufferCount,
+                        "totalErrorCount"      to stats.totalErrorCount,
+                    )
+                }
+            },
         )
 
         // When Flutter subscribes to any event stream, push the full current state
@@ -373,6 +432,37 @@ class Media3PlaybackService : MediaSessionService() {
         attachPlayerListener(primaryPlayer!!)
 
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+
+        // Item 3: AudioCapabilitiesReceiver — reacts to audio output device changes
+        // (BT connect/disconnect, HDMI plug) that can invalidate the software effects
+        // chain on MIUI 12 without changing the numeric AudioSession ID.
+        // All callback work runs on the main Handler so it is safe to access ExoPlayer
+        // state and call effectsManager.resetAndReattach() directly.
+        audioCapReceiver = AudioCapabilitiesReceiver(this) { _ ->
+            NativeLogger.emit(
+                "info", "AudioCap",
+                "Audio capabilities changed (output device may have changed) — " +
+                "re-evaluating track selection and scheduling effects reattach",
+            )
+            // Force a track re-selection on all live players so Media3 can adapt
+            // to any new passthrough / tunneling capabilities on the new output device.
+            forEachLivePlayer { p ->
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().build()
+            }
+            // MIUI 12: delay the effects re-attach slightly so the new AudioSession
+            // (if any) has time to be published by AudioFlinger before we attempt to
+            // bind Equalizer / BassBoost / Virtualizer etc.
+            handler.postDelayed({
+                val sessionId = activePlayer?.audioSessionId ?: 0
+                if (sessionId > 0) {
+                    effectsManager.resetAndReattach(sessionId)
+                }
+            }, 500L)
+            // Notify Flutter so the UI can refresh device-specific info if needed.
+            EventEmitter.emit("audioCapabilitiesChanged",
+                mapOf("timestamp" to System.currentTimeMillis()))
+        }.also { it.register() }
+
         instance = this
 
         restoreQueueFromPrefs()
@@ -418,6 +508,9 @@ class Media3PlaybackService : MediaSessionService() {
         effectsManager.releaseEffects()
         handler.removeCallbacksAndMessages(null)
         try { unregisterReceiver(noisyReceiver) } catch (_: Exception) {}
+        // Item 3: unregister AudioCapabilitiesReceiver to prevent BroadcastReceiver leaks.
+        try { audioCapReceiver?.unregister() } catch (_: Exception) {}
+        audioCapReceiver = null
         audioFocusManager.abandon()
         instance = null
         primaryPlayer?.release()
@@ -503,28 +596,72 @@ class Media3PlaybackService : MediaSessionService() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        // 32-bit float audio pipeline — enables higher-precision mixing for
-        // 24/32-bit FLAC/WAV on Android 11 devices with float-capable audio HALs.
-        // EXTENSION_RENDERER_MODE_ON: load codec extensions (e.g. ffmpeg) when present.
-        val renderersFactory = DefaultRenderersFactory(this)
+        // Item 8: each player gets its own ChannelMixingAudioProcessor so
+        // stereo widening can be applied/updated atomically during crossfade.
+        val channelMixingProc: ChannelMixingAudioProcessor =
+            if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
+            else ChannelMixingAudioProcessor()
+
+        // Custom DefaultRenderersFactory that injects channelMixingProc into the
+        // DefaultAudioSink's processor chain so stereo widening runs before
+        // SonicAudioProcessor (which handles skip-silence and speed/pitch).
+        //
+        // Item 2: setEnableDecoderFallback(true) — on MIUI 12, hardware audio
+        // decoders (OMX.qcom.audio.*) occasionally crash on FLAC or long files.
+        // With fallback enabled, ExoPlayer silently retries with the software
+        // decoder (FFmpeg extension) instead of surfacing an error to the user.
+        //
+        // Item 8 (continued): buildAudioSink() is the officially supported
+        // extension point in DefaultRenderersFactory for injecting custom
+        // AudioProcessors into the pipeline.
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                // DefaultAudioProcessorChain wraps our processor first, then adds
+                // the built-in SonicAudioProcessor (handles skip-silence / speed).
+                .setAudioProcessorChain(DefaultAudioProcessorChain(channelMixingProc))
+                .build()
+        }
             .setEnableAudioFloatOutput(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true)  // Item 2
 
         // DefaultTrackSelector with explicit audio preferences.
         // For typical local music files (single audio track) this is a no-op, but for
         // multi-track containers (MKV/MP4) it ensures the highest-quality track is chosen.
+        //
+        // Item 5: setTunnelingEnabled reads the service-level flag so that standby
+        // players created lazily by PreloadManager inherit the current tunneling state.
         val trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
                     .setMaxAudioChannelCount(Int.MAX_VALUE) // never downmix surround
                     .setForceLowestBitrate(false)           // prefer quality over economy
+                    .setTunnelingEnabled(tunnelingEnabled)  // Item 5
                     .build()
             )
         }
 
-        return ExoPlayer.Builder(this, renderersFactory)
+        // Item 10: CustomDefaultExtractorsFactory.
+        // FLAG_DISABLE_ID3_METADATA on FLAC: jaudiotagger already reads all tags
+        // (title, artist, album, lyrics) so ExoPlayer's ID3 parse during demuxing
+        // is redundant overhead — especially on long FLAC files (>100 MB) where
+        // the ID3 scan measurably delays the initial seek.
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
             .setTrackSelector(trackSelector)
+            .setMediaSourceFactory(mediaSourceFactory)  // Item 10
+            .setSeekBackIncrementMs(10_000L)            // Item 7: 10 s back (headset 2× press)
+            .setSeekForwardIncrementMs(30_000L)         // Item 7: 30 s forward (headset 3× press)
             .build()
             .apply {
                 val attrs = androidx.media3.common.AudioAttributes.Builder()
@@ -541,6 +678,9 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
+                // Item 1: apply current skip-silence state so standby players always
+                // match the active player — no gap in skip-silence behaviour mid-crossfade.
+                skipSilenceEnabled = this@Media3PlaybackService.skipSilenceEnabled
                 // Attach the offload listener when available (offloadManager is initialised
                 // after the primary player in onCreate; secondary players are always created
                 // after that point so the guard below covers the race-free case).
@@ -548,12 +688,29 @@ class Media3PlaybackService : MediaSessionService() {
                     addAudioOffloadListener(offloadManager.makeOffloadListener())
                 }
             }
+
+        // Track the processor for this player so it can be removed from
+        // StereoWidthManager when the player is released (via detachPlayerListener).
+        if (::stereoWidthManager.isInitialized) {
+            playerProcessors[player] = channelMixingProc
+        }
+
+        return player
     }
 
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
 
     private fun attachPlayerListener(p: ExoPlayer) {
         detachPlayerListener(p)
+
+        // Item 6: PlaybackStatsListener — accumulates per-session metrics for
+        // getPlaybackStats(). keepHistory=false: we only need the running totals
+        // (totalPlayTimeMs / totalBufferingTimeMs / totalRebufferCount /
+        // totalErrorCount) so there is no need to retain per-sample history in RAM.
+        val statsListener = PlaybackStatsListener(/* keepHistory= */ false) { _, _ -> }
+        p.addAnalyticsListener(statsListener)
+        statsListeners[p] = statsListener
+
         val listener = object : Player.Listener {
             private fun isActiveEvent(): Boolean = p === activePlayer
 
@@ -813,6 +970,11 @@ class Media3PlaybackService : MediaSessionService() {
     private fun detachPlayerListener(p: ExoPlayer) {
         playerListeners.remove(p)?.let { p.removeListener(it) }
         analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        // Item 6: remove PlaybackStatsListener to avoid accumulating stale sessions.
+        statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        // Item 8: remove processor from StereoWidthManager so it is no longer updated
+        // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
+        playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────
@@ -828,6 +990,48 @@ class Media3PlaybackService : MediaSessionService() {
             "Restored queue: ${restored.items.size} tracks idx=${restored.index} " +
             "pos=${restored.posMs}ms repeat=${restored.repeat} shuffle=${restored.shuffle}")
         transportState.emitAll(emitQueue = true)
+    }
+
+    // ── Item helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Iterates over every live [ExoPlayer] instance (primary + secondary, deduped).
+     *
+     * "Live" means the player variable is non-null; it may or may not be the
+     * currently active player. Using identity semantics avoids double-applying
+     * an operation if primary and active point to the same object.
+     */
+    private fun forEachLivePlayer(block: (ExoPlayer) -> Unit) {
+        val seen = Collections.newSetFromMap(IdentityHashMap<ExoPlayer, Boolean>())
+        primaryPlayer?.let   { if (seen.add(it)) block(it) }
+        secondaryPlayer?.let { if (seen.add(it)) block(it) }
+    }
+
+    /**
+     * Item 5: Apply tunneling state to all live ExoPlayer instances and persist
+     * the flag so future players created by [createConfiguredPlayer] inherit it.
+     *
+     * Tunneling bypasses the entire software audio pipeline (EQ, BassBoost,
+     * Virtualizer, Reverb, LoudnessEnhancer, ChannelMixingAudioProcessor,
+     * SonicAudioProcessor). This is expected and intentional — tunneling routes
+     * PCM directly from the decoder to the audio HAL via a shared memory buffer.
+     *
+     * CrossfadeController's Handler-tick volume manipulation still fires but has
+     * no audible effect in the tunneled path.
+     */
+    private fun applyTunnelingToAllPlayers(enabled: Boolean) {
+        tunnelingEnabled = enabled
+        if (enabled) {
+            NativeLogger.emit("warn", "Media3",
+                "Tunneling enabled — EQ/BassBoost/Virtualizer/StereoWidening/" +
+                "Crossfade volume ramps are bypassed in the hardware path.")
+        }
+        forEachLivePlayer { p ->
+            p.trackSelectionParameters = p.trackSelectionParameters
+                .buildUpon()
+                .setTunnelingEnabled(enabled)
+                .build()
+        }
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

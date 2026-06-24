@@ -211,6 +211,22 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         // It is reset in the guard at the top of attachEffects when a new session arrives.
     }
 
+    /**
+     * Force-reattach all effects to [sessionId], bypassing the
+     * [lastAttachedSessionId] guard.
+     *
+     * Used by [AudioCapabilitiesReceiver] after an audio-output-device change
+     * (BT connect/disconnect, HDMI) where MIUI 12 can invalidate the effect
+     * chain on the existing AudioSession without changing its numeric ID.
+     * Resetting [lastAttachedSessionId] ensures [attachEffects] runs through
+     * the full init sequence rather than treating it as a no-op.
+     */
+    fun resetAndReattach(sessionId: Int) {
+        lastAttachedSessionId = AudioEffect.ERROR_BAD_VALUE
+        attachEffects(sessionId)
+        log("info", "resetAndReattach: forced re-attach to session=$sessionId")
+    }
+
     // ── Effect setters ────────────────────────────────────────────────────────
 
     fun setEqualizerEnabled(enabled: Boolean) {
