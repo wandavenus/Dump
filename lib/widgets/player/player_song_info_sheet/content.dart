@@ -24,7 +24,7 @@ class _SongInfoContent extends StatelessWidget {
 
     // Compute Bit Depth string once; empty string means "skip this row".
     final bitDepth = hasLive
-        ? _fmtPcmEncoding((live!['pcmEncoding'] as num?)?.toInt() ?? 0)
+        ? _fmtPcmEncoding((live['pcmEncoding'] as num?)?.toInt() ?? 0)
         : '';
 
     return SingleChildScrollView(
@@ -95,7 +95,7 @@ class _SongInfoContent extends StatelessWidget {
                 label: 'Format',
                 value: hasLive
                     ? _fmtMimeType(
-                        live!['mimeType'] as String? ?? '',
+                        live['mimeType'] as String? ?? '',
                         songInfo.format,
                       )
                     : songInfo.format,
@@ -110,7 +110,7 @@ class _SongInfoContent extends StatelessWidget {
                 label: 'Sample Rate',
                 value: hasLive
                     ? _fmtSampleRate(
-                        (live!['sampleRate'] as num?)?.toInt() ?? 0,
+                        (live['sampleRate'] as num?)?.toInt() ?? 0,
                         songInfo.sampleRate,
                       )
                     : songInfo.sampleRate,
@@ -121,7 +121,7 @@ class _SongInfoContent extends StatelessWidget {
                 PlayerSongInfoRow(
                   label: 'Channels',
                   value: _fmtChannels(
-                    (live!['channelCount'] as num?)?.toInt() ?? 0,
+                    (live['channelCount'] as num?)?.toInt() ?? 0,
                   ),
                 ),
 
@@ -130,7 +130,7 @@ class _SongInfoContent extends StatelessWidget {
                 label: 'Bitrate',
                 value: hasLive
                     ? _fmtBitrate(
-                        (live!['bitrate'] as num?)?.toInt() ?? 0,
+                        (live['bitrate'] as num?)?.toInt() ?? 0,
                         songInfo.bitrate,
                       )
                     : songInfo.bitrate,
