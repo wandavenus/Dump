@@ -400,15 +400,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     const smallRadius = 8.0;
     final smallTop = safeTop + 36.5;
 
-    final finalLeft   = lerpDouble(artLeft,   smallLeft,   overlayT)!;
-    final finalTop    = lerpDouble(artTop,    smallTop,    overlayT)!;
-    final finalSize   = lerpDouble(artSize,   smallSize,   overlayT)!;
-    final finalRadius = lerpDouble(artRadius, smallRadius, overlayT)!;
-    final shadowAlpha = lerpDouble(0.30,      0.0,         overlayT)!;
-    final shadowBlur  = lerpDouble(40.0,      0.0,         overlayT)!;
-    final shadowOff   = lerpDouble(15.0,      0.0,         overlayT)!;
+    // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
+    // scale down the thumbnail's influence proportionally with t so the artwork
+    // smoothly flies from the small-thumbnail position to the mini-player
+    // position instead of staying frozen at the top-left corner while the sheet
+    // slides away.
+    final effectiveOverlayT = (overlayT * t).clamp(0.0, 1.0);
 
-    // Pulse scale only in full-player mode, not in thumbnail state.
+    final finalLeft   = lerpDouble(artLeft,   smallLeft,   effectiveOverlayT)!;
+    final finalTop    = lerpDouble(artTop,    smallTop,    effectiveOverlayT)!;
+    final finalSize   = lerpDouble(artSize,   smallSize,   effectiveOverlayT)!;
+    final finalRadius = lerpDouble(artRadius, smallRadius, effectiveOverlayT)!;
+    final shadowAlpha = lerpDouble(0.30,      0.0,         effectiveOverlayT)!;
+    final shadowBlur  = lerpDouble(40.0,      0.0,         effectiveOverlayT)!;
+    final shadowOff   = lerpDouble(15.0,      0.0,         effectiveOverlayT)!;
+
+    // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
+    // only lifts once the overlay animation itself has fully reversed, not
+    // during a sheet-close where _overlayAnim stays at 1.
     final targetScale = overlayT > 0.5
         ? 1.0
         : (state.isPlaying ? 1.0 : 0.96);
