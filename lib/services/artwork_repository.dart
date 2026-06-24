@@ -76,7 +76,7 @@ class ArtworkRepository {
     try {
       return await future;
     } finally {
-      _inFlight.remove(songId);
+      _inFlight.remove(songId); // ignore: unawaited_futures
     }
   }
 
@@ -160,7 +160,8 @@ class ArtworkRepository {
     // Layer 2: disk probe — skip MethodChannel if file already on disk.
     final expected = await diskPath(songId);
     final file = File(expected);
-    if (await file.exists() && await file.length() > 0) {
+    final stat = await file.stat(); // ignore: avoid_slow_async_io
+    if (stat.type != FileSystemEntityType.notFound && stat.size > 0) {
       _addToMemory(songId, expected);
       return expected;
     }

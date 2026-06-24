@@ -32,7 +32,7 @@ class EqualizerPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Expanded(child: _RoomPresetGrid()),
+            const Expanded(child: _RoomPresetGrid()),
           ],
         ),
       ),

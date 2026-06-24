@@ -355,7 +355,7 @@ height: showOverlay
   40 * (1 - progress) - 20,
 ),
   child: Padding(
-    padding: EdgeInsets.symmetric(
+    padding: const EdgeInsets.symmetric(
       horizontal: _playerHorizontalPadding,
     ),
     child: Column(

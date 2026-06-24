@@ -112,7 +112,7 @@ class LyricsService {
       final folder = overrideFolder ?? p.dirname(audioPath);
       final lrcPath = p.join(folder, '$nameNoExt.lrc');
       final lrcFile = File(lrcPath);
-      if (!await lrcFile.exists()) {
+      if ((await lrcFile.stat()).type == FileSystemEntityType.notFound) { // ignore: avoid_slow_async_io
         LogService.verbose('Lyrics', 'No .lrc at: $lrcPath');
         return [];
       }

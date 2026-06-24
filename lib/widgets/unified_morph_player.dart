@@ -546,9 +546,9 @@ Transform.translate(
             color: Colors.white,
           ),
         ),
-        IconButton(
+        const IconButton(
           onPressed: AudioService.skipNext,
-          icon: const Icon(
+          icon: Icon(
             Icons.fast_forward_rounded,
             size: 36,
             color: Colors.white,

@@ -69,7 +69,7 @@ class SettingsSliderRow extends StatelessWidget {
               min: min,
               max: max,
               divisions: divisions,
-              onChanged: (v) => onChanged(v),
+              onChanged: onChanged,
             ),
           ),
         ],

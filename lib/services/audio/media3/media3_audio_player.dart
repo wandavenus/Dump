@@ -36,9 +36,7 @@ class AudioPlayer {
       _duration = value;
       _durationController.add(value);
     });
-    _sessionSub = Media3PlaybackBridge.audioSessionIdStream.listen((value) {
-      _sessionController.add(value);
-    });
+    _sessionSub = Media3PlaybackBridge.audioSessionIdStream.listen(_sessionController.add);
   }
 
   final _playerStateController = StreamController<PlayerState>.broadcast();

@@ -45,37 +45,37 @@ class LyricsSettings {
 
   static Future<void> setFontSize(double v) async {
     fontSize.value = v;
-    (await SharedPreferences.getInstance()).setDouble('lyr_fontSize', v);
+    await (await SharedPreferences.getInstance()).setDouble('lyr_fontSize', v);
   }
 
   static Future<void> setTextAlign(String v) async {
     textAlign.value = v;
-    (await SharedPreferences.getInstance()).setString('lyr_textAlign', v);
+    await (await SharedPreferences.getInstance()).setString('lyr_textAlign', v);
   }
 
   static Future<void> setBgDim(double v) async {
     bgDim.value = v;
-    (await SharedPreferences.getInstance()).setDouble('lyr_bgDim', v);
+    await (await SharedPreferences.getInstance()).setDouble('lyr_bgDim', v);
   }
 
   static Future<void> setBlurStrength(double v) async {
     blurStrength.value = v;
-    (await SharedPreferences.getInstance()).setDouble('lyr_blur', v);
+    await (await SharedPreferences.getInstance()).setDouble('lyr_blur', v);
   }
 
   static Future<void> setActiveColor(String v) async {
     activeColor.value = v;
-    (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
+    await (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
   }
 
   static Future<void> setShowSource(bool v) async {
     showSource.value = v;
-    (await SharedPreferences.getInstance()).setBool('lyr_showSource', v);
+    await (await SharedPreferences.getInstance()).setBool('lyr_showSource', v);
   }
 
   static Future<void> setKaraokeMode(bool v) async {
     karaokeMode.value = v;
-    (await SharedPreferences.getInstance()).setBool('lyr_karaoke', v);
+    await (await SharedPreferences.getInstance()).setBool('lyr_karaoke', v);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

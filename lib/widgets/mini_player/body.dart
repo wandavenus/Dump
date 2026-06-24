@@ -105,7 +105,7 @@ class _MiniPlayerBody extends StatelessWidget {
             song.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
             ),
@@ -145,7 +145,7 @@ class _MiniPlayerBody extends StatelessWidget {
         ),
         IconButton(
           onPressed: canGoNext
-              ? () => AudioService.skipNext()
+              ? AudioService.skipNext
               : null,
           icon: Icon(
             Icons.skip_next,

@@ -23,7 +23,7 @@ class _RoomPresetGrid extends StatelessWidget {
         return ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.equalizerEnabled,
           builder: (_, enabled, _) {
-            final presets = AudioEffectsService.roomPresets;
+            const presets = AudioEffectsService.roomPresets;
             return GridView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

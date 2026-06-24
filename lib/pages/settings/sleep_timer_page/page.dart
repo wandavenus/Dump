@@ -43,10 +43,10 @@ class SleepTimerPage extends StatelessWidget {
           ValueListenableBuilder<bool>(
             valueListenable: SleepTimerService.isActive,
             builder: (_, active, _) => active
-                ? CupertinoButton(
+                ? const CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: SleepTimerService.cancel,
-                    child: const Text(
+                    child: Text(
                       'Batalkan',
                       style: TextStyle(
                           color: Color(0xFFF92D48), fontSize: 15),

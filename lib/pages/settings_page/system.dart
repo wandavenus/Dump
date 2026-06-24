@@ -24,9 +24,9 @@ class _SystemSection extends StatelessWidget {
 
         ValueListenableBuilder<bool>(
   valueListenable: LogService.loggingEnabled,
-  builder: (_, logEnabled, __) => ValueListenableBuilder<bool>(
+  builder: (_, logEnabled, _) => ValueListenableBuilder<bool>(
     valueListenable: LogService.errorsOnly,
-    builder: (_, errOnly, __) => SettingsToggleRow(
+    builder: (_, errOnly, _) => SettingsToggleRow(
       title: 'Error & Peringatan Saja',
       subtitle: 'Sembunyikan log info & verbose',
       value: errOnly,
@@ -71,7 +71,7 @@ class _SystemSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        SettingsActionRow(
+        const SettingsActionRow(
           title: 'Bersihkan Log',
           trailing: '',
           onTap: LogService.clear,
@@ -342,8 +342,8 @@ class _LogViewerModalState extends State<_LogViewerModal> {
       behavior: HitTestBehavior.opaque,
       onTap: hasStack
           ? () => setState(() {
-                if (expanded) _expandedIndices.remove(i);
-                else _expandedIndices.add(i);
+                if (expanded) { _expandedIndices.remove(i); }
+                else { _expandedIndices.add(i); }
               })
           : null,
       child: IntrinsicHeight(

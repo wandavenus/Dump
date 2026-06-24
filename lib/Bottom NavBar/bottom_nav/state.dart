@@ -31,12 +31,12 @@ class _FirstPageState extends State<FirstPage> {
             type: BottomNavigationBarType.fixed,
             currentIndex: _selectedIndex,
             onTap: _navgateBottomBar,
-            items: [
-              const BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
-              const BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
-              const BottomNavigationBarItem(icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
-              const BottomNavigationBarItem(icon: Icon(Icons.subscriptions_rounded, size: 26), label: 'Perpustakaan'),
-              const BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
+              BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
+              BottomNavigationBarItem(icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
+              BottomNavigationBarItem(icon: Icon(Icons.subscriptions_rounded, size: 26), label: 'Perpustakaan'),
+              BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),

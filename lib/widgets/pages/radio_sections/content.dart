@@ -5,9 +5,9 @@ class RadioPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return const SingleChildScrollView(
       child: Column(
-        children: const [
+        children: [
           LargePageTitle(title: 'Radio'),
           HeaderDivider(),
           SizedBox(height: 12),
