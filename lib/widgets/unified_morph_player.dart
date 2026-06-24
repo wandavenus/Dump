@@ -19,7 +19,7 @@ class UnifiedMorphPlayer extends StatefulWidget {
 }
 
 class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Gesture state ──────────────────────────────────────────────────────────
   double _panDx = 0;
   double _panDy = 0;
