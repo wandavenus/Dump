@@ -72,7 +72,7 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DecoratedBox(
       decoration: const BoxDecoration(
         color: Color(0xFF1C1C1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -321,7 +321,7 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
   }
 
   Widget _resultCard({required List<Widget> children}) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
