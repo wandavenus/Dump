@@ -11,6 +11,7 @@ import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
+import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 
 export 'settings/settings_widgets.dart';
 
