@@ -38,6 +38,17 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+    }
+
+    testOptions {
+        unitTests {
+            // Android stubs return default values (0 / null / false) instead of
+            // throwing RuntimeException("Stub!"). Required because TagBuilder.build()
+            // returns ExoMetadataReader.AudioTags, and loading that nested class
+            // causes the JVM to resolve ExoMetadataReader (which imports android.util.Log).
+            returnDefaultValues = true
+        }
     }
 
     buildFeatures {
