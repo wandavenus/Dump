@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import com.example.musicplayer.metadata.ExoMetadataReader
 import com.example.musicplayer.metadata.MetadataCacheDb
+import com.example.musicplayer.metadata.MetadataPrescanner
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -219,13 +220,24 @@ class MainActivity : FlutterActivity() {
                     // ── Metadata cache diagnostics ──────────────────────────
                     "getMetadataCacheInfo" -> {
                         result.success(mapOf(
-                            "entryCount" to metadataCacheDb.count(),
+                            "entryCount"        to metadataCacheDb.count(),
+                            "prescannerRunning" to MetadataPrescanner.isRunning,
                         ))
                     }
 
                     "invalidateMetadataCache" -> {
                         val songId = call.argument<Int>("songId")
                         if (songId != null) metadataCacheDb.invalidate(songId)
+                        result.success(null)
+                    }
+
+                    // ── Background pre-scanner control ──────────────────────
+                    // The prescanner is started automatically by getSongs().
+                    // Dart can cancel it (e.g. when the user starts playback
+                    // and we want all I/O budget for the player) and check
+                    // its status via getMetadataCacheInfo.
+                    "cancelMetadataPrescanner" -> {
+                        MetadataPrescanner.cancel()
                         result.success(null)
                     }
 
@@ -573,10 +585,22 @@ class MainActivity : FlutterActivity() {
                 songs.add(map)
             }
         }
+
+        // Kick off background pre-scan so RG tags + lyrics are already in
+        // cache by the time the user taps play or opens a lyrics view.
+        // Runs at THREAD_PRIORITY_LOWEST — no impact on UI or audio decode.
+        val songRefs = songs.mapNotNull { m ->
+            val id   = m["id"]   as? Int    ?: return@mapNotNull null
+            val path = m["path"] as? String ?: return@mapNotNull null
+            if (path.isBlank()) null else MetadataPrescanner.SongRef(id, path)
+        }
+        MetadataPrescanner.start(this, songRefs, metadataCacheDb)
+
         return songs
     }
 
     override fun onDestroy() {
+        MetadataPrescanner.cancel()
         super.onDestroy()
     }
 }
