@@ -648,6 +648,7 @@ const SizedBox(height: 15),
     child: ReorderableListView.builder(
                 scrollController: _scroll,
                 padding: const EdgeInsets.only(bottom: 16),
+                dragStartBehavior: DragStartBehavior.down,
                 itemCount: playlist.length,
                 onReorder: AudioService.reorderQueue,
                 itemBuilder: (context, index) {

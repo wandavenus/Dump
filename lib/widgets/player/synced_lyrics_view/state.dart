@@ -54,6 +54,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                 return ListView.builder(
                   controller: _scroll,
                   padding: widget.padding,
+                  dragStartBehavior: DragStartBehavior.down,
                   itemCount: widget.lyrics.length,
                   itemBuilder: (context, index) {
                     // putIfAbsent creates a key lazily on first build of each item.
