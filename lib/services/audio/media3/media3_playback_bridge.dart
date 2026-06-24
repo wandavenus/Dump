@@ -30,6 +30,8 @@ class Media3PlaybackBridge {
   static const EventChannel _repeatModeEvents      = EventChannel('musicplayer/media3_repeatMode');
   static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
   static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
+  static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
+  static const EventChannel _skipSilenceEvents     = EventChannel('musicplayer/media3_skipSilence');
 
   // Keep deprecated public refs for callers that use them directly.
   static const EventChannel playbackStateEvents   = _playbackStateEvents;
@@ -120,6 +122,33 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
         .where((e) => e is Map)
         .cast<Map<dynamic, dynamic>>()
         .asBroadcastStream();
+
+  /// Live audio format emitted by ExoPlayer's [onTracksChanged] listener.
+  ///
+  /// Each event is a `Map<String, dynamic>` with fields:
+  ///   `sampleRate`   — Hz (int), e.g. 44100, 48000, 96000. 0 when unavailable.
+  ///   `channelCount` — int: 1 = Mono, 2 = Stereo, 6 = 5.1, etc.
+  ///   `bitrate`      — bits/s (int). 0 for lossless formats (FLAC, WAV, ALAC).
+  ///   `mimeType`     — MIME type string, e.g. "audio/flac", "audio/mpeg".
+  ///   `codecs`       — codec-specific string from the container (may be empty).
+  ///   `pcmEncoding`  — Android AudioFormat.ENCODING_* int. 0 = compressed.
+  ///
+  /// Fires on every track change. Use [getAudioFormat] for a one-shot read.
+  static final Stream<Map<dynamic, dynamic>> audioFormatStream =
+      _audioFormatEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
+
+  /// Live skip-silence state from ExoPlayer's [onSkipSilenceEnabledChanged].
+  static final Stream<bool> skipSilenceStream =
+      _skipSilenceEvents
+          .receiveBroadcastStream()
+          .where((e) => e is bool)
+          .cast<bool>()
+          .asBroadcastStream();
+
   // ── Internal invoke with retry ─────────────────────────────────────────────
   //
   // MIUI 12 / Android 11: the native service starts asynchronously.
@@ -279,6 +308,21 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   /// Cancel any active sleep timer.
   static Future<void> cancelSleepTimer() =>
       _invoke<void>('cancelSleepTimer');
+
+  // ── Audio format query ─────────────────────────────────────────────────────
+
+  /// One-shot read of the currently active audio format from Media3's track
+  /// selection.  Returns null when the player is idle or no audio track is
+  /// selected.  The returned map has the same keys as [audioFormatStream]
+  /// events: sampleRate, channelCount, bitrate, mimeType, codecs, pcmEncoding.
+  static Future<Map<String, dynamic>?> getAudioFormat() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getAudioFormat');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ── Effect support query ───────────────────────────────────────────────────
 
