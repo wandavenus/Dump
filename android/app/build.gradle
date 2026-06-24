@@ -41,6 +41,19 @@ android {
         test.java.srcDirs += 'src/test/kotlin'
     }
 
+    lint {
+        // Baseline: existing issues are suppressed; only NEW issues introduced by
+        // future commits will fail the build. To regenerate the baseline locally:
+        //   cd android && ./gradlew :app:lintDebug -Dlint.baselines.continue=true
+        baseline = file("lint-baseline.xml")
+
+        abortOnError     = true   // fail CI on new issues not in the baseline
+        warningsAsErrors = false  // warnings don't count as failures
+        checkDependencies = false // skip checking library deps — fast feedback only
+        xmlReport        = true   // consumed by CI upload step
+        htmlReport       = true   // human-readable report
+    }
+
     testOptions {
         unitTests {
             // Android stubs return default values (0 / null / false) instead of
