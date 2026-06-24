@@ -43,29 +43,52 @@ class MediaCapabilitiesService {
   /// effects and stereo widening are inactive.
   static final ValueNotifier<bool> tunnelingEnabled = ValueNotifier(false);
 
-  // ── Stream subscription ───────────────────────────────────────────────────
+  // ── Stream subscriptions (native → Dart mirror) ───────────────────────────
 
-  static StreamSubscription<bool>? _skipSilenceSub;
+  static StreamSubscription<bool>?                     _skipSilenceSub;
+  static StreamSubscription<bool>?                     _tunnelingSub;
+  static StreamSubscription<Map<dynamic, dynamic>>?    _stereoWideningSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
 
-  /// Load persisted values, mirror the native skip-silence stream, then
-  /// push all settings to the native service so cold starts are in sync.
+  /// Load persisted values, subscribe to all three native state streams,
+  /// then push every setting to the native service so cold starts are in sync.
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')  ?? false;
+    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')    ?? false;
     stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')  ?? false;
     stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
-    tunnelingEnabled.value       = prefs.getBool('${_kPrefix}tunneling')    ?? false;
+    tunnelingEnabled.value       = prefs.getBool('${_kPrefix}tunneling')      ?? false;
 
-    // Mirror ExoPlayer's own skip-silence feedback (the native service emits
-    // this whenever ExoPlayer confirms the change via onSkipSilenceEnabled-
-    // Changed).  This keeps the toggle correct even if native overrides the
-    // value for any reason.
+    // ── Skip silence ─────────────────────────────────────────────────────────
+    // Mirrors ExoPlayer's onSkipSilenceEnabledChanged callback so the toggle
+    // is always correct even when native overrides the value for any reason
+    // (e.g. a future ExoPlayer version that resets silence-skip on seek).
     _skipSilenceSub?.cancel();
     _skipSilenceSub = Media3PlaybackBridge.skipSilenceStream.listen((v) {
       if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
+    });
+
+    // ── Tunneling ─────────────────────────────────────────────────────────────
+    // Mirrors applyTunnelingToAllPlayers() confirmations. This matters when
+    // AudioCapabilitiesReceiver triggers a track re-selection that implicitly
+    // changes the effective tunneling state on the new output device.
+    _tunnelingSub?.cancel();
+    _tunnelingSub = Media3PlaybackBridge.tunnelingEnabledStream.listen((v) {
+      if (tunnelingEnabled.value != v) tunnelingEnabled.value = v;
+    });
+
+    // ── Stereo widening ───────────────────────────────────────────────────────
+    // Mirrors the StereoWidthManager confirmation after it has applied the
+    // ChannelMixingMatrix to all live processors. This ensures `strength` is
+    // always the value ExoPlayer is actually using, not just what was requested.
+    _stereoWideningSub?.cancel();
+    _stereoWideningSub = Media3PlaybackBridge.stereoWideningStream.listen((map) {
+      final enabled  = map['enabled']  as bool?   ?? false;
+      final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
+      if (stereoWideningEnabled.value  != enabled)  stereoWideningEnabled.value  = enabled;
+      if (stereoWideningStrength.value != strength) stereoWideningStrength.value = strength;
     });
 
     // Push all settings to native on startup.
@@ -156,6 +179,10 @@ class MediaCapabilitiesService {
 
   static void dispose() {
     _skipSilenceSub?.cancel();
-    _skipSilenceSub = null;
+    _tunnelingSub?.cancel();
+    _stereoWideningSub?.cancel();
+    _skipSilenceSub    = null;
+    _tunnelingSub      = null;
+    _stereoWideningSub = null;
   }
 }

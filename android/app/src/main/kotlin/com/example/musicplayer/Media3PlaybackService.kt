@@ -406,9 +406,16 @@ class Media3PlaybackService : MediaSessionService() {
             onTunnelingChanged = { enabled -> applyTunnelingToAllPlayers(enabled) },
 
             // Item 8: stereo widening — delegate to StereoWidthManager which
-            // updates all ChannelMixingAudioProcessor instances atomically.
+            // updates all ChannelMixingAudioProcessor instances atomically,
+            // then echo the confirmed state back to Flutter so the UI stays
+            // in sync with any future code path that updates widening without
+            // going through the TransportCommands MethodChannel.
             onStereoWideningChanged = { enabled, strength ->
                 stereoWidthManager.setStereoWidening(enabled, strength)
+                EventEmitter.emit(
+                    "stereoWidening",
+                    mapOf("enabled" to enabled, "strength" to strength),
+                )
             },
 
             // Item 6: return current PlaybackStats for the active player session.
@@ -1032,6 +1039,10 @@ class Media3PlaybackService : MediaSessionService() {
                 .setTunnelingEnabled(enabled)
                 .build()
         }
+        // Notify Flutter so the UI toggle stays in sync with the native player state,
+        // including any future code path that changes tunneling without going through
+        // the TransportCommands MethodChannel (e.g. AudioCapabilitiesReceiver).
+        EventEmitter.emit("tunnelingEnabled", enabled)
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────
