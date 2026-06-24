@@ -7,11 +7,16 @@ class RadioPageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SingleChildScrollView(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LargePageTitle(title: 'Radio'),
           HeaderDivider(),
           SizedBox(height: 12),
-          RadioStationsList(),
+          _SmartPlaylistCardWidget(index: 0),
+          _SmartPlaylistCardWidget(index: 1),
+          _SmartPlaylistCardWidget(index: 2),
+          _UserPlaylistsSection(),
+          SizedBox(height: 8),
           SectionTitle(
             title: 'Recently Played',
             routeName: '/musiclist',
@@ -24,5 +29,3 @@ class RadioPageContent extends StatelessWidget {
     );
   }
 }
-
-// ─── Radio stations (konten statis — tidak berubah) ───────────────────────────

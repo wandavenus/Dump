@@ -1,113 +1,210 @@
 part of '../radio_sections.dart';
 
-class RadioStationCard extends StatelessWidget {
-  const RadioStationCard({super.key, required this.station});
+// ─── Full Artwork Playlist Card ───────────────────────────────────────────────
 
-  final Map station;
+class PlaylistCard extends StatelessWidget {
+  final String name;
+  final String subtitle;
+  final IconData emptyIcon;
+  final Color emptyIconColor;
+  final List<int> artworkIds;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+
+  const PlaylistCard({
+    super.key,
+    required this.name,
+    required this.subtitle,
+    required this.emptyIcon,
+    required this.emptyIconColor,
+    required this.artworkIds,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              station['text1'],
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        height: 200,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _ArtworkGrid(
+                songIds: artworkIds,
+                emptyIcon: emptyIcon,
+                emptyIconColor: emptyIconColor,
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              station['text2'],
-              style: const TextStyle(color: Colors.grey, fontSize: 15),
-            ),
-          ),
-          Container(
-            height: 240,
-            margin: const EdgeInsets.only(left: 16, right: 16, top: 10),
-            child: Row(
-              children: [
-                ClipPath(
-                  clipper: ShapeBorderClipper(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: CachedNetworkImage(
-                    placeholder: (context, url) =>
-                        const CircularProgressIndicator(),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.sensors, size: 60, color: Colors.grey),
-                    imageUrl: station['image'],
-                    height: 220,
-                    width: 170,
-                    fit: BoxFit.cover,
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.9),
+                    ],
+                    stops: const [0.25, 1.0],
                   ),
                 ),
-                Expanded(
-                  child: Container(
-                    height: 220,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color.fromARGB(255, 52, 52, 52),
-                          Color.fromARGB(255, 27, 27, 27),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        topRight: Radius.circular(10),
-                        bottomRight: Radius.circular(10),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'LIVE • 9:30 - 11:30 PM',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 12, 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          Text(
-                            station['title'],
-                            style: const TextStyle(fontSize: 18),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            station['artist'],
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.play_circle_filled,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─── Recently Played — lagu lokal nyata ───────────────────────────────────────
+// ─── 2×2 Artwork Grid ─────────────────────────────────────────────────────────
+
+class _ArtworkGrid extends StatelessWidget {
+  final List<int> songIds;
+  final IconData emptyIcon;
+  final Color emptyIconColor;
+
+  const _ArtworkGrid({
+    required this.songIds,
+    required this.emptyIcon,
+    required this.emptyIconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (songIds.isEmpty) {
+      return Container(
+        color: const Color(0xFF1C1C1E),
+        child: Center(
+          child: Icon(
+            emptyIcon,
+            size: 64,
+            color: emptyIconColor.withOpacity(0.3),
+          ),
+        ),
+      );
+    }
+
+    final ids = songIds.take(4).toList();
+
+    if (ids.length == 1) {
+      return _GridCell(songId: ids[0]);
+    }
+
+    final cells = List.generate(4, (i) {
+      if (i < ids.length) return _GridCell(songId: ids[i]);
+      return const ColoredBox(color: Color(0xFF2C2C2E));
+    });
+
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: cells[0]),
+              Expanded(child: cells[1]),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(child: cells[2]),
+              Expanded(child: cells[3]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Grid cell — loads artwork and fills its parent ───────────────────────────
+
+class _GridCell extends StatefulWidget {
+  final int songId;
+  const _GridCell({required this.songId});
+
+  @override
+  State<_GridCell> createState() => _GridCellState();
+}
+
+class _GridCellState extends State<_GridCell> {
+  ImageProvider? _provider;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final p = await ArtworkRepository.instance.getProvider(widget.songId);
+      if (mounted) setState(() => _provider = p);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _provider;
+    if (p == null) {
+      return const ColoredBox(color: Color(0xFF2C2C2E));
+    }
+    return Image(
+      image: p,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: true,
+    );
+  }
+}
