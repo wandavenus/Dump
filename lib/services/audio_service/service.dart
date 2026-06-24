@@ -458,6 +458,10 @@ class AudioService {
     if (_isLoading) return;
     // Native already paused — just log.  No Dart-side re-trigger needed.
     LogService.verbose('AudioService', 'End of queue (native stopped)');
+    // Restart the background pre-scanner during this idle window so any
+    // songs played for the first time during the last session get cached
+    // before the user starts the next one.
+    MediaStoreService.startMetadataPrescanner();
   }
 
   // ── ReplayGain ────────────────────────────────────────────────────────────

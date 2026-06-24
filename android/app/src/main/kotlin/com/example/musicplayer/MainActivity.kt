@@ -30,6 +30,10 @@ class MainActivity : FlutterActivity() {
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
 
+    // Stored after every getSongs() call so startMetadataPrescanner can
+    // restart without a second MediaStore round-trip.
+    @Volatile private var lastSongRefs: List<MetadataPrescanner.SongRef> = emptyList()
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
@@ -233,11 +237,20 @@ class MainActivity : FlutterActivity() {
 
                     // ── Background pre-scanner control ──────────────────────
                     // The prescanner is started automatically by getSongs().
-                    // Dart can cancel it (e.g. when the user starts playback
-                    // and we want all I/O budget for the player) and check
-                    // its status via getMetadataCacheInfo.
+                    // Dart cancels it when playback starts (I/O priority),
+                    // and restarts it when the queue ends (idle window).
                     "cancelMetadataPrescanner" -> {
                         MetadataPrescanner.cancel()
+                        result.success(null)
+                    }
+
+                    // Restart the prescanner using the cached song list from
+                    // the last getSongs() call — no extra MediaStore query.
+                    "startMetadataPrescanner" -> {
+                        val refs = lastSongRefs
+                        if (refs.isNotEmpty()) {
+                            MetadataPrescanner.start(this, refs, metadataCacheDb)
+                        }
                         result.success(null)
                     }
 
@@ -594,6 +607,7 @@ class MainActivity : FlutterActivity() {
             val path = m["path"] as? String ?: return@mapNotNull null
             if (path.isBlank()) null else MetadataPrescanner.SongRef(id, path)
         }
+        lastSongRefs = songRefs
         MetadataPrescanner.start(this, songRefs, metadataCacheDb)
 
         return songs

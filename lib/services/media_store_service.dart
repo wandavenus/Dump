@@ -58,6 +58,17 @@ class MediaStoreService {
     _channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {});
   }
 
+  /// Restarts the native background metadata pre-scanner.
+  ///
+  /// Call this when the playback queue ends (idle window) so songs played
+  /// for the first time still get pre-cached for their next play.
+  /// Uses the cached song list from the last [getSongs] call — no extra
+  /// MediaStore round-trip.
+  /// Fire-and-forget — result is not awaited.
+  static void startMetadataPrescanner() {
+    _channel.invokeMethod<void>('startMetadataPrescanner').catchError((_) {});
+  }
+
   static Future<Uint8List?> getArtwork(int songId) {
     if (songId <= 0) return Future<Uint8List?>.value();
 
