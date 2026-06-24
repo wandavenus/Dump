@@ -1,6 +1,7 @@
 part of '../browse_sections.dart';
 
 class _BrowsePageContentState extends State<BrowsePageContent> {
+  List<LocalSong> _bannerSongs = [];
   List<LocalSong> _recommend = [];
   List<LocalSong> _newMusic = [];
   List<LocalSong> _daily = [];
@@ -14,14 +15,27 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
   Future<void> _load() async {
     try {
       final songs = await MediaStoreService.getSongs();
-      // Acak satu kali, lalu bagi menjadi 3 subset agar tiap seksi terasa berbeda
+      if (songs.isEmpty) return;
+
+      // Seed harian — nilai berubah setiap hari, stabil dalam satu hari
+      final today = DateTime.now();
+      final seed = today.year * 10000 + today.month * 100 + today.day;
+      final dailyRng = Random(seed);
+
+      // Pilih 3 lagu acak harian untuk banner (tanpa duplikat)
+      final pool = List<LocalSong>.from(songs)..shuffle(dailyRng);
+      final banners = pool.take(3).toList();
+
+      // Acak sisa untuk seksi bawah (acak baru setiap buka halaman)
       final shuffled = List<LocalSong>.from(songs)..shuffle();
       final third = (shuffled.length / 3).ceil();
+
       if (mounted) {
         setState(() {
-          _recommend = shuffled.take(third).toList();
-          _newMusic = shuffled.skip(third).take(third).toList();
-          _daily = shuffled.skip(third * 2).toList();
+          _bannerSongs = banners;
+          _recommend   = shuffled.take(third).toList();
+          _newMusic    = shuffled.skip(third).take(third).toList();
+          _daily       = shuffled.skip(third * 2).toList();
         });
       }
     } catch (_) {
@@ -37,7 +51,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           const LargePageTitle(title: 'Baru'),
           const HeaderDivider(),
           const SizedBox(height: 12),
-          const BrowseBannerCarousel(),
+          BrowseBannerCarousel(songs: _bannerSongs),
           _BrowseSection(title: 'We Recommend', songs: _recommend),
           _BrowseSection(title: 'New Music', songs: _newMusic),
           const BrowseCategoryStrip(),
