@@ -20,7 +20,7 @@ class SongArtwork extends StatefulWidget {
     super.key,
     required this.songId,
     this.size = 55,
-    this.borderRadius = const BorderRadius.all(Radius.circular(4)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(3)),
     this.fit = BoxFit.cover,
   });
 
