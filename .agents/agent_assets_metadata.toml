@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "e3Rs4vkd1S2JXAshRkAlN"
+uri = "file://AUDIO_SYSTEM_AUDIT.md"
+type = "text"
+title = "Audio System Audit Report"
