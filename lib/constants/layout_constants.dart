@@ -1,1 +1,1 @@
-const kBottomNavHeight = 55.1;
+const kBottomNavHeight = 70.0;
