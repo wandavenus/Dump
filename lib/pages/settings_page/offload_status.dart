@@ -96,7 +96,7 @@ class _OffloadGrantedLine extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              granted ? 'YES — DSP aktif ✓' : 'NO — CPU rendering',
+              granted ? 'YES — DSP aktif' : 'NO — CPU rendering',
               style: TextStyle(
                 color: granted
                     ? const Color(0xFF30D158)
