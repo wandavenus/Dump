@@ -69,7 +69,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       initialRoute: '/firstpage',
       routes: {
         '/settings':   (context) => const SettingsPage(),
-        '/list_test':  (context) => const WebView(child: ListTest()),
         '/firstpage':  (context) => const WebView(child: FirstPage()),
         '/browse':     (context) => const WebView(child: BrowsePage()),
         '/radio':      (context) => const WebView(child: RadioPage()),
@@ -80,7 +79,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/artist':     (context) => const WebView(child: ArtistPage()),
         '/artistlist': (context) => const WebView(child: ArtistList()),
         '/musiclist':  (context) => const WebView(child: MusicList()),
-        '/player':     (context) => const WebView(child: MusicPlayer()),
       },
     );
   }
