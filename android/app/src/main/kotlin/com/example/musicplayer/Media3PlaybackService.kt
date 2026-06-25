@@ -42,10 +42,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
-import androidx.media3.exoplayer.audio.AudioProcessor
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.SonicAudioProcessor
-import androidx.media3.common.PlaybackParameters
 import com.example.musicplayer.effects.StereoWideningAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -626,37 +623,21 @@ class Media3PlaybackService : MediaSessionService() {
         // extension point in DefaultRenderersFactory for injecting custom
         // AudioProcessors into the pipeline.
         //
-        // DefaultAudioProcessorChain was removed from the public API in Media3 1.4+.
-        // We implement AudioProcessorChain directly: our widening processor first,
-        // then SonicAudioProcessor (handles skip-silence / speed / pitch).
+        // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in Media3 1.10.1.
+        // It accepts a vararg of user AudioProcessors to insert BEFORE its own
+        // SilenceSkippingAudioProcessor (for skip-silence) and SonicAudioProcessor (speed/pitch).
+        // All three features — stereo widening, skip-silence, and playback speed — are preserved.
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
-            ): DefaultAudioSink {
-                val sonic = SonicAudioProcessor()
-                val chain = object : DefaultAudioSink.AudioProcessorChain {
-                    private val all: Array<AudioProcessor> = arrayOf(channelMixingProc, sonic)
-                    override fun getAudioProcessors(): Array<AudioProcessor> = all
-                    override fun applyPlaybackParameters(
-                        playbackParameters: PlaybackParameters,
-                    ): PlaybackParameters {
-                        sonic.setSpeed(playbackParameters.speed)
-                        sonic.setPitch(playbackParameters.pitch)
-                        return playbackParameters
-                    }
-                    override fun getMediaDuration(playoutDuration: Long): Long =
-                        sonic.getMediaDuration(playoutDuration)
-                    override fun getPlayoutDuration(mediaDuration: Long): Long =
-                        sonic.getPlayoutDuration(mediaDuration)
-                }
-                return DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessorChain(chain)
-                    .build()
-            }
+            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                // channelMixingProc runs first, then SilenceSkipping, then Sonic.
+                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(channelMixingProc))
+                .build()
         }
             .setEnableAudioFloatOutput(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)

@@ -2,16 +2,17 @@ package com.example.musicplayer.effects
 
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.audio.AudioProcessor
-import androidx.media3.exoplayer.audio.BaseAudioProcessor
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 
 /**
  * Custom AudioProcessor implementing stereo widening via a 2×2 mixing matrix.
  *
- * Replaces ChannelMixingAudioProcessor (removed from the public Media3 API in 1.4+).
- * Supports both PCM-16 and PCM-float input (the latter used when float output is enabled).
- * For mono or surround formats the processor reports NOT_SET and is bypassed transparently.
+ * Preferred over ChannelMixingAudioProcessor (moved to androidx.media3.common.audio in 1.10.1)
+ * because ChannelMixingAudioProcessor only handles PCM-16 and throws UnhandledAudioFormatException
+ * for other formats, while this processor gracefully returns NOT_SET (bypass) for unsupported
+ * formats and also handles PCM-float (used when DefaultRenderersFactory float output is enabled).
  *
  * Matrix math (identical to the original ChannelMixingAudioProcessor approach):
  *   w      = 1.0 + strength × 0.5          (maps [0, 1] → [1.0, 1.5])
