@@ -28,6 +28,9 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
+
+  bool _showMarquee = false;
+  Timer? _marqueeTimer;
   
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
@@ -39,25 +42,28 @@ class _PlayerContentState extends State<PlayerContent> {
   final _lyricsScrollController = ScrollController();
   final _queueScrollController  = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchLyricsIfNeeded();
-  }
+@override
+void initState() {
+  super.initState();
+  _fetchLyricsIfNeeded();
+  _restartMarquee();
+}
 
   @override
-  void dispose() {
-    _lyricsScrollController.dispose();
-    _queueScrollController.dispose();
-    super.dispose();
-  }
+void dispose() {
+  _marqueeTimer?.cancel();
+  _lyricsScrollController.dispose();
+  _queueScrollController.dispose();
+  super.dispose();
+}
 
   @override
   void didUpdateWidget(PlayerContent old) {
     super.didUpdateWidget(old);
     if (old.song.id != widget.song.id) {
-      _fetchLyricsIfNeeded();
-    }
+  _fetchLyricsIfNeeded();
+  _restartMarquee();
+}
     // Reset lyricsExpand when lyrics mode is turned off so bottom controls
     // are not left hidden when switching to queue or normal mode.
     if (old.showLyrics && !widget.showLyrics && _lyricsExpand > 0) {
@@ -77,6 +83,17 @@ class _PlayerContentState extends State<PlayerContent> {
     });
   }
 
+  void _restartMarquee() {
+  _marqueeTimer?.cancel();
+
+  setState(() => _showMarquee = false);
+
+  _marqueeTimer = Timer(const Duration(seconds: 2), () {
+    if (!mounted) return;
+    setState(() => _showMarquee = true);
+  });
+  }
+  
   @override
   Widget build(BuildContext context) {
     final progress = PlayerSheetController.progress.value;
@@ -256,20 +273,36 @@ class _PlayerContentState extends State<PlayerContent> {
       ).createShader(rect);
     },
     blendMode: BlendMode.dstIn,
-    child: TextScroll(
-      widget.song.title,
-      mode: TextScrollMode.endless,
-      velocity: const Velocity(
-        pixelsPerSecond: Offset(25, 0),
-      ),
-      delayBefore: const Duration(seconds: 2),
-      pauseBetween: const Duration(seconds: 2),
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-      ),
+    AnimatedCrossFade(
+  duration: const Duration(milliseconds: 250),
+  crossFadeState: _showMarquee
+      ? CrossFadeState.showSecond
+      : CrossFadeState.showFirst,
+  firstChild: Text(
+    widget.song.title,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
     ),
+  ),
+  secondChild: TextScroll(
+    widget.song.title,
+    mode: TextScrollMode.endless,
+    velocity: const Velocity(
+      pixelsPerSecond: Offset(25, 0),
+    ),
+    delayBefore: Duration.zero,
+    pauseBetween: const Duration(seconds: 2),
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+),
   ),
 ),
                               const SizedBox(height: 1),
