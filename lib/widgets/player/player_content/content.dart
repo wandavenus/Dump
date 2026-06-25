@@ -240,7 +240,7 @@ void dispose() {
                     // ── Mini song header — shown next to small artwork ─────────
                     Positioned(
                       top: 4,
-                      left: 22 + _smallCoverSize + 25,
+                      left: 16 + _smallCoverSize + 25,
                       
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -252,14 +252,14 @@ void dispose() {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 195,
+  width: 200,
   child: ShaderMask(
     shaderCallback: (rect) {
       return const LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Colors.transparent,
+          Colors.white,
           Colors.white,
           Colors.white,
           Colors.transparent,
@@ -333,7 +333,7 @@ void dispose() {
                       progress,
                       )!,
                       left: showOverlay
-                      ? _playerHorizontalPadding
+                      ? 16
                       : lerpDouble(
                       22.0,
                       coverLeft,
@@ -608,7 +608,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
 
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 17,
+    horizontal: 16,
   ),
   child: Row(
     children: [
@@ -645,7 +645,7 @@ const SizedBox(height: 17),
             
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 17,
+    horizontal: 16,
   ),
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,7 +685,7 @@ const SizedBox(height: 15),
   ],
   stops: [
     0.0,
-    0.70,
+    0.60,
     1.0,
   ],
 ).createShader(rect);
@@ -1015,7 +1015,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
       child: ColoredBox(
-        color: const Color(0xFF0D0D0D),
+        color: Colors.black,
         child: SafeArea(
           top: false,
           child: Padding(
