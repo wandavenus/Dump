@@ -13,7 +13,6 @@ class AudioEffectsService {
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool> gaplessPlayback = ValueNotifier(true);
   static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
   static final ValueNotifier<ReplayGainMode> replayGainMode =
       ValueNotifier(ReplayGainMode.off);
@@ -27,23 +26,7 @@ class AudioEffectsService {
   static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
   static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
   static final ValueNotifier<int> roomPreset = ValueNotifier(0);
-  static final ValueNotifier<int> audioOutputMode = ValueNotifier(0);
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
-
-  /// User preference for the "Audio Offload Scheduling" settings toggle.
-  ///
-  /// NOTE (Media3 1.10.1): The native `experimentalSetOffloadSchedulingEnabled`
-  /// API was removed. Scheduling is now managed internally by Media3 whenever
-  /// the OS grants hardware offload. This notifier is retained to preserve the
-  /// settings toggle UI; the value is persisted but has no effect on native
-  /// behaviour until a future Media3 version re-exposes scheduling control.
-  static final ValueNotifier<bool> offloadSchedulingEnabled = ValueNotifier(true);
-
-  /// Whether the OS has actually granted hardware offload on the active player.
-  ///
-  /// Updated in real time from the `musicplayer/media3_offloadState` EventChannel.
-  /// Always false on web.
-  static final ValueNotifier<bool> offloadOsGranted = ValueNotifier(false);
 
   // ── Reverb preset labels ───────────────────────────────────────────────────
 
@@ -117,26 +100,11 @@ class AudioEffectsService {
     },
   ];
 
-  // ── Audio output labels ────────────────────────────────────────────────────
-
-  static const List<String> audioOutputNames = [
-    'Auto (AAudio)',
-    'OpenSL ES',
-    'Hi-Res Audio',
-  ];
-
-  static const List<String> audioOutputDesc = [
-    'AAudio — jalur audio default, direkomendasikan untuk Android 8+',
-    'OpenSL ES — kompatibel dengan semua versi Android',
-    'Hi-Res Audio — aktifkan DAC Hi-Res/Hi-Fi hardware. Mendukung MIUI 12, Qualcomm, Sony, dan OEM lain. Perlu headset atau DAC hi-res terhubung.',
-  ];
-
   // ── Init ───────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    gaplessPlayback.value  = prefs.getBool('gapless')        ?? true;
     audioNormalize.value   = prefs.getBool('normalize')       ?? false;
     crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
     pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
@@ -147,9 +115,7 @@ class AudioEffectsService {
     playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
     equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
     roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
-    audioOutputMode.value  = prefs.getInt('audioOutputMode')  ?? 0;
     lyricsPath.value       = prefs.getString('lyricsPath')    ?? '';
-    offloadSchedulingEnabled.value = prefs.getBool('offloadScheduling') ?? true;
 
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
     replayGainMode.value =
@@ -157,18 +123,7 @@ class AudioEffectsService {
     replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
 
     applyAll();
-    _subscribeOffloadState();
     LogService.log('AudioEffects', 'Initialized');
-  }
-
-  /// Subscribe to the native offload state stream and keep [offloadOsGranted]
-  /// up to date.  The subscription lives for the lifetime of the app; no
-  /// cancellation is needed because the stream is app-scoped.
-  static void _subscribeOffloadState() {
-    if (kIsWeb) return;
-    Media3PlaybackBridge.offloadStateStream.listen((event) {
-      offloadOsGranted.value = event['osGranted'] as bool? ?? false;
-    });
   }
 
   // ── applyAll — send every setting to native in one burst ──────────────────
@@ -205,17 +160,6 @@ class AudioEffectsService {
 
     // Crossfade
     unawaited(Media3PlaybackBridge.setCrossfadeDuration(crossfadeDuration.value));
-
-    // Offload scheduling
-    unawaited(Media3PlaybackBridge.setOffloadSchedulingEnabled(offloadSchedulingEnabled.value));
-  }
-
-  // ── Gapless ────────────────────────────────────────────────────────────────
-
-  static Future<void> setGapless(bool value) async {
-    gaplessPlayback.value = value;
-    await _saveBool('gapless', value);
-    LogService.log('AudioEffects', 'Gapless: $value');
   }
 
   // ── Normalize ─────────────────────────────────────────────────────────────
@@ -421,34 +365,6 @@ class AudioEffectsService {
       unawaited(Media3PlaybackBridge.setVirtualizerEnabled(true));
     }
     LogService.log('AudioEffects', 'Spatial strength: $v');
-  }
-
-  // ── Audio Offload Scheduling ──────────────────────────────────────────────
-
-  /// Persist the user's "Audio Offload Scheduling" preference.
-  ///
-  /// NOTE (Media3 1.10.1): The native `experimentalSetOffloadSchedulingEnabled`
-  /// API no longer exists. The MethodChannel call is sent and acknowledged by
-  /// native as a no-op; Media3 manages scheduling internally. This method is
-  /// retained so the toggle works without UI changes; the preference is persisted
-  /// for when a future Media3 version re-exposes scheduling control.
-  static Future<void> setOffloadSchedulingEnabled(bool value) async {
-    offloadSchedulingEnabled.value = value;
-    await _saveBool('offloadScheduling', value);
-    if (!kIsWeb) {
-      unawaited(Media3PlaybackBridge.setOffloadSchedulingEnabled(value));
-    }
-    LogService.log('AudioEffects', 'OffloadScheduling preference: $value (no-op in Media3 1.10.1)');
-  }
-
-  // ── Audio Output ──────────────────────────────────────────────────────────
-
-  static Future<void> setAudioOutputMode(int modeIndex) async {
-    final idx = modeIndex.clamp(0, 2).toInt();
-    audioOutputMode.value = idx;
-    await _saveInt('audioOutputMode', idx);
-    await AudioEngine.setAudioOutputMode(AudioOutputMode.values[idx]);
-    LogService.log('AudioEffects', 'AudioOutput: ${audioOutputNames[idx]}');
   }
 
   // ── Lyrics path ───────────────────────────────────────────────────────────

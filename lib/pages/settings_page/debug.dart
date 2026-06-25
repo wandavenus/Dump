@@ -56,10 +56,6 @@ class _DebugSection extends StatelessWidget {
         _EffectStatusRow(),
         const SettingsDivider(),
 
-        // Audio Offload real-time status
-        const _OffloadStatusInfo(),
-        const SettingsDivider(),
-
         // Exit debug
         SettingsActionRow(
           title: 'Keluar Mode Debug',

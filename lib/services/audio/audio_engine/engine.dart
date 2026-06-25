@@ -6,15 +6,9 @@ part of '../audio_engine.dart';
 /// is handled natively by `Media3PlaybackService.kt`.  AudioEngine now:
 ///   • Stores device-capability flags for UI (effect support booleans)
 ///   • Routes loudness / ReplayGain changes to native via [Media3PlaybackBridge]
-///   • Manages the Hi-Res audio output mode via the legacy effects channel
 ///   • Provides [attachEffectsToSession] as a no-op (kept for call-site compat)
 class AudioEngine {
   AudioEngine._();
-
-  /// Legacy effects channel used ONLY for `setAudioOutputMode`.
-  /// All other DSP now routes through `musicplayer/media3_playback`.
-  static const MethodChannel _effectsChannel =
-      MethodChannel('musicplayer/audio_effects');
 
   // ── Effect-support flags (queried from native, exposed to UI) ──────────────
   static bool _virtualizerSupported = false;
@@ -37,12 +31,6 @@ class AudioEngine {
   static Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
-
-    // Restore stored audio output mode.
-    final prefs   = await SharedPreferences.getInstance();
-    final modeIdx = prefs.getInt('audioOutputMode') ?? 0;
-    final mode    = AudioOutputMode.values[modeIdx.clamp(0, 2)];
-    if (mode != AudioOutputMode.auto) applyOutputModeNow(mode);
 
     // Query effect support from native (non-blocking — runs after first session).
     unawaited(queryEffectSupport());
@@ -102,32 +90,6 @@ class AudioEngine {
     final clamped = targetGainMb.clamp(-2400.0, 2400.0);
     unawaited(Media3PlaybackBridge.setLoudnessEnabled(enabled));
     unawaited(Media3PlaybackBridge.setLoudnessTargetGain(enabled ? clamped : 0.0));
-  }
-
-  // ── Audio output mode ──────────────────────────────────────────────────────
-
-  static Future<void> setAudioOutputMode(AudioOutputMode mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('audioOutputMode', mode.index);
-    if (isAndroid) applyOutputModeNow(mode);
-    LogService.log('AudioEngine', 'Output mode: ${mode.name}');
-  }
-
-  static Future<AudioOutputMode> getAudioOutputMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final idx   = prefs.getInt('audioOutputMode') ?? 0;
-    return AudioOutputMode.values[idx.clamp(0, 2)];
-  }
-
-  /// Applies output mode immediately via the audio effects channel.
-  /// Uses the separate `musicplayer/audio_effects` channel (handled by
-  /// MainActivity) since Hi-Res audio mode requires Activity context.
-  static void applyOutputModeNow(AudioOutputMode mode) {
-    try {
-      _effectsChannel.invokeMethod('setAudioOutputMode', {'mode': mode.index});
-    } catch (e) {
-      LogService.warn('AudioEngine', 'setAudioOutputMode: $e');
-    }
   }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
