@@ -13,6 +13,9 @@ import 'package:musicplayer/themes/theme_controller.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
+import 'package:musicplayer/services/playback_simulation_service.dart';
+import 'package:musicplayer/services/audio_service.dart';
+import 'package:musicplayer/services/audio_playback_state.dart';
 
 export 'settings/settings_widgets.dart';
 
