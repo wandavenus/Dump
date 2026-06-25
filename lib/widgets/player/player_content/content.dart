@@ -273,7 +273,7 @@ void dispose() {
       ).createShader(rect);
     },
     blendMode: BlendMode.dstIn,
-    AnimatedCrossFade(
+   child : AnimatedCrossFade(
   duration: const Duration(milliseconds: 250),
   crossFadeState: _showMarquee
       ? CrossFadeState.showSecond
@@ -1190,7 +1190,7 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih', color: Color.black, value: 'white'),
+    (label: 'Putih', color: Colors.black, value: 'white'),
     (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
     (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
   ];
@@ -1286,7 +1286,7 @@ class _BlurSlider extends StatelessWidget {
               min: 0,
               max: 50,
               
-              activeColor: const Color.transparent,
+              activeColor: const Colors.transparent,
               inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBlurStrength,
             ),
