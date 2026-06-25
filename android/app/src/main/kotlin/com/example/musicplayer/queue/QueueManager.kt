@@ -33,6 +33,9 @@ class QueueManager(
     // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
+        // LOW-08: Callers MUST cancel any active crossfade before calling setQueue.
+        // TransportCommands.dispatch("setQueue") enforces this via crossfadeController.cancel().
+        // Calling setQueue mid-crossfade would abruptly interrupt the fading audio.
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         val p = getPlayer() ?: return
