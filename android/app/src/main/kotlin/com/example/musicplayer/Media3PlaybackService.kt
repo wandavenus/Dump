@@ -78,6 +78,7 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── Session ───────────────────────────────────────────────────────────────
     private var session: MediaSession? = null
+    private lateinit var activePlayerProxy: ActivePlayerProxy
     private val handler = Handler(Looper.getMainLooper())
 
     // ── Feature modules ───────────────────────────────────────────────────────
@@ -184,12 +185,18 @@ class Media3PlaybackService : MediaSessionService() {
         primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
 
         // Build MediaSession
-        // ForwardingPlayer intercepts transport commands from external controllers
-        // (Bluetooth, OS widgets) and routes them through transportCommands.*Native()
-        // so audio focus, crossfade, and state emission are handled correctly.
-        // transportCommands is lateinit but always initialised before any external
-        // controller can connect (which only happens after onCreate() returns).
-        val sessionPlayer = object : ForwardingPlayer(primaryPlayer!!) {
+        // ActivePlayerProxy is the stable player object held by the MediaSession for
+        // the lifetime of the service.  Its backing ExoPlayer is swapped atomically
+        // via switchTo() during crossfade promotion — the MediaSession player object
+        // itself never changes, which prevents PlayerWrapper.createPositionInfo()
+        // from reading fields from two different ExoPlayer instances simultaneously.
+        //
+        // The outer anonymous ForwardingPlayer intercepts the five transport commands
+        // that must be routed through TransportCommands (audio focus, crossfade,
+        // state emission).  transportCommands is lateinit but always initialised
+        // before any external controller can connect (after onCreate() returns).
+        activePlayerProxy = ActivePlayerProxy(primaryPlayer!!)
+        val sessionPlayer = object : ForwardingPlayer(activePlayerProxy) {
             override fun play()                    { transportCommands.playNative() }
             override fun pause()                   { transportCommands.pauseNative() }
             override fun seekToNextMediaItem()     { transportCommands.skipNextNative() }
@@ -294,9 +301,12 @@ class Media3PlaybackService : MediaSessionService() {
             getStandbyPlayer   = { standbyPlayer() },
             setActivePlayer    = { newPlayer -> activePlayer = newPlayer },
             switchSessionPlayer = { newPlayer ->
-                try { session?.setPlayer(newPlayer) }
+                // Swap the backing player inside the stable proxy object.
+                // The MediaSession player reference never changes, so PlayerWrapper
+                // cannot observe a mixed snapshot during the switch.
+                try { activePlayerProxy.switchTo(newPlayer) }
                 catch (e: Exception) {
-                    NativeLogger.emit("warn", "Media3", "MediaSession player switch failed: ${e.message}")
+                    NativeLogger.emit("warn", "Media3", "ActivePlayerProxy switch failed: ${e.message}")
                 }
             },
             preloadManager      = preloadManager,
