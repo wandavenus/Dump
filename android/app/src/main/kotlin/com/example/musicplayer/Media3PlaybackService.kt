@@ -103,9 +103,6 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Item 1: skip silence — persisted so new standby players inherit state ─
     private var skipSilenceEnabled = false
 
-    // ── Item 5: tunneling — persisted so new standby players inherit state ────
-    private var tunnelingEnabled = false
-
     // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
@@ -506,10 +503,6 @@ class Media3PlaybackService : MediaSessionService() {
                     "skipSilence=$enabled applied to all live players")
             },
 
-            // Item 5: tunneling — updates TrackSelectionParameters on all live
-            // players and stores flag so new standby players inherit the state.
-            onTunnelingChanged = { enabled -> applyTunnelingToAllPlayers(enabled) },
-
             // Item 8: stereo widening — delegate to StereoWidthManager which
             // updates all ChannelMixingAudioProcessor instances atomically,
             // then echo the confirmed state back to Flutter so the UI stays
@@ -752,9 +745,6 @@ class Media3PlaybackService : MediaSessionService() {
         // DefaultTrackSelector with explicit audio preferences.
         // For typical local music files (single audio track) this is a no-op, but for
         // multi-track containers (MKV/MP4) it ensures the highest-quality track is chosen.
-        //
-        // Item 5: setTunnelingEnabled was removed from TrackSelectionParameters.Builder
-        // in Media3 1.4+; tunneling is no longer configurable via track selection.
         val trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
@@ -1157,40 +1147,6 @@ class Media3PlaybackService : MediaSessionService() {
         val seen = Collections.newSetFromMap(IdentityHashMap<ExoPlayer, Boolean>())
         primaryPlayer?.let   { if (seen.add(it)) block(it) }
         secondaryPlayer?.let { if (seen.add(it)) block(it) }
-    }
-
-    /**
-     * Item 5: Apply tunneling state to all live ExoPlayer instances and persist
-     * the flag so future players created by [createConfiguredPlayer] inherit it.
-     *
-     * Tunneling bypasses the entire software audio pipeline (EQ, BassBoost,
-     * Virtualizer, Reverb, LoudnessEnhancer, ChannelMixingAudioProcessor,
-     * SonicAudioProcessor). This is expected and intentional — tunneling routes
-     * PCM directly from the decoder to the audio HAL via a shared memory buffer.
-     *
-     * CrossfadeController's Handler-tick volume manipulation still fires but has
-     * no audible effect in the tunneled path.
-     */
-    private fun applyTunnelingToAllPlayers(enabled: Boolean) {
-        tunnelingEnabled = enabled
-        if (enabled) {
-            NativeLogger.emit("warn", "Media3",
-                "Tunneling enabled — EQ/BassBoost/Virtualizer/StereoWidening/" +
-                "Crossfade volume ramps are bypassed in the hardware path.")
-        }
-        // setTunnelingEnabled was removed from TrackSelectionParameters.Builder in
-        // Media3 1.4+. Tunneling is no longer configurable via track selection parameters.
-        // Log the intent so the audit trail reflects the attempted change.
-        NativeLogger.emit(
-            "warn", "Media3",
-            "setTunnelingEnabled($enabled) ignored — API removed in Media3 1.4+",
-        )
-        @Suppress("UNUSED_EXPRESSION")
-        forEachLivePlayer { _ -> }
-        // Notify Flutter so the UI toggle stays in sync with the native player state,
-        // including any future code path that changes tunneling without going through
-        // the TransportCommands MethodChannel (e.g. AudioCapabilitiesReceiver).
-        EventEmitter.emit("tunnelingEnabled", enabled)
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

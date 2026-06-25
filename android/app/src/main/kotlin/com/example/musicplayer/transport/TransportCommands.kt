@@ -59,14 +59,6 @@ class TransportCommands(
      */
     private val onOutputModeChanged: (Int) -> Unit = {},
     /**
-     * Item 5 — Called when the user toggles tunneling mode on or off.
-     * The service applies the new TrackSelectionParameters to all live players
-     * and stores the flag so new (standby) players are created with the correct setting.
-     * NOTE: Tunneling bypasses the software effects chain (EQ, BassBoost, etc.) and
-     * crossfade; the UI should warn the user when enabling this mode.
-     */
-    private val onTunnelingChanged: (Boolean) -> Unit = {},
-    /**
      * Item 8 — Called when the user changes the stereo widening setting.
      * Delegates to StereoWidthManager which updates all live ChannelMixingAudioProcessor
      * instances atomically, so both active and standby players (during crossfade) are
@@ -272,31 +264,6 @@ class TransportCommands(
                 val enabled = call.argument<Boolean>("enabled") ?: false
                 applySkipSilence(enabled)
                 log("info", "setSkipSilence: $enabled")
-                result.success(null)
-            }
-
-            // ── Tunneling mode (Item 5) ───────────────────────────────────────
-
-            /**
-             * Enables/disables audio tunneling on all live ExoPlayer instances.
-             *
-             * When enabled, audio is routed directly from decoder → audio HAL,
-             * bypassing the entire software pipeline:
-             *   - Software effects (EQ, BassBoost, LoudnessEnhancer, etc.)
-             *     are still "attached" to their AudioSession but receive no audio.
-             *   - Crossfade engine's 16 ms Handler ticks still fire, but
-             *     volume manipulation has no audible effect in the tunneled path.
-             *   - StereoWidthManager's ChannelMixingAudioProcessor is bypassed.
-             *
-             * Recommended use: a "Pure Playback" / battery-saving mode where
-             * the user explicitly disables all effects and crossfade first.
-             *
-             * Device note: Snapdragon 730 fully supports audio tunneling.
-             */
-            "setTunnelingEnabled" -> {
-                val enabled = call.argument<Boolean>("enabled") ?: false
-                onTunnelingChanged(enabled)
-                log("info", "setTunnelingEnabled: $enabled")
                 result.success(null)
             }
 

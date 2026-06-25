@@ -87,8 +87,6 @@ class MainActivity : FlutterActivity() {
         listOf(
             "shuffleMode", "repeatMode", "sleepTimer", "offloadState",
             "audioFormat", "skipSilence",
-            // Item 5: tunneling state — emitted by applyTunnelingToAllPlayers()
-            "tunnelingEnabled",
             // Item 8: stereo widening state — emitted when setStereoWidening() is called
             // Map payload: { enabled: Boolean, strength: Double }
             "stereoWidening",

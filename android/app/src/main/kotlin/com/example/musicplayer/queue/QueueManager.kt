@@ -147,29 +147,29 @@ class QueueManager(
     // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
     /**
-     * QS-02/QS-03/CE-03 fix: After a crossfade promotion, the new active player
-     * only has 1 media item (the preloaded track at position 0). Rebuild the full
-     * queue by prepending/appending items WITHOUT touching the current item to avoid
-     * interrupting playback.
+     * MED-04 fix: After a crossfade promotion the new active player has exactly
+     * 1 media item (the preloaded track at index 0). This rebuilds the full queue
+     * atomically using a single [setMediaItems] call so there is no race window.
      *
-     * After this call ExoPlayer's currentMediaItemIndex == activeQueueIndex.
+     * The previous two-step approach (addMediaItems(after) then addMediaItems(0, before))
+     * had a narrow race: if ExoPlayer's gapless engine advanced between the two calls
+     * the resulting currentMediaItemIndex was wrong, permanently misaligning the queue.
+     *
+     * [setMediaItems] on an already-playing player is safe when the item at
+     * [activeQueueIndex] has the same media URI — ExoPlayer recognises it and keeps
+     * the active decoder alive without any audible interruption.
      */
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
         if (queue.isEmpty()) return
         try {
-            // Append all items that should come after the current track
-            val afterItems = queue.drop(activeQueueIndex + 1).map { MediaItemFactory.from(it) }
-            if (afterItems.isNotEmpty()) {
-                p.addMediaItems(afterItems)
-            }
-            // Prepend all items that should come before the current track
-            // Adding at index 0 shifts the current item to activeQueueIndex — correct.
-            if (activeQueueIndex > 0) {
-                val beforeItems = queue.take(activeQueueIndex).map { MediaItemFactory.from(it) }
-                p.addMediaItems(0, beforeItems)
-            }
-            log("rebuildPlayerQueue: ${queue.size} items @ [$activeQueueIndex] (non-interrupting)")
+            val currentPos = p.currentPosition.coerceAtLeast(0L)
+            p.setMediaItems(
+                queue.map { MediaItemFactory.from(it) },
+                activeQueueIndex,
+                currentPos,
+            )
+            log("rebuildPlayerQueue: atomic setMediaItems ${queue.size} items @ [$activeQueueIndex] pos=${currentPos}ms")
         } catch (e: Exception) {
             log("rebuildPlayerQueue failed: ${e.message}")
         }

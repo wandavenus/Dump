@@ -255,10 +255,16 @@ class AudioService {
 
     if (index != prevIndex) unawaited(HistoryService.trackPlay(song));
 
-    // Re-apply DSP after track transition.  Immediate + 350 ms retry for the
-    // audio-session re-attach race on MIUI 12.
+    // Re-apply DSP immediately after a track transition.
+    // ARCH-02 fix: the previous 350 ms delayed retry is removed. For gapless
+    // playback the audio session ID never changes between tracks, so effects
+    // are still valid and the immediate call is sufficient. For crossfade, the
+    // promoted standby player gets a fresh session and effects are re-attached
+    // via onAudioSessionIdChanged → effectsManager.attachEffects() AND via
+    // onCrossfadeComplete → effectsManager.attachEffects(newSessionId), making
+    // a redundant Dart-side retry unnecessary and wasteful (8-10 MethodChannel
+    // calls per track that would all be no-ops on the native side).
     AudioEffectsService.applyAll();
-    Future.delayed(const Duration(milliseconds: 350), AudioEffectsService.applyAll);
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
     _applyReplayGain(song, prevSong: prevSong).catchError((Object e) {
@@ -375,6 +381,11 @@ class AudioService {
       currentIndex: index,
     ));
     await Media3PlaybackBridge.setTrack(index);
+    // LOW-05 fix: explicitly start playback after a queue jump. setTrack() only
+    // seeks native ExoPlayer to the target index; it does not resume a paused
+    // player. Without this call, tapping a queue item while paused would update
+    // the UI track but leave the player paused.
+    await Media3PlaybackBridge.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
     unawaited(_applyReplayGain(song));

@@ -32,7 +32,6 @@ class Media3PlaybackBridge {
   static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
   static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
   static const EventChannel _skipSilenceEvents      = EventChannel('musicplayer/media3_skipSilence');
-  static const EventChannel _tunnelingEnabledEvents = EventChannel('musicplayer/media3_tunnelingEnabled');
   static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
 
   // Keep deprecated public refs for callers that use them directly.
@@ -146,17 +145,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   /// Live skip-silence state from ExoPlayer's [onSkipSilenceEnabledChanged].
   static final Stream<bool> skipSilenceStream =
       _skipSilenceEvents
-          .receiveBroadcastStream()
-          .where((e) => e is bool)
-          .cast<bool>()
-          .asBroadcastStream();
-
-  /// Live tunneling state — emitted by [applyTunnelingToAllPlayers] whenever
-  /// the native player's TrackSelectionParameters are updated, including
-  /// future code paths that may change tunneling outside the MethodChannel
-  /// (e.g. [AudioCapabilitiesReceiver] after an audio-device change).
-  static final Stream<bool> tunnelingEnabledStream =
-      _tunnelingEnabledEvents
           .receiveBroadcastStream()
           .where((e) => e is bool)
           .cast<bool>()
@@ -309,11 +297,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
 
   static Future<void> setSkipSilence(bool enabled) =>
       _invoke<void>('setSkipSilence', {'enabled': enabled});
-
-  // ── Tunneling (Item 5) ────────────────────────────────────────────────────
-
-  static Future<void> setTunnelingEnabled(bool enabled) =>
-      _invoke<void>('setTunnelingEnabled', {'enabled': enabled});
 
   // ── Stereo widening (Item 8) ──────────────────────────────────────────────
 

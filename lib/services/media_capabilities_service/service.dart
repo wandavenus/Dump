@@ -29,24 +29,12 @@ class MediaCapabilitiesService {
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
   /// correctly to both players during a crossfade overlap.
-  /// Has no effect when tunneling is enabled (hardware bypasses the pipeline).
   static final ValueNotifier<bool>   stereoWideningEnabled  = ValueNotifier(false);
   static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(0.5);
-
-  /// Item 5: Audio tunneling — routes PCM directly from decoder to audio HAL.
-  ///
-  /// Bypasses the entire software effects chain (EQ, BassBoost, Virtualizer,
-  /// Reverb, LoudnessEnhancer, ChannelMixingAudioProcessor).  Intended for a
-  /// "pure playback" mode where the user wants minimal CPU/battery overhead.
-  ///
-  /// ⚠️  When this is true the UI should visually communicate that software
-  /// effects and stereo widening are inactive.
-  static final ValueNotifier<bool> tunnelingEnabled = ValueNotifier(false);
 
   // ── Stream subscriptions (native → Dart mirror) ───────────────────────────
 
   static StreamSubscription<bool>?                     _skipSilenceSub;
-  static StreamSubscription<bool>?                     _tunnelingSub;
   static StreamSubscription<Map<dynamic, dynamic>>?    _stereoWideningSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
@@ -59,7 +47,6 @@ class MediaCapabilitiesService {
     skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')    ?? false;
     stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')  ?? false;
     stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
-    tunnelingEnabled.value       = prefs.getBool('${_kPrefix}tunneling')      ?? false;
 
     // ── Skip silence ─────────────────────────────────────────────────────────
     // Mirrors ExoPlayer's onSkipSilenceEnabledChanged callback so the toggle
@@ -68,15 +55,6 @@ class MediaCapabilitiesService {
     _skipSilenceSub?.cancel();
     _skipSilenceSub = Media3PlaybackBridge.skipSilenceStream.listen((v) {
       if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
-    });
-
-    // ── Tunneling ─────────────────────────────────────────────────────────────
-    // Mirrors applyTunnelingToAllPlayers() confirmations. This matters when
-    // AudioCapabilitiesReceiver triggers a track re-selection that implicitly
-    // changes the effective tunneling state on the new output device.
-    _tunnelingSub?.cancel();
-    _tunnelingSub = Media3PlaybackBridge.tunnelingEnabledStream.listen((v) {
-      if (tunnelingEnabled.value != v) tunnelingEnabled.value = v;
     });
 
     // ── Stereo widening ───────────────────────────────────────────────────────
@@ -95,8 +73,7 @@ class MediaCapabilitiesService {
     unawaited(_applyAll());
 
     LogService.log('MediaCap', 'Initialized — skipSilence=${skipSilenceEnabled.value} '
-        'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value} '
-        'tunneling=${tunnelingEnabled.value}');
+        'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
   }
 
   static Future<void> _applyAll() async {
@@ -105,7 +82,6 @@ class MediaCapabilitiesService {
       enabled:  stereoWideningEnabled.value,
       strength: stereoWideningStrength.value,
     ));
-    unawaited(Media3PlaybackBridge.setTunnelingEnabled(tunnelingEnabled.value));
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────
@@ -147,18 +123,6 @@ class MediaCapabilitiesService {
     LogService.log('MediaCap', 'stereoStrength: $v');
   }
 
-  /// Item 5: Toggle audio tunneling.
-  ///
-  /// ⚠️  Enabling tunneling bypasses all software audio effects.
-  /// The UI should display a warning when this is on.
-  static Future<void> setTunnelingEnabled(bool value) async {
-    tunnelingEnabled.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${_kPrefix}tunneling', value);
-    unawaited(Media3PlaybackBridge.setTunnelingEnabled(value));
-    LogService.log('MediaCap', 'tunneling: $value');
-  }
-
   // ── Query ─────────────────────────────────────────────────────────────────
 
   /// Item 6: Fetch accumulated [PlaybackStats] for the active player session.
@@ -179,10 +143,8 @@ class MediaCapabilitiesService {
 
   static void dispose() {
     _skipSilenceSub?.cancel();
-    _tunnelingSub?.cancel();
     _stereoWideningSub?.cancel();
     _skipSilenceSub    = null;
-    _tunnelingSub      = null;
     _stereoWideningSub = null;
   }
 }
