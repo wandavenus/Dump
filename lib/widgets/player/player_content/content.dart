@@ -1256,7 +1256,7 @@ class _DimSlider extends StatelessWidget {
               min: 0.2,
               max: 0.95,
               
-              activeColor: const Colors.transparent,
+              activeColor: Colors.transparent,
               inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBgDim,
             ),
@@ -1286,7 +1286,7 @@ class _BlurSlider extends StatelessWidget {
               min: 0,
               max: 50,
               
-              activeColor: const Colors.transparent,
+              activeColor: Colors.transparent,
               inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBlurStrength,
             ),
