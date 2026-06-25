@@ -235,21 +235,21 @@ class _PlayerContentState extends State<PlayerContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 185,
+  width: 195,
   child: ShaderMask(
     shaderCallback: (rect) {
       return const LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Colors.white,
+          Colors.transparent,
           Colors.white,
           Colors.white,
           Colors.transparent,
         ],
         stops: [
           0.0,
-          0.12,
+          0.20,
           0.88,
           1.0,
         ],
@@ -723,7 +723,7 @@ class _QueueRow extends StatelessWidget {
                 child: SongArtwork(
                         songId: song.id,
                         size: 44,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(3),
                       ),
               ),
               const SizedBox(width: 12),
@@ -766,7 +766,7 @@ class _QueueRow extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Icon(
-                    Icons.drag_handle_rounded,
+                    CupertinoIcons.line_horizontal_3,
                     color: Colors.white.withValues(alpha: 0.3),
                     size: 22,
                   ),
@@ -980,9 +980,9 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
     // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
       child: ColoredBox(
-        color: const Color(0xBF0D0D0D),
+        color: const Color(0xFF0D0D0D),
         child: SafeArea(
           top: false,
           child: Padding(
@@ -1021,14 +1021,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                   _label('Warna Aktif'),
                   const SizedBox(height: 8),
                   const _ColorPicker(),
-                  const SizedBox(height: 16),
-                  _label('Kegelapan Latar'),
-                  const SizedBox(height: 4),
-                  const _DimSlider(),
-                  const SizedBox(height: 12),
-                  _label('Kekuatan Blur'),
-                  const SizedBox(height: 4),
-                  const _BlurSlider(),
+                  
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -1164,7 +1157,7 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih', color: Color(0xFFFFFFFF), value: 'white'),
+    (label: 'Putih', color: Color.black, value: 'white'),
     (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
     (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
   ];
@@ -1223,19 +1216,19 @@ class _DimSlider extends StatelessWidget {
       valueListenable: LyricsSettings.bgDim,
       builder: (_, v, _) => Row(
         children: [
-          const Icon(Icons.brightness_high, color: Colors.white38, size: 16),
+          
           Expanded(
             child: Slider(
               value: v,
               min: 0.2,
               max: 0.95,
-              divisions: 15,
-              activeColor: const Color(0xFFF92D48),
-              inactiveColor: Colors.white12,
+              
+              activeColor: const Color.transparent,
+              inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBgDim,
             ),
           ),
-          const Icon(Icons.brightness_low, color: Colors.white38, size: 16),
+          
         ],
       ),
     );
@@ -1253,19 +1246,19 @@ class _BlurSlider extends StatelessWidget {
       valueListenable: LyricsSettings.blurStrength,
       builder: (_, v, _) => Row(
         children: [
-          const Icon(CupertinoIcons.photo, color: Colors.white38, size: 16),
+          
           Expanded(
             child: Slider(
               value: v,
               min: 0,
               max: 50,
-              divisions: 10,
-              activeColor: const Color(0xFFF92D48),
-              inactiveColor: Colors.white12,
+              
+              activeColor: const Color.transparent,
+              inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBlurStrength,
             ),
           ),
-          const Icon(Icons.blur_on, color: Colors.white38, size: 16),
+          
         ],
       ),
     );
@@ -1298,7 +1291,7 @@ class _QueueControlButton extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           color: active
-              ? _activeColor.withValues(alpha: 0.18)
+              ? _activeColor.withValues(alpha: 0.48)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
