@@ -362,15 +362,8 @@ height: showOverlay
       )!,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-  borderRadius: BorderRadius.circular(
-    showOverlay
-        ? 8
-        : lerpDouble(
-            6,
-            12,
-            progress,
-          )!,
-  ),
+  borderRadius: BorderRadius.circular(3),
+
   color: Colors.black,
   boxShadow: [
     BoxShadow(
