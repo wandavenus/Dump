@@ -41,7 +41,10 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.Collections
 import java.util.IdentityHashMap
 import androidx.media3.common.Format
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
+import androidx.media3.common.text.CueGroup
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
@@ -224,10 +227,98 @@ class Media3PlaybackService : MediaSessionService() {
         override fun getDuration(): Long                = _current.duration
         override fun getBufferedPosition(): Long        = _current.bufferedPosition
         override fun isLoading(): Boolean               = _current.isLoading
-        override fun getAudioSessionId(): Int           = _current.audioSessionId
         override fun getVolume(): Float                 = _current.volume
         override fun isCommandAvailable(command: Int): Boolean =
             _current.isCommandAvailable(command)
+
+        // ── Remaining snapshot getters — delegate to _current ──────────────────
+        //
+        // Every field below is part of the player's observable state surface.
+        // If any getter returns stale data from the old (pre-promotion) player
+        // after switchTo(), external controllers (OS media widget, lock screen,
+        // AVRCP, Android Auto) see an incoherent state.
+        //
+        // Evaluation notes per method:
+        //
+        //  getPlaybackSuppressionReason() — dynamic; changes when audio focus
+        //    is lost or the app is in the background; per-player.
+        //  getPlayWhenReady() — the intent flag may differ between players if
+        //    standby was started with play=false during prewarm.
+        //  getPlayerError() — errors are tracked per ExoPlayer instance.
+        //  getMediaItemCount() — queue length on _current; differs during
+        //    crossfade window (standby has 1 item, primary has N).
+        //  getMediaItemAt(index) — index lookup must use the same item list as
+        //    getCurrentTimeline(); a cross-player read risks IndexOutOfBounds.
+        //  getNextMediaItemIndex() / getPreviousMediaItemIndex() — computed from
+        //    _current's timeline + shuffle mode; wrong player → wrong track.
+        //  hasNextMediaItem() / hasPreviousMediaItem() — derived from timeline.
+        //  getTotalBufferedDuration() / getContentPosition() /
+        //    getContentBufferedPosition() / getContentDuration() — per-player
+        //    buffer accounting.
+        //  isPlayingAd() / getCurrentAdGroupIndex() / getCurrentAdIndexInAdGroup()
+        //    — part of createPositionInfo(); must be consistent with the timeline
+        //    from the same player even though these players never play ads.
+        //  getCurrentTracks() / getTrackSelectionParameters() — per-player;
+        //    track selection runs independently for each ExoPlayer.
+        //  getMediaMetadata() / getPlaylistMetadata() — reflect the loaded item
+        //    on _current; stale metadata causes wrong lock-screen artwork.
+        //  getPlaybackParameters() — speed/pitch are per-player.
+        //  getRepeatMode() / getShuffleModeEnabled() — per-player state flags.
+        //  getSeekBack/ForwardIncrement() / getMaxSeekToPreviousPosition() —
+        //    configured per-player via DefaultSeekParameters; same value in
+        //    practice but delegating avoids surprises if configs diverge.
+        //  getAvailableCommands() — command set depends on current player state.
+        //  getVideoSize() / getCurrentCues() — per-player; follow _current so
+        //    video and subtitle output are always from the active player.
+
+        override fun getPlaybackSuppressionReason(): @Player.PlaybackSuppressionReason Int =
+            _current.playbackSuppressionReason
+        override fun getPlayWhenReady(): Boolean          = _current.playWhenReady
+        override fun getPlayerError(): PlaybackException? = _current.playerError
+
+        override fun getMediaItemCount(): Int              = _current.mediaItemCount
+        override fun getMediaItemAt(index: Int): MediaItem = _current.getMediaItemAt(index)
+        override fun getNextMediaItemIndex(): Int           = _current.nextMediaItemIndex
+        override fun getPreviousMediaItemIndex(): Int       = _current.previousMediaItemIndex
+        override fun hasNextMediaItem(): Boolean           = _current.hasNextMediaItem()
+        override fun hasPreviousMediaItem(): Boolean       = _current.hasPreviousMediaItem()
+
+        override fun getTotalBufferedDuration(): Long      = _current.totalBufferedDuration
+        override fun getContentPosition(): Long            = _current.contentPosition
+        override fun getContentBufferedPosition(): Long    = _current.contentBufferedPosition
+        override fun getContentDuration(): Long            = _current.contentDuration
+
+        override fun isPlayingAd(): Boolean                = _current.isPlayingAd
+        override fun getCurrentAdGroupIndex(): Int         = _current.currentAdGroupIndex
+        override fun getCurrentAdIndexInAdGroup(): Int     = _current.currentAdIndexInAdGroup
+
+        override fun getCurrentTracks(): Tracks            = _current.currentTracks
+        override fun getTrackSelectionParameters(): TrackSelectionParameters =
+            _current.trackSelectionParameters
+        override fun getMediaMetadata(): MediaMetadata     = _current.mediaMetadata
+        override fun getPlaylistMetadata(): MediaMetadata  = _current.playlistMetadata
+
+        override fun getPlaybackParameters(): PlaybackParameters = _current.playbackParameters
+        override fun getRepeatMode(): @Player.RepeatMode Int     = _current.repeatMode
+        override fun getShuffleModeEnabled(): Boolean            = _current.shuffleModeEnabled
+        override fun getSeekBackIncrement(): Long                = _current.seekBackIncrement
+        override fun getSeekForwardIncrement(): Long             = _current.seekForwardIncrement
+        override fun getMaxSeekToPreviousPosition(): Long        = _current.maxSeekToPreviousPosition
+
+        override fun getAvailableCommands(): Player.Commands     = _current.availableCommands
+
+        override fun getVideoSize(): VideoSize             = _current.videoSize
+        override fun getCurrentCues(): CueGroup            = _current.currentCues
+
+        // Intentionally NOT overriding:
+        //   getApplicationLooper() — always the main Looper; identical for all
+        //     ExoPlayer instances in this service.
+        //   getAudioAttributes()   — all players are built with the same config
+        //     in createConfiguredPlayer(); attributes are invariant across players.
+        //   getDeviceInfo()        — hardware device descriptor; invariant.
+        //   getDeviceVolume() / isDeviceMuted() — system master volume; not
+        //     per-player; hardware state is the same regardless of which player
+        //     queries it.
 
         // ── Transport command overrides — always go through TransportCommands ────
         override fun play()                    { transportCommands.playNative() }
