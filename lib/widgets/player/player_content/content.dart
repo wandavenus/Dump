@@ -101,7 +101,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                 // Normal-mode cover: centred, leaving ~80 px for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 10;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 20;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
