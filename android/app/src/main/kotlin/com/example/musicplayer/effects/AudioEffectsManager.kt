@@ -349,19 +349,11 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             } catch (_: Exception) { /* fall through */ }
         }
 
-        // Fallback: try to instantiate a test effect with a dummy session
-        return try {
-            val cls = when (type) {
-                AudioEffect.EFFECT_TYPE_BASS_BOOST    -> BassBoost::class.java
-                AudioEffect.EFFECT_TYPE_VIRTUALIZER   -> Virtualizer::class.java
-                AudioEffect.EFFECT_TYPE_PRESET_REVERB -> PresetReverb::class.java
-                else                                   -> return false
-            }
-            val ctor = cls.getConstructor(Int::class.java, Int::class.java)
-            val inst = ctor.newInstance(0, 0) as AudioEffect
-            inst.release()
-            true
-        } catch (_: Exception) { false }
+        // LOW-03 fix: The original probe used sessionId=0 (the global audio session), which
+        // attaches a live effect to every audio track on the device — a serious side-effect.
+        // We now return false when queryEffects() is unavailable/empty; callers treat an
+        // unavailable report as "disable gracefully" which is the correct safe behaviour.
+        return false
     }
 
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Effects", msg)

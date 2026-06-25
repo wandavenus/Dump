@@ -619,5 +619,21 @@ class TransportCommands(
         log("verbose", "seekNative → ${posMs}ms")
     }
 
+    /**
+     * MED-01/CRIT-01 support: jump to a specific queue index. Called from
+     * [ActivePlayerProxy.seekTo] when an external controller (Android Auto,
+     * AVRCP media browser) sends seekTo(mediaItemIndex, positionMs) with a
+     * non-INDEX_UNSET mediaItemIndex. Mirrors the "setTrack" MethodChannel branch.
+     */
+    fun setTrackNative(index: Int) {
+        sleepTimerManager.cancel()
+        crossfadeController.cancel(resetVolume = true)
+        preloadManager.clearStandbyQueue()
+        queueManager.setTrack(index)
+        if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack()
+        queueSync.save()
+        log("info", "setTrack(native): [$index]")
+    }
+
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Transport", msg)
 }

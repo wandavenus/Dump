@@ -18,6 +18,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.PlaybackException
 import com.example.musicplayer.audio_focus.AudioFocusManager
 import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
@@ -109,6 +110,15 @@ class Media3PlaybackService : MediaSessionService() {
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
 
+    // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
+    // activePlayerProxy is always the MediaSession's player. It dynamically
+    // delegates to the current active ExoPlayer and routes transport commands
+    // through TransportCommands so audio focus / crossfade handling is consistent.
+    private lateinit var activePlayerProxy: ActivePlayerProxy
+
+    // ── LOW-07 fix: track the active offload listener so it can be removed ────
+    private var activeOffloadListener: ExoPlayer.AudioOffloadListener? = null
+
     // ── Companion ─────────────────────────────────────────────────────────────
     companion object {
         /**
@@ -130,6 +140,88 @@ class Media3PlaybackService : MediaSessionService() {
         const val PREFS_NAME        = QueueSync.PREFS_NAME
 
         @Volatile var instance: Media3PlaybackService? = null
+    }
+
+    // ── CRIT-01 + MED-01 fix: ActivePlayerProxy ──────────────────────────────
+    /**
+     * A ForwardingPlayer that is permanently set as the MediaSession's player
+     * (never replaced by session.setPlayer()). On crossfade promotion, [switchTo]
+     * migrates all MediaSession/AVRCP listeners from the old player to the new one
+     * so that lock-screen / BT controllers keep receiving correct state events.
+     *
+     * All transport commands (play, pause, skip, seek) are routed through
+     * [TransportCommands] so audio focus, crossfade cancellation, SessionAuditLogger,
+     * and position ticker are handled identically regardless of the command source
+     * (Flutter MethodChannel, Bluetooth AVRCP, lock screen, Android Auto).
+     *
+     * MED-01: seekTo() with a non-INDEX_UNSET mediaItemIndex is forwarded as a
+     * queue jump (setTrackNative) instead of silently dropping the index.
+     */
+    private inner class ActivePlayerProxy(initialPlayer: ExoPlayer) : ForwardingPlayer(initialPlayer) {
+        private val registeredListeners = mutableListOf<Player.Listener>()
+        @Volatile private var _current: ExoPlayer = initialPlayer
+
+        /** Returns the current wrapped player — used for all state queries. */
+        override fun getWrappedPlayer(): Player = _current
+
+        /**
+         * Migrate all registered listeners from the current wrapped player to [newPlayer].
+         * Must be called on the main thread. Invoked by the [switchSessionPlayer] lambda
+         * in CrossfadeController when crossfade begins and when promotion completes.
+         */
+        fun switchTo(newPlayer: ExoPlayer) {
+            if (newPlayer === _current) return
+            val snapshot = registeredListeners.toList()
+            snapshot.forEach { _current.removeListener(it) }
+            _current = newPlayer
+            snapshot.forEach { _current.addListener(it) }
+            NativeLogger.emit("info", "Media3",
+                "ActivePlayerProxy.switchTo: migrated ${snapshot.size} listener(s)")
+        }
+
+        override fun addListener(listener: Player.Listener) {
+            if (listener !in registeredListeners) registeredListeners.add(listener)
+            _current.addListener(listener)
+        }
+
+        override fun removeListener(listener: Player.Listener) {
+            registeredListeners.remove(listener)
+            _current.removeListener(listener)
+        }
+
+        // ── State-query overrides — delegate to _current, not initialPlayer ──────
+        // ForwardingPlayer's private `player` field always refers to initialPlayer
+        // (set at construction; cannot be changed). Without these overrides, state
+        // queries (position, isPlaying, currentMediaItem, etc.) would return stale
+        // data from the old player after crossfade promotion.
+        override fun isPlaying(): Boolean               = _current.isPlaying
+        override fun getPlaybackState(): Int            = _current.playbackState
+        override fun getCurrentMediaItemIndex(): Int    = _current.currentMediaItemIndex
+        override fun getCurrentMediaItem(): MediaItem?  = _current.currentMediaItem
+        override fun getCurrentPosition(): Long         = _current.currentPosition
+        override fun getDuration(): Long                = _current.duration
+        override fun getBufferedPosition(): Long        = _current.bufferedPosition
+        override fun isLoading(): Boolean               = _current.isLoading
+        override fun getAudioSessionId(): Int           = _current.audioSessionId
+        override fun getVolume(): Float                 = _current.volume
+        override fun isCommandAvailable(command: Int): Boolean =
+            _current.isCommandAvailable(command)
+
+        // ── Transport command overrides — always go through TransportCommands ────
+        override fun play()                    { transportCommands.playNative() }
+        override fun pause()                   { transportCommands.pauseNative() }
+        override fun seekToNextMediaItem()     { transportCommands.skipNextNative() }
+        override fun seekToPreviousMediaItem() { transportCommands.skipPrevNative() }
+
+        override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
+            if (mediaItemIndex != C.INDEX_UNSET &&
+                mediaItemIndex != _current.currentMediaItemIndex) {
+                // MED-01 fix: external controller requested a specific queue item.
+                transportCommands.setTrackNative(mediaItemIndex)
+            } else {
+                transportCommands.seekNative(positionMs)
+            }
+        }
     }
 
     // ── Noisy receiver (headphone unplug → pause) ─────────────────────────────
@@ -181,25 +273,20 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
         )
-        primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
+        // LOW-07 fix: track the initial offload listener so it can be removed before
+        // adding a new one on crossfade completion (prevents listener accumulation).
+        activeOffloadListener = offloadManager.makeOffloadListener()
+        primaryPlayer!!.addAudioOffloadListener(activeOffloadListener!!)
 
         // Build MediaSession
-        // ForwardingPlayer intercepts transport commands from external controllers
-        // (Bluetooth, OS widgets) and routes them through transportCommands.*Native()
-        // so audio focus, crossfade, and state emission are handled correctly.
-        // transportCommands is lateinit but always initialised before any external
-        // controller can connect (which only happens after onCreate() returns).
-        val sessionPlayer = object : ForwardingPlayer(primaryPlayer!!) {
-            override fun play()                    { transportCommands.playNative() }
-            override fun pause()                   { transportCommands.pauseNative() }
-            override fun seekToNextMediaItem()     { transportCommands.skipNextNative() }
-            override fun seekToPreviousMediaItem() { transportCommands.skipPrevNative() }
-            override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
-                transportCommands.seekNative(positionMs)
-            }
-        }
+        // CRIT-01 fix: MediaSession always uses activePlayerProxy — never replaced by a raw
+        // ExoPlayer. ActivePlayerProxy.switchTo() migrates MediaSession/AVRCP listeners to the
+        // new player on crossfade promotion so lock-screen and BT controllers remain in sync.
+        // transportCommands is lateinit but fully initialised before any external controller
+        // can connect (connections only happen after onCreate() returns).
+        activePlayerProxy = ActivePlayerProxy(primaryPlayer!!)
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val sessionBuilder = MediaSession.Builder(this, sessionPlayer)
+        val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -238,6 +325,16 @@ class Media3PlaybackService : MediaSessionService() {
             stopTicker             = { transportState.stopPositionTicker() },
             onFocusEvent           = { transportState.emitAll() },
             getCrossfadeInProgress = { crossfadeController.crossfadeInProgress },
+            // HIGH-01 fix: cancel any in-progress crossfade when audio focus is lost.
+            // Without this, AUDIOFOCUS_LOSS only paused the new (active) player while
+            // the old promotionOwner player continued producing audio through a call.
+            onFocusLoss = {
+                if (::crossfadeController.isInitialized && crossfadeController.crossfadeInProgress) {
+                    NativeLogger.emit("warn", "AudioFocus",
+                        "Audio focus lost during crossfade — cancelling crossfade")
+                    crossfadeController.cancel(resetVolume = true)
+                }
+            },
         )
 
         notificationManager = PlaybackNotificationManager(
@@ -294,9 +391,12 @@ class Media3PlaybackService : MediaSessionService() {
             getStandbyPlayer   = { standbyPlayer() },
             setActivePlayer    = { newPlayer -> activePlayer = newPlayer },
             switchSessionPlayer = { newPlayer ->
-                try { session?.setPlayer(newPlayer) }
+                // CRIT-01 fix: update the proxy's wrapped player instead of calling
+                // session.setPlayer(). The MediaSession stays bound to activePlayerProxy
+                // permanently; listeners are migrated to the new ExoPlayer by switchTo().
+                try { activePlayerProxy.switchTo(newPlayer) }
                 catch (e: Exception) {
-                    NativeLogger.emit("warn", "Media3", "MediaSession player switch failed: ${e.message}")
+                    NativeLogger.emit("warn", "Media3", "ActivePlayerProxy.switchTo failed: ${e.message}")
                 }
             },
             preloadManager      = preloadManager,
@@ -332,7 +432,13 @@ class Media3PlaybackService : MediaSessionService() {
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
                 offloadManager.onCrossfadeComplete()
-                activePlayer?.addAudioOffloadListener(offloadManager.makeOffloadListener())
+                // LOW-07 fix: remove the old offload listener before adding the new one.
+                // Previously a new listener was added on every crossfade without removing
+                // the previous one, causing accumulation across many crossfades.
+                val newOffloadListener = offloadManager.makeOffloadListener()
+                activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
+                activeOffloadListener = newOffloadListener
+                activePlayer?.addAudioOffloadListener(newOffloadListener)
             },
             emitAll             = { transportState.emitAll() },
             refreshNotification = { notificationManager.refresh() },
@@ -913,6 +1019,41 @@ class Media3PlaybackService : MediaSessionService() {
                         "seek discontinuity → " +
                         "${oldPosition.positionMs}ms → ${newPosition.positionMs}ms",
                     )
+                }
+            }
+
+            /**
+             * HIGH-02 fix: Previously missing. Unhandled player errors left the
+             * queue halted permanently on a corrupted or missing file.
+             *
+             * Behaviour:
+             *  - Always logs the error and emits it to Flutter via EventChannel.
+             *  - Schedules an auto-skip 500 ms later if another item is available,
+             *    giving Media3 time to settle before touching the playlist.
+             *  - The 500 ms delay is intentional: calling seekToNextMediaItem()
+             *    synchronously inside onPlayerError causes re-entrancy issues on
+             *    some Media3 versions.
+             */
+            override fun onPlayerError(error: PlaybackException) {
+                if (!isActiveEvent()) return
+                NativeLogger.emit("error", "Media3",
+                    "PlayerError code=${error.errorCode}: ${error.message}")
+                SessionAuditLogger.warn("PlayerError",
+                    "code=${error.errorCode} msg=${error.message}")
+                EventEmitter.emit("error", mapOf(
+                    "code"    to error.errorCode,
+                    "message" to (error.message ?: "Unknown player error"),
+                ))
+                if (p.hasNextMediaItem()) {
+                    handler.postDelayed({
+                        if (p === activePlayer &&
+                            p.playbackState != Player.STATE_READY &&
+                            p.hasNextMediaItem()) {
+                            NativeLogger.emit("info", "Media3",
+                                "Auto-skip after player error (code=${error.errorCode})")
+                            p.seekToNextMediaItem()
+                        }
+                    }, 500L)
                 }
             }
         }

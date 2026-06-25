@@ -51,6 +51,13 @@ class AudioFocusManager(
      * mid-fade level instead of full volume.
      */
     private val getCrossfadeInProgress: () -> Boolean = { false },
+    /**
+     * HIGH-01 fix: Called on AUDIOFOCUS_LOSS and AUDIOFOCUS_LOSS_TRANSIENT before
+     * pausing, so the caller can cancel any in-progress crossfade. Without this,
+     * audio focus loss only pauses the active (new) player while the old player
+     * (promotionOwner) may continue playing audio through a phone call.
+     */
+    private val onFocusLoss: () -> Unit = {},
 ) {
     var volumeBeforeDuck: Float = 1f
         private set
@@ -93,13 +100,15 @@ class AudioFocusManager(
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-            resumeAfterFocusGain = p.isPlaying
-            p.pause()
-            stopTicker()
-            log("AUDIOFOCUS_LOSS_TRANSIENT → paused (will resume=$resumeAfterFocusGain)")
-           }
+                onFocusLoss()
+                resumeAfterFocusGain = p.isPlaying
+                p.pause()
+                stopTicker()
+                log("AUDIOFOCUS_LOSS_TRANSIENT → paused (will resume=$resumeAfterFocusGain)")
+            }
 
             AudioManager.AUDIOFOCUS_LOSS -> {
+                onFocusLoss()
                 resumeAfterFocusGain = false
                 p.pause()
                 stopTicker()

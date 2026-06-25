@@ -21,7 +21,7 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import com.example.musicplayer.Media3PlaybackService
 import com.example.musicplayer.R
 import com.example.musicplayer.events.NativeLogger
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
 
 /**
  * Manages the media playback notification.
@@ -60,11 +60,23 @@ class PlaybackNotificationManager(
     }
 
     // LRU bitmap cache (max 10 entries) — evicts least-recently-used album art automatically.
-    // LruCache does not accept null values, so we track "tried but no artwork" URIs separately
-    // with noArtworkUris. That set stays small in practice (one URI per unique playing track).
-    private val artworkCache    = LruCache<String, Bitmap>(10)
-    private val noArtworkUris   = mutableSetOf<String>()
+    // LruCache does not accept null values, so we track "tried but no artwork" URIs separately.
+    // LOW-02 fix: noArtworkUris is now a bounded LinkedHashSet (max 64 entries) that evicts
+    // the oldest entry when full, preventing unbounded growth during long listening sessions.
+    private val artworkCache  = LruCache<String, Bitmap>(10)
+    private val noArtworkUris: MutableSet<String> = object : java.util.LinkedHashSet<String>(64) {
+        override fun add(element: String): Boolean {
+            if (size >= 64) remove(iterator().next())
+            return super.add(element)
+        }
+    }
     private var artworkLoadGeneration = 0L
+
+    // LOW-04 fix: single daemon thread reused for all artwork loads instead of spawning
+    // a new thread per refresh() call. Prevents thread explosion during rapid track changes.
+    private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "artwork-loader").also { it.isDaemon = true }
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -152,7 +164,7 @@ class PlaybackNotificationManager(
     ) {
         if (artUri == null) return
         val generation = ++artworkLoadGeneration
-        thread {
+        artworkExecutor.execute {
             val bmp = loadBitmap(artUri)
             handler.post {
                 if (generation != artworkLoadGeneration) return@post  // superseded

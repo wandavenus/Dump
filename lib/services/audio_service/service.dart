@@ -149,7 +149,12 @@ class AudioService {
 
   static void _onReplayGainSettingChanged() {
     final song = currentSong;
-    if (song != null) unawaited(_applyReplayGain(song));
+    if (song != null) {
+      // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
+      _applyReplayGain(song).catchError((Object e) {
+        LogService.warn('AudioService', '_applyReplayGain (setting change) error: $e');
+      });
+    }
   }
 
   static void _onSpeedChange() {
@@ -168,7 +173,14 @@ class AudioService {
           .whereType<Map>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
-      if (songs.isEmpty) return;
+      // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
+      // playlist rather than keeping a stale list from the previous session.
+      if (songs.isEmpty) {
+        _playlist = List<LocalSong>.unmodifiable([]);
+        _setState(playbackState.value.copyWith(currentPlaylist: const []));
+        ArtworkRepository.setActiveQueueIds([]);
+        return;
+      }
       _playlist = List<LocalSong>.unmodifiable(songs);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
 
@@ -218,10 +230,15 @@ class AudioService {
 }
 
   static void _syncCurrentTrackFromNative(int index) {
-    final song          = _playlist[index];
-    final prevIndex     = _currentIndex;
-    _currentIndex       = index;
-    _previousSong       = song;
+    final song      = _playlist[index];
+    final prevIndex = _currentIndex;
+    _currentIndex   = index;
+    // ARCH-01 fix: capture _previousSong BEFORE overwriting it. The static field
+    // was previously written before _applyReplayGain ran, so album-gain auto-mode
+    // always compared the current song to itself (wrong). prevSong now carries the
+    // correct predecessor into the async resolve call.
+    final prevSong  = _previousSong;
+    _previousSong   = song;
 
     _setState(playbackState.value.copyWith(
       currentSong:     song,
@@ -242,7 +259,11 @@ class AudioService {
     // audio-session re-attach race on MIUI 12.
     AudioEffectsService.applyAll();
     Future.delayed(const Duration(milliseconds: 350), AudioEffectsService.applyAll);
-    unawaited(_applyReplayGain(song));
+    // LOW-06 fix: chain catchError so async errors surface in logs instead of
+    // being silently dropped by the unawaited fire-and-forget pattern.
+    _applyReplayGain(song, prevSong: prevSong).catchError((Object e) {
+      LogService.warn('AudioService', '_applyReplayGain error: $e');
+    });
   }
 
   // ── Playback ──────────────────────────────────────────────────────────────
@@ -331,16 +352,15 @@ class AudioService {
     LogService.log('AudioService', 'Skip → next');
   }
 
-  /// Skip to the previous track.  If position > 3 s, seeks to 0 (Dart-side
-  /// decision for responsiveness before native round-trip).
+  /// Skip to the previous track.
+  /// MED-06 fix: Dart-side stale-position check removed. ExoPlayer's
+  /// seekToPreviousMediaItem() uses the exact native position with a built-in
+  /// 3-second threshold (maxSeekToPreviousPositionMs = 3000 ms default), which
+  /// is more accurate than using the polled Dart position that may lag by up
+  /// to one position-tick interval. This also ensures crossfade and sleep-timer
+  /// cancellation always run (handled by handleSkipPrevious in TransportCommands).
   static Future<void> skipPrevious() async {
     initialize();
-    final pos = playbackState.value.position;
-    if (pos.inSeconds > 3) {
-      await Media3PlaybackBridge.seek(Duration.zero);
-      LogService.verbose('AudioService', 'Skip previous: restarted track');
-      return;
-    }
     await Media3PlaybackBridge.skipPrevious();
     LogService.log('AudioService', 'Skip → previous');
   }
@@ -466,7 +486,11 @@ class AudioService {
 
   // ── ReplayGain ────────────────────────────────────────────────────────────
 
-  static Future<void> _applyReplayGain(LocalSong song) async {
+  /// ARCH-01 fix: accepts [prevSong] to avoid reading the already-overwritten
+  /// [_previousSong] static field from inside an async call. Callers that have
+  /// already advanced [_previousSong] should pass the captured predecessor here.
+  /// Callers that haven't yet overwritten [_previousSong] can omit this param.
+  static Future<void> _applyReplayGain(LocalSong song, {LocalSong? prevSong}) async {
     final mode = AudioEffectsService.replayGainMode.value;
     if (mode == ReplayGainMode.off) {
       AudioEngine.applyNormalize(enabled: false);
@@ -475,7 +499,7 @@ class AudioService {
     final data = await LoudnessSourceResolver.resolve(
       song:         song,
       mode:         mode,
-      previousSong: _previousSong,
+      previousSong: prevSong ?? _previousSong,
     );
     if (!data.hasData) {
       AudioEngine.applyNormalize(enabled: false);
