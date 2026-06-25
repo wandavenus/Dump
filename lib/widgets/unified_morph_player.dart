@@ -239,8 +239,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     const miniH = 64.5;
     const miniHorizMargin = 0.0;
-    const navBarH = kBottomNavHeight;
-    const miniBottomGap = 0.0;
+    const navBarH = 55.1;
+    const miniBottomGap = -2.0;
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
