@@ -45,8 +45,20 @@ class AudioService {
   static LoopMode   get loopMode        => playbackState.value.loopMode;
   static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
 
-  /// Next queue index (linear only — shuffle order is native/opaque).
+  /// Next queue index — shuffle-correct when native value is available.
+  ///
+  /// Returns [AudioPlaybackState.nextTrackIndex] when native has reported it
+  /// (i.e., it is non-null), which respects ExoPlayer's internal shuffle order
+  /// and repeat mode exactly. Falls back to linear calculation only before the
+  /// first native `currentTrack` event arrives (cold start / initial load).
+  ///
+  /// Values:
+  ///   `>= 0` — actual next index into [AudioService.currentPlaylist].
+  ///   `-1`   — no next track (end of queue with repeat off).
   static int get nextIndex {
+    final nativeNext = playbackState.value.nextTrackIndex;
+    if (nativeNext != null) return nativeNext;
+    // Fallback: linear calculation (used before first native currentTrack event).
     final state = playbackState.value;
     final sz    = state.currentPlaylist.length;
     if (sz == 0) return -1;
@@ -194,42 +206,62 @@ class AudioService {
 
   /// Track changed — driven by native ExoPlayer (gapless, skip, or queue jump).
   static void _onNativeCurrentTrackChanged(Map<dynamic, dynamic>? trackMap) {
-  if (_playlist.isEmpty || trackMap == null) return;
+    if (_playlist.isEmpty || trackMap == null) return;
 
-  final nativeIndex = trackMap['index'] as int? ?? -1;
-  final nativeId    = trackMap['id'];
+    final nativeIndex = trackMap['index'] as int? ?? -1;
+    final nativeId    = trackMap['id'];
 
-  final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
-      ? nativeIndex
-      : _playlist.indexWhere((s) {
-          // nativeId bisa String atau int, konversi ke int jika perlu
-          if (nativeId is String) {
-            final id = int.tryParse(nativeId);
-            return id != null && s.id == id;
-          } else if (nativeId is int) {
-            return s.id == nativeId;
-          }
-          return false;
-        });
+    final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
+        ? nativeIndex
+        : _playlist.indexWhere((s) {
+            // nativeId bisa String atau int, konversi ke int jika perlu
+            if (nativeId is String) {
+              final id = int.tryParse(nativeId);
+              return id != null && s.id == id;
+            } else if (nativeId is int) {
+              return s.id == nativeId;
+            }
+            return false;
+          });
 
-  if (resolved < 0 || resolved >= _playlist.length) {
-    LogService.warn(
-      'AudioService',
-      'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
-    );
-    return;
+    if (resolved < 0 || resolved >= _playlist.length) {
+      LogService.warn(
+        'AudioService',
+        'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
+      );
+      return;
+    }
+
+    // Extract native next-track index (respects shuffle order + repeat mode).
+    //   Field present, value int  → use native value (>= 0) or -1 (no next item).
+    //   Field present, value null → no next item; -1.
+    //   Field absent              → old native build; null triggers linear fallback.
+    final int? nativeNext;
+    if (trackMap.containsKey('nextTrackIndex')) {
+      final v = trackMap['nextTrackIndex'];
+      nativeNext = v is int ? v : -1;
+    } else {
+      nativeNext = null;
+    }
+
+    // Skip full sync when the current track hasn't changed, but still update
+    // nextTrackIndex in state — it changes after queue reorders, shuffle toggles,
+    // and repeat-mode changes even if the currently-playing track is the same.
+    if (resolved == _currentIndex &&
+        playbackState.value.currentSong?.id == _playlist[resolved].id) {
+      if (nativeNext != playbackState.value.nextTrackIndex) {
+        _setState(playbackState.value.copyWith(
+          nextTrackIndex:      nativeNext,
+          clearNextTrackIndex: nativeNext == null,
+        ));
+      }
+      return;
+    }
+
+    _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext);
   }
 
-  // Skip redundant updates.
-  if (resolved == _currentIndex &&
-      playbackState.value.currentSong?.id == _playlist[resolved].id) {
-    return;
-  }
-
-  _syncCurrentTrackFromNative(resolved);
-}
-
-  static void _syncCurrentTrackFromNative(int index) {
+  static void _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) {
     final song      = _playlist[index];
     final prevIndex = _currentIndex;
     _currentIndex   = index;
@@ -241,10 +273,12 @@ class AudioService {
     _previousSong   = song;
 
     _setState(playbackState.value.copyWith(
-      currentSong:     song,
-      currentIndex:    index,
-      currentPlaylist: _playlist,
-      duration:        song.duration,
+      currentSong:         song,
+      currentIndex:        index,
+      currentPlaylist:     _playlist,
+      duration:            song.duration,
+      nextTrackIndex:      nativeNextIndex,
+      clearNextTrackIndex: nativeNextIndex == null,
     ));
 
     LogService.log(
