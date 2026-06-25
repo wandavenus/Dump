@@ -364,10 +364,10 @@ height: showOverlay
                         decoration: BoxDecoration(
   borderRadius: BorderRadius.circular(
     showOverlay
-        ? 8
+        ? 3
         : lerpDouble(
-            6,
-            12,
+            3,
+            3,
             progress,
           )!,
   ),
