@@ -111,4 +111,7 @@ dependencies {
     // JVM unit tests — no device/emulator required
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'
+    // Mockito for ExoPlayer/AudioManager interface mocking in unit tests
+    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
 }
