@@ -32,7 +32,7 @@ class _PlaybackEngineSection extends StatelessWidget {
             children: [
               SettingsToggleRow(
                 title: 'Pelebaran Stereo',
-                subtitle: 'ChannelMixingAudioProcessor — tidak aktif saat tunneling',
+                subtitle: 'ChannelMixingAudioProcessor — memperlebar medan stereo',
                 value: enabled,
                 onChanged: MediaCapabilitiesService.setStereoWidening,
               ),
@@ -60,38 +60,7 @@ class _PlaybackEngineSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
-        // ── Tunneling (Item 5) ───────────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: MediaCapabilitiesService.tunnelingEnabled,
-          builder: (_, v, _) => Column(
-            children: [
-              SettingsToggleRow(
-                title: 'Audio Tunneling',
-                subtitle: v
-                    ? '⚠️ EQ, efek & pelebaran stereo dinonaktifkan'
-                    : 'Hemat CPU — bypass pipeline software (Snapdragon 730)',
-                value: v,
-                onChanged: MediaCapabilitiesService.setTunnelingEnabled,
-              ),
-              if (v)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                  child: Text(
-                    'Tunneling melewati seluruh rantai efek software: '
-                    'Equalizer, BassBoost, Virtualizer, Reverb, dan Pelebaran Stereo '
-                    'tidak akan terdengar selama mode ini aktif.',
-                    style: TextStyle(
-                      color: Color(0xFFFF9500),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SettingsDivider(),
-
-        // ── Playback Stats (Item 6) ──────────────────────────────────────────
+        // ── Playback Stats ───────────────────────────────────────────────────
         SettingsActionRow(
           title: 'Statistik Sesi',
           trailing: 'Lihat',

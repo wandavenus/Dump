@@ -13,8 +13,6 @@ class AudioSettingsService {
 
   // ── Notifiers (forwarded from AudioEffectsService) ─────────────────────────
 
-  static ValueNotifier<bool> get gaplessPlayback =>
-      AudioEffectsService.gaplessPlayback;
   static ValueNotifier<bool> get audioNormalize =>
       AudioEffectsService.audioNormalize;
   static ValueNotifier<double> get crossfadeDuration =>
@@ -29,9 +27,6 @@ class AudioSettingsService {
   static Future<void> init() => AudioEffectsService.init();
 
   // ── Setters ────────────────────────────────────────────────────────────────
-
-  static Future<void> setGapless(bool value) =>
-      AudioEffectsService.setGapless(value);
 
   static Future<void> setNormalize(bool value) =>
       AudioEffectsService.setNormalize(value);
