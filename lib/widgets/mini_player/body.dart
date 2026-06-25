@@ -139,7 +139,7 @@ class _MiniPlayerBody extends StatelessWidget {
             playbackState.isPlaying
                 ? Icons.pause
                 : Icons.play_arrow,
-            size: 34,
+            size: 35,
             color: Colors.white,
           ),
         ),
@@ -149,7 +149,7 @@ class _MiniPlayerBody extends StatelessWidget {
               : null,
           icon: Icon(
             Icons.skip_next,
-            size: 30,
+            size: 31,
             color: canGoNext
                 ? Colors.white
                 : Colors.white24,
