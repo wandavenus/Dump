@@ -85,10 +85,10 @@ class _SystemSection extends StatelessWidget {
   void _showLogs(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF080808),
+      backgroundColor: Colors.black,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
       ),
       builder: (_) => const _LogViewerModal(),
     );
@@ -140,7 +140,7 @@ class _LogViewerModalState extends State<_LogViewerModal> {
               // ── Handle ───────────────────────────────────────────────────
               const SizedBox(height: 10),
               Container(
-                width: 30,
+                width: 50,
                 height: 3,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.1),
