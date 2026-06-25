@@ -218,29 +218,14 @@ class CrossfadeController(
         standby.volume = 0f
         setActivePlayer(standby)
 
-        // CE-05 fix: only migrate MediaSession listeners to the standby player if it
-        // already has a valid currentMediaItemIndex (i.e., the timeline has resolved).
-        //
-        // When the standby is in STATE_IDLE or early STATE_BUFFERING its internal
-        // Timeline is still Timeline.EMPTY, so currentMediaItemIndex == C.INDEX_UNSET.
-        // Calling switchSessionPlayer at that point causes:
-        //   MediaSession listener attached to standby
-        //   → standby.play() fires onIsPlayingChanged
-        //   → PlayerInfoChangedHandler.handleMessage()
-        //   → PlayerWrapper.createPositionInfo()
-        //   → Preconditions.checkState(currentMediaItemIndex != C.INDEX_UNSET)
-        //   → IllegalStateException (FATAL EXCEPTION)
-        //
-        // When the standby is not yet ready, defer the session switch to the
-        // fade-completion step in runEqualPowerFade(), which only fires after the
-        // standby has been playing for the full fade duration and is guaranteed to
-        // have a valid timeline with a non-INDEX_UNSET currentMediaItemIndex.
-        if (standby.currentMediaItemIndex != C.INDEX_UNSET) {
-            switchSessionPlayer(standby)
-        } else {
-            log("CE-05: standby timeline not ready (currentMediaItemIndex=INDEX_UNSET)" +
-                " — deferring MediaSession switch to fade-completion")
-        }
+        // Switch the MediaSession to the standby player immediately so the
+        // notification shows the incoming track.  Crash-safety is guaranteed by
+        // ActivePlayerProxy: getCurrentTimeline() and getCurrentPeriodIndex() are
+        // overridden (alongside all other state-query methods) to delegate to
+        // _current, so PlayerWrapper.createPositionInfo() always reads a
+        // self-consistent snapshot from a single player and its period-window
+        // consistency check cannot fail.
+        switchSessionPlayer(standby)
 
         // Ensure audio focus before starting the new player
         if (standby.playbackState != Player.STATE_READY) standby.prepare()

@@ -12,6 +12,7 @@ import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -187,10 +188,32 @@ class Media3PlaybackService : MediaSessionService() {
         }
 
         // ── State-query overrides — delegate to _current, not initialPlayer ──────
-        // ForwardingPlayer's private `player` field always refers to initialPlayer
-        // (set at construction; cannot be changed). Without these overrides, state
-        // queries (position, isPlaying, currentMediaItem, etc.) would return stale
-        // data from the old player after crossfade promotion.
+        // ForwardingPlayer stores the constructor argument as a final `player` field
+        // and uses it for ALL method implementations by default.  After switchTo(),
+        // _current points to the promoted standby player, so every state getter must
+        // be overridden here or it will return stale data from the original player.
+        //
+        // CE-05 (crash fix): PlayerWrapper.createPositionInfo() (Media3 1.10.1,
+        // line 879) reads THREE values from the proxy and cross-checks them:
+        //
+        //   currentMediaItemIndex  — index into the current timeline
+        //   currentTimeline        — used to look up the window at that index
+        //   currentPeriodIndex     — must lie within [window.firstPeriod, window.lastPeriod]
+        //
+        // If any of those three come from a different ExoPlayer instance they can be
+        // mutually inconsistent.  Example crash path:
+        //   • Primary player has a 24-item rebuilt queue playing at window 23, period 23.
+        //   • Crossfade promotes standby (1-item list, currentMediaItemIndex = 0).
+        //   • currentMediaItemIndex → standby = 0  (overridden below ✓)
+        //   • currentTimeline       → primary = 24-window timeline  (NOT overridden → BUG)
+        //   • currentPeriodIndex    → primary = 23                  (NOT overridden → BUG)
+        //   • getWindow(0) in primary timeline → firstPeriod=0, lastPeriod=0
+        //   • checkState(23 == constrainValue(23, 0, 0))  →  FATAL IllegalStateException
+        //
+        // Overriding all three (and the rest of the state surface) ensures every
+        // field in createPositionInfo() is sourced from the same ExoPlayer.
+        override fun getCurrentTimeline(): Timeline     = _current.currentTimeline
+        override fun getCurrentPeriodIndex(): Int       = _current.currentPeriodIndex
         override fun isPlaying(): Boolean               = _current.isPlaying
         override fun getPlaybackState(): Int            = _current.playbackState
         override fun getCurrentMediaItemIndex(): Int    = _current.currentMediaItemIndex
