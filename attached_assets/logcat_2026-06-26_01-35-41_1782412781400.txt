@@ -1,0 +1,698 @@
+[2026-06-26 01:28:41.839 Uid(value=11531):10267:10267 W/Activity]
+Slow Operation: Activity com.example.musicplayer/.MainActivity onCreate took 648ms
+
+[2026-06-26 01:28:41.871 Uid(value=11531):10267:10267 W/Looper]
+PerfMonitor looperActivity : package=com.example.musicplayer/.MainActivity time=0ms latency=878ms running=0ms  procState=2 ClientTransaction{ callbacks=[android.app.servertransaction.TopResumedActivityChangeItem] } historyMsgCount=3 (msgIndex=2 wall=113ms seq=2 running=80ms runnable=12ms late=7ms h=android.app.ActivityThread$H w=110) (msgIndex=3 wall=755ms seq=3 running=163ms runnable=30ms io=119ms late=119ms h=android.app.ActivityThread$H w=159)
+
+[2026-06-26 01:28:41.926 Uid(value=11531):10267:10267 W/Looper]
+PerfMonitor doFrame : time=52ms vsyncFrame=0 latency=762ms procState=2 historyMsgCount=3 (msgIndex=1 wall=113ms seq=2 running=80ms runnable=12ms late=7ms h=android.app.ActivityThread$H w=110) (msgIndex=2 wall=755ms seq=3 running=163ms runnable=30ms io=119ms late=119ms h=android.app.ActivityThread$H w=159)
+
+[2026-06-26 01:28:43.274 Uid(value=11531):10267:10267 W/Looper]
+PerfMonitor doFrame : time=35ms vsyncFrame=0 latency=390ms procState=2 historyMsgCount=11 (msgIndex=5 wall=150ms seq=138 running=8ms io=13ms late=111ms h=android.os.Handler c=io.flutter.embedding.engine.dart.DartMessenger$$ExternalSyntheticLambda0) (msgIndex=11 wall=77ms seq=144 running=23ms runnable=5ms io=42ms late=318ms h=android.os.Handler c=io.flutter.embedding.engine.dart.DartMessenger$$ExternalSyntheticLambda0)
+
+[2026-06-26 01:28:43.764 Uid(value=11531):10267:10438 W/BpBinder]
+Slow Binder: BpBinder transact took 224ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.800 Uid(value=11531):10267:10434 W/BpBinder]
+Slow Binder: BpBinder transact took 253ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.820 Uid(value=11531):10267:10442 W/BpBinder]
+Slow Binder: BpBinder transact took 269ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.838 Uid(value=11531):10267:10440 W/BpBinder]
+Slow Binder: BpBinder transact took 279ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.840 Uid(value=11531):10267:10435 W/BpBinder]
+Slow Binder: BpBinder transact took 310ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.847 Uid(value=11531):10267:10441 W/BpBinder]
+Slow Binder: BpBinder transact took 300ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.868 Uid(value=11531):10267:10436 W/BpBinder]
+Slow Binder: BpBinder transact took 301ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.895 Uid(value=11531):10267:10444 W/BpBinder]
+Slow Binder: BpBinder transact took 362ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.895 Uid(value=11531):10267:10448 W/BpBinder]
+Slow Binder: BpBinder transact took 321ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.916 Uid(value=11531):10267:10443 W/BpBinder]
+Slow Binder: BpBinder transact took 383ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:43.941 Uid(value=11531):10267:10447 W/BpBinder]
+Slow Binder: BpBinder transact took 381ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:28:45.677 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231233) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.717 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.732 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.745 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231233) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.775 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.787 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231233) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.852 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.859 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.867 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.875 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.883 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.892 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231233) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.909 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.921 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.936 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.947 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.954 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:45.991 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.047 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(229973) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.063 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.072 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.087 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.153 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.161 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.169 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.178 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.226 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.237 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.262 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.310 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.365 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.484 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231018) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.551 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.571 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.597 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.609 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.623 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.661 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.699 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.715 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:46.756 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.024 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(212738) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.047 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.057 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.067 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.079 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.159 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.181 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.210 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.213 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.225 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.369 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.395 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.405 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(214867) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.413 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.480 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.507 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.514 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.528 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.544 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.566 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.628 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.677 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.716 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.724 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.812 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231561) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.836 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.884 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.922 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.932 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.962 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.974 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:47.993 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.082 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.112 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.138 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.198 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.315 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(212746) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.321 Uid(value=11531):10267:10432 W/ple.musicplaye]
+Long monitor contention with owner metadata-prescanner (10431) at android.database.sqlite.SQLiteDatabase android.database.sqlite.SQLiteOpenHelper.getWritableDatabase()(SQLiteOpenHelper.java:317) waiters=0 in android.database.sqlite.SQLiteDatabase android.database.sqlite.SQLiteOpenHelper.getReadableDatabase() for 110ms
+
+[2026-06-26 01:28:48.352 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.379 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.403 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.410 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.426 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.434 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.452 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.498 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.542 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.551 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.576 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.585 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.596 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.604 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.613 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.629 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.635 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231231) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.660 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.676 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.692 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.725 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.742 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.788 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.801 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.822 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.833 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.840 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.850 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231248) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.859 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.874 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.905 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.925 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:48.933 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.001 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.016 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.031 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.070 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.093 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.110 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.121 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.128 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.134 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(230875) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.166 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.175 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.222 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.306 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.337 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.376 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.428 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.474 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.483 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(212740) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.490 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.510 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.587 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.612 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.621 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.629 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.647 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.724 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.773 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.783 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.797 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.824 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.880 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.921 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.944 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(214592) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.958 Uid(value=11531):10267:10402 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.966 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.974 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.982 Uid(value=11531):10267:10397 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:49.990 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.017 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.024 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.032 Uid(value=11531):10267:10398 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.071 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.082 Uid(value=11531):10267:10405 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.125 Uid(value=11531):10267:10432 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.163 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(229971) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.251 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+get(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:28:50.302 Uid(value=11531):10267:10431 W/MetadataCacheDb]
+put(231562) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:29:13.002 Uid(value=11531):10267:10834 W/BpBinder]
+Slow Binder: BpBinder transact took 202ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:29:13.076 Uid(value=11531):10267:10833 W/BpBinder]
+Slow Binder: BpBinder transact took 279ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-06-26 01:29:20.330 Uid(value=11531):10267:10267 E/flutter]
+[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: PlatformException(not_ready, Media3 service is starting, null, null)
+#0      StandardMethodCodec.decodeEnvelope (package:flutter/src/services/message_codecs.dart:653)
+#1      MethodChannel._invokeMethod (package:flutter/src/services/platform_channel.dart:367)
+<asynchronous suspension>
+#2      Media3PlaybackBridge._invoke (package:musicplayer/services/audio/media3/media3_playback_bridge.dart:177)
+<asynchronous suspension>
+
+[2026-06-26 01:29:20.885 Uid(value=11531):10267:10873 E/libc]
+Access denied finding property "ro.vendor.df.effect.conflict"
+
+[2026-06-26 01:29:20.886 Uid(value=11531):10267:10873 E/libc]
+Access denied finding property "ro.vendor.knock.type"
+
+[2026-06-26 01:29:20.872 Uid(value=11531):10267:10267 W/ExoPlayer:Playb]
+type=1400 audit(0.0:289810): avc: denied { read } for name="u:object_r:vendor_displayfeature_prop:s0" dev="tmpfs" ino=18286 scontext=u:r:untrusted_app:s0:c251,c261,c512,c768 tcontext=u:object_r:vendor_displayfeature_prop:s0 tclass=file permissive=0 app=com.example.musicplayer
+
+[2026-06-26 01:29:21.267 Uid(value=11531):10267:10267 W/MediaSessionLegacyStub]
+Failed to load bitmap: java.io.FileNotFoundException: No media for album content://media/external/audio/albums/1630663128
+
+[2026-06-26 01:29:21.361 Uid(value=11531):10267:10267 W/MediaSessionLegacyStub]
+Failed to load bitmap: androidx.media3.datasource.ContentDataSource$ContentDataSourceException: java.io.FileNotFoundException: No media for album content://media/external/audio/albums/1630663128
+
+[2026-06-26 01:29:21.371 Uid(value=11531):10267:10879 W/MetadataCacheDb]
+getByPath(/storage/emulated/0/Music/Telegram/disarankan di bandung - Dongker, Jason Ranti.opus) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:29:21.393 Uid(value=11531):10267:10873 W/VideoCapabilities]
+Unsupported mime image/vnd.android.heic
+
+[2026-06-26 01:29:21.397 Uid(value=11531):10267:10873 W/VideoCapabilities]
+Unrecognized profile/level 0/3 for video/mpeg2
+
+[2026-06-26 01:29:21.398 Uid(value=11531):10267:10873 W/VideoCapabilities]
+Unrecognized profile/level 0/3 for video/mpeg2
+
+[2026-06-26 01:29:21.399 Uid(value=11531):10267:10873 W/VideoCapabilities]
+Unsupported mime video/x-ms-wmv
+
+[2026-06-26 01:29:21.495 Uid(value=11531):10267:10879 W/MetadataCacheDb]
+putByPath(/storage/emulated/0/Music/Telegram/disarankan di bandung - Dongker, Jason Ranti.opus) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:29:21.648 Uid(value=11531):10267:10883 W/Codec2Client]
+query -- param skipped: index = 1107298332.
+
+[2026-06-26 01:29:21.649 Uid(value=11531):10267:10883 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-06-26 01:29:21.649 Uid(value=11531):10267:10883 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-06-26 01:29:21.654 Uid(value=11531):10267:10883 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:29:21.654 Uid(value=11531):10267:10883 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:29:21.661 Uid(value=11531):10267:10883 E/ion]
+ioctl c0044901 failed with code -1: Inappropriate ioctl for device
+
+[2026-06-26 01:29:21.674 Uid(value=11531):10267:10883 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:29:21.682 Uid(value=11531):10267:10887 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:29:21.805 Uid(value=11531):10267:10873 W/SpeakerLayoutUtil]
+Built-in speaker's getSpeakerLayoutChannelMask not usable, defaulting to stereo.
+
+[2026-06-26 01:29:21.953 Uid(value=11531):10267:10873 W/AudioTrack]
+getTimestamp_l(1811): retrograde timestamp time corrected, 238364350637403 < 238364351454695
+
+[2026-06-26 01:31:54.395 Uid(value=11531):10267:11065 W/Codec2Client]
+query -- param skipped: index = 1107298332.
+
+[2026-06-26 01:31:54.397 Uid(value=11531):10267:11065 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-06-26 01:31:54.397 Uid(value=11531):10267:11065 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-06-26 01:31:54.398 Uid(value=11531):10267:11065 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:31:54.398 Uid(value=11531):10267:11065 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:31:54.403 Uid(value=11531):10267:11065 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:31:54.412 Uid(value=11531):10267:10887 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:10.791 Uid(value=11531):10267:11111 W/MetadataCacheDb]
+getByPath(/storage/emulated/0/Music/Telegram/뚜두뚜두(DDU-DU DDU-DU) - BLACKPINK.opus) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:32:10.861 Uid(value=11531):10267:11111 W/MetadataCacheDb]
+putByPath(/storage/emulated/0/Music/Telegram/뚜두뚜두(DDU-DU DDU-DU) - BLACKPINK.opus) failed: unknown error (code 0 SQLITE_OK): Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+
+[2026-06-26 01:32:16.915 Uid(value=11531):10267:11121 W/Codec2Client]
+query -- param skipped: index = 1107298332.
+
+[2026-06-26 01:32:16.915 Uid(value=11531):10267:11121 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-06-26 01:32:16.915 Uid(value=11531):10267:11121 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-06-26 01:32:16.916 Uid(value=11531):10267:11121 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:16.916 Uid(value=11531):10267:11121 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:16.919 Uid(value=11531):10267:11121 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:16.924 Uid(value=11531):10267:10887 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:53.848 Uid(value=11531):10267:11121 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-06-26 01:32:53.848 Uid(value=11531):10267:11121 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-06-26 01:32:53.949 Uid(value=11531):10267:11168 W/Codec2Client]
+query -- param skipped: index = 1107298332.
+
+[2026-06-26 01:32:53.950 Uid(value=11531):10267:11168 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-06-26 01:32:53.950 Uid(value=11531):10267:11168 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-06-26 01:32:53.950 Uid(value=11531):10267:11168 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:53.950 Uid(value=11531):10267:11168 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:53.953 Uid(value=11531):10267:11168 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:32:53.959 Uid(value=11531):10267:10887 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-06-26 01:35:18.909 Uid(value=11531):10267:11068 W/SpeakerLayoutUtil]
+Built-in speaker's getSpeakerLayoutChannelMask not usable, defaulting to stereo.
+
+[2026-06-26 01:35:20.112 Uid(value=11531):10267:10267 E/AndroidRuntime]
+FATAL EXCEPTION: main
+Process: com.example.musicplayer, PID: 10267
+java.lang.IllegalStateException
+	at com.google.common.base.Preconditions.checkState(Preconditions.java:497)
+	at androidx.media3.session.PlayerWrapper.createPositionInfo(PlayerWrapper.java:879)
+	at androidx.media3.session.PlayerWrapper.createSessionPositionInfo(PlayerWrapper.java:907)
+	at androidx.media3.session.MediaSessionImpl$PlayerInfoChangedHandler.handleMessage(MediaSessionImpl.java:2227)
+	at android.os.Handler.dispatchMessage(Handler.java:106)
+	at android.os.Looper.loop(Looper.java:236)
+	at android.app.ActivityThread.main(ActivityThread.java:7876)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:656)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:967)
+
+[2026-06-26 01:35:20.120 Uid(value=11531):10267:10267 E/MQSEventManagerDelegate]
+failed to get MQSService.
+
+[2026-06-26 01:35:20.122 Uid(value=11531):10267:10267 E/MQSEventManagerDelegate]
+failed to get MQSService.
+
