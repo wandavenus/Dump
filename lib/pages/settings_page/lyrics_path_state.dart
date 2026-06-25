@@ -11,7 +11,7 @@ class _LyricsPathRowState extends State<_LyricsPathRow> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [
-              const Icon(Icons.lyrics, color: Color(0xFF8E8E93), size: 20),
+              
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -34,11 +34,11 @@ class _LyricsPathRowState extends State<_LyricsPathRow> {
                 GestureDetector(
                   onTap: () => AudioEffectsService.setLyricsPath(''),
                   child: const Icon(Icons.clear,
-                      color: Color(0xFF8E8E93), size: 18),
+                      color: Color(0x00000000), size: 18),
                 )
               else
                 const Icon(Icons.chevron_right,
-                    color: Color(0xFF48484A), size: 20),
+                    color: Color(0x00000000), size: 20),
             ],
           ),
         ),
@@ -53,7 +53,7 @@ class _LyricsPathRowState extends State<_LyricsPathRow> {
       builder: (_) => CupertinoAlertDialog(
         title: const Text('Jalur Folder Lirik'),
         content: Padding(
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.only(top: 15),
           child: CupertinoTextField(
             controller: controller,
             placeholder: '/sdcard/Music/Lyrics',
