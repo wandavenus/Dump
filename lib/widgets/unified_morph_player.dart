@@ -276,7 +276,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final artLeft = lerpDouble(miniArtLeft, artFullLeft, t)!;
     final artTop = lerpDouble(miniArtTop, artFullTop, t)!;
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
-    final artRadius = lerpDouble(4.0, 12.0, t)!;
+    final artRadius = 3.0;
 
     return Positioned(
       bottom: bottom,
@@ -397,7 +397,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
     const smallLeft = 32.0;
     const smallSize = 55.0;
-    const smallRadius = 8.0;
+    const smallRadius = 3.0;
     final smallTop = safeTop + 36.5;
 
     // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
