@@ -82,9 +82,7 @@ class _MiniPlayerBody extends StatelessWidget {
     child: SongArtwork(
       songId: song.id,
       size: artworkSize,
-      borderRadius: BorderRadius.circular(
-        3 + (9 * anim),
-      ),
+      borderRadius: BorderRadius.circular(3),
     ),
   ),
 ),
