@@ -7,7 +7,13 @@
       "skillPath": "skills/code-review-expert/SKILL.md",
       "computedHash": "6c2fe31851a34e63e033257527eab04eea835ca1cf4c4276d1392a323e36e377"
     },
-    "debugging-strategies": {
+      "media3-audio-architect": {
+  "source": "wandavenus/Dump",
+  "sourceType": "github",
+  "skillPath": "skills/media3-audio-architect/Media3 Audio Architect.md",
+  "computedHash": "<generated>"
+      } 
+      "debugging-strategies": {
       "source": "wshobson/agents",
       "sourceType": "github",
       "skillPath": "plugins/developer-essentials/skills/debugging-strategies/SKILL.md",
