@@ -80,7 +80,7 @@ class _FirstPageState extends State<FirstPage> {
                                 color: const Color(0xFF38383A),
                               ),
                             SizedBox(
-                              height: 70,
+                              height: kBottomNavHeight,
                               child: navBar,
                             ),
                           ],
