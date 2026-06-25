@@ -485,6 +485,7 @@ height: showOverlay
                         ),
                       ),
                     ),
+                    PlayerUpNextCard(showOverlay: showOverlay),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: Container(

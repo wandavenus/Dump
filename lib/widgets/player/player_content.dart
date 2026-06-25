@@ -17,6 +17,7 @@ import 'player_progress_section.dart';
 import 'player_secondary_controls.dart';
 import 'player_song_header.dart';
 import 'player_transport_controls.dart';
+import 'player_up_next_card.dart';
 import 'synced_lyrics_view.dart';
 
 part 'player_content/content.dart';

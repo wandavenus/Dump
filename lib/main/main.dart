@@ -19,6 +19,7 @@ Future<void> main() async {
   await LogService.init();
   NativeLogBridge.init();
   await LyricsSettings.init();
+  await UpNextSettings.init();
 
   // Order matters: AudioEngine must be ready before AudioEffectsService,
   // which must be ready before AudioService.
