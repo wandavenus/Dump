@@ -10,14 +10,14 @@ class _PlaybackEngineSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('MESIN PUTAR'),
+        const SettingsSectionHeader('Engine Tunnel'),
         const SizedBox(height: 6),
 
         // ── Skip Silence (Item 1) ────────────────────────────────────────────
         ValueListenableBuilder<bool>(
           valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
           builder: (_, v, _) => SettingsToggleRow(
-            title: 'Lewati Jeda Sunyi',
+            title: 'Gapless',
             subtitle: 'Potong keheningan antar lagu secara otomatis',
             value: v,
             onChanged: MediaCapabilitiesService.setSkipSilence,
@@ -95,7 +95,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
