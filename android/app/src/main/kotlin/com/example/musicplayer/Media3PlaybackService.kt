@@ -342,7 +342,9 @@ class Media3PlaybackService : MediaSessionService() {
                     " session=${p0?.audioSessionId} items=${p0?.mediaItemCount}", p0)
 
                 // CE-03 fix: rebuild full queue on promoted player (non-interrupting).
-                // *** SUSPECT #1: setMediaItems() on playing player may force decoder rebuild ***
+                // Option B (CROSSFADE_OPTION_B_DESIGN.md): uses addMediaItems() to expand the
+                // single-item standby queue to the full N-item queue without touching the active
+                // MediaSourceHolder UID, so disableRenderers() is never triggered.
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: calling rebuildPlayerQueue() START", p0)
                 queueManager.rebuildPlayerQueue()
@@ -355,7 +357,8 @@ class Media3PlaybackService : MediaSessionService() {
 
                 // Re-attach all audio effects to the new active player's audio session.
                 // The new player was a "cold" secondary player with no effects attached.
-                // *** SUSPECT #2: releaseEffects() + AudioEffect constructors against live session ***
+                // Confirmed not the dropout cause: AudioEffect operations are external AudioFlinger
+                // calls and cannot trigger DefaultAudioSink.reset() or renderer lifecycle events.
                 val newSessionId = activePlayer?.audioSessionId ?: 0
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: calling attachEffects(session=$newSessionId) START", activePlayer)
@@ -1061,8 +1064,8 @@ class Media3PlaybackService : MediaSessionService() {
             /**
              * Fired when the decoder's input format changes — this triggers codec
              * reconfiguration which can force an AudioTrack flush or restart.
-             * If this fires immediately after setMediaItems() or attachEffects(),
-             * it is the direct cause of the dropout.
+             * With Option B in place, this should no longer fire as a result of
+             * rebuildPlayerQueue() since addMediaItems() preserves the active MediaPeriod.
              */
             override fun onAudioInputFormatChanged(
                 eventTime: AnalyticsListener.EventTime,
@@ -1089,8 +1092,9 @@ class Media3PlaybackService : MediaSessionService() {
              * Logs the audio decoder name and initialisation duration.
              *
              * CRITICAL: If this fires AFTER the crossfade standby player is already
-             * audible, it means the decoder was NOT pre-initialized during prewarm —
-             * or it was torn down by a subsequent operation (setMediaItems / effects).
+             * audible, it means the decoder was NOT pre-initialized during prewarm.
+             * With Option B, rebuildPlayerQueue() no longer tears down the decoder —
+             * any post-crossfade initialization here would indicate a new root cause.
              * The initializationDurationMs is the direct acoustic dropout duration.
              */
             override fun onAudioDecoderInitialized(

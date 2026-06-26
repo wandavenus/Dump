@@ -13,9 +13,10 @@ import com.example.musicplayer.utils.MediaItemFactory
  * skipping ExoPlayer mutations safely when crossfade is in progress.
  *
  * Fixes:
- * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to a pending list.
- *   After crossfade promotion completes, rebuildPlayerQueue() is called to push the
- *   full current queue back into the active player, so skipNext / mutations work.
+ * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to the in-memory list.
+ *   After crossfade promotion completes, rebuildPlayerQueue() is called to expand the
+ *   single-item promoted player queue to the full N-item queue via addMediaItems().
+ *   See CROSSFADE_OPTION_B_DESIGN.md for the rationale.
  *
  * reorderQueue activeQueueIndex adjustment logic is preserved exactly from the original.
  */
@@ -148,54 +149,83 @@ class QueueManager(
     // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
     /**
-     * MED-04 fix: After a crossfade promotion the new active player has exactly
-     * 1 media item (the preloaded track at index 0). This rebuilds the full queue
-     * atomically using a single [setMediaItems] call so there is no race window.
+     * Option B: incremental queue rebuild via addMediaItems().
      *
-     * The previous two-step approach (addMediaItems(after) then addMediaItems(0, before))
-     * had a narrow race: if ExoPlayer's gapless engine advanced between the two calls
-     * the resulting currentMediaItemIndex was wrong, permanently misaligning the queue.
+     * After a crossfade promotion the new active player has exactly 1 MediaItem
+     * (the track loaded by PreloadManager at index 0). Its MediaSourceHolder UID
+     * is the one currently held by the active MediaPeriod and audio renderer.
      *
-     * [setMediaItems] on an already-playing player is safe when the item at
-     * [activeQueueIndex] has the same media URI — ExoPlayer recognises it and keeps
-     * the active decoder alive without any audible interruption.
+     * We expand the queue by inserting the items that belong BEFORE and AFTER that
+     * single item using two addMediaItems() calls. Internally, addMediaItems() calls
+     * addMediaSourcesInternal() which inserts new MediaSourceHolder objects into
+     * mediaSourceHolderSnapshots WITHOUT clearing the list. The playing holder's UID
+     * is unchanged, so the active MediaPeriod remains valid and handleMediaSourceListInfoRefreshed()
+     * resolves the new window index without invoking resetInternal() or disableRenderers().
+     *
+     * Contrast with setMediaItems(), which calls setMediaSourcesInternal(), clears
+     * mediaSourceHolderSnapshots entirely, allocates new UIDs for every item including
+     * the one currently playing, then forces resetInternal() + disableRenderers() —
+     * the direct cause of the 50–200 ms audible dropout documented in CROSSFADE_OPTION_B_DESIGN.md.
+     *
+     * Edge cases:
+     *   queue.size == 1          → both prefix and suffix are empty; no calls made.
+     *   activeQueueIndex == 0    → prefix empty; only suffix call is made.
+     *   activeQueueIndex == last → suffix empty; only prefix call is made.
+     *   p.mediaItemCount already == queue.size → already fully populated; skip.
      */
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
         if (queue.isEmpty()) return
         try {
-            val currentPos = p.currentPosition.coerceAtLeast(0L)
+            // Guard: if the promoted player already holds the full queue (unexpected but
+            // safe to detect), skip expansion to avoid redundant addMediaItems() calls.
+            if (p.mediaItemCount == queue.size) {
+                log("rebuildPlayerQueue: player already has ${queue.size} items — skipping expansion")
+                return
+            }
 
-            // ── Dropout investigation: snapshot full player state BEFORE setMediaItems ──
-            // setMediaItems() on a playing ExoPlayer is the PRIMARY suspect for
-            // forcing decoder re-initialization even when the active item URI matches.
-            // ExoPlayer only reuses the existing decoder when the MediaItem at
-            // activeQueueIndex is recognized as equal (matching mediaId + URI).
-            // If MediaItemFactory.from() produces a MediaItem whose equals() check fails
-            // against the pre-existing item, ExoPlayer tears down and rebuilds the decoder.
             CrossfadeTimelineLogger.stamp(
-                "rebuildPlayerQueue: PRE-setMediaItems" +
-                " queueSize=${queue.size} activeIdx=$activeQueueIndex pos=${currentPos}ms" +
+                "rebuildPlayerQueue: PRE-addMediaItems" +
+                " queueSize=${queue.size} activeIdx=$activeQueueIndex" +
                 " playerItems=${p.mediaItemCount}" +
                 " currentItem='${p.currentMediaItem?.mediaId ?: "null"}'" +
                 " targetItem='${queue.getOrNull(activeQueueIndex)?.get("uri") ?: "?"}'",
                 p
             )
 
-            p.setMediaItems(
-                queue.map { MediaItemFactory.from(it) },
-                activeQueueIndex,
-                currentPos,
-            )
+            // Items that belong before the currently playing track in the full queue.
+            // Inserting at index 0 shifts the current item's window index from 0 to
+            // activeQueueIndex. The MediaSourceHolder UID of the playing item is unchanged.
+            val prefix = queue.subList(0, activeQueueIndex)
+            if (prefix.isNotEmpty()) {
+                p.addMediaItems(0, prefix.map { MediaItemFactory.from(it) })
+                CrossfadeTimelineLogger.stamp(
+                    "rebuildPlayerQueue: addMediaItems(0, prefix[${prefix.size}]) done" +
+                    " playerItems=${p.mediaItemCount} currentIdx=${p.currentMediaItemIndex}",
+                    p
+                )
+            }
 
-            // ── Snapshot immediately after — if state changed, setMediaItems disrupted the pipeline ──
+            // Items that belong after the currently playing track.
+            // Inserted at activeQueueIndex + 1; current item stays at activeQueueIndex.
+            val suffix = queue.subList(activeQueueIndex + 1, queue.size)
+            if (suffix.isNotEmpty()) {
+                p.addMediaItems(activeQueueIndex + 1, suffix.map { MediaItemFactory.from(it) })
+                CrossfadeTimelineLogger.stamp(
+                    "rebuildPlayerQueue: addMediaItems(${activeQueueIndex + 1}, suffix[${suffix.size}]) done" +
+                    " playerItems=${p.mediaItemCount} currentIdx=${p.currentMediaItemIndex}",
+                    p
+                )
+            }
+
             CrossfadeTimelineLogger.stamp(
-                "rebuildPlayerQueue: POST-setMediaItems" +
+                "rebuildPlayerQueue: POST-addMediaItems" +
                 " playerItems=${p.mediaItemCount} activeIdx=$activeQueueIndex",
                 p
             )
 
-            log("rebuildPlayerQueue: atomic setMediaItems ${queue.size} items @ [$activeQueueIndex] pos=${currentPos}ms")
+            log("rebuildPlayerQueue: incremental expand → ${queue.size} items @ [$activeQueueIndex]" +
+                " prefix=${prefix.size} suffix=${suffix.size}")
         } catch (e: Exception) {
             log("rebuildPlayerQueue failed: ${e.message}")
             CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")

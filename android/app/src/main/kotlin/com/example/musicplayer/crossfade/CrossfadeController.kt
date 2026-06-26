@@ -364,10 +364,11 @@ class CrossfadeController(
                     SessionAuditLogger.onCrossfadeComplete(durationMs, steps)
 
                     // Rebuild full queue on promoted player + re-attach effects.
-                    // *** THIS IS THE PRIMARY SUSPECT for post-fade decoder re-init. ***
+                    // Option B fix (CROSSFADE_OPTION_B_DESIGN.md):
                     // onCrossfadeComplete() calls:
-                    //   1. queueManager.rebuildPlayerQueue()  → p.setMediaItems(fullQueue, idx, pos)
-                    //   2. effectsManager.attachEffects(sessionId)
+                    //   1. queueManager.rebuildPlayerQueue() → addMediaItems(prefix) + addMediaItems(suffix)
+                    //      UID of the active MediaSourceHolder is preserved; disableRenderers() is NOT called.
+                    //   2. effectsManager.attachEffects(sessionId) — external AudioFlinger ops, no renderer impact.
                     // Both are stamped inside their respective methods.
                     CrossfadeTimelineLogger.stamp(
                         "runEqualPowerFade: calling onCrossfadeComplete() START", newPlayer)
