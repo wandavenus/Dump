@@ -23,7 +23,7 @@ class _SearchBar extends StatelessWidget {
         // Request focus ONLY when user explicitly taps the search bar
         onTap: focusNode.requestFocus,
         child: Container(
-          height: 38,
+          height: 48,
           decoration: BoxDecoration(
             color: const Color(0xFF1C1C1E),
             borderRadius: BorderRadius.circular(10),
