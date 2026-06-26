@@ -94,22 +94,25 @@ class _UpNextCardContent extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         child: Row(
-  crossAxisAlignment: CrossAxisAlignment.center,
+  crossAxisAlignment: CrossAxisAlignment.start,
   children: [
-    Text(
-      'UP NEXT',
-      style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.45),
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.8,
+    Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        'UP NEXT',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.45),
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
       ),
     ),
-    const SizedBox(width: 8),
+    const SizedBox(width: 10),
     Expanded(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             song.title,
@@ -134,7 +137,7 @@ class _UpNextCardContent extends StatelessWidget {
       ),
     ),
   ],
-)
+),
       ),
     );
   }
