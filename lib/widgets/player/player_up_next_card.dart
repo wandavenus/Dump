@@ -3,7 +3,7 @@ import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_playback_state.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
-import '../song_artwork.dart';
+
 
 class PlayerUpNextCard extends StatefulWidget {
   final bool showOverlay;
@@ -92,64 +92,49 @@ class _UpNextCardContent extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'UP NEXT',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.45),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        child: Row(
+  crossAxisAlignment: CrossAxisAlignment.center,
+  children: [
+    Text(
+      'UP NEXT',
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.45),
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
+      ),
+    ),
+    const SizedBox(width: 8),
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: SongArtwork(
-                    songId: song.id,
-                    size: 46,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        song.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          ),
+          Text(
+            song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.55),
+              fontSize: 12,
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    ),
+  ],
+)
       ),
     );
   }
