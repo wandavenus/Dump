@@ -2,6 +2,7 @@ package com.example.musicplayer.queue
 
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
 import com.example.musicplayer.utils.MediaItemFactory
 
@@ -164,14 +165,40 @@ class QueueManager(
         if (queue.isEmpty()) return
         try {
             val currentPos = p.currentPosition.coerceAtLeast(0L)
+
+            // ── Dropout investigation: snapshot full player state BEFORE setMediaItems ──
+            // setMediaItems() on a playing ExoPlayer is the PRIMARY suspect for
+            // forcing decoder re-initialization even when the active item URI matches.
+            // ExoPlayer only reuses the existing decoder when the MediaItem at
+            // activeQueueIndex is recognized as equal (matching mediaId + URI).
+            // If MediaItemFactory.from() produces a MediaItem whose equals() check fails
+            // against the pre-existing item, ExoPlayer tears down and rebuilds the decoder.
+            CrossfadeTimelineLogger.stamp(
+                "rebuildPlayerQueue: PRE-setMediaItems" +
+                " queueSize=${queue.size} activeIdx=$activeQueueIndex pos=${currentPos}ms" +
+                " playerItems=${p.mediaItemCount}" +
+                " currentItem='${p.currentMediaItem?.mediaId ?: "null"}'" +
+                " targetItem='${queue.getOrNull(activeQueueIndex)?.get("uri") ?: "?"}'",
+                p
+            )
+
             p.setMediaItems(
                 queue.map { MediaItemFactory.from(it) },
                 activeQueueIndex,
                 currentPos,
             )
+
+            // ── Snapshot immediately after — if state changed, setMediaItems disrupted the pipeline ──
+            CrossfadeTimelineLogger.stamp(
+                "rebuildPlayerQueue: POST-setMediaItems" +
+                " playerItems=${p.mediaItemCount} activeIdx=$activeQueueIndex",
+                p
+            )
+
             log("rebuildPlayerQueue: atomic setMediaItems ${queue.size} items @ [$activeQueueIndex] pos=${currentPos}ms")
         } catch (e: Exception) {
             log("rebuildPlayerQueue failed: ${e.message}")
+            CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")
         }
     }
 

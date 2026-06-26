@@ -46,6 +46,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.effects.StereoWideningAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -332,17 +333,39 @@ class Media3PlaybackService : MediaSessionService() {
             getActiveQueueIndex = { queueManager.activeQueueIndex },
             setActiveQueueIndex = { idx -> queueManager.setActiveQueueIndex(idx) },
             onCrossfadeComplete = {
+                // ── Dropout investigation: snapshot player state at the start of this callback.
+                // Everything from here through the end of the lambda is a potential dropout cause.
+                val p0 = activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: ENTER" +
+                    " session=${p0?.audioSessionId} items=${p0?.mediaItemCount}", p0)
+
                 // CE-03 fix: rebuild full queue on promoted player (non-interrupting).
+                // *** SUSPECT #1: setMediaItems() on playing player may force decoder rebuild ***
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: calling rebuildPlayerQueue() START", p0)
                 queueManager.rebuildPlayerQueue()
+                val p1 = activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: rebuildPlayerQueue() DONE" +
+                    " items=${p1?.mediaItemCount}", p1)
+
                 queueSync.save()
+
                 // Re-attach all audio effects to the new active player's audio session.
                 // The new player was a "cold" secondary player with no effects attached.
+                // *** SUSPECT #2: releaseEffects() + AudioEffect constructors against live session ***
                 val newSessionId = activePlayer?.audioSessionId ?: 0
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: calling attachEffects(session=$newSessionId) START", activePlayer)
                 if (newSessionId > 0) {
                     effectsManager.attachEffects(newSessionId)
                     NativeLogger.emit("info", "Media3",
                         "Post-crossfade effects reattach → session=$newSessionId")
                 }
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: attachEffects DONE session=$newSessionId", activePlayer)
+
                 // Open a fresh audit chapter for the newly promoted track.
                 // SessionAuditLogger.onCrossfadeComplete() was already called inside
                 // CrossfadeController.runEqualPowerFade before this callback fires,
@@ -353,6 +376,7 @@ class Media3PlaybackService : MediaSessionService() {
                     artist         = promotedMap?.get("artist") as? String ?: "",
                     audioSessionId = newSessionId,
                 )
+
                 // Re-evaluate offload state on the newly promoted player.
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
@@ -364,6 +388,9 @@ class Media3PlaybackService : MediaSessionService() {
                 activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
                 activeOffloadListener = newOffloadListener
                 activePlayer?.addAudioOffloadListener(newOffloadListener)
+
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: EXIT (offload listener swapped)", activePlayer)
             },
             emitAll             = { transportState.emitAll() },
             refreshNotification = { notificationManager.refresh() },
@@ -834,7 +861,14 @@ class Media3PlaybackService : MediaSessionService() {
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (!isActiveEvent()) return
-                NativeLogger.emit("info", "Media3", "audioSessionId → $audioSessionId")
+                // ── Dropout investigation: if the audio session ID changes AFTER the
+                // crossfade completes and the player is already audible, it means
+                // Android recreated the AudioTrack (and implicitly the decoder).
+                // This is one of the clearest signals of a pipeline restart.
+                CrossfadeTimelineLogger.stamp(
+                    "onAudioSessionIdChanged: NEW session=$audioSessionId (active player)", p)
+                NativeLogger.emit("info", "Media3",
+                    "audioSessionId → $audioSessionId  thread=${Thread.currentThread().name}")
                 SessionAuditLogger.onAudioSessionAssigned(audioSessionId)
                 effectsManager.attachEffects(audioSessionId)
                 transportState.emitAll()
@@ -984,9 +1018,79 @@ class Media3PlaybackService : MediaSessionService() {
         val analyticsListener = object : AnalyticsListener {
 
             /**
+             * Fired when the audio renderer is enabled (starts processing audio).
+             * During normal playback this fires once at the start.  If it fires
+             * AGAIN after a crossfade completes while the player is already audible,
+             * something forced the audio renderer to restart — a clear dropout cause.
+             */
+            override fun onAudioEnabled(
+                eventTime: AnalyticsListener.EventTime,
+                counters: androidx.media3.exoplayer.DecoderCounters,
+            ) {
+                val active = p === activePlayer
+                val wall   = System.currentTimeMillis()
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioEnabled: isActive=$active" +
+                    " wall=${wall}ms  thread=${Thread.currentThread().name}", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioRenderer ENABLED isActive=$active  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the audio renderer is disabled (stops producing audio).
+             * If this fires on the ACTIVE player after crossfade completes, the
+             * renderer was torn down and will be restarted — that IS the dropout.
+             */
+            override fun onAudioDisabled(
+                eventTime: AnalyticsListener.EventTime,
+                counters: androidx.media3.exoplayer.DecoderCounters,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDisabled: isActive=$active" +
+                    "  decoderInitCount=${counters.decoderInitCount}" +
+                    "  decoderReleaseCount=${counters.decoderReleaseCount}", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioRenderer DISABLED isActive=$active" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the decoder's input format changes — this triggers codec
+             * reconfiguration which can force an AudioTrack flush or restart.
+             * If this fires immediately after setMediaItems() or attachEffects(),
+             * it is the direct cause of the dropout.
+             */
+            override fun onAudioInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) {
+                val active    = p === activePlayer
+                val reuseStr  = decoderReuseEvaluation?.let {
+                    "reuse=${it.result} discardReason=${it.discardReasonFlags}"
+                } ?: "reuseEval=null"
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioInputFormatChanged: isActive=$active" +
+                    "  mime=${format.sampleMimeType}" +
+                    "  ${format.sampleRate}Hz ${format.channelCount}ch" +
+                    "  $reuseStr", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioInputFormat changed isActive=$active" +
+                    "  mime=${format.sampleMimeType} ${format.sampleRate}Hz ${format.channelCount}ch" +
+                    "  $reuseStr  thread=${Thread.currentThread().name}")
+            }
+
+            /**
              * Logs the audio decoder name and initialisation duration.
-             * Useful to confirm float-output codecs are being selected (e.g.
-             * raw/float decoder for FLAC vs. MediaCodec for AAC/MP3).
+             *
+             * CRITICAL: If this fires AFTER the crossfade standby player is already
+             * audible, it means the decoder was NOT pre-initialized during prewarm —
+             * or it was torn down by a subsequent operation (setMediaItems / effects).
+             * The initializationDurationMs is the direct acoustic dropout duration.
              */
             override fun onAudioDecoderInitialized(
                 eventTime: AnalyticsListener.EventTime,
@@ -994,12 +1098,43 @@ class Media3PlaybackService : MediaSessionService() {
                 initializedTimestampMs: Long,
                 initializationDurationMs: Long,
             ) {
-                if (p !== activePlayer) return
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDecoderInitialized: isActive=$active" +
+                    "  decoder=$decoderName initDuration=${initializationDurationMs}ms", p)
                 NativeLogger.emit(
                     "info", "Media3",
-                    "AudioDecoder: $decoderName init=${initializationDurationMs}ms",
+                    "AudioDecoder INITIALIZED isActive=$active" +
+                    "  decoder=$decoderName init=${initializationDurationMs}ms" +
+                    "  thread=${Thread.currentThread().name}",
                 )
             }
+
+            /**
+             * Fired when the decoder is released.  If this fires on the active player
+             * during or just after a crossfade, the decoder was torn down while
+             * audio was already being produced — that is the dropout.
+             */
+            override fun onAudioDecoderReleased(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDecoderReleased: isActive=$active decoder=$decoderName", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioDecoder RELEASED isActive=$active decoder=$decoderName" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            // NOTE: onAudioTrackInitialized / onAudioTrackReleased are intentionally
+            // NOT overridden here.  Their parameter type (AudioSink.AudioTrackConfig
+            // or DefaultAudioSink.AudioTrackConfig) differs across Media3 minor
+            // versions and cannot be verified without a live compile against the
+            // 1.10.1 AAR.  The decoder-level callbacks above
+            // (onAudioDecoderInitialized / onAudioDecoderReleased) give equivalent
+            // timing evidence for the dropout investigation without this risk.
 
             /**
              * Audio underrun = the audio sink ran out of data to write to the
@@ -1012,6 +1147,9 @@ class Media3PlaybackService : MediaSessionService() {
                 bufferSizeMs: Long,
                 elapsedSinceLastFeedMs: Long,
             ) {
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioUnderrun: isActive=${p === activePlayer}" +
+                    "  size=${bufferSize}B dur=${bufferSizeMs}ms sinceLastFeed=${elapsedSinceLastFeedMs}ms", p)
                 NativeLogger.emit(
                     "warn", "Media3",
                     "AudioUnderrun: size=${bufferSize}B " +
@@ -1029,6 +1167,9 @@ class Media3PlaybackService : MediaSessionService() {
                 eventTime: AnalyticsListener.EventTime,
                 audioSinkError: Exception,
             ) {
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioSinkError: isActive=${p === activePlayer}" +
+                    "  ${audioSinkError.message}", p)
                 NativeLogger.emit("warn", "Media3", "AudioSink error: ${audioSinkError.message}")
                 SessionAuditLogger.warn("AudioSink", audioSinkError.message ?: "unknown")
             }

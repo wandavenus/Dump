@@ -5,6 +5,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
 import com.example.musicplayer.events.SessionAuditLogger
 import kotlin.math.PI
@@ -142,11 +143,16 @@ class CrossfadeController(
         // Stop the old player if we're mid-fade
         if (crossfadeInProgress) {
             SessionAuditLogger.onCrossfadeCancelled("external cancel, resetVolume=$resetVolume")
+            CrossfadeTimelineLogger.stamp(
+                "CrossfadeController.cancel(): mid-fade cancel resetVolume=$resetVolume",
+                getActivePlayer())
             promotionOwner?.let { old ->
                 try { old.pause()           } catch (_: Exception) {}
                 try { old.stop()            } catch (_: Exception) {}
                 try { old.clearMediaItems() } catch (_: Exception) {}
             }
+            // Reset the diagnostic epoch so a subsequent crossfade starts fresh.
+            CrossfadeTimelineLogger.end("cancel() — crossfade aborted externally")
         }
 
         crossfadeInProgress  = false
@@ -181,15 +187,33 @@ class CrossfadeController(
         if (standby === current) return
         if (standby.mediaItemCount == 0 || nextIndex !in queue.indices) return
 
+        // ── Timeline epoch: every subsequent stamp is relative to this point ──
+        CrossfadeTimelineLogger.begin(
+            "fade=${actualFadeMs}ms  nextIdx=$nextIndex  " +
+            "track='${queue.getOrNull(nextIndex)?.get("title") ?: "?"}'"
+        )
+        CrossfadeTimelineLogger.stampDual("beginCrossfade: ENTER", standby, current)
+
         // Diagnostic: log if standby isn't READY yet (pre-warm may not have settled)
         when (standby.playbackState) {
-            Player.STATE_READY    -> log("Standby is READY — clean crossfade start")
-            Player.STATE_BUFFERING -> log("warn: standby still BUFFERING — may have startup gap")
-            Player.STATE_IDLE     -> {
-                log("warn: standby is IDLE — forcing prepare+play")
-                standby.prepare()
+            Player.STATE_READY     -> {
+                log("Standby is READY — clean crossfade start")
+                CrossfadeTimelineLogger.stamp("beginCrossfade: standby READY (good)", standby)
             }
-            else                  -> log("warn: standby state=${standby.playbackState}")
+            Player.STATE_BUFFERING -> {
+                log("warn: standby still BUFFERING — may have startup gap")
+                CrossfadeTimelineLogger.stamp("beginCrossfade: warn standby BUFFERING", standby)
+            }
+            Player.STATE_IDLE      -> {
+                log("warn: standby is IDLE — forcing prepare+play")
+                CrossfadeTimelineLogger.stamp("beginCrossfade: warn standby IDLE — calling prepare()", standby)
+                standby.prepare()
+                CrossfadeTimelineLogger.stamp("beginCrossfade: forced prepare() done", standby)
+            }
+            else -> {
+                log("warn: standby state=${standby.playbackState}")
+                CrossfadeTimelineLogger.stamp("beginCrossfade: warn standby state=${standby.playbackState}", standby)
+            }
         }
 
         crossfadeInProgress = true
@@ -207,7 +231,10 @@ class CrossfadeController(
         try {
             val ci = current.currentMediaItemIndex
             if (current.mediaItemCount > ci + 1) {
+                CrossfadeTimelineLogger.stamp(
+                    "beginCrossfade: old player removeMediaItems [${ci+1}..${current.mediaItemCount})", current)
                 current.removeMediaItems(ci + 1, current.mediaItemCount)
+                CrossfadeTimelineLogger.stamp("beginCrossfade: old player tail removed", current)
             }
         } catch (e: Exception) {
             log("removeMediaItems(old tail): ${e.message}")
@@ -216,6 +243,7 @@ class CrossfadeController(
         // Promote standby → active BEFORE starting playback so the MediaSession
         // immediately shows the new track in the notification.
         standby.volume = 0f
+        CrossfadeTimelineLogger.stamp("beginCrossfade: setActivePlayer(standby)", standby)
         setActivePlayer(standby)
 
         // Switch the MediaSession to the standby player immediately so the
@@ -225,12 +253,22 @@ class CrossfadeController(
         // _current, so PlayerWrapper.createPositionInfo() always reads a
         // self-consistent snapshot from a single player and its period-window
         // consistency check cannot fail.
+        CrossfadeTimelineLogger.stamp("beginCrossfade: ActivePlayerProxy.switchTo(standby) START", standby)
         switchSessionPlayer(standby)
+        CrossfadeTimelineLogger.stamp("beginCrossfade: ActivePlayerProxy.switchTo(standby) DONE", standby)
 
         // Ensure audio focus before starting the new player
-        if (standby.playbackState != Player.STATE_READY) standby.prepare()
+        if (standby.playbackState != Player.STATE_READY) {
+            CrossfadeTimelineLogger.stamp("beginCrossfade: standby not READY — calling prepare()", standby)
+            standby.prepare()
+            CrossfadeTimelineLogger.stamp("beginCrossfade: standby.prepare() DONE", standby)
+        }
         if (hasAudioFocus() || requestAudioFocus()) {
+            CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() START (focus granted)", standby)
             standby.play()
+            CrossfadeTimelineLogger.stamp("beginCrossfade: standby.play() DONE", standby)
+        } else {
+            CrossfadeTimelineLogger.stamp("beginCrossfade: WARN no audio focus — standby.play() skipped", standby)
         }
 
         log("Promotion complete → [$nextIndex] '${queue[nextIndex]["title"]}' (fade=${actualFadeMs}ms)")
@@ -270,27 +308,50 @@ class CrossfadeController(
             override fun run() {
                 // Guard: abort if the active player changed underneath us
                 if (getActivePlayer() !== newPlayer) {
+                    CrossfadeTimelineLogger.stamp(
+                        "runEqualPowerFade: ABORT — active player changed mid-fade (step=$step/$steps)",
+                        getActivePlayer())
                     crossfadeInProgress   = false
                     promotionTriggered    = false
                     prewarmTriggered      = false
                     promotionOwner        = null
                     crossfadeFadeRunnable = null
                     log("Fade aborted — active player changed mid-fade")
+                    // Reset epoch so a subsequent crossfade starts with a clean timeline.
+                    CrossfadeTimelineLogger.end("runEqualPowerFade abort — player changed mid-fade")
                     return
                 }
 
                 if (step >= steps) {
                     // ── Crossfade complete ─────────────────────────────────────
+                    CrossfadeTimelineLogger.stampDual(
+                        "runEqualPowerFade: COMPLETE (step=$step/$steps) — about to stop old player",
+                        newPlayer, oldPlayer)
+
                     setActiveQueueIndex(nextIndex) 
                     newPlayer.volume = targetVol
 
                     // Stop and release the old player's audio resources
+                    CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.pause() START", oldPlayer)
                     try { oldPlayer.pause()           } catch (_: Exception) {}
+                    CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.stop() START", oldPlayer)
                     try { oldPlayer.stop()            } catch (_: Exception) {}
+                    CrossfadeTimelineLogger.stamp("runEqualPowerFade: oldPlayer.clearMediaItems() START", oldPlayer)
                     try { oldPlayer.clearMediaItems() } catch (_: Exception) {}
+                    CrossfadeTimelineLogger.stamp("runEqualPowerFade: old player stopped+cleared", oldPlayer)
 
+                    CrossfadeTimelineLogger.stamp("runEqualPowerFade: setActivePlayer(newPlayer)", newPlayer)
                     setActivePlayer(newPlayer)
+
+                    // NOTE: switchSessionPlayer is called here even though it was already called
+                    // in beginCrossfade() when standby was promoted.  This second call is a no-op
+                    // inside ActivePlayerProxy.switchTo() when newPlayer === _current, but we log
+                    // it explicitly to confirm whether listeners are re-migrated here.
+                    CrossfadeTimelineLogger.stamp(
+                        "runEqualPowerFade: ActivePlayerProxy.switchTo(newPlayer) START [2nd call]", newPlayer)
                     switchSessionPlayer(newPlayer)
+                    CrossfadeTimelineLogger.stamp(
+                        "runEqualPowerFade: ActivePlayerProxy.switchTo(newPlayer) DONE [2nd call]", newPlayer)
                    
                     crossfadeInProgress   = false
                     promotionTriggered    = false
@@ -302,13 +363,25 @@ class CrossfadeController(
                     log("Crossfade complete: ${durationMs}ms, $steps steps @ ${stepMs}ms/step")
                     SessionAuditLogger.onCrossfadeComplete(durationMs, steps)
 
-                    // Rebuild full queue on promoted player + re-attach effects
+                    // Rebuild full queue on promoted player + re-attach effects.
+                    // *** THIS IS THE PRIMARY SUSPECT for post-fade decoder re-init. ***
+                    // onCrossfadeComplete() calls:
+                    //   1. queueManager.rebuildPlayerQueue()  → p.setMediaItems(fullQueue, idx, pos)
+                    //   2. effectsManager.attachEffects(sessionId)
+                    // Both are stamped inside their respective methods.
+                    CrossfadeTimelineLogger.stamp(
+                        "runEqualPowerFade: calling onCrossfadeComplete() START", newPlayer)
                     onCrossfadeComplete()
+                    CrossfadeTimelineLogger.stamp(
+                        "runEqualPowerFade: onCrossfadeComplete() DONE", newPlayer)
+
                     emitAll()
                     refreshNotification()
 
                     // Preload the track after the newly active one
                     preloadManager.preloadNextTrack(force = true)
+
+                    CrossfadeTimelineLogger.end("preloadNextTrack(force) dispatched")
                     return
                 }
 

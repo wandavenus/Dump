@@ -4,6 +4,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
 import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.utils.MediaItemFactory
@@ -109,18 +110,32 @@ class PreloadManager(
         val standby = getStandbyPlayer() ?: return
         if (standby.mediaItemCount == 0 || preloadedQueueIndex == C.INDEX_UNSET) return
 
+        CrossfadeTimelineLogger.stamp("prewarmStandby: ENTER", standby)
+
         standby.volume = 0f
 
         when (standby.playbackState) {
-            Player.STATE_IDLE   -> standby.prepare()
+            Player.STATE_IDLE   -> {
+                CrossfadeTimelineLogger.stamp("prewarmStandby: standby.prepare() [was IDLE]", standby)
+                standby.prepare()
+                CrossfadeTimelineLogger.stamp("prewarmStandby: standby.prepare() DONE", standby)
+            }
             Player.STATE_ENDED  -> {
+                CrossfadeTimelineLogger.stamp("prewarmStandby: standby.seekTo(0)+prepare() [was ENDED]", standby)
                 standby.seekTo(0L)
                 standby.prepare()
+                CrossfadeTimelineLogger.stamp("prewarmStandby: standby.seekTo+prepare() DONE", standby)
             }
-            else -> { /* BUFFERING or READY — already prepared */ }
+            else -> {
+                CrossfadeTimelineLogger.stamp(
+                    "prewarmStandby: standby already prepared (state=${standby.playbackState})", standby)
+            }
         }
 
+        CrossfadeTimelineLogger.stamp("prewarmStandby: standby.play() START", standby)
         standby.play()
+        CrossfadeTimelineLogger.stamp("prewarmStandby: standby.play() DONE (pipeline warming)", standby)
+
         isPrewarmed = true
         log("prewarmStandby: standby audio pipeline warming (volume=0)")
         SessionAuditLogger.onPrewarm()
