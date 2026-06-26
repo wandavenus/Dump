@@ -90,7 +90,7 @@ class _UpNextCardContent extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
         child: Row(
