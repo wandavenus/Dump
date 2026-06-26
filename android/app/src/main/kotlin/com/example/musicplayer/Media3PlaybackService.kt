@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
+import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.effects.StereoWideningAudioProcessor
@@ -1070,7 +1071,7 @@ class Media3PlaybackService : MediaSessionService() {
             ) {
                 val active    = p === activePlayer
                 val reuseStr  = decoderReuseEvaluation?.let {
-                    "reuse=${it.result} discardReason=${it.discardReasonFlags}"
+                    "reuse=${it.result} discardReasons=${it.discardReasons}"
                 } ?: "reuseEval=null"
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioInputFormatChanged: isActive=$active" +
@@ -1128,13 +1129,59 @@ class Media3PlaybackService : MediaSessionService() {
                     "  thread=${Thread.currentThread().name}")
             }
 
-            // NOTE: onAudioTrackInitialized / onAudioTrackReleased are intentionally
-            // NOT overridden here.  Their parameter type (AudioSink.AudioTrackConfig
-            // or DefaultAudioSink.AudioTrackConfig) differs across Media3 minor
-            // versions and cannot be verified without a live compile against the
-            // 1.10.1 AAR.  The decoder-level callbacks above
-            // (onAudioDecoderInitialized / onAudioDecoderReleased) give equivalent
-            // timing evidence for the dropout investigation without this risk.
+            /**
+             * Fired when ExoPlayer's DefaultAudioSink creates a new AudioTrack.
+             * A new AudioTrack after crossfade completion means the audio output
+             * pipeline was fully recreated — the platform must fill the new
+             * AudioTrack's buffer before audio resumes, which is the dropout gap.
+             *
+             * Verified against Media3 1.10.1 source:
+             *   AnalyticsListener.java line 1148–1150
+             *   AudioSink.AudioTrackConfig fields: encoding, sampleRate, offload, bufferSize
+             */
+            override fun onAudioTrackInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                audioTrackConfig: AudioSink.AudioTrackConfig,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioTrackInitialized: isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  sampleRate=${audioTrackConfig.sampleRate}" +
+                    "  offload=${audioTrackConfig.offload}" +
+                    "  bufferSize=${audioTrackConfig.bufferSize}", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioTrack INITIALIZED isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  ${audioTrackConfig.sampleRate}Hz offload=${audioTrackConfig.offload}" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the AudioTrack is released.  Pairing with onAudioTrackInitialized
+             * pinpoints which operation in the post-crossfade callback chain forced an
+             * AudioTrack recreation.
+             *
+             * Verified against Media3 1.10.1 source:
+             *   AnalyticsListener.java line 1159–1161
+             */
+            override fun onAudioTrackReleased(
+                eventTime: AnalyticsListener.EventTime,
+                audioTrackConfig: AudioSink.AudioTrackConfig,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioTrackReleased: isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  sampleRate=${audioTrackConfig.sampleRate}" +
+                    "  offload=${audioTrackConfig.offload}", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioTrack RELEASED isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding} ${audioTrackConfig.sampleRate}Hz" +
+                    "  thread=${Thread.currentThread().name}")
+            }
 
             /**
              * Audio underrun = the audio sink ran out of data to write to the
