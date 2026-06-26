@@ -92,7 +92,7 @@ class _UpNextCardContent extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(4),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
         child: Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
