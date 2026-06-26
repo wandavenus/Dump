@@ -227,17 +227,40 @@ class CrossfadeController(
         SessionAuditLogger.onCrossfadeStarting(actualFadeMs, standbyTitle)
         //setActiveQueueIndex(nextIndex)
 
-        // Detach the old player's trailing queue tail to free memory
+        // Isolate the old player to exactly the current item so it cannot
+        // auto-advance to any other queue position during the fade.
+        //
+        // Root-cause of "queue[0] plays for ~1 s during B's fade-in":
+        //   beginCrossfade() used to remove only the TAIL (items after A), leaving
+        //   prefix items (queue[0]…A-1) intact. When A's track finishes before the
+        //   fade completes — which happens due to VBR/MP3 duration imprecision or the
+        //   200 ms ticker jitter — REPEAT_MODE_ALL wraps the old player back to
+        //   index 0 (queue[0]). queue[0] then plays at the still-audible fade-out
+        //   volume for up to ~1 s until runEqualPowerFade reaches step >= steps and
+        //   calls oldPlayer.pause().
+        //
+        // Fix: set REPEAT_MODE_OFF on the old player and also remove the prefix so
+        // the old player contains exactly [A]. When A ends the player silently
+        // reaches STATE_ENDED regardless of the user's global repeat setting.
         try {
             val ci = current.currentMediaItemIndex
+            // Remove tail (items after A)
             if (current.mediaItemCount > ci + 1) {
                 CrossfadeTimelineLogger.stamp(
-                    "beginCrossfade: old player removeMediaItems [${ci+1}..${current.mediaItemCount})", current)
+                    "beginCrossfade: old player removeMediaItems tail [${ci+1}..${current.mediaItemCount})", current)
                 current.removeMediaItems(ci + 1, current.mediaItemCount)
                 CrossfadeTimelineLogger.stamp("beginCrossfade: old player tail removed", current)
             }
+            // Remove prefix (items before A) — prevents REPEAT_MODE_ALL from wrapping
+            // to queue[0] if A ends before the fade completes.
+            if (ci > 0) {
+                CrossfadeTimelineLogger.stamp(
+                    "beginCrossfade: old player removeMediaItems prefix [0..$ci)", current)
+                current.removeMediaItems(0, ci)
+                CrossfadeTimelineLogger.stamp("beginCrossfade: old player prefix removed", current)
+            }
         } catch (e: Exception) {
-            log("removeMediaItems(old tail): ${e.message}")
+            log("beginCrossfade: old player isolation failed: ${e.message}")
         }
 
         // Promote standby → active BEFORE starting playback so the MediaSession
@@ -245,6 +268,13 @@ class CrossfadeController(
         standby.volume = 0f
         CrossfadeTimelineLogger.stamp("beginCrossfade: setActivePlayer(standby)", standby)
         setActivePlayer(standby)
+
+        // Belt-and-suspenders: disable repeat on the old player AFTER promotion.
+        // Doing this here (after setActivePlayer) ensures the listener's
+        // isActiveEvent() guard returns false for the old player, so
+        // onRepeatModeChanged does NOT emit REPEAT_MODE_OFF to Flutter UI —
+        // the user's global repeat setting remains visually intact.
+        try { current.repeatMode = Player.REPEAT_MODE_OFF } catch (_: Exception) {}
 
         // Switch the MediaSession to the standby player immediately so the
         // notification shows the incoming track.  Crash-safety is guaranteed by
