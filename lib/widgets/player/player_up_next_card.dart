@@ -133,7 +133,7 @@ class _UpNextCardContent extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         song.artist,
                         maxLines: 1,
