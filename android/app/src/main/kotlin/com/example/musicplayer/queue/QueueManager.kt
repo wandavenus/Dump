@@ -199,11 +199,6 @@ class QueueManager(
             val prefix = queue.subList(0, activeQueueIndex)
             if (prefix.isNotEmpty()) {
                 p.addMediaItems(0, prefix.map { MediaItemFactory.from(it) })
-                CrossfadeTimelineLogger.stamp(
-                    "rebuildPlayerQueue: addMediaItems(0, prefix[${prefix.size}]) done" +
-                    " playerItems=${p.mediaItemCount} currentIdx=${p.currentMediaItemIndex}",
-                    p
-                )
             }
 
             // Items that belong after the currently playing track.
@@ -211,11 +206,6 @@ class QueueManager(
             val suffix = queue.subList(activeQueueIndex + 1, queue.size)
             if (suffix.isNotEmpty()) {
                 p.addMediaItems(activeQueueIndex + 1, suffix.map { MediaItemFactory.from(it) })
-                CrossfadeTimelineLogger.stamp(
-                    "rebuildPlayerQueue: addMediaItems(${activeQueueIndex + 1}, suffix[${suffix.size}]) done" +
-                    " playerItems=${p.mediaItemCount} currentIdx=${p.currentMediaItemIndex}",
-                    p
-                )
             }
 
             CrossfadeTimelineLogger.stamp(
