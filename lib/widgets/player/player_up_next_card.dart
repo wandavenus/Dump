@@ -86,7 +86,7 @@ class _UpNextCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.07),
