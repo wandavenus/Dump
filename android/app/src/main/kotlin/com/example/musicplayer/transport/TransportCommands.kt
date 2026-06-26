@@ -484,8 +484,26 @@ class TransportCommands(
     private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
         SessionAuditLogger.onSkipPrev()
         sleepTimerManager.cancel()
+
+        // Capture before cancel() + clearStandbyQueue() erase this information.
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
+
+        // If a crossfade was in flight, the active player was already promoted to
+        // the standby (1 item) before the fade completed.  cancel() stops the fade
+        // but does NOT call rebuildPlayerQueue(), so the player still has only 1
+        // MediaItem.  With REPEAT_MODE_ALL, seekToPreviousMediaItem() / previousMediaItemIndex
+        // on a 1-item player wraps to the same item — locking playback on one track.
+        // Fix: restore the full queue and the correct activeQueueIndex before seeking.
+        if (wasCrossfading &&
+            promotedIndex in queueManager.queue.indices &&
+            p.mediaItemCount < queueManager.queue.size) {
+            queueManager.setActiveQueueIndex(promotedIndex)
+            queueManager.rebuildPlayerQueue()
+        }
 
         if (p.playbackState == Player.STATE_ENDED) {
             val prevIndex = p.previousMediaItemIndex
@@ -512,8 +530,23 @@ class TransportCommands(
     private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
         SessionAuditLogger.onSkipNext()
         sleepTimerManager.cancel()
+
+        // Capture before cancel() + clearStandbyQueue() erase this information.
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
+
+        // Same partial-queue fix as handleSkipPrevious — see that function for the
+        // full explanation.  Without this, skipNext on a 1-item promoted player with
+        // REPEAT_MODE_ALL wraps to the same item and locks playback on one track.
+        if (wasCrossfading &&
+            promotedIndex in queueManager.queue.indices &&
+            p.mediaItemCount < queueManager.queue.size) {
+            queueManager.setActiveQueueIndex(promotedIndex)
+            queueManager.rebuildPlayerQueue()
+        }
 
         if (p.playbackState == Player.STATE_ENDED) {
             val nextIndex = p.nextMediaItemIndex
