@@ -105,7 +105,9 @@ void dispose() {
     // Both overlay modes share the same artwork-shrink + song-info-fade behaviour.
     final showOverlay = showLyrics || showQueue;
 
-    return Padding(
+    return Stack(
+      children: [
+      Padding(
       padding: const EdgeInsets.only(top: 25),
       child: Column(
         children: [
@@ -485,7 +487,6 @@ height: showOverlay
                         ),
                       ),
                     ),
-                    PlayerUpNextCard(showOverlay: showOverlay),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: Container(
@@ -502,6 +503,14 @@ height: showOverlay
         ),
       ],
     ),
+    ),
+      Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: PlayerUpNextCard(showOverlay: showOverlay),
+      ),
+    ],
   );
 }
 

@@ -5,10 +5,18 @@ import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
 import '../song_artwork.dart';
 
-class PlayerUpNextCard extends StatelessWidget {
+class PlayerUpNextCard extends StatefulWidget {
   final bool showOverlay;
 
   const PlayerUpNextCard({super.key, required this.showOverlay});
+
+  @override
+  State<PlayerUpNextCard> createState() => _PlayerUpNextCardState();
+}
+
+class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
+  int? _dismissedSongId;
+  double _dragDx = 0.0;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +29,11 @@ class PlayerUpNextCard extends StatelessWidget {
             final nextIdx  = AudioService.nextIndex;
             final playlist = state.currentPlaylist;
             final hasNext  = nextIdx >= 0 && nextIdx < playlist.length;
-            final visible  = settingEnabled && hasNext && !showOverlay;
+            final nextSong = hasNext ? playlist[nextIdx] : null;
+            final visible  = settingEnabled &&
+                hasNext &&
+                !widget.showOverlay &&
+                nextSong?.id != _dismissedSongId;
 
             return AnimatedSwitcher(
               duration: const Duration(milliseconds: 320),
@@ -35,9 +47,27 @@ class PlayerUpNextCard extends StatelessWidget {
                 ),
               ),
               child: visible
-                  ? _UpNextCardContent(
-                      key: const ValueKey('up_next'),
-                      song: playlist[nextIdx],
+                  ? GestureDetector(
+                      key: ValueKey('up_next_${nextSong?.id}'),
+                      onHorizontalDragUpdate: (d) =>
+                          setState(() => _dragDx += d.delta.dx),
+                      onHorizontalDragEnd: (d) {
+                        final velocity = d.primaryVelocity?.abs() ?? 0;
+                        if (_dragDx.abs() > 80 || velocity > 300) {
+                          setState(() {
+                            _dismissedSongId = nextSong?.id;
+                            _dragDx = 0.0;
+                          });
+                        } else {
+                          setState(() => _dragDx = 0.0);
+                        }
+                      },
+                      onHorizontalDragCancel: () =>
+                          setState(() => _dragDx = 0.0),
+                      child: Transform.translate(
+                        offset: Offset(_dragDx, 0),
+                        child: _UpNextCardContent(song: nextSong!),
+                      ),
                     )
                   : const SizedBox.shrink(key: ValueKey('empty')),
             );
@@ -51,12 +81,12 @@ class PlayerUpNextCard extends StatelessWidget {
 class _UpNextCardContent extends StatelessWidget {
   final LocalSong song;
 
-  const _UpNextCardContent({super.key, required this.song});
+  const _UpNextCardContent({required this.song});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.08),
