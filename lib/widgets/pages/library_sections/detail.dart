@@ -119,7 +119,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -128,7 +128,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 SongArtwork(
                   songId: album.id,
                   size: 130,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -156,63 +156,52 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   }
 
   Widget _songsList(List<LocalSong> songs) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: _actionCard(
-                Icons.shuffle_rounded,
-                'Shuffle',
-                () => _playShuffled(songs),
-              ),
+  children: [
+    Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _actionCard(
+              CupertinoIcons.shuffle,
+              () => _playShuffled(songs),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _actionCard(
-                Icons.repeat_rounded,
-                'Loop',
-                AudioService.cycleLoopMode,
-              ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _actionCard(
+              CupertinoIcons.repeat,
+              AudioService.cycleLoopMode,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      Expanded(child: _songListView(songs)),
-    ],
-  );
+    ),
+    Expanded(child: _songListView(songs)),
+  ],
+);
 
-  Widget _actionCard(
-    IconData icon,
-    String label,
-    Future<void> Function() onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 58,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: const Color(0xFFF92D48)),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+Widget _actionCard(
+  IconData icon,
+  Future<void> Function() onTap,
+) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 58,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Icon(
+          icon,
+          color: const Color(0xFFF92D48),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _songListView(
     List<LocalSong> songs, {

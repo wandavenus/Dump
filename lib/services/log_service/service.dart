@@ -3,7 +3,7 @@ part of '../log_service.dart';
 class LogService {
   LogService._();
 
-  static const int _maxEntries = 1000;
+  static const int _maxEntries = 5000;
 
   static final List<LogEntry> _logs = [];
   static final ValueNotifier<int> logCount = ValueNotifier(0);

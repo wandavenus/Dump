@@ -21,10 +21,10 @@ class _VersionTileState extends State<_VersionTile> {
         _DebugState.enabled.value = true;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Mode Debug diaktifkan'),
+            content: Text('Mode Debug aktif'),
             backgroundColor: Color(0xFF1C1C1E),
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+            duration: Duration(seconds: 1),
           ),
         );
       }

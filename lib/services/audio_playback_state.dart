@@ -19,6 +19,17 @@ class AudioPlaybackState {
   final bool sleepTimerActive;
   final int sleepTimerRemainingMs;
 
+  /// The index of the next track ExoPlayer will actually play, as reported by
+  /// native. Respects shuffle order and repeat mode.
+  ///
+  /// - `null`  → no native value received yet; callers fall back to linear math.
+  /// - `-1`    → native confirms there is no next item (end of queue, repeat off).
+  /// - `>= 0`  → the shuffle-correct next index into [currentPlaylist].
+  ///
+  /// Updated on every `currentTrack` EventChannel event, which native emits on
+  /// track transitions, queue mutations, and full state snapshots.
+  final int? nextTrackIndex;
+
   const AudioPlaybackState({
     this.currentSong,
     this.isPlaying = false,
@@ -33,6 +44,7 @@ class AudioPlaybackState {
     this.speed = 1.0,
     this.sleepTimerActive = false,
     this.sleepTimerRemainingMs = 0,
+    this.nextTrackIndex,
   });
 
   AudioPlaybackState copyWith({
@@ -50,21 +62,24 @@ class AudioPlaybackState {
     double? speed,
     bool? sleepTimerActive,
     int? sleepTimerRemainingMs,
+    int? nextTrackIndex,
+    bool clearNextTrackIndex = false,
   }) {
     return AudioPlaybackState(
-      currentSong: clearCurrentSong ? null : currentSong ?? this.currentSong,
-      isPlaying: isPlaying ?? this.isPlaying,
-      isLoading: isLoading ?? this.isLoading,
-      currentIndex: currentIndex ?? this.currentIndex,
-      currentPlaylist: currentPlaylist ?? this.currentPlaylist,
-      processingState: processingState ?? this.processingState,
-      duration: duration ?? this.duration,
-      position: position ?? this.position,
-      loopMode: loopMode ?? this.loopMode,
-      shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
-      speed: speed ?? this.speed,
-      sleepTimerActive: sleepTimerActive ?? this.sleepTimerActive,
+      currentSong:          clearCurrentSong ? null : currentSong ?? this.currentSong,
+      isPlaying:            isPlaying ?? this.isPlaying,
+      isLoading:            isLoading ?? this.isLoading,
+      currentIndex:         currentIndex ?? this.currentIndex,
+      currentPlaylist:      currentPlaylist ?? this.currentPlaylist,
+      processingState:      processingState ?? this.processingState,
+      duration:             duration ?? this.duration,
+      position:             position ?? this.position,
+      loopMode:             loopMode ?? this.loopMode,
+      shuffleEnabled:       shuffleEnabled ?? this.shuffleEnabled,
+      speed:                speed ?? this.speed,
+      sleepTimerActive:     sleepTimerActive ?? this.sleepTimerActive,
       sleepTimerRemainingMs: sleepTimerRemainingMs ?? this.sleepTimerRemainingMs,
+      nextTrackIndex:       clearNextTrackIndex ? null : nextTrackIndex ?? this.nextTrackIndex,
     );
   }
 }

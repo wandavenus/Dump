@@ -84,8 +84,8 @@ android {
         release {
             signingConfig signingConfigs.debug
 
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
@@ -98,6 +98,11 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.10.1'
     implementation 'androidx.media3:media3-session:1.10.1'
     implementation 'androidx.media3:media3-ui:1.10.1'
+    // Explicit dependency for DefaultExtractorsFactory, FlacExtractor, and
+    // DefaultExtractorsFactory.setFlacExtractorFlags (Item 10).
+    // media3-extractor is a transitive dep of media3-exoplayer, but listing it
+    // explicitly avoids breakage if Gradle's transitive resolution ever changes.
+    implementation 'androidx.media3:media3-extractor:1.10.1'
     // Required for MdtaMetadataEntry (M4A ©lyr lyrics, mdta atoms).
     // MdtaMetadataEntry was relocated from media3-extractor to media3-container
     // at some point in the 1.x line; in 1.10.1 it lives in media3-container.
@@ -106,4 +111,7 @@ dependencies {
     // JVM unit tests — no device/emulator required
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'
+    // Mockito for ExoPlayer/AudioManager interface mocking in unit tests
+    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
 }

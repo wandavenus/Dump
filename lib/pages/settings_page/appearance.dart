@@ -11,6 +11,16 @@ class _AppearanceSection extends StatelessWidget {
         const SettingsSectionHeader('TAMPILAN'),
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
+          valueListenable: UpNextSettings.showUpNextCard,
+          builder: (_, show, _) => SettingsToggleRow(
+            title: 'Tampilkan Up Next',
+            subtitle: 'Kartu lagu berikutnya di player',
+            value: show,
+            onChanged: UpNextSettings.setShowUpNextCard,
+          ),
+        ),
+        const SettingsDivider(),
+        ValueListenableBuilder<bool>(
           valueListenable: ThemeController.glassTheme,
           builder: (context, isGlass, _) => Column(
             children: [

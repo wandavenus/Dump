@@ -11,13 +11,16 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.PlaybackException
 import com.example.musicplayer.audio_focus.AudioFocusManager
 import com.example.musicplayer.audio_offload.AudioOffloadManager
 import com.example.musicplayer.crossfade.CrossfadeController
@@ -34,13 +37,24 @@ import com.example.musicplayer.transport.TransportCommands
 import com.example.musicplayer.transport.TransportState
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.Collections
 import java.util.IdentityHashMap
 import androidx.media3.common.Format
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.PlaybackStatsListener
+import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
+import com.example.musicplayer.effects.StereoWideningAudioProcessor
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.session.CommandButton
+import com.example.musicplayer.effects.StereoWidthManager
 
 /**
  * Thin orchestration layer.
@@ -85,8 +99,26 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var offloadManager:       AudioOffloadManager
 
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
-    private val playerListeners    = IdentityHashMap<ExoPlayer, Player.Listener>()
-    private val analyticsListeners = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
+    private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+    private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
+    private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
+
+    // ── Item 1: skip silence — persisted so new standby players inherit state ─
+    private var skipSilenceEnabled = false
+
+    // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
+    private var audioCapReceiver: AudioCapabilitiesReceiver? = null
+    private lateinit var stereoWidthManager: StereoWidthManager
+
+    // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
+    // activePlayerProxy is always the MediaSession's player. It dynamically
+    // delegates to the current active ExoPlayer and routes transport commands
+    // through TransportCommands so audio focus / crossfade handling is consistent.
+    private lateinit var activePlayerProxy: ActivePlayerProxy
+
+    // ── LOW-07 fix: track the active offload listener so it can be removed ────
+    private var activeOffloadListener: ExoPlayer.AudioOffloadListener? = null
 
     // ── Companion ─────────────────────────────────────────────────────────────
     companion object {
@@ -133,6 +165,11 @@ class Media3PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        // Item 8: StereoWidthManager MUST be initialised before the first
+        // createConfiguredPlayer() call so the primary player's processor is
+        // correctly tracked from the start.
+        stereoWidthManager = StereoWidthManager()
+
         // Create primary player
         primaryPlayer = createConfiguredPlayer()
         activePlayer  = primaryPlayer
@@ -155,25 +192,28 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
         )
-        primaryPlayer!!.addAudioOffloadListener(offloadManager.makeOffloadListener())
+        // LOW-07 fix: track the initial offload listener so it can be removed before
+        // adding a new one on crossfade completion (prevents listener accumulation).
+        activeOffloadListener = offloadManager.makeOffloadListener()
+        primaryPlayer!!.addAudioOffloadListener(activeOffloadListener!!)
 
         // Build MediaSession
-        // ForwardingPlayer intercepts transport commands from external controllers
-        // (Bluetooth, OS widgets) and routes them through transportCommands.*Native()
-        // so audio focus, crossfade, and state emission are handled correctly.
-        // transportCommands is lateinit but always initialised before any external
-        // controller can connect (which only happens after onCreate() returns).
-        val sessionPlayer = object : ForwardingPlayer(primaryPlayer!!) {
-            override fun play()                    { transportCommands.playNative() }
-            override fun pause()                   { transportCommands.pauseNative() }
-            override fun seekToNextMediaItem()     { transportCommands.skipNextNative() }
-            override fun seekToPreviousMediaItem() { transportCommands.skipPrevNative() }
-            override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
-                transportCommands.seekNative(positionMs)
-            }
-        }
+        // CRIT-01 fix: MediaSession always uses activePlayerProxy — never replaced by a raw
+        // ExoPlayer. ActivePlayerProxy.switchTo() migrates MediaSession/AVRCP listeners to the
+        // new player on crossfade promotion so lock-screen and BT controllers remain in sync.
+        // transportCommands is lateinit but fully initialised before any external controller
+        // can connect (connections only happen after onCreate() returns).
+        activePlayerProxy = ActivePlayerProxy(
+            initialPlayer = primaryPlayer!!,
+            onPlay        = { transportCommands.playNative() },
+            onPause       = { transportCommands.pauseNative() },
+            onSkipNext    = { transportCommands.skipNextNative() },
+            onSkipPrev    = { transportCommands.skipPrevNative() },
+            onSeek        = { transportCommands.seekNative(it) },
+            onSetTrack    = { transportCommands.setTrackNative(it) },
+        )
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        val sessionBuilder = MediaSession.Builder(this, sessionPlayer)
+        val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -212,6 +252,16 @@ class Media3PlaybackService : MediaSessionService() {
             stopTicker             = { transportState.stopPositionTicker() },
             onFocusEvent           = { transportState.emitAll() },
             getCrossfadeInProgress = { crossfadeController.crossfadeInProgress },
+            // HIGH-01 fix: cancel any in-progress crossfade when audio focus is lost.
+            // Without this, AUDIOFOCUS_LOSS only paused the new (active) player while
+            // the old promotionOwner player continued producing audio through a call.
+            onFocusLoss = {
+                if (::crossfadeController.isInitialized && crossfadeController.crossfadeInProgress) {
+                    NativeLogger.emit("warn", "AudioFocus",
+                        "Audio focus lost during crossfade — cancelling crossfade")
+                    crossfadeController.cancel(resetVolume = true)
+                }
+            },
         )
 
         notificationManager = PlaybackNotificationManager(
@@ -268,9 +318,12 @@ class Media3PlaybackService : MediaSessionService() {
             getStandbyPlayer   = { standbyPlayer() },
             setActivePlayer    = { newPlayer -> activePlayer = newPlayer },
             switchSessionPlayer = { newPlayer ->
-                try { session?.setPlayer(newPlayer) }
+                // CRIT-01 fix: update the proxy's wrapped player instead of calling
+                // session.setPlayer(). The MediaSession stays bound to activePlayerProxy
+                // permanently; listeners are migrated to the new ExoPlayer by switchTo().
+                try { activePlayerProxy.switchTo(newPlayer) }
                 catch (e: Exception) {
-                    NativeLogger.emit("warn", "Media3", "MediaSession player switch failed: ${e.message}")
+                    NativeLogger.emit("warn", "Media3", "ActivePlayerProxy.switchTo failed: ${e.message}")
                 }
             },
             preloadManager      = preloadManager,
@@ -281,17 +334,39 @@ class Media3PlaybackService : MediaSessionService() {
             getActiveQueueIndex = { queueManager.activeQueueIndex },
             setActiveQueueIndex = { idx -> queueManager.setActiveQueueIndex(idx) },
             onCrossfadeComplete = {
+                // ── Dropout investigation: snapshot player state at the start of this callback.
+                // Everything from here through the end of the lambda is a potential dropout cause.
+                val p0 = activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: ENTER" +
+                    " session=${p0?.audioSessionId} items=${p0?.mediaItemCount}", p0)
+
                 // CE-03 fix: rebuild full queue on promoted player (non-interrupting).
+                // *** SUSPECT #1: setMediaItems() on playing player may force decoder rebuild ***
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: calling rebuildPlayerQueue() START", p0)
                 queueManager.rebuildPlayerQueue()
+                val p1 = activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: rebuildPlayerQueue() DONE" +
+                    " items=${p1?.mediaItemCount}", p1)
+
                 queueSync.save()
+
                 // Re-attach all audio effects to the new active player's audio session.
                 // The new player was a "cold" secondary player with no effects attached.
+                // *** SUSPECT #2: releaseEffects() + AudioEffect constructors against live session ***
                 val newSessionId = activePlayer?.audioSessionId ?: 0
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: calling attachEffects(session=$newSessionId) START", activePlayer)
                 if (newSessionId > 0) {
                     effectsManager.attachEffects(newSessionId)
                     NativeLogger.emit("info", "Media3",
                         "Post-crossfade effects reattach → session=$newSessionId")
                 }
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: attachEffects DONE session=$newSessionId", activePlayer)
+
                 // Open a fresh audit chapter for the newly promoted track.
                 // SessionAuditLogger.onCrossfadeComplete() was already called inside
                 // CrossfadeController.runEqualPowerFade before this callback fires,
@@ -302,11 +377,21 @@ class Media3PlaybackService : MediaSessionService() {
                     artist         = promotedMap?.get("artist") as? String ?: "",
                     audioSessionId = newSessionId,
                 )
+
                 // Re-evaluate offload state on the newly promoted player.
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
                 offloadManager.onCrossfadeComplete()
-                activePlayer?.addAudioOffloadListener(offloadManager.makeOffloadListener())
+                // LOW-07 fix: remove the old offload listener before adding the new one.
+                // Previously a new listener was added on every crossfade without removing
+                // the previous one, causing accumulation across many crossfades.
+                val newOffloadListener = offloadManager.makeOffloadListener()
+                activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
+                activeOffloadListener = newOffloadListener
+                activePlayer?.addAudioOffloadListener(newOffloadListener)
+
+                CrossfadeTimelineLogger.stamp(
+                    "onCrossfadeComplete CB: EXIT (offload listener swapped)", activePlayer)
             },
             emitAll             = { transportState.emitAll() },
             refreshNotification = { notificationManager.refresh() },
@@ -364,6 +449,43 @@ class Media3PlaybackService : MediaSessionService() {
             effectsManager        = effectsManager,
             ensureMediaForeground = { notificationManager.ensureMediaForeground() },
             offloadManager        = offloadManager,
+
+            // Item 1: skip silence — applied to ALL live players atomically so
+            // both active and standby behave identically during crossfade overlap.
+            applySkipSilence = { enabled ->
+                skipSilenceEnabled = enabled
+                forEachLivePlayer { it.skipSilenceEnabled = enabled }
+                NativeLogger.emit("info", "Media3",
+                    "skipSilence=$enabled applied to all live players")
+            },
+
+            // Item 8: stereo widening — delegate to StereoWidthManager which
+            // updates all ChannelMixingAudioProcessor instances atomically,
+            // then echo the confirmed state back to Flutter so the UI stays
+            // in sync with any future code path that updates widening without
+            // going through the TransportCommands MethodChannel.
+            onStereoWideningChanged = { enabled, strength ->
+                stereoWidthManager.setStereoWidening(enabled, strength)
+                EventEmitter.emit(
+                    "stereoWidening",
+                    mapOf("enabled" to enabled, "strength" to strength),
+                )
+            },
+
+            // Item 6: return current PlaybackStats for the active player session.
+            getPlaybackStats = {
+                val statsListener = statsListeners[activePlayer]
+                statsListener?.getPlaybackStats()?.let { stats ->
+                    // totalBufferingTimeMs and totalErrorCount were removed in Media3 1.10.1;
+                    // return 0 so the Flutter UI still renders the stats sheet correctly.
+                    mapOf(
+                        "totalPlayTimeMs"      to stats.totalPlayTimeMs,
+                        "totalBufferingTimeMs" to 0L,
+                        "totalRebufferCount"   to stats.totalRebufferCount,
+                        "totalErrorCount"      to 0,
+                    )
+                }
+            },
         )
 
         // When Flutter subscribes to any event stream, push the full current state
@@ -373,6 +495,37 @@ class Media3PlaybackService : MediaSessionService() {
         attachPlayerListener(primaryPlayer!!)
 
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+
+        // Item 3: AudioCapabilitiesReceiver — reacts to audio output device changes
+        // (BT connect/disconnect, HDMI plug) that can invalidate the software effects
+        // chain on MIUI 12 without changing the numeric AudioSession ID.
+        // All callback work runs on the main Handler so it is safe to access ExoPlayer
+        // state and call effectsManager.resetAndReattach() directly.
+        audioCapReceiver = AudioCapabilitiesReceiver(this) { _ ->
+            NativeLogger.emit(
+                "info", "AudioCap",
+                "Audio capabilities changed (output device may have changed) — " +
+                "re-evaluating track selection and scheduling effects reattach",
+            )
+            // Force a track re-selection on all live players so Media3 can adapt
+            // to any new passthrough / tunneling capabilities on the new output device.
+            forEachLivePlayer { p ->
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().build()
+            }
+            // MIUI 12: delay the effects re-attach slightly so the new AudioSession
+            // (if any) has time to be published by AudioFlinger before we attempt to
+            // bind Equalizer / BassBoost / Virtualizer etc.
+            handler.postDelayed({
+                val sessionId = activePlayer?.audioSessionId ?: 0
+                if (sessionId > 0) {
+                    effectsManager.resetAndReattach(sessionId)
+                }
+            }, 500L)
+            // Notify Flutter so the UI can refresh device-specific info if needed.
+            EventEmitter.emit("audioCapabilitiesChanged",
+                mapOf("timestamp" to System.currentTimeMillis()))
+        }.also { it.register() }
+
         instance = this
 
         restoreQueueFromPrefs()
@@ -418,6 +571,9 @@ class Media3PlaybackService : MediaSessionService() {
         effectsManager.releaseEffects()
         handler.removeCallbacksAndMessages(null)
         try { unregisterReceiver(noisyReceiver) } catch (_: Exception) {}
+        // Item 3: unregister AudioCapabilitiesReceiver to prevent BroadcastReceiver leaks.
+        try { audioCapReceiver?.unregister() } catch (_: Exception) {}
+        audioCapReceiver = null
         audioFocusManager.abandon()
         instance = null
         primaryPlayer?.release()
@@ -503,12 +659,44 @@ class Media3PlaybackService : MediaSessionService() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        // 32-bit float audio pipeline — enables higher-precision mixing for
-        // 24/32-bit FLAC/WAV on Android 11 devices with float-capable audio HALs.
-        // EXTENSION_RENDERER_MODE_ON: load codec extensions (e.g. ffmpeg) when present.
-        val renderersFactory = DefaultRenderersFactory(this)
+        // Item 8: each player gets its own StereoWideningAudioProcessor so
+        // stereo widening can be applied/updated atomically during crossfade.
+        val channelMixingProc: StereoWideningAudioProcessor =
+            if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
+            else StereoWideningAudioProcessor()
+
+        // Custom DefaultRenderersFactory that injects channelMixingProc into the
+        // DefaultAudioSink's processor chain so stereo widening runs before
+        // SonicAudioProcessor (which handles skip-silence and speed/pitch).
+        //
+        // Item 2: setEnableDecoderFallback(true) — on MIUI 12, hardware audio
+        // decoders (OMX.qcom.audio.*) occasionally crash on FLAC or long files.
+        // With fallback enabled, ExoPlayer silently retries with the software
+        // decoder (FFmpeg extension) instead of surfacing an error to the user.
+        //
+        // Item 8 (continued): buildAudioSink() is the officially supported
+        // extension point in DefaultRenderersFactory for injecting custom
+        // AudioProcessors into the pipeline.
+        //
+        // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in Media3 1.10.1.
+        // It accepts a vararg of user AudioProcessors to insert BEFORE its own
+        // SilenceSkippingAudioProcessor (for skip-silence) and SonicAudioProcessor (speed/pitch).
+        // All three features — stereo widening, skip-silence, and playback speed — are preserved.
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                // channelMixingProc runs first, then SilenceSkipping, then Sonic.
+                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(channelMixingProc))
+                .build()
+        }
             .setEnableAudioFloatOutput(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true)  // Item 2
 
         // DefaultTrackSelector with explicit audio preferences.
         // For typical local music files (single audio track) this is a no-op, but for
@@ -522,9 +710,21 @@ class Media3PlaybackService : MediaSessionService() {
             )
         }
 
-        return ExoPlayer.Builder(this, renderersFactory)
+        // Item 10: CustomDefaultExtractorsFactory.
+        // FLAG_DISABLE_ID3_METADATA on FLAC: jaudiotagger already reads all tags
+        // (title, artist, album, lyrics) so ExoPlayer's ID3 parse during demuxing
+        // is redundant overhead — especially on long FLAC files (>100 MB) where
+        // the ID3 scan measurably delays the initial seek.
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
             .setTrackSelector(trackSelector)
+            .setMediaSourceFactory(mediaSourceFactory)  // Item 10
+            .setSeekBackIncrementMs(10_000L)            // Item 7: 10 s back (headset 2× press)
+            .setSeekForwardIncrementMs(30_000L)         // Item 7: 30 s forward (headset 3× press)
             .build()
             .apply {
                 val attrs = androidx.media3.common.AudioAttributes.Builder()
@@ -541,6 +741,9 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
+                // Item 1: apply current skip-silence state so standby players always
+                // match the active player — no gap in skip-silence behaviour mid-crossfade.
+                skipSilenceEnabled = this@Media3PlaybackService.skipSilenceEnabled
                 // Attach the offload listener when available (offloadManager is initialised
                 // after the primary player in onCreate; secondary players are always created
                 // after that point so the guard below covers the race-free case).
@@ -548,12 +751,29 @@ class Media3PlaybackService : MediaSessionService() {
                     addAudioOffloadListener(offloadManager.makeOffloadListener())
                 }
             }
+
+        // Track the processor for this player so it can be removed from
+        // StereoWidthManager when the player is released (via detachPlayerListener).
+        if (::stereoWidthManager.isInitialized) {
+            playerProcessors[player] = channelMixingProc
+        }
+
+        return player
     }
 
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
 
     private fun attachPlayerListener(p: ExoPlayer) {
         detachPlayerListener(p)
+
+        // Item 6: PlaybackStatsListener — accumulates per-session metrics for
+        // getPlaybackStats(). keepHistory=false: we only need the running totals
+        // (totalPlayTimeMs / totalBufferingTimeMs / totalRebufferCount /
+        // totalErrorCount) so there is no need to retain per-sample history in RAM.
+        val statsListener = PlaybackStatsListener(/* keepHistory= */ false) { _, _ -> }
+        p.addAnalyticsListener(statsListener)
+        statsListeners[p] = statsListener
+
         val listener = object : Player.Listener {
             private fun isActiveEvent(): Boolean = p === activePlayer
 
@@ -642,7 +862,14 @@ class Media3PlaybackService : MediaSessionService() {
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 if (!isActiveEvent()) return
-                NativeLogger.emit("info", "Media3", "audioSessionId → $audioSessionId")
+                // ── Dropout investigation: if the audio session ID changes AFTER the
+                // crossfade completes and the player is already audible, it means
+                // Android recreated the AudioTrack (and implicitly the decoder).
+                // This is one of the clearest signals of a pipeline restart.
+                CrossfadeTimelineLogger.stamp(
+                    "onAudioSessionIdChanged: NEW session=$audioSessionId (active player)", p)
+                NativeLogger.emit("info", "Media3",
+                    "audioSessionId → $audioSessionId  thread=${Thread.currentThread().name}")
                 SessionAuditLogger.onAudioSessionAssigned(audioSessionId)
                 effectsManager.attachEffects(audioSessionId)
                 transportState.emitAll()
@@ -747,6 +974,41 @@ class Media3PlaybackService : MediaSessionService() {
                     )
                 }
             }
+
+            /**
+             * HIGH-02 fix: Previously missing. Unhandled player errors left the
+             * queue halted permanently on a corrupted or missing file.
+             *
+             * Behaviour:
+             *  - Always logs the error and emits it to Flutter via EventChannel.
+             *  - Schedules an auto-skip 500 ms later if another item is available,
+             *    giving Media3 time to settle before touching the playlist.
+             *  - The 500 ms delay is intentional: calling seekToNextMediaItem()
+             *    synchronously inside onPlayerError causes re-entrancy issues on
+             *    some Media3 versions.
+             */
+            override fun onPlayerError(error: PlaybackException) {
+                if (!isActiveEvent()) return
+                NativeLogger.emit("error", "Media3",
+                    "PlayerError code=${error.errorCode}: ${error.message}")
+                SessionAuditLogger.warn("PlayerError",
+                    "code=${error.errorCode} msg=${error.message}")
+                EventEmitter.emit("error", mapOf(
+                    "code"    to error.errorCode,
+                    "message" to (error.message ?: "Unknown player error"),
+                ))
+                if (p.hasNextMediaItem()) {
+                    handler.postDelayed({
+                        if (p === activePlayer &&
+                            p.playbackState != Player.STATE_READY &&
+                            p.hasNextMediaItem()) {
+                            NativeLogger.emit("info", "Media3",
+                                "Auto-skip after player error (code=${error.errorCode})")
+                            p.seekToNextMediaItem()
+                        }
+                    }, 500L)
+                }
+            }
         }
         playerListeners[p] = listener
         p.addListener(listener)
@@ -757,9 +1019,79 @@ class Media3PlaybackService : MediaSessionService() {
         val analyticsListener = object : AnalyticsListener {
 
             /**
+             * Fired when the audio renderer is enabled (starts processing audio).
+             * During normal playback this fires once at the start.  If it fires
+             * AGAIN after a crossfade completes while the player is already audible,
+             * something forced the audio renderer to restart — a clear dropout cause.
+             */
+            override fun onAudioEnabled(
+                eventTime: AnalyticsListener.EventTime,
+                counters: androidx.media3.exoplayer.DecoderCounters,
+            ) {
+                val active = p === activePlayer
+                val wall   = System.currentTimeMillis()
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioEnabled: isActive=$active" +
+                    " wall=${wall}ms  thread=${Thread.currentThread().name}", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioRenderer ENABLED isActive=$active  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the audio renderer is disabled (stops producing audio).
+             * If this fires on the ACTIVE player after crossfade completes, the
+             * renderer was torn down and will be restarted — that IS the dropout.
+             */
+            override fun onAudioDisabled(
+                eventTime: AnalyticsListener.EventTime,
+                counters: androidx.media3.exoplayer.DecoderCounters,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDisabled: isActive=$active" +
+                    "  decoderInitCount=${counters.decoderInitCount}" +
+                    "  decoderReleaseCount=${counters.decoderReleaseCount}", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioRenderer DISABLED isActive=$active" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the decoder's input format changes — this triggers codec
+             * reconfiguration which can force an AudioTrack flush or restart.
+             * If this fires immediately after setMediaItems() or attachEffects(),
+             * it is the direct cause of the dropout.
+             */
+            override fun onAudioInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) {
+                val active    = p === activePlayer
+                val reuseStr  = decoderReuseEvaluation?.let {
+                    "reuse=${it.result} discardReasons=${it.discardReasons}"
+                } ?: "reuseEval=null"
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioInputFormatChanged: isActive=$active" +
+                    "  mime=${format.sampleMimeType}" +
+                    "  ${format.sampleRate}Hz ${format.channelCount}ch" +
+                    "  $reuseStr", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioInputFormat changed isActive=$active" +
+                    "  mime=${format.sampleMimeType} ${format.sampleRate}Hz ${format.channelCount}ch" +
+                    "  $reuseStr  thread=${Thread.currentThread().name}")
+            }
+
+            /**
              * Logs the audio decoder name and initialisation duration.
-             * Useful to confirm float-output codecs are being selected (e.g.
-             * raw/float decoder for FLAC vs. MediaCodec for AAC/MP3).
+             *
+             * CRITICAL: If this fires AFTER the crossfade standby player is already
+             * audible, it means the decoder was NOT pre-initialized during prewarm —
+             * or it was torn down by a subsequent operation (setMediaItems / effects).
+             * The initializationDurationMs is the direct acoustic dropout duration.
              */
             override fun onAudioDecoderInitialized(
                 eventTime: AnalyticsListener.EventTime,
@@ -767,11 +1099,88 @@ class Media3PlaybackService : MediaSessionService() {
                 initializedTimestampMs: Long,
                 initializationDurationMs: Long,
             ) {
-                if (p !== activePlayer) return
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDecoderInitialized: isActive=$active" +
+                    "  decoder=$decoderName initDuration=${initializationDurationMs}ms", p)
                 NativeLogger.emit(
                     "info", "Media3",
-                    "AudioDecoder: $decoderName init=${initializationDurationMs}ms",
+                    "AudioDecoder INITIALIZED isActive=$active" +
+                    "  decoder=$decoderName init=${initializationDurationMs}ms" +
+                    "  thread=${Thread.currentThread().name}",
                 )
+            }
+
+            /**
+             * Fired when the decoder is released.  If this fires on the active player
+             * during or just after a crossfade, the decoder was torn down while
+             * audio was already being produced — that is the dropout.
+             */
+            override fun onAudioDecoderReleased(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioDecoderReleased: isActive=$active decoder=$decoderName", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioDecoder RELEASED isActive=$active decoder=$decoderName" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when ExoPlayer's DefaultAudioSink creates a new AudioTrack.
+             * A new AudioTrack after crossfade completion means the audio output
+             * pipeline was fully recreated — the platform must fill the new
+             * AudioTrack's buffer before audio resumes, which is the dropout gap.
+             *
+             * Verified against Media3 1.10.1 source:
+             *   AnalyticsListener.java line 1148–1150
+             *   AudioSink.AudioTrackConfig fields: encoding, sampleRate, offload, bufferSize
+             */
+            override fun onAudioTrackInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                audioTrackConfig: AudioSink.AudioTrackConfig,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioTrackInitialized: isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  sampleRate=${audioTrackConfig.sampleRate}" +
+                    "  offload=${audioTrackConfig.offload}" +
+                    "  bufferSize=${audioTrackConfig.bufferSize}", p)
+                NativeLogger.emit(
+                    "info", "Media3",
+                    "AudioTrack INITIALIZED isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  ${audioTrackConfig.sampleRate}Hz offload=${audioTrackConfig.offload}" +
+                    "  thread=${Thread.currentThread().name}")
+            }
+
+            /**
+             * Fired when the AudioTrack is released.  Pairing with onAudioTrackInitialized
+             * pinpoints which operation in the post-crossfade callback chain forced an
+             * AudioTrack recreation.
+             *
+             * Verified against Media3 1.10.1 source:
+             *   AnalyticsListener.java line 1159–1161
+             */
+            override fun onAudioTrackReleased(
+                eventTime: AnalyticsListener.EventTime,
+                audioTrackConfig: AudioSink.AudioTrackConfig,
+            ) {
+                val active = p === activePlayer
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioTrackReleased: isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding}" +
+                    "  sampleRate=${audioTrackConfig.sampleRate}" +
+                    "  offload=${audioTrackConfig.offload}", p)
+                NativeLogger.emit(
+                    "warn", "Media3",
+                    "AudioTrack RELEASED isActive=$active" +
+                    "  encoding=${audioTrackConfig.encoding} ${audioTrackConfig.sampleRate}Hz" +
+                    "  thread=${Thread.currentThread().name}")
             }
 
             /**
@@ -785,6 +1194,9 @@ class Media3PlaybackService : MediaSessionService() {
                 bufferSizeMs: Long,
                 elapsedSinceLastFeedMs: Long,
             ) {
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioUnderrun: isActive=${p === activePlayer}" +
+                    "  size=${bufferSize}B dur=${bufferSizeMs}ms sinceLastFeed=${elapsedSinceLastFeedMs}ms", p)
                 NativeLogger.emit(
                     "warn", "Media3",
                     "AudioUnderrun: size=${bufferSize}B " +
@@ -802,6 +1214,9 @@ class Media3PlaybackService : MediaSessionService() {
                 eventTime: AnalyticsListener.EventTime,
                 audioSinkError: Exception,
             ) {
+                CrossfadeTimelineLogger.stamp(
+                    "AnalyticsListener.onAudioSinkError: isActive=${p === activePlayer}" +
+                    "  ${audioSinkError.message}", p)
                 NativeLogger.emit("warn", "Media3", "AudioSink error: ${audioSinkError.message}")
                 SessionAuditLogger.warn("AudioSink", audioSinkError.message ?: "unknown")
             }
@@ -813,6 +1228,11 @@ class Media3PlaybackService : MediaSessionService() {
     private fun detachPlayerListener(p: ExoPlayer) {
         playerListeners.remove(p)?.let { p.removeListener(it) }
         analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        // Item 6: remove PlaybackStatsListener to avoid accumulating stale sessions.
+        statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        // Item 8: remove processor from StereoWidthManager so it is no longer updated
+        // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
+        playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────
@@ -828,6 +1248,21 @@ class Media3PlaybackService : MediaSessionService() {
             "Restored queue: ${restored.items.size} tracks idx=${restored.index} " +
             "pos=${restored.posMs}ms repeat=${restored.repeat} shuffle=${restored.shuffle}")
         transportState.emitAll(emitQueue = true)
+    }
+
+    // ── Item helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Iterates over every live [ExoPlayer] instance (primary + secondary, deduped).
+     *
+     * "Live" means the player variable is non-null; it may or may not be the
+     * currently active player. Using identity semantics avoids double-applying
+     * an operation if primary and active point to the same object.
+     */
+    private fun forEachLivePlayer(block: (ExoPlayer) -> Unit) {
+        val seen = Collections.newSetFromMap(IdentityHashMap<ExoPlayer, Boolean>())
+        primaryPlayer?.let   { if (seen.add(it)) block(it) }
+        secondaryPlayer?.let { if (seen.add(it)) block(it) }
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

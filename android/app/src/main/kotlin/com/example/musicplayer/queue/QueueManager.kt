@@ -2,6 +2,7 @@ package com.example.musicplayer.queue
 
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
 import com.example.musicplayer.utils.MediaItemFactory
 
@@ -12,9 +13,10 @@ import com.example.musicplayer.utils.MediaItemFactory
  * skipping ExoPlayer mutations safely when crossfade is in progress.
  *
  * Fixes:
- * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to a pending list.
- *   After crossfade promotion completes, rebuildPlayerQueue() is called to push the
- *   full current queue back into the active player, so skipNext / mutations work.
+ * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to the in-memory list.
+ *   After crossfade promotion completes, rebuildPlayerQueue() is called to expand the
+ *   single-item promoted player queue to the full N-item queue via addMediaItems().
+ *   See CROSSFADE_OPTION_B_DESIGN.md for the rationale.
  *
  * reorderQueue activeQueueIndex adjustment logic is preserved exactly from the original.
  */
@@ -33,6 +35,9 @@ class QueueManager(
     // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
+        // LOW-08: Callers MUST cancel any active crossfade before calling setQueue.
+        // TransportCommands.dispatch("setQueue") enforces this via crossfadeController.cancel().
+        // Calling setQueue mid-crossfade would abruptly interrupt the fading audio.
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         val p = getPlayer() ?: return
@@ -144,31 +149,76 @@ class QueueManager(
     // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
     /**
-     * QS-02/QS-03/CE-03 fix: After a crossfade promotion, the new active player
-     * only has 1 media item (the preloaded track at position 0). Rebuild the full
-     * queue by prepending/appending items WITHOUT touching the current item to avoid
-     * interrupting playback.
+     * Option B: incremental queue rebuild via addMediaItems().
      *
-     * After this call ExoPlayer's currentMediaItemIndex == activeQueueIndex.
+     * After a crossfade promotion the new active player has exactly 1 MediaItem
+     * (the track loaded by PreloadManager at index 0). Its MediaSourceHolder UID
+     * is the one currently held by the active MediaPeriod and audio renderer.
+     *
+     * We expand the queue by inserting the items that belong BEFORE and AFTER that
+     * single item using two addMediaItems() calls. Internally, addMediaItems() calls
+     * addMediaSourcesInternal() which inserts new MediaSourceHolder objects into
+     * mediaSourceHolderSnapshots WITHOUT clearing the list. The playing holder's UID
+     * is unchanged, so the active MediaPeriod remains valid and handleMediaSourceListInfoRefreshed()
+     * resolves the new window index without invoking resetInternal() or disableRenderers().
+     *
+     * Contrast with setMediaItems(), which calls setMediaSourcesInternal(), clears
+     * mediaSourceHolderSnapshots entirely, allocates new UIDs for every item including
+     * the one currently playing, then forces resetInternal() + disableRenderers() —
+     * the direct cause of the 50–200 ms audible dropout documented in CROSSFADE_OPTION_B_DESIGN.md.
+     *
+     * Edge cases:
+     *   queue.size == 1          → both prefix and suffix are empty; no calls made.
+     *   activeQueueIndex == 0    → prefix empty; only suffix call is made.
+     *   activeQueueIndex == last → suffix empty; only prefix call is made.
+     *   p.mediaItemCount already == queue.size → already fully populated; skip.
      */
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
         if (queue.isEmpty()) return
         try {
-            // Append all items that should come after the current track
-            val afterItems = queue.drop(activeQueueIndex + 1).map { MediaItemFactory.from(it) }
-            if (afterItems.isNotEmpty()) {
-                p.addMediaItems(afterItems)
+            // Guard: if the promoted player already holds the full queue (unexpected but
+            // safe to detect), skip expansion to avoid redundant addMediaItems() calls.
+            if (p.mediaItemCount == queue.size) {
+                log("rebuildPlayerQueue: player already has ${queue.size} items — skipping expansion")
+                return
             }
-            // Prepend all items that should come before the current track
-            // Adding at index 0 shifts the current item to activeQueueIndex — correct.
-            if (activeQueueIndex > 0) {
-                val beforeItems = queue.take(activeQueueIndex).map { MediaItemFactory.from(it) }
-                p.addMediaItems(0, beforeItems)
+
+            CrossfadeTimelineLogger.stamp(
+                "rebuildPlayerQueue: PRE-addMediaItems" +
+                " queueSize=${queue.size} activeIdx=$activeQueueIndex" +
+                " playerItems=${p.mediaItemCount}" +
+                " currentItem='${p.currentMediaItem?.mediaId ?: "null"}'" +
+                " targetItem='${queue.getOrNull(activeQueueIndex)?.get("uri") ?: "?"}'",
+                p
+            )
+
+            // Items that belong before the currently playing track in the full queue.
+            // Inserting at index 0 shifts the current item's window index from 0 to
+            // activeQueueIndex. The MediaSourceHolder UID of the playing item is unchanged.
+            val prefix = queue.subList(0, activeQueueIndex)
+            if (prefix.isNotEmpty()) {
+                p.addMediaItems(0, prefix.map { MediaItemFactory.from(it) })
             }
-            log("rebuildPlayerQueue: ${queue.size} items @ [$activeQueueIndex] (non-interrupting)")
+
+            // Items that belong after the currently playing track.
+            // Inserted at activeQueueIndex + 1; current item stays at activeQueueIndex.
+            val suffix = queue.subList(activeQueueIndex + 1, queue.size)
+            if (suffix.isNotEmpty()) {
+                p.addMediaItems(activeQueueIndex + 1, suffix.map { MediaItemFactory.from(it) })
+            }
+
+            CrossfadeTimelineLogger.stamp(
+                "rebuildPlayerQueue: POST-addMediaItems" +
+                " playerItems=${p.mediaItemCount} activeIdx=$activeQueueIndex",
+                p
+            )
+
+            log("rebuildPlayerQueue: incremental expand → ${queue.size} items @ [$activeQueueIndex]" +
+                " prefix=${prefix.size} suffix=${suffix.size}")
         } catch (e: Exception) {
             log("rebuildPlayerQueue failed: ${e.message}")
+            CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")
         }
     }
 

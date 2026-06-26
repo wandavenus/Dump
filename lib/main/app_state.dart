@@ -69,7 +69,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       initialRoute: '/firstpage',
       routes: {
         '/settings':   (context) => const SettingsPage(),
-        '/list_test':  (context) => const WebView(child: ListTest()),
         '/firstpage':  (context) => const WebView(child: FirstPage()),
         '/browse':     (context) => const WebView(child: BrowsePage()),
         '/radio':      (context) => const WebView(child: RadioPage()),

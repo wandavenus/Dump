@@ -45,8 +45,20 @@ class AudioService {
   static LoopMode   get loopMode        => playbackState.value.loopMode;
   static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
 
-  /// Next queue index (linear only — shuffle order is native/opaque).
+  /// Next queue index — shuffle-correct when native value is available.
+  ///
+  /// Returns [AudioPlaybackState.nextTrackIndex] when native has reported it
+  /// (i.e., it is non-null), which respects ExoPlayer's internal shuffle order
+  /// and repeat mode exactly. Falls back to linear calculation only before the
+  /// first native `currentTrack` event arrives (cold start / initial load).
+  ///
+  /// Values:
+  ///   `>= 0` — actual next index into [AudioService.currentPlaylist].
+  ///   `-1`   — no next track (end of queue with repeat off).
   static int get nextIndex {
+    final nativeNext = playbackState.value.nextTrackIndex;
+    if (nativeNext != null) return nativeNext;
+    // Fallback: linear calculation (used before first native currentTrack event).
     final state = playbackState.value;
     final sz    = state.currentPlaylist.length;
     if (sz == 0) return -1;
@@ -149,7 +161,12 @@ class AudioService {
 
   static void _onReplayGainSettingChanged() {
     final song = currentSong;
-    if (song != null) unawaited(_applyReplayGain(song));
+    if (song != null) {
+      // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
+      _applyReplayGain(song).catchError((Object e) {
+        LogService.warn('AudioService', '_applyReplayGain (setting change) error: $e');
+      });
+    }
   }
 
   static void _onSpeedChange() {
@@ -168,7 +185,14 @@ class AudioService {
           .whereType<Map>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
-      if (songs.isEmpty) return;
+      // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
+      // playlist rather than keeping a stale list from the previous session.
+      if (songs.isEmpty) {
+        _playlist = List<LocalSong>.unmodifiable([]);
+        _setState(playbackState.value.copyWith(currentPlaylist: const []));
+        ArtworkRepository.setActiveQueueIds([]);
+        return;
+      }
       _playlist = List<LocalSong>.unmodifiable(songs);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
 
@@ -182,52 +206,79 @@ class AudioService {
 
   /// Track changed — driven by native ExoPlayer (gapless, skip, or queue jump).
   static void _onNativeCurrentTrackChanged(Map<dynamic, dynamic>? trackMap) {
-  if (_playlist.isEmpty || trackMap == null) return;
+    if (_playlist.isEmpty || trackMap == null) return;
 
-  final nativeIndex = trackMap['index'] as int? ?? -1;
-  final nativeId    = trackMap['id'];
+    final nativeIndex = trackMap['index'] as int? ?? -1;
+    final nativeId    = trackMap['id'];
 
-  final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
-      ? nativeIndex
-      : _playlist.indexWhere((s) {
-          // nativeId bisa String atau int, konversi ke int jika perlu
-          if (nativeId is String) {
-            final id = int.tryParse(nativeId);
-            return id != null && s.id == id;
-          } else if (nativeId is int) {
-            return s.id == nativeId;
-          }
-          return false;
-        });
+    final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
+        ? nativeIndex
+        : _playlist.indexWhere((s) {
+            // nativeId bisa String atau int, konversi ke int jika perlu
+            if (nativeId is String) {
+              final id = int.tryParse(nativeId);
+              return id != null && s.id == id;
+            } else if (nativeId is int) {
+              return s.id == nativeId;
+            }
+            return false;
+          });
 
-  if (resolved < 0 || resolved >= _playlist.length) {
-    LogService.warn(
-      'AudioService',
-      'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
-    );
-    return;
+    if (resolved < 0 || resolved >= _playlist.length) {
+      LogService.warn(
+        'AudioService',
+        'Unknown native track index=$nativeIndex id=$nativeId — ignoring',
+      );
+      return;
+    }
+
+    // Extract native next-track index (respects shuffle order + repeat mode).
+    //   Field present, value int  → use native value (>= 0) or -1 (no next item).
+    //   Field present, value null → no next item; -1.
+    //   Field absent              → old native build; null triggers linear fallback.
+    final int? nativeNext;
+    if (trackMap.containsKey('nextTrackIndex')) {
+      final v = trackMap['nextTrackIndex'];
+      nativeNext = v is int ? v : -1;
+    } else {
+      nativeNext = null;
+    }
+
+    // Skip full sync when the current track hasn't changed, but still update
+    // nextTrackIndex in state — it changes after queue reorders, shuffle toggles,
+    // and repeat-mode changes even if the currently-playing track is the same.
+    if (resolved == _currentIndex &&
+        playbackState.value.currentSong?.id == _playlist[resolved].id) {
+      if (nativeNext != playbackState.value.nextTrackIndex) {
+        _setState(playbackState.value.copyWith(
+          nextTrackIndex:      nativeNext,
+          clearNextTrackIndex: nativeNext == null,
+        ));
+      }
+      return;
+    }
+
+    _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext);
   }
 
-  // Skip redundant updates.
-  if (resolved == _currentIndex &&
-      playbackState.value.currentSong?.id == _playlist[resolved].id) {
-    return;
-  }
-
-  _syncCurrentTrackFromNative(resolved);
-}
-
-  static void _syncCurrentTrackFromNative(int index) {
-    final song          = _playlist[index];
-    final prevIndex     = _currentIndex;
-    _currentIndex       = index;
-    _previousSong       = song;
+  static void _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) {
+    final song      = _playlist[index];
+    final prevIndex = _currentIndex;
+    _currentIndex   = index;
+    // ARCH-01 fix: capture _previousSong BEFORE overwriting it. The static field
+    // was previously written before _applyReplayGain ran, so album-gain auto-mode
+    // always compared the current song to itself (wrong). prevSong now carries the
+    // correct predecessor into the async resolve call.
+    final prevSong  = _previousSong;
+    _previousSong   = song;
 
     _setState(playbackState.value.copyWith(
-      currentSong:     song,
-      currentIndex:    index,
-      currentPlaylist: _playlist,
-      duration:        song.duration,
+      currentSong:         song,
+      currentIndex:        index,
+      currentPlaylist:     _playlist,
+      duration:            song.duration,
+      nextTrackIndex:      nativeNextIndex,
+      clearNextTrackIndex: nativeNextIndex == null,
     ));
 
     LogService.log(
@@ -238,11 +289,21 @@ class AudioService {
 
     if (index != prevIndex) unawaited(HistoryService.trackPlay(song));
 
-    // Re-apply DSP after track transition.  Immediate + 350 ms retry for the
-    // audio-session re-attach race on MIUI 12.
+    // Re-apply DSP immediately after a track transition.
+    // ARCH-02 fix: the previous 350 ms delayed retry is removed. For gapless
+    // playback the audio session ID never changes between tracks, so effects
+    // are still valid and the immediate call is sufficient. For crossfade, the
+    // promoted standby player gets a fresh session and effects are re-attached
+    // via onAudioSessionIdChanged → effectsManager.attachEffects() AND via
+    // onCrossfadeComplete → effectsManager.attachEffects(newSessionId), making
+    // a redundant Dart-side retry unnecessary and wasteful (8-10 MethodChannel
+    // calls per track that would all be no-ops on the native side).
     AudioEffectsService.applyAll();
-    Future.delayed(const Duration(milliseconds: 350), AudioEffectsService.applyAll);
-    unawaited(_applyReplayGain(song));
+    // LOW-06 fix: chain catchError so async errors surface in logs instead of
+    // being silently dropped by the unawaited fire-and-forget pattern.
+    _applyReplayGain(song, prevSong: prevSong).catchError((Object e) {
+      LogService.warn('AudioService', '_applyReplayGain error: $e');
+    });
   }
 
   // ── Playback ──────────────────────────────────────────────────────────────
@@ -331,16 +392,15 @@ class AudioService {
     LogService.log('AudioService', 'Skip → next');
   }
 
-  /// Skip to the previous track.  If position > 3 s, seeks to 0 (Dart-side
-  /// decision for responsiveness before native round-trip).
+  /// Skip to the previous track.
+  /// MED-06 fix: Dart-side stale-position check removed. ExoPlayer's
+  /// seekToPreviousMediaItem() uses the exact native position with a built-in
+  /// 3-second threshold (maxSeekToPreviousPositionMs = 3000 ms default), which
+  /// is more accurate than using the polled Dart position that may lag by up
+  /// to one position-tick interval. This also ensures crossfade and sleep-timer
+  /// cancellation always run (handled by handleSkipPrevious in TransportCommands).
   static Future<void> skipPrevious() async {
     initialize();
-    final pos = playbackState.value.position;
-    if (pos.inSeconds > 3) {
-      await Media3PlaybackBridge.seek(Duration.zero);
-      LogService.verbose('AudioService', 'Skip previous: restarted track');
-      return;
-    }
     await Media3PlaybackBridge.skipPrevious();
     LogService.log('AudioService', 'Skip → previous');
   }
@@ -355,6 +415,11 @@ class AudioService {
       currentIndex: index,
     ));
     await Media3PlaybackBridge.setTrack(index);
+    // LOW-05 fix: explicitly start playback after a queue jump. setTrack() only
+    // seeks native ExoPlayer to the target index; it does not resume a paused
+    // player. Without this call, tapping a queue item while paused would update
+    // the UI track but leave the player paused.
+    await Media3PlaybackBridge.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
     unawaited(_applyReplayGain(song));
@@ -466,7 +531,11 @@ class AudioService {
 
   // ── ReplayGain ────────────────────────────────────────────────────────────
 
-  static Future<void> _applyReplayGain(LocalSong song) async {
+  /// ARCH-01 fix: accepts [prevSong] to avoid reading the already-overwritten
+  /// [_previousSong] static field from inside an async call. Callers that have
+  /// already advanced [_previousSong] should pass the captured predecessor here.
+  /// Callers that haven't yet overwritten [_previousSong] can omit this param.
+  static Future<void> _applyReplayGain(LocalSong song, {LocalSong? prevSong}) async {
     final mode = AudioEffectsService.replayGainMode.value;
     if (mode == ReplayGainMode.off) {
       AudioEngine.applyNormalize(enabled: false);
@@ -475,7 +544,7 @@ class AudioService {
     final data = await LoudnessSourceResolver.resolve(
       song:         song,
       mode:         mode,
-      previousSong: _previousSong,
+      previousSong: prevSong ?? _previousSong,
     );
     if (!data.hasData) {
       AudioEngine.applyNormalize(enabled: false);

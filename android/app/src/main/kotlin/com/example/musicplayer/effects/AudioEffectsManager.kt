@@ -8,6 +8,7 @@ import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
 import android.os.Build
 import android.os.Handler
+import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
 import com.example.musicplayer.events.SessionAuditLogger
 
@@ -88,17 +89,32 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         // RC-03: guard checked at every retry entry
         if (sessionId == lastAttachedSessionId) {
             log("verbose", "attachEffects skipped — already attached to session=$sessionId")
+            CrossfadeTimelineLogger.stamp(
+                "attachEffects: SKIPPED (already on session=$sessionId lastAttached=$lastAttachedSessionId)")
             return
         }
 
         // Audit: signal that we are beginning the effects-attach sequence
         if (attempt == 0) SessionAuditLogger.onEffectsAttaching(sessionId)
 
+        // ── Dropout investigation stamp ────────────────────────────────────────
+        // releaseEffects() calls .release() on Equalizer, LoudnessEnhancer, etc.
+        // On some MIUI/Android versions releasing an AudioEffect object that is
+        // still attached to an active AudioFlinger session causes a brief pipeline
+        // flush.  We stamp before AND after to measure the cost.
+        CrossfadeTimelineLogger.stamp(
+            "attachEffects: ENTER session=$sessionId attempt=$attempt" +
+            " lastAttached=$lastAttachedSessionId" +
+            " eq=${equalizer != null} loud=${loudness != null}")
+
         releaseEffects()
+        CrossfadeTimelineLogger.stamp(
+            "attachEffects: releaseEffects() DONE — old effects torn down session=$sessionId")
 
         var anyOk = false
 
         // ── Equalizer ─────────────────────────────────────────────────────────
+        CrossfadeTimelineLogger.stamp("attachEffects: Equalizer(0,$sessionId) START")
         try {
             equalizer = Equalizer(0, sessionId).also { eq ->
                 eq.enabled = eqEnabled
@@ -107,60 +123,74 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                 }
                 anyOk = true
             }
+            CrossfadeTimelineLogger.stamp("attachEffects: Equalizer ATTACHED session=$sessionId")
         } catch (e: Exception) {
             log("warn", "Equalizer init failed (session=$sessionId a${attempt+1}): ${e.message}")
+            CrossfadeTimelineLogger.stamp("attachEffects: Equalizer FAILED: ${e.message}")
         }
 
         // ── LoudnessEnhancer ──────────────────────────────────────────────────
+        CrossfadeTimelineLogger.stamp("attachEffects: LoudnessEnhancer($sessionId) START")
         try {
             loudness = LoudnessEnhancer(sessionId).also { le ->
                 le.setTargetGain(loudnessTargetMb.toInt())
                 le.enabled = loudnessEnabled
                 anyOk = true
             }
+            CrossfadeTimelineLogger.stamp("attachEffects: LoudnessEnhancer ATTACHED session=$sessionId")
         } catch (e: Exception) {
             log("warn", "LoudnessEnhancer init failed (session=$sessionId a${attempt+1}): ${e.message}")
+            CrossfadeTimelineLogger.stamp("attachEffects: LoudnessEnhancer FAILED: ${e.message}")
         }
 
         // ── BassBoost ─────────────────────────────────────────────────────────
         bassBoostSupported = false
         if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_BASS_BOOST)) {
+            CrossfadeTimelineLogger.stamp("attachEffects: BassBoost($sessionId) START")
             try {
                 bassBoost = BassBoost(0, sessionId).also { bb ->
                     bb.setStrength(bassBoostStrength)
                     bb.enabled = bassBoostEnabled
                     bassBoostSupported = true
                 }
+                CrossfadeTimelineLogger.stamp("attachEffects: BassBoost ATTACHED session=$sessionId")
             } catch (e: Exception) {
                 log("warn", "BassBoost init failed (a${attempt+1}): ${e.message}")
+                CrossfadeTimelineLogger.stamp("attachEffects: BassBoost FAILED: ${e.message}")
             }
         }
 
         // ── Virtualizer ───────────────────────────────────────────────────────
         virtualizerSupported = false
         if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) {
+            CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer($sessionId) START")
             try {
                 virtualizer = Virtualizer(0, sessionId).also { virt ->
                     virt.setStrength(virtualizerStrength)
                     virt.enabled = virtualizerEnabled
                     virtualizerSupported = true
                 }
+                CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer ATTACHED session=$sessionId")
             } catch (e: Exception) {
                 log("warn", "Virtualizer init failed (a${attempt+1}): ${e.message}")
+                CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer FAILED: ${e.message}")
             }
         }
 
         // ── PresetReverb ──────────────────────────────────────────────────────
         reverbSupported = false
         if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) {
+            CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb($sessionId) START")
             try {
                 reverb = PresetReverb(0, sessionId).also { rv ->
                     rv.preset  = toAndroidReverbPreset(reverbPreset)
                     rv.enabled = reverbPreset > 0
                     reverbSupported = true
                 }
+                CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb ATTACHED session=$sessionId")
             } catch (e: Exception) {
                 log("warn", "PresetReverb init failed (a${attempt+1}): ${e.message}")
+                CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb FAILED: ${e.message}")
             }
         }
 
@@ -168,6 +198,9 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             lastAttachedSessionId = sessionId
             log("info", "attachEffects OK session=$sessionId a${attempt+1} " +
                 "bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported")
+            CrossfadeTimelineLogger.stamp(
+                "attachEffects: ALL DONE OK session=$sessionId" +
+                " bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported")
             SessionAuditLogger.onEffectsOk(
                 sessionId = sessionId,
                 attempt   = attempt,
@@ -209,6 +242,22 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         reverb      = null
         // Do NOT reset lastAttachedSessionId here — it guards attachEffects retries.
         // It is reset in the guard at the top of attachEffects when a new session arrives.
+    }
+
+    /**
+     * Force-reattach all effects to [sessionId], bypassing the
+     * [lastAttachedSessionId] guard.
+     *
+     * Used by [AudioCapabilitiesReceiver] after an audio-output-device change
+     * (BT connect/disconnect, HDMI) where MIUI 12 can invalidate the effect
+     * chain on the existing AudioSession without changing its numeric ID.
+     * Resetting [lastAttachedSessionId] ensures [attachEffects] runs through
+     * the full init sequence rather than treating it as a no-op.
+     */
+    fun resetAndReattach(sessionId: Int) {
+        lastAttachedSessionId = AudioEffect.ERROR_BAD_VALUE
+        attachEffects(sessionId)
+        log("info", "resetAndReattach: forced re-attach to session=$sessionId")
     }
 
     // ── Effect setters ────────────────────────────────────────────────────────
@@ -333,19 +382,11 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             } catch (_: Exception) { /* fall through */ }
         }
 
-        // Fallback: try to instantiate a test effect with a dummy session
-        return try {
-            val cls = when (type) {
-                AudioEffect.EFFECT_TYPE_BASS_BOOST    -> BassBoost::class.java
-                AudioEffect.EFFECT_TYPE_VIRTUALIZER   -> Virtualizer::class.java
-                AudioEffect.EFFECT_TYPE_PRESET_REVERB -> PresetReverb::class.java
-                else                                   -> return false
-            }
-            val ctor = cls.getConstructor(Int::class.java, Int::class.java)
-            val inst = ctor.newInstance(0, 0) as AudioEffect
-            inst.release()
-            true
-        } catch (_: Exception) { false }
+        // LOW-03 fix: The original probe used sessionId=0 (the global audio session), which
+        // attaches a live effect to every audio track on the device — a serious side-effect.
+        // We now return false when queryEffects() is unavailable/empty; callers treat an
+        // unavailable report as "disable gracefully" which is the correct safe behaviour.
+        return false
     }
 
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Effects", msg)

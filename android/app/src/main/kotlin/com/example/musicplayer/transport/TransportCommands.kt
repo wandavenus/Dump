@@ -58,6 +58,18 @@ class TransportCommands(
      * created by createConfiguredPlayer() uses the appropriate LoadControl parameters.
      */
     private val onOutputModeChanged: (Int) -> Unit = {},
+    /**
+     * Item 8 — Called when the user changes the stereo widening setting.
+     * Delegates to StereoWidthManager which updates all live ChannelMixingAudioProcessor
+     * instances atomically, so both active and standby players (during crossfade) are
+     * updated simultaneously without a race condition.
+     */
+    private val onStereoWideningChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    /**
+     * Item 6 — Returns a snapshot of PlaybackStats for the active player,
+     * or null when no session is in progress.
+     */
+    private val getPlaybackStats: () -> Map<String, Any>? = { null },
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
@@ -246,6 +258,36 @@ class TransportCommands(
             "setVirtualizerStrength" -> { effectsManager.setVirtualizerStrength((call.argument<Number>("strength")?.toInt() ?: 1000).toShort()); result.success(null) }
             "setReverbPreset"        -> { effectsManager.setReverbPreset((call.argument<Number>("preset")?.toInt() ?: 0).toShort()); result.success(null) }
 
+            // ── Skip silence (Item 1) ─────────────────────────────────────────
+
+            "setSkipSilence" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                applySkipSilence(enabled)
+                log("info", "setSkipSilence: $enabled")
+                result.success(null)
+            }
+
+            // ── Stereo widening (Item 8) ──────────────────────────────────────
+
+            /**
+             * Enables/disables software stereo widening via ChannelMixingAudioProcessor.
+             *
+             * [strength] range: 0.0 (no effect) … 1.0 (maximum, ~25 % extra separation).
+             * Applied atomically to all live ExoPlayer instances via StereoWidthManager;
+             * no race between active and standby players during crossfade.
+             *
+             * Compatible with all software effects (EQ, BassBoost, etc.) — runs in
+             * ExoPlayer pipeline, not AudioFlinger effects chain.
+             * Incompatible with tunneling (audio bypasses the pipeline entirely).
+             */
+            "setStereoWidening" -> {
+                val enabled  = call.argument<Boolean>("enabled") ?: false
+                val strength = call.argument<Number>("strength")?.toFloat() ?: 0.5f
+                onStereoWideningChanged(enabled, strength.coerceIn(0f, 1f))
+                log("info", "setStereoWidening: enabled=$enabled strength=$strength")
+                result.success(null)
+            }
+
             // ── Audio Offload ─────────────────────────────────────────────────
 
             "setOffloadSchedulingEnabled" -> {
@@ -316,6 +358,18 @@ class TransportCommands(
             "getEffectSupport" -> result.success(effectsManager.effectSupportMap())
 
             "getEqualizerParameters" -> result.success(effectsManager.equalizerParameters())
+
+            // ── Playback stats (Item 6) ───────────────────────────────────────
+
+            /**
+             * Returns accumulated PlaybackStats for the current active-player session.
+             * Fields: totalPlayTimeMs, totalBufferingTimeMs, totalRebufferCount,
+             *         totalErrorCount.
+             * Returns null when no session is in progress.
+             */
+            "getPlaybackStats" -> {
+                result.success(getPlaybackStats())
+            }
 
             "getPlaybackSnapshot" -> {
                 val state = when (p.playbackState) {
@@ -430,8 +484,26 @@ class TransportCommands(
     private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
         SessionAuditLogger.onSkipPrev()
         sleepTimerManager.cancel()
+
+        // Capture before cancel() + clearStandbyQueue() erase this information.
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
+
+        // If a crossfade was in flight, the active player was already promoted to
+        // the standby (1 item) before the fade completed.  cancel() stops the fade
+        // but does NOT call rebuildPlayerQueue(), so the player still has only 1
+        // MediaItem.  With REPEAT_MODE_ALL, seekToPreviousMediaItem() / previousMediaItemIndex
+        // on a 1-item player wraps to the same item — locking playback on one track.
+        // Fix: restore the full queue and the correct activeQueueIndex before seeking.
+        if (wasCrossfading &&
+            promotedIndex in queueManager.queue.indices &&
+            p.mediaItemCount < queueManager.queue.size) {
+            queueManager.setActiveQueueIndex(promotedIndex)
+            queueManager.rebuildPlayerQueue()
+        }
 
         if (p.playbackState == Player.STATE_ENDED) {
             val prevIndex = p.previousMediaItemIndex
@@ -458,8 +530,23 @@ class TransportCommands(
     private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
         SessionAuditLogger.onSkipNext()
         sleepTimerManager.cancel()
+
+        // Capture before cancel() + clearStandbyQueue() erase this information.
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
+
+        // Same partial-queue fix as handleSkipPrevious — see that function for the
+        // full explanation.  Without this, skipNext on a 1-item promoted player with
+        // REPEAT_MODE_ALL wraps to the same item and locks playback on one track.
+        if (wasCrossfading &&
+            promotedIndex in queueManager.queue.indices &&
+            p.mediaItemCount < queueManager.queue.size) {
+            queueManager.setActiveQueueIndex(promotedIndex)
+            queueManager.rebuildPlayerQueue()
+        }
 
         if (p.playbackState == Player.STATE_ENDED) {
             val nextIndex = p.nextMediaItemIndex
@@ -530,6 +617,22 @@ class TransportCommands(
         p.seekTo(posMs)
         SessionAuditLogger.onSeek(posMs)
         log("verbose", "seekNative → ${posMs}ms")
+    }
+
+    /**
+     * MED-01/CRIT-01 support: jump to a specific queue index. Called from
+     * [ActivePlayerProxy.seekTo] when an external controller (Android Auto,
+     * AVRCP media browser) sends seekTo(mediaItemIndex, positionMs) with a
+     * non-INDEX_UNSET mediaItemIndex. Mirrors the "setTrack" MethodChannel branch.
+     */
+    fun setTrackNative(index: Int) {
+        sleepTimerManager.cancel()
+        crossfadeController.cancel(resetVolume = true)
+        preloadManager.clearStandbyQueue()
+        queueManager.setTrack(index)
+        if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack()
+        queueSync.save()
+        log("info", "setTrack(native): [$index]")
     }
 
     private fun log(level: String, msg: String) = NativeLogger.emit(level, "Transport", msg)

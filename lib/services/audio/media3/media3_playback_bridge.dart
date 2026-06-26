@@ -31,7 +31,8 @@ class Media3PlaybackBridge {
   static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
   static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
   static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
-  static const EventChannel _skipSilenceEvents     = EventChannel('musicplayer/media3_skipSilence');
+  static const EventChannel _skipSilenceEvents      = EventChannel('musicplayer/media3_skipSilence');
+  static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
 
   // Keep deprecated public refs for callers that use them directly.
   static const EventChannel playbackStateEvents   = _playbackStateEvents;
@@ -147,6 +148,19 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
           .receiveBroadcastStream()
           .where((e) => e is bool)
           .cast<bool>()
+          .asBroadcastStream();
+
+  /// Live stereo-widening state — emitted after [StereoWidthManager] applies
+  /// the matrix to all live [ChannelMixingAudioProcessor] instances.
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with two keys:
+  ///   `enabled`  — bool: whether widening is active.
+  ///   `strength` — double: width factor in [0.0, 1.0].
+  static final Stream<Map<dynamic, dynamic>> stereoWideningStream =
+      _stereoWideningEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
 
   // ── Internal invoke with retry ─────────────────────────────────────────────
@@ -278,6 +292,33 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
 
   static Future<void> setReverbPreset(int preset) =>
       _invoke<void>('setReverbPreset', {'preset': preset});
+
+  // ── Skip silence (Item 1) ─────────────────────────────────────────────────
+
+  static Future<void> setSkipSilence(bool enabled) =>
+      _invoke<void>('setSkipSilence', {'enabled': enabled});
+
+  // ── Stereo widening (Item 8) ──────────────────────────────────────────────
+
+  static Future<void> setStereoWidening({
+    required bool enabled,
+    required double strength,
+  }) =>
+      _invoke<void>('setStereoWidening', {
+        'enabled': enabled,
+        'strength': strength,
+      });
+
+  // ── Playback stats (Item 6) ───────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getPlaybackStats() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackStats');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ── Audio Offload ─────────────────────────────────────────────────────────
 

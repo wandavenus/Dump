@@ -28,6 +28,9 @@ class PlayerContent extends StatefulWidget {
 
 class _PlayerContentState extends State<PlayerContent> {
   static const _smallCoverSize = 55.0;
+
+  bool _showMarquee = false;
+  Timer? _marqueeTimer;
   
   double _lyricsExpand = 0.0;
   static const _animDuration = Duration(milliseconds: 400);
@@ -39,25 +42,28 @@ class _PlayerContentState extends State<PlayerContent> {
   final _lyricsScrollController = ScrollController();
   final _queueScrollController  = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchLyricsIfNeeded();
-  }
+@override
+void initState() {
+  super.initState();
+  _fetchLyricsIfNeeded();
+  _restartMarquee();
+}
 
   @override
-  void dispose() {
-    _lyricsScrollController.dispose();
-    _queueScrollController.dispose();
-    super.dispose();
-  }
+void dispose() {
+  _marqueeTimer?.cancel();
+  _lyricsScrollController.dispose();
+  _queueScrollController.dispose();
+  super.dispose();
+}
 
   @override
   void didUpdateWidget(PlayerContent old) {
     super.didUpdateWidget(old);
     if (old.song.id != widget.song.id) {
-      _fetchLyricsIfNeeded();
-    }
+  _fetchLyricsIfNeeded();
+  _restartMarquee();
+}
     // Reset lyricsExpand when lyrics mode is turned off so bottom controls
     // are not left hidden when switching to queue or normal mode.
     if (old.showLyrics && !widget.showLyrics && _lyricsExpand > 0) {
@@ -77,6 +83,17 @@ class _PlayerContentState extends State<PlayerContent> {
     });
   }
 
+  void _restartMarquee() {
+  _marqueeTimer?.cancel();
+
+  setState(() => _showMarquee = false);
+
+  _marqueeTimer = Timer(const Duration(seconds: 2), () {
+    if (!mounted) return;
+    setState(() => _showMarquee = true);
+  });
+  }
+  
   @override
   Widget build(BuildContext context) {
     final progress = PlayerSheetController.progress.value;
@@ -88,7 +105,9 @@ class _PlayerContentState extends State<PlayerContent> {
     // Both overlay modes share the same artwork-shrink + song-info-fade behaviour.
     final showOverlay = showLyrics || showQueue;
 
-    return Padding(
+    return Stack(
+      children: [
+      Padding(
       padding: const EdgeInsets.only(top: 25),
       child: Column(
         children: [
@@ -101,7 +120,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                 // Normal-mode cover: centred, leaving ~80 px for the song header.
                 final coverLeft = (sw - largeCoverSize) / 2;
-                final rawTop = (sh - largeCoverSize - 80) / 2 - 10;
+                final rawTop = (sh - largeCoverSize - 80) / 2 - 20;
                 final coverTop = rawTop.clamp(8.0, 60.0);
 
                 // Overlay content starts just below the small thumbnail.
@@ -223,7 +242,7 @@ class _PlayerContentState extends State<PlayerContent> {
                     // ── Mini song header — shown next to small artwork ─────────
                     Positioned(
                       top: 4,
-                      left: 22 + _smallCoverSize + 25,
+                      left: 16 + _smallCoverSize + 25,
                       
                       child: AnimatedOpacity(
                         duration: _animDuration,
@@ -235,7 +254,7 @@ class _PlayerContentState extends State<PlayerContent> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-  width: 185,
+  width: 200,
   child: ShaderMask(
     shaderCallback: (rect) {
       return const LinearGradient(
@@ -249,27 +268,43 @@ class _PlayerContentState extends State<PlayerContent> {
         ],
         stops: [
           0.0,
-          0.12,
+          0.20,
           0.88,
           1.0,
         ],
       ).createShader(rect);
     },
     blendMode: BlendMode.dstIn,
-    child: TextScroll(
-      widget.song.title,
-      mode: TextScrollMode.endless,
-      velocity: const Velocity(
-        pixelsPerSecond: Offset(25, 0),
-      ),
-      delayBefore: const Duration(seconds: 2),
-      pauseBetween: const Duration(seconds: 2),
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
-      ),
+   child : AnimatedCrossFade(
+  duration: const Duration(milliseconds: 250),
+  crossFadeState: _showMarquee
+      ? CrossFadeState.showSecond
+      : CrossFadeState.showFirst,
+  firstChild: Text(
+    widget.song.title,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
     ),
+  ),
+  secondChild: TextScroll(
+    widget.song.title,
+    mode: TextScrollMode.endless,
+    velocity: const Velocity(
+      pixelsPerSecond: Offset(25, 0),
+    ),
+    delayBefore: Duration.zero,
+    pauseBetween: const Duration(seconds: 2),
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+),
   ),
 ),
                               const SizedBox(height: 1),
@@ -300,7 +335,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       progress,
                       )!,
                       left: showOverlay
-                      ? _playerHorizontalPadding
+                      ? 16
                       : lerpDouble(
                       22.0,
                       coverLeft,
@@ -331,10 +366,10 @@ height: showOverlay
                         decoration: BoxDecoration(
   borderRadius: BorderRadius.circular(
     showOverlay
-        ? 8
+        ? 3
         : lerpDouble(
-            6,
-            12,
+            3,
+            3,
             progress,
           )!,
   ),
@@ -468,6 +503,14 @@ height: showOverlay
         ),
       ],
     ),
+    ),
+      Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: PlayerUpNextCard(showOverlay: showOverlay),
+      ),
+    ],
   );
 }
 
@@ -575,7 +618,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
 
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 17,
+    horizontal: 16,
   ),
   child: Row(
     children: [
@@ -612,7 +655,7 @@ const SizedBox(height: 17),
             
 Padding(
   padding: const EdgeInsets.symmetric(
-    horizontal: 17,
+    horizontal: 16,
   ),
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +695,7 @@ const SizedBox(height: 15),
   ],
   stops: [
     0.0,
-    0.70,
+    0.60,
     1.0,
   ],
 ).createShader(rect);
@@ -723,7 +766,7 @@ class _QueueRow extends StatelessWidget {
                 child: SongArtwork(
                         songId: song.id,
                         size: 44,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(3),
                       ),
               ),
               const SizedBox(width: 12),
@@ -766,7 +809,7 @@ class _QueueRow extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Icon(
-                    Icons.drag_handle_rounded,
+                    CupertinoIcons.line_horizontal_3,
                     color: Colors.white.withValues(alpha: 0.3),
                     size: 22,
                   ),
@@ -980,9 +1023,9 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
     // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
       child: ColoredBox(
-        color: const Color(0xBF0D0D0D),
+        color: Colors.black,
         child: SafeArea(
           top: false,
           child: Padding(
@@ -1021,14 +1064,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                   _label('Warna Aktif'),
                   const SizedBox(height: 8),
                   const _ColorPicker(),
-                  const SizedBox(height: 16),
-                  _label('Kegelapan Latar'),
-                  const SizedBox(height: 4),
-                  const _DimSlider(),
-                  const SizedBox(height: 12),
-                  _label('Kekuatan Blur'),
-                  const SizedBox(height: 4),
-                  const _BlurSlider(),
+                  
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -1164,7 +1200,7 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih', color: Color(0xFFFFFFFF), value: 'white'),
+    (label: 'Putih', color: Colors.black, value: 'white'),
     (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
     (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
   ];
@@ -1223,19 +1259,19 @@ class _DimSlider extends StatelessWidget {
       valueListenable: LyricsSettings.bgDim,
       builder: (_, v, _) => Row(
         children: [
-          const Icon(Icons.brightness_high, color: Colors.white38, size: 16),
+          
           Expanded(
             child: Slider(
               value: v,
               min: 0.2,
               max: 0.95,
-              divisions: 15,
-              activeColor: const Color(0xFFF92D48),
-              inactiveColor: Colors.white12,
+              
+              activeColor: Colors.transparent,
+              inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBgDim,
             ),
           ),
-          const Icon(Icons.brightness_low, color: Colors.white38, size: 16),
+          
         ],
       ),
     );
@@ -1253,19 +1289,19 @@ class _BlurSlider extends StatelessWidget {
       valueListenable: LyricsSettings.blurStrength,
       builder: (_, v, _) => Row(
         children: [
-          const Icon(CupertinoIcons.photo, color: Colors.white38, size: 16),
+          
           Expanded(
             child: Slider(
               value: v,
               min: 0,
               max: 50,
-              divisions: 10,
-              activeColor: const Color(0xFFF92D48),
-              inactiveColor: Colors.white12,
+              
+              activeColor: Colors.transparent,
+              inactiveColor: Colors.transparent,
               onChanged: LyricsSettings.setBlurStrength,
             ),
           ),
-          const Icon(Icons.blur_on, color: Colors.white38, size: 16),
+          
         ],
       ),
     );
@@ -1298,7 +1334,7 @@ class _QueueControlButton extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           color: active
-              ? _activeColor.withValues(alpha: 0.18)
+              ? _activeColor.withValues(alpha: 0.48)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
