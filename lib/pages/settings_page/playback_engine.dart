@@ -10,7 +10,7 @@ class _PlaybackEngineSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('Engine Tunnel'),
+        const SettingsSectionHeader('Engine Tunneling'),
         const SizedBox(height: 6),
 
         // ── Skip Silence (Item 1) ────────────────────────────────────────────
