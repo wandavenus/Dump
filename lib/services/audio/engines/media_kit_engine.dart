@@ -42,6 +42,15 @@ class MediaKitEngine implements AbstractAudioEngine {
   double _speed       = 1.0;
   double _pitchFactor = 1.0;
 
+  // Position update throttle for the Android MediaSession seek bar.
+  // Tracks the wall-clock time (ms) of the last updatePlaybackState call that
+  // carried a position update.  Reset to 0 on track change or seek so the
+  // first emission after those events is always forwarded immediately.
+  int _lastPositionSentMs = 0;
+
+  /// Minimum interval between position-only pushes to the Android service.
+  static const int _kPositionUpdateIntervalMs = 5000; // 5 s
+
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
   Timer? _sleepCountdownTick;
@@ -140,8 +149,11 @@ class MediaKitEngine implements AbstractAudioEngine {
         _emitPlaybackState(completed: true);
       }),
 
-      // position
-      p.stream.position.listen(_positionCtrl.add),
+      // position — forward to Dart stream and throttle-push to Android service
+      p.stream.position.listen((pos) {
+        _positionCtrl.add(pos);
+        _pushPositionIfDue(pos);
+      }),
 
       // duration
       p.stream.duration.listen(_durationCtrl.add),
@@ -157,6 +169,9 @@ class MediaKitEngine implements AbstractAudioEngine {
           'id':             song.id,
           'nextTrackIndex': _computeNextIndex(idx),
         });
+        // Reset position throttle so the first position event for the new
+        // track is forwarded immediately (seek bar snaps to 0:00 at once).
+        _lastPositionSentMs = 0;
         // Push track metadata to the Android foreground service so the
         // notification and lock-screen controls show the correct song.
         MediaKitServiceBridge.updateMetadata(
@@ -170,6 +185,38 @@ class MediaKitEngine implements AbstractAudioEngine {
 
     // Emit session ID placeholder — media_kit tidak mengekspos audioSessionId.
     _audioSessionCtrl.add(-1);
+  }
+
+  // ── Position throttle push ────────────────────────────────────────────────
+
+  /// Conditionally forwards [pos] to the Android [MediaKitPlaybackService] so
+  /// the lock-screen / Wear OS seek bar stays accurate during playback.
+  ///
+  /// Strategy: piggyback on the existing [p.stream.position] subscription
+  /// (which media_kit already fires ~every 100 ms while playing) instead of
+  /// running a separate [Timer.periodic].  This avoids waking the Dart isolate
+  /// on a separate schedule and naturally stops when [p.stream.position] goes
+  /// quiet (i.e., when playback is paused or the player is idle).
+  ///
+  /// Two gates prevent unnecessary [MethodChannel] traffic:
+  ///   1. **Playing guard** — skipped immediately if the player is not
+  ///      currently playing (paused, stopped, or buffering with no audio).
+  ///   2. **Timestamp gate** — skipped if fewer than [_kPositionUpdateIntervalMs]
+  ///      ms have elapsed since the last successful push.
+  ///
+  /// [_lastPositionSentMs] is reset to 0 on track change and after a manual
+  /// seek so those events always produce an immediate update.
+  void _pushPositionIfDue(Duration pos) {
+    if (!(_player?.state.playing ?? false)) return;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastPositionSentMs < _kPositionUpdateIntervalMs) return;
+    _lastPositionSentMs = nowMs;
+    // Fire-and-forget — we deliberately do not await so the stream listener
+    // returns immediately. Errors are swallowed inside updatePlaybackState.
+    MediaKitServiceBridge.updatePlaybackState(
+      isPlaying:  true,
+      positionMs: pos.inMilliseconds,
+    );
   }
 
   // ── Transport command handler (from native via EventChannel) ──────────────
@@ -194,6 +241,7 @@ class MediaKitEngine implements AbstractAudioEngine {
         }
       case 'seek':
         if (positionMs != null) {
+          _lastPositionSentMs = 0; // force immediate push after seek completes
           _player?.seek(Duration(milliseconds: positionMs));
         }
       case 'stop':
@@ -228,6 +276,10 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> seek(Duration position) async {
+    // Reset throttle so the next position event (emitted by media_kit right
+    // after the seek completes) is forwarded to the service immediately,
+    // keeping the lock-screen seek bar accurate after a manual seek.
+    _lastPositionSentMs = 0;
     await _player?.seek(position);
     LogService.verbose('MediaKitEngine', 'seek(${position.inSeconds}s)');
   }
