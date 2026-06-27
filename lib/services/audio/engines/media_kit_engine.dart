@@ -203,7 +203,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   }
 
   // ── Queue mutations ───────────────────────────────────────────────────────
-  // media_kit 1.2.6 tidak mendukung mutasi antrian in-place —
+  // media_kit 1.2.x tidak mendukung mutasi antrian in-place —
   // seluruh mutasi rebuild playlist.
   // TODO: perbarui saat media_kit menambahkan API add/remove/move per item.
 
@@ -252,10 +252,22 @@ class MediaKitEngine implements AbstractAudioEngine {
     LogService.log('MediaKitEngine', 'reorderQueue($oldIndex → $newIndex)');
   }
 
+  /// Rebuilds the media_kit [Playlist] from [songs], jumping to [targetIndex].
+  ///
+  /// Position is restored only when the currently-playing track is still at
+  /// [targetIndex] in the new list — identified by song ID, not index value.
+  /// This fixes the bug where removing an item BEFORE the current track shifts
+  /// the index, causing position restoration to be incorrectly skipped.
   Future<void> _rebuildQueue(List<LocalSong> songs, int targetIndex) async {
     final wasPlaying = _player?.state.playing ?? false;
     final position   = _player?.state.position ?? Duration.zero;
     final prevIndex  = _currentIndex;
+
+    // Determine whether the currently-playing track is still at targetIndex
+    // by comparing song IDs, not raw index values.
+    final sameTrack = prevIndex  < _queue.length &&
+        targetIndex < songs.length &&
+        songs[targetIndex].id == _queue[prevIndex].id;
 
     _queue        = List.unmodifiable(songs);
     _currentIndex = targetIndex;
@@ -265,8 +277,7 @@ class MediaKitEngine implements AbstractAudioEngine {
       play: false,
     );
 
-    // Restore position only when the currently-playing track is still the same.
-    if (_currentIndex == prevIndex) await _player?.seek(position);
+    if (sameTrack && position > Duration.zero) await _player?.seek(position);
     if (wasPlaying) await _player?.play();
     _emitQueueSnapshot();
   }
@@ -306,7 +317,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     await _player?.setRate(speed.clamp(0.25, 4.0));
   }
 
-  /// media_kit 1.2.6 tidak memisahkan pitch dari rate.
+  /// media_kit 1.2.x tidak memisahkan pitch dari rate.
   /// Pitch diaplikasikan sebagai multiplier terhadap rate saat ini.
   @override
   Future<void> setPitch(double pitch) async {
@@ -450,7 +461,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override Stream<Map<dynamic, dynamic>> get playbackStateStream => _playbackStateCtrl.stream;
   @override Stream<Duration>              get positionStream       => _positionCtrl.stream;
   @override Stream<Duration>              get durationStream       => _durationCtrl.stream;
-  @override Stream<Map<dynamic, dynamic>?> get currentTrackStream  => _currentTrackCtrl.stream;
+  @override Stream<Map<dynamic, dynamic>?> get currentTrackStream => _currentTrackCtrl.stream;
   @override Stream<List<dynamic>>         get queueStream          => _queueCtrl.stream;
   @override Stream<bool>                  get bufferingStateStream => _bufferingCtrl.stream;
   @override Stream<bool>                  get shuffleModeStream    => _shuffleCtrl.stream;

@@ -1,14 +1,17 @@
 part of '../media_capabilities_service.dart';
 
-/// Dart facade for the 8 new Media3 1.10.1 features.
+/// Dart facade for Media3 advanced playback capabilities.
 ///
 /// All heavy processing runs natively inside [Media3PlaybackService.kt].
 /// This class:
 ///   • Owns [ValueNotifier]s for each setting (UI binds to these).
 ///   • Persists every setting to [SharedPreferences] under the 'mcap_' prefix.
-///   • Forwards changes to native via [Media3PlaybackBridge].
-///   • Mirrors the native [skipSilenceStream] so the UI stays in sync with
-///     changes made by other code paths (e.g. a future notification action).
+///   • Forwards changes to the active engine via [AudioEngineManager].
+///   • Mirrors the native skip-silence and stereo-widening state streams so
+///     the UI stays in sync with changes confirmed by the active engine.
+///
+/// No layer in this file may reference Media3PlaybackBridge directly.
+/// All engine calls go through [AudioEngineManager].
 ///
 /// Lifecycle: call [initialize()] once in [main()] after [AudioEffectsService].
 class MediaCapabilitiesService {
@@ -32,44 +35,44 @@ class MediaCapabilitiesService {
   static final ValueNotifier<bool>   stereoWideningEnabled  = ValueNotifier(false);
   static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(0.5);
 
-  // ── Stream subscriptions (native → Dart mirror) ───────────────────────────
+  // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
-  static StreamSubscription<bool>?                     _skipSilenceSub;
-  static StreamSubscription<Map<dynamic, dynamic>>?    _stereoWideningSub;
+  static StreamSubscription<bool>?                  _skipSilenceSub;
+  static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
 
-  /// Load persisted values, subscribe to all three native state streams,
-  /// then push every setting to the native service so cold starts are in sync.
+  /// Load persisted values, subscribe to engine state streams,
+  /// then push every setting to the active engine so cold starts are in sync.
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')    ?? false;
-    stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')  ?? false;
+    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')      ?? false;
+    stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')    ?? false;
     stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
 
     // ── Skip silence ─────────────────────────────────────────────────────────
-    // Mirrors ExoPlayer's onSkipSilenceEnabledChanged callback so the toggle
-    // is always correct even when native overrides the value for any reason
-    // (e.g. a future ExoPlayer version that resets silence-skip on seek).
+    // Subscribes to the engine-manager-forwarded stream so the toggle
+    // stays correct even when the native engine overrides the value
+    // (e.g. future ExoPlayer version resets silence-skip on seek).
     _skipSilenceSub?.cancel();
-    _skipSilenceSub = Media3PlaybackBridge.skipSilenceStream.listen((v) {
+    _skipSilenceSub = AudioEngineManager.skipSilenceStream.listen((v) {
       if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
     });
 
     // ── Stereo widening ───────────────────────────────────────────────────────
-    // Mirrors the StereoWidthManager confirmation after it has applied the
-    // ChannelMixingMatrix to all live processors. This ensures `strength` is
-    // always the value ExoPlayer is actually using, not just what was requested.
+    // Mirrors the engine confirmation after the processor matrix is applied.
+    // Ensures `strength` is always the value the engine is actually using,
+    // not just what was requested.
     _stereoWideningSub?.cancel();
-    _stereoWideningSub = Media3PlaybackBridge.stereoWideningStream.listen((map) {
+    _stereoWideningSub = AudioEngineManager.stereoWideningStream.listen((map) {
       final enabled  = map['enabled']  as bool?   ?? false;
       final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
       if (stereoWideningEnabled.value  != enabled)  stereoWideningEnabled.value  = enabled;
       if (stereoWideningStrength.value != strength) stereoWideningStrength.value = strength;
     });
 
-    // Push all settings to native on startup.
+    // Push all settings to active engine on startup.
     unawaited(_applyAll());
 
     LogService.log('MediaCap', 'Initialized — skipSilence=${skipSilenceEnabled.value} '
@@ -77,8 +80,8 @@ class MediaCapabilitiesService {
   }
 
   static Future<void> _applyAll() async {
-    unawaited(Media3PlaybackBridge.setSkipSilence(skipSilenceEnabled.value));
-    unawaited(Media3PlaybackBridge.setStereoWidening(
+    unawaited(AudioEngineManager.setSkipSilence(skipSilenceEnabled.value));
+    unawaited(AudioEngineManager.setStereoWidening(
       enabled:  stereoWideningEnabled.value,
       strength: stereoWideningStrength.value,
     ));
@@ -91,17 +94,17 @@ class MediaCapabilitiesService {
     skipSilenceEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}skipSilence', value);
-    unawaited(Media3PlaybackBridge.setSkipSilence(value));
+    unawaited(AudioEngineManager.setSkipSilence(value));
     LogService.log('MediaCap', 'skipSilence: $value');
   }
 
   /// Item 8: Toggle stereo widening.  Sends current [stereoWideningStrength]
-  /// alongside the enable flag so native can apply both atomically.
+  /// alongside the enable flag so the engine can apply both atomically.
   static Future<void> setStereoWidening(bool value) async {
     stereoWideningEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}stereoEnabled', value);
-    unawaited(Media3PlaybackBridge.setStereoWidening(
+    unawaited(AudioEngineManager.setStereoWidening(
       enabled:  value,
       strength: stereoWideningStrength.value,
     ));
@@ -115,7 +118,7 @@ class MediaCapabilitiesService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('${_kPrefix}stereoStrength', v);
     if (stereoWideningEnabled.value) {
-      unawaited(Media3PlaybackBridge.setStereoWidening(
+      unawaited(AudioEngineManager.setStereoWidening(
         enabled:  true,
         strength: v,
       ));
@@ -127,9 +130,8 @@ class MediaCapabilitiesService {
 
   /// Item 6: Fetch accumulated [PlaybackStats] for the active player session.
   ///
-  /// Returns null when the native service is not running or no playback
-  /// session has begun (stats are only accumulated from the moment the first
-  /// player listener is attached on service startup).
+  /// Returns null when the active engine does not support playback stats,
+  /// or when no playback session has begun.
   ///
   /// Fields in the returned map:
   ///   `totalPlayTimeMs`      — milliseconds of audio actually played.
@@ -137,7 +139,7 @@ class MediaCapabilitiesService {
   ///   `totalRebufferCount`   — number of rebuffer events (local files → 0).
   ///   `totalErrorCount`      — number of playback errors during this session.
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
-      Media3PlaybackBridge.getPlaybackStats();
+      AudioEngineManager.getPlaybackStats();
 
   // ── Dispose ───────────────────────────────────────────────────────────────
 

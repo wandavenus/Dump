@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import '../../../models/local_song.dart';
+import '../../log_service.dart';
 import '../engine_abstraction.dart';
 import '../media3/media3_playback_bridge.dart';
 
-/// Engine yang membungkus implementasi Media3/ExoPlayer.
+/// Engine wrapping the native Media3 / ExoPlayer implementation.
 ///
-/// Seluruh logika DSP, crossfade, antrian, efek, dll. tetap di native Kotlin.
-/// Kelas ini meneruskan perintah dan stream ke [Media3PlaybackBridge].
+/// All DSP, crossfade, queue management, and audio processing remain in
+/// Kotlin inside [Media3PlaybackService].  This class forwards commands
+/// and stream subscriptions through [Media3PlaybackBridge].
 ///
-/// [Media3PlaybackBridge] adalah satu-satunya kelas yang diizinkan
-/// berkomunikasi dengan Android MethodChannel/EventChannel playback.
+/// ENCAPSULATION RULE:
+///   [Media3PlaybackBridge] is the ONLY class that may communicate with the
+///   Android MethodChannel / EventChannel playback layer.  This file is the
+///   only Dart file that may import [Media3PlaybackBridge].
 class Media3Engine implements AbstractAudioEngine {
   bool _initialized = false;
 
@@ -19,20 +23,43 @@ class Media3Engine implements AbstractAudioEngine {
   @override
   Future<void> initialize() async {
     _initialized = true;
+    LogService.log('Media3Engine', 'Initialized');
   }
 
-  /// Menghentikan playback native dan melepas resource.
+  /// Releases all Media3-owned playback resources and stops the native service.
   ///
-  /// Memanggil [Media3PlaybackBridge.stop] untuk mentransisikan ExoPlayer ke
-  /// STATE_IDLE, yang memicu [Media3PlaybackService] untuk menghentikan
-  /// foreground service dan melepas MediaSession.
+  /// Steps performed:
+  ///   1. Guards against double-dispose by clearing [_initialized] first.
+  ///   2. Calls [Media3PlaybackBridge.stop] to transition ExoPlayer to
+  ///      STATE_IDLE — this triggers [Media3PlaybackService] to:
+  ///        • Stop the foreground notification.
+  ///        • Release the MediaSession.
+  ///        • Release both ExoPlayer instances.
+  ///        • Release audio focus.
+  ///        • Cancel native sleep timers.
+  ///        • Unregister all native listeners.
+  ///   3. Waits 300 ms so the Android service fully transitions before the
+  ///      incoming engine begins claiming its own audio resources.
+  ///
+  /// Stream subscriptions held by [AudioEngineManager] are cancelled by the
+  /// manager before [dispose] is called, so no orphan listeners remain after
+  /// this method returns.
   @override
   Future<void> dispose() async {
     if (!_initialized) return;
+    // Set false before any await to prevent concurrent double-dispose.
+    _initialized = false;
+    LogService.log('Media3Engine', 'Disposing — releasing native playback resources');
     try {
       await Media3PlaybackBridge.stop();
-    } catch (_) {}
-    _initialized = false;
+      // Allow the Android service time to reach STATE_IDLE and release
+      // MediaSession + ExoPlayer before the next engine initialises.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    } catch (e) {
+      // Native side may already be idle / not running — safe to ignore.
+      LogService.warn('Media3Engine', 'dispose() stop error (ignored): $e');
+    }
+    LogService.log('Media3Engine', 'Disposed — all native resources released');
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────

@@ -2,16 +2,19 @@ part of '../audio_service.dart';
 
 /// Main facade for all audio playback operations.
 ///
-/// Architecture (native-first):
-///   Flutter UI → AudioService → Media3PlaybackBridge
-///              → Media3PlaybackService.kt → ExoPlayer
+/// Architecture (hybrid engine):
+///   Flutter UI → AudioService → AudioEngineManager
+///                              → AbstractAudioEngine
+///                                ├── Media3Engine → Media3PlaybackBridge
+///                                │                → Media3PlaybackService.kt → ExoPlayer
+///                                └── MediaKitEngine → media_kit Player
 ///
-/// Native owns: queue, shuffle order, repeat mode, sleep timer, crossfade,
-///              all audio effects, and persistence.
-/// Flutter owns: AudioPlaybackState (mirror built from EventChannel streams)
+/// Native (Media3) owns: queue, shuffle order, repeat mode, sleep timer,
+///                       crossfade, all audio effects, and persistence.
+/// Flutter owns: AudioPlaybackState (mirror built from engine streams)
 ///               and the raw LocalSong model objects.
 ///
-/// All state flows native → Dart via EventChannels.
+/// All state flows engine → AudioEngineManager → Dart via forwarding streams.
 /// Dart never computes shuffle/repeat/next-index independently.
 class AudioService {
   AudioService._();
