@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import '../../../models/local_song.dart';
 import '../engine_abstraction.dart';
 import '../../log_service.dart';
+import '../mediakit/mediakit_service_bridge.dart';
 
 /// Engine berbasis media_kit 1.2.6.
 ///
@@ -21,7 +22,7 @@ import '../../log_service.dart';
 ///   ✅ Pitch — independen dari speed; keduanya di-compose ke rate tunggal
 ///   ✅ Sleep timer (Dart-side Timer)
 ///   ✅ Queue persistence (via getPlaybackSnapshot)
-///   ⚠️  Notification/Lock screen — bergantung pada media_kit platform library
+///   ✅ Notification / Lock screen / BT controls (via MediaKitPlaybackService)
 ///   ❌ DSP (EQ, Bass, Reverb, Virtualizer, Crossfade, LoudnessEnhancer):
 ///      semua DSP method adalah no-op yang aman.
 ///   ❌ Skip silence / Stereo widening — no-op; stream memancar state lokal.
@@ -73,13 +74,31 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> initialize() async {
     _player = Player();
+
+    // Register transport command handler BEFORE startListening() so no
+    // command is missed if the service emits before the subscription is ready.
+    MediaKitServiceBridge.setTransportCommandHandler(_handleTransportCommand);
+
+    // Subscribe to player events first so the engine handles any commands
+    // that arrive immediately after service start.
     _subscribeToPlayer();
+
+    // Start the Android foreground service (no-op on non-Android platforms).
+    await MediaKitServiceBridge.startService();
+    await MediaKitServiceBridge.startListening();
+
     LogService.log('MediaKitEngine', 'Initialized');
   }
 
   @override
   Future<void> dispose() async {
     _cancelSleepTimerInternal();
+
+    // Tell the Android service to remove the notification and stop itself
+    // before cancelling the event subscription.
+    await MediaKitServiceBridge.stopService();
+    await MediaKitServiceBridge.stopListening();
+
     for (final s in _subs) {
       s.cancel();
     }
@@ -96,9 +115,13 @@ class MediaKitEngine implements AbstractAudioEngine {
     if (p == null) return;
 
     _subs.addAll([
-      // playing / processingState
+      // playing / processingState → emit to Dart stream + push to Android service
       p.stream.playing.listen((playing) {
         _emitPlaybackState(playing: playing);
+        MediaKitServiceBridge.updatePlaybackState(
+          isPlaying:  playing,
+          positionMs: p.state.position.inMilliseconds,
+        );
       }),
 
       // buffering
@@ -123,7 +146,7 @@ class MediaKitEngine implements AbstractAudioEngine {
       // duration
       p.stream.duration.listen(_durationCtrl.add),
 
-      // playlist / current track
+      // playlist / current track → emit to Dart stream + push metadata to service
       p.stream.playlist.listen((state) {
         final idx = state.index;
         if (idx < 0 || idx >= _queue.length) return;
@@ -134,11 +157,51 @@ class MediaKitEngine implements AbstractAudioEngine {
           'id':             song.id,
           'nextTrackIndex': _computeNextIndex(idx),
         });
+        // Push track metadata to the Android foreground service so the
+        // notification and lock-screen controls show the correct song.
+        MediaKitServiceBridge.updateMetadata(
+          title:      song.title,
+          artist:     song.artist,
+          artworkUri: song.artworkUri,
+          durationMs: song.duration.inMilliseconds,
+        );
       }),
     ]);
 
     // Emit session ID placeholder — media_kit tidak mengekspos audioSessionId.
     _audioSessionCtrl.add(-1);
+  }
+
+  // ── Transport command handler (from native via EventChannel) ──────────────
+
+  /// Handles transport commands emitted by [MediaKitPlaybackService] when the
+  /// user interacts with the lock screen, BT device, or notification buttons.
+  void _handleTransportCommand(String action, int? positionMs) {
+    LogService.verbose('MediaKitEngine', 'transport command: $action positionMs=$positionMs');
+    switch (action) {
+      case 'play':
+        _player?.play();
+      case 'pause':
+        _player?.pause();
+      case 'next':
+        _player?.next();
+      case 'previous':
+        final pos = _player?.state.position ?? Duration.zero;
+        if (pos.inSeconds >= 3) {
+          _player?.seek(Duration.zero);
+        } else {
+          _player?.previous();
+        }
+      case 'seek':
+        if (positionMs != null) {
+          _player?.seek(Duration(milliseconds: positionMs));
+        }
+      case 'stop':
+        _player?.pause();
+        _player?.seek(Duration.zero);
+      default:
+        LogService.warn('MediaKitEngine', 'Unknown transport command: $action');
+    }
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────
@@ -181,6 +244,15 @@ class MediaKitEngine implements AbstractAudioEngine {
       play: false,
     );
     _emitQueueSnapshot();
+    // Push the initial track metadata to the service immediately after setQueue
+    // so the notification shows the correct song before playback starts.
+    final song = _queue[_currentIndex];
+    await MediaKitServiceBridge.updateMetadata(
+      title:      song.title,
+      artist:     song.artist,
+      artworkUri: song.artworkUri,
+      durationMs: song.duration.inMilliseconds,
+    );
     LogService.log('MediaKitEngine', 'Queue: ${queue.length} lagu, idx=$_currentIndex');
   }
 

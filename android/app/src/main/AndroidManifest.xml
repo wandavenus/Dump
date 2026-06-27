@@ -40,6 +40,20 @@
     </intent-filter>
 </service>
 
+<service
+    android:name=".MediaKitPlaybackService"
+    android:foregroundServiceType="mediaPlayback"
+    android:exported="true"
+    android:stopWithTask="false">
+    <intent-filter>
+        <action android:name="androidx.media3.session.MediaSessionService"/>
+        <action android:name="android.media.browse.MediaBrowserService"/>
+    </intent-filter>
+    <intent-filter>
+        <action android:name="android.intent.action.MEDIA_BUTTON"/>
+    </intent-filter>
+</service>
+
         <meta-data
     android:name="io.flutter.embedding.android.EnableImpeller"
     android:value="false" />       

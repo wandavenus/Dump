@@ -269,8 +269,9 @@ class Media3PlaybackService : MediaSessionService() {
             service         = this,
             handler         = handler,
             getSession      = { session },
-            getPlayer       = { activePlayer },
+            getIsPlaying    = { activePlayer?.isPlaying ?: false },
             getCurrentTrack = { transportState.currentTrackMap() },
+            serviceClass    = Media3PlaybackService::class.java,
         )
         notificationManager.ensureChannel()
 

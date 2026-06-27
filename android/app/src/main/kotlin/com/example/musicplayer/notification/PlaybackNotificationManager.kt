@@ -3,7 +3,7 @@ package com.example.musicplayer.notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
+import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -14,9 +14,7 @@ import android.os.Build
 import android.os.Handler
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.MediaStyleNotificationHelper
 import com.example.musicplayer.Media3PlaybackService
 import com.example.musicplayer.R
@@ -24,7 +22,14 @@ import com.example.musicplayer.events.NativeLogger
 import java.util.concurrent.Executors
 
 /**
- * Manages the media playback notification.
+ * Engine-agnostic media playback notification manager.
+ *
+ * Accepts any [android.app.Service] as host — works with both
+ * [Media3PlaybackService] and [MediaKitPlaybackService].
+ *
+ * The [serviceClass] parameter determines the PendingIntent target for
+ * transport action buttons (Play/Pause, Next, Previous, Stop). Each engine
+ * passes its own class so button presses are routed to the correct service.
  *
  * Fixes applied:
  * NS-01: Unified notification building — single buildNotification() shared by both
@@ -36,11 +41,12 @@ import java.util.concurrent.Executors
  */
 @UnstableApi
 class PlaybackNotificationManager(
-    private val service: MediaSessionService,
+    private val service: Service,
     private val handler: Handler,
     private val getSession: () -> MediaSession?,
-    private val getPlayer: () -> ExoPlayer?,
+    private val getIsPlaying: () -> Boolean,
     private val getCurrentTrack: () -> Map<String, Any?>?,
+    private val serviceClass: Class<*> = Media3PlaybackService::class.java,
 ) {
     var isForeground = false
         private set
@@ -94,7 +100,7 @@ class PlaybackNotificationManager(
     }
 
     fun buildTransportPendingIntent(action: String, requestCode: Int): PendingIntent {
-        val intent = Intent(service, Media3PlaybackService::class.java).setAction(action)
+        val intent = Intent(service, serviceClass).setAction(action)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             PendingIntent.getForegroundService(
                 service, requestCode, intent,
@@ -116,10 +122,9 @@ class PlaybackNotificationManager(
     fun ensureMediaForeground() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (isForeground) return
-        val p = getPlayer() ?: return
         ensureChannel()
         val track = getCurrentTrack()
-        val notification = buildNotification(getSession(), track, p.isPlaying, bitmap = null)
+        val notification = buildNotification(getSession(), track, getIsPlaying(), bitmap = null)
         startForegroundWith(notification)
         // Load artwork async and refresh after
         refreshAsync()
@@ -132,14 +137,13 @@ class PlaybackNotificationManager(
     fun refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val sess = getSession() ?: return
-        val p    = getPlayer()   ?: return
         ensureChannel()
         val track     = getCurrentTrack()
-        val isPlaying = p.isPlaying
+        val isPlaying = getIsPlaying()
         val artUri    = track?.get("artworkUri") as? String
 
         // Post immediately with cached artwork (null if not yet loaded)
-        val cached   = artUri?.let { artworkCache.get(it) }
+        val cached    = artUri?.let { artworkCache.get(it) }
         val hasCached = artUri == null || artworkCache.get(artUri) != null || artUri in noArtworkUris
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
@@ -150,7 +154,7 @@ class PlaybackNotificationManager(
     }
 
     fun stopForeground() {
-        service.stopForeground(MediaSessionService.STOP_FOREGROUND_REMOVE)
+        service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
         isForeground = false
         notificationManager.cancel(NOTIFICATION_ID)
     }
@@ -160,7 +164,7 @@ class PlaybackNotificationManager(
     private fun refreshAsync(
         artUri: String? = getCurrentTrack()?.get("artworkUri") as? String,
         track: Map<String, Any?>? = getCurrentTrack(),
-        isPlaying: Boolean = getPlayer()?.isPlaying ?: false,
+        isPlaying: Boolean = getIsPlaying(),
     ) {
         if (artUri == null) return
         val generation = ++artworkLoadGeneration
@@ -170,9 +174,8 @@ class PlaybackNotificationManager(
                 if (generation != artworkLoadGeneration) return@post  // superseded
                 if (bmp != null) artworkCache.put(artUri, bmp) else noArtworkUris.add(artUri)
                 val sess = getSession() ?: return@post
-                val p2   = getPlayer()   ?: return@post
                 try {
-                    postNotification(buildNotification(sess, getCurrentTrack(), p2.isPlaying, bmp))
+                    postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
                 } catch (e: Exception) {
                     NativeLogger.emit("warn", "Notification", "async refresh failed: ${e.message}")
                 }
