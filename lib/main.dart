@@ -6,6 +6,7 @@ import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/services/audio/audio_engine.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
+import 'package:musicplayer/services/audio/audio_engine_manager.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
 import 'package:musicplayer/services/log_service.dart';

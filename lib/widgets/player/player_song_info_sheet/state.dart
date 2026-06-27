@@ -3,9 +3,16 @@ part of '../player_song_info_sheet.dart';
 class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
   late final Future<SongInfo> _songInfoFuture;
 
-  /// Live audio format received from ExoPlayer via the audioFormat EventChannel.
-  /// Null until the first event arrives or [Media3PlaybackBridge.getAudioFormat]
+  /// Live audio format received from the active engine via [AudioEngineManager].
+  /// Null until the first event arrives or [AudioEngineManager.getAudioFormat]
   /// returns a non-null result.
+  ///
+  /// On Media3Engine: data comes from ExoPlayer's onTracksChanged, carrying
+  /// sampleRate, channelCount, bitrate, mimeType, codecs, pcmEncoding from
+  /// the actual decoder — not from file metadata.
+  ///
+  /// On MediaKitEngine: this will remain null (media_kit does not expose
+  /// decoder-level audio format info).
   Map<String, dynamic>? _liveFormat;
   StreamSubscription<Map<dynamic, dynamic>>? _formatSub;
 
@@ -14,20 +21,19 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
     super.initState();
     _songInfoFuture = SongMetadataService.getSongInfo(widget.song);
 
-    // Subscribe to live audio format from ExoPlayer's onTracksChanged.
-    // The event fires whenever a new audio track is decoded, carrying
-    // sampleRate, channelCount, bitrate, mimeType, codecs, pcmEncoding
-    // from the actual Media3 decoder — not from file metadata.
-    _formatSub = Media3PlaybackBridge.audioFormatStream.listen((event) {
+    // Subscribe to live audio format changes from the active engine.
+    // Fires whenever a new audio track is decoded or the engine changes.
+    _formatSub = AudioEngineManager.audioFormatStream.listen((event) {
       if (mounted) {
         setState(() => _liveFormat = Map<String, dynamic>.from(event));
       }
     });
 
     // Also fetch the current format immediately: if the song is already
-    // playing when the user opens Song Info, no onTracksChanged fires while
-    // the sheet is open, so we pull a one-shot snapshot to populate the UI.
-    Media3PlaybackBridge.getAudioFormat().then((fmt) {
+    // playing when the user opens Song Info, no format-changed event fires
+    // while the sheet is open, so we pull a one-shot snapshot to populate
+    // the UI right away.
+    AudioEngineManager.getAudioFormat().then((fmt) {
       if (mounted && fmt != null && _liveFormat == null) {
         setState(() => _liveFormat = fmt);
       }

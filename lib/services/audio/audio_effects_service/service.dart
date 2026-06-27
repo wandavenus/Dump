@@ -7,7 +7,10 @@ part of '../audio_effects_service.dart';
 /// This class manages:
 ///   • [ValueNotifier]s for each setting (UI binds to these)
 ///   • [SharedPreferences] persistence
-///   • Forwarding setting changes to native via [Media3PlaybackBridge]
+///   • Forwarding setting changes to the active engine via [AudioEngineManager]
+///
+/// No layer in this file may reference [Media3PlaybackBridge] directly.
+/// All engine calls go through [AudioEngineManager].
 class AudioEffectsService {
   AudioEffectsService._();
 
@@ -126,40 +129,40 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'Initialized');
   }
 
-  // ── applyAll — send every setting to native in one burst ──────────────────
+  // ── applyAll — send every setting to the active engine in one burst ────────
 
   static void applyAll() {
     if (kIsWeb) return;
 
-    // Speed & pitch
+    // Speed & pitch — routed through AudioEngineManager → active engine
     _sendSpeed(playbackSpeed.value);
     _sendPitch(pitchShift.value);
 
     // Bass boost
-    unawaited(Media3PlaybackBridge.setBassBoostStrength(bassBoost.value));
-    unawaited(Media3PlaybackBridge.setBassBoostEnabled(bassBoost.value > 0));
+    unawaited(AudioEngineManager.setBassBoost(bassBoost.value));
+    unawaited(AudioEngineManager.setBassBoostEnabled(bassBoost.value > 0));
 
     // Virtualizer / spatial
-    unawaited(Media3PlaybackBridge.setVirtualizerStrength(spatialStrength.value));
-    unawaited(Media3PlaybackBridge.setVirtualizerEnabled(spatialAudio.value));
+    unawaited(AudioEngineManager.setVirtualizerStrength(spatialStrength.value));
+    unawaited(AudioEngineManager.setVirtualizerEnabled(spatialAudio.value));
 
     // Reverb
-    unawaited(Media3PlaybackBridge.setReverbPreset(reverbPreset.value));
+    unawaited(AudioEngineManager.setReverbPreset(reverbPreset.value));
 
     // Equalizer
-    unawaited(Media3PlaybackBridge.setEqualizerEnabled(equalizerEnabled.value));
+    unawaited(AudioEngineManager.setEqualizerEnabled(equalizerEnabled.value));
     if (equalizerEnabled.value) _sendRoomPresetEq(roomPreset.value);
 
     // Loudness normalize (when ReplayGain is off)
     if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(Media3PlaybackBridge.setLoudnessEnabled(audioNormalize.value));
+      unawaited(AudioEngineManager.setLoudnessEnabled(audioNormalize.value));
       if (!audioNormalize.value) {
-        unawaited(Media3PlaybackBridge.setLoudnessTargetGain(0));
+        unawaited(AudioEngineManager.setLoudnessTargetGain(0));
       }
     }
 
     // Crossfade
-    unawaited(Media3PlaybackBridge.setCrossfadeDuration(crossfadeDuration.value));
+    unawaited(AudioEngineManager.setCrossfadeDuration(crossfadeDuration.value));
   }
 
   // ── Normalize ─────────────────────────────────────────────────────────────
@@ -168,8 +171,8 @@ class AudioEffectsService {
     audioNormalize.value = value;
     await _saveBool('normalize', value);
     if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(Media3PlaybackBridge.setLoudnessEnabled(value));
-      if (!value) unawaited(Media3PlaybackBridge.setLoudnessTargetGain(0));
+      unawaited(AudioEngineManager.setLoudnessEnabled(value));
+      if (!value) unawaited(AudioEngineManager.setLoudnessTargetGain(0));
     }
     LogService.log('AudioEffects', 'Normalize: $value');
   }
@@ -194,14 +197,16 @@ class AudioEffectsService {
   static Future<void> setEqualizerEnabled(bool value) async {
     equalizerEnabled.value = value;
     await _saveBool('eqEnabled', value);
-    unawaited(Media3PlaybackBridge.setEqualizerEnabled(value));
+    unawaited(AudioEngineManager.setEqualizerEnabled(value));
     if (value) _sendRoomPresetEq(roomPreset.value);
     LogService.log('AudioEffects', 'EQ enabled: $value');
   }
 
-  static Future<AndroidEqualizerParameters?> getEqualizerParameters() async {
+  /// Returns engine-agnostic EQ parameters, or null if the active engine
+  /// does not support a hardware/software equalizer.
+  static Future<EngineEqualizerParameters?> getEqualizerParameters() async {
     try {
-      return await Media3PlaybackBridge.getEqualizerParameters();
+      return await AudioEngineManager.getEqualizerParameters();
     } catch (error) {
       LogService.warn('AudioEffects', 'getEqParameters: $error');
       return null;
@@ -210,7 +215,7 @@ class AudioEffectsService {
 
   static Future<void> setEqualizerBandGain(int bandIndex, double gainDb) async {
     try {
-      unawaited(Media3PlaybackBridge.setEqualizerBandGain(bandIndex, gainDb));
+      unawaited(AudioEngineManager.setEqualizerBandGain(bandIndex, gainDb));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('eqBand_$bandIndex', gainDb);
     } catch (e) {
@@ -237,7 +242,7 @@ class AudioEffectsService {
     final i = index.clamp(0, roomPresets.length - 1).toInt();
     final gains = roomPresets[i]['gains'] as List<double>;
     for (var b = 0; b < gains.length; b++) {
-      unawaited(Media3PlaybackBridge.setEqualizerBandGain(b, gains[b]));
+      unawaited(AudioEngineManager.setEqualizerBandGain(b, gains[b]));
     }
     SharedPreferences.getInstance().then((prefs) {
       for (var b = 0; b < gains.length; b++) {
@@ -247,13 +252,13 @@ class AudioEffectsService {
   }
 
   static Future<void> restoreEqualizerBands() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs  = await SharedPreferences.getInstance();
     final params = await getEqualizerParameters();
     if (params == null) return;
-    for (var i = 0; i < params.bands.length; i++) {
+    for (var i = 0; i < params.bandCount; i++) {
       final gain = prefs.getDouble('eqBand_$i');
       if (gain != null) {
-        unawaited(Media3PlaybackBridge.setEqualizerBandGain(i, gain));
+        unawaited(AudioEngineManager.setEqualizerBandGain(i, gain));
       }
     }
   }
@@ -274,14 +279,14 @@ class AudioEffectsService {
 
   static Future<void> applyEqPreset(int presetIndex) async {
     if (presetIndex < 0 || presetIndex >= eqPresets.length) return;
-    final gains = eqPresets[presetIndex]['gains'] as List<double>;
+    final gains  = eqPresets[presetIndex]['gains'] as List<double>;
     final params = await getEqualizerParameters();
     if (params == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    for (var i = 0; i < params.bands.length && i < gains.length; i++) {
+    final prefs  = await SharedPreferences.getInstance();
+    for (var i = 0; i < params.bandCount && i < gains.length; i++) {
       final clamped =
           gains[i].clamp(params.minDecibels, params.maxDecibels).toDouble();
-      unawaited(Media3PlaybackBridge.setEqualizerBandGain(i, clamped));
+      unawaited(AudioEngineManager.setEqualizerBandGain(i, clamped));
       await prefs.setDouble('eqBand_$i', clamped);
     }
     await _saveInt('eqPreset', presetIndex);
@@ -292,7 +297,7 @@ class AudioEffectsService {
   static Future<void> setCrossfade(double seconds) async {
     crossfadeDuration.value = seconds;
     await _saveDouble('crossfade', seconds);
-    unawaited(Media3PlaybackBridge.setCrossfadeDuration(seconds));
+    unawaited(AudioEngineManager.setCrossfadeDuration(seconds));
     LogService.log('AudioEffects', 'Crossfade: ${seconds}s');
   }
 
@@ -305,10 +310,11 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'Pitch: $semitones semitones');
   }
 
+  /// Converts semitone offset to a pitch factor and forwards to the active engine.
   static void _sendPitch(double semitones) {
     if (kIsWeb) return;
     final factor = math.pow(2.0, semitones / 12.0).toDouble();
-    unawaited(Media3PlaybackBridge.setPitch(factor));
+    unawaited(AudioEngineManager.setPitch(factor));
   }
 
   // ── Playback Speed ────────────────────────────────────────────────────────
@@ -323,7 +329,7 @@ class AudioEffectsService {
 
   static void _sendSpeed(double speed) {
     if (kIsWeb) return;
-    unawaited(Media3PlaybackBridge.setSpeed(speed));
+    unawaited(AudioEngineManager.setSpeed(speed));
   }
 
   // ── Bass Boost ────────────────────────────────────────────────────────────
@@ -332,8 +338,8 @@ class AudioEffectsService {
     final v = strength.clamp(0, 1000).toInt();
     bassBoost.value = v;
     await _saveInt('bassBoost', v);
-    unawaited(Media3PlaybackBridge.setBassBoostStrength(v));
-    unawaited(Media3PlaybackBridge.setBassBoostEnabled(v > 0));
+    unawaited(AudioEngineManager.setBassBoost(v));
+    unawaited(AudioEngineManager.setBassBoostEnabled(v > 0));
     LogService.log('AudioEffects', 'BassBoost: $v');
   }
 
@@ -343,7 +349,7 @@ class AudioEffectsService {
     final v = preset.clamp(0, reverbPresetNames.length - 1).toInt();
     reverbPreset.value = v;
     await _saveInt('reverb', v);
-    unawaited(Media3PlaybackBridge.setReverbPreset(v));
+    unawaited(AudioEngineManager.setReverbPreset(v));
     LogService.log('AudioEffects', 'Reverb: ${reverbPresetNames[v]}');
   }
 
@@ -352,7 +358,7 @@ class AudioEffectsService {
   static Future<void> setSpatial(bool value) async {
     spatialAudio.value = value;
     await _saveBool('spatial', value);
-    unawaited(Media3PlaybackBridge.setVirtualizerEnabled(value));
+    unawaited(AudioEngineManager.setVirtualizerEnabled(value));
     LogService.log('AudioEffects', 'Spatial: $value');
   }
 
@@ -360,9 +366,9 @@ class AudioEffectsService {
     final v = strength.clamp(0, 1000).toInt();
     spatialStrength.value = v;
     await _saveInt('spatialStr', v);
-    unawaited(Media3PlaybackBridge.setVirtualizerStrength(v));
+    unawaited(AudioEngineManager.setVirtualizerStrength(v));
     if (spatialAudio.value) {
-      unawaited(Media3PlaybackBridge.setVirtualizerEnabled(true));
+      unawaited(AudioEngineManager.setVirtualizerEnabled(true));
     }
     LogService.log('AudioEffects', 'Spatial strength: $v');
   }

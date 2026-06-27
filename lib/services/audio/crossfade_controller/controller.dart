@@ -1,4 +1,4 @@
-part of '../crossfade_controller.dart';
+import '../../log_service.dart';
 
 /// Crossfade controller stub — crossfade is now fully native.
 ///

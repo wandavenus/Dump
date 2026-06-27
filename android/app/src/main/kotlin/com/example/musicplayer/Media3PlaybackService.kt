@@ -97,6 +97,7 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var transportState:       TransportState
     private lateinit var transportCommands:    TransportCommands
     private lateinit var offloadManager:       AudioOffloadManager
+    private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
 
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
@@ -268,8 +269,9 @@ class Media3PlaybackService : MediaSessionService() {
             service         = this,
             handler         = handler,
             getSession      = { session },
-            getPlayer       = { activePlayer },
+            getIsPlaying    = { activePlayer?.isPlaying ?: false },
             getCurrentTrack = { transportState.currentTrackMap() },
+            serviceClass    = Media3PlaybackService::class.java,
         )
         notificationManager.ensureChannel()
 
@@ -526,6 +528,25 @@ class Media3PlaybackService : MediaSessionService() {
                 mapOf("timestamp" to System.currentTimeMillis()))
         }.also { it.register() }
 
+        shutdownCoordinator = ServiceShutdownCoordinator(
+            cancelCrossfade        = { rv -> crossfadeController.cancel(resetVolume = rv) },
+            cancelSleepTimer       = { sleepTimerManager.cancel() },
+            stopPositionTicker     = { transportState.stopPositionTicker() },
+            emitAll                = { transportState.emitAll() },
+            abandonAudioFocus      = { audioFocusManager.abandon() },
+            stopForeground         = { notificationManager.stopForeground() },
+            saveQueue              = { queueSync.save() },
+            releaseEffects         = { effectsManager.releaseEffects() },
+            clearHandlerCallbacks  = { handler.removeCallbacksAndMessages(null) },
+            unregisterReceivers    = {
+                try { unregisterReceiver(noisyReceiver) } catch (_: Exception) {}
+                try { audioCapReceiver?.unregister() } catch (_: Exception) {}
+            },
+            releasePrimaryPlayer   = { primaryPlayer?.release() },
+            releaseSecondaryPlayer = { secondaryPlayer?.release() },
+            releaseMediaSession    = { session?.release() },
+        )
+
         instance = this
 
         restoreQueueFromPrefs()
@@ -564,31 +585,48 @@ class Media3PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        crossfadeController.cancel(resetVolume = true)
-        NativeLogger.emit("info", "Media3", "onDestroy: releasing resources")
-        queueSync.save()
-        sleepTimerManager.cancel()
-        effectsManager.releaseEffects()
-        handler.removeCallbacksAndMessages(null)
-        try { unregisterReceiver(noisyReceiver) } catch (_: Exception) {}
-        // Item 3: unregister AudioCapabilitiesReceiver to prevent BroadcastReceiver leaks.
-        try { audioCapReceiver?.unregister() } catch (_: Exception) {}
+        // Delegate the teardown sequence to ServiceShutdownCoordinator.
+        // performTeardown() is idempotent — safe even when prepareShutdown() ran
+        // first (the "release" MethodChannel path) or when the system kills the
+        // service without a prior prepareShutdown() (system-kill path).
+        shutdownCoordinator.performTeardown()
+        // Null out service-level fields that the coordinator cannot clear
+        // because it holds lambdas, not direct field references.
         audioCapReceiver = null
-        audioFocusManager.abandon()
-        instance = null
-        primaryPlayer?.release()
-        secondaryPlayer?.release()
-        primaryPlayer   = null
-        secondaryPlayer = null
-        activePlayer    = null
-        session?.release()
-        session = null
+        instance         = null
+        primaryPlayer    = null
+        secondaryPlayer  = null
+        activePlayer     = null
+        session          = null
         super.onDestroy()
     }
 
     // ── MethodChannel entry point ─────────────────────────────────────────────
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
+        // "release" is handled here rather than in TransportCommands because it
+        // must call stopSelf() — a service-level operation not available to
+        // TransportCommands.  This mirrors the ACTION_STOP notification-button
+        // path which already correctly triggers onDestroy() via stopSelf().
+        if (call.method == "release") {
+            NativeLogger.emit("info", "Media3",
+                "release: complete service teardown initiated (engine switch)")
+            // Phase 1: quiesce all in-flight work via ServiceShutdownCoordinator.
+            // prepareShutdown() cancels crossfade/sleep-timer, stops the position
+            // ticker, abandons audio focus, removes the notification, and emits a
+            // final state snapshot to Flutter.
+            shutdownCoordinator.prepareShutdown()
+            // Acknowledge Dart before stopSelf() so the MethodChannel result is
+            // delivered while the service is still fully alive.
+            result.success(null)
+            // stopSelf() schedules service destruction on the main looper.
+            // onDestroy() then calls shutdownCoordinator.performTeardown() which
+            // releases: effects, handler callbacks, receivers, both ExoPlayers,
+            // and the MediaSession.  The teardownPerformed guard ensures none of
+            // these are released twice even if onDestroy fires unexpectedly.
+            stopSelf()
+            return
+        }
         transportCommands.dispatch(call, result)
     }
 

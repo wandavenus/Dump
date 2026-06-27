@@ -47,6 +47,46 @@ class MainActivity : FlutterActivity() {
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
+        setupMediaKitPlaybackChannels(flutterEngine)
+    }
+
+    // ── MediaKit playback channels ────────────────────────────────────────────
+
+    @OptIn(UnstableApi::class)
+    private fun setupMediaKitPlaybackChannels(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        // MethodChannel: Dart → Native commands (start service, metadata, state)
+        MethodChannel(messenger, "musicplayer/mediakit_service").setMethodCallHandler { call, result ->
+            // "startService" explicitly starts the service; other commands that
+            // need the service will auto-start it and return not_ready for retry.
+            if (call.method == "startService") {
+                if (MediaKitPlaybackService.instance == null) {
+                    // Plain startService — no 5-second startForeground() obligation.
+                    // The service will call startForeground() itself only when
+                    // updatePlaybackState(isPlaying=true) arrives from Dart.
+                    startService(Intent(this, MediaKitPlaybackService::class.java))
+                }
+                result.success(null)
+                return@setMethodCallHandler
+            }
+
+            val needsService = call.method in setOf(
+                "updateMetadata", "updatePlaybackState", "release"
+            )
+            if (MediaKitPlaybackService.instance == null && needsService) {
+                startService(Intent(this, MediaKitPlaybackService::class.java))
+                result.error("not_ready", "MediaKit service is starting", null)
+                return@setMethodCallHandler
+            }
+
+            MediaKitPlaybackService.instance?.handle(call, result)
+                ?: result.error("not_ready", "MediaKit service not available", null)
+        }
+
+        // EventChannel: Native → Dart transport commands
+        EventChannel(messenger, "musicplayer/mediakit_transport")
+            .setStreamHandler(MediaKitEventEmitter.transportHandler())
     }
 
     // ── Media3 playback channels ───────────────────────────────────────────────
