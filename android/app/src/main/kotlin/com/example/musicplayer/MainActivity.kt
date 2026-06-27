@@ -62,8 +62,10 @@ class MainActivity : FlutterActivity() {
             // need the service will auto-start it and return not_ready for retry.
             if (call.method == "startService") {
                 if (MediaKitPlaybackService.instance == null) {
-                    val intent = Intent(this, MediaKitPlaybackService::class.java)
-                    ContextCompat.startForegroundService(this, intent)
+                    // Plain startService — no 5-second startForeground() obligation.
+                    // The service will call startForeground() itself only when
+                    // updatePlaybackState(isPlaying=true) arrives from Dart.
+                    startService(Intent(this, MediaKitPlaybackService::class.java))
                 }
                 result.success(null)
                 return@setMethodCallHandler
@@ -73,8 +75,7 @@ class MainActivity : FlutterActivity() {
                 "updateMetadata", "updatePlaybackState", "release"
             )
             if (MediaKitPlaybackService.instance == null && needsService) {
-                val intent = Intent(this, MediaKitPlaybackService::class.java)
-                ContextCompat.startForegroundService(this, intent)
+                startService(Intent(this, MediaKitPlaybackService::class.java))
                 result.error("not_ready", "MediaKit service is starting", null)
                 return@setMethodCallHandler
             }

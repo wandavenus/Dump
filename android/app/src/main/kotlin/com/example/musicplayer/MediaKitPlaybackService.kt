@@ -69,7 +69,7 @@ class MediaKitPlaybackService : MediaSessionService() {
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 currentPlaying = false
                 statePlayer.updatePlaybackState(false, currentPosition)
-                notificationManager.refresh()
+                refreshIfVisible()
                 MediaKitEventEmitter.emitTransport("pause")
             }
             // AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: keep playing but let the OS duck volume.
@@ -82,20 +82,13 @@ class MediaKitPlaybackService : MediaSessionService() {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
                 currentPlaying = false
                 statePlayer.updatePlaybackState(false, currentPosition)
-                notificationManager.refresh()
+                refreshIfVisible()
                 MediaKitEventEmitter.emitTransport("pause")
             }
         }
     }
 
     companion object {
-        // Action constants for notification transport buttons.
-        // Prefixed with "MK_" to avoid collisions with Media3PlaybackService actions.
-        const val ACTION_PLAY_PAUSE = "com.example.musicplayer.MK_ACTION_PLAY_PAUSE"
-        const val ACTION_SKIP_NEXT  = "com.example.musicplayer.MK_ACTION_SKIP_NEXT"
-        const val ACTION_SKIP_PREV  = "com.example.musicplayer.MK_ACTION_SKIP_PREV"
-        const val ACTION_STOP       = "com.example.musicplayer.MK_ACTION_STOP"
-
         /** Non-null while this service instance is alive. */
         @Volatile var instance: MediaKitPlaybackService? = null
     }
@@ -148,9 +141,11 @@ class MediaKitPlaybackService : MediaSessionService() {
             registerReceiver(noisyReceiver, filter)
         }
 
-        // Start foreground immediately (Android requires startForeground() to be
-        // called within 5 s of startForegroundService()).
-        notificationManager.ensureMediaForeground()
+        // Do NOT call ensureMediaForeground() here.
+        // The service is started with startService() (not startForegroundService()),
+        // so there is no 5-second startForeground() obligation.
+        // Foreground will be entered lazily when updatePlaybackState(isPlaying=true)
+        // arrives from Dart — i.e. when playback actually begins.
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -166,14 +161,16 @@ class MediaKitPlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        // Match against PlaybackNotificationManager constants — those are the action
+        // strings baked into the PendingIntents that the notification buttons fire.
         when (intent?.action) {
-            ACTION_PLAY_PAUSE -> {
+            PlaybackNotificationManager.ACTION_PLAY_PAUSE -> {
                 if (currentPlaying) updateStateAndEmit(playing = false, action = "pause")
                 else requestFocusThenEmit("play")
             }
-            ACTION_SKIP_NEXT  -> MediaKitEventEmitter.emitTransport("next")
-            ACTION_SKIP_PREV  -> MediaKitEventEmitter.emitTransport("previous")
-            ACTION_STOP       -> {
+            PlaybackNotificationManager.ACTION_SKIP_NEXT  -> MediaKitEventEmitter.emitTransport("next")
+            PlaybackNotificationManager.ACTION_SKIP_PREV  -> MediaKitEventEmitter.emitTransport("previous")
+            PlaybackNotificationManager.ACTION_STOP       -> {
                 updateStateAndEmit(playing = false, action = "stop")
                 abandonAudioFocus()
                 notificationManager.stopForeground()
@@ -209,14 +206,24 @@ class MediaKitPlaybackService : MediaSessionService() {
                 currentArtUri   = call.argument<String>("artworkUri")
                 currentDuration = (call.argument<Number>("durationMs")?.toLong()) ?: 0L
                 statePlayer.updateMetadata(currentTitle, currentArtist, currentArtUri, currentDuration)
-                notificationManager.refresh()
+                // Only refresh the notification if we are already in foreground.
+                // Before playback starts the service runs silently — no notification.
+                refreshIfVisible()
                 result.success(null)
             }
             "updatePlaybackState" -> {
                 currentPlaying  = call.argument<Boolean>("isPlaying") ?: false
                 currentPosition = (call.argument<Number>("positionMs")?.toLong()) ?: 0L
                 statePlayer.updatePlaybackState(currentPlaying, currentPosition)
-                notificationManager.refresh()
+                if (currentPlaying) {
+                    // First play — promote from background to foreground and show
+                    // the notification for the first time.
+                    notificationManager.ensureMediaForeground()
+                } else {
+                    // Paused/stopped — update the play/pause icon only if the
+                    // notification is already showing; do not re-create it.
+                    refreshIfVisible()
+                }
                 result.success(null)
             }
             "release" -> {
@@ -240,8 +247,19 @@ class MediaKitPlaybackService : MediaSessionService() {
     private fun updateStateAndEmit(playing: Boolean, action: String) {
         currentPlaying = playing
         statePlayer.updatePlaybackState(playing, currentPosition)
-        notificationManager.refresh()
+        refreshIfVisible()
         MediaKitEventEmitter.emitTransport(action)
+    }
+
+    /**
+     * Updates the notification only when the service is already in foreground.
+     *
+     * Calling [PlaybackNotificationManager.refresh] while [isForeground] is false
+     * would invoke [startForegroundWith] and make the notification appear before
+     * playback has started. This guard prevents that.
+     */
+    private fun refreshIfVisible() {
+        if (notificationManager.isForeground) notificationManager.refresh()
     }
 
     private fun buildCurrentTrackMap(): Map<String, Any?>? {
