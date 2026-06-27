@@ -15,62 +15,78 @@ class _PlaybackEngineSection extends StatelessWidget {
         const SizedBox(height: 6),
         const _EngineSelector(),
         const SettingsDivider(),
-        const SizedBox(height: 4),
-        const SettingsSectionHeader('Engine Tunneling'),
-        const SizedBox(height: 6),
 
-        // ── Skip Silence (Item 1) ────────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
-          builder: (_, v, _) => SettingsToggleRow(
-            title: 'Gapless',
-            subtitle: 'Potong keheningan antar lagu secara otomatis',
-            value: v,
-            onChanged: MediaCapabilitiesService.setSkipSilence,
-          ),
-        ),
-        const SettingsDivider(),
+        // ── Engine Tunneling — hanya tampil saat Native Media3 aktif ─────────
+        ValueListenableBuilder<PlaybackEngineType>(
+          valueListenable: AudioEngineManager.activeEngineType,
+          builder: (_, engine, _) {
+            if (engine != PlaybackEngineType.media3) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                const SettingsSectionHeader('Engine Tunneling'),
+                const SizedBox(height: 6),
 
-        // ── Stereo Widening (Item 8) ─────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-          builder: (_, enabled, _) => Column(
-            children: [
-              SettingsToggleRow(
-                title: 'Pelebaran Stereo',
-                subtitle: 'ChannelMixingAudioProcessor — memperlebar medan stereo',
-                value: enabled,
-                onChanged: MediaCapabilitiesService.setStereoWidening,
-              ),
-              if (enabled)
-                ValueListenableBuilder<double>(
-                  valueListenable: MediaCapabilitiesService.stereoWideningStrength,
-                  builder: (_, v, _) {
-                    final pct = (v * 100).round();
-                    return SettingsSliderRow(
-                      title: 'Lebar Stereo',
-                      subtitle: '$pct%',
-                      value: v,
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 20,
-                      onChanged: MediaCapabilitiesService.setStereoWideningStrength,
-                      showReset: v != 0.5,
-                      onReset: () =>
-                          MediaCapabilitiesService.setStereoWideningStrength(0.5),
-                    );
-                  },
+                // ── Skip Silence ─────────────────────────────────────────────
+                ValueListenableBuilder<bool>(
+                  valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
+                  builder: (_, v, _) => SettingsToggleRow(
+                    title: 'Gapless',
+                    subtitle: 'Potong keheningan antar lagu secara otomatis',
+                    value: v,
+                    onChanged: MediaCapabilitiesService.setSkipSilence,
+                  ),
                 ),
-            ],
-          ),
-        ),
-        const SettingsDivider(),
+                const SettingsDivider(),
 
-        // ── Playback Stats ───────────────────────────────────────────────────
-        SettingsActionRow(
-          title: 'Statistik Sesi',
-          trailing: 'Lihat',
-          onTap: () => _showStatsSheet(context),
+                // ── Stereo Widening ──────────────────────────────────────────
+                ValueListenableBuilder<bool>(
+                  valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
+                  builder: (_, enabled, _) => Column(
+                    children: [
+                      SettingsToggleRow(
+                        title: 'Pelebaran Stereo',
+                        subtitle:
+                            'ChannelMixingAudioProcessor — memperlebar medan stereo',
+                        value: enabled,
+                        onChanged: MediaCapabilitiesService.setStereoWidening,
+                      ),
+                      if (enabled)
+                        ValueListenableBuilder<double>(
+                          valueListenable:
+                              MediaCapabilitiesService.stereoWideningStrength,
+                          builder: (_, v, _) {
+                            final pct = (v * 100).round();
+                            return SettingsSliderRow(
+                              title: 'Lebar Stereo',
+                              subtitle: '$pct%',
+                              value: v,
+                              min: 0.0,
+                              max: 1.0,
+                              divisions: 20,
+                              onChanged:
+                                  MediaCapabilitiesService.setStereoWideningStrength,
+                              showReset: v != 0.5,
+                              onReset: () => MediaCapabilitiesService
+                                  .setStereoWideningStrength(0.5),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SettingsDivider(),
+
+                // ── Playback Stats ───────────────────────────────────────────
+                SettingsActionRow(
+                  title: 'Statistik Sesi',
+                  trailing: 'Lihat',
+                  onTap: () => _showStatsSheet(context),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );

@@ -41,13 +41,6 @@ class _DebugSection extends StatelessWidget {
 
         
 
-        // Notification icon picker
-        ValueListenableBuilder<int>(
-          valueListenable: _DebugState.notifIcon,
-          builder: (_, idx, _) => _NotifIconRow(selectedIdx: idx),
-        ),
-        const SettingsDivider(),
-
         // Audio session info
         _AudioSessionInfo(),
         const SettingsDivider(),
