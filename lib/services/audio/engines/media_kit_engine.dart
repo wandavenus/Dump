@@ -18,9 +18,9 @@ import '../../log_service.dart';
 ///   ✅ Repeat (PlaylistMode)
 ///   ✅ Background playback (via media_kit_libs_android_audio)
 ///   ✅ Speed / Volume
+///   ✅ Pitch — independen dari speed; keduanya di-compose ke rate tunggal
 ///   ✅ Sleep timer (Dart-side Timer)
 ///   ✅ Queue persistence (via getPlaybackSnapshot)
-///   ⚠️  Pitch — diterapkan sebagai rate multiplier (tidak independen dari speed)
 ///   ⚠️  Notification/Lock screen — bergantung pada media_kit platform library
 ///   ❌ DSP (EQ, Bass, Reverb, Virtualizer, Crossfade, LoudnessEnhancer):
 ///      semua DSP method adalah no-op yang aman.
@@ -34,6 +34,12 @@ class MediaKitEngine implements AbstractAudioEngine {
   int _currentIndex = 0;
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
+
+  // Speed and pitch are stored independently so they compose correctly.
+  // The player rate is always _speed * _pitchFactor.
+  // Setting one does NOT overwrite the other.
+  double _speed       = 1.0;
+  double _pitchFactor = 1.0;
 
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
@@ -312,18 +318,27 @@ class MediaKitEngine implements AbstractAudioEngine {
     await _player?.setVolume(volume.clamp(0.0, 1.0) * 100.0);
   }
 
+  /// Updates [_speed] and recomposes the player rate as [_speed × _pitchFactor].
+  /// Does NOT touch [_pitchFactor] — subsequent [setPitch] calls are preserved.
   @override
   Future<void> setSpeed(double speed) async {
-    await _player?.setRate(speed.clamp(0.25, 4.0));
+    _speed = speed.clamp(0.25, 4.0);
+    final composed = (_speed * _pitchFactor).clamp(0.25, 4.0);
+    await _player?.setRate(composed);
+    LogService.verbose('MediaKitEngine', 'setSpeed($_speed) → rate=$composed');
   }
 
-  /// media_kit 1.2.x tidak memisahkan pitch dari rate.
-  /// Pitch diaplikasikan sebagai multiplier terhadap rate saat ini.
+  /// Updates [_pitchFactor] and recomposes the player rate as [_speed × _pitchFactor].
+  /// Does NOT touch [_speed] — subsequent [setSpeed] calls are preserved.
+  ///
+  /// media_kit 1.2.x does not have a dedicated pitch API, so pitch is
+  /// implemented as a rate multiplier composed with the current speed.
   @override
   Future<void> setPitch(double pitch) async {
-    final currentRate = _player?.state.rate ?? 1.0;
-    await _player?.setRate((currentRate * pitch).clamp(0.25, 4.0));
-    LogService.verbose('MediaKitEngine', 'setPitch($pitch) as rate multiplier');
+    _pitchFactor = pitch;
+    final composed = (_speed * _pitchFactor).clamp(0.25, 4.0);
+    await _player?.setRate(composed);
+    LogService.verbose('MediaKitEngine', 'setPitch($_pitchFactor) → rate=$composed');
   }
 
   // ── DSP effects (no-op — media_kit tidak mengekspos Android AudioEffect) ──

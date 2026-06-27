@@ -1,8 +1,30 @@
 import 'package:flutter/services.dart';
 
 import '../../../models/local_song.dart';
-import 'media3_audio_player.dart'
-    show AndroidEqualizerBand, AndroidEqualizerParameters;
+
+// ── Equalizer types ────────────────────────────────────────────────────────────
+// Defined here rather than in the legacy media3_audio_player.dart so that the
+// bridge owns its own type definitions without importing dead-code files.
+
+class AndroidEqualizerParameters {
+  final double minDecibels;
+  final double maxDecibels;
+  final List<AndroidEqualizerBand> bands;
+
+  const AndroidEqualizerParameters({
+    required this.minDecibels,
+    required this.maxDecibels,
+    required this.bands,
+  });
+}
+
+class AndroidEqualizerBand {
+  final int index;
+  const AndroidEqualizerBand(this.index);
+
+  Future<void> setGain(double gainDb) =>
+      Media3PlaybackBridge.setEqualizerBandGain(index, gainDb);
+}
 
 /// Flutter ↔ Android Media3 bridge.
 ///
