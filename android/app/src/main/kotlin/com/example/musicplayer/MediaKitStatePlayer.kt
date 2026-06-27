@@ -50,12 +50,17 @@ class MediaKitStatePlayer(
 
     /** Push new track metadata and invalidate the player state. */
     fun updateMetadata(title: String, artist: String, artworkUri: String?, durationMs: Long) {
-        this.title      = title
-        this.artist     = artist
-        this.artworkUri = artworkUri
-        this.durationMs = durationMs
-        invalidateState()
-    }
+    this.title = title
+    this.artist = artist
+    this.artworkUri = artworkUri
+    this.durationMs = durationMs
+
+    // Track baru selalu mulai dari awal.
+    this.positionMs = 0L
+    this.lastPositionRealtimeMs = android.os.SystemClock.elapsedRealtime()
+
+    invalidateState()
+}
 
     /** Push new playback state (playing / paused, position) and invalidate. */
     fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {        this.isPlaying = isPlaying
@@ -103,6 +108,11 @@ class MediaKitStatePlayer(
             )
             .build()
 
+            val playing = isPlaying
+            val basePosition = positionMs
+            val baseRealtime = lastPositionRealtimeMs
+            val duration = durationMs 
+        
         return State.Builder()
             .setAvailableCommands(commands)
             .setPlayWhenReady(
@@ -114,16 +124,16 @@ class MediaKitStatePlayer(
             .setCurrentMediaItemIndex(0)
             .setContentPositionMs(
     SimpleBasePlayer.PositionSupplier {
-        if (!isPlaying) {
-            positionMs
+        if (!playing) {
+            basePosition
         } else {
             val elapsed =
-                android.os.SystemClock.elapsedRealtime() - lastPositionRealtimeMs
+                android.os.SystemClock.elapsedRealtime() - baseRealtime
 
-            val predicted = positionMs + elapsed
+            val predicted = basePosition + elapsed
 
-            if (durationMs > 0L) {
-                predicted.coerceAtMost(durationMs)
+            if (duration > 0L) {
+                predicted.coerceAtMost(duration)
             } else {
                 predicted
             }
