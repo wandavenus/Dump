@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'audio/media3/media3_audio_player.dart';
 
 import '../models/local_song.dart';
+
+enum ProcessingState { idle, loading, buffering, ready, completed }
+
+enum LoopMode { off, all, one }
 
 @immutable
 class AudioPlaybackState {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../pages/settings/sleep_timer_page.dart';
-import '../../services/audio/media3/media3_audio_player.dart';
+import '../../services/audio_playback_state.dart';
 import '../../services/sleep_timer_service.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'audio/media3/media3_audio_player.dart';
 import 'audio/audio_engine_manager.dart';
 
 import '../models/local_song.dart';
