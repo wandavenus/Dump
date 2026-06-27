@@ -18,6 +18,10 @@ class _SettingsBody extends StatelessWidget {
                 const SizedBox(height: 32),
                 const _AudioSection(),
               ],
+              if (!isMedia3) ...[
+                const SizedBox(height: 32),
+                const _MediaKitAudioSection(),
+              ],
               const SizedBox(height: 32),
               const _PlaybackEngineSection(),
               if (isMedia3) ...[
