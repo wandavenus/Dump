@@ -589,6 +589,32 @@ class Media3PlaybackService : MediaSessionService() {
     // ── MethodChannel entry point ─────────────────────────────────────────────
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
+        // "release" is handled here rather than in TransportCommands because it
+        // must call stopSelf() — a service-level operation not available to
+        // TransportCommands.  This mirrors the ACTION_STOP notification-button
+        // path which already correctly triggers onDestroy() via stopSelf().
+        if (call.method == "release") {
+            NativeLogger.emit("info", "Media3",
+                "release: complete service teardown initiated (engine switch)")
+            // Cancel any in-flight work before the service stops.
+            sleepTimerManager.cancel()
+            crossfadeController.cancel(resetVolume = true)
+            transportState.stopPositionTicker()
+            audioFocusManager.abandon()
+            notificationManager.stopForeground()
+            transportState.emitAll()
+            // Acknowledge Dart before stopSelf() so the MethodChannel result is
+            // delivered while the service is still fully alive.
+            result.success(null)
+            // stopSelf() schedules service destruction on the main looper.
+            // onDestroy() then performs the full resource teardown:
+            //   crossfadeController.cancel, effectsManager.releaseEffects,
+            //   handler.removeCallbacksAndMessages, unregisterReceiver(noisyReceiver),
+            //   audioCapReceiver.unregister, primaryPlayer.release,
+            //   secondaryPlayer.release, session.release.
+            stopSelf()
+            return
+        }
         transportCommands.dispatch(call, result)
     }
 

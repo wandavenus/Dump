@@ -26,40 +26,45 @@ class Media3Engine implements AbstractAudioEngine {
     LogService.log('Media3Engine', 'Initialized');
   }
 
-  /// Releases all Media3-owned playback resources and stops the native service.
+  /// Performs a complete Media3 service teardown.
   ///
-  /// Steps performed:
+  /// Shutdown sequence (verified from Kotlin source):
   ///   1. Guards against double-dispose by clearing [_initialized] first.
-  ///   2. Calls [Media3PlaybackBridge.stop] to transition ExoPlayer to
-  ///      STATE_IDLE — this triggers [Media3PlaybackService] to:
-  ///        • Stop the foreground notification.
-  ///        • Release the MediaSession.
-  ///        • Release both ExoPlayer instances.
-  ///        • Release audio focus.
-  ///        • Cancel native sleep timers.
-  ///        • Unregister all native listeners.
-  ///   3. Waits 300 ms so the Android service fully transitions before the
-  ///      incoming engine begins claiming its own audio resources.
+  ///   2. Calls [Media3PlaybackBridge.release] → MethodChannel "release" →
+  ///      Media3PlaybackService.handle() which:
+  ///        a. Cancels crossfade and sleep timer.
+  ///        b. Abandons audio focus.
+  ///        c. Removes the playback notification / exits foreground service.
+  ///        d. Returns result.success(null) to Dart.
+  ///        e. Calls stopSelf() → Android schedules onDestroy().
+  ///   3. onDestroy() then performs the full resource release:
+  ///        • effectsManager.releaseEffects()
+  ///        • handler.removeCallbacksAndMessages()
+  ///        • unregisterReceiver(noisyReceiver)
+  ///        • audioCapReceiver.unregister()
+  ///        • primaryPlayer.release() + secondaryPlayer.release()
+  ///        • session.release()
+  ///
+  /// No artificial delay is needed: result.success(null) is sent before
+  /// stopSelf() so Dart receives the acknowledgement while the service is
+  /// still fully alive.  onDestroy() runs asynchronously on the main looper
+  /// after this method returns.
   ///
   /// Stream subscriptions held by [AudioEngineManager] are cancelled by the
-  /// manager before [dispose] is called, so no orphan listeners remain after
-  /// this method returns.
+  /// manager before [dispose] is called, so no orphan listeners remain.
   @override
   Future<void> dispose() async {
     if (!_initialized) return;
     // Set false before any await to prevent concurrent double-dispose.
     _initialized = false;
-    LogService.log('Media3Engine', 'Disposing — releasing native playback resources');
+    LogService.log('Media3Engine', 'Disposing — initiating complete native teardown');
     try {
-      await Media3PlaybackBridge.stop();
-      // Allow the Android service time to reach STATE_IDLE and release
-      // MediaSession + ExoPlayer before the next engine initialises.
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await Media3PlaybackBridge.release();
     } catch (e) {
-      // Native side may already be idle / not running — safe to ignore.
-      LogService.warn('Media3Engine', 'dispose() stop error (ignored): $e');
+      // Native side may already be stopped — safe to ignore.
+      LogService.warn('Media3Engine', 'dispose() release error (ignored): $e');
     }
-    LogService.log('Media3Engine', 'Disposed — all native resources released');
+    LogService.log('Media3Engine', 'Disposed — native service teardown initiated');
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────

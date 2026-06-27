@@ -211,6 +211,24 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> play()           => _invoke<void>('play');
   static Future<void> pause()          => _invoke<void>('pause');
   static Future<void> stop()           => _invoke<void>('stop');
+
+  /// Performs a complete Media3 service teardown.
+  ///
+  /// Unlike [stop] (which transitions ExoPlayer to STATE_IDLE and abandons
+  /// audio focus but leaves all resources allocated), [release] initiates a
+  /// full native shutdown:
+  ///   • Cancels crossfade and sleep timer.
+  ///   • Abandons audio focus.
+  ///   • Removes the playback notification / exits foreground.
+  ///   • Calls Service.stopSelf() → triggers onDestroy():
+  ///       primaryPlayer.release() + secondaryPlayer.release()
+  ///       session.release()
+  ///       effectsManager.releaseEffects()
+  ///       all BroadcastReceivers unregistered
+  ///
+  /// Use this when switching away from the Media3 engine permanently.
+  /// Use [stop] for transient pause-and-idle while keeping the service ready.
+  static Future<void> release()        => _invoke<void>('release');
   static Future<void> seek(Duration position) =>
       _invoke<void>('seek', {'position': position.inMilliseconds});
   static Future<void> skipNext()       => _invoke<void>('skipNext');
