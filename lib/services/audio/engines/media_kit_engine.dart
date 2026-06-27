@@ -223,34 +223,53 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   /// Handles transport commands emitted by [MediaKitPlaybackService] when the
   /// user interacts with the lock screen, BT device, or notification buttons.
-  void _handleTransportCommand(String action, int? positionMs) {
-    LogService.verbose('MediaKitEngine', 'transport command: $action positionMs=$positionMs');
-    switch (action) {
-      case 'play':
-        _player?.play();
-      case 'pause':
-        _player?.pause();
-      case 'next':
-        _player?.next();
-      case 'previous':
-        final pos = _player?.state.position ?? Duration.zero;
-        if (pos.inSeconds >= 3) {
-          _player?.seek(Duration.zero);
-        } else {
-          _player?.previous();
-        }
-      case 'seek':
-        if (positionMs != null) {
-          _lastPositionSentMs = 0; // force immediate push after seek completes
-          _player?.seek(Duration(milliseconds: positionMs));
-        }
-      case 'stop':
-        _player?.pause();
-        _player?.seek(Duration.zero);
-      default:
-        LogService.warn('MediaKitEngine', 'Unknown transport command: $action');
-    }
+  Future<void> _handleTransportCommand(String action, int? positionMs) async {
+  LogService.verbose(
+    'MediaKitEngine',
+    'transport command: $action positionMs=$positionMs',
+  );
+
+  switch (action) {
+    case 'play':
+      await _player?.play();
+      break;
+
+    case 'pause':
+      await _player?.pause();
+      break;
+
+    case 'next':
+      await _player?.next();
+      break;
+
+    case 'previous':
+      final pos = _player?.state.position ?? Duration.zero;
+      if (pos.inSeconds >= 3) {
+        await _player?.seek(Duration.zero);
+      } else {
+        await _player?.previous();
+      }
+      break;
+
+    case 'seek':
+      if (positionMs != null) {
+        _lastPositionSentMs = 0;
+        await _player?.seek(Duration(milliseconds: positionMs));
+      }
+      break;
+
+    case 'stop':
+      await _player?.pause();
+      await _player?.seek(Duration.zero);
+      break;
+
+    default:
+      LogService.warn(
+        'MediaKitEngine',
+        'Unknown transport command: $action',
+      );
   }
+}
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
