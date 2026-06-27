@@ -16,11 +16,31 @@ class _PlaybackEngineSection extends StatelessWidget {
         const _EngineSelector(),
         const SettingsDivider(),
 
-        // ── Engine Tunneling — hanya tampil saat Native Media3 aktif ─────────
+        // ── Info banner (MediaKit) / Engine Tunneling (Media3) ───────────────
         ValueListenableBuilder<PlaybackEngineType>(
           valueListenable: AudioEngineManager.activeEngineType,
           builder: (_, engine, _) {
-            if (engine != PlaybackEngineType.media3) return const SizedBox.shrink();
+            if (engine != PlaybackEngineType.media3) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline,
+                        color: Color(0xFF8E8E93), size: 15),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Fitur Audio, Spatial Audio, dan Equalizer disembunyikan. '
+                        'Beralih ke Native Media3 untuk mengakses semua efek dan pengaturan audio.',
+                        style: TextStyle(
+                            color: Color(0xFF636366), fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -117,67 +137,53 @@ class _EngineSelector extends StatelessWidget {
         return ValueListenableBuilder<bool>(
           valueListenable: AudioEngineManager.isSwitching,
           builder: (_, switching, _) {
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 0.8,
-                ),
-              ),
-              child: Column(
-                children: [
-                  ...PlaybackEngineType.values.map((type) {
-                    final isActive = type == active;
-                    final isLast = type == PlaybackEngineType.values.last;
-                    return Column(
-                      children: [
-                        _EngineOption(
-                          type: type,
-                          isSelected: isActive,
-                          isSwitching: switching,
-                          onTap: switching || isActive
-                              ? null
-                              : () => _switchEngine(context, type),
-                        ),
-                        if (!isLast)
-                          Divider(
-                            height: 1,
-                            color: Colors.white.withValues(alpha: 0.06),
-                            indent: 56,
-                          ),
-                      ],
-                    );
-                  }),
-                  if (switching)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: Color(0xFFFC3C44),
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Berpindah engine…',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+            return Column(
+              children: [
+                ...PlaybackEngineType.values.map((type) {
+                  final isActive = type == active;
+                  final isLast = type == PlaybackEngineType.values.last;
+                  return Column(
+                    children: [
+                      _EngineOption(
+                        type: type,
+                        isSelected: isActive,
+                        isSwitching: switching,
+                        onTap: switching || isActive
+                            ? null
+                            : () => _switchEngine(context, type),
                       ),
+                      if (!isLast) const SettingsDivider(),
+                    ],
+                  );
+                }),
+                if (switching) ...[
+                  const SettingsDivider(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 11),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Color(0xFFFC3C44),
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Berpindah engine…',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
-              ),
+              ],
             );
           },
         );
@@ -218,32 +224,10 @@ class _EngineOption extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFFC3C44)
-                      : Colors.white30,
-                  width: 2,
-                ),
-                color: isSelected
-                    ? const Color(0xFFFC3C44)
-                    : Colors.transparent,
-              ),
-              child: isSelected
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,47 +236,39 @@ class _EngineOption extends StatelessWidget {
                     type.displayName,
                     style: TextStyle(
                       color: isSelected
-                          ? const Color(0xFFFC3C44)
+                          ? const Color(0xFFF92D48)
                           : Colors.white,
                       fontWeight: isSelected
                           ? FontWeight.w600
                           : FontWeight.normal,
-                      fontSize: 15,
+                      fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
+                      color: Color(0xFF8E8E93),
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
+              const Text(
+                'Aktif',
+                style: TextStyle(
+                  color: Color(0xFFF92D48),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFC3C44).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: const Color(0xFFFC3C44).withValues(alpha: 0.3),
-                    width: 0.8,
-                  ),
-                ),
-                child: const Text(
-                  'Aktif',
-                  style: TextStyle(
-                    color: Color(0xFFFC3C44),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              )
+            else if (!isSwitching)
+              const Icon(
+                Icons.chevron_right,
+                color: Color(0xFF48484A),
+                size: 20,
               ),
           ],
         ),
