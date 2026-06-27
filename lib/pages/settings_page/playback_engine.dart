@@ -98,12 +98,6 @@ class _PlaybackEngineSection extends StatelessWidget {
                 ),
                 const SettingsDivider(),
 
-                // ── Playback Stats ───────────────────────────────────────────
-                SettingsActionRow(
-                  title: 'Statistik Sesi',
-                  trailing: 'Lihat',
-                  onTap: () => _showStatsSheet(context),
-                ),
               ],
             );
           },
@@ -111,17 +105,17 @@ class _PlaybackEngineSection extends StatelessWidget {
       ],
     );
   }
+}
 
-  void _showStatsSheet(BuildContext context) {
-    MediaCapabilitiesService.getPlaybackStats().then((stats) {
-      if (!context.mounted) return;
-      showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _PlaybackStatsSheet(stats: stats),
-      );
-    });
-  }
+void _showStatsSheet(BuildContext context) {
+  MediaCapabilitiesService.getPlaybackStats().then((stats) {
+    if (!context.mounted) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PlaybackStatsSheet(stats: stats),
+    );
+  });
 }
 
 // ─── Engine Selector Widget ────────────────────────────────────────────────────
@@ -263,12 +257,6 @@ class _EngineOption extends StatelessWidget {
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
-              )
-            else if (!isSwitching)
-              const Icon(
-                Icons.chevron_right,
-                color: Color(0xFF48484A),
-                size: 20,
               ),
           ],
         ),

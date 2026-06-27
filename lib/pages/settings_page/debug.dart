@@ -49,6 +49,14 @@ class _DebugSection extends StatelessWidget {
         _EffectStatusRow(),
         const SettingsDivider(),
 
+        // Statistik Sesi
+        SettingsActionRow(
+          title: 'Statistik Sesi',
+          trailing: 'Lihat',
+          onTap: () => _showStatsSheet(context),
+        ),
+        const SettingsDivider(),
+
         // Exit debug
         SettingsActionRow(
           title: 'Keluar Mode Debug',
