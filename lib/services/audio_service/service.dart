@@ -16,8 +16,8 @@ part of '../audio_service.dart';
 class AudioService {
   AudioService._();
 
-  // ── Position stream (native, high-frequency, for lyrics sync) ─────────────
-  static Stream<Duration> get positionStream => Media3PlaybackBridge.positionStream;
+  // ── Position stream (engine-agnostic, high-frequency, for lyrics sync) ─────
+  static Stream<Duration> get positionStream => AudioEngineManager.positionStream;
 
   // ── Playback state (single source of truth) ───────────────────────────────
   static final ValueNotifier<AudioPlaybackState> playbackState =
@@ -74,9 +74,9 @@ class AudioService {
     if (_initialized) return;
     _initialized = true;
 
-    // ── Native playback state ─────────────────────────────────────────────
+    // ── Engine playback state ─────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.playbackStateStream.listen((event) {
+      AudioEngineManager.playbackStateStream.listen((event) {
         final isPlaying = event['playing'] == true;
         final ps        = _parseProcessingState(event['processingState']);
         _setState(playbackState.value.copyWith(
@@ -92,39 +92,39 @@ class AudioService {
 
     // ── Position ticker ───────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.positionStream.listen((position) {
+      AudioEngineManager.positionStream.listen((position) {
         _setState(playbackState.value.copyWith(position: position));
       }),
     );
 
     // ── Duration ──────────────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.durationStream.listen((duration) {
+      AudioEngineManager.durationStream.listen((duration) {
         _setState(playbackState.value.copyWith(duration: duration));
       }),
     );
 
-    // ── Current track (native gapless + Dart-initiated skips) ─────────────
+    // ── Current track ──────────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.currentTrackStream.listen(_onNativeCurrentTrackChanged),
+      AudioEngineManager.currentTrackStream.listen(_onNativeCurrentTrackChanged),
     );
 
     // ── Full queue (pushed after every mutation) ──────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.queueStream.listen(_onNativeQueueChanged),
+      AudioEngineManager.queueStream.listen(_onNativeQueueChanged),
     );
 
-    // ── Shuffle mode (native ExoPlayer shuffleModeEnabled) ────────────────
+    // ── Shuffle mode ──────────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.shuffleModeStream.listen((enabled) {
+      AudioEngineManager.shuffleModeStream.listen((enabled) {
         _setState(playbackState.value.copyWith(shuffleEnabled: enabled));
         LogService.verbose('AudioService', 'Shuffle → ${enabled ? "on" : "off"}');
       }),
     );
 
-    // ── Repeat mode (native ExoPlayer REPEAT_MODE_*) ──────────────────────
+    // ── Repeat mode ───────────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.repeatModeStream.listen((mode) {
+      AudioEngineManager.repeatModeStream.listen((mode) {
         final lm = _loopModeFromString(mode);
         _setState(playbackState.value.copyWith(loopMode: lm));
         LogService.verbose('AudioService', 'Repeat → $mode');
@@ -133,7 +133,7 @@ class AudioService {
 
     // ── Sleep timer ────────────────────────────────────────────────────────
     _staticSubs.add(
-      Media3PlaybackBridge.sleepTimerStream.listen((map) {
+      AudioEngineManager.sleepTimerStream.listen((map) {
         final active      = map['active']      as bool? ?? false;
         final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
         _setState(playbackState.value.copyWith(
@@ -143,12 +143,12 @@ class AudioService {
       }),
     );
 
-    // ── Audio session ID → attach DSP pipeline ────────────────────────────
+    // ── Audio session ID → attach DSP pipeline (Media3 only) ─────────────
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _staticSubs.add(
-        Media3PlaybackBridge.audioSessionIdStream.listen(
-          AudioEngine.attachEffectsToSession,
-        ),
+        AudioEngineManager.audioSessionIdStream.listen((id) {
+          if (id > 0) AudioEngine.attachEffectsToSession(id);
+        }),
       );
     }
 
@@ -156,7 +156,7 @@ class AudioService {
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
 
-    LogService.log('AudioService', 'Initialized — native Media3 / ExoPlayer (native-first)');
+    LogService.log('AudioService', 'Initialized — engine: ${AudioEngineManager.engineType.displayName}');
   }
 
   static void _onReplayGainSettingChanged() {
@@ -345,10 +345,10 @@ class AudioService {
       // background metadata pre-scanner before sending the queue to native.
       MediaStoreService.cancelMetadataPrescanner();
 
-      // Send full playlist to native — ExoPlayer owns queue + gapless.
-      await Media3PlaybackBridge.setQueue(immutable, index);
+      // Kirim playlist ke engine aktif.
+      await AudioEngineManager.setQueue(immutable, index);
       await _applyReplayGain(selectedSong);
-      if (autoplay) await Media3PlaybackBridge.play();
+      if (autoplay) await AudioEngineManager.play();
 
       LogService.log(
         'AudioService',
@@ -367,45 +367,36 @@ class AudioService {
 
   static Future<void> play() async {
     initialize();
-    await Media3PlaybackBridge.play();
+    await AudioEngineManager.play();
     LogService.verbose('AudioService', 'Resumed playback');
   }
 
   static Future<void> pause() async {
     initialize();
     final pos = _fmtDur(playbackState.value.position);
-    await Media3PlaybackBridge.pause();
+    await AudioEngineManager.pause();
     LogService.verbose('AudioService', 'Paused at $pos');
   }
 
   static Future<void> seek(Duration position) async {
     initialize();
-    await Media3PlaybackBridge.seek(position);
+    await AudioEngineManager.seek(position);
     LogService.verbose('AudioService', 'Seek → ${_fmtDur(position)}');
   }
 
-  /// Skip to the next track.  Native ExoPlayer decides the next item,
-  /// respecting its own shuffle order when shuffleModeEnabled=true.
   static Future<void> skipNext() async {
     initialize();
-    await Media3PlaybackBridge.skipNext();
+    await AudioEngineManager.skipNext();
     LogService.log('AudioService', 'Skip → next');
   }
 
-  /// Skip to the previous track.
-  /// MED-06 fix: Dart-side stale-position check removed. ExoPlayer's
-  /// seekToPreviousMediaItem() uses the exact native position with a built-in
-  /// 3-second threshold (maxSeekToPreviousPositionMs = 3000 ms default), which
-  /// is more accurate than using the polled Dart position that may lag by up
-  /// to one position-tick interval. This also ensures crossfade and sleep-timer
-  /// cancellation always run (handled by handleSkipPrevious in TransportCommands).
   static Future<void> skipPrevious() async {
     initialize();
-    await Media3PlaybackBridge.skipPrevious();
+    await AudioEngineManager.skipPrevious();
     LogService.log('AudioService', 'Skip → previous');
   }
 
-  /// Jump to any item in the current queue without reloading the native queue.
+  /// Jump to any item in the current queue without reloading the queue.
   static Future<void> playFromCurrentQueue(int index) async {
     if (index < 0 || index >= _playlist.length) return;
     _currentIndex = index;
@@ -414,12 +405,8 @@ class AudioService {
       currentSong:  song,
       currentIndex: index,
     ));
-    await Media3PlaybackBridge.setTrack(index);
-    // LOW-05 fix: explicitly start playback after a queue jump. setTrack() only
-    // seeks native ExoPlayer to the target index; it does not resume a paused
-    // player. Without this call, tapping a queue item while paused would update
-    // the UI track but leave the player paused.
-    await Media3PlaybackBridge.play();
+    await AudioEngineManager.setTrack(index);
+    await AudioEngineManager.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
     unawaited(_applyReplayGain(song));
@@ -438,7 +425,7 @@ class AudioService {
     };
     // Optimistic UI update — native confirms via repeatModeStream.
     _setState(playbackState.value.copyWith(loopMode: next));
-    await Media3PlaybackBridge.setRepeatMode(next.name);
+    await AudioEngineManager.setRepeatMode(next.name);
     LogService.log('AudioService', 'Loop mode → ${next.name}');
   }
 
@@ -448,7 +435,7 @@ class AudioService {
     final next    = !current;
     // Optimistic UI update — native confirms via shuffleModeStream.
     _setState(playbackState.value.copyWith(shuffleEnabled: next));
-    await Media3PlaybackBridge.setShuffleMode(next);
+    await AudioEngineManager.setShuffleMode(next);
     LogService.log('AudioService', 'Shuffle → ${next ? "on" : "off"}');
   }
 
@@ -463,8 +450,7 @@ class AudioService {
       _playlist     = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    // Native update — authoritative; queueStream will confirm.
-    unawaited(Media3PlaybackBridge.insertNext(song));
+    unawaited(AudioEngineManager.insertNext(song));
     LogService.log('AudioService', 'Queued next: "${song.title}"');
   }
 
@@ -475,7 +461,7 @@ class AudioService {
       _playlist     = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    unawaited(Media3PlaybackBridge.appendToQueue(song));
+    unawaited(AudioEngineManager.appendToQueue(song));
     LogService.log('AudioService', 'Queued at end: "${song.title}" (${_playlist.length})');
   }
 
@@ -509,7 +495,7 @@ class AudioService {
       currentIndex:    _currentIndex,
     ));
 
-    unawaited(Media3PlaybackBridge.reorderQueue(oldIndex, adjustedNew));
+    unawaited(AudioEngineManager.reorderQueue(oldIndex, adjustedNew));
     LogService.log('AudioService', 'Queue reordered: [$oldIndex] → [$adjustedNew]');
   }
 
@@ -557,14 +543,13 @@ class AudioService {
 
   // ── State sync (app resume) ───────────────────────────────────────────────
 
-  /// Re-sync Dart state from the running native service.
-  /// Call after initialize() and on every AppLifecycleState.resumed.
+  /// Re-sync Dart state dari engine yang sedang aktif.
+  /// Call after initialize() dan pada setiap AppLifecycleState.resumed.
   static Future<void> syncFromNative() async {
     if (kIsWeb) return;
-    if (defaultTargetPlatform != TargetPlatform.android) return;
 
     try {
-      final snapshot = await Media3PlaybackBridge.getPlaybackSnapshot();
+      final snapshot = await AudioEngineManager.getPlaybackSnapshot();
       if (snapshot == null) return;
 
       final rawQueue = snapshot['queue'];

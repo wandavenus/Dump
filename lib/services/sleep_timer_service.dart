@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'audio/media3/media3_playback_bridge.dart';
+import 'audio/audio_engine_manager.dart';
 import 'log_service.dart';
 
 enum SleepTimerMode { duration, endOfSong }
@@ -34,7 +34,7 @@ class SleepTimerService {
 
   static void initialize() {
     _sub?.cancel();
-    _sub = Media3PlaybackBridge.sleepTimerStream.listen((map) {
+    _sub = AudioEngineManager.sleepTimerStream.listen((map) {
       final active      = map['active']      as bool? ?? false;
       final endOfSong   = map['endOfSong']   as bool? ?? false;
       final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
@@ -60,8 +60,8 @@ class SleepTimerService {
     _mode           = SleepTimerMode.duration;
     isActive.value  = true;
     remaining.value = duration;
-    unawaited(Media3PlaybackBridge.setSleepTimer(duration.inMilliseconds));
-    LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min (native)');
+    unawaited(AudioEngineManager.setSleepTimer(duration.inMilliseconds));
+    LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min');
   }
 
   // ── Start at end of current song ──────────────────────────────────────────
@@ -70,8 +70,8 @@ class SleepTimerService {
     _mode           = SleepTimerMode.endOfSong;
     isActive.value  = true;
     remaining.value = null;
-    unawaited(Media3PlaybackBridge.setSleepTimerEndOfSong());
-    LogService.log('SleepTimer', 'End-of-song mode (native)');
+    unawaited(AudioEngineManager.setSleepTimerEndOfSong());
+    LogService.log('SleepTimer', 'End-of-song mode');
   }
 
   // ── Cancel ────────────────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ class SleepTimerService {
     _mode           = null;
     isActive.value  = false;
     remaining.value = null;
-    unawaited(Media3PlaybackBridge.cancelSleepTimer());
-    LogService.log('SleepTimer', 'Cancelled (native)');
+    unawaited(AudioEngineManager.cancelSleepTimer());
+    LogService.log('SleepTimer', 'Cancelled');
   }
 
   // ── Dispose ───────────────────────────────────────────────────────────────

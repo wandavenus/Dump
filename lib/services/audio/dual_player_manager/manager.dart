@@ -1,10 +1,12 @@
-part of '../dual_player_manager.dart';
+import '../../log_service.dart';
+import '../../../models/local_song.dart';
 
-/// Media3-backed player owner.
+/// Media3-backed player stub — real playback is owned by the native service.
 ///
-/// The previous implementation used two Flutter-side players players. Media3 owns the
-/// real native queue now, so this class keeps the public contract used by the
-/// rest of the app while routing playback to one native ExoPlayer instance.
+/// The previous implementation used two Flutter-side just_audio players.
+/// Media3 owns the real native queue now, so this class keeps the public
+/// contract used by the rest of the app while routing playback to one
+/// native ExoPlayer instance.
 class DualPlayerManager {
   DualPlayerManager._();
 
@@ -14,25 +16,13 @@ class DualPlayerManager {
   static void Function()? onBeforePromote;
   static void Function()? onAfterPromote;
 
-  static AudioPlayer? _primary;
-  static final AndroidEqualizer _primaryEq = AndroidEqualizer();
-  static final AndroidLoudnessEnhancer _primaryLe = AndroidLoudnessEnhancer();
   static bool _initialized = false;
   static LocalSong? _preloadedSong;
 
-  static AudioPlayer get primaryPlayer {
-    assert(_initialized, 'DualPlayerManager not initialized');
-    return _primary!;
-  }
-
-  static AudioPlayer? get secondaryPlayer => null;
   static LocalSong? get preloadedSong => _preloadedSong;
-  static AndroidEqualizer? get primaryEqualizer => _primaryEq;
-  static AndroidLoudnessEnhancer? get primaryLoudness => _primaryLe;
 
   static Future<void> initialize() async {
     if (_initialized) return;
-    _primary = AudioPlayer();
     _initialized = true;
     onPrimaryChanged?.call();
     LogService.log('Media3Player', 'Native Media3 player connected');
@@ -57,8 +47,6 @@ class DualPlayerManager {
   }
 
   static Future<void> dispose() async {
-    await _primary?.dispose();
-    _primary = null;
     _preloadedSong = null;
     _initialized = false;
   }

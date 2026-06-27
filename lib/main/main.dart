@@ -21,8 +21,10 @@ Future<void> main() async {
   await LyricsSettings.init();
   await UpNextSettings.init();
 
-  // Order matters: AudioEngine must be ready before AudioEffectsService,
-  // which must be ready before AudioService.
+  // Order matters: AudioEngineManager harus diinisialisasi pertama
+  // (memuat pilihan engine dan menginisialisasi engine yang dipilih).
+  // AudioEngine (facade efek) harus siap sebelum AudioEffectsService.
+  await AudioEngineManager.initialize();
   await AudioEngine.initialize();
   await AudioEffectsService.init();
   await MediaCapabilitiesService.initialize();
@@ -30,9 +32,7 @@ Future<void> main() async {
   AudioFocusService.initialize();
   SleepTimerService.initialize();
 
-  // Sync playback state from the native Media3 service before rendering UI.
-  // This restores the mini player when the app is reopened while playback
-  // is already active in the background.
+  // Sync playback state dari engine aktif sebelum merender UI.
   unawaited(AudioService.syncFromNative());
 
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
