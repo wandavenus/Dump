@@ -216,14 +216,10 @@ class MediaKitPlaybackService : MediaSessionService() {
                 currentPosition = (call.argument<Number>("positionMs")?.toLong()) ?: 0L
                 statePlayer.updatePlaybackState(currentPlaying, currentPosition)
                 if (currentPlaying) {
-                    // First play — promote from background to foreground and show
-                    // the notification for the first time.
-                    notificationManager.ensureMediaForeground()
-                } else {
-                    // Paused/stopped — update the play/pause icon only if the
-                    // notification is already showing; do not re-create it.
-                    refreshIfVisible()
-                }
+    notificationManager.ensureMediaForeground()
+}
+
+                refreshIfVisible()
                 result.success(null)
             }
             "release" -> {
