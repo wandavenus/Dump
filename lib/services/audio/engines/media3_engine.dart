@@ -4,19 +4,34 @@ import '../../../models/local_song.dart';
 import '../engine_abstraction.dart';
 import '../media3/media3_playback_bridge.dart';
 
-/// Engine yang membungkus implementasi Media3/ExoPlayer yang sudah ada.
-/// Seluruh logika DSP, crossfade, antrian, dll. tetap di native Kotlin.
-/// Kelas ini hanya meneruskan perintah dan stream ke Media3PlaybackBridge.
+/// Engine yang membungkus implementasi Media3/ExoPlayer.
+///
+/// Seluruh logika DSP, crossfade, antrian, efek, dll. tetap di native Kotlin.
+/// Kelas ini meneruskan perintah dan stream ke [Media3PlaybackBridge].
+///
+/// [Media3PlaybackBridge] adalah satu-satunya kelas yang diizinkan
+/// berkomunikasi dengan Android MethodChannel/EventChannel playback.
 class Media3Engine implements AbstractAudioEngine {
   bool _initialized = false;
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   Future<void> initialize() async {
     _initialized = true;
   }
 
+  /// Menghentikan playback native dan melepas resource.
+  ///
+  /// Memanggil [Media3PlaybackBridge.stop] untuk mentransisikan ExoPlayer ke
+  /// STATE_IDLE, yang memicu [Media3PlaybackService] untuk menghentikan
+  /// foreground service dan melepas MediaSession.
   @override
   Future<void> dispose() async {
+    if (!_initialized) return;
+    try {
+      await Media3PlaybackBridge.stop();
+    } catch (_) {}
     _initialized = false;
   }
 
@@ -77,19 +92,103 @@ class Media3Engine implements AbstractAudioEngine {
   Future<void> setShuffleMode(bool enabled) =>
       Media3PlaybackBridge.setShuffleMode(enabled);
 
-  // ── Parameters ────────────────────────────────────────────────────────────
+  // ── Playback parameters ───────────────────────────────────────────────────
 
   @override
   Future<void> setVolume(double volume) =>
       Media3PlaybackBridge.setVolume(volume);
 
   @override
-  Future<void> setSpeed(double speed) =>
-      Media3PlaybackBridge.setSpeed(speed);
+  Future<void> setSpeed(double speed) => Media3PlaybackBridge.setSpeed(speed);
 
   @override
-  Future<void> setPitch(double pitch) =>
-      Media3PlaybackBridge.setPitch(pitch);
+  Future<void> setPitch(double pitch) => Media3PlaybackBridge.setPitch(pitch);
+
+  // ── DSP effects ───────────────────────────────────────────────────────────
+
+  @override
+  Future<void> setBassBoost(int strength) =>
+      Media3PlaybackBridge.setBassBoostStrength(strength);
+
+  @override
+  Future<void> setBassBoostEnabled(bool enabled) =>
+      Media3PlaybackBridge.setBassBoostEnabled(enabled);
+
+  @override
+  Future<void> setVirtualizerEnabled(bool enabled) =>
+      Media3PlaybackBridge.setVirtualizerEnabled(enabled);
+
+  @override
+  Future<void> setVirtualizerStrength(int strength) =>
+      Media3PlaybackBridge.setVirtualizerStrength(strength);
+
+  @override
+  Future<void> setReverbPreset(int preset) =>
+      Media3PlaybackBridge.setReverbPreset(preset);
+
+  @override
+  Future<void> setEqualizerEnabled(bool enabled) =>
+      Media3PlaybackBridge.setEqualizerEnabled(enabled);
+
+  @override
+  Future<void> setEqualizerBandGain(int band, double gainDb) =>
+      Media3PlaybackBridge.setEqualizerBandGain(band, gainDb);
+
+  @override
+  Future<void> setLoudnessEnabled(bool enabled) =>
+      Media3PlaybackBridge.setLoudnessEnabled(enabled);
+
+  @override
+  Future<void> setLoudnessTargetGain(double gainMb) =>
+      Media3PlaybackBridge.setLoudnessTargetGain(gainMb);
+
+  @override
+  Future<void> setCrossfadeDuration(double seconds) =>
+      Media3PlaybackBridge.setCrossfadeDuration(seconds);
+
+  @override
+  Future<EngineEqualizerParameters?> getEqualizerParameters() async {
+    try {
+      final raw = await Media3PlaybackBridge.getEqualizerParameters();
+      return EngineEqualizerParameters(
+        minDecibels: raw.minDecibels,
+        maxDecibels: raw.maxDecibels,
+        bandCount:   raw.bands.length,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getEffectSupport() =>
+      Media3PlaybackBridge.getEffectSupport();
+
+  // ── Capabilities ─────────────────────────────────────────────────────────
+
+  @override
+  Future<void> setSkipSilence(bool enabled) =>
+      Media3PlaybackBridge.setSkipSilence(enabled);
+
+  @override
+  Future<void> setStereoWidening({
+    required bool enabled,
+    required double strength,
+  }) =>
+      Media3PlaybackBridge.setStereoWidening(
+        enabled:  enabled,
+        strength: strength,
+      );
+
+  @override
+  Future<Map<String, dynamic>?> getPlaybackStats() =>
+      Media3PlaybackBridge.getPlaybackStats();
+
+  // ── Audio format ─────────────────────────────────────────────────────────
+
+  @override
+  Future<Map<String, dynamic>?> getAudioFormat() =>
+      Media3PlaybackBridge.getAudioFormat();
 
   // ── Sleep timer ───────────────────────────────────────────────────────────
 
@@ -102,8 +201,7 @@ class Media3Engine implements AbstractAudioEngine {
       Media3PlaybackBridge.setSleepTimerEndOfSong();
 
   @override
-  Future<void> cancelSleepTimer() =>
-      Media3PlaybackBridge.cancelSleepTimer();
+  Future<void> cancelSleepTimer() => Media3PlaybackBridge.cancelSleepTimer();
 
   // ── State snapshot ────────────────────────────────────────────────────────
 
@@ -118,32 +216,27 @@ class Media3Engine implements AbstractAudioEngine {
       Media3PlaybackBridge.playbackStateStream;
 
   @override
-  Stream<Duration> get positionStream =>
-      Media3PlaybackBridge.positionStream;
+  Stream<Duration> get positionStream => Media3PlaybackBridge.positionStream;
 
   @override
-  Stream<Duration> get durationStream =>
-      Media3PlaybackBridge.durationStream;
+  Stream<Duration> get durationStream => Media3PlaybackBridge.durationStream;
 
   @override
   Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
       Media3PlaybackBridge.currentTrackStream;
 
   @override
-  Stream<List<dynamic>> get queueStream =>
-      Media3PlaybackBridge.queueStream;
+  Stream<List<dynamic>> get queueStream => Media3PlaybackBridge.queueStream;
 
   @override
   Stream<bool> get bufferingStateStream =>
       Media3PlaybackBridge.bufferingStateStream;
 
   @override
-  Stream<bool> get shuffleModeStream =>
-      Media3PlaybackBridge.shuffleModeStream;
+  Stream<bool> get shuffleModeStream => Media3PlaybackBridge.shuffleModeStream;
 
   @override
-  Stream<String> get repeatModeStream =>
-      Media3PlaybackBridge.repeatModeStream;
+  Stream<String> get repeatModeStream => Media3PlaybackBridge.repeatModeStream;
 
   @override
   Stream<Map<dynamic, dynamic>> get sleepTimerStream =>
@@ -152,6 +245,17 @@ class Media3Engine implements AbstractAudioEngine {
   @override
   Stream<int> get audioSessionIdStream =>
       Media3PlaybackBridge.audioSessionIdStream;
+
+  @override
+  Stream<Map<dynamic, dynamic>> get audioFormatStream =>
+      Media3PlaybackBridge.audioFormatStream;
+
+  @override
+  Stream<bool> get skipSilenceStream => Media3PlaybackBridge.skipSilenceStream;
+
+  @override
+  Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
+      Media3PlaybackBridge.stereoWideningStream;
 
   bool get isInitialized => _initialized;
 }
