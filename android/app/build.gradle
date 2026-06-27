@@ -42,24 +42,16 @@ android {
     }
 
     lint {
-        // Baseline: existing issues are suppressed; only NEW issues introduced by
-        // future commits will fail the build. To regenerate the baseline locally:
-        //   cd android && ./gradlew :app:lintDebug -Dlint.baselines.continue=true
         baseline = file("lint-baseline.xml")
-
-        abortOnError     = true   // fail CI on new issues not in the baseline
-        warningsAsErrors = false  // warnings don't count as failures
-        checkDependencies = false // skip checking library deps — fast feedback only
-        xmlReport        = true   // consumed by CI upload step
-        htmlReport       = true   // human-readable report
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = false
+        xmlReport = true
+        htmlReport = true
     }
 
     testOptions {
         unitTests {
-            // Android stubs return default values (0 / null / false) instead of
-            // throwing RuntimeException("Stub!"). Required because TagBuilder.build()
-            // returns ExoMetadataReader.AudioTags, and loading that nested class
-            // causes the JVM to resolve ExoMetadataReader (which imports android.util.Log).
             returnDefaultValues = true
         }
     }
@@ -80,12 +72,29 @@ android {
         }
     }
 
+    packaging {
+        resources {
+            excludes += [
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/DEPENDENCIES",
+                "META-INF/*.version",
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1"
+            ]
+        }
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-
             minifyEnabled true
             shrinkResources true
+            crunchPngs true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
@@ -98,20 +107,11 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.10.1'
     implementation 'androidx.media3:media3-session:1.10.1'
     implementation 'androidx.media3:media3-ui:1.10.1'
-    // Explicit dependency for DefaultExtractorsFactory, FlacExtractor, and
-    // DefaultExtractorsFactory.setFlacExtractorFlags (Item 10).
-    // media3-extractor is a transitive dep of media3-exoplayer, but listing it
-    // explicitly avoids breakage if Gradle's transitive resolution ever changes.
     implementation 'androidx.media3:media3-extractor:1.10.1'
-    // Required for MdtaMetadataEntry (M4A ©lyr lyrics, mdta atoms).
-    // MdtaMetadataEntry was relocated from media3-extractor to media3-container
-    // at some point in the 1.x line; in 1.10.1 it lives in media3-container.
     implementation 'androidx.media3:media3-container:1.10.1'
 
-    // JVM unit tests — no device/emulator required
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'
-    // Mockito for ExoPlayer/AudioManager interface mocking in unit tests
     testImplementation 'org.mockito:mockito-core:5.3.1'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
 }
