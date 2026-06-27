@@ -42,8 +42,9 @@ class MediaKitStatePlayer(
     private var durationMs: Long    = 0L
 
     // Playback state
-    @Volatile private var isPlaying:  Boolean = false
-    @Volatile private var positionMs: Long    = 0L
+    @Volatile private var isPlaying: Boolean = false
+    @Volatile private var positionMs: Long = 0L
+    @Volatile private var lastPositionRealtimeMs: Long = 0L
 
     // ── State mutations ───────────────────────────────────────────────────────
 
@@ -57,10 +58,11 @@ class MediaKitStatePlayer(
     }
 
     /** Push new playback state (playing / paused, position) and invalidate. */
-    fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
-        this.isPlaying  = isPlaying
-        this.positionMs = positionMs
-        invalidateState()
+    fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {        this.isPlaying = isPlaying
+    this.positionMs = positionMs
+    this.lastPositionRealtimeMs = android.os.SystemClock.elapsedRealtime()
+
+    invalidateState()
     }
 
     // ── SimpleBasePlayer contract ─────────────────────────────────────────────
@@ -77,17 +79,17 @@ class MediaKitStatePlayer(
                         .setArtist(artist)
                         .setArtworkUri(artUri)
                         .build()
-                )
-                .build()
-            listOf(
+                       )
+                        .build()
+                listOf(
                 MediaItemData.Builder("mediakit_current_track")
                     .setMediaItem(mediaItem)
                     .setDurationUs(if (durationMs > 0L) durationMs * 1_000L else -1L)
                     .build()
             )
-        } else {
+               } else {
             emptyList()
-        }
+            }
 
         val commands = Player.Commands.Builder()
             .addAll(
@@ -101,9 +103,6 @@ class MediaKitStatePlayer(
             )
             .build()
 
-        // Capture position for the lambda below (must be a val, not var).
-        val capturedPosition = positionMs
-
         return State.Builder()
             .setAvailableCommands(commands)
             .setPlayWhenReady(
@@ -113,7 +112,24 @@ class MediaKitStatePlayer(
             .setPlaybackState(if (hasTrack) Player.STATE_READY else Player.STATE_IDLE)
             .setPlaylist(playlist)
             .setCurrentMediaItemIndex(0)
-            .setContentPositionMs(SimpleBasePlayer.PositionSupplier { capturedPosition })
+            .setContentPositionMs(
+    SimpleBasePlayer.PositionSupplier {
+        if (!isPlaying) {
+            positionMs
+        } else {
+            val elapsed =
+                android.os.SystemClock.elapsedRealtime() - lastPositionRealtimeMs
+
+            val predicted = positionMs + elapsed
+
+            if (durationMs > 0L) {
+                predicted.coerceAtMost(durationMs)
+            } else {
+                predicted
+            }
+        }
+    }
+)
             .build()
     }
 
