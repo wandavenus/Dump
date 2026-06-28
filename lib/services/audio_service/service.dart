@@ -387,6 +387,20 @@ class AudioService {
     LogService.verbose('AudioService', 'Seek → ${_fmtDur(position)}');
   }
 
+  // ── Tape Scrub helpers ─────────────────────────────────────────────────────
+  //
+  // Digunakan oleh PlayerProgressSection selama scrub agar speed berubah
+  // sementara tanpa menulis ke SharedPreferences.
+  // Panggil [clearScrubSpeed] saat scrub selesai untuk memulihkan.
+
+  /// Ubah kecepatan sementara selama scrub (tidak disimpan ke prefs).
+  static Future<void> setTemporaryScrubSpeed(double speed) =>
+      AudioEngineManager.setSpeed(speed.clamp(0.25, 3.0));
+
+  /// Pulihkan kecepatan ke nilai yang tersimpan user.
+  static Future<void> clearScrubSpeed() =>
+      AudioEngineManager.setSpeed(AudioEffectsService.playbackSpeed.value);
+
   static Future<void> skipNext() async {
     initialize();
     await AudioEngineManager.skipNext();
