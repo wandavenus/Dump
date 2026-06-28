@@ -342,31 +342,7 @@ class _ProgressiveLyricLine extends StatelessWidget {
     if (text.isEmpty || progress <= 0) return 0;
     if (progress >= 1) return maxWidth;
 
-    final nonSpaceCount =
-        text.runes.where((rune) => !_isWhitespace(rune)).length;
-    if (nonSpaceCount == 0) return maxWidth * progress;
-
-    final target = progress * nonSpaceCount;
-    var seen = 0;
-    var prefixEnd = 0;
-    var charStart = 0;
-    var charEnd = 0;
-    var charFraction = 0.0;
-
-    for (final rune in text.runes) {
-      final next = prefixEnd + String.fromCharCode(rune).length;
-      if (!_isWhitespace(rune)) {
-        final nextSeen = seen + 1;
-        if (target <= nextSeen) {
-          charStart = prefixEnd;
-          charEnd = next;
-          charFraction = (target - seen).clamp(0.0, 1.0);
-          break;
-        }
-        seen = nextSeen;
-      }
-      prefixEnd = next;
-    }
+    var nonSpaceCount = 0;\n    for (final rune in text.runes) {\n      if (!_isWhitespace(rune)) {\n        nonSpaceCount++;\n      }\n    }\n    if (nonSpaceCount == 0) return maxWidth * progress;\n\n    final target = progress * nonSpaceCount;\n    var seen = 0;\n    var prefixEnd = 0;\n    var charStart = 0;\n    var charEnd = 0;\n    var charFraction = 0.0;\n\n    for (final rune in text.runes) {\n      final runeLength = rune > 0xffff ? 2 : 1;\n      final next = prefixEnd + runeLength;\n      if (!_isWhitespace(rune)) {\n        final nextSeen = seen + 1;\n        if (target <= nextSeen) {\n          charStart = prefixEnd;\n          charEnd = next;\n          charFraction = (target - seen).clamp(0.0, 1.0);\n          break;\n        }\n        seen = nextSeen;\n      }\n      prefixEnd = next;\n    }
 
     if (charEnd == 0) return maxWidth;
 
