@@ -38,11 +38,26 @@ class PlaylistPage extends StatefulWidget {
 class _PlaylistPageState extends State<PlaylistPage> {
   List<LocalSong> _songs = [];
   bool _loading = true;
+  final _scroll = ScrollController();
+  double _offset = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final o = _scroll.offset;
+    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -200,7 +215,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: widget.name,
-        scrollOffset: 100,
+        scrollOffset: _offset,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -221,70 +236,75 @@ class _PlaylistPageState extends State<PlaylistPage> {
           ],
         ],
       ),
-      body:
-          _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _songs.isEmpty
-              ? _EmptyState(icon: widget.icon, color: widget.iconColor)
-              : Column(
-                children: [
-                  _PlayAllButton(count: _songs.length, onTap: _playAll),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 80),
-                      itemCount: _songs.length,
-                      itemBuilder: (ctx, i) {
-                        final song = _songs[i];
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 2,
-                          ),
-                          leading: SongArtwork(
-                            songId: song.id,
-                            size: 48,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          title: Text(
-                            song.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            song.artist,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 13,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing:
-                              isUserPlaylist
-                                  ? IconButton(
-                                    icon: const Icon(
-                                      Icons.remove_circle_outline,
-                                      color: Colors.grey,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _removeSong(song.id),
-                                  )
-                                  : Text(
-                                    _fmt(song.duration),
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                          onTap: () => _playSong(i),
-                        );
-                      },
-                    ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _songs.isEmpty
+          ? _EmptyState(icon: widget.icon, color: widget.iconColor)
+          : ListView.builder(
+              controller: _scroll,
+              padding: const EdgeInsets.only(bottom: 80),
+              itemCount: _songs.length + 1,
+              itemBuilder: (ctx, i) {
+                if (i == 0) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LargePageTitle(title: widget.name),
+                      const HeaderDivider(),
+                      _PlayAllButton(
+                        count: _songs.length,
+                        onTap: _playAll,
+                      ),
+                    ],
+                  );
+                }
+                final song = _songs[i - 1];
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
                   ),
-                ],
-              ),
+                  leading: SongArtwork(
+                    songId: song.id,
+                    size: 48,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  title: Text(
+                    song.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    song.artist,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: isUserPlaylist
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          onPressed: () => _removeSong(song.id),
+                        )
+                      : Text(
+                          _fmt(song.duration),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                  onTap: () => _playSong(i - 1),
+                );
+              },
+            ),
     );
   }
 }

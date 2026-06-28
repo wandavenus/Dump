@@ -38,8 +38,20 @@ class _ArtistListContentState extends State<ArtistListContent> {
       );
     }
     return ListView.builder(
-      itemCount: _artists.length,
-      itemBuilder: (context, index) => ArtistListRow(artist: _artists[index]),
+      controller: widget.scrollController,
+      itemCount: _artists.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LargePageTitle(title: 'Favourite Artists'),
+              HeaderDivider(),
+            ],
+          );
+        }
+        return ArtistListRow(artist: _artists[index - 1]);
+      },
     );
   }
 }

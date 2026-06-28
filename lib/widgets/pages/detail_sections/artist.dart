@@ -25,23 +25,19 @@ class ArtistHero extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.45),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const DetailTopBar(),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 20),
-                child: Text(
-                  artistName,
-                  style: const TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 20),
+              child: Text(
+                artistName,
+                style: const TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),

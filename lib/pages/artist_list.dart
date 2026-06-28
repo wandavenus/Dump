@@ -11,12 +11,34 @@ class ArtistList extends StatefulWidget {
 }
 
 class _ArtistListState extends State<ArtistList> {
+  final _scroll = ScrollController();
+  double _offset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final o = _scroll.offset;
+    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
-        title: 'Favourite Artist',
-        scrollOffset: 100,
+        title: 'Favourite Artists',
+        scrollOffset: _offset,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
@@ -26,7 +48,7 @@ class _ArtistListState extends State<ArtistList> {
         ),
         actions: const [],
       ),
-      body: const ArtistListContent(),
+      body: ArtistListContent(scrollController: _scroll),
     );
   }
 }

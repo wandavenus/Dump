@@ -2,11 +2,19 @@ part of '../music_list.dart';
 
 class _MusicListState extends State<MusicList> {
   late Future<List<LocalSong>> _songsFuture;
+  final _scroll = ScrollController();
+  double _offset = 0;
 
   @override
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final o = _scroll.offset;
+    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
   }
 
   Future<void> _refreshSongs() async {
@@ -17,9 +25,24 @@ class _MusicListState extends State<MusicList> {
   }
 
   @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const FadingTitleAppBar(title: 'Unduhan', scrollOffset: 100),
+      appBar: FadingTitleAppBar(
+        title: 'Unduhan',
+        scrollOffset: _offset,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: const [],
+      ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
         builder: (context, snapshot) {
@@ -32,9 +55,12 @@ class _MusicListState extends State<MusicList> {
             return RefreshIndicator(
               onRefresh: _refreshSongs,
               child: ListView(
+                controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
-                  SizedBox(height: 180),
+                  LargePageTitle(title: 'Unduhan'),
+                  HeaderDivider(),
+                  SizedBox(height: 160),
                   Icon(Icons.music_note, size: 56, color: Colors.white38),
                   SizedBox(height: 12),
                   Center(
@@ -51,9 +77,20 @@ class _MusicListState extends State<MusicList> {
           return RefreshIndicator(
             onRefresh: _refreshSongs,
             child: ListView.builder(
-              itemCount: songs.length,
+              controller: _scroll,
+              itemCount: songs.length + 1,
               itemBuilder: (context, index) {
-                final song = songs[index];
+                if (index == 0) {
+                  return const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LargePageTitle(title: 'Unduhan'),
+                      HeaderDivider(),
+                    ],
+                  );
+                }
+
+                final song = songs[index - 1];
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
@@ -63,7 +100,7 @@ class _MusicListState extends State<MusicList> {
                   onTap: () async {
                     await AudioService.playSongAt(
                       playlist: songs,
-                      index: index,
+                      index: index - 1,
                     );
                     PlayerPanelController.instance.open();
                   },
