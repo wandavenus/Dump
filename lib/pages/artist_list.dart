@@ -39,13 +39,6 @@ class _ArtistListState extends State<ArtistList> {
       appBar: FadingTitleAppBar(
         title: 'Favourite Artists',
         scrollOffset: _offset,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         actions: const [],
       ),
       body: ArtistListContent(scrollController: _scroll),

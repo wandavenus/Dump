@@ -37,10 +37,6 @@ class _MusicListState extends State<MusicList> {
       appBar: FadingTitleAppBar(
         title: 'Unduhan',
         scrollOffset: _offset,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         actions: const [],
       ),
       body: FutureBuilder<List<LocalSong>>(

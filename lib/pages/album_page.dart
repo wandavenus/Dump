@@ -20,11 +20,6 @@ class AlbumPage extends StatelessWidget {
       appBar: FadingTitleAppBar(
         title: album.album,
         scrollOffset: 100,
-        automaticallyImplyLeading: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         actions: const [],
       ),
       body: AlbumPageContent(album: album, songs: songs),

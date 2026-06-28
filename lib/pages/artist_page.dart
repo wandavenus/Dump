@@ -17,10 +17,6 @@ class ArtistPage extends StatelessWidget {
       appBar: FadingTitleAppBar(
         title: artistName,
         scrollOffset: 100,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         actions: const [],
       ),
       body: ArtistPageContent(songs: songs),

@@ -216,10 +216,6 @@ class _PlaylistPageState extends State<PlaylistPage> {
       appBar: FadingTitleAppBar(
         title: widget.name,
         scrollOffset: _offset,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           if (isUserPlaylist) ...[
             IconButton(

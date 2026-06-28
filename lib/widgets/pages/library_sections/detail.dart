@@ -11,11 +11,26 @@ class _LibraryDetailPage extends StatefulWidget {
 
 class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   late Future<List<LocalSong>> _songsFuture;
+  final _scroll = ScrollController();
+  double _offset = 0;
 
   @override
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final o = _scroll.offset;
+    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
   }
 
   String get _title => switch (widget.destination) {
@@ -31,14 +46,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: _title,
-        scrollOffset: 100,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        scrollOffset: _offset,
         actions: const [],
       ),
       body: FutureBuilder<List<LocalSong>>(
@@ -101,89 +109,142 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         albums.values.toList()
           ..sort((a, b) => a.first.album.compareTo(b.first.album));
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.78,
-      ),
-      itemCount: entries.length,
-      itemBuilder: (context, index) {
-        final albumSongs = entries[index];
-        final album = albumSongs.first;
-        return GestureDetector(
-          onTap:
-              () => Navigator.pushNamed(
-                context,
-                '/album',
-                arguments: {'album': album, 'songs': albumSongs},
-              ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(8),
+    return CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LargePageTitle(title: _title),
+              const HeaderDivider(),
+            ],
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final albumSongs = entries[index];
+                final album = albumSongs.first;
+                return GestureDetector(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/album',
+                    arguments: {'album': album, 'songs': albumSongs},
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C1C1E),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SongArtwork(
+                          songId: album.id,
+                          size: 130,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          album.album,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${album.artist} • ${albumSongs.length} lagu',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              childCount: entries.length,
             ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.78,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _songsList(List<LocalSong> songs) {
+    return ListView.builder(
+      controller: _scroll,
+      itemCount: songs.length + 2,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LargePageTitle(title: _title),
+              const HeaderDivider(),
+            ],
+          );
+        }
+        if (index == 1) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
               children: [
-                SongArtwork(
-                  songId: album.id,
-                  size: 130,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  album.album,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: _actionCard(
+                    CupertinoIcons.shuffle,
+                    () => _playShuffled(songs),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${album.artist} • ${albumSongs.length} lagu',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _actionCard(
+                    CupertinoIcons.repeat,
+                    AudioService.cycleLoopMode,
+                  ),
                 ),
               ],
             ),
+          );
+        }
+        final song = songs[index - 2];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
           ),
+          leading: SongArtwork(songId: song.id, size: 55),
+          title: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => _playAt(songs, index - 2),
         );
       },
     );
   }
-
-  Widget _songsList(List<LocalSong> songs) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: _actionCard(
-                CupertinoIcons.shuffle,
-                () => _playShuffled(songs),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _actionCard(
-                CupertinoIcons.repeat,
-                AudioService.cycleLoopMode,
-              ),
-            ),
-          ],
-        ),
-      ),
-      Expanded(child: _songListView(songs)),
-    ],
-  );
 
   Widget _actionCard(IconData icon, Future<void> Function() onTap) {
     return GestureDetector(
@@ -204,26 +265,38 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     String Function(LocalSong song)? subtitleBuilder,
   }) {
     return ListView.builder(
-      itemCount: songs.length,
-      itemBuilder:
-          (context, index) => ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 2,
-            ),
-            leading: SongArtwork(songId: songs[index].id, size: 55),
-            title: Text(
-              songs[index].title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              subtitleBuilder?.call(songs[index]) ?? songs[index].artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => _playAt(songs, index),
+      controller: _scroll,
+      itemCount: songs.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LargePageTitle(title: _title),
+              const HeaderDivider(),
+            ],
+          );
+        }
+        final song = songs[index - 1];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
           ),
+          leading: SongArtwork(songId: song.id, size: 55),
+          title: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            subtitleBuilder?.call(song) ?? song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => _playAt(songs, index - 1),
+        );
+      },
     );
   }
 
