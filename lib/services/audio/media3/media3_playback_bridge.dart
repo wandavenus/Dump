@@ -20,7 +20,13 @@ class AndroidEqualizerParameters {
 
 class AndroidEqualizerBand {
   final int index;
-  const AndroidEqualizerBand(this.index);
+
+  /// Center frequency of this band in Hz, as reported by
+  /// `android.media.audiofx.Equalizer.getCenterFreq(band)`.
+  /// Falls back to 0 when not available (e.g., before first audio session).
+  final int centerFrequencyHz;
+
+  const AndroidEqualizerBand(this.index, {this.centerFrequencyHz = 0});
 
   Future<void> setGain(double gainDb) =>
       Media3PlaybackBridge.setEqualizerBandGain(index, gainDb);
@@ -289,9 +295,17 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
     final raw = rawDynamic?.map(
       (key, value) => MapEntry(key.toString(), value),
     );
-    final bands = (raw?['bands'] as List<dynamic>? ?? const [0, 1, 2, 3, 4])
-        .map((band) => AndroidEqualizerBand((band as num).toInt()))
+    final bandIndices =
+        (raw?['bands'] as List<dynamic>? ?? const [0, 1, 2, 3, 4])
+            .map((b) => (b as num).toInt())
+            .toList();
+    final freqList = (raw?['frequencies'] as List<dynamic>?)
+        ?.map((f) => (f as num).toInt())
         .toList();
+    final bands = List<AndroidEqualizerBand>.generate(bandIndices.length, (i) {
+      final freqHz = (freqList != null && i < freqList.length) ? freqList[i] : 0;
+      return AndroidEqualizerBand(bandIndices[i], centerFrequencyHz: freqHz);
+    });
     return AndroidEqualizerParameters(
       minDecibels: (raw?['minDecibels'] as num?)?.toDouble() ?? -15.0,
       maxDecibels: (raw?['maxDecibels'] as num?)?.toDouble() ?? 15.0,
