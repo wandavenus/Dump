@@ -154,7 +154,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Widget _controlButtons(List<LocalSong> songs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
       child: ValueListenableBuilder<AudioPlaybackState>(
         valueListenable: AudioService.playbackState,
         builder: (context, state, _) {
