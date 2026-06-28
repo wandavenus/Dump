@@ -101,7 +101,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
-        height: 42,
+        height: 48,
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(10),
@@ -154,7 +154,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Widget _controlButtons(List<LocalSong> songs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 8),
       child: ValueListenableBuilder<AudioPlaybackState>(
         valueListenable: AudioService.playbackState,
         builder: (context, state, _) {
@@ -195,11 +195,11 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        height: 36,
+        height: 37,
         decoration: BoxDecoration(
           color: active
               ? activeColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.08),
+              : Colors.white.withValues(alpha: 0.20),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
