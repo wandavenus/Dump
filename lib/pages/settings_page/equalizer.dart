@@ -2,11 +2,11 @@ part of '../settings_page.dart';
 
 // ── Equalizer Section ──────────────────────────────────────────────────────────
 //
-// Section ini sekarang hanya menampilkan satu baris navigasi yang membuka
-// EqualizerPage — halaman penuh yang berisi:
-//   • Vertical band EQ sliders (jumlah band dinamis dari engine native)
-//   • Preset chips (ruangan: Flat, Studio, Live Stage, dll.)
-//   • Reverb presets (native Android PresetReverb, device-dependent)
+// Entry point di Settings → membuka EqualizerPage (full-screen push navigation).
+// EqualizerPage berisi:
+//   • Preset chips EQ (Flat, Rock, Pop, Jazz, Classical, dll.)
+//   • Vertical band sliders — jumlah band & frekuensi dari android.media.audiofx.Equalizer
+//   • Reverb section — android.media.audiofx.PresetReverb (7 preset diskrit)
 
 class _EqualizerSection extends StatelessWidget {
   const _EqualizerSection();
@@ -20,20 +20,32 @@ class _EqualizerSection extends StatelessWidget {
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.equalizerEnabled,
-          builder: (_, enabled, _) => ValueListenableBuilder<int>(
-            valueListenable: AudioEffectsService.roomPreset,
-            builder: (_, preset, _) => SettingsActionRow(
-              title: 'Equalizer',
-              trailing: enabled
-                  ? AudioEffectsService.roomPresets[preset]['name'] as String
-                  : 'Nonaktif',
-              onTap: () => Navigator.of(context).push(
-                CupertinoPageRoute<void>(
-                  builder: (_) => const EqualizerPage(),
-                ),
-              ),
-            ),
-          ),
+          builder: (_, enabled, _) {
+            return ValueListenableBuilder<int>(
+              valueListenable: AudioEffectsService.eqPreset,
+              builder: (_, presetIdx, _) {
+                String trailing;
+                if (!enabled) {
+                  trailing = 'Nonaktif';
+                } else if (presetIdx >= 0 &&
+                    presetIdx < AudioEffectsService.eqPresets.length) {
+                  trailing =
+                      AudioEffectsService.eqPresets[presetIdx]['name'] as String;
+                } else {
+                  trailing = 'Custom';
+                }
+                return SettingsActionRow(
+                  title: 'Equalizer',
+                  trailing: trailing,
+                  onTap: () => Navigator.of(context).push(
+                    CupertinoPageRoute<void>(
+                      builder: (_) => const EqualizerPage(),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
         const SettingsDivider(),
       ],

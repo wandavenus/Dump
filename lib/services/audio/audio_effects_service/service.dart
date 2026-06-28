@@ -29,6 +29,11 @@ class AudioEffectsService {
   static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
   static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
   static final ValueNotifier<int> roomPreset = ValueNotifier(0);
+
+  /// Index preset EQ yang terakhir diterapkan via [applyEqPreset].
+  /// -1 berarti tidak ada preset aktif (gains diatur manual / belum di-init).
+  static final ValueNotifier<int> eqPreset = ValueNotifier(-1);
+
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
   // ── Reverb preset labels ───────────────────────────────────────────────────
@@ -118,6 +123,7 @@ class AudioEffectsService {
     playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
     equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
     roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
+    eqPreset.value         = prefs.getInt('eqPreset')         ?? -1;
     lyricsPath.value       = prefs.getString('lyricsPath')    ?? '';
 
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
@@ -224,6 +230,8 @@ class AudioEffectsService {
       unawaited(AudioEngineManager.setEqualizerBandGain(bandIndex, gainDb));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('eqBand_$bandIndex', gainDb);
+      // Manual band adjustment — clear preset selection indicator.
+      eqPreset.value = -1;
     } catch (e) {
       LogService.warn('AudioEffects', 'setEqBand: $e');
     }
@@ -285,17 +293,24 @@ class AudioEffectsService {
 
   static Future<void> applyEqPreset(int presetIndex) async {
     if (presetIndex < 0 || presetIndex >= eqPresets.length) return;
-    final gains  = eqPresets[presetIndex]['gains'] as List<double>;
+    final gains = eqPresets[presetIndex]['gains'] as List<double>;
+
+    // Update notifier BEFORE async work so UI updates immediately.
+    eqPreset.value = presetIndex;
+    await _saveInt('eqPreset', presetIndex);
+
+    // Send gains to native; use engine params for band count + clamp range.
     final params = await getEqualizerParameters();
-    if (params == null) return;
-    final prefs  = await SharedPreferences.getInstance();
-    for (var i = 0; i < params.bandCount && i < gains.length; i++) {
-      final clamped =
-          gains[i].clamp(params.minDecibels, params.maxDecibels).toDouble();
+    final prefs = await SharedPreferences.getInstance();
+    final bandCount = params?.bandCount ?? gains.length;
+    final lo = params?.minDecibels ?? -15.0;
+    final hi = params?.maxDecibels ?? 15.0;
+    for (var i = 0; i < bandCount && i < gains.length; i++) {
+      final clamped = gains[i].clamp(lo, hi).toDouble();
       unawaited(AudioEngineManager.setEqualizerBandGain(i, clamped));
       await prefs.setDouble('eqBand_$i', clamped);
     }
-    await _saveInt('eqPreset', presetIndex);
+    LogService.log('AudioEffects', 'EQ preset: ${eqPresets[presetIndex]['name']}');
   }
 
   // ── Crossfade ──────────────────────────────────────────────────────────────
