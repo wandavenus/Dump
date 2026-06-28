@@ -26,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/models/lyrics_settings.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
+import 'package:musicplayer/services/audio/mediakit/mediakit_settings_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'pages/library_page.dart';
 

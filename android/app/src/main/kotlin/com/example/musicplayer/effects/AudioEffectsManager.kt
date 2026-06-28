@@ -329,10 +329,17 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     fun equalizerParameters(): Map<String, Any> {
         return try {
             val eq = equalizer ?: return defaultEqualizerParameters()
+            val numBands = eq.numberOfBands.toInt()
             mapOf(
                 "minDecibels" to eq.bandLevelRange[0] / 100.0,
                 "maxDecibels" to eq.bandLevelRange[1] / 100.0,
-                "bands"       to List(eq.numberOfBands.toInt()) { it }
+                "bands"       to List(numBands) { it },
+                // getCenterFreq() returns millihertz — divide by 1000 to get Hz.
+                // This is the actual hardware-reported center frequency for each band,
+                // which varies by device and Android version.
+                "frequencies" to List(numBands) { b ->
+                    (eq.getCenterFreq(b.toShort()) / 1000).toInt()
+                }
             )
         } catch (_: Exception) { defaultEqualizerParameters() }
     }
@@ -350,7 +357,10 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     private fun defaultEqualizerParameters() = mapOf(
         "minDecibels" to -15.0,
         "maxDecibels" to  15.0,
-        "bands"       to listOf(0, 1, 2, 3, 4)
+        "bands"       to listOf(0, 1, 2, 3, 4),
+        // Typical 5-band center frequencies for the stock Android Equalizer.
+        // Used as fallback when the EQ is not yet attached to an audio session.
+        "frequencies" to listOf(60, 230, 910, 3600, 14000)
     )
 
     private fun toAndroidReverbPreset(preset: Short): Short = when (preset.toInt()) {

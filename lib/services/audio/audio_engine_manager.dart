@@ -39,6 +39,20 @@ class AudioEngineManager {
 
   static final ValueNotifier<bool> isSwitching = ValueNotifier(false);
 
+  /// Callback yang dipanggil setelah setiap engine switch selesai
+  /// (setelah state di-restore). Diregistrasi oleh AudioEffectsService
+  /// untuk me-re-apply pengaturan DSP ke engine baru.
+  ///
+  /// Pola callback dipakai (bukan import langsung) untuk menghindari
+  /// circular dependency: AudioEffectsService → AudioEngineManager.
+  static VoidCallback? _postSwitchCallback;
+
+  /// Registrasi callback yang dipanggil setelah setiap engine switch.
+  /// Dipanggil sekali oleh AudioEffectsService.init().
+  static void registerPostSwitchCallback(VoidCallback callback) {
+    _postSwitchCallback = callback;
+  }
+
   // ── Forwarding StreamControllers ──────────────────────────────────────────
   // Semua consumer (AudioService, MediaCapabilitiesService, dll.) subscribe
   // ke stream-stream ini — bukan langsung ke engine. Saat engine diganti,
@@ -160,6 +174,12 @@ class AudioEngineManager {
 
         if (wasPlaying) await _engine!.play();
       }
+
+      // 7. Re-apply semua pengaturan DSP (speed, pitch, EQ, bass, reverb, dll.)
+      // ke engine baru. Pengaturan ini tidak tersimpan di engine — hanya di
+      // AudioEffectsService — sehingga harus dikirim ulang setelah setiap switch.
+      // Dipanggil di luar blok queue agar selalu berjalan, bahkan saat queue kosong.
+      _postSwitchCallback?.call();
 
       LogService.log(
         'AudioEngineManager',

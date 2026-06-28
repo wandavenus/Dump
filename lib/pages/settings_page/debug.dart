@@ -41,19 +41,20 @@ class _DebugSection extends StatelessWidget {
 
         
 
-        // Notification icon picker
-        ValueListenableBuilder<int>(
-          valueListenable: _DebugState.notifIcon,
-          builder: (_, idx, _) => _NotifIconRow(selectedIdx: idx),
-        ),
-        const SettingsDivider(),
-
         // Audio session info
         _AudioSessionInfo(),
         const SettingsDivider(),
 
         // Effect status
         _EffectStatusRow(),
+        const SettingsDivider(),
+
+        // Statistik Sesi
+        SettingsActionRow(
+          title: 'Statistik Sesi',
+          trailing: 'Lihat',
+          onTap: () => _showStatsSheet(context),
+        ),
         const SettingsDivider(),
 
         // Exit debug

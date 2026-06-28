@@ -83,12 +83,6 @@ class _AudioSection extends StatelessWidget {
           ),
         ),
         const SettingsDivider(),
-
-        ValueListenableBuilder<int>(
-          valueListenable: AudioEffectsService.reverbPreset,
-          builder: (_, v, _) => _ReverbRow(preset: v),
-        ),
-        const SettingsDivider(),
       ],
     );
   }

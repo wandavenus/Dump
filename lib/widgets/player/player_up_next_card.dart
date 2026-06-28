@@ -86,13 +86,13 @@ class _UpNextCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(21, 4, 21, 0),
+      padding: const EdgeInsets.fromLTRB(23, 4, 23, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white.withValues(alpha: 0.0),
+          borderRadius: BorderRadius.circular(12),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
         child: Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [

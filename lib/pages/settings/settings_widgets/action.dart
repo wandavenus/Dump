@@ -37,8 +37,6 @@ class SettingsActionRow extends StatelessWidget {
               trailing,
               style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
             ),
-            if (trailing.isNotEmpty) const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Color(0xFF48484A), size: 20),
           ],
         ),
       ),

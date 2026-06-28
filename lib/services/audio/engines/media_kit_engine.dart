@@ -6,6 +6,7 @@ import '../../../models/local_song.dart';
 import '../engine_abstraction.dart';
 import '../../log_service.dart';
 import '../mediakit/mediakit_service_bridge.dart';
+import '../mediakit/mediakit_settings_service.dart';
 
 /// Engine berbasis media_kit 1.2.6.
 ///
@@ -19,7 +20,7 @@ import '../mediakit/mediakit_service_bridge.dart';
 ///   ✅ Repeat (PlaylistMode)
 ///   ✅ Background playback (via media_kit_libs_android_audio)
 ///   ✅ Speed / Volume
-///   ✅ Pitch — independen dari speed; keduanya di-compose ke rate tunggal
+///   ✅ Pitch — independen dari speed via player.setPitch() (PlayerConfiguration pitch:true)
 ///   ✅ Sleep timer (Dart-side Timer)
 ///   ✅ Queue persistence (via getPlaybackSnapshot)
 ///   ✅ Notification / Lock screen / BT controls (via MediaKitPlaybackService)
@@ -36,11 +37,11 @@ class MediaKitEngine implements AbstractAudioEngine {
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
 
-  // Speed and pitch are stored independently so they compose correctly.
-  // The player rate is always _speed * _pitchFactor.
-  // Setting one does NOT overwrite the other.
+  // Speed dan pitch disimpan secara terpisah untuk keperluan snapshot/restore.
+  // Dengan PlayerConfiguration(pitch:true), player.setRate() dan player.setPitch()
+  // adalah dua jalur independen — mengubah satu tidak mempengaruhi yang lain.
   double _speed       = 1.0;
-  double _pitchFactor = 1.0;
+  double _pitchFactor = 1.0; // disimpan untuk snapshot; dikirim via player.setPitch()
 
   // Position update throttle for the Android MediaSession seek bar.
   // Tracks the wall-clock time (ms) of the last updatePlaybackState call that
@@ -82,7 +83,17 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> initialize() async {
-    _player = Player();
+    // pitch:true memungkinkan player.setPitch() bekerja independen dari rate.
+    _player = Player(
+      configuration: const PlayerConfiguration(pitch: true),
+    );
+
+    // Daftarkan player ke MediaKitSettingsService agar setting bisa diterapkan
+    // ke engine saat runtime (saat toggle di Settings).
+    MediaKitSettingsService.registerPlayer(_player!);
+
+    // Terapkan semua setting yang tersimpan (gapless, replaygain, cache).
+    await MediaKitSettingsService.applyAll(_player!);
 
     // Register transport command handler BEFORE startListening() so no
     // command is missed if the service emits before the subscription is ready.
@@ -102,6 +113,9 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> dispose() async {
     _cancelSleepTimerInternal();
+
+    // Hapus referensi player dari settings service sebelum dispose.
+    MediaKitSettingsService.unregisterPlayer();
 
     // Tell the Android service to remove the notification and stop itself
     // before cancelling the event subscription.
@@ -461,27 +475,27 @@ class MediaKitEngine implements AbstractAudioEngine {
     await _player?.setVolume(volume.clamp(0.0, 1.0) * 100.0);
   }
 
-  /// Updates [_speed] and recomposes the player rate as [_speed × _pitchFactor].
-  /// Does NOT touch [_pitchFactor] — subsequent [setPitch] calls are preserved.
+  /// Mengatur kecepatan putar. Rate dikirim langsung ke player.
+  ///
+  /// Dengan [PlayerConfiguration(pitch: true)], rate dan pitch adalah
+  /// parameter terpisah — mengubah rate tidak mempengaruhi pitch.
   @override
   Future<void> setSpeed(double speed) async {
     _speed = speed.clamp(0.25, 4.0);
-    final composed = (_speed * _pitchFactor).clamp(0.25, 4.0);
-    await _player?.setRate(composed);
-    LogService.verbose('MediaKitEngine', 'setSpeed($_speed) → rate=$composed');
+    await _player?.setRate(_speed);
+    LogService.verbose('MediaKitEngine', 'setSpeed($_speed)');
   }
 
-  /// Updates [_pitchFactor] and recomposes the player rate as [_speed × _pitchFactor].
-  /// Does NOT touch [_speed] — subsequent [setSpeed] calls are preserved.
+  /// Mengatur pitch secara independen dari rate.
   ///
-  /// media_kit 1.2.x does not have a dedicated pitch API, so pitch is
-  /// implemented as a rate multiplier composed with the current speed.
+  /// Menggunakan [Player.setPitch()] yang tersedia karena
+  /// [PlayerConfiguration(pitch: true)] diaktifkan saat inisialisasi.
+  /// Pitch 1.0 = normal, 0.5 = satu oktaf lebih rendah, 2.0 = satu oktaf lebih tinggi.
   @override
   Future<void> setPitch(double pitch) async {
     _pitchFactor = pitch;
-    final composed = (_speed * _pitchFactor).clamp(0.25, 4.0);
-    await _player?.setRate(composed);
-    LogService.verbose('MediaKitEngine', 'setPitch($_pitchFactor) → rate=$composed');
+    await _player?.setPitch(pitch.clamp(0.05, 8.0));
+    LogService.verbose('MediaKitEngine', 'setPitch($pitch)');
   }
 
   // ── DSP effects (no-op — media_kit tidak mengekspos Android AudioEffect) ──

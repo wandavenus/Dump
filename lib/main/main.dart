@@ -21,6 +21,11 @@ Future<void> main() async {
   await LyricsSettings.init();
   await UpNextSettings.init();
 
+  // MediaKitSettingsService harus diinisialisasi SEBELUM AudioEngineManager
+  // agar setting ter-load ke ValueNotifiers sebelum MediaKitEngine.initialize()
+  // memanggil MediaKitSettingsService.applyAll().
+  await MediaKitSettingsService.initialize();
+
   // Order matters: AudioEngineManager harus diinisialisasi pertama
   // (memuat pilihan engine dan menginisialisasi engine yang dipilih).
   // AudioEngine (facade efek) harus siap sebelum AudioEffectsService.

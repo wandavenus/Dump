@@ -73,7 +73,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
                       child: Padding(
                         // GlobalKey doubles as widget tree key AND render-object handle.
                         key: itemKey,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         child: AnimatedDefaultTextStyle(
                           // Duration matches scroll animation for visual synchrony.
                           duration: const Duration(milliseconds: 380),
