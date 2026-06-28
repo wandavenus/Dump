@@ -165,7 +165,7 @@ void dispose() {
                       top: overlayTop,
                       left: 7,
                       right: 7,
-                      bottom: _lyricsExpand > 0 ? -200 : 30,
+                      bottom: _lyricsExpand > 0 ? 0 : 30,
                       child: AnimatedOpacity(
                         duration: _animDuration,
                         curve: _animCurve,
