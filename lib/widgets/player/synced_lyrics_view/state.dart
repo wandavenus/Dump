@@ -112,11 +112,15 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
   void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
 
-    // Binary-search the last line whose timestamp ≤ position.
+    // Terapkan offset waktu lirik dari LyricsSettings.
+    final offsetMs = LyricsSettings.lyricsOffset.value;
+    final adjusted = position - Duration(milliseconds: offsetMs);
+
+    // Binary-search the last line whose timestamp ≤ adjusted position.
     int lo = 0, hi = widget.lyrics.length - 1, activeIndex = 0;
     while (lo <= hi) {
       final mid = (lo + hi) >> 1;
-      if (widget.lyrics[mid].timestamp <= position) {
+      if (widget.lyrics[mid].timestamp <= adjusted) {
         activeIndex = mid;
         lo = mid + 1;
       } else {

@@ -68,6 +68,10 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  _sheetLabel('Sinkronisasi Waktu'),
+                  const SizedBox(height: 10),
+                  const _OffsetStepper(),
                 ],
               ),
             ),
@@ -83,6 +87,110 @@ class _LyricsAppearanceSheet extends StatelessWidget {
             fontSize: 12,
             fontWeight: FontWeight.w500),
       );
+}
+
+// ─── Offset stepper ────────────────────────────────────────────────────────────
+
+class _OffsetStepper extends StatelessWidget {
+  const _OffsetStepper();
+
+  static const _step = 100; // ms per tap
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: LyricsSettings.lyricsOffset,
+      builder: (_, offset, _) {
+        final label = offset == 0
+            ? '0 ms'
+            : '${offset > 0 ? '+' : ''}$offset ms';
+
+        return Row(
+          children: [
+            // Tombol kurangi (−)
+            _StepBtn(
+              icon: CupertinoIcons.minus,
+              onTap: () => LyricsSettings.setLyricsOffset(offset - _step),
+            ),
+            const SizedBox(width: 12),
+            // Nilai tengah + reset on tap
+            Expanded(
+              child: GestureDetector(
+                onTap: offset != 0
+                    ? () => LyricsSettings.setLyricsOffset(0)
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: offset != 0
+                        ? const Color(0xFFF92D48).withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: offset != 0
+                          ? const Color(0xFFF92D48).withValues(alpha: 0.4)
+                          : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: offset != 0
+                              ? const Color(0xFFF92D48)
+                              : Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (offset != 0) ...[
+                        const SizedBox(width: 6),
+                        const Icon(CupertinoIcons.xmark_circle_fill,
+                            size: 13, color: Color(0xFFF92D48)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Tombol tambah (+)
+            _StepBtn(
+              icon: CupertinoIcons.plus,
+              onTap: () => LyricsSettings.setLyricsOffset(offset + _step),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StepBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _StepBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.white70, size: 18),
+      ),
+    );
+  }
 }
 
 // ─── Picker widgets ────────────────────────────────────────────────────────────

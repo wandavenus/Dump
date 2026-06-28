@@ -28,6 +28,9 @@ class LyricsSettings {
   /// Aktifkan animasi karaoke (highlight kata per kata — hanya jika data tersedia).
   static final ValueNotifier<bool> karaokeMode = ValueNotifier(true);
 
+  /// Offset waktu lirik dalam milidetik (negatif = maju lebih awal, positif = mundur).
+  static final ValueNotifier<int> lyricsOffset = ValueNotifier(0);
+
   // ── Init ────────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
@@ -39,6 +42,7 @@ class LyricsSettings {
     activeColor.value  = p.getString('lyr_activeColor') ?? 'white';
     showSource.value   = p.getBool('lyr_showSource')    ?? false;
     karaokeMode.value  = p.getBool('lyr_karaoke')       ?? true;
+    lyricsOffset.value = p.getInt('lyr_offset')         ?? 0;
   }
 
   // ── Setters ─────────────────────────────────────────────────────────────────
@@ -76,6 +80,11 @@ class LyricsSettings {
   static Future<void> setKaraokeMode(bool v) async {
     karaokeMode.value = v;
     await (await SharedPreferences.getInstance()).setBool('lyr_karaoke', v);
+  }
+
+  static Future<void> setLyricsOffset(int v) async {
+    lyricsOffset.value = v.clamp(-5000, 5000);
+    await (await SharedPreferences.getInstance()).setInt('lyr_offset', lyricsOffset.value);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
