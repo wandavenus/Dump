@@ -316,14 +316,7 @@ class _ProgressiveLyricLine extends StatelessWidget {
 
         return Stack(
           children: [
-            Text(text, textAlign: textAlign, style: baseStyle),
-            ClipRect(
-              clipper: _LyricProgressClipper(
-                start: fillStart,
-                width: fillWidth,
-              ),
-              child: Text(text, textAlign: textAlign, style: highlightStyle),
-            ),
+            Text(\n              text,\n              textAlign: textAlign,\n              style: baseStyle,\n              maxLines: 1,\n              overflow: TextOverflow.ellipsis,\n            ),\n            ClipRect(\n              clipper: _LyricProgressClipper(\n                start: fillStart,\n                width: fillWidth,\n              ),\n              child: Text(\n                text,\n                textAlign: textAlign,\n                style: highlightStyle,\n                maxLines: 1,\n                overflow: TextOverflow.ellipsis,\n              ),\n            ),
           ],
         );
       },
