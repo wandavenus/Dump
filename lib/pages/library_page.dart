@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/services/scroll_to_top_service.dart';
 
 import '../widgets/common_actions.dart';
 import '../widgets/pages/library_sections.dart';
@@ -11,6 +12,31 @@ class LibraryPage extends StatefulWidget {
 }
 
 class _LibraryPageState extends State<LibraryPage> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    ScrollToTopService.signal(3).addListener(_onScrollToTop);
+  }
+
+  void _onScrollToTop() {
+    if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    ScrollToTopService.signal(3).removeListener(_onScrollToTop);
+    _scroll.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,7 +55,10 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
         ),
       ),
-      body: const LibraryContent(),
+      body: PrimaryScrollController(
+        controller: _scroll,
+        child: const LibraryContent(),
+      ),
     );
   }
 }
