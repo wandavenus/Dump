@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/artist_list_sections.dart';
 
 class ArtistList extends StatefulWidget {
@@ -13,15 +14,17 @@ class _ArtistListState extends State<ArtistList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '           Favourite Artist',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
+      appBar: FadingTitleAppBar(
+        title: 'Favourite Artist',
+        scrollOffset: 100,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.red),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: const [],
       ),
       body: const ArtistListContent(),
     );
