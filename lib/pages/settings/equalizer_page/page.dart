@@ -16,6 +16,21 @@ class EqualizerPage extends StatelessWidget {
             const SizedBox(height: 8),
             _buildEqToggle(),
             const SizedBox(height: 16),
+
+            // ── Band EQ sliders ────────────────────────────────────────
+            const _BandSliderSection(),
+            const SizedBox(height: 16),
+
+            // ── Divider ────────────────────────────────────────────────
+            const Divider(
+              color: Color(0xFF2C2C2E),
+              height: 1,
+              indent: 16,
+              endIndent: 16,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Room preset grid ───────────────────────────────────────
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Align(
