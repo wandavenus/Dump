@@ -125,6 +125,12 @@ class AudioEffectsService {
         ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
     replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
 
+    // Registrasi applyAll sebagai post-switch callback di AudioEngineManager.
+    // Setiap kali engine diganti, AudioEngineManager akan memanggil applyAll()
+    // agar pengaturan DSP (speed, pitch, EQ, bass, reverb, dll.) dikirim ulang
+    // ke engine baru. Pola callback dipakai untuk menghindari circular import.
+    AudioEngineManager.registerPostSwitchCallback(applyAll);
+
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
   }
