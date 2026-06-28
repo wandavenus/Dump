@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 
 import '../../services/sleep_timer_service.dart';
 
@@ -65,21 +66,27 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                     const Spacer(),
                     ValueListenableBuilder<bool>(
                       valueListenable: SleepTimerService.isActive,
-                      builder: (_, active, _) => active
-                          ? CupertinoButton(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              onPressed: () {
-                                SleepTimerService.cancel();
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text(
-                                'Batalkan',
-                                style: TextStyle(
-                                    color: Color(0xFFF92D48), fontSize: 15),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
+                      builder:
+                          (_, active, _) =>
+                              active
+                                  ? CupertinoButton(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    onPressed: () {
+                                      SleepTimerService.cancel();
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text(
+                                      'Batalkan',
+                                      style: TextStyle(
+                                        color: Color(0xFFF92D48),
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  )
+                                  : const SizedBox.shrink(),
                     ),
                   ],
                 ),

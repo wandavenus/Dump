@@ -19,28 +19,7 @@ class _MusicListState extends State<MusicList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        titleSpacing: 16,
-        title: const Text(
-          'Unduhan',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: const [
-          CommonActions(),
-        ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 0.3,
-            color: Colors.white24,
-          ),
-        ),
-      ),
+      appBar: const FadingTitleAppBar(title: 'Unduhan', scrollOffset: 100),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
         builder: (context, snapshot) {
@@ -90,10 +69,7 @@ class _MusicListState extends State<MusicList> {
                   },
                   leading: Hero(
                     tag: PlayerHeroTags.artwork(song),
-                    child: SongArtwork(
-                      songId: song.id,
-                      size: 55,
-                    ),
+                    child: SongArtwork(songId: song.id, size: 55),
                   ),
                   title: Hero(
                     tag: PlayerHeroTags.title(song),
