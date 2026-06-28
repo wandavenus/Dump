@@ -146,11 +146,15 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
 
   // ── Centering ───────────────────────────────────────────────────────────────
 
-  /// Scrolls so that item [index] is centered in the viewport.
+  /// Scrolls so that item [index] is centered in the **visible** portion of
+  /// the viewport.
   ///
-  /// Uses [RenderAbstractViewport.getOffsetToReveal] with alignment=0.5 which
-  /// returns the exact scroll offset that places the item's midpoint at the
-  /// viewport's midpoint — regardless of varying item heights or multiline text.
+  /// Uses screen-coordinate arithmetic rather than [getOffsetToReveal] with
+  /// alignment=0.5, because the lyrics viewport can extend below the screen
+  /// (e.g. bottom: -200 in the player overlay). In that case viewportDimension
+  /// includes the invisible overflow, making the 0.5-alignment target wrong.
+  /// By clipping the viewport's screen rect to the actual screen bounds we
+  /// always compute the true visible centre regardless of overflow.
   void _scrollToCenter(int index) {
     if (!_eff.hasClients) return;
 
@@ -161,18 +165,35 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
     }
 
     final RenderObject? renderObj = key.currentContext!.findRenderObject();
-    if (renderObj == null) { _scrollToCenterFallback(index); return; }
+    if (renderObj == null || renderObj is! RenderBox) {
+      _scrollToCenterFallback(index);
+      return;
+    }
 
-    // Find the nearest scrollable viewport in the ancestor tree.
-    // ignore: unnecessary_nullable_for_final_variable_declarations
     final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
-    if (viewport == null) { _scrollToCenterFallback(index); return; }
+    if (viewport == null || viewport is! RenderBox) {
+      _scrollToCenterFallback(index);
+      return;
+    }
+    final RenderBox viewportBox = viewport as RenderBox;
 
-    // alignment=0.5 → item-center aligned with viewport-center.
-    final double rawOffset =
-        viewport.getOffsetToReveal(renderObj, 0.5).offset;
+    // ── Screen-coordinate centering ──────────────────────────────────────────
+    // Item midpoint in global (screen) coordinates.
+    final double itemMidY =
+        renderObj.localToGlobal(Offset(0, renderObj.size.height / 2)).dy;
 
-    final double target = rawOffset.clamp(
+    // Viewport screen bounds — clip to actual screen height so that any
+    // overflow below (or above) the screen is excluded from the centre calc.
+    final double screenH  = MediaQuery.of(context).size.height;
+    final double vpTop    = viewportBox.localToGlobal(Offset.zero).dy;
+    final double vpBottom = vpTop + viewportBox.size.height;
+    final double visTop    = vpTop.clamp(0.0, screenH);
+    final double visBottom = vpBottom.clamp(0.0, screenH);
+    final double visCenter = (visTop + visBottom) / 2;
+
+    // How far the item needs to travel to reach the visible centre.
+    final double delta = itemMidY - visCenter;
+    final double target = (_eff.offset + delta).clamp(
       _eff.position.minScrollExtent,
       _eff.position.maxScrollExtent,
     );
