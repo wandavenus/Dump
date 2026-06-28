@@ -27,7 +27,7 @@ class EqualizerPage extends StatelessWidget {
       body: const SafeArea(
         top: false,
         child: SingleChildScrollView(
-          physics: BouncingScrollPhysics(),
+          physics: ClampingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

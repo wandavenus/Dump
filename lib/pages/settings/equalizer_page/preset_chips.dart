@@ -28,7 +28,7 @@ class _EqPresetChips extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             itemCount: presets.length,
             itemBuilder: (_, i) {
               return Padding(
