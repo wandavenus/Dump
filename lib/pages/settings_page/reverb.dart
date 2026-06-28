@@ -119,35 +119,42 @@ class _ReverbOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? const Color(0xFFFC3C44) : Colors.white30,
-            width: 2,
-          ),
-          color: selected ? const Color(0xFFFC3C44) : Colors.transparent,
-        ),
-        child: selected
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
-            : null,
-      ),
-      title: Text(
-        name,
-        style: TextStyle(
-          color: selected ? const Color(0xFFFC3C44) : Colors.white,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          fontSize: 15,
-        ),
-      ),
+    return InkWell(
       onTap: () {
         AudioEffectsService.setReverb(index);
         Navigator.pop(context);
       },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? const Color(0xFFFC3C44) : Colors.white30,
+                  width: 2,
+                ),
+                color: selected ? const Color(0xFFFC3C44) : Colors.transparent,
+              ),
+              child: selected
+                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 14),
+            Text(
+              name,
+              style: TextStyle(
+                color: selected ? const Color(0xFFFC3C44) : Colors.white,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

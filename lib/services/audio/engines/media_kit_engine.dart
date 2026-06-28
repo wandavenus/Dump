@@ -20,7 +20,7 @@ import '../mediakit/mediakit_settings_service.dart';
 ///   ✅ Repeat (PlaylistMode)
 ///   ✅ Background playback (via media_kit_libs_android_audio)
 ///   ✅ Speed / Volume
-///   ✅ Pitch — independen dari speed; keduanya di-compose ke rate tunggal
+///   ✅ Pitch — independen dari speed via player.setPitch() (PlayerConfiguration pitch:true)
 ///   ✅ Sleep timer (Dart-side Timer)
 ///   ✅ Queue persistence (via getPlaybackSnapshot)
 ///   ✅ Notification / Lock screen / BT controls (via MediaKitPlaybackService)
@@ -37,11 +37,11 @@ class MediaKitEngine implements AbstractAudioEngine {
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
 
-  // Speed and pitch are stored independently so they compose correctly.
-  // The player rate is always _speed * _pitchFactor.
-  // Setting one does NOT overwrite the other.
+  // Speed dan pitch disimpan secara terpisah untuk keperluan snapshot/restore.
+  // Dengan PlayerConfiguration(pitch:true), player.setRate() dan player.setPitch()
+  // adalah dua jalur independen — mengubah satu tidak mempengaruhi yang lain.
   double _speed       = 1.0;
-  double _pitchFactor = 1.0;
+  double _pitchFactor = 1.0; // disimpan untuk snapshot; dikirim via player.setPitch()
 
   // Position update throttle for the Android MediaSession seek bar.
   // Tracks the wall-clock time (ms) of the last updatePlaybackState call that
