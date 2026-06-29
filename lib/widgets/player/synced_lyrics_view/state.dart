@@ -70,6 +70,11 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     // Dengarkan perubahan playback state untuk isPlaying dan speed.
     AudioService.playbackState.addListener(_onPlaybackState);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (!mounted) return;
+  _scrollToCenter(_currentIndex);
+}); 
   }
 
   @override
