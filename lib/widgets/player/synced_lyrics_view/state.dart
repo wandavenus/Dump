@@ -223,49 +223,51 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
             return ScrollablePositionedList.builder(
-              itemScrollController: _itemScrollController,
-              padding: widget.padding,
-              itemCount: widget.lyrics.length,
-              itemBuilder: (context, index) {
-                final active = index == _currentIndex;
-                final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
+  itemScrollController: _itemScrollController,
+  // Fix-nya di sini beb, dipaksa jadi EdgeInsets yang konkrit
+  padding: widget.padding.resolve(TextDirection.ltr),
+  itemCount: widget.lyrics.length,
+  itemBuilder: (context, index) {
+    final active = index == _currentIndex;
+    final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
 
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 380),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: active ? activeColor : dimColor,
-                        height: 1.4,
-                      ),
-                      child: active
-                          ? AnimatedBuilder(
-                              animation: _charCtrl,
-                              builder: (_, _) => _buildKaraokeText(
-                                widget.lyrics[index].text,
-                                _charCtrl.value,
-                                activeColor,
-                                dimColor,
-                                fs,
-                                textAlign,
-                                lineDurationMs,
-                              ),
-                            )
-                          : Text(
-                              widget.lyrics[index].text,
-                              textAlign: textAlign,
-                            ),
-                    ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutCubic,
+          style: TextStyle(
+            fontSize: fs,
+            fontWeight: FontWeight.bold,
+            color: active ? activeColor : dimColor,
+            height: 1.4,
+          ),
+          child: active
+              ? AnimatedBuilder(
+                  animation: _charCtrl,
+                  builder: (_, _) => _buildKaraokeText(
+                    widget.lyrics[index].text,
+                    _charCtrl.value,
+                    activeColor,
+                    dimColor,
+                    fs,
+                    textAlign,
+                    lineDurationMs,
                   ),
-                );
-              },
-            );
+                )
+              : Text(
+                  widget.lyrics[index].text,
+                  textAlign: textAlign,
+                ),
+        ),
+      ),
+    );
+  },
+);
+
           },
         ),
       ),
