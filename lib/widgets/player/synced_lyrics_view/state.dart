@@ -56,32 +56,36 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
       case AppLifecycleState.resumed:
         final s = AudioService.playbackState.value;
-        // Re-anchor ke posisi nyata terlebih dahulu, BARU restart ticker,
-        // agar tick pertama sudah pakai anchor yang benar.
+        // Re-anchor to the real position first, then restart the ticker so the
+        // first tick already uses the correct anchor.
         _anchorPos = s.position;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         _syncFromPlaybackState(s);
 
-        // Perbarui index baris TANPA _maybeUpdateCurrentLine agar tidak ada
-        // dua scroll callback yang bersaing satu sama lain.
-        final newIdx = _computeLineIndex(s.position);
-        if (newIdx != _currentIndex) {
-          _currentIndex = newIdx;
-          _charCtrl.value = 0.0;
-          if (mounted) setState(() {});
-        }
+        // Always update _currentIndex and rebuild so the highlight is correct.
+        // We do NOT guard on (newIdx != _currentIndex): even when the index is
+        // unchanged we still need the setState→PostFrameCallback path below to
+        // run, because that is the only moment hasContentDimensions is
+        // guaranteed true (it may still be false during the first post-resume
+        // frames, which is why the previous double-PostFrameCallback approach
+        // silently failed).
+        _currentIndex = _computeLineIndex(s.position);
+        _charCtrl.value = 0.0;
+        if (mounted) setState(() {});
 
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
 
-        // Satu scroll terpusat setelah DUA frame — frame pertama untuk resume
-        // layout, frame kedua agar item yang mungkin off-screen sudah ter-build.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+        // Mirror path B exactly: one PostFrameCallback after setState's frame,
+        // guarded by _scrollPending so it cannot race with a concurrent
+        // _maybeUpdateCurrentLine callback.
+        if (!_scrollPending) {
+          _scrollPending = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollPending = false;
             if (!mounted) return;
-            _scrollToCenter(_currentIndex, animate: false);
+            _scrollToCenter(_currentIndex);
           });
-        });
+        }
 
       default:
     }
@@ -155,9 +159,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     return _anchorPos + Duration(milliseconds: audioElapsedMs);
   }
 
-  void _maybeUpdateCurrentLine(Duration position) {
-    if (widget.lyrics.isEmpty) return;
-
+  int _computeLineIndex(Duration position) {
+    if (widget.lyrics.isEmpty) return 0;
     int lo = 0, hi = widget.lyrics.length - 1, activeIndex = 0;
     while (lo <= hi) {
       final mid = (lo + hi) >> 1;
@@ -168,6 +171,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         hi = mid - 1;
       }
     }
+    return activeIndex;
+  }
+
+  void _maybeUpdateCurrentLine(Duration position) {
+    if (widget.lyrics.isEmpty) return;
+
+    final activeIndex = _computeLineIndex(position);
 
     if (activeIndex == _currentIndex) return;
 
