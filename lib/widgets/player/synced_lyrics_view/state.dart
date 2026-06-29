@@ -315,7 +315,16 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
 
   void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
-    if (!_eff.hasClients) return;
+    if (!_eff.hasClients) {
+  if (!isRetry) {
+    WidgetsBinding.instance.endOfFrame.then((_) {
+      if (mounted) {
+        _scrollToCenter(index, animate: animate, isRetry: true);
+      }
+    });
+  }
+  return;
+}
     if (!_eff.position.hasContentDimensions ||
         !_eff.position.hasViewportDimension) {
       return;
@@ -347,7 +356,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           _eff.position.maxScrollExtent,
         );
 
-    if ((target - _eff.offset).abs() < 1.0) return;
+    if ((target - _eff.offset).abs() < 1.0 && isRetry) {
+  return;
+}
 
     if (animate) {
       _eff.animateTo(
@@ -357,6 +368,10 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       );
     } else {
       _eff.jumpTo(target);
+      WidgetsBinding.instance.endOfFrame.then((_) {
+  if (!mounted || isRetry) return;
+  _scrollToCenter(index, animate: false, isRetry: true);
+});
     }
   }
 
