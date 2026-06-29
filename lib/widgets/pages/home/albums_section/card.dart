@@ -54,7 +54,7 @@ class _AlbumCard extends StatelessWidget {
                 height: 70,
                 width: 250,
                 decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 83, 83, 83),
+                color: Color.fromARGB(255, 53, 53, 53),
               ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
