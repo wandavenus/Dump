@@ -22,7 +22,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // PERBAIKAN: Pantau lifecycle
+    WidgetsBinding.instance.addObserver(this);
     _charCtrl = AnimationController(vsync: this);
     _frameTicker = createTicker(_onFrameTick);
 
@@ -30,20 +30,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _syncFromPlaybackState(s);
     _anchorPos = s.position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-
-    if (widget.lyrics.isNotEmpty) {
-      final pos = s.position;
-      int lo = 0, hi = widget.lyrics.length - 1;
-      while (lo <= hi) {
-        final mid = (lo + hi) >> 1;
-        if (widget.lyrics[mid].timestamp <= pos) {
-          _currentIndex = mid;
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
-        }
-      }
-    }
+    _currentIndex = _computeLineIndex(s.position);
 
     if (_isPlaying) _frameTicker.start();
 
@@ -61,31 +48,39 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        // Bekukan anchor ke posisi yang sudah diinterpolasi saat ini.
-        // Ini mencegah _interpolatedPosition melonjak jauh saat resume karena
-        // wall-clock terus berjalan selama app di background, tapi Ticker tidak.
-        _anchorPos    = _interpolatedPosition;
+        // Bekukan posisi & HENTIKAN ticker agar _interpolatedPosition tidak
+        // melonjak ketika app resume (wall-clock jalan, ticker tidak).
+        _anchorPos = _interpolatedPosition;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+        if (_frameTicker.isActive) _frameTicker.stop();
 
       case AppLifecycleState.resumed:
-        // Re-anchor ke posisi nyata dari AudioService (lebih akurat dari estimasi).
         final s = AudioService.playbackState.value;
-        _anchorPos    = s.position;
+        // Re-anchor ke posisi nyata terlebih dahulu, BARU restart ticker,
+        // agar tick pertama sudah pakai anchor yang benar.
+        _anchorPos = s.position;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         _syncFromPlaybackState(s);
 
-        // Hitung ulang baris aktif langsung — tanpa ini, highlight tetap di
-        // baris lama hingga positionStream event berikutnya (~200 ms).
-        _maybeUpdateCurrentLine(s.position);
+        // Perbarui index baris TANPA _maybeUpdateCurrentLine agar tidak ada
+        // dua scroll callback yang bersaing satu sama lain.
+        final newIdx = _computeLineIndex(s.position);
+        if (newIdx != _currentIndex) {
+          _currentIndex = newIdx;
+          _charCtrl.value = 0.0;
+          if (mounted) setState(() {});
+        }
 
-        // Restart frame ticker jika sedang playing dan ticker belum aktif.
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
 
-        // Paksa re-center ke baris yang benar setelah frame pertama selesai.
-        // Diperlukan bahkan jika baris tidak berubah (scroll position bisa stale).
+        // Satu scroll terpusat setelah DUA frame — frame pertama untuk resume
+        // layout, frame kedua agar item yang mungkin off-screen sudah ter-build.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _scrollToCenter(_currentIndex, animate: false);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _scrollToCenter(_currentIndex, animate: false);
+          });
         });
 
       default:
