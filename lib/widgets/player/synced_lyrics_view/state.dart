@@ -405,23 +405,23 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _eff.position.maxScrollExtent,
     );
 
-    if ((target - _eff.offset).abs() < 1.0) return;
-    
     if (animate) {
+      // Rough scroll to bring the item into the viewport, then always do a
+      // precise second pass via getOffsetToReveal once it is rendered.
+      // Do NOT short-circuit on (target - offset) < 1.0: the approximate
+      // formula can coincide with the stale scroll position even when the item
+      // is still off-screen, which would silently skip the precise pass.
       _eff.animateTo(
         target,
         duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
       ).then((_) {
-        // Setelah animasi kasar selesai, layout item harusnya sudah terender, 
-        // kalkulasi ulang secara presisi (Second Pass)
         if (!isRetry && mounted) {
           _scrollToCenter(index, animate: true, isRetry: true);
         }
       });
     } else {
       _eff.jumpTo(target);
-      // Kalkulasi presisi di frame berikutnya
       if (!isRetry) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _scrollToCenter(index, animate: false, isRetry: true);
