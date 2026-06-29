@@ -1,32 +1,75 @@
 part of '../synced_lyrics_view.dart';
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final ScrollController _scroll = ScrollController();
   ScrollController get _eff => widget.controller ?? _scroll;
   int _currentIndex = 0;
 
-  // GlobalKey per item for render-object-based centering.
+  // GlobalKey per item untuk centering berbasis render-object.
   final Map<int, GlobalKey> _itemKeys = {};
 
-  // Guard: prevents stacking multiple post-frame scroll callbacks.
+  // Guard: mencegah scroll callbacks bertumpuk.
+  // Tidak memblokir perubahan baris — hanya debounce scroll.
   bool _scrollPending = false;
 
-  // ── Per-character karaoke animation ──────────────────────────────────────
-  // Single AnimationController drives the 0→1 sweep across the active line's
-  // characters. It ticks at 60 fps (vsync-bound); position-stream updates
-  // recalibrate it every ~100-200 ms so it stays in sync with the audio.
+  // ── AnimationController sebagai value-notifier untuk AnimatedBuilder ────
+  // TIDAK pernah dipanggil animateTo() — nilainya di-set langsung setiap
+  // vsync frame dari posisi playback yang diinterpolasi. Dengan demikian
+  // sweep karaoke 100% mengikuti posisi real-time, tanpa drift sama sekali.
   late final AnimationController _charCtrl;
+
+  // ── Anchor posisi (sumber kebenaran tunggal) ─────────────────────────────
+  // Di-update setiap event positionStream (~200 ms dari native ticker).
+  // _frameTicker menginterpolasi antara anchor events untuk kelancaran 60 fps.
+  Duration _anchorPos   = Duration.zero;
+  int      _anchorWallMs = 0;   // DateTime.now().millisecondsSinceEpoch saat anchor di-set
+  bool     _isPlaying   = false;
+  double   _speed       = 1.0;
+
+  // ── Vsync ticker untuk sweep karaoke 60 fps ──────────────────────────────
+  // Membaca _anchorPos + elapsed wall-clock * speed pada setiap frame.
+  // Mengeliminasi semua animasi free-running dan drift berbasis timer.
+  late final Ticker _frameTicker;
+
   StreamSubscription<Duration>? _posSub;
-  Duration _lastPosition = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _charCtrl = AnimationController(vsync: this);
-    // Use stream subscription instead of StreamBuilder so position updates
-    // don't force a rebuild of the entire widget tree.
+    _charCtrl    = AnimationController(vsync: this);
+    _frameTicker = createTicker(_onFrameTick);
+
+    // Inisialisasi anchor dari state saat ini sehingga ketika halaman lirik
+    // dibuka di tengah lagu, posisi sweep langsung benar (bukan mulai dari 0).
+    final s = AudioService.playbackState.value;
+    _syncFromPlaybackState(s);
+    _anchorPos    = s.position;
+    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+
+    // Hitung baris aktif awal tanpa setState (belum ada frame build pertama).
+    if (widget.lyrics.isNotEmpty) {
+      final pos = s.position;
+      int lo = 0, hi = widget.lyrics.length - 1;
+      while (lo <= hi) {
+        final mid = (lo + hi) >> 1;
+        if (widget.lyrics[mid].timestamp <= pos) {
+          _currentIndex = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+    }
+
+    // Mulai ticker langsung jika sedang playing.
+    if (_isPlaying) _frameTicker.start();
+
+    // Dengarkan posisi (sumber utama re-anchoring & pergantian baris).
     _posSub = AudioService.positionStream.listen(_onPosition);
+
+    // Dengarkan perubahan playback state untuk isPlaying dan speed.
+    AudioService.playbackState.addListener(_onPlaybackState);
   }
 
   @override
@@ -34,34 +77,93 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     super.didUpdateWidget(old);
     if (old.lyrics != widget.lyrics) {
       _itemKeys.clear();
-      _currentIndex = 0;
-      _scrollPending = false;
-      _charCtrl.stop();
+      _currentIndex   = 0;
+      _scrollPending  = false;
       _charCtrl.value = 0.0;
+      // Anchor di-reset; ticker akan kembali ke posisi 0 sampai event berikutnya.
+      _anchorPos    = Duration.zero;
+      _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     }
   }
 
   @override
   void dispose() {
     _posSub?.cancel();
+    AudioService.playbackState.removeListener(_onPlaybackState);
+    _frameTicker.dispose();
     _charCtrl.dispose();
     if (widget.controller == null) _scroll.dispose();
     super.dispose();
   }
 
-  // ── Position handling ─────────────────────────────────────────────────────
+  // ── Sync playback state ───────────────────────────────────────────────────
 
-  void _onPosition(Duration position) {
-    _lastPosition = position;
-    _maybeUpdateCurrentLine(position);
-    // Recalibrate animation so it stays in sync with real audio time.
-    // _currentIndex may have just been updated above.
-    _recalibrateCharAnim(position);
+  void _syncFromPlaybackState(AudioPlaybackState s) {
+    _isPlaying = s.isPlaying;
+    _speed     = s.speed.clamp(0.1, 4.0);
   }
 
-  /// Binary-search for the active lyric line; triggers setState + scroll when
-  /// the line changes. Now called from a stream subscription (not from build),
-  /// so setState can be called directly.
+  void _onPlaybackState() {
+    final s = AudioService.playbackState.value;
+    final wasPlaying = _isPlaying;
+    _syncFromPlaybackState(s);
+
+    if (_isPlaying) {
+      // Mulai/lanjutkan ticker jika belum aktif.
+      if (!_frameTicker.isActive) _frameTicker.start();
+    } else {
+      // Pause: hentikan ticker dan bekukan sweep tepat di posisi saat ini.
+      if (_frameTicker.isActive) _frameTicker.stop();
+      // Re-anchor ke posisi pause sehingga resume dimulai dari titik yang benar.
+      if (wasPlaying) {
+        _anchorPos    = s.position;
+        _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+        // Update sweep karaoke ke posisi freeze.
+        _updateKaraokeProgress(s.position);
+      }
+    }
+  }
+
+  // ── Penanganan position stream (sumber kebenaran tunggal) ─────────────────
+
+  void _onPosition(Duration position) {
+    // Re-anchor ke posisi nyata setiap ~200 ms.
+    _anchorPos    = position;
+    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+    _isPlaying    = true;
+
+    // Pastikan frame ticker berjalan.
+    if (!_frameTicker.isActive) _frameTicker.start();
+
+    // Hitung ulang baris aktif langsung dari posisi nyata.
+    // Ini memastikan seek/skip/replay/crossfade langsung melompat ke baris yang benar.
+    _maybeUpdateCurrentLine(position);
+  }
+
+  // ── Vsync tick (60 fps) ───────────────────────────────────────────────────
+
+  void _onFrameTick(Duration _) {
+    if (!mounted || widget.lyrics.isEmpty) return;
+    _updateKaraokeProgress(_interpolatedPosition);
+  }
+
+  /// Menginterpolasi posisi playback saat ini dari anchor terakhir dan
+  /// wall-clock elapsed, dikalikan playback speed.
+  ///
+  /// Ini memberi kelancaran 60 fps di antara event positionStream (200 ms),
+  /// sekaligus tetap ter-anchor ke posisi nyata — tidak ada drift.
+  Duration get _interpolatedPosition {
+    if (!_isPlaying) return _anchorPos;
+    final wallElapsedMs  = DateTime.now().millisecondsSinceEpoch - _anchorWallMs;
+    final audioElapsedMs = (wallElapsedMs * _speed).round();
+    return _anchorPos + Duration(milliseconds: audioElapsedMs);
+  }
+
+  // ── Perhitungan baris aktif ───────────────────────────────────────────────
+
+  /// Binary-search baris lirik aktif; memanggil setState + scroll ketika
+  /// baris berubah. Perubahan baris TIDAK PERNAH diblokir oleh _scrollPending —
+  /// hanya scroll yang di-debounce untuk menghindari penumpukan callback.
   void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
 
@@ -77,34 +179,38 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
 
     if (activeIndex == _currentIndex) return;
-    if (_scrollPending) return;
 
-    _scrollPending = true;
-    setState(() => _currentIndex = activeIndex);
+    // Perbarui baris aktif dan reset sweep karaoke untuk baris baru.
+    _currentIndex   = activeIndex;
+    _charCtrl.value = 0.0;
 
-    // Immediately prime the char animation for the new line so the first
-    // AnimatedBuilder frame shows the correct start position.
-    _recalibrateCharAnim(position);
+    if (mounted) setState(() {});
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollPending = false;
-      if (!mounted) return;
-      _scrollToCenter(activeIndex);
-    });
+    // Debounce scroll: kalau scroll sudah dijadwalkan, biarkan callback itu
+    // menggunakan _currentIndex terbaru saat ia berjalan.
+    if (!_scrollPending) {
+      _scrollPending = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollPending = false;
+        if (!mounted) return;
+        _scrollToCenter(_currentIndex);
+      });
+    }
   }
 
-  /// Snaps _charCtrl to the real audio progress within the active line, then
-  /// lets it free-run to 1.0 at 60 fps until the next recalibration.
+  // ── Progress sweep karaoke ────────────────────────────────────────────────
+
+  /// Menghitung progress sweep (0.0 → 1.0) dari posisi playback yang
+  /// diinterpolasi dan meng-assign langsung ke _charCtrl.value.
   ///
-  /// Called every ~100-200 ms from the position stream. The AnimationController
-  /// fills in the remaining frames independently between calls.
-  void _recalibrateCharAnim(Duration position) {
-    if (!mounted || widget.lyrics.isEmpty) return;
+  /// Tidak ada animateTo(), tidak ada Timer — murni position-driven.
+  void _updateKaraokeProgress(Duration position) {
+    if (widget.lyrics.isEmpty) return;
     final idx = _currentIndex;
     if (idx >= widget.lyrics.length) return;
 
     final lineStart = widget.lyrics[idx].timestamp;
-    final lineEnd = (idx + 1 < widget.lyrics.length)
+    final lineEnd   = (idx + 1 < widget.lyrics.length)
         ? widget.lyrics[idx + 1].timestamp
         : lineStart + const Duration(seconds: 5);
 
@@ -117,24 +223,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     final double elapsedMs =
         (position - lineStart).inMilliseconds.toDouble().clamp(0.0, totalMs);
-    final double targetProgress = elapsedMs / totalMs;
-    final double remainingMs = totalMs - elapsedMs;
+    final double progress = elapsedMs / totalMs;
 
-    // Only hard-snap when the drift is large (e.g. after a seek).
-    // Small diffs are left to animate naturally — avoids micro-jitter.
-    final bool needsSnap = (_charCtrl.value - targetProgress).abs() > 0.06;
-
-    _charCtrl.stop();
-    if (needsSnap) _charCtrl.value = targetProgress;
-
-    if (remainingMs > 16) {
-      _charCtrl.animateTo(
-        1.0,
-        duration: Duration(milliseconds: remainingMs.toInt()),
-        curve: Curves.linear, // linear = constant sweep speed across chars
-      );
-    } else {
-      _charCtrl.value = 1.0;
+    // Set langsung — tidak ada free-running animation, tidak ada drift.
+    // Threshold kecil (0.5 ms setara dalam skala 0–1) untuk menghindari
+    // notifikasi yang tidak perlu saat nilai hampir identik.
+    final double threshold = 0.5 / totalMs;
+    if ((_charCtrl.value - progress).abs() > threshold) {
+      _charCtrl.value = progress;
     }
   }
 
@@ -169,12 +265,10 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                   child: Padding(
                     key: itemKey,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    // AnimatedDefaultTextStyle wraps every line so that the
-                    // dim-out transition (active→inactive) animates smoothly via
-                    // DefaultTextStyle inheritance on the Text widget below.
-                    // The active line's RichText bypasses DefaultTextStyle
-                    // (uses explicit per-char spans), so the ADTS animation
-                    // has no visual effect while the karaoke sweep runs.
+                    // AnimatedDefaultTextStyle menangani transisi warna saat
+                    // baris menjadi tidak aktif. Baris aktif menggunakan
+                    // RichText eksplisit (per-karakter), sehingga ADTS tidak
+                    // berpengaruh secara visual selama sweep karaoke berjalan.
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 380),
                       curve: Curves.easeOutCubic,
@@ -185,9 +279,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                         height: 1.4,
                       ),
                       child: active
-                          // ── Active line: per-character karaoke sweep ───────
-                          // AnimatedBuilder only rebuilds THIS widget at 60 fps.
-                          // All other lines are untouched by _charCtrl ticks.
+                          // ── Baris aktif: sweep karaoke per-karakter ────────
+                          // AnimatedBuilder hanya me-rebuild widget INI di 60 fps.
+                          // Semua baris lain tidak tersentuh oleh tick _charCtrl.
                           ? AnimatedBuilder(
                               animation: _charCtrl,
                               builder: (_, __) => _buildKaraokeText(
@@ -199,8 +293,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                                 textAlign,
                               ),
                             )
-                          // ── Inactive line: plain text ──────────────────────
-                          // Color is supplied by AnimatedDefaultTextStyle above.
+                          // ── Baris tidak aktif: teks biasa ──────────────────
                           : Text(
                               widget.lyrics[index].text,
                               textAlign: textAlign,
@@ -216,12 +309,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  // ── Karaoke text renderer ─────────────────────────────────────────────────
+  // ── Renderer teks karaoke ─────────────────────────────────────────────────
 
-  /// Returns a [RichText] where characters illuminate left-to-right as
-  /// [progress] goes 0 → 1. The boundary between lit and dim chars moves
-  /// sub-character: the char at the boundary gets an interpolated colour so
-  /// the sweep looks smooth at any frame rate.
+  /// Mengembalikan [RichText] di mana karakter menyala kiri-ke-kanan seiring
+  /// [progress] berjalan 0 → 1. Batas antara karakter yang menyala dan redup
+  /// bergerak secara sub-karakter: karakter di batas mendapat warna yang
+  /// diinterpolasi sehingga sweep terlihat mulus pada frame rate apa pun.
   Widget _buildKaraokeText(
     String text,
     double progress,
@@ -230,19 +323,19 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     double fontSize,
     TextAlign textAlign,
   ) {
-    final chars = text.characters.toList(); // Unicode-safe split
+    final chars = text.characters.toList(); // Split Unicode-safe
     final int total = chars.length;
     if (total == 0) return const SizedBox.shrink();
 
-    // How many characters are "covered" by the sweep (fractional).
+    // Berapa karakter yang "tercakup" oleh sweep (bisa fraksional).
     final double covered = progress * total;
 
     return RichText(
       textAlign: textAlign,
       text: TextSpan(
         children: List.generate(total, (i) {
-          // charProgress: 0 = fully dim, 1 = fully active.
-          // At the boundary character this is fractional → smooth edge.
+          // charProgress: 0 = sepenuhnya redup, 1 = sepenuhnya aktif.
+          // Pada karakter batas ini fraksional → tepi yang mulus.
           final double charProgress = (covered - i).clamp(0.0, 1.0);
           return TextSpan(
             text: chars[i],
@@ -260,9 +353,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   // ── Centering ─────────────────────────────────────────────────────────────
 
-  /// Scrolls so the active line is centred in the *visible* portion of the
-  /// viewport. Uses screen-coordinate arithmetic to correctly handle viewports
-  /// that overflow below the screen (e.g. bottom: -200 in the player overlay).
+  /// Scroll agar baris aktif berada di tengah bagian viewport yang *terlihat*.
+  /// Menggunakan aritmetika koordinat layar untuk menangani viewport yang
+  /// overflow ke bawah layar (misalnya bottom: -200 di overlay player).
   void _scrollToCenter(int index) {
     if (!_eff.hasClients) return;
 
@@ -289,9 +382,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     final double itemMidY =
         renderObj.localToGlobal(Offset(0, renderObj.size.height / 2)).dy;
 
-    final double screenH  = MediaQuery.of(context).size.height;
-    final double vpTop    = viewportBox.localToGlobal(Offset.zero).dy;
-    final double vpBottom = vpTop + viewportBox.size.height;
+    final double screenH   = MediaQuery.of(context).size.height;
+    final double vpTop     = viewportBox.localToGlobal(Offset.zero).dy;
+    final double vpBottom  = vpTop + viewportBox.size.height;
     final double visTop    = vpTop.clamp(0.0, screenH);
     final double visBottom = vpBottom.clamp(0.0, screenH);
     final double visCenter = (visTop + visBottom) / 2;
