@@ -330,10 +330,18 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
   return;
 }
-    if (!_eff.position.hasContentDimensions ||
+        if (!_eff.position.hasContentDimensions ||
         !_eff.position.hasViewportDimension) {
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToCenter(index, animate: animate, isRetry: true);
+          }
+        });
+      }
       return;
     }
+
 
     final key = _itemKeys[index];
     final ctx = key?.currentContext;
