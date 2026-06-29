@@ -534,6 +534,7 @@ height: showOverlay
         return _LyricsOverlayBody(
           result: result,
           scrollController: _lyricsScrollController,
+          isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
             setState(() {
@@ -829,11 +830,13 @@ class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
   final ScrollController scrollController;
   final ValueChanged<bool> onExpandChanged;
+  final bool isVisible;
 
   const _LyricsOverlayBody({
     required this.result,
     required this.scrollController,
     required this.onExpandChanged,
+    this.isVisible = true,
   });
 
   @override
@@ -876,6 +879,7 @@ class _LyricsOverlayBody extends StatelessWidget {
               lyrics: result.lines,
               padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
               controller: scrollController,
+              isVisible: isVisible,
             ),
           ),
         ),

@@ -48,42 +48,28 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
-        // Bekukan posisi & HENTIKAN ticker agar _interpolatedPosition tidak
-        // melonjak ketika app resume (wall-clock jalan, ticker tidak).
         _anchorPos = _interpolatedPosition;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         if (_frameTicker.isActive) _frameTicker.stop();
 
       case AppLifecycleState.resumed:
         final s = AudioService.playbackState.value;
-        // Re-anchor to the real position first, then restart the ticker so the
-        // first tick already uses the correct anchor.
         _anchorPos = s.position;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         _syncFromPlaybackState(s);
 
-        // Always update _currentIndex and rebuild so the highlight is correct.
-        // We do NOT guard on (newIdx != _currentIndex): even when the index is
-        // unchanged we still need the setState→PostFrameCallback path below to
-        // run, because that is the only moment hasContentDimensions is
-        // guaranteed true (it may still be false during the first post-resume
-        // frames, which is why the previous double-PostFrameCallback approach
-        // silently failed).
         _currentIndex = _computeLineIndex(s.position);
         _charCtrl.value = 0.0;
         if (mounted) setState(() {});
 
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
 
-        // Mirror path B exactly: one PostFrameCallback after setState's frame,
-        // guarded by _scrollPending so it cannot race with a concurrent
-        // _maybeUpdateCurrentLine callback.
         if (!_scrollPending) {
           _scrollPending = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _scrollPending = false;
             if (!mounted) return;
-            _scrollToCenter(_currentIndex);
+            _scrollToCenter(_currentIndex, animate: true);
           });
         }
 
@@ -102,11 +88,24 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _anchorPos = Duration.zero;
       _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     }
+    // Re-center setiap kali lyrics menjadi visible kembali, tanpa peduli
+    // apakah index berubah atau tidak — ini menangani kasus di mana user
+    // sempat scroll manual atau lyrics tersembunyi saat lagu berjalan.
+    if (!old.isVisible && widget.isVisible) {
+      if (!_scrollPending) {
+        _scrollPending = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollPending = false;
+          if (!mounted) return;
+          _scrollToCenter(_currentIndex, animate: false);
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Hapus observer
+    WidgetsBinding.instance.removeObserver(this);
     _posSub?.cancel();
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
@@ -238,6 +237,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             return ListView.builder(
               controller: _eff,
               padding: widget.padding,
+              // cacheExtent besar memastikan SEMUA item selalu di-build
+              // (pre-rendered), sehingga ctx tidak pernah null saat
+              // _scrollToCenter dipanggil — menghilangkan kebutuhan
+              // fallback approximasi. Lyric text ringan sehingga memory
+              // impact tidak signifikan.
+              cacheExtent: 99999,
               dragStartBehavior: DragStartBehavior.down,
               itemCount: widget.lyrics.length,
               itemBuilder: (context, index) {
@@ -319,19 +324,31 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
+  // Scroll agar item [index] tepat di tengah viewport.
+  // Menggunakan retry counter — lebih robust dari isRetry boolean.
+  // Dengan cacheExtent: 99999, ctx hampir selalu non-null sehingga
+  // getOffsetToReveal langsung dapat dipakai tanpa fallback.
+  void _scrollToCenter(int index, {bool animate = true, int retries = 0}) {
     if (!_eff.hasClients) {
-  if (!isRetry) {
-    WidgetsBinding.instance.endOfFrame.then((_) {
-      if (mounted) {
-        _scrollToCenter(index, animate: animate, isRetry: true);
+      if (retries < 4) {
+        WidgetsBinding.instance.endOfFrame.then((_) {
+          if (mounted) {
+            _scrollToCenter(index, animate: animate, retries: retries + 1);
+          }
+        });
       }
-    });
-  }
-  return;
-}
+      return;
+    }
     if (!_eff.position.hasContentDimensions ||
-        !_eff.position.hasViewportDimension) {
+        !_eff.position.hasViewportDimension ||
+        _eff.position.viewportDimension <= 0) {
+      if (retries < 4) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToCenter(index, animate: animate, retries: retries + 1);
+          }
+        });
+      }
       return;
     }
 
@@ -339,19 +356,31 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     final ctx = key?.currentContext;
 
     if (ctx == null) {
-      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
+      // Item belum di-build — lakukan approximate jump lalu retry.
+      // Dengan cacheExtent: 99999 ini sangat jarang terjadi.
+      if (retries < 5) {
+        _scrollToCenterApprox(index);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToCenter(index, animate: animate, retries: retries + 1);
+          }
+        });
+      }
       return;
     }
 
     final renderObj = ctx.findRenderObject();
     if (renderObj == null || !renderObj.attached) {
-      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
+      if (retries < 5) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToCenter(index, animate: animate, retries: retries + 1);
+          }
+        });
+      }
       return;
     }
 
-    // getOffsetToReveal(obj, 0.5) menghitung offset scroll agar CENTER item
-    // sejajar dengan CENTER viewport — ini cara internal Scrollable.ensureVisible,
-    // benar di semua layout (Stack, Positioned, nested widget, dll).
     final viewport = RenderAbstractViewport.of(renderObj);
     final double target = viewport
         .getOffsetToReveal(renderObj, 0.5)
@@ -361,10 +390,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           _eff.position.maxScrollExtent,
         );
 
-    if ((target - _eff.offset).abs() < 1.0 && isRetry) {
-  return;
-}
-
     if (animate) {
       _eff.animateTo(
         target,
@@ -373,60 +398,28 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       );
     } else {
       _eff.jumpTo(target);
-      WidgetsBinding.instance.endOfFrame.then((_) {
-  if (!mounted || isRetry) return;
-  _scrollToCenter(index, animate: false, isRetry: true);
-});
     }
   }
 
-  // PERBAIKAN: Strategi Two-Pass Fallback
-  void _scrollToCenterFallback(int index, {bool animate = true, bool isRetry = false}) {
+  // Approximate scroll untuk membawa item ke dalam viewport agar
+  // getOffsetToReveal dapat dipanggil di retry berikutnya.
+  void _scrollToCenterApprox(int index) {
     if (!_eff.hasClients) return;
-    
-    // Guard: Mencegah error jika dipanggil saat app baru resume & layout belum siap
-    if (!_eff.position.hasContentDimensions || !_eff.position.hasViewportDimension || _eff.position.viewportDimension <= 0) {
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToCenter(index, animate: animate, isRetry: true);
-        });
-      }
+    if (!_eff.position.hasContentDimensions ||
+        !_eff.position.hasViewportDimension ||
+        _eff.position.viewportDimension <= 0) {
       return;
     }
 
     final fs = LyricsSettings.fontSize.value;
-    final double approxHeight = fs * 1.4 + 20.0; 
+    final double approxHeight = fs * 1.4 + 20.0;
     final double topPad = widget.padding.resolve(TextDirection.ltr).top;
     final double vpHalf = _eff.position.viewportDimension / 2;
-    
     final double target =
         (index * approxHeight + topPad - vpHalf + approxHeight / 2).clamp(
       _eff.position.minScrollExtent,
       _eff.position.maxScrollExtent,
     );
-
-    if (animate) {
-      // Rough scroll to bring the item into the viewport, then always do a
-      // precise second pass via getOffsetToReveal once it is rendered.
-      // Do NOT short-circuit on (target - offset) < 1.0: the approximate
-      // formula can coincide with the stale scroll position even when the item
-      // is still off-screen, which would silently skip the precise pass.
-      _eff.animateTo(
-        target,
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
-      ).then((_) {
-        if (!isRetry && mounted) {
-          _scrollToCenter(index, animate: true, isRetry: true);
-        }
-      });
-    } else {
-      _eff.jumpTo(target);
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToCenter(index, animate: false, isRetry: true);
-        });
-      }
-    }
+    _eff.jumpTo(target);
   }
 }
