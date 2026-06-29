@@ -1,47 +1,36 @@
 part of '../synced_lyrics_view.dart';
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scroll = ScrollController();
   ScrollController get _eff => widget.controller ?? _scroll;
   int _currentIndex = 0;
 
-  // GlobalKey per item untuk centering berbasis render-object.
   final Map<int, GlobalKey> _itemKeys = {};
-
-  // Guard: mencegah scroll callbacks bertumpuk.
-  // Tidak memblokir perubahan baris — hanya debounce scroll.
   bool _scrollPending = false;
 
-  // ── AnimationController sebagai value-notifier untuk AnimatedBuilder ────
-  // TIDAK pernah dipanggil animateTo() — nilainya di-set langsung setiap
-  // vsync frame dari posisi playback yang diinterpolasi.
   late final AnimationController _charCtrl;
 
-  // ── Anchor posisi (sumber kebenaran tunggal) ─────────────────────────────
   Duration _anchorPos = Duration.zero;
-  int _anchorWallMs = 0; // Waktu sistem saat anchor di-set
+  int _anchorWallMs = 0;
   bool _isPlaying = false;
   double _speed = 1.0;
 
-  // ── Vsync ticker untuk sweep karaoke 60 fps ──────────────────────────────
   late final Ticker _frameTicker;
-
   StreamSubscription<Duration>? _posSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // PERBAIKAN: Pantau lifecycle
     _charCtrl = AnimationController(vsync: this);
     _frameTicker = createTicker(_onFrameTick);
 
-    // Inisialisasi anchor dari state saat ini
     final s = AudioService.playbackState.value;
     _syncFromPlaybackState(s);
     _anchorPos = s.position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-    // Hitung baris aktif awal tanpa setState (belum ada frame build pertama).
     if (widget.lyrics.isNotEmpty) {
       final pos = s.position;
       int lo = 0, hi = widget.lyrics.length - 1;
@@ -56,19 +45,32 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       }
     }
 
-    // Mulai ticker langsung jika sedang playing.
     if (_isPlaying) _frameTicker.start();
 
-    // Dengarkan stream posisi dan status
     _posSub = AudioService.positionStream.listen(_onPosition);
     AudioService.playbackState.addListener(_onPlaybackState);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // Perbaikan: gunakan jumpTo (animate: false) saat initial load 
-      // agar UI tidak terlihat scrolling jauh saat dibuka pertengahan lagu
       _scrollToCenter(_currentIndex, animate: false);
     });
+  }
+
+  // PERBAIKAN: Tangani saat user kembali ke app (Resumed)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-sync anchor karena wall-clock bisa drift saat app di-suspend
+      final s = AudioService.playbackState.value;
+      _anchorPos = s.position;
+      _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+      
+      // Paksa re-center presisi begitu UI kembali aktif
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToCenter(_currentIndex, animate: false);
+      });
+    }
   }
 
   @override
@@ -79,7 +81,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _currentIndex = 0;
       _scrollPending = false;
       _charCtrl.value = 0.0;
-      // Anchor di-reset
       _anchorPos = Duration.zero;
       _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     }
@@ -87,6 +88,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Hapus observer
     _posSub?.cancel();
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
@@ -94,8 +96,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     if (widget.controller == null) _scroll.dispose();
     super.dispose();
   }
-
-  // ── Sync playback state ───────────────────────────────────────────────────
 
   void _syncFromPlaybackState(AudioPlaybackState s) {
     _isPlaying = s.isPlaying;
@@ -108,13 +108,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _syncFromPlaybackState(s);
 
     if (_isPlaying) {
-      // Mulai/lanjutkan ticker jika belum aktif
       if (!_frameTicker.isActive) _frameTicker.start();
     } else {
-      // Pause: hentikan ticker dan bekukan sweep
       if (_frameTicker.isActive) _frameTicker.stop();
-      
-      // Re-anchor ke posisi pause
       if (wasPlaying) {
         _anchorPos = s.position;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
@@ -122,8 +118,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       }
     }
   }
-
-  // ── Penanganan position stream (sumber kebenaran tunggal) ─────────────────
 
   void _onPosition(Duration position) {
     _anchorPos = position;
@@ -140,8 +134,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-  // ── Vsync tick (60 fps) ───────────────────────────────────────────────────
-
   void _onFrameTick(Duration _) {
     if (!mounted || widget.lyrics.isEmpty) return;
     _updateKaraokeProgress(_interpolatedPosition);
@@ -153,8 +145,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     final audioElapsedMs = (wallElapsedMs * _speed).round();
     return _anchorPos + Duration(milliseconds: audioElapsedMs);
   }
-
-  // ── Perhitungan baris aktif ───────────────────────────────────────────────
 
   void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
@@ -172,7 +162,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     if (activeIndex == _currentIndex) return;
 
-    // Perbarui baris aktif dan reset sweep karaoke
     _currentIndex = activeIndex;
     _charCtrl.value = 0.0;
 
@@ -187,8 +176,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       });
     }
   }
-
-  // ── Progress sweep karaoke ────────────────────────────────────────────────
 
   void _updateKaraokeProgress(Duration position) {
     if (widget.lyrics.isEmpty) return;
@@ -215,8 +202,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _charCtrl.value = progress;
     }
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -282,8 +267,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  // ── Renderer teks karaoke ─────────────────────────────────────────────────
-
   Widget _buildKaraokeText(
     String text,
     double progress,
@@ -317,29 +300,28 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  // ── Centering ─────────────────────────────────────────────────────────────
-
-  void _scrollToCenter(int index, {bool animate = true}) {
+  // PERBAIKAN: Menambahkan parameter isRetry untuk mencegah infinite-loop 
+  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
     if (!_eff.hasClients) return;
 
     final key = _itemKeys[index];
 
     if (key == null || key.currentContext == null) {
-      _scrollToCenterFallback(index, animate: animate);
+      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
 
     final RenderObject? renderObj = key.currentContext!.findRenderObject();
 
     if (renderObj == null || renderObj is! RenderBox) {
-      _scrollToCenterFallback(index, animate: animate);
+      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
 
     final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
 
     if (viewport == null || viewport is! RenderBox) {
-      _scrollToCenterFallback(index, animate: animate);
+      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
 
@@ -349,6 +331,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         renderObj.localToGlobal(Offset(0, renderObj.size.height / 2)).dy;
 
     final double screenH = MediaQuery.of(context).size.height;
+    if (screenH <= 0) return; // Guard: Cegah perhitungan gagal karena screen=0
+
     final double vpTop = viewportBox.localToGlobal(Offset.zero).dy;
     final double vpBottom = vpTop + viewportBox.size.height;
     final double visTop = vpTop.clamp(0.0, screenH);
@@ -363,7 +347,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     if ((target - _eff.offset).abs() < 1.0) return;
 
-    // Menangani apakah harus dianimasikan atau langsung lompat
     if (animate) {
       _eff.animateTo(
         target,
@@ -375,16 +358,25 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-  void _scrollToCenterFallback(int index, {bool animate = true}) {
+  // PERBAIKAN: Strategi Two-Pass Fallback
+  void _scrollToCenterFallback(int index, {bool animate = true, bool isRetry = false}) {
     if (!_eff.hasClients) return;
     
+    // Guard: Mencegah error jika dipanggil saat app baru resume & layout belum siap
+    if (!_eff.position.hasContentDimensions || !_eff.position.hasViewportDimension || _eff.position.viewportDimension <= 0) {
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToCenter(index, animate: animate, isRetry: true);
+        });
+      }
+      return;
+    }
+
     final fs = LyricsSettings.fontSize.value;
-    
-    // Perbaikan: EdgeInsets.symmetric(vertical: 10) artinya 10 atas + 10 bawah = 20
     final double approxHeight = fs * 1.4 + 20.0; 
-    
     final double topPad = widget.padding.resolve(TextDirection.ltr).top;
     final double vpHalf = _eff.position.viewportDimension / 2;
+    
     final double target =
         (index * approxHeight + topPad - vpHalf + approxHeight / 2).clamp(
       _eff.position.minScrollExtent,
@@ -393,15 +385,26 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     if ((target - _eff.offset).abs() < 1.0) return;
     
-    // Menangani apakah harus dianimasikan atau langsung lompat
     if (animate) {
       _eff.animateTo(
         target,
         duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
-      );
+      ).then((_) {
+        // Setelah animasi kasar selesai, layout item harusnya sudah terender, 
+        // kalkulasi ulang secara presisi (Second Pass)
+        if (!isRetry && mounted) {
+          _scrollToCenter(index, animate: true, isRetry: true);
+        }
+      });
     } else {
       _eff.jumpTo(target);
+      // Kalkulasi presisi di frame berikutnya
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToCenter(index, animate: false, isRetry: true);
+        });
+      }
     }
   }
 }
