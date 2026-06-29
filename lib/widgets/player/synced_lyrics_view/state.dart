@@ -142,7 +142,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     // Hitung ulang baris aktif langsung dari posisi nyata.
     // Ini memastikan seek/skip/replay/crossfade langsung melompat ke baris yang benar.
-    _maybeUpdateCurrentLine(position);
+    final oldIndex = _currentIndex;
+_maybeUpdateCurrentLine(position);
+
+if (oldIndex == _currentIndex && _eff.hasClients && _eff.offset == 0) {
+  _scrollToCenter(_currentIndex);
+}
   }
 
   // ── Vsync tick (60 fps) ───────────────────────────────────────────────────
@@ -365,23 +370,34 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     if (!_eff.hasClients) return;
 
     final key = _itemKeys[index];
-    if (key == null || key.currentContext == null) {
-      _scrollToCenterFallback(index);
-      return;
-    }
+
+if (key == null || key.currentContext == null) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    _scrollToCenter(index);
+  });
+  return;
+}
 
     final RenderObject? renderObj = key.currentContext!.findRenderObject();
-    if (renderObj == null || renderObj is! RenderBox) {
-      _scrollToCenterFallback(index);
-      return;
-    }
 
+if (renderObj == null || renderObj is! RenderBox) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    _scrollToCenter(index);
+  });
+  return;
+}
     final RenderAbstractViewport? viewport =
-        RenderAbstractViewport.of(renderObj);
-    if (viewport == null || viewport is! RenderBox) {
-      _scrollToCenterFallback(index);
-      return;
-    }
+    RenderAbstractViewport.of(renderObj);
+
+if (viewport == null || viewport is! RenderBox) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    _scrollToCenter(index);
+  });
+  return;
+}
     final RenderBox viewportBox = viewport as RenderBox;
 
     final double itemMidY =
