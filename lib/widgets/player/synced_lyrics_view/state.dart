@@ -56,20 +56,42 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     });
   }
 
-  // PERBAIKAN: Tangani saat user kembali ke app (Resumed)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Re-sync anchor karena wall-clock bisa drift saat app di-suspend
-      final s = AudioService.playbackState.value;
-      _anchorPos = s.position;
-      _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-      
-      // Paksa re-center presisi begitu UI kembali aktif
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _scrollToCenter(_currentIndex, animate: false);
-      });
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // Bekukan anchor ke posisi yang sudah diinterpolasi saat ini.
+        // Ini mencegah _interpolatedPosition melonjak jauh saat resume karena
+        // wall-clock terus berjalan selama app di background, tapi Ticker tidak.
+        _anchorPos    = _interpolatedPosition;
+        _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+        break;
+
+      case AppLifecycleState.resumed:
+        // Re-anchor ke posisi nyata dari AudioService (lebih akurat dari estimasi).
+        final s = AudioService.playbackState.value;
+        _anchorPos    = s.position;
+        _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+        _syncFromPlaybackState(s);
+
+        // Hitung ulang baris aktif langsung — tanpa ini, highlight tetap di
+        // baris lama hingga positionStream event berikutnya (~200 ms).
+        _maybeUpdateCurrentLine(s.position);
+
+        // Restart frame ticker jika sedang playing dan ticker belum aktif.
+        if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
+
+        // Paksa re-center ke baris yang benar setelah frame pertama selesai.
+        // Diperlukan bahkan jika baris tidak berubah (scroll position bisa stale).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollToCenter(_currentIndex, animate: false);
+        });
+        break;
+
+      default:
+        break;
     }
   }
 
@@ -126,12 +148,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     if (!_frameTicker.isActive) _frameTicker.start();
 
-    final oldIndex = _currentIndex;
     _maybeUpdateCurrentLine(position);
-
-    if (oldIndex == _currentIndex && _eff.hasClients && _eff.offset == 0) {
-      _scrollToCenter(_currentIndex);
-    }
   }
 
   void _onFrameTick(Duration _) {
