@@ -61,7 +61,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
         
-        // Langsung scroll aja, gak perlu flag pending ribet
         WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _scrollToCenter(_currentIndex, animate: true);
@@ -169,8 +168,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     if (mounted) setState(() {});
     
-    // Panggil scroll center yang simpel
-    _scrollToCenter(_currentIndex);
+    // Default pakai animasi biar smooth, atau ganti ke false kalau mau instant
+    _scrollToCenter(_currentIndex, animate: true);
   }
 
   void _updateKaraokeProgress(Duration position) {
@@ -199,15 +198,22 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-  // Fungsi scroll yang jauh lebih elegan dan gak pake ribet
-  void _scrollToCenter(int index) {
-  // Langsung lompat, gak pake animasi
-  _itemScrollController.jumpTo(
-    index: index,
-    alignment: 0.0, // Tetep center
-  );
-}
-
+  // FIXED FUNGSI SCROLL DI SINI
+  void _scrollToCenter(int index, {bool animate = true}) {
+    if (animate) {
+      _itemScrollController.scrollTo(
+        index: index,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        alignment: 0.4,
+      );
+    } else {
+      _itemScrollController.jumpTo(
+        index: index,
+        alignment: 0.4,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,51 +229,49 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
             return ScrollablePositionedList.builder(
-  itemScrollController: _itemScrollController,
-  // Fix-nya di sini beb, dipaksa jadi EdgeInsets yang konkrit
-  padding: widget.padding.resolve(TextDirection.ltr),
-  itemCount: widget.lyrics.length,
-  itemBuilder: (context, index) {
-    final active = index == _currentIndex;
-    final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
+              itemScrollController: _itemScrollController,
+              padding: widget.padding.resolve(TextDirection.ltr),
+              itemCount: widget.lyrics.length,
+              itemBuilder: (context, index) {
+                final active = index == _currentIndex;
+                final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeOutCubic,
-          style: TextStyle(
-            fontSize: fs,
-            fontWeight: FontWeight.bold,
-            color: active ? activeColor : dimColor,
-            height: 1.4,
-          ),
-          child: active
-              ? AnimatedBuilder(
-                  animation: _charCtrl,
-                  builder: (_, _) => _buildKaraokeText(
-                    widget.lyrics[index].text,
-                    _charCtrl.value,
-                    activeColor,
-                    dimColor,
-                    fs,
-                    textAlign,
-                    lineDurationMs,
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        fontSize: fs,
+                        fontWeight: FontWeight.bold,
+                        color: active ? activeColor : dimColor,
+                        height: 1.4,
+                      ),
+                      child: active
+                          ? AnimatedBuilder(
+                              animation: _charCtrl,
+                              builder: (_, _) => _buildKaraokeText(
+                                widget.lyrics[index].text,
+                                _charCtrl.value,
+                                activeColor,
+                                dimColor,
+                                fs,
+                                textAlign,
+                                lineDurationMs,
+                              ),
+                            )
+                          : Text(
+                              widget.lyrics[index].text,
+                              textAlign: textAlign,
+                            ),
+                    ),
                   ),
-                )
-              : Text(
-                  widget.lyrics[index].text,
-                  textAlign: textAlign,
-                ),
-        ),
-      ),
-    );
-  },
-);
-
+                );
+              },
+            );
           },
         ),
       ),
