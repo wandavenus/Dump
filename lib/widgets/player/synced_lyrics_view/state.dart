@@ -242,12 +242,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                 if (_lastViewportHeight != constraints.maxHeight) {
                   _lastViewportHeight = constraints.maxHeight;
 
-                  _resizeDebounce?.cancel();
-                  _resizeDebounce = Timer(const Duration(milliseconds: 260), () {
-                    if (mounted) {
-                      _scrollToCenter(_currentIndex, animate: true);
-                    }
-                  });
+                            _resizeDebounce?.cancel();
+          _resizeDebounce = Timer(const Duration(milliseconds: 280), () {
+            if (mounted) {
+              // Kita paksa true buat bypass semua filter pending bby!
+              _scrollToCenter(_currentIndex, animate: true, force: true); 
+            }
+          });
+
                 }
 
                 // ─── 2. BARU BALIKIN LISTVIEW.BUILDER BAWAAN LU DI SINI ───
@@ -338,17 +340,20 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
-    if (!_eff.hasClients) {
-  if (!isRetry) {
-    WidgetsBinding.instance.endOfFrame.then((_) {
-      if (mounted) {
-        _scrollToCenter(index, animate: animate, isRetry: true);
+  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false, bool force = false}) {
+            if (!_eff.position.hasContentDimensions ||
+        !_eff.position.hasViewportDimension) {
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            // Selipin force: force di sini bby
+            _scrollToCenter(index, animate: animate, isRetry: true, force: force);
+          }
+        });
       }
-    });
-  }
-  return;
-}
+      return;
+    }
+
         if (!_eff.position.hasContentDimensions ||
         !_eff.position.hasViewportDimension) {
       if (!isRetry) {
@@ -376,10 +381,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       return;
     }
 
-    // getOffsetToReveal(obj, 0.5) menghitung offset scroll agar CENTER item
-    // sejajar dengan CENTER viewport — ini cara internal Scrollable.ensureVisible,
-    // benar di semua layout (Stack, Positioned, nested widget, dll).
-    final viewport = RenderAbstractViewport.of(renderObj);
+        final viewport = RenderAbstractViewport.of(renderObj);
     final double target = viewport
         .getOffsetToReveal(renderObj, 0.5)
         .offset
@@ -388,11 +390,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           _eff.position.maxScrollExtent,
         );
 
-    if ((target - _eff.offset).abs() < 1.0 && isRetry) {
-  return;
-}
+    // ─── SUNTIKKAN '&& !force' TEPAT DI SINI BEB ───
+    if ((target - _eff.offset).abs() < 1.0 && isRetry && !force) {
+      return;
+    }
+    // ───────────────────────────────────────────────
 
     if (animate) {
+
       _eff.animateTo(
         target,
         duration: const Duration(milliseconds: 380),
