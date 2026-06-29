@@ -16,7 +16,7 @@ class _ArtistCard extends StatelessWidget {
             ClipPath(
               clipper: const ShapeBorderClipper(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(200)),
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
                 ),
               ),
               child: SongArtwork(
@@ -31,8 +31,6 @@ class _ArtistCard extends StatelessWidget {
               children: [
                 Text(artist.name, style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 5),
-                const Icon(Icons.star,
-                    color: Color.fromARGB(255, 255, 0, 0)),
               ],
             ),
           ],

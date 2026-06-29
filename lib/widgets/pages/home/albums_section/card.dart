@@ -54,16 +54,8 @@ class _AlbumCard extends StatelessWidget {
                 height: 70,
                 width: 250,
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 83, 83, 83),
-                      Color.fromARGB(255, 36, 36, 36),
-                    ],
-                    stops: [0, 1],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                ),
+                color: Color.fromARGB(255, 53, 53, 53),
+              ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

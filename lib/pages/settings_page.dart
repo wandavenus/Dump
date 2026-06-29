@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
-import 'dart:ui';
 import 'package:musicplayer/models/replay_gain_mode.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio/audio_engine.dart';
@@ -21,7 +20,6 @@ export 'settings/settings_widgets.dart';
 
 part 'settings_page/debug_state.dart';
 part 'settings_page/page.dart';
-part 'settings_page/app_bar.dart';
 part 'settings_page/body.dart';
 part 'settings_page/appearance.dart';
 part 'settings_page/glass_toggle.dart';

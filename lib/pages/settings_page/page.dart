@@ -35,15 +35,19 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _SettingsAppBar(scrollOffset: _offset),
+      appBar: FadingTitleAppBar(
+        title: 'Pengaturan',
+        scrollOffset: _offset,
+        actions: const [],
+      ),
       body: SingleChildScrollView(
         controller: _scroll,
         physics: const ClampingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             LargePageTitle(title: 'Pengaturan'),
-             HeaderDivider(),
+            const LargePageTitle(title: 'Pengaturan'),
+            const HeaderDivider(),
             _SettingsBody(),
           ],
         ),

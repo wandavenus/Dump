@@ -4,6 +4,10 @@ class _FirstPageState extends State<FirstPage> {
   int _selectedIndex = 0;
 
   void _navgateBottomBar(int index) {
+    if (index == _selectedIndex) {
+      ScrollToTopService.trigger(index);
+      return;
+    }
     setState(() {
       _selectedIndex = index;
     });

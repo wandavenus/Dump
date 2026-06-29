@@ -18,7 +18,6 @@ class AlbumPageContent extends StatelessWidget {
     return SingleChildScrollView(
       child: Column(
         children: [
-          const DetailTopBar(),
           AlbumHero(album: album),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/services/scroll_to_top_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/radio_sections.dart';
@@ -12,6 +13,23 @@ class RadioPage extends StatefulWidget {
 
 class _RadioPageState extends State<RadioPage> {
   double _scrollOffset = 0;
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    ScrollToTopService.signal(2).addListener(_onScrollToTop);
+  }
+
+  void _onScrollToTop() {
+    if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
 
   bool _handleScroll(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification &&
@@ -19,6 +37,13 @@ class _RadioPageState extends State<RadioPage> {
       setState(() => _scrollOffset = notification.metrics.pixels);
     }
     return false;
+  }
+
+  @override
+  void dispose() {
+    ScrollToTopService.signal(2).removeListener(_onScrollToTop);
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -36,11 +61,14 @@ class _RadioPageState extends State<RadioPage> {
             title: 'Radio',
             scrollOffset: _scrollOffset,
           ),
-          body: NotificationListener<ScrollNotification>(
-            onNotification: _handleScroll,
-            child: Padding(
-              padding: EdgeInsets.only(top: topPad),
-              child: const RadioPageContent(),
+          body: PrimaryScrollController(
+            controller: _scroll,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScroll,
+              child: Padding(
+                padding: EdgeInsets.only(top: topPad),
+                child: const RadioPageContent(),
+              ),
             ),
           ),
         );

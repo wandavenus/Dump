@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:musicplayer/widgets/common_actions.dart';
+import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 
 import '../models/local_song.dart';
 import '../services/audio_service.dart';

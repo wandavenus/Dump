@@ -11,31 +11,62 @@ class _LibraryDetailPage extends StatefulWidget {
 
 class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   late Future<List<LocalSong>> _songsFuture;
+  final _scroll = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  double _offset = 0;
+  String _filter = '';
 
   @override
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
+    _scroll.addListener(_onScroll);
+    _searchController.addListener(_onSearch);
+  }
+
+  void _onScroll() {
+    final o = _scroll.offset;
+    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+  }
+
+  void _onSearch() {
+    final q = _searchController.text.trim().toLowerCase();
+    if (q != _filter) setState(() => _filter = q);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _searchController.removeListener(_onSearch);
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   String get _title => switch (widget.destination) {
     _LibraryDestination.playlist => 'Daftar Putar',
-    _LibraryDestination.artists => 'Artis',
-    _LibraryDestination.albums => 'Album',
-    _LibraryDestination.songs => 'Lagu',
+    _LibraryDestination.artists  => 'Artis',
+    _LibraryDestination.albums   => 'Album',
+    _LibraryDestination.songs    => 'Lagu',
+  };
+
+  String get _hintText => switch (widget.destination) {
+    _LibraryDestination.playlist => 'Cari di Daftar Putar',
+    _LibraryDestination.artists  => 'Cari Artis',
+    _LibraryDestination.albums   => 'Cari Album',
+    _LibraryDestination.songs    => 'Cari Lagu',
   };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          _title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+      appBar: FadingTitleAppBar(
+        title: _title,
+        scrollOffset: _offset,
+        actions: const [],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
@@ -48,9 +79,9 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
           return switch (widget.destination) {
             _LibraryDestination.playlist => _frequentSongs(songs),
-            _LibraryDestination.artists => _artistSongs(songs),
-            _LibraryDestination.albums => _albumCards(songs),
-            _LibraryDestination.songs => _songsList(songs),
+            _LibraryDestination.artists  => _artistSongs(songs),
+            _LibraryDestination.albums   => _albumCards(songs),
+            _LibraryDestination.songs    => _songsList(songs),
           };
         },
       ),
@@ -63,6 +94,141 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       style: TextStyle(color: Colors.white70),
     ),
   );
+
+  // ─── Search bar ────────────────────────────────────────────────────────────
+
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 10),
+            const Icon(Icons.search, color: Color(0xFF8E8E93), size: 18),
+            const SizedBox(width: 6),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                autofocus: false,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                cursorColor: const Color(0xFFF92D48),
+                decoration: InputDecoration(
+                  hintText: _hintText,
+                  hintStyle: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 15,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _searchFocus.unfocus(),
+                onTapOutside: (_) => _searchFocus.unfocus(),
+              ),
+            ),
+            if (_filter.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  _searchFocus.unfocus();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(Icons.cancel, color: Color(0xFF8E8E93), size: 18),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Control buttons (Queue-sheet style) ───────────────────────────────────
+
+  Widget _controlButtons(List<LocalSong> songs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+      child: ValueListenableBuilder<AudioPlaybackState>(
+        valueListenable: AudioService.playbackState,
+        builder: (context, state, _) {
+          return Row(
+            children: [
+              Expanded(
+                child: _controlButton(
+                  icon: CupertinoIcons.shuffle,
+                  active: state.shuffleEnabled,
+                  onTap: () => _playShuffled(songs),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _controlButton(
+                  icon: state.loopMode == LoopMode.one
+                      ? CupertinoIcons.repeat_1
+                      : CupertinoIcons.repeat,
+                  active: state.loopMode != LoopMode.off,
+                  onTap: AudioService.cycleLoopMode,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _controlButton({
+    required IconData icon,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    const activeColor = Color(0xFF8E8E93);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        height: 48,
+        decoration: BoxDecoration(
+          color: active
+              ? activeColor.withValues(alpha: 0.48)
+              : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            size: 20,
+            color: active ? activeColor : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Shared list header (LargePageTitle + divider + search + controls) ─────
+
+  Widget _listHeader(List<LocalSong> songs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LargePageTitle(title: _title),
+        const HeaderDivider(),
+        _searchBar(),
+        _controlButtons(songs),
+      ],
+    );
+  }
+
+  // ─── Daftar Putar ──────────────────────────────────────────────────────────
 
   FutureBuilder<Map<String, dynamic>> _frequentSongs(List<LocalSong> songs) {
     return FutureBuilder<Map<String, dynamic>>(
@@ -85,151 +251,152 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     );
   }
 
+  // ─── Artis ─────────────────────────────────────────────────────────────────
+
   Widget _artistSongs(List<LocalSong> songs) =>
       _songListView(songs, subtitleBuilder: (song) => song.artist);
+
+  // ─── Album ─────────────────────────────────────────────────────────────────
 
   Widget _albumCards(List<LocalSong> songs) {
     final albums = <String, List<LocalSong>>{};
     for (final song in songs) {
       albums.putIfAbsent('${song.albumId}-${song.album}', () => []).add(song);
     }
-    final entries =
-        albums.values.toList()
-          ..sort((a, b) => a.first.album.compareTo(b.first.album));
+    final entries = albums.values.toList()
+      ..sort((a, b) => a.first.album.compareTo(b.first.album));
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.78,
-      ),
-      itemCount: entries.length,
+    final filtered = _filter.isEmpty
+        ? entries
+        : entries.where((albumSongs) {
+            final album = albumSongs.first;
+            return album.album.toLowerCase().contains(_filter) ||
+                album.artist.toLowerCase().contains(_filter);
+          }).toList();
+
+    return ListView.builder(
+      controller: _scroll,
+      itemCount: filtered.length + 1,
       itemBuilder: (context, index) {
-        final albumSongs = entries[index];
+        if (index == 0) return _listHeader(songs);
+        final albumSongs = filtered[index - 1];
         final album = albumSongs.first;
-        return GestureDetector(
-          onTap:
-              () => Navigator.pushNamed(
-                context,
-                '/album',
-                arguments: {'album': album, 'songs': albumSongs},
-              ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SongArtwork(
-                  songId: album.id,
-                  size: 130,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  album.album,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${album.artist} • ${albumSongs.length} lagu',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
-                ),
-              ],
-            ),
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
+          ),
+          leading: SongArtwork(
+            songId: album.id,
+            size: 55,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          title: Text(
+            album.album,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '${album.artist} • ${albumSongs.length} lagu',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => Navigator.pushNamed(
+            context,
+            '/album',
+            arguments: {'album': album, 'songs': albumSongs},
           ),
         );
       },
     );
   }
 
-  Widget _songsList(List<LocalSong> songs) => Column(
-  children: [
-    Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: _actionCard(
-              CupertinoIcons.shuffle,
-              () => _playShuffled(songs),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _actionCard(
-              CupertinoIcons.repeat,
-              AudioService.cycleLoopMode,
-            ),
-          ),
-        ],
-      ),
-    ),
-    Expanded(child: _songListView(songs)),
-  ],
-);
+  // ─── Lagu ──────────────────────────────────────────────────────────────────
 
-Widget _actionCard(
-  IconData icon,
-  Future<void> Function() onTap,
-) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      height: 58,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Icon(
-          icon,
-          color: const Color(0xFFF92D48),
-        ),
-      ),
-    ),
-  );
-}
+  Widget _songsList(List<LocalSong> songs) {
+    final filtered = _filter.isEmpty
+        ? songs
+        : songs
+            .where(
+              (s) =>
+                  s.title.toLowerCase().contains(_filter) ||
+                  s.artist.toLowerCase().contains(_filter),
+            )
+            .toList();
+
+    return ListView.builder(
+      controller: _scroll,
+      itemCount: filtered.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) return _listHeader(songs);
+        final song = filtered[index - 1];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
+          ),
+          leading: SongArtwork(songId: song.id, size: 55),
+          title: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => _playAt(songs, songs.indexOf(song)),
+        );
+      },
+    );
+  }
+
+  // ─── Generic song list (Daftar Putar, Artis) ───────────────────────────────
 
   Widget _songListView(
     List<LocalSong> songs, {
     String Function(LocalSong song)? subtitleBuilder,
   }) {
+    final filtered = _filter.isEmpty
+        ? songs
+        : songs
+            .where(
+              (s) =>
+                  s.title.toLowerCase().contains(_filter) ||
+                  s.artist.toLowerCase().contains(_filter),
+            )
+            .toList();
+
     return ListView.builder(
-      itemCount: songs.length,
-      itemBuilder:
-          (context, index) => ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 2,
-            ),
-            leading: SongArtwork(songId: songs[index].id, size: 55),
-            title: Text(
-              songs[index].title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              subtitleBuilder?.call(songs[index]) ?? songs[index].artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () => _playAt(songs, index),
+      controller: _scroll,
+      itemCount: filtered.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) return _listHeader(songs);
+        final song = filtered[index - 1];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
           ),
+          leading: SongArtwork(songId: song.id, size: 55),
+          title: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            subtitleBuilder?.call(song) ?? song.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => _playAt(songs, songs.indexOf(song)),
+        );
+      },
     );
   }
+
+  // ─── Playback helpers ──────────────────────────────────────────────────────
 
   Future<void> _playAt(List<LocalSong> songs, int index) async {
     await AudioService.playSongAt(playlist: songs, index: index);

@@ -9,6 +9,7 @@ import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
+import 'package:musicplayer/services/scroll_to_top_service.dart';
 
 part 'bottom_nav/page.dart';
 part 'bottom_nav/state.dart';

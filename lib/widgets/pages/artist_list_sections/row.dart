@@ -18,12 +18,12 @@ class ArtistListRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.star, color: Colors.red, size: 15),
-                    const SizedBox(width: 10),
+                    
+                    
                     SongArtwork(
                       songId: artist.coverSongId,
-                      size: 90,
-                      borderRadius: BorderRadius.circular(45),
+                      size: 70,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     const SizedBox(width: 10),
                     Text(artist.name, style: const TextStyle(fontSize: 22)),
