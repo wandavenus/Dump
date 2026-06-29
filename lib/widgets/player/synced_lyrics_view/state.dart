@@ -249,6 +249,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                 final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
                 final active = index == _currentIndex;
 
+                // Durasi baris dihitung sekali saat item dibangun (bukan
+                // setiap frame), digunakan untuk gradient adaptif.
+                final double lineDurationMs = active
+                    ? _computeLineDurationMs(index)
+                    : 0.0;
+
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
@@ -274,6 +280,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                                 dimColor,
                                 fs,
                                 textAlign,
+                                lineDurationMs,
                               ),
                             )
                           : Text(
@@ -291,6 +298,43 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
+  /// Durasi efektif baris [index] dalam milidetik.
+  /// Untuk baris terakhir, gunakan rata-rata durasi baris lain agar
+  /// gradient tidak terlalu lambat / terlalu cepat.
+  double _computeLineDurationMs(int index) {
+    if (widget.lyrics.length < 2) return 3000.0;
+    final lineStart = widget.lyrics[index].timestamp;
+    if (index + 1 < widget.lyrics.length) {
+      return (widget.lyrics[index + 1].timestamp - lineStart)
+          .inMilliseconds
+          .toDouble()
+          .clamp(100.0, 30000.0);
+    }
+    // Estimasi baris terakhir: rata-rata durasi baris sebelumnya (maks 5 baris)
+    final sampleStart = (index - 5).clamp(0, index - 1);
+    double total = 0;
+    int count = 0;
+    for (int i = sampleStart; i < index; i++) {
+      total += (widget.lyrics[i + 1].timestamp - widget.lyrics[i].timestamp)
+          .inMilliseconds
+          .toDouble();
+      count++;
+    }
+    return count > 0 ? (total / count).clamp(500.0, 5000.0) : 3000.0;
+  }
+
+  /// Render teks karaoke huruf per huruf dengan tiga peningkatan:
+  ///
+  /// 1. **Skip spasi** — spasi tidak menghitung waktu; mereka langsung
+  ///    mewarisi warna huruf sebelumnya sehingga fill tidak "tertahan" di spasi.
+  ///
+  /// 2. **Gradient adaptif** — lebar gradient dihitung dari kecepatan huruf
+  ///    per detik. Lagu cepat → gradient sempit (lebih tajam/presisi).
+  ///    Lagu lambat → gradient lebar (lebih mengalir/natural).
+  ///
+  /// 3. **Easing alami** — progress dilewatkan melalui [Curves.easeInOut]
+  ///    agar fill tidak terasa robotik: sedikit lebih lambat di awal dan
+  ///    akhir baris, lebih cepat di tengah.
   Widget _buildKaraokeText(
     String text,
     double progress,
@@ -298,18 +342,51 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     Color dimColor,
     double fontSize,
     TextAlign textAlign,
+    double lineDurationMs,
   ) {
     final chars = text.characters.toList();
     final int total = chars.length;
     if (total == 0) return const SizedBox.shrink();
 
-    final double covered = progress * total;
+    // Hitung jumlah karakter non-spasi untuk distribusi waktu
+    final int nonSpaceCount = chars.where((c) => c != ' ').length;
+    if (nonSpaceCount == 0) {
+      return Text(text, textAlign: textAlign);
+    }
+
+    // Terapkan easing agar fill terasa lebih natural (bukan linear kaku)
+    final double easedProgress =
+        Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
+
+    // Berapa karakter non-spasi yang sudah "terkover" secara visual
+    final double covered = easedProgress * nonSpaceCount;
+
+    // Gradient adaptif: hitung kecepatan huruf/detik untuk baris ini
+    // sehingga gradient menyesuaikan tempo lagu secara otomatis.
+    //   - charsPerSec tinggi (> 6) → lagu cepat → gradientWidth sempit ≈ 0.9
+    //   - charsPerSec rendah (< 2) → lagu lambat → gradientWidth lebar ≈ 2.2
+    final double charsPerSec =
+        nonSpaceCount / ((lineDurationMs / 1000.0).clamp(0.1, 30.0));
+    final double gradientWidth =
+        (4.0 / charsPerSec.clamp(1.8, 10.0)).clamp(0.8, 2.2);
+
+    int nonSpaceIdx = 0;
+    double lastCharProgress = 0.0;
 
     return RichText(
       textAlign: textAlign,
       text: TextSpan(
         children: List.generate(total, (i) {
-          final double charProgress = (covered - i).clamp(0.0, 1.0);
+          double charProgress;
+          if (chars[i] == ' ') {
+            // Spasi: warisi warna huruf sebelumnya agar fill tidak "jeda"
+            charProgress = lastCharProgress;
+          } else {
+            charProgress =
+                ((covered - nonSpaceIdx) / gradientWidth).clamp(0.0, 1.0);
+            lastCharProgress = charProgress;
+            nonSpaceIdx++;
+          }
           return TextSpan(
             text: chars[i],
             style: TextStyle(
