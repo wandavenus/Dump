@@ -840,18 +840,16 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        NotificationListener<ScrollUpdateNotification>(
+        NotificationListener<UserScrollNotification>(
           onNotification: (notification) {
-            // Cuma ketrigger kalau USER yang beneran nyeret pakai jari bby!
-            if (notification.dragDetails != null) {
-              final offset = notification.metrics.pixels;
+            final offset = notification.metrics.pixels;
 
-              if (offset > 150) {
-                onExpandChanged(true);
-              } else if (offset < 50) {
-                onExpandChanged(false);
-              }
+            if (offset > 150) {
+              onExpandChanged(true);
+            } else if (offset < 50) {
+              onExpandChanged(false);
             }
+
             return false;
           },
           child: ShaderMask(
@@ -876,7 +874,7 @@ class _LyricsOverlayBody extends StatelessWidget {
             blendMode: BlendMode.dstIn,
             child: SyncedLyricsView(
               lyrics: result.lines,
-              padding: const EdgeInsets.fromLTRB(24, 120, 48, 120),
+              padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
               controller: scrollController,
             ),
           ),

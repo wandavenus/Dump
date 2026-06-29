@@ -19,9 +19,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   late final Ticker _frameTicker;
   StreamSubscription<Duration>? _posSub;
 
-  double _lastViewportHeight = 0.0;
-  Timer? _resizeDebounce;
-    
   @override
   void initState() {
     super.initState();
@@ -41,13 +38,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.addListener(_onPlaybackState);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) _scrollToCenter(_currentIndex, animate: false);
-  });
-}
+      if (!mounted) return;
+      _scrollToCenter(_currentIndex, animate: false);
+    });
+  }
 
-  
-    
-    @override
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
@@ -66,7 +62,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         _syncFromPlaybackState(s);
 
-        
+        // Always update _currentIndex and rebuild so the highlight is correct.
+        // We do NOT guard on (newIdx != _currentIndex): even when the index is
+        // unchanged we still need the setState→PostFrameCallback path below to
+        // run, because that is the only moment hasContentDimensions is
+        // guaranteed true (it may still be false during the first post-resume
+        // frames, which is why the previous double-PostFrameCallback approach
+        // silently failed).
         _currentIndex = _computeLineIndex(s.position);
         _charCtrl.value = 0.0;
         if (mounted) setState(() {});
@@ -104,8 +106,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   @override
   void dispose() {
-   _resizeDebounce?.cancel();
-      WidgetsBinding.instance.removeObserver(this); // Hapus observer
+    WidgetsBinding.instance.removeObserver(this); // Hapus observer
     _posSub?.cancel();
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
@@ -222,7 +223,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
@@ -235,73 +235,56 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final textAlign = LyricsSettings.resolvedTextAlign;
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
-            return LayoutBuilder(
-  builder: (context, constraints) {
-    
-    // Logic: Kalau tinggi berubah, tunggu animasi transisi (biasanya 400ms) selesai
-    // Baru kita panggil _scrollToCenter
-    if (_lastViewportHeight != constraints.maxHeight) {
-      _lastViewportHeight = constraints.maxHeight;
+            return ListView.builder(
+              controller: _eff,
+              padding: widget.padding,
+              dragStartBehavior: DragStartBehavior.down,
+              itemCount: widget.lyrics.length,
+              itemBuilder: (context, index) {
+                final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
+                final active = index == _currentIndex;
 
-      // Kasih napas 450ms biar animasi transisi sheet lu bener-bener berhenti
-      Future.delayed(const Duration(milliseconds: 450), () {
-        if (mounted) _scrollToCenter(_currentIndex, animate: true);
-      });
-    }
-
-    return ListView.builder(
-                  controller: _eff,
-                  padding: widget.padding,
-                  dragStartBehavior: DragStartBehavior.down,
-                  itemCount: widget.lyrics.length,
-                  itemBuilder: (context, index) {
-                    final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
-                    final active = index == _currentIndex;
-
-                    return GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
-                      child: Padding(
-                        key: itemKey,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 380),
-                          curve: Curves.easeOutCubic,
-                          style: TextStyle(
-                            fontSize: fs,
-                            fontWeight: FontWeight.bold,
-                            color: active ? activeColor : dimColor,
-                            height: 1.4,
-                          ),
-                          child: active
-                              ? AnimatedBuilder(
-                                  animation: _charCtrl,
-                                  builder: (_, _) => _buildKaraokeText(
-                                    widget.lyrics[index].text,
-                                    _charCtrl.value,
-                                    activeColor,
-                                    dimColor,
-                                    fs,
-                                    textAlign,
-                                  ),
-                                )
-                              : Text(
-                                  widget.lyrics[index].text,
-                                  textAlign: textAlign,
-                                ),
-                        ),
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
+                  child: Padding(
+                    key: itemKey,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        fontSize: fs,
+                        fontWeight: FontWeight.bold,
+                        color: active ? activeColor : dimColor,
+                        height: 1.4,
                       ),
-                    );
-                  },
+                      child: active
+                          ? AnimatedBuilder(
+                              animation: _charCtrl,
+                              builder: (_, _) => _buildKaraokeText(
+                                widget.lyrics[index].text,
+                                _charCtrl.value,
+                                activeColor,
+                                dimColor,
+                                fs,
+                                textAlign,
+                              ),
+                            )
+                          : Text(
+                              widget.lyrics[index].text,
+                              textAlign: textAlign,
+                            ),
+                    ),
+                  ),
                 );
-              }, // Penutup builder dari LayoutBuilder
-            ); // Penutup LayoutBuilder
+              },
+            );
           },
         ),
       ),
     );
   }
-
 
   Widget _buildKaraokeText(
     String text,
@@ -336,48 +319,114 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  void _scrollToCenter(int index, {bool animate = true}) {
-    if (!mounted || !_eff.hasClients) return;
-
-    // 1. Cek apa item-nya udah ada di widget tree
-    final key = _itemKeys[index];
-    final renderObj = key?.currentContext?.findRenderObject();
-
-    // 2. Kalau belum ketemu, gunakan strategi Two-Pass Fallback
-    if (renderObj == null || !renderObj.attached) {
-      // Hitung posisi perkiraan (asumsi tinggi per baris lirik ~45.0 pixel)
-      final estimatedOffset = index * 45.0;
-      
-      // Lakukan lompatan (jump) kasar ke area target agar Flutter
-      // me-render item tersebut di frame berikutnya.
-      _eff.jumpTo(estimatedOffset);
-
-      // Coba hitung presisi dan animasikan di frame berikutnya setelah item di-render
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToCenter(index, animate: animate);
-      });
+  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
+    if (!_eff.hasClients) {
+  if (!isRetry) {
+    WidgetsBinding.instance.endOfFrame.then((_) {
+      if (mounted) {
+        _scrollToCenter(index, animate: animate, isRetry: true);
+      }
+    });
+  }
+  return;
+}
+    if (!_eff.position.hasContentDimensions ||
+        !_eff.position.hasViewportDimension) {
       return;
     }
 
-    // 3. Kalau udah ketemu, hitung posisinya secara presisi
-    final viewport = RenderAbstractViewport.of(renderObj);
-    if (viewport == null) return;
-    
-    final target = viewport
-        .getOffsetToReveal(renderObj, 0.5) // 0.5 = center
-        .offset
-        .clamp(_eff.position.minScrollExtent, _eff.position.maxScrollExtent);
+    final key = _itemKeys[index];
+    final ctx = key?.currentContext;
 
-    // 4. Eksekusi
+    if (ctx == null) {
+      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
+      return;
+    }
+
+    final renderObj = ctx.findRenderObject();
+    if (renderObj == null || !renderObj.attached) {
+      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
+      return;
+    }
+
+    // getOffsetToReveal(obj, 0.5) menghitung offset scroll agar CENTER item
+    // sejajar dengan CENTER viewport — ini cara internal Scrollable.ensureVisible,
+    // benar di semua layout (Stack, Positioned, nested widget, dll).
+    final viewport = RenderAbstractViewport.of(renderObj);
+    final double target = viewport
+        .getOffsetToReveal(renderObj, 0.5)
+        .offset
+        .clamp(
+          _eff.position.minScrollExtent,
+          _eff.position.maxScrollExtent,
+        );
+
+    if ((target - _eff.offset).abs() < 1.0 && isRetry) {
+  return;
+}
+
     if (animate) {
       _eff.animateTo(
         target,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
       );
     } else {
       _eff.jumpTo(target);
+      WidgetsBinding.instance.endOfFrame.then((_) {
+  if (!mounted || isRetry) return;
+  _scrollToCenter(index, animate: false, isRetry: true);
+});
     }
   }
-  
+
+  // PERBAIKAN: Strategi Two-Pass Fallback
+  void _scrollToCenterFallback(int index, {bool animate = true, bool isRetry = false}) {
+    if (!_eff.hasClients) return;
+    
+    // Guard: Mencegah error jika dipanggil saat app baru resume & layout belum siap
+    if (!_eff.position.hasContentDimensions || !_eff.position.hasViewportDimension || _eff.position.viewportDimension <= 0) {
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToCenter(index, animate: animate, isRetry: true);
+        });
+      }
+      return;
+    }
+
+    final fs = LyricsSettings.fontSize.value;
+    final double approxHeight = fs * 1.4 + 20.0; 
+    final double topPad = widget.padding.resolve(TextDirection.ltr).top;
+    final double vpHalf = _eff.position.viewportDimension / 2;
+    
+    final double target =
+        (index * approxHeight + topPad - vpHalf + approxHeight / 2).clamp(
+      _eff.position.minScrollExtent,
+      _eff.position.maxScrollExtent,
+    );
+
+    if (animate) {
+      // Rough scroll to bring the item into the viewport, then always do a
+      // precise second pass via getOffsetToReveal once it is rendered.
+      // Do NOT short-circuit on (target - offset) < 1.0: the approximate
+      // formula can coincide with the stale scroll position even when the item
+      // is still off-screen, which would silently skip the precise pass.
+      _eff.animateTo(
+        target,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+      ).then((_) {
+        if (!isRetry && mounted) {
+          _scrollToCenter(index, animate: true, isRetry: true);
+        }
+      });
+    } else {
+      _eff.jumpTo(target);
+      if (!isRetry) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToCenter(index, animate: false, isRetry: true);
+        });
+      }
+    }
+  }
 }
