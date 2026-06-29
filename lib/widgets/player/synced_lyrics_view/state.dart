@@ -337,36 +337,47 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
 
   void _scrollToCenter(int index, {bool animate = true}) {
-  if (!mounted || !_eff.hasClients) return;
+    if (!mounted || !_eff.hasClients) return;
 
-  // 1. Cek apa item-nya udah ada di widget tree
-  final key = _itemKeys[index];
-  final renderObj = key?.currentContext?.findRenderObject();
+    // 1. Cek apa item-nya udah ada di widget tree
+    final key = _itemKeys[index];
+    final renderObj = key?.currentContext?.findRenderObject();
 
-  // Kalau belum ketemu, jangan dipaksa. Tunggu frame berikutnya.
-  if (renderObj == null || !renderObj.attached) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _scrollToCenter(index, animate: animate);
-    });
-    return;
+    // 2. Kalau belum ketemu, gunakan strategi Two-Pass Fallback
+    if (renderObj == null || !renderObj.attached) {
+      // Hitung posisi perkiraan (asumsi tinggi per baris lirik ~45.0 pixel)
+      final estimatedOffset = index * 45.0;
+      
+      // Lakukan lompatan (jump) kasar ke area target agar Flutter
+      // me-render item tersebut di frame berikutnya.
+      _eff.jumpTo(estimatedOffset);
+
+      // Coba hitung presisi dan animasikan di frame berikutnya setelah item di-render
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToCenter(index, animate: animate);
+      });
+      return;
+    }
+
+    // 3. Kalau udah ketemu, hitung posisinya secara presisi
+    final viewport = RenderAbstractViewport.of(renderObj);
+    if (viewport == null) return;
+    
+    final target = viewport
+        .getOffsetToReveal(renderObj, 0.5) // 0.5 = center
+        .offset
+        .clamp(_eff.position.minScrollExtent, _eff.position.maxScrollExtent);
+
+    // 4. Eksekusi
+    if (animate) {
+      _eff.animateTo(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _eff.jumpTo(target);
+    }
   }
-
-  // 2. Kalau udah ketemu, hitung posisinya secara presisi
-  final viewport = RenderAbstractViewport.of(renderObj);
-  final target = viewport
-      .getOffsetToReveal(renderObj, 0.5) // 0.5 = center
-      .offset
-      .clamp(_eff.position.minScrollExtent, _eff.position.maxScrollExtent);
-
-  // 3. Eksekusi
-  if (animate) {
-    _eff.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
-  } else {
-    _eff.jumpTo(target);
-  }
-}
-
-
-  // PERBAIKAN: Strategi Two-Pass Fallback
   
 }
