@@ -66,7 +66,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         // wall-clock terus berjalan selama app di background, tapi Ticker tidak.
         _anchorPos    = _interpolatedPosition;
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-        break;
 
       case AppLifecycleState.resumed:
         // Re-anchor ke posisi nyata dari AudioService (lebih akurat dari estimasi).
@@ -88,10 +87,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           if (!mounted) return;
           _scrollToCenter(_currentIndex, animate: false);
         });
-        break;
 
       default:
-        break;
     }
   }
 
@@ -226,9 +223,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       valueListenable: LyricsSettings.fontSize,
       builder: (_, fs, _) => ValueListenableBuilder<String>(
         valueListenable: LyricsSettings.textAlign,
-        builder: (_, __, _) => ValueListenableBuilder<String>(
+        builder: (_, _, _) => ValueListenableBuilder<String>(
           valueListenable: LyricsSettings.activeColor,
-          builder: (_, ___, _) {
+          builder: (_, _, _) {
             final activeColor = LyricsSettings.resolvedActiveColor;
             final textAlign = LyricsSettings.resolvedTextAlign;
             final dimColor = Colors.white.withValues(alpha: 0.35);
@@ -260,7 +257,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                       child: active
                           ? AnimatedBuilder(
                               animation: _charCtrl,
-                              builder: (_, __) => _buildKaraokeText(
+                              builder: (_, _) => _buildKaraokeText(
                                 widget.lyrics[index].text,
                                 _charCtrl.value,
                                 activeColor,
@@ -335,9 +332,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       return;
     }
 
-    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
+    final RenderAbstractViewport viewport = RenderAbstractViewport.of(renderObj);
 
-    if (viewport == null || viewport is! RenderBox) {
+    if (viewport is! RenderBox) {
       _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
