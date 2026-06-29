@@ -314,50 +314,38 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  // PERBAIKAN: Menambahkan parameter isRetry untuk mencegah infinite-loop 
   void _scrollToCenter(int index, {bool animate = true, bool isRetry = false}) {
     if (!_eff.hasClients) return;
+    if (!_eff.position.hasContentDimensions ||
+        !_eff.position.hasViewportDimension) {
+      return;
+    }
 
     final key = _itemKeys[index];
+    final ctx = key?.currentContext;
 
-    if (key == null || key.currentContext == null) {
+    if (ctx == null) {
       _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
 
-    final RenderObject? renderObj = key.currentContext!.findRenderObject();
-
-    if (renderObj == null || renderObj is! RenderBox) {
+    final renderObj = ctx.findRenderObject();
+    if (renderObj == null || !renderObj.attached) {
       _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
       return;
     }
 
-    final RenderAbstractViewport viewport = RenderAbstractViewport.of(renderObj);
-
-    if (viewport is! RenderBox) {
-      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
-      return;
-    }
-
-    final RenderBox viewportBox = viewport as RenderBox;
-
-    final double itemMidY =
-        renderObj.localToGlobal(Offset(0, renderObj.size.height / 2)).dy;
-
-    final double screenH = MediaQuery.of(context).size.height;
-    if (screenH <= 0) return; // Guard: Cegah perhitungan gagal karena screen=0
-
-    final double vpTop = viewportBox.localToGlobal(Offset.zero).dy;
-    final double vpBottom = vpTop + viewportBox.size.height;
-    final double visTop = vpTop.clamp(0.0, screenH);
-    final double visBottom = vpBottom.clamp(0.0, screenH);
-    final double visCenter = (visTop + visBottom) / 2;
-
-    final double delta = itemMidY - visCenter;
-    final double target = (_eff.offset + delta).clamp(
-      _eff.position.minScrollExtent,
-      _eff.position.maxScrollExtent,
-    );
+    // getOffsetToReveal(obj, 0.5) menghitung offset scroll agar CENTER item
+    // sejajar dengan CENTER viewport — ini cara internal Scrollable.ensureVisible,
+    // benar di semua layout (Stack, Positioned, nested widget, dll).
+    final viewport = RenderAbstractViewport.of(renderObj);
+    final double target = viewport
+        .getOffsetToReveal(renderObj, 0.5)
+        .offset
+        .clamp(
+          _eff.position.minScrollExtent,
+          _eff.position.maxScrollExtent,
+        );
 
     if ((target - _eff.offset).abs() < 1.0) return;
 
