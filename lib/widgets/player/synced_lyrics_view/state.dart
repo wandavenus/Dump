@@ -19,6 +19,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   late final Ticker _frameTicker;
   StreamSubscription<Duration>? _posSub;
 
+  double _lastViewportHeight = 0.0;
+  Timer? _resizeDebounce;
+    
   @override
   void initState() {
     super.initState();
@@ -62,13 +65,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
         _syncFromPlaybackState(s);
 
-        // Always update _currentIndex and rebuild so the highlight is correct.
-        // We do NOT guard on (newIdx != _currentIndex): even when the index is
-        // unchanged we still need the setState→PostFrameCallback path below to
-        // run, because that is the only moment hasContentDimensions is
-        // guaranteed true (it may still be false during the first post-resume
-        // frames, which is why the previous double-PostFrameCallback approach
-        // silently failed).
+        
         _currentIndex = _computeLineIndex(s.position);
         _charCtrl.value = 0.0;
         if (mounted) setState(() {});
