@@ -876,7 +876,7 @@ class _LyricsOverlayBody extends StatelessWidget {
             blendMode: BlendMode.dstIn,
             child: SyncedLyricsView(
               lyrics: result.lines,
-              padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+              padding: const EdgeInsets.fromLTRB(24, 120, 48, 120),
               controller: scrollController,
             ),
           ),
