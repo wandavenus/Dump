@@ -103,7 +103,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Hapus observer
+   _resizeDebounce?.cancel();
+      WidgetsBinding.instance.removeObserver(this); // Hapus observer
     _posSub?.cancel();
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
@@ -220,6 +221,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
@@ -232,56 +234,76 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final textAlign = LyricsSettings.resolvedTextAlign;
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
-            return ListView.builder(
-              controller: _eff,
-              padding: widget.padding,
-              dragStartBehavior: DragStartBehavior.down,
-              itemCount: widget.lyrics.length,
-              itemBuilder: (context, index) {
-                final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
-                final active = index == _currentIndex;
+            // ─── 1. KITA BUNGKUS PAKAI LAYOUTBUILDER DI SINI BEB ───
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                
+                // Logika deteksi transisi half/full view biar ga spam frame
+                if (_lastViewportHeight != constraints.maxHeight) {
+                  _lastViewportHeight = constraints.maxHeight;
 
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
-                  child: Padding(
-                    key: itemKey,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 380),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: active ? activeColor : dimColor,
-                        height: 1.4,
+                  _resizeDebounce?.cancel();
+                  _resizeDebounce = Timer(const Duration(milliseconds: 260), () {
+                    if (mounted) {
+                      _scrollToCenter(_currentIndex, animate: true);
+                    }
+                  });
+                }
+
+                // ─── 2. BARU BALIKIN LISTVIEW.BUILDER BAWAAN LU DI SINI ───
+                return ListView.builder(
+                  controller: _eff,
+                  padding: widget.padding,
+                  dragStartBehavior: DragStartBehavior.down,
+                  itemCount: widget.lyrics.length,
+                  itemBuilder: (context, index) {
+                    final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
+                    final active = index == _currentIndex;
+
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
+                      child: Padding(
+                        key: itemKey,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 380),
+                          curve: Curves.easeOutCubic,
+                          style: TextStyle(
+                            fontSize: fs,
+                            fontWeight: FontWeight.bold,
+                            color: active ? activeColor : dimColor,
+                            height: 1.4,
+                          ),
+                          child: active
+                              ? AnimatedBuilder(
+                                  animation: _charCtrl,
+                                  builder: (_, _) => _buildKaraokeText(
+                                    widget.lyrics[index].text,
+                                    _charCtrl.value,
+                                    activeColor,
+                                    dimColor,
+                                    fs,
+                                    textAlign,
+                                  ),
+                                )
+                              : Text(
+                                  widget.lyrics[index].text,
+                                  textAlign: textAlign,
+                                ),
+                        ),
                       ),
-                      child: active
-                          ? AnimatedBuilder(
-                              animation: _charCtrl,
-                              builder: (_, _) => _buildKaraokeText(
-                                widget.lyrics[index].text,
-                                _charCtrl.value,
-                                activeColor,
-                                dimColor,
-                                fs,
-                                textAlign,
-                              ),
-                            )
-                          : Text(
-                              widget.lyrics[index].text,
-                              textAlign: textAlign,
-                            ),
-                    ),
-                  ),
+                    );
+                  },
                 );
-              },
-            );
+              }, // Penutup builder dari LayoutBuilder
+            ); // Penutup LayoutBuilder
           },
         ),
       ),
     );
   }
+
 
   Widget _buildKaraokeText(
     String text,
