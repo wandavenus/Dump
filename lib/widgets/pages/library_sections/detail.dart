@@ -195,11 +195,11 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        height: 37,
+        height: 48,
         decoration: BoxDecoration(
           color: active
               ? activeColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.20),
+              : Colors.white.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
