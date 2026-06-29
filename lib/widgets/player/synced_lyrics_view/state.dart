@@ -366,38 +366,32 @@ if (oldIndex == _currentIndex && _eff.hasClients && _eff.offset == 0) {
   /// Scroll agar baris aktif berada di tengah bagian viewport yang *terlihat*.
   /// Menggunakan aritmetika koordinat layar untuk menangani viewport yang
   /// overflow ke bawah layar (misalnya bottom: -200 di overlay player).
-  void _scrollToCenter(int index) {
+    void _scrollToCenter(int index) {
     if (!_eff.hasClients) return;
 
     final key = _itemKeys[index];
 
-if (key == null || key.currentContext == null) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    _scrollToCenter(index);
-  });
-  return;
-}
+    // Kalau key belum ada (karena kejauhan and belum di-render),
+    // langsung sikat pake hitungan fallback lu, jangan di-loop lagi!
+    if (key == null || key.currentContext == null) {
+      _scrollToCenterFallback(index);
+      return;
+    }
 
     final RenderObject? renderObj = key.currentContext!.findRenderObject();
 
-if (renderObj == null || renderObj is! RenderBox) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    _scrollToCenter(index);
-  });
-  return;
-}
-    final RenderAbstractViewport? viewport =
-    RenderAbstractViewport.of(renderObj);
+    if (renderObj == null || renderObj is! RenderBox) {
+      _scrollToCenterFallback(index);
+      return;
+    }
 
-if (viewport == null || viewport is! RenderBox) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    _scrollToCenter(index);
-  });
-  return;
-}
+    final RenderAbstractViewport? viewport = RenderAbstractViewport.of(renderObj);
+
+    if (viewport == null || viewport is! RenderBox) {
+      _scrollToCenterFallback(index);
+      return;
+    }
+
     final RenderBox viewportBox = viewport as RenderBox;
 
     final double itemMidY =
@@ -418,6 +412,9 @@ if (viewport == null || viewport is! RenderBox) {
 
     if ((target - _eff.offset).abs() < 1.0) return;
 
+    // Sedikit tips: kalau mau pas pertama buka dia langsung JUMP ke posisi 
+    // tanpa kelihatan scrolling panjang, ganti animateTo jadi jumpTo aja khusus buat initial load. 
+    // Tapi pake animateTo juga udah aman kok.
     _eff.animateTo(
       target,
       duration: const Duration(milliseconds: 380),
@@ -425,7 +422,11 @@ if (viewport == null || viewport is! RenderBox) {
     );
   }
 
-  void _scrollToCenterFallback(int index) {
+
+
+    
+    
+    void _scrollToCenterFallback(int index) {
     if (!_eff.hasClients) return;
     final fs = LyricsSettings.fontSize.value;
     final double approxHeight = fs * 1.4 + 12.0;
