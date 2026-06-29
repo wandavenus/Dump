@@ -199,8 +199,8 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         decoration: BoxDecoration(
           color: active
               ? activeColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(8),
+              : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
           child: Icon(
