@@ -200,14 +200,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   }
 
   // Fungsi scroll yang jauh lebih elegan dan gak pake ribet
-  void _scrollToCenter(int index, {bool animate = true}) {
-    _itemScrollController.scrollTo(
-      index: index,
-      duration: animate ? const Duration(milliseconds: 380) : Duration.zero,
-      curve: Curves.easeOutCubic,
-      alignment: 0.5, // Ini kunci rahasia centering-nya, bby!
-    );
-  }
+  void _scrollToCenter(int index) {
+  // Langsung lompat, gak pake animasi
+  _itemScrollController.jumpTo(
+    index: index,
+    alignment: 0.0, // Tetep center
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
