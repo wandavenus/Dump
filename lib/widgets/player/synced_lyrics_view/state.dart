@@ -2,12 +2,9 @@ part of '../synced_lyrics_view.dart';
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  final ScrollController _scroll = ScrollController();
-  ScrollController get _eff => widget.controller ?? _scroll;
+  
+  final ItemScrollController _itemScrollController = ItemScrollController();
   int _currentIndex = 0;
-
-  final Map<int, GlobalKey> _itemKeys = {};
-  bool _scrollPending = false;
 
   late final AnimationController _charCtrl;
 
@@ -63,15 +60,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         if (mounted) setState(() {});
 
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
-
-        if (!_scrollPending) {
-          _scrollPending = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _scrollPending = false;
+        
+        // Langsung scroll aja, gak perlu flag pending ribet
+        WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _scrollToCenter(_currentIndex, animate: true);
-          });
-        }
+        });
 
       default:
     }
@@ -81,25 +75,17 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   void didUpdateWidget(SyncedLyricsView old) {
     super.didUpdateWidget(old);
     if (old.lyrics != widget.lyrics) {
-      _itemKeys.clear();
       _currentIndex = 0;
-      _scrollPending = false;
       _charCtrl.value = 0.0;
       _anchorPos = Duration.zero;
       _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     }
-    // Re-center setiap kali lyrics menjadi visible kembali, tanpa peduli
-    // apakah index berubah atau tidak — ini menangani kasus di mana user
-    // sempat scroll manual atau lyrics tersembunyi saat lagu berjalan.
+    
     if (!old.isVisible && widget.isVisible) {
-      if (!_scrollPending) {
-        _scrollPending = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollPending = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _scrollToCenter(_currentIndex, animate: false);
-        });
-      }
+      });
     }
   }
 
@@ -110,7 +96,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
     _charCtrl.dispose();
-    if (widget.controller == null) _scroll.dispose();
     super.dispose();
   }
 
@@ -175,7 +160,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
-
     final activeIndex = _computeLineIndex(position);
 
     if (activeIndex == _currentIndex) return;
@@ -184,15 +168,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _charCtrl.value = 0.0;
 
     if (mounted) setState(() {});
-
-    if (!_scrollPending) {
-      _scrollPending = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollPending = false;
-        if (!mounted) return;
-        _scrollToCenter(_currentIndex);
-      });
-    }
+    
+    // Panggil scroll center yang simpel
+    _scrollToCenter(_currentIndex);
   }
 
   void _updateKaraokeProgress(Duration position) {
@@ -221,6 +199,16 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
+  // Fungsi scroll yang jauh lebih elegan dan gak pake ribet
+  void _scrollToCenter(int index, {bool animate = true}) {
+    _itemScrollController.scrollTo(
+      index: index,
+      duration: animate ? const Duration(milliseconds: 380) : Duration.zero,
+      curve: Curves.easeOutCubic,
+      alignment: 0.5, // Ini kunci rahasia centering-nya, bby!
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
@@ -234,32 +222,18 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final textAlign = LyricsSettings.resolvedTextAlign;
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
-            return ListView.builder(
-              controller: _eff,
+            return ScrollablePositionedList.builder(
+              itemScrollController: _itemScrollController,
               padding: widget.padding,
-              // cacheExtent besar memastikan SEMUA item selalu di-build
-              // (pre-rendered), sehingga ctx tidak pernah null saat
-              // _scrollToCenter dipanggil — menghilangkan kebutuhan
-              // fallback approximasi. Lyric text ringan sehingga memory
-              // impact tidak signifikan.
-              cacheExtent: 99999,
-              dragStartBehavior: DragStartBehavior.down,
               itemCount: widget.lyrics.length,
               itemBuilder: (context, index) {
-                final itemKey = _itemKeys.putIfAbsent(index, GlobalKey.new);
                 final active = index == _currentIndex;
-
-                // Durasi baris dihitung sekali saat item dibangun (bukan
-                // setiap frame), digunakan untuk gradient adaptif.
-                final double lineDurationMs = active
-                    ? _computeLineDurationMs(index)
-                    : 0.0;
+                final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
 
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
                   child: Padding(
-                    key: itemKey,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 380),
@@ -298,9 +272,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  /// Durasi efektif baris [index] dalam milidetik.
-  /// Untuk baris terakhir, gunakan rata-rata durasi baris lain agar
-  /// gradient tidak terlalu lambat / terlalu cepat.
   double _computeLineDurationMs(int index) {
     if (widget.lyrics.length < 2) return 3000.0;
     final lineStart = widget.lyrics[index].timestamp;
@@ -310,7 +281,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           .toDouble()
           .clamp(100.0, 30000.0);
     }
-    // Estimasi baris terakhir: rata-rata durasi baris sebelumnya (maks 5 baris)
     final sampleStart = (index - 5).clamp(0, index - 1);
     double total = 0;
     int count = 0;
@@ -323,18 +293,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     return count > 0 ? (total / count).clamp(500.0, 5000.0) : 3000.0;
   }
 
-  /// Render teks karaoke huruf per huruf dengan tiga peningkatan:
-  ///
-  /// 1. **Skip spasi** — spasi tidak menghitung waktu; mereka langsung
-  ///    mewarisi warna huruf sebelumnya sehingga fill tidak "tertahan" di spasi.
-  ///
-  /// 2. **Gradient adaptif** — lebar gradient dihitung dari kecepatan huruf
-  ///    per detik. Lagu cepat → gradient sempit (lebih tajam/presisi).
-  ///    Lagu lambat → gradient lebar (lebih mengalir/natural).
-  ///
-  /// 3. **Easing alami** — progress dilewatkan melalui [Curves.easeInOut]
-  ///    agar fill tidak terasa robotik: sedikit lebih lambat di awal dan
-  ///    akhir baris, lebih cepat di tengah.
   Widget _buildKaraokeText(
     String text,
     double progress,
@@ -348,27 +306,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     final int total = chars.length;
     if (total == 0) return const SizedBox.shrink();
 
-    // Hitung jumlah karakter non-spasi untuk distribusi waktu
     final int nonSpaceCount = chars.where((c) => c != ' ').length;
-    if (nonSpaceCount == 0) {
-      return Text(text, textAlign: textAlign);
-    }
+    if (nonSpaceCount == 0) return Text(text, textAlign: textAlign);
 
-    // Terapkan easing agar fill terasa lebih natural (bukan linear kaku)
-    final double easedProgress =
-        Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
-
-    // Berapa karakter non-spasi yang sudah "terkover" secara visual
+    final double easedProgress = Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
     final double covered = easedProgress * nonSpaceCount;
-
-    // Gradient adaptif: hitung kecepatan huruf/detik untuk baris ini
-    // sehingga gradient menyesuaikan tempo lagu secara otomatis.
-    //   - charsPerSec tinggi (> 6) → lagu cepat → gradientWidth sempit ≈ 0.9
-    //   - charsPerSec rendah (< 2) → lagu lambat → gradientWidth lebar ≈ 2.2
-    final double charsPerSec =
-        nonSpaceCount / ((lineDurationMs / 1000.0).clamp(0.1, 30.0));
-    final double gradientWidth =
-        (4.0 / charsPerSec.clamp(1.8, 10.0)).clamp(0.8, 2.2);
+    final double charsPerSec = nonSpaceCount / ((lineDurationMs / 1000.0).clamp(0.1, 30.0));
+    final double gradientWidth = (4.0 / charsPerSec.clamp(1.8, 10.0)).clamp(0.8, 2.2);
 
     int nonSpaceIdx = 0;
     double lastCharProgress = 0.0;
@@ -379,11 +323,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         children: List.generate(total, (i) {
           double charProgress;
           if (chars[i] == ' ') {
-            // Spasi: warisi warna huruf sebelumnya agar fill tidak "jeda"
             charProgress = lastCharProgress;
           } else {
-            charProgress =
-                ((covered - nonSpaceIdx) / gradientWidth).clamp(0.0, 1.0);
+            charProgress = ((covered - nonSpaceIdx) / gradientWidth).clamp(0.0, 1.0);
             lastCharProgress = charProgress;
             nonSpaceIdx++;
           }
@@ -399,104 +341,5 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         }),
       ),
     );
-  }
-
-  // Scroll agar item [index] tepat di tengah viewport.
-  // Menggunakan retry counter — lebih robust dari isRetry boolean.
-  // Dengan cacheExtent: 99999, ctx hampir selalu non-null sehingga
-  // getOffsetToReveal langsung dapat dipakai tanpa fallback.
-  void _scrollToCenter(int index, {bool animate = true, int retries = 0}) {
-    if (!_eff.hasClients) {
-      if (retries < 4) {
-        WidgetsBinding.instance.endOfFrame.then((_) {
-          if (mounted) {
-            _scrollToCenter(index, animate: animate, retries: retries + 1);
-          }
-        });
-      }
-      return;
-    }
-    if (!_eff.position.hasContentDimensions ||
-        !_eff.position.hasViewportDimension ||
-        _eff.position.viewportDimension <= 0) {
-      if (retries < 4) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToCenter(index, animate: animate, retries: retries + 1);
-          }
-        });
-      }
-      return;
-    }
-
-    final key = _itemKeys[index];
-    final ctx = key?.currentContext;
-
-    if (ctx == null) {
-      // Item belum di-build — lakukan approximate jump lalu retry.
-      // Dengan cacheExtent: 99999 ini sangat jarang terjadi.
-      if (retries < 5) {
-        _scrollToCenterApprox(index);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToCenter(index, animate: animate, retries: retries + 1);
-          }
-        });
-      }
-      return;
-    }
-
-    final renderObj = ctx.findRenderObject();
-    if (renderObj == null || !renderObj.attached) {
-      if (retries < 5) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToCenter(index, animate: animate, retries: retries + 1);
-          }
-        });
-      }
-      return;
-    }
-
-    final viewport = RenderAbstractViewport.of(renderObj);
-    final double target = viewport
-        .getOffsetToReveal(renderObj, 0.5)
-        .offset
-        .clamp(
-          _eff.position.minScrollExtent,
-          _eff.position.maxScrollExtent,
-        );
-
-    if (animate) {
-      _eff.animateTo(
-        target,
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _eff.jumpTo(target);
-    }
-  }
-
-  // Approximate scroll untuk membawa item ke dalam viewport agar
-  // getOffsetToReveal dapat dipanggil di retry berikutnya.
-  void _scrollToCenterApprox(int index) {
-    if (!_eff.hasClients) return;
-    if (!_eff.position.hasContentDimensions ||
-        !_eff.position.hasViewportDimension ||
-        _eff.position.viewportDimension <= 0) {
-      return;
-    }
-
-    final fs = LyricsSettings.fontSize.value;
-    final double approxHeight = fs * 1.4 + 20.0;
-    final double topPad = widget.padding.resolve(TextDirection.ltr).top;
-    final double vpHalf = _eff.position.viewportDimension / 2;
-    final double target =
-        (index * approxHeight + topPad - vpHalf + approxHeight / 2).clamp(
-      _eff.position.minScrollExtent,
-      _eff.position.maxScrollExtent,
-    );
-    _eff.jumpTo(target);
   }
 }
