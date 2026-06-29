@@ -840,16 +840,18 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        NotificationListener<UserScrollNotification>(
+        NotificationListener<ScrollUpdateNotification>(
           onNotification: (notification) {
-            final offset = notification.metrics.pixels;
+            // Cuma ketrigger kalau USER yang beneran nyeret pakai jari bby!
+            if (notification.dragDetails != null) {
+              final offset = notification.metrics.pixels;
 
-            if (offset > 150) {
-              onExpandChanged(true);
-            } else if (offset < 50) {
-              onExpandChanged(false);
+              if (offset > 150) {
+                onExpandChanged(true);
+              } else if (offset < 50) {
+                onExpandChanged(false);
+              }
             }
-
             return false;
           },
           child: ShaderMask(
