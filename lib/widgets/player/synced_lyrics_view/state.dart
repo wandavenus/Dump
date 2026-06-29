@@ -41,12 +41,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.addListener(_onPlaybackState);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _scrollToCenter(_currentIndex, animate: false);
-    });
-  }
+    if (mounted) _scrollToCenter(_currentIndex, animate: false);
+  });
+}
 
-  @override
+  
+    
+    @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
@@ -234,26 +235,21 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             final textAlign = LyricsSettings.resolvedTextAlign;
             final dimColor = Colors.white.withValues(alpha: 0.35);
 
-            // ─── 1. KITA BUNGKUS PAKAI LAYOUTBUILDER DI SINI BEB ───
             return LayoutBuilder(
-              builder: (context, constraints) {
-                
-                // Logika deteksi transisi half/full view biar ga spam frame
-                if (_lastViewportHeight != constraints.maxHeight) {
-                  _lastViewportHeight = constraints.maxHeight;
+  builder: (context, constraints) {
+    
+    // Logic: Kalau tinggi berubah, tunggu animasi transisi (biasanya 400ms) selesai
+    // Baru kita panggil _scrollToCenter
+    if (_lastViewportHeight != constraints.maxHeight) {
+      _lastViewportHeight = constraints.maxHeight;
 
-                            _resizeDebounce?.cancel();
-          _resizeDebounce = Timer(const Duration(milliseconds: 280), () {
-            if (mounted) {
-              // Kita paksa true buat bypass semua filter pending bby!
-              _scrollToCenter(_currentIndex, animate: true, force: true); 
-            }
-          });
+      // Kasih napas 450ms biar animasi transisi sheet lu bener-bener berhenti
+      Future.delayed(const Duration(milliseconds: 450), () {
+        if (mounted) _scrollToCenter(_currentIndex, animate: true);
+      });
+    }
 
-                }
-
-                // ─── 2. BARU BALIKIN LISTVIEW.BUILDER BAWAAN LU DI SINI ───
-                return ListView.builder(
+    return ListView.builder(
                   controller: _eff,
                   padding: widget.padding,
                   dragStartBehavior: DragStartBehavior.down,
@@ -340,125 +336,37 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  void _scrollToCenter(int index, {bool animate = true, bool isRetry = false, bool force = false}) {
-            if (!_eff.position.hasContentDimensions ||
-        !_eff.position.hasViewportDimension) {
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            // Selipin force: force di sini bby
-            _scrollToCenter(index, animate: animate, isRetry: true, force: force);
-          }
-        });
-      }
-      return;
-    }
+  void _scrollToCenter(int index, {bool animate = true}) {
+  if (!mounted || !_eff.hasClients) return;
 
-        if (!_eff.position.hasContentDimensions ||
-        !_eff.position.hasViewportDimension) {
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToCenter(index, animate: animate, isRetry: true);
-          }
-        });
-      }
-      return;
-    }
+  // 1. Cek apa item-nya udah ada di widget tree
+  final key = _itemKeys[index];
+  final renderObj = key?.currentContext?.findRenderObject();
 
-
-    final key = _itemKeys[index];
-    final ctx = key?.currentContext;
-
-    if (ctx == null) {
-      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
-      return;
-    }
-
-    final renderObj = ctx.findRenderObject();
-    if (renderObj == null || !renderObj.attached) {
-      _scrollToCenterFallback(index, animate: animate, isRetry: isRetry);
-      return;
-    }
-
-        final viewport = RenderAbstractViewport.of(renderObj);
-    final double target = viewport
-        .getOffsetToReveal(renderObj, 0.5)
-        .offset
-        .clamp(
-          _eff.position.minScrollExtent,
-          _eff.position.maxScrollExtent,
-        );
-
-    // ─── SUNTIKKAN '&& !force' TEPAT DI SINI BEB ───
-    if ((target - _eff.offset).abs() < 1.0 && isRetry && !force) {
-      return;
-    }
-    // ───────────────────────────────────────────────
-
-    if (animate) {
-
-      _eff.animateTo(
-        target,
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _eff.jumpTo(target);
-      WidgetsBinding.instance.endOfFrame.then((_) {
-  if (!mounted || isRetry) return;
-  _scrollToCenter(index, animate: false, isRetry: true);
-});
-    }
+  // Kalau belum ketemu, jangan dipaksa. Tunggu frame berikutnya.
+  if (renderObj == null || !renderObj.attached) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCenter(index, animate: animate);
+    });
+    return;
   }
+
+  // 2. Kalau udah ketemu, hitung posisinya secara presisi
+  final viewport = RenderAbstractViewport.of(renderObj);
+  final target = viewport
+      .getOffsetToReveal(renderObj, 0.5) // 0.5 = center
+      .offset
+      .clamp(_eff.position.minScrollExtent, _eff.position.maxScrollExtent);
+
+  // 3. Eksekusi
+  if (animate) {
+    _eff.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+  } else {
+    _eff.jumpTo(target);
+  }
+}
+
 
   // PERBAIKAN: Strategi Two-Pass Fallback
-  void _scrollToCenterFallback(int index, {bool animate = true, bool isRetry = false}) {
-    if (!_eff.hasClients) return;
-    
-    // Guard: Mencegah error jika dipanggil saat app baru resume & layout belum siap
-    if (!_eff.position.hasContentDimensions || !_eff.position.hasViewportDimension || _eff.position.viewportDimension <= 0) {
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToCenter(index, animate: animate, isRetry: true);
-        });
-      }
-      return;
-    }
-
-    final fs = LyricsSettings.fontSize.value;
-    final double approxHeight = fs * 1.4 + 20.0; 
-    final double topPad = widget.padding.resolve(TextDirection.ltr).top;
-    final double vpHalf = _eff.position.viewportDimension / 2;
-    
-    final double target =
-        (index * approxHeight + topPad - vpHalf + approxHeight / 2).clamp(
-      _eff.position.minScrollExtent,
-      _eff.position.maxScrollExtent,
-    );
-
-    if (animate) {
-      // Rough scroll to bring the item into the viewport, then always do a
-      // precise second pass via getOffsetToReveal once it is rendered.
-      // Do NOT short-circuit on (target - offset) < 1.0: the approximate
-      // formula can coincide with the stale scroll position even when the item
-      // is still off-screen, which would silently skip the precise pass.
-      _eff.animateTo(
-        target,
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
-      ).then((_) {
-        if (!isRetry && mounted) {
-          _scrollToCenter(index, animate: true, isRetry: true);
-        }
-      });
-    } else {
-      _eff.jumpTo(target);
-      if (!isRetry) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _scrollToCenter(index, animate: false, isRetry: true);
-        });
-      }
-    }
-  }
+  
 }
