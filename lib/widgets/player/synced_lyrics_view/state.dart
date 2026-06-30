@@ -323,10 +323,10 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         index: index,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        alignment: 0.3,
+        alignment: 0.2,
       );
     } else {
-      _itemScrollController.jumpTo(index: index, alignment: 0.3);
+      _itemScrollController.jumpTo(index: index, alignment: 0.2);
     }
   }
 
