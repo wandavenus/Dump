@@ -20,7 +20,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   // ── Manual-scroll suppression ──────────────────────────────────────────────
   bool _userIsManualScrolling = false;
   Timer? _scrollResumeTimer;
-  int _lastSeekWallMs = 0;
+  Duration? _pendingSeekPos;
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
 
@@ -226,13 +226,17 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-    void _onPosition(Duration position) {
-    // ── Squelch stream pasca seek biar anti-flicker Media3 ───────────
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastSeekWallMs < 400) {
-      return; // Cuekin data delay dari native engine beb (๑˃ᴗ˂)
+      void _onPosition(Duration position) {
+    // ── Media3 Proximity Guard: Sumbat data purba pasca seek ───────────
+    if (_pendingSeekPos != null) {
+      final delta = (position - _pendingSeekPos!).inMilliseconds.abs();
+      if (delta > 1000) {
+        return; // Cuekin data lama yang selisihnya jauh dari target bby (ᵔ◡ᵔ)
+      } else {
+        _pendingSeekPos = null; // Udah sinkron ama target, open guard!
+      }
     }
-    // ───────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
 
     _anchorPos = position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
@@ -384,26 +388,26 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             itemBuilder: (context, index) {
               final isActive = index == _currentIndex;
 
-              return GestureDetector(
-  behavior: HitTestBehavior.opaque,
-  onTap: () {
-    final targetPos = widget.lyrics[index].timestamp;
+                            return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final targetPos = widget.lyrics[index].timestamp;
 
-    // Catat waktu pas klik seek bby
-    _lastSeekWallMs = DateTime.now().millisecondsSinceEpoch;
+                  // Kunci target posisinya di sini beb
+                  _pendingSeekPos = targetPos;
 
-    // ── Optimistic update biar Ticker ga narik mundur ──────────────────
-    _anchorPos = targetPos;
-    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+                  // ── Optimistic update biar UI langsung loncat duluan ───
+                  _anchorPos = targetPos;
+                  _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
-    _karaokeController.updatePosition(targetPos);
-    // ───────────────────────────────────────────────────────────────────
+                  _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
+                  _karaokeController.updatePosition(targetPos);
+                  // ──────────────────────────────────────────────────────
 
-    // Baru deh panggil native seek-nya
-    AudioService.seek(targetPos);
-  },
-  child: Padding(
+                  AudioService.seek(targetPos);
+                },
+                child: Padding(
+
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: AnimatedDefaultTextStyle(
       duration: const Duration(milliseconds: 380),
