@@ -20,7 +20,7 @@ class _AudioSection extends StatelessWidget {
           valueListenable: AudioEffectsService.audioNormalize,
           builder: (_, v, _) => SettingsToggleRow(
             title: 'Audio Normalize',
-            subtitle: 'AndroidLoudnessEnhancer — boost volume rendah',
+            subtitle: 'Boost volume rendah',
             value: v,
             onChanged: AudioEffectsService.setNormalize,
           ),
