@@ -244,7 +244,7 @@ class _MkFormatInfoRow extends StatelessWidget {
                 Text(
                   'FLAC · DSD (DSF/DFF) · APE · OPUS · WavPack · TrueHD · '
                   'OGG Vorbis · AIFF · MP3 · AAC · dan 300+ format lainnya '
-                  'via libmpv — tidak ada konfigurasi diperlukan.',
+                  'via libmpv.',
                   style: TextStyle(color: Color(0xFF636366), fontSize: 12),
                 ),
               ],
