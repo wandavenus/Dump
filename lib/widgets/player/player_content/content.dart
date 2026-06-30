@@ -266,7 +266,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                             Colors.white,
                                             Colors.transparent,
                                           ],
-                                          stops: [0.0, 0.20, 0.88, 1.0],
+                                          stops: [0.0, 0.30, 0.88, 1.0],
                                         ).createShader(rect);
                                       },
                                       blendMode: BlendMode.dstIn,
@@ -369,9 +369,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(
-                                      alpha: 0.0 + (0.20 * progress),
+                                      alpha: 0.0 + (0.10 * progress),
                                     ),
-                                    blurRadius: 0.0 + (10 * progress),
+                                    blurRadius: 0.0 + (5 * progress),
                                     spreadRadius: 0.0 + (0.2 * progress),
                                     offset: Offset(0, 0 + (3 * progress)),
                                   ),
