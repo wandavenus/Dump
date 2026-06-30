@@ -16,26 +16,25 @@ class Playlist {
   });
 
   Playlist copyWith({String? name, List<int>? songIds}) => Playlist(
-        id: id,
-        name: name ?? this.name,
-        songIds: songIds ?? this.songIds,
-        createdAt: createdAt,
-      );
+    id: id,
+    name: name ?? this.name,
+    songIds: songIds ?? this.songIds,
+    createdAt: createdAt,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'songIds': songIds,
-        'createdAt': createdAt.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'songIds': songIds,
+    'createdAt': createdAt.millisecondsSinceEpoch,
+  };
 
   factory Playlist.fromJson(Map<String, dynamic> json) => Playlist(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        songIds: (json['songIds'] as List).map((e) => e as int).toList(),
-        createdAt:
-            DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    songIds: (json['songIds'] as List).map((e) => e as int).toList(),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
+  );
 
   static String encodeList(List<Playlist> list) =>
       jsonEncode(list.map((p) => p.toJson()).toList());

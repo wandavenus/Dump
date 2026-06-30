@@ -17,10 +17,7 @@ import '../../services/audio/audio_effects_service.dart';
 class PlayerProgressSection extends StatefulWidget {
   final String Function(Duration duration) formatTime;
 
-  const PlayerProgressSection({
-    super.key,
-    required this.formatTime,
-  });
+  const PlayerProgressSection({super.key, required this.formatTime});
 
   @override
   State<PlayerProgressSection> createState() => _PlayerProgressSectionState();
@@ -99,9 +96,10 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   /// • vel ≥ 3 → naik proporsional, maks 2× dari kecepatan user
   /// Hanya mengirim MethodChannel jika target berbeda ≥0.2 (hindari spam).
   void _updateScrubSpeed(double vel) {
-    final target = vel < 3.0
-        ? _savedSpeed
-        : (_savedSpeed * vel / 3.0).clamp(_savedSpeed, 2.0);
+    final target =
+        vel < 3.0
+            ? _savedSpeed
+            : (_savedSpeed * vel / 3.0).clamp(_savedSpeed, 2.0);
 
     if ((target - _currentScrubSpeed).abs() >= 0.2) {
       _currentScrubSpeed = target;
@@ -122,17 +120,15 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
         final duration = state.duration;
         final durationSeconds = duration.inSeconds;
 
-        final liveValue = durationSeconds == 0
-            ? 0.0
-            : position.inSeconds
-                .clamp(0, durationSeconds)
-                .toDouble();
+        final liveValue =
+            durationSeconds == 0
+                ? 0.0
+                : position.inSeconds.clamp(0, durationSeconds).toDouble();
 
         final displayValue = _isDragging ? _dragValue : liveValue;
 
-        final displayPosition = _isDragging
-            ? Duration(seconds: _dragValue.toInt())
-            : position;
+        final displayPosition =
+            _isDragging ? Duration(seconds: _dragValue.toInt()) : position;
 
         return Column(
           children: [
@@ -154,8 +150,8 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                 max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
                 value: displayValue,
                 onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
-                onChanged:     durationSeconds == 0 ? null : _onChanged,
-                onChangeEnd:   durationSeconds == 0 ? null : _onChangeEnd,
+                onChanged: durationSeconds == 0 ? null : _onChanged,
+                onChangeEnd: durationSeconds == 0 ? null : _onChangeEnd,
               ),
             ),
             const SizedBox(height: 8),

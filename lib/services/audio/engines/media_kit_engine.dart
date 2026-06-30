@@ -40,8 +40,9 @@ class MediaKitEngine implements AbstractAudioEngine {
   // Speed dan pitch disimpan secara terpisah untuk keperluan snapshot/restore.
   // Dengan PlayerConfiguration(pitch:true), player.setRate() dan player.setPitch()
   // adalah dua jalur independen — mengubah satu tidak mempengaruhi yang lain.
-  double _speed       = 1.0;
-  double _pitchFactor = 1.0; // disimpan untuk snapshot; dikirim via player.setPitch()
+  double _speed = 1.0;
+  double _pitchFactor =
+      1.0; // disimpan untuk snapshot; dikirim via player.setPitch()
 
   // Position update throttle for the Android MediaSession seek bar.
   // Tracks the wall-clock time (ms) of the last updatePlaybackState call that
@@ -55,27 +56,30 @@ class MediaKitEngine implements AbstractAudioEngine {
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
   Timer? _sleepCountdownTick;
-  bool   _sleepEndOfSong   = false;
-  bool   _sleepTimerActive = false;
-  int    _sleepRemainingMs = 0;
+  bool _sleepEndOfSong = false;
+  bool _sleepTimerActive = false;
+  int _sleepRemainingMs = 0;
 
   // StreamControllers — format identik dengan AbstractAudioEngine contract
-  final _playbackStateCtrl  = StreamController<Map<dynamic, dynamic>>.broadcast();
-  final _positionCtrl       = StreamController<Duration>.broadcast();
-  final _durationCtrl       = StreamController<Duration>.broadcast();
-  final _currentTrackCtrl   = StreamController<Map<dynamic, dynamic>?>.broadcast();
-  final _queueCtrl          = StreamController<List<dynamic>>.broadcast();
-  final _bufferingCtrl      = StreamController<bool>.broadcast();
-  final _shuffleCtrl        = StreamController<bool>.broadcast();
-  final _repeatCtrl         = StreamController<String>.broadcast();
-  final _sleepTimerCtrl     = StreamController<Map<dynamic, dynamic>>.broadcast();
-  final _audioSessionCtrl   = StreamController<int>.broadcast();
-  final _skipSilenceCtrl    = StreamController<bool>.broadcast();
-  final _stereoWideningCtrl = StreamController<Map<dynamic, dynamic>>.broadcast();
+  final _playbackStateCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
+  final _positionCtrl = StreamController<Duration>.broadcast();
+  final _durationCtrl = StreamController<Duration>.broadcast();
+  final _currentTrackCtrl =
+      StreamController<Map<dynamic, dynamic>?>.broadcast();
+  final _queueCtrl = StreamController<List<dynamic>>.broadcast();
+  final _bufferingCtrl = StreamController<bool>.broadcast();
+  final _shuffleCtrl = StreamController<bool>.broadcast();
+  final _repeatCtrl = StreamController<String>.broadcast();
+  final _sleepTimerCtrl = StreamController<Map<dynamic, dynamic>>.broadcast();
+  final _audioSessionCtrl = StreamController<int>.broadcast();
+  final _skipSilenceCtrl = StreamController<bool>.broadcast();
+  final _stereoWideningCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
 
   // audioFormatStream — media_kit tidak mengekspos info format; stream ini kosong.
-  static final Stream<Map<dynamic, dynamic>> _emptyAudioFormatStream =
-      const Stream<Map<dynamic, dynamic>>.empty();
+  static const Stream<Map<dynamic, dynamic>> _emptyAudioFormatStream =
+      Stream<Map<dynamic, dynamic>>.empty();
 
   final List<StreamSubscription<dynamic>> _subs = [];
 
@@ -84,9 +88,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> initialize() async {
     // pitch:true memungkinkan player.setPitch() bekerja independen dari rate.
-    _player = Player(
-      configuration: const PlayerConfiguration(pitch: true),
-    );
+    _player = Player(configuration: const PlayerConfiguration(pitch: true));
 
     // Daftarkan player ke MediaKitSettingsService agar setting bisa diterapkan
     // ke engine saat runtime (saat toggle di Settings).
@@ -123,13 +125,27 @@ class MediaKitEngine implements AbstractAudioEngine {
     await MediaKitServiceBridge.stopListening();
 
     for (final s in _subs) {
-      s.cancel();
+      unawaited(s.cancel());
     }
     _subs.clear();
     await _player?.dispose();
-    _player        = null;
-    _queue         = [];
-    _currentIndex  = 0;
+    await Future.wait<void>([
+      _playbackStateCtrl.close(),
+      _positionCtrl.close(),
+      _durationCtrl.close(),
+      _currentTrackCtrl.close(),
+      _queueCtrl.close(),
+      _bufferingCtrl.close(),
+      _shuffleCtrl.close(),
+      _repeatCtrl.close(),
+      _sleepTimerCtrl.close(),
+      _audioSessionCtrl.close(),
+      _skipSilenceCtrl.close(),
+      _stereoWideningCtrl.close(),
+    ]);
+    _player = null;
+    _queue = [];
+    _currentIndex = 0;
     LogService.log('MediaKitEngine', 'Disposed — semua resource dibebaskan');
   }
 
@@ -142,7 +158,7 @@ class MediaKitEngine implements AbstractAudioEngine {
       p.stream.playing.listen((playing) {
         _emitPlaybackState(playing: playing);
         MediaKitServiceBridge.updatePlaybackState(
-          isPlaying:  playing,
+          isPlaying: playing,
           positionMs: p.state.position.inMilliseconds,
         );
       }),
@@ -179,8 +195,8 @@ class MediaKitEngine implements AbstractAudioEngine {
         _currentIndex = idx;
         final song = _queue[idx];
         _currentTrackCtrl.add({
-          'index':          idx,
-          'id':             song.id,
+          'index': idx,
+          'id': song.id,
           'nextTrackIndex': _computeNextIndex(idx),
         });
         // Reset position throttle so the first position event for the new
@@ -189,8 +205,8 @@ class MediaKitEngine implements AbstractAudioEngine {
         // Push track metadata to the Android foreground service so the
         // notification and lock-screen controls show the correct song.
         MediaKitServiceBridge.updateMetadata(
-          title:      song.title,
-          artist:     song.artist,
+          title: song.title,
+          artist: song.artist,
           artworkUri: song.artworkUri,
           durationMs: song.duration.inMilliseconds,
         );
@@ -228,7 +244,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     // Fire-and-forget — we deliberately do not await so the stream listener
     // returns immediately. Errors are swallowed inside updatePlaybackState.
     MediaKitServiceBridge.updatePlaybackState(
-      isPlaying:  true,
+      isPlaying: true,
       positionMs: pos.inMilliseconds,
     );
   }
@@ -238,52 +254,43 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// Handles transport commands emitted by [MediaKitPlaybackService] when the
   /// user interacts with the lock screen, BT device, or notification buttons.
   Future<void> _handleTransportCommand(String action, int? positionMs) async {
-  LogService.verbose(
-    'MediaKitEngine',
-    'transport command: $action positionMs=$positionMs',
-  );
+    LogService.verbose(
+      'MediaKitEngine',
+      'transport command: $action positionMs=$positionMs',
+    );
 
-  switch (action) {
-    case 'play':
-      await _player?.play();
-      break;
+    switch (action) {
+      case 'play':
+        await _player?.play();
 
-    case 'pause':
-      await _player?.pause();
-      break;
+      case 'pause':
+        await _player?.pause();
 
-    case 'next':
-      await _player?.next();
-      break;
+      case 'next':
+        await _player?.next();
 
-    case 'previous':
-      final pos = _player?.state.position ?? Duration.zero;
-      if (pos.inSeconds >= 3) {
+      case 'previous':
+        final pos = _player?.state.position ?? Duration.zero;
+        if (pos.inSeconds >= 3) {
+          await _player?.seek(Duration.zero);
+        } else {
+          await _player?.previous();
+        }
+
+      case 'seek':
+        if (positionMs != null) {
+          _lastPositionSentMs = 0;
+          await _player?.seek(Duration(milliseconds: positionMs));
+        }
+
+      case 'stop':
+        await _player?.pause();
         await _player?.seek(Duration.zero);
-      } else {
-        await _player?.previous();
-      }
-      break;
 
-    case 'seek':
-      if (positionMs != null) {
-        _lastPositionSentMs = 0;
-        await _player?.seek(Duration(milliseconds: positionMs));
-      }
-      break;
-
-    case 'stop':
-      await _player?.pause();
-      await _player?.seek(Duration.zero);
-      break;
-
-    default:
-      LogService.warn(
-        'MediaKitEngine',
-        'Unknown transport command: $action',
-      );
+      default:
+        LogService.warn('MediaKitEngine', 'Unknown transport command: $action');
+    }
   }
-}
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
@@ -322,7 +329,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setQueue(List<LocalSong> queue, int index) async {
     if (queue.isEmpty) return;
-    _queue        = List.unmodifiable(queue);
+    _queue = List.unmodifiable(queue);
     _currentIndex = index.clamp(0, queue.length - 1);
     await _player?.open(
       Playlist(_buildMediaList(queue), index: _currentIndex),
@@ -333,12 +340,15 @@ class MediaKitEngine implements AbstractAudioEngine {
     // so the notification shows the correct song before playback starts.
     final song = _queue[_currentIndex];
     await MediaKitServiceBridge.updateMetadata(
-      title:      song.title,
-      artist:     song.artist,
+      title: song.title,
+      artist: song.artist,
       artworkUri: song.artworkUri,
       durationMs: song.duration.inMilliseconds,
     );
-    LogService.log('MediaKitEngine', 'Queue: ${queue.length} lagu, idx=$_currentIndex');
+    LogService.log(
+      'MediaKitEngine',
+      'Queue: ${queue.length} lagu, idx=$_currentIndex',
+    );
   }
 
   @override
@@ -372,7 +382,7 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> insertNext(LocalSong song) async {
-    final pos   = (_currentIndex + 1).clamp(0, _queue.length);
+    final pos = (_currentIndex + 1).clamp(0, _queue.length);
     final songs = List<LocalSong>.from(_queue)..insert(pos, song);
     await _rebuildQueue(songs, _currentIndex);
     LogService.log('MediaKitEngine', 'insertNext: ${song.title}');
@@ -388,10 +398,11 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> removeFromQueue(int index) async {
     if (index < 0 || index >= _queue.length) return;
-    final songs    = List<LocalSong>.from(_queue)..removeAt(index);
-    final newIndex = (index < _currentIndex)
-        ? (_currentIndex - 1).clamp(0, songs.length - 1)
-        : _currentIndex.clamp(0, songs.isNotEmpty ? songs.length - 1 : 0);
+    final songs = List<LocalSong>.from(_queue)..removeAt(index);
+    final newIndex =
+        (index < _currentIndex)
+            ? (_currentIndex - 1).clamp(0, songs.length - 1)
+            : _currentIndex.clamp(0, songs.isNotEmpty ? songs.length - 1 : 0);
     await _rebuildQueue(songs, newIndex);
     LogService.log('MediaKitEngine', 'removeFromQueue($index)');
   }
@@ -400,7 +411,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     if (_queue.length < 2) return;
     final songs = List<LocalSong>.from(_queue);
-    final item  = songs.removeAt(oldIndex);
+    final item = songs.removeAt(oldIndex);
     songs.insert(newIndex, item);
 
     int newCurrent = _currentIndex;
@@ -423,16 +434,17 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// the index, causing position restoration to be incorrectly skipped.
   Future<void> _rebuildQueue(List<LocalSong> songs, int targetIndex) async {
     final wasPlaying = _player?.state.playing ?? false;
-    final position   = _player?.state.position ?? Duration.zero;
-    final prevIndex  = _currentIndex;
+    final position = _player?.state.position ?? Duration.zero;
+    final prevIndex = _currentIndex;
 
     // Determine whether the currently-playing track is still at targetIndex
     // by comparing song IDs, not raw index values.
-    final sameTrack = prevIndex  < _queue.length &&
+    final sameTrack =
+        prevIndex < _queue.length &&
         targetIndex < songs.length &&
         songs[targetIndex].id == _queue[prevIndex].id;
 
-    _queue        = List.unmodifiable(songs);
+    _queue = List.unmodifiable(songs);
     _currentIndex = targetIndex;
 
     await _player?.open(
@@ -453,7 +465,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     final pm = switch (mode) {
       'all' => PlaylistMode.loop,
       'one' => PlaylistMode.single,
-      _     => PlaylistMode.none,
+      _ => PlaylistMode.none,
     };
     await _player?.setPlaylistMode(pm);
     _repeatCtrl.add(mode);
@@ -500,26 +512,36 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   // ── DSP effects (no-op — media_kit tidak mengekspos Android AudioEffect) ──
 
-  @override Future<void> setBassBoost(int strength) async {}
-  @override Future<void> setBassBoostEnabled(bool enabled) async {}
-  @override Future<void> setVirtualizerEnabled(bool enabled) async {}
-  @override Future<void> setVirtualizerStrength(int strength) async {}
-  @override Future<void> setReverbPreset(int preset) async {}
-  @override Future<void> setEqualizerEnabled(bool enabled) async {}
-  @override Future<void> setEqualizerBandGain(int band, double gainDb) async {}
-  @override Future<void> setLoudnessEnabled(bool enabled) async {}
-  @override Future<void> setLoudnessTargetGain(double gainMb) async {}
-  @override Future<void> setCrossfadeDuration(double seconds) async {}
+  @override
+  Future<void> setBassBoost(int strength) async {}
+  @override
+  Future<void> setBassBoostEnabled(bool enabled) async {}
+  @override
+  Future<void> setVirtualizerEnabled(bool enabled) async {}
+  @override
+  Future<void> setVirtualizerStrength(int strength) async {}
+  @override
+  Future<void> setReverbPreset(int preset) async {}
+  @override
+  Future<void> setEqualizerEnabled(bool enabled) async {}
+  @override
+  Future<void> setEqualizerBandGain(int band, double gainDb) async {}
+  @override
+  Future<void> setLoudnessEnabled(bool enabled) async {}
+  @override
+  Future<void> setLoudnessTargetGain(double gainMb) async {}
+  @override
+  Future<void> setCrossfadeDuration(double seconds) async {}
 
   @override
   Future<EngineEqualizerParameters?> getEqualizerParameters() async => null;
 
   @override
   Future<Map<String, dynamic>?> getEffectSupport() async => {
-        'virtualizerSupported': false,
-        'bassBoostSupported':   false,
-        'reverbSupported':      false,
-      };
+    'virtualizerSupported': false,
+    'bassBoostSupported': false,
+    'reverbSupported': false,
+  };
 
   // ── Capabilities (no-op — media_kit tidak mendukung) ─────────────────────
 
@@ -553,7 +575,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setSleepTimer(int durationMs) async {
     _cancelSleepTimerInternal();
-    _sleepEndOfSong   = false;
+    _sleepEndOfSong = false;
     _sleepTimerActive = true;
     _sleepRemainingMs = durationMs;
     _emitSleepTimer();
@@ -569,7 +591,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setSleepTimerEndOfSong() async {
     _cancelSleepTimerInternal();
-    _sleepEndOfSong   = true;
+    _sleepEndOfSong = true;
     _sleepTimerActive = true;
     _sleepRemainingMs = 0;
     _emitSleepTimer();
@@ -586,11 +608,11 @@ class MediaKitEngine implements AbstractAudioEngine {
   void _cancelSleepTimerInternal() {
     _sleepTimer?.cancel();
     _sleepCountdownTick?.cancel();
-    _sleepTimer         = null;
+    _sleepTimer = null;
     _sleepCountdownTick = null;
-    _sleepTimerActive   = false;
-    _sleepEndOfSong     = false;
-    _sleepRemainingMs   = 0;
+    _sleepTimerActive = false;
+    _sleepEndOfSong = false;
+    _sleepRemainingMs = 0;
   }
 
   Future<void> _triggerSleepStop() async {
@@ -602,8 +624,8 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   void _emitSleepTimer() {
     _sleepTimerCtrl.add({
-      'active':      _sleepTimerActive,
-      'endOfSong':   _sleepEndOfSong,
+      'active': _sleepTimerActive,
+      'endOfSong': _sleepEndOfSong,
       'remainingMs': _sleepRemainingMs,
     });
   }
@@ -615,31 +637,45 @@ class MediaKitEngine implements AbstractAudioEngine {
     final p = _player;
     if (p == null || _queue.isEmpty) return null;
     return {
-      'queue':                   _queue.map((s) => s.toMap()).toList(),
-      'currentIndex':            _currentIndex,
-      'isPlaying':               p.state.playing,
-      'processingState':         _processingStateString(p),
-      'positionMs':              p.state.position.inMilliseconds,
-      'durationMs':              p.state.duration.inMilliseconds,
-      'shuffleEnabled':          _shuffleEnabled,
-      'repeatMode':              _repeatMode,
-      'sleepTimerActive':        _sleepTimerActive,
-      'sleepTimerRemainingMs':   _sleepRemainingMs,
+      'queue': _queue.map((s) => s.toMap()).toList(),
+      'currentIndex': _currentIndex,
+      'isPlaying': p.state.playing,
+      'processingState': _processingStateString(p),
+      'positionMs': p.state.position.inMilliseconds,
+      'durationMs': p.state.duration.inMilliseconds,
+      'shuffleEnabled': _shuffleEnabled,
+      'repeatMode': _repeatMode,
+      'speed': _speed,
+      'pitch': _pitchFactor,
+      'sleepTimerActive': _sleepTimerActive,
+      'sleepTimerRemainingMs': _sleepRemainingMs,
     };
   }
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
-  @override Stream<Map<dynamic, dynamic>> get playbackStateStream => _playbackStateCtrl.stream;
-  @override Stream<Duration>              get positionStream       => _positionCtrl.stream;
-  @override Stream<Duration>              get durationStream       => _durationCtrl.stream;
-  @override Stream<Map<dynamic, dynamic>?> get currentTrackStream => _currentTrackCtrl.stream;
-  @override Stream<List<dynamic>>         get queueStream          => _queueCtrl.stream;
-  @override Stream<bool>                  get bufferingStateStream => _bufferingCtrl.stream;
-  @override Stream<bool>                  get shuffleModeStream    => _shuffleCtrl.stream;
-  @override Stream<String>               get repeatModeStream     => _repeatCtrl.stream;
-  @override Stream<Map<dynamic, dynamic>> get sleepTimerStream     => _sleepTimerCtrl.stream;
-  @override Stream<int>                  get audioSessionIdStream  => _audioSessionCtrl.stream;
+  @override
+  Stream<Map<dynamic, dynamic>> get playbackStateStream =>
+      _playbackStateCtrl.stream;
+  @override
+  Stream<Duration> get positionStream => _positionCtrl.stream;
+  @override
+  Stream<Duration> get durationStream => _durationCtrl.stream;
+  @override
+  Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
+      _currentTrackCtrl.stream;
+  @override
+  Stream<List<dynamic>> get queueStream => _queueCtrl.stream;
+  @override
+  Stream<bool> get bufferingStateStream => _bufferingCtrl.stream;
+  @override
+  Stream<bool> get shuffleModeStream => _shuffleCtrl.stream;
+  @override
+  Stream<String> get repeatModeStream => _repeatCtrl.stream;
+  @override
+  Stream<Map<dynamic, dynamic>> get sleepTimerStream => _sleepTimerCtrl.stream;
+  @override
+  Stream<int> get audioSessionIdStream => _audioSessionCtrl.stream;
 
   /// Media_kit tidak menyediakan audio format stream.
   @override
@@ -664,15 +700,11 @@ class MediaKitEngine implements AbstractAudioEngine {
     _queueCtrl.add(_queue.map((s) => s.toMap()).toList());
   }
 
-  void _emitPlaybackState({
-    bool? playing,
-    bool? buffering,
-    bool? completed,
-  }) {
+  void _emitPlaybackState({bool? playing, bool? buffering, bool? completed}) {
     final p = _player;
     if (p == null) return;
 
-    final isPlaying   = playing  ?? p.state.playing;
+    final isPlaying = playing ?? p.state.playing;
     final isBuffering = buffering ?? p.state.buffering;
     final isCompleted = completed ?? false;
 
@@ -687,10 +719,7 @@ class MediaKitEngine implements AbstractAudioEngine {
       state = 'ready';
     }
 
-    _playbackStateCtrl.add({
-      'playing':         isPlaying,
-      'processingState': state,
-    });
+    _playbackStateCtrl.add({'playing': isPlaying, 'processingState': state});
   }
 
   String _processingStateString(Player p) {

@@ -70,7 +70,8 @@ class LocalSongCard extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
-      builder: (_) => _SongContextMenu(song: song, playlist: playlist, index: index),
+      builder:
+          (_) => _SongContextMenu(song: song, playlist: playlist, index: index),
     );
   }
 }

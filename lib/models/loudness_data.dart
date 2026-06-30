@@ -12,11 +12,11 @@ enum LoudnessSource {
   String get label => switch (this) {
     LoudnessSource.replayGainTrack => 'ReplayGain (Track)',
     LoudnessSource.replayGainAlbum => 'ReplayGain (Album)',
-    LoudnessSource.r128Track       => 'R128 (Track)',
-    LoudnessSource.r128Album       => 'R128 (Album)',
-    LoudnessSource.iTunNorm        => 'iTunNORM',
-    LoudnessSource.embedded        => 'Embedded',
-    LoudnessSource.none            => 'None',
+    LoudnessSource.r128Track => 'R128 (Track)',
+    LoudnessSource.r128Album => 'R128 (Album)',
+    LoudnessSource.iTunNorm => 'iTunNORM',
+    LoudnessSource.embedded => 'Embedded',
+    LoudnessSource.none => 'None',
   };
 }
 
@@ -32,9 +32,9 @@ class LoudnessData {
   });
 
   const LoudnessData.none()
-      : gainDb      = 0.0,
-        peakLinear  = null,
-        source      = LoudnessSource.none;
+    : gainDb = 0.0,
+      peakLinear = null,
+      source = LoudnessSource.none;
 
   bool get hasData => source != LoudnessSource.none;
 
@@ -50,7 +50,8 @@ class LoudnessData {
     return g.clamp(-24.0, 24.0).toDouble();
   }
 
-  static double _log10(double x) => x > 0 ? (x == 1.0 ? 0.0 : math.log(x) / math.ln10) : 0.0;
+  static double _log10(double x) =>
+      x > 0 ? (x == 1.0 ? 0.0 : math.log(x) / math.ln10) : 0.0;
 
   @override
   String toString() =>

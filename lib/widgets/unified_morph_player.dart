@@ -299,30 +299,33 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               // does not re-composite when the rest of the player animates.
               ValueListenableBuilder<bool>(
                 valueListenable: ThemeController.glassTheme,
-                builder: (_, masterGlass, _) =>
-                    ValueListenableBuilder<bool>(
-                  valueListenable: ThemeController.glassMiniPlayer,
-                  builder: (_, compGlass, _) {
-                    // Use glass only when fully at rest in mini state.
-                    // Threshold 0.05 collapses the glass before drag starts
-                    // so BackdropFilter never runs during the morph animation.
-                    final useGlass =
-                        masterGlass && compGlass && progress < 0.02;
-                    if (useGlass) {
-                      return RepaintBoundary(
-                        child: ClipRect(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                            child: ColoredBox(
-                              color: Colors.black.withValues(alpha: 0.0),
+                builder:
+                    (_, masterGlass, _) => ValueListenableBuilder<bool>(
+                      valueListenable: ThemeController.glassMiniPlayer,
+                      builder: (_, compGlass, _) {
+                        // Use glass only when fully at rest in mini state.
+                        // Threshold 0.05 collapses the glass before drag starts
+                        // so BackdropFilter never runs during the morph animation.
+                        final useGlass =
+                            masterGlass && compGlass && progress < 0.02;
+                        if (useGlass) {
+                          return RepaintBoundary(
+                            child: ClipRect(
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 20,
+                                  sigmaY: 20,
+                                ),
+                                child: ColoredBox(
+                                  color: Colors.black.withValues(alpha: 0.0),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    }
-                    return const ColoredBox(color: Color(0xFF1C1C1E));
-                  },
-                ),
+                          );
+                        }
+                        return const ColoredBox(color: Color(0xFF1C1C1E));
+                      },
+                    ),
               ),
 
               // ── Pre-blurred artwork background (fades in with progress) ────
@@ -388,73 +391,78 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               // Single artwork widget handles all three states via _overlayAnim,
               // so there is no crossfade between two separate artwork widgets.
               AnimatedBuilder(
-  animation: _overlayAnim,
-  builder: (context, _) {
-    final overlayT = Curves.easeInOutCubic.transform(_overlayAnim.value);
+                animation: _overlayAnim,
+                builder: (context, _) {
+                  final overlayT = Curves.easeInOutCubic.transform(
+                    _overlayAnim.value,
+                  );
 
-    // Absolute position of the small thumbnail when overlay is active.
-    // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
-    // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
-    const smallLeft = 32.0;
-    const smallSize = 55.0;
-    const smallRadius = 8.0;
-    final smallTop = safeTop + 36.5;
+                  // Absolute position of the small thumbnail when overlay is active.
+                  // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
+                  // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
+                  const smallLeft = 32.0;
+                  const smallSize = 55.0;
+                  const smallRadius = 8.0;
+                  final smallTop = safeTop + 36.5;
 
-    // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
-    // scale down the thumbnail's influence proportionally with t so the artwork
-    // smoothly flies from the small-thumbnail position to the mini-player
-    // position instead of staying frozen at the top-left corner while the sheet
-    // slides away.
-    final effectiveOverlayT = (overlayT * t).clamp(0.0, 1.0);
+                  // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
+                  // scale down the thumbnail's influence proportionally with t so the artwork
+                  // smoothly flies from the small-thumbnail position to the mini-player
+                  // position instead of staying frozen at the top-left corner while the sheet
+                  // slides away.
+                  final effectiveOverlayT = (overlayT * t).clamp(0.0, 1.0);
 
-    final finalLeft   = lerpDouble(artLeft,   smallLeft,   effectiveOverlayT)!;
-    final finalTop    = lerpDouble(artTop,    smallTop,    effectiveOverlayT)!;
-    final finalSize   = lerpDouble(artSize,   smallSize,   effectiveOverlayT)!;
-    final finalRadius = lerpDouble(artRadius, smallRadius, effectiveOverlayT)!;
-    final shadowAlpha = lerpDouble(0.30,      0.0,         effectiveOverlayT)!;
-    final shadowBlur  = lerpDouble(40.0,      0.0,         effectiveOverlayT)!;
-    final shadowOff   = lerpDouble(15.0,      0.0,         effectiveOverlayT)!;
+                  final finalLeft =
+                      lerpDouble(artLeft, smallLeft, effectiveOverlayT)!;
+                  final finalTop =
+                      lerpDouble(artTop, smallTop, effectiveOverlayT)!;
+                  final finalSize =
+                      lerpDouble(artSize, smallSize, effectiveOverlayT)!;
+                  final finalRadius =
+                      lerpDouble(artRadius, smallRadius, effectiveOverlayT)!;
+                  final shadowAlpha = lerpDouble(0.30, 0.0, effectiveOverlayT)!;
+                  final shadowBlur = lerpDouble(40.0, 0.0, effectiveOverlayT)!;
+                  final shadowOff = lerpDouble(15.0, 0.0, effectiveOverlayT)!;
 
-    // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
-    // only lifts once the overlay animation itself has fully reversed, not
-    // during a sheet-close where _overlayAnim stays at 1.
-    final targetScale = overlayT > 0.5
-        ? 1.0
-        : (state.isPlaying ? 1.0 : 0.96);
+                  // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
+                  // only lifts once the overlay animation itself has fully reversed, not
+                  // during a sheet-close where _overlayAnim stays at 1.
+                  final targetScale =
+                      overlayT > 0.5 ? 1.0 : (state.isPlaying ? 1.0 : 0.96);
 
-    return Positioned(
-      left:   finalLeft,
-      top:    finalTop,
-      width:  finalSize,
-      height: finalSize,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(finalRadius),
-          boxShadow: [
-            BoxShadow(
-              color:      Colors.black.withValues(alpha: shadowAlpha),
-              blurRadius: shadowBlur,
-              offset:     Offset(0, shadowOff),
-            ),
-          ],
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          curve:    Curves.easeOutCubic,
-          scale:    targetScale,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(finalRadius),
-            child: SongArtwork(
-              songId:       song.id,
-              size:         artSize,
-              borderRadius: BorderRadius.zero,
-            ),
-          ),
-        ),
-      ),
-    );
-  },
-),
+                  return Positioned(
+                    left: finalLeft,
+                    top: finalTop,
+                    width: finalSize,
+                    height: finalSize,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(finalRadius),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: shadowAlpha),
+                            blurRadius: shadowBlur,
+                            offset: Offset(0, shadowOff),
+                          ),
+                        ],
+                      ),
+                      child: AnimatedScale(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        scale: targetScale,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(finalRadius),
+                          child: SongArtwork(
+                            songId: song.id,
+                            size: artSize,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
 
               // ── Mini player overlay (fades out in first 28% of progress) ───
               if (miniAlpha > 0)
@@ -462,19 +470,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   opacity: miniAlpha,
                   child: IgnorePointer(
                     ignoring: progress > 0.08,
-                    child: _buildMiniOverlay(
-                    song,
-                    state,
-                    progress,
-                    ),
+                    child: _buildMiniOverlay(song, state, progress),
                   ),
                 ),
 
-            
-              
-
               // ── Collapse chevron (top-left of full player) ─────────────────
-              
             ],
           ),
         ),
@@ -484,20 +484,17 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
   Widget _buildMiniOverlay(
-  LocalSong song,
-  AudioPlaybackState state,
-  double progress,
-) {
-    final miniContentAlpha =
-    (1.0 - progress / 0.01).clamp(0.0, 1.0);
+    LocalSong song,
+    AudioPlaybackState state,
+    double progress,
+  ) {
+    final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
-    final miniContentOffset =
-    -5.0 * (1.0 - miniContentAlpha);
+    final miniContentOffset = -5.0 * (1.0 - miniContentAlpha);
     return Stack(
       fit: StackFit.expand,
       children: [
         // Swipe arrow hint (kiri = prev, kanan = next)
-        
 
         // Row utama: [artwork spacer] [title] [controls]
         Padding(
@@ -509,65 +506,67 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
               // Judul lagu dengan Hero tag
               Expanded(
-  child: GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: () => _animateTo(1.0),
-    child: Transform.translate(
-      offset: Offset(0, miniContentOffset),
-      child: Opacity(
-        opacity: miniContentAlpha,
-        child: Hero(
-          tag: PlayerHeroTags.title(song),
-          child: Material(
-            type: MaterialType.transparency,
-            child: Text(
-              song.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _animateTo(1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, miniContentOffset),
+                    child: Opacity(
+                      opacity: miniContentAlpha,
+                      child: Hero(
+                        tag: PlayerHeroTags.title(song),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Text(
+                            song.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  ),
-),
-                  
+
               // Play / Pause
-Transform.translate(
-  offset: Offset(0, miniContentOffset),
-  child: Opacity(
-    opacity: miniContentAlpha,
-    child: Row(
-      children: [
-        IconButton(
-          onPressed: () => state.isPlaying
-              ? AudioService.pause()
-              : AudioService.play(),
-          icon: Icon(
-            state.isPlaying
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
-            size: 36,
-            color: Colors.white,
-          ),
-        ),
-        const IconButton(
-          onPressed: AudioService.skipNext,
-          icon: Icon(
-            Icons.fast_forward_rounded,
-            size: 36,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-                ],
+              Transform.translate(
+                offset: Offset(0, miniContentOffset),
+                child: Opacity(
+                  opacity: miniContentAlpha,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed:
+                            () =>
+                                state.isPlaying
+                                    ? AudioService.pause()
+                                    : AudioService.play(),
+                        icon: Icon(
+                          state.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 36,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const IconButton(
+                        onPressed: AudioService.skipNext,
+                        icon: Icon(
+                          Icons.fast_forward_rounded,
+                          size: 36,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

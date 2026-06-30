@@ -8,13 +8,20 @@ class _EffectStatusRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Status Efek Aktif',
-              style: TextStyle(color: Colors.white, fontSize: 15)),
+          const Text(
+            'Status Efek Aktif',
+            style: TextStyle(color: Colors.white, fontSize: 15),
+          ),
           const SizedBox(height: 6),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.spatialAudio,
-            builder: (_, v, _) =>
-                _InfoLine('Spatial', v ? 'ON (${AudioEffectsService.spatialStrength.value})' : 'OFF'),
+            builder:
+                (_, v, _) => _InfoLine(
+                  'Spatial',
+                  v
+                      ? 'ON (${AudioEffectsService.spatialStrength.value})'
+                      : 'OFF',
+                ),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.audioNormalize,
@@ -26,23 +33,30 @@ class _EffectStatusRow extends StatelessWidget {
           ),
           ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.reverbPreset,
-            builder: (_, v, _) => _InfoLine(
-                'Reverb', AudioEffectsService.reverbPresetNames[v]),
+            builder:
+                (_, v, _) => _InfoLine(
+                  'Reverb',
+                  AudioEffectsService.reverbPresetNames[v],
+                ),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.equalizerEnabled,
-            builder: (_, v, _) => ValueListenableBuilder<int>(
-              valueListenable: AudioEffectsService.roomPreset,
-              builder: (_, r, _) => _InfoLine(
-                  'EQ',
-                  v
-                      ? '${AudioEffectsService.roomPresets[r]['name']} (room)'
-                      : 'OFF'),
-            ),
+            builder:
+                (_, v, _) => ValueListenableBuilder<int>(
+                  valueListenable: AudioEffectsService.roomPreset,
+                  builder:
+                      (_, r, _) => _InfoLine(
+                        'EQ',
+                        v
+                            ? '${AudioEffectsService.roomPresets[r]['name']} (room)'
+                            : 'OFF',
+                      ),
+                ),
           ),
           ValueListenableBuilder<double>(
             valueListenable: AudioEffectsService.playbackSpeed,
-            builder: (_, v, _) => _InfoLine('Speed', '${v.toStringAsFixed(2)}x'),
+            builder:
+                (_, v, _) => _InfoLine('Speed', '${v.toStringAsFixed(2)}x'),
           ),
         ],
       ),

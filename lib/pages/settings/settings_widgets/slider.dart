@@ -44,8 +44,7 @@ class SettingsSliderRow extends StatelessWidget {
                   onTap: onReset,
                   child: const Text(
                     'Reset',
-                    style: TextStyle(
-                        color: Color(0xFFF92D48), fontSize: 13),
+                    style: TextStyle(color: Color(0xFFF92D48), fontSize: 13),
                   ),
                 ),
             ],

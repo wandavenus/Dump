@@ -20,15 +20,27 @@ class AlbumHero extends StatelessWidget {
           Text(
             album.album,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           Text(
             album.artist,
-            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red),
+            style: const TextStyle(
+              fontSize: 23,
+              fontWeight: FontWeight.normal,
+              color: Colors.red,
+            ),
           ),
           const Text(
             'Local • Lossless',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ],
       ),

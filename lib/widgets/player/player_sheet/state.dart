@@ -75,24 +75,26 @@ class _PlayerSheetState extends State<PlayerSheet> {
                   opacity: sheetProgress.clamp(0.0, 1.0).toDouble(),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (_showLyrics || _showQueue)
-                        ? null
-                        : (details) {
-                            setState(() {
-                              _dragDy += details.delta.dy;
-                              if (_dragDy < 0) _dragDy = 0;
-                            });
-                          },
-                    onVerticalDragEnd: (_showLyrics || _showQueue)
-                        ? null
-                        : (details) {
-                            final velocity = details.primaryVelocity ?? 0;
-                            if (velocity > 600 || dragProgress > 0.25) {
-                              _close();
-                            } else {
-                              setState(() => _dragDy = 0);
-                            }
-                          },
+                    onVerticalDragUpdate:
+                        (_showLyrics || _showQueue)
+                            ? null
+                            : (details) {
+                              setState(() {
+                                _dragDy += details.delta.dy;
+                                if (_dragDy < 0) _dragDy = 0;
+                              });
+                            },
+                    onVerticalDragEnd:
+                        (_showLyrics || _showQueue)
+                            ? null
+                            : (details) {
+                              final velocity = details.primaryVelocity ?? 0;
+                              if (velocity > 600 || dragProgress > 0.25) {
+                                _close();
+                              } else {
+                                setState(() => _dragDy = 0);
+                              }
+                            },
                     child: Material(
                       color: Colors.black,
                       child: Stack(
@@ -127,25 +129,26 @@ class _PlayerSheetState extends State<PlayerSheet> {
                           SafeArea(
                             child: Padding(
                               padding: const EdgeInsets.only(top: 12),
-                              child: song == null
-                                  ? const Center(
-                                      child: Text(
-                                        'No song selected',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 24,
+                              child:
+                                  song == null
+                                      ? const Center(
+                                        child: Text(
+                                          'No song selected',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 24,
+                                          ),
                                         ),
+                                      )
+                                      : PlayerContent(
+                                        song: song,
+                                        playbackState: playbackState,
+                                        formatTime: _formatTime,
+                                        showLyrics: _showLyrics,
+                                        onLyricsToggle: _toggleLyrics,
+                                        showQueue: _showQueue,
+                                        onQueueToggle: _toggleQueue,
                                       ),
-                                    )
-                                  : PlayerContent(
-                                      song: song,
-                                      playbackState: playbackState,
-                                      formatTime: _formatTime,
-                                      showLyrics: _showLyrics,
-                                      onLyricsToggle: _toggleLyrics,
-                                      showQueue: _showQueue,
-                                      onQueueToggle: _toggleQueue,
-                                    ),
                             ),
                           ),
                         ],

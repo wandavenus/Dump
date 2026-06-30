@@ -26,15 +26,20 @@ class _PlaybackEngineSection extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline,
-                        color: Color(0xFF8E8E93), size: 15),
+                    Icon(
+                      Icons.info_outline,
+                      color: Color(0xFF8E8E93),
+                      size: 15,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Fitur Audio, Spatial Audio, dan Equalizer disembunyikan. '
                         'Beralih ke Native Media3 untuk mengakses semua efek dan pengaturan audio.',
                         style: TextStyle(
-                            color: Color(0xFF636366), fontSize: 12),
+                          color: Color(0xFF636366),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -51,53 +56,62 @@ class _PlaybackEngineSection extends StatelessWidget {
                 // ── Skip Silence ─────────────────────────────────────────────
                 ValueListenableBuilder<bool>(
                   valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
-                  builder: (_, v, _) => SettingsToggleRow(
-                    title: 'Gapless',
-                    subtitle: 'Potong keheningan antar lagu secara otomatis',
-                    value: v,
-                    onChanged: MediaCapabilitiesService.setSkipSilence,
-                  ),
+                  builder:
+                      (_, v, _) => SettingsToggleRow(
+                        title: 'Gapless',
+                        subtitle:
+                            'Potong keheningan antar lagu secara otomatis',
+                        value: v,
+                        onChanged: MediaCapabilitiesService.setSkipSilence,
+                      ),
                 ),
                 const SettingsDivider(),
 
                 // ── Stereo Widening ──────────────────────────────────────────
                 ValueListenableBuilder<bool>(
-                  valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-                  builder: (_, enabled, _) => Column(
-                    children: [
-                      SettingsToggleRow(
-                        title: 'Pelebaran Stereo',
-                        subtitle:
-                            'ChannelMixingAudioProcessor — memperlebar medan stereo',
-                        value: enabled,
-                        onChanged: MediaCapabilitiesService.setStereoWidening,
+                  valueListenable:
+                      MediaCapabilitiesService.stereoWideningEnabled,
+                  builder:
+                      (_, enabled, _) => Column(
+                        children: [
+                          SettingsToggleRow(
+                            title: 'Pelebaran Stereo',
+                            subtitle:
+                                'ChannelMixingAudioProcessor — memperlebar medan stereo',
+                            value: enabled,
+                            onChanged:
+                                MediaCapabilitiesService.setStereoWidening,
+                          ),
+                          if (enabled)
+                            ValueListenableBuilder<double>(
+                              valueListenable:
+                                  MediaCapabilitiesService
+                                      .stereoWideningStrength,
+                              builder: (_, v, _) {
+                                final pct = (v * 100).round();
+                                return SettingsSliderRow(
+                                  title: 'Lebar Stereo',
+                                  subtitle: '$pct%',
+                                  value: v,
+                                  min: 0.0,
+                                  max: 1.0,
+                                  divisions: 20,
+                                  onChanged:
+                                      MediaCapabilitiesService
+                                          .setStereoWideningStrength,
+                                  showReset: v != 0.5,
+                                  onReset:
+                                      () =>
+                                          MediaCapabilitiesService.setStereoWideningStrength(
+                                            0.5,
+                                          ),
+                                );
+                              },
+                            ),
+                        ],
                       ),
-                      if (enabled)
-                        ValueListenableBuilder<double>(
-                          valueListenable:
-                              MediaCapabilitiesService.stereoWideningStrength,
-                          builder: (_, v, _) {
-                            final pct = (v * 100).round();
-                            return SettingsSliderRow(
-                              title: 'Lebar Stereo',
-                              subtitle: '$pct%',
-                              value: v,
-                              min: 0.0,
-                              max: 1.0,
-                              divisions: 20,
-                              onChanged:
-                                  MediaCapabilitiesService.setStereoWideningStrength,
-                              showReset: v != 0.5,
-                              onReset: () => MediaCapabilitiesService
-                                  .setStereoWideningStrength(0.5),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
                 ),
                 const SettingsDivider(),
-
               ],
             );
           },
@@ -142,9 +156,10 @@ class _EngineSelector extends StatelessWidget {
                         type: type,
                         isSelected: isActive,
                         isSwitching: switching,
-                        onTap: switching || isActive
-                            ? null
-                            : () => _switchEngine(context, type),
+                        onTap:
+                            switching || isActive
+                                ? null
+                                : () => _switchEngine(context, type),
                       ),
                       if (!isLast) const SettingsDivider(),
                     ],
@@ -153,8 +168,7 @@ class _EngineSelector extends StatelessWidget {
                 if (switching) ...[
                   const SettingsDivider(),
                   const Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 11),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                     child: Row(
                       children: [
                         SizedBox(
@@ -168,10 +182,7 @@ class _EngineSelector extends StatelessWidget {
                         SizedBox(width: 10),
                         Text(
                           'Berpindah engine…',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
                         ),
                       ],
                     ),
@@ -210,10 +221,8 @@ class _EngineOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = switch (type) {
-      PlaybackEngineType.media3 =>
-        'DSP, crossfade, efek native',
-      PlaybackEngineType.mediaKit =>
-        'Cross-platform, pitch/EQ terbatas',
+      PlaybackEngineType.media3 => 'DSP, crossfade, efek native',
+      PlaybackEngineType.mediaKit => 'Cross-platform, pitch/EQ terbatas',
     };
 
     return InkWell(
@@ -229,12 +238,10 @@ class _EngineOption extends StatelessWidget {
                   Text(
                     type.displayName,
                     style: TextStyle(
-                      color: isSelected
-                          ? const Color(0xFFF92D48)
-                          : Colors.white,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+                      color:
+                          isSelected ? const Color(0xFFF92D48) : Colors.white,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
                       fontSize: 16,
                     ),
                   ),
@@ -449,10 +456,14 @@ class _PlaybackStatsSheet extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: ValueListenableBuilder<PlaybackEngineType>(
                 valueListenable: AudioEngineManager.activeEngineType,
-                builder: (_, type, _) => Text(
-                  'Engine aktif: ${type.displayName}',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                ),
+                builder:
+                    (_, type, _) => Text(
+                      'Engine aktif: ${type.displayName}',
+                      style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 12,
+                      ),
+                    ),
               ),
             ),
           ),
@@ -473,17 +484,21 @@ class _PlaybackStatsSheet extends StatelessWidget {
             ),
             _StatRow(
               label: 'Waktu Buffering',
-              value: _fmtMs((stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
+              value: _fmtMs(
+                (stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0,
+              ),
               icon: Icons.hourglass_bottom_rounded,
             ),
             _StatRow(
               label: 'Rebuffer',
-              value: '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+              value:
+                  '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
               icon: Icons.cached_rounded,
             ),
             _StatRow(
               label: 'Error',
-              value: '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+              value:
+                  '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
               icon: Icons.error_outline_rounded,
             ),
           ],

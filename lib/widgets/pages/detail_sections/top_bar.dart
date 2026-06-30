@@ -15,10 +15,20 @@ class DetailTopBar extends StatelessWidget {
             padding: const EdgeInsets.all(5),
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.red),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                color: Colors.red,
+              ),
             ),
           ),
-          const Row(children: [_CircleIcon(icon: Icons.add), SizedBox(width: 18), _CircleIcon(icon: Icons.more_horiz)]),
+          const Row(
+            children: [
+              _CircleIcon(icon: Icons.add),
+              SizedBox(width: 18),
+              _CircleIcon(icon: Icons.more_horiz),
+            ],
+          ),
         ],
       ),
     );

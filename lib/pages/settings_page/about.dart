@@ -10,7 +10,10 @@ class _AboutSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('TENTANG'),
         const SizedBox(height: 6),
-        const SettingsInfoRow(title: 'Music Player', trailing: 'Wndavenznchole'),
+        const SettingsInfoRow(
+          title: 'Music Player',
+          trailing: 'Wndavenznchole',
+        ),
         const SettingsDivider(),
         // Version — tap 3x to enable debug mode
         _VersionTile(),

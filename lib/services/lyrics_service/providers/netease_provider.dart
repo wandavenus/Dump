@@ -45,7 +45,10 @@ class NeteaseProvider implements LyricsProvider {
         _searchUrl.replaceFirst('{q}', Uri.encodeComponent(q)),
       );
       final searchResp = await ProviderHttp.get(
-        searchUri, name, cancelToken, headers: _headers,
+        searchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -62,7 +65,10 @@ class NeteaseProvider implements LyricsProvider {
         _lyricUrl.replaceFirst('{id}', songId.toString()),
       );
       final lyricResp = await ProviderHttp.get(
-        lyricUri, name, cancelToken, headers: _headers,
+        lyricUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (lyricResp == null || lyricResp.statusCode != 200) return null;
       if (lyricResp.statusCode == 429) {
@@ -75,16 +81,19 @@ class NeteaseProvider implements LyricsProvider {
 
       // Pilih klyric (word-timed) → lrc (line-timed) → tlyric (terjemahan)
       final klyric = (lyricData['klyric']?['lyric'] as String?) ?? '';
-      final lrc    = (lyricData['lrc']?['lyric']    as String?) ?? '';
+      final lrc = (lyricData['lrc']?['lyric'] as String?) ?? '';
 
       final raw = klyric.isNotEmpty ? klyric : lrc;
       if (raw.isEmpty) return null;
 
       final quality = LrcParser.detectQuality(raw);
-      final lines   = LrcParser.parseLrc(raw);
+      final lines = LrcParser.parseLrc(raw);
       if (lines.isEmpty) return null;
 
-      LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+      LogService.verbose(
+        name,
+        '${lines.length} lines [${quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: lines,
         quality: quality,

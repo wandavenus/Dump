@@ -25,16 +25,19 @@ class _LyricsHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600),
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   song.artist,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.55), fontSize: 12),
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),

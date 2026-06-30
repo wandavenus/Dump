@@ -36,11 +36,7 @@ class AppButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: iconColor ?? const Color(0xFFF92D48),
-              size: 30,
-            ),
+            Icon(icon, color: iconColor ?? const Color(0xFFF92D48), size: 30),
             const SizedBox(width: 8),
             Text(
               label,
@@ -49,7 +45,7 @@ class AppButton extends StatelessWidget {
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
-            )
+            ),
           ],
         ),
       ),

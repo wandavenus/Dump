@@ -32,8 +32,10 @@ class ProviderHttp {
       // Exponential backoff untuk retry
       if (attempt > 0) {
         final delay = Duration(milliseconds: 1000 * attempt);
-        LogService.verbose(providerName,
-            'Retry $attempt/${_maxRetries} setelah ${delay.inMilliseconds}ms');
+        LogService.verbose(
+          providerName,
+          'Retry $attempt/$_maxRetries setelah ${delay.inMilliseconds}ms',
+        );
         await Future.delayed(delay);
         if (cancelToken.isCancelled) return null;
       }
@@ -41,12 +43,12 @@ class ProviderHttp {
       try {
         final sw = Stopwatch()..start();
         final response = await cancelToken.guardFuture(
-          _client
-              .get(uri, headers: headers)
-              .timeout(_readTimeout),
+          _client.get(uri, headers: headers).timeout(_readTimeout),
         );
-        LogService.verbose(providerName,
-            'HTTP ${response.statusCode} ${uri.host} ${sw.elapsedMilliseconds}ms');
+        LogService.verbose(
+          providerName,
+          'HTTP ${response.statusCode} ${uri.host} ${sw.elapsedMilliseconds}ms',
+        );
 
         // Jangan retry 4xx
         if (response.statusCode >= 400 && response.statusCode < 500) {
@@ -57,15 +59,20 @@ class ProviderHttp {
         if (response.statusCode < 400) return response;
 
         // 5xx → retry
-        LogService.verbose(providerName,
-            'HTTP ${response.statusCode} — akan retry');
+        LogService.verbose(
+          providerName,
+          'HTTP ${response.statusCode} — akan retry',
+        );
       } on CancelledException {
         return null;
       } on TimeoutException {
         LogService.verbose(providerName, 'Timeout attempt $attempt');
       } catch (e) {
         if (cancelToken.isCancelled) return null;
-        LogService.verbose(providerName, 'Connection error attempt $attempt: $e');
+        LogService.verbose(
+          providerName,
+          'Connection error attempt $attempt: $e',
+        );
       }
     }
     return null;
@@ -89,9 +96,7 @@ class ProviderHttp {
 
       try {
         final response = await cancelToken.guardFuture(
-          _client
-              .post(uri, headers: headers, body: body)
-              .timeout(_readTimeout),
+          _client.post(uri, headers: headers, body: body).timeout(_readTimeout),
         );
         if (response.statusCode >= 400 && response.statusCode < 500) {
           return response;

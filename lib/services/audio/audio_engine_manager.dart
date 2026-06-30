@@ -1,3 +1,5 @@
+// ignore_for_file: close_sinks
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -31,8 +33,8 @@ class AudioEngineManager {
   // ── Singleton state ───────────────────────────────────────────────────────
 
   static AbstractAudioEngine? _engine;
-  static PlaybackEngineType   _engineType = PlaybackEngineType.media3;
-  static bool                 _initialized = false;
+  static PlaybackEngineType _engineType = PlaybackEngineType.media3;
+  static bool _initialized = false;
 
   static final ValueNotifier<PlaybackEngineType> activeEngineType =
       ValueNotifier(PlaybackEngineType.media3);
@@ -58,37 +60,47 @@ class AudioEngineManager {
   // ke stream-stream ini — bukan langsung ke engine. Saat engine diganti,
   // _subscribeToEngine() menghubungkan source baru ke controller yang sama.
 
-  static final _playbackStateCtrl   = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _positionCtrl        = StreamController<Duration>.broadcast();
-  static final _durationCtrl        = StreamController<Duration>.broadcast();
-  static final _currentTrackCtrl    = StreamController<Map<dynamic, dynamic>?>.broadcast();
-  static final _queueCtrl           = StreamController<List<dynamic>>.broadcast();
-  static final _bufferingCtrl       = StreamController<bool>.broadcast();
-  static final _shuffleCtrl         = StreamController<bool>.broadcast();
-  static final _repeatCtrl          = StreamController<String>.broadcast();
-  static final _sleepTimerCtrl      = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _audioSessionCtrl    = StreamController<int>.broadcast();
-  static final _audioFormatCtrl     = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _skipSilenceCtrl     = StreamController<bool>.broadcast();
-  static final _stereoWideningCtrl  = StreamController<Map<dynamic, dynamic>>.broadcast();
+  static final _playbackStateCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
+  static final _positionCtrl = StreamController<Duration>.broadcast();
+  static final _durationCtrl = StreamController<Duration>.broadcast();
+  static final _currentTrackCtrl =
+      StreamController<Map<dynamic, dynamic>?>.broadcast();
+  static final _queueCtrl = StreamController<List<dynamic>>.broadcast();
+  static final _bufferingCtrl = StreamController<bool>.broadcast();
+  static final _shuffleCtrl = StreamController<bool>.broadcast();
+  static final _repeatCtrl = StreamController<String>.broadcast();
+  static final _sleepTimerCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
+  static final _audioSessionCtrl = StreamController<int>.broadcast();
+  static final _audioFormatCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
+  static final _skipSilenceCtrl = StreamController<bool>.broadcast();
+  static final _stereoWideningCtrl =
+      StreamController<Map<dynamic, dynamic>>.broadcast();
 
   static final List<StreamSubscription<dynamic>> _engineSubs = [];
 
   // ── Public streams ────────────────────────────────────────────────────────
 
-  static Stream<Map<dynamic, dynamic>>  get playbackStateStream  => _playbackStateCtrl.stream;
-  static Stream<Duration>               get positionStream       => _positionCtrl.stream;
-  static Stream<Duration>               get durationStream       => _durationCtrl.stream;
-  static Stream<Map<dynamic, dynamic>?> get currentTrackStream   => _currentTrackCtrl.stream;
-  static Stream<List<dynamic>>          get queueStream          => _queueCtrl.stream;
-  static Stream<bool>                   get bufferingStateStream => _bufferingCtrl.stream;
-  static Stream<bool>                   get shuffleModeStream    => _shuffleCtrl.stream;
-  static Stream<String>                 get repeatModeStream     => _repeatCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get sleepTimerStream     => _sleepTimerCtrl.stream;
-  static Stream<int>                    get audioSessionIdStream => _audioSessionCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get audioFormatStream    => _audioFormatCtrl.stream;
-  static Stream<bool>                   get skipSilenceStream    => _skipSilenceCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get stereoWideningStream => _stereoWideningCtrl.stream;
+  static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
+      _playbackStateCtrl.stream;
+  static Stream<Duration> get positionStream => _positionCtrl.stream;
+  static Stream<Duration> get durationStream => _durationCtrl.stream;
+  static Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
+      _currentTrackCtrl.stream;
+  static Stream<List<dynamic>> get queueStream => _queueCtrl.stream;
+  static Stream<bool> get bufferingStateStream => _bufferingCtrl.stream;
+  static Stream<bool> get shuffleModeStream => _shuffleCtrl.stream;
+  static Stream<String> get repeatModeStream => _repeatCtrl.stream;
+  static Stream<Map<dynamic, dynamic>> get sleepTimerStream =>
+      _sleepTimerCtrl.stream;
+  static Stream<int> get audioSessionIdStream => _audioSessionCtrl.stream;
+  static Stream<Map<dynamic, dynamic>> get audioFormatStream =>
+      _audioFormatCtrl.stream;
+  static Stream<bool> get skipSilenceStream => _skipSilenceCtrl.stream;
+  static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
+      _stereoWideningCtrl.stream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -131,16 +143,18 @@ class AudioEngineManager {
 
     try {
       // 1. Simpan state saat ini
-      final snapshot    = await _engine?.getPlaybackSnapshot();
-      final queue       = _extractQueue(snapshot);
-      final index       = (snapshot?['currentIndex']  as num?)?.toInt() ?? 0;
-      final positionMs  = (snapshot?['positionMs']     as num?)?.toInt() ?? 0;
-      final wasPlaying  = snapshot?['isPlaying']        as bool? ?? false;
-      final shuffle     = snapshot?['shuffleEnabled']   as bool? ?? false;
-      final repeatMode  = snapshot?['repeatMode']       as String? ?? 'off';
+      final snapshot = await _engine?.getPlaybackSnapshot();
+      final queue = _extractQueue(snapshot);
+      final index = (snapshot?['currentIndex'] as num?)?.toInt() ?? 0;
+      final positionMs = (snapshot?['positionMs'] as num?)?.toInt() ?? 0;
+      final wasPlaying = snapshot?['isPlaying'] as bool? ?? false;
+      final shuffle = snapshot?['shuffleEnabled'] as bool? ?? false;
+      final repeatMode = snapshot?['repeatMode'] as String? ?? 'off';
 
       // 2. Pause engine lama
-      try { await _engine?.pause(); } catch (_) {}
+      try {
+        await _engine?.pause();
+      } catch (_) {}
 
       // 3. Simpan preferensi
       final prefs = await SharedPreferences.getInstance();
@@ -156,9 +170,9 @@ class AudioEngineManager {
       _engine = null;
 
       // 5. Inisialisasi engine baru
-      _engineType            = newType;
+      _engineType = newType;
       activeEngineType.value = newType;
-      _engine                = _createEngine(newType);
+      _engine = _createEngine(newType);
       await _engine!.initialize();
       _subscribeToEngine(_engine!);
 
@@ -198,65 +212,66 @@ class AudioEngineManager {
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
-  static Future<void> play()           => _engine?.play()         ?? Future.value();
-  static Future<void> pause()          => _engine?.pause()        ?? Future.value();
-  static Future<void> stop()           => _engine?.stop()         ?? Future.value();
-  static Future<void> seek(Duration p) => _engine?.seek(p)        ?? Future.value();
-  static Future<void> skipNext()       => _engine?.skipNext()     ?? Future.value();
-  static Future<void> skipPrevious()   => _engine?.skipPrevious() ?? Future.value();
-  static Future<void> setTrack(int i)  => _engine?.setTrack(i)    ?? Future.value();
+  static Future<void> play() => _engine?.play() ?? Future.value();
+  static Future<void> pause() => _engine?.pause() ?? Future.value();
+  static Future<void> stop() => _engine?.stop() ?? Future.value();
+  static Future<void> seek(Duration p) => _engine?.seek(p) ?? Future.value();
+  static Future<void> skipNext() => _engine?.skipNext() ?? Future.value();
+  static Future<void> skipPrevious() =>
+      _engine?.skipPrevious() ?? Future.value();
+  static Future<void> setTrack(int i) => _engine?.setTrack(i) ?? Future.value();
 
   // ── Mode ──────────────────────────────────────────────────────────────────
 
-  static Future<void> setRepeatMode(String m)  =>
-      _engine?.setRepeatMode(m)  ?? Future.value();
-  static Future<void> setShuffleMode(bool e)   =>
+  static Future<void> setRepeatMode(String m) =>
+      _engine?.setRepeatMode(m) ?? Future.value();
+  static Future<void> setShuffleMode(bool e) =>
       _engine?.setShuffleMode(e) ?? Future.value();
 
   // ── Playback parameters ───────────────────────────────────────────────────
 
   static Future<void> setVolume(double v) =>
       _engine?.setVolume(v) ?? Future.value();
-  static Future<void> setSpeed(double v)  =>
-      _engine?.setSpeed(v)  ?? Future.value();
-  static Future<void> setPitch(double v)  =>
-      _engine?.setPitch(v)  ?? Future.value();
+  static Future<void> setSpeed(double v) =>
+      _engine?.setSpeed(v) ?? Future.value();
+  static Future<void> setPitch(double v) =>
+      _engine?.setPitch(v) ?? Future.value();
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
   static Future<void> setQueue(List<LocalSong> q, int i) =>
-      _engine?.setQueue(q, i)       ?? Future.value();
-  static Future<void> insertNext(LocalSong s)    =>
-      _engine?.insertNext(s)         ?? Future.value();
+      _engine?.setQueue(q, i) ?? Future.value();
+  static Future<void> insertNext(LocalSong s) =>
+      _engine?.insertNext(s) ?? Future.value();
   static Future<void> appendToQueue(LocalSong s) =>
-      _engine?.appendToQueue(s)      ?? Future.value();
-  static Future<void> removeFromQueue(int i)     =>
-      _engine?.removeFromQueue(i)    ?? Future.value();
+      _engine?.appendToQueue(s) ?? Future.value();
+  static Future<void> removeFromQueue(int i) =>
+      _engine?.removeFromQueue(i) ?? Future.value();
   static Future<void> reorderQueue(int o, int n) =>
-      _engine?.reorderQueue(o, n)    ?? Future.value();
+      _engine?.reorderQueue(o, n) ?? Future.value();
 
   // ── DSP effects ───────────────────────────────────────────────────────────
 
   static Future<void> setBassBoost(int strength) =>
-      _engine?.setBassBoost(strength)           ?? Future.value();
+      _engine?.setBassBoost(strength) ?? Future.value();
   static Future<void> setBassBoostEnabled(bool e) =>
-      _engine?.setBassBoostEnabled(e)           ?? Future.value();
+      _engine?.setBassBoostEnabled(e) ?? Future.value();
   static Future<void> setVirtualizerEnabled(bool e) =>
-      _engine?.setVirtualizerEnabled(e)         ?? Future.value();
+      _engine?.setVirtualizerEnabled(e) ?? Future.value();
   static Future<void> setVirtualizerStrength(int s) =>
-      _engine?.setVirtualizerStrength(s)        ?? Future.value();
+      _engine?.setVirtualizerStrength(s) ?? Future.value();
   static Future<void> setReverbPreset(int p) =>
-      _engine?.setReverbPreset(p)               ?? Future.value();
+      _engine?.setReverbPreset(p) ?? Future.value();
   static Future<void> setEqualizerEnabled(bool e) =>
-      _engine?.setEqualizerEnabled(e)           ?? Future.value();
+      _engine?.setEqualizerEnabled(e) ?? Future.value();
   static Future<void> setEqualizerBandGain(int b, double g) =>
-      _engine?.setEqualizerBandGain(b, g)       ?? Future.value();
+      _engine?.setEqualizerBandGain(b, g) ?? Future.value();
   static Future<void> setLoudnessEnabled(bool e) =>
-      _engine?.setLoudnessEnabled(e)            ?? Future.value();
+      _engine?.setLoudnessEnabled(e) ?? Future.value();
   static Future<void> setLoudnessTargetGain(double g) =>
-      _engine?.setLoudnessTargetGain(g)         ?? Future.value();
+      _engine?.setLoudnessTargetGain(g) ?? Future.value();
   static Future<void> setCrossfadeDuration(double s) =>
-      _engine?.setCrossfadeDuration(s)          ?? Future.value();
+      _engine?.setCrossfadeDuration(s) ?? Future.value();
 
   static Future<EngineEqualizerParameters?> getEqualizerParameters() =>
       _engine?.getEqualizerParameters() ?? Future.value(null);
@@ -287,11 +302,11 @@ class AudioEngineManager {
   // ── Sleep timer ───────────────────────────────────────────────────────────
 
   static Future<void> setSleepTimer(int ms) =>
-      _engine?.setSleepTimer(ms)        ?? Future.value();
+      _engine?.setSleepTimer(ms) ?? Future.value();
   static Future<void> setSleepTimerEndOfSong() =>
       _engine?.setSleepTimerEndOfSong() ?? Future.value();
   static Future<void> cancelSleepTimer() =>
-      _engine?.cancelSleepTimer()       ?? Future.value();
+      _engine?.cancelSleepTimer() ?? Future.value();
 
   // ── State snapshot ────────────────────────────────────────────────────────
 
@@ -300,15 +315,16 @@ class AudioEngineManager {
 
   // ── Engine info ───────────────────────────────────────────────────────────
 
-  static PlaybackEngineType get engineType    => _engineType;
-  static bool get isMedia3Active   => _engineType == PlaybackEngineType.media3;
-  static bool get isMediaKitActive => _engineType == PlaybackEngineType.mediaKit;
+  static PlaybackEngineType get engineType => _engineType;
+  static bool get isMedia3Active => _engineType == PlaybackEngineType.media3;
+  static bool get isMediaKitActive =>
+      _engineType == PlaybackEngineType.mediaKit;
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
   static AbstractAudioEngine _createEngine(PlaybackEngineType type) =>
       switch (type) {
-        PlaybackEngineType.media3   => Media3Engine(),
+        PlaybackEngineType.media3 => Media3Engine(),
         PlaybackEngineType.mediaKit => MediaKitEngine(),
       };
 

@@ -10,10 +10,11 @@ void showScanRgSheet(BuildContext context, LocalSong song) {
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
-    builder: (_) => FractionallySizedBox(
-      heightFactor: 0.68,
-      child: _ScanRgSheet(song: song),
-    ),
+    builder:
+        (_) => FractionallySizedBox(
+          heightFactor: 0.68,
+          child: _ScanRgSheet(song: song),
+        ),
   );
 }
 
@@ -43,9 +44,10 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
+    _pulseAnim = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _startScan();
   }
 
@@ -59,7 +61,12 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
     setState(() => _state = _ScanState.scanning);
     try {
       final result = await ReplayGainScannerService.scan(widget.song.path);
-      if (mounted) setState(() { _state = _ScanState.done; _result = result; });
+      if (mounted) {
+        setState(() {
+          _state = _ScanState.done;
+          _result = result;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -161,10 +168,10 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
 
   Widget _buildBody() {
     return switch (_state) {
-      _ScanState.idle     => const SizedBox(),
+      _ScanState.idle => const SizedBox(),
       _ScanState.scanning => _buildScanning(),
-      _ScanState.done     => _buildResult(),
-      _ScanState.error    => _buildError(),
+      _ScanState.done => _buildResult(),
+      _ScanState.error => _buildError(),
     };
   }
 
@@ -219,13 +226,16 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
   Widget _buildResult() {
     final r = _result!;
     final gainPositive = r.trackGainDb >= 0;
-    final gainColor = gainPositive ? const Color(0xFF30D158) : const Color(0xFFFF9F0A);
-    final lufsStr   = r.integratedLufs.toStringAsFixed(1);
-    final gainStr   = (gainPositive ? '+' : '') + r.trackGainDb.toStringAsFixed(2);
-    final peakStr   = r.trackPeak.toStringAsFixed(4);
-    final peakDb    = r.trackPeak > 0
-        ? 20.0 * math.log(r.trackPeak.clamp(1e-10, 2.0)) / math.ln10
-        : -99.0;
+    final gainColor =
+        gainPositive ? const Color(0xFF30D158) : const Color(0xFFFF9F0A);
+    final lufsStr = r.integratedLufs.toStringAsFixed(1);
+    final gainStr =
+        (gainPositive ? '+' : '') + r.trackGainDb.toStringAsFixed(2);
+    final peakStr = r.trackPeak.toStringAsFixed(4);
+    final peakDb =
+        r.trackPeak > 0
+            ? 20.0 * math.log(r.trackPeak.clamp(1e-10, 2.0)) / math.ln10
+            : -99.0;
     final peakDbStr = (peakDb >= 0 ? '+' : '') + peakDb.toStringAsFixed(1);
 
     return SingleChildScrollView(
@@ -233,30 +243,31 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _resultCard(children: [
-            _resultRow(
-              icon: Icons.volume_up_rounded,
-              label: 'Integrated Loudness',
-              value: '$lufsStr LUFS',
-              valueColor: Colors.white,
-            ),
-            const _RowDivider(),
-            _resultRow(
-              icon: Icons.tune_rounded,
-              label: 'Track Gain',
-              value: '$gainStr dB',
-              valueColor: gainColor,
-            ),
-            const _RowDivider(),
-            _resultRow(
-              icon: Icons.show_chart_rounded,
-              label: 'True Peak',
-              value: '$peakStr  ($peakDbStr dBFS)',
-              valueColor: r.trackPeak >= 1.0
-                  ? const Color(0xFFFF453A)
-                  : Colors.white,
-            ),
-          ]),
+          _resultCard(
+            children: [
+              _resultRow(
+                icon: Icons.volume_up_rounded,
+                label: 'Integrated Loudness',
+                value: '$lufsStr LUFS',
+                valueColor: Colors.white,
+              ),
+              const _RowDivider(),
+              _resultRow(
+                icon: Icons.tune_rounded,
+                label: 'Track Gain',
+                value: '$gainStr dB',
+                valueColor: gainColor,
+              ),
+              const _RowDivider(),
+              _resultRow(
+                icon: Icons.show_chart_rounded,
+                label: 'True Peak',
+                value: '$peakStr  ($peakDbStr dBFS)',
+                valueColor:
+                    r.trackPeak >= 1.0 ? const Color(0xFFFF453A) : Colors.white,
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           _statusBadge(r.tagsWritten),
         ],
@@ -278,8 +289,11 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
                 shape: BoxShape.circle,
                 color: const Color(0xFFFF453A).withValues(alpha: 0.12),
               ),
-              child: const Icon(Icons.error_outline_rounded,
-                  color: Color(0xFFFF453A), size: 32),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFFF453A),
+                size: 32,
+              ),
             ),
             const SizedBox(height: 18),
             const Text(
@@ -344,8 +358,10 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
           Icon(icon, color: Colors.white38, size: 18),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(label,
-                style: const TextStyle(color: Colors.white60, fontSize: 14)),
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white60, fontSize: 14),
+            ),
           ),
           Text(
             value,
@@ -362,12 +378,16 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
   }
 
   Widget _statusBadge(bool tagsWritten) {
-    final color   = tagsWritten ? const Color(0xFF30D158) : const Color(0xFFFF9F0A);
-    final icon    = tagsWritten ? Icons.check_circle_outline_rounded
-                                : Icons.warning_amber_rounded;
-    final message = tagsWritten
-        ? 'Tags written to file successfully'
-        : 'Could not write tags — file may be read-only';
+    final color =
+        tagsWritten ? const Color(0xFF30D158) : const Color(0xFFFF9F0A);
+    final icon =
+        tagsWritten
+            ? Icons.check_circle_outline_rounded
+            : Icons.warning_amber_rounded;
+    final message =
+        tagsWritten
+            ? 'Tags written to file successfully'
+            : 'Could not write tags — file may be read-only';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -408,8 +428,10 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
           ),
           elevation: 0,
         ),
-        child: Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        child: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
       ),
     );
   }
@@ -426,8 +448,10 @@ class _ScanRgSheetState extends State<_ScanRgSheet>
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        child: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
       ),
     );
   }

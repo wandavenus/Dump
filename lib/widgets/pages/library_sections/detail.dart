@@ -47,16 +47,16 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   String get _title => switch (widget.destination) {
     _LibraryDestination.playlist => 'Daftar Putar',
-    _LibraryDestination.artists  => 'Artis',
-    _LibraryDestination.albums   => 'Album',
-    _LibraryDestination.songs    => 'Lagu',
+    _LibraryDestination.artists => 'Artis',
+    _LibraryDestination.albums => 'Album',
+    _LibraryDestination.songs => 'Lagu',
   };
 
   String get _hintText => switch (widget.destination) {
     _LibraryDestination.playlist => 'Cari di Daftar Putar',
-    _LibraryDestination.artists  => 'Cari Artis',
-    _LibraryDestination.albums   => 'Cari Album',
-    _LibraryDestination.songs    => 'Cari Lagu',
+    _LibraryDestination.artists => 'Cari Artis',
+    _LibraryDestination.albums => 'Cari Album',
+    _LibraryDestination.songs => 'Cari Lagu',
   };
 
   @override
@@ -79,9 +79,9 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
           return switch (widget.destination) {
             _LibraryDestination.playlist => _frequentSongs(songs),
-            _LibraryDestination.artists  => _artistSongs(songs),
-            _LibraryDestination.albums   => _albumCards(songs),
-            _LibraryDestination.songs    => _songsList(songs),
+            _LibraryDestination.artists => _artistSongs(songs),
+            _LibraryDestination.albums => _albumCards(songs),
+            _LibraryDestination.songs => _songsList(songs),
           };
         },
       ),
@@ -170,9 +170,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: _controlButton(
-                  icon: state.loopMode == LoopMode.one
-                      ? CupertinoIcons.repeat_1
-                      : CupertinoIcons.repeat,
+                  icon:
+                      state.loopMode == LoopMode.one
+                          ? CupertinoIcons.repeat_1
+                          : CupertinoIcons.repeat,
                   active: state.loopMode != LoopMode.off,
                   onTap: AudioService.cycleLoopMode,
                 ),
@@ -197,9 +198,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         curve: Curves.easeOut,
         height: 48,
         decoration: BoxDecoration(
-          color: active
-              ? activeColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.12),
+          color:
+              active
+                  ? activeColor.withValues(alpha: 0.48)
+                  : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
@@ -263,16 +265,18 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     for (final song in songs) {
       albums.putIfAbsent('${song.albumId}-${song.album}', () => []).add(song);
     }
-    final entries = albums.values.toList()
-      ..sort((a, b) => a.first.album.compareTo(b.first.album));
+    final entries =
+        albums.values.toList()
+          ..sort((a, b) => a.first.album.compareTo(b.first.album));
 
-    final filtered = _filter.isEmpty
-        ? entries
-        : entries.where((albumSongs) {
-            final album = albumSongs.first;
-            return album.album.toLowerCase().contains(_filter) ||
-                album.artist.toLowerCase().contains(_filter);
-          }).toList();
+    final filtered =
+        _filter.isEmpty
+            ? entries
+            : entries.where((albumSongs) {
+              final album = albumSongs.first;
+              return album.album.toLowerCase().contains(_filter) ||
+                  album.artist.toLowerCase().contains(_filter);
+            }).toList();
 
     return ListView.builder(
       controller: _scroll,
@@ -301,11 +305,12 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/album',
-            arguments: {'album': album, 'songs': albumSongs},
-          ),
+          onTap:
+              () => Navigator.pushNamed(
+                context,
+                '/album',
+                arguments: {'album': album, 'songs': albumSongs},
+              ),
         );
       },
     );
@@ -314,15 +319,16 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Lagu ──────────────────────────────────────────────────────────────────
 
   Widget _songsList(List<LocalSong> songs) {
-    final filtered = _filter.isEmpty
-        ? songs
-        : songs
-            .where(
-              (s) =>
-                  s.title.toLowerCase().contains(_filter) ||
-                  s.artist.toLowerCase().contains(_filter),
-            )
-            .toList();
+    final filtered =
+        _filter.isEmpty
+            ? songs
+            : songs
+                .where(
+                  (s) =>
+                      s.title.toLowerCase().contains(_filter) ||
+                      s.artist.toLowerCase().contains(_filter),
+                )
+                .toList();
 
     return ListView.builder(
       controller: _scroll,
@@ -336,11 +342,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             vertical: 2,
           ),
           leading: SongArtwork(songId: song.id, size: 55),
-          title: Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             song.artist,
             maxLines: 1,
@@ -358,15 +360,16 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     List<LocalSong> songs, {
     String Function(LocalSong song)? subtitleBuilder,
   }) {
-    final filtered = _filter.isEmpty
-        ? songs
-        : songs
-            .where(
-              (s) =>
-                  s.title.toLowerCase().contains(_filter) ||
-                  s.artist.toLowerCase().contains(_filter),
-            )
-            .toList();
+    final filtered =
+        _filter.isEmpty
+            ? songs
+            : songs
+                .where(
+                  (s) =>
+                      s.title.toLowerCase().contains(_filter) ||
+                      s.artist.toLowerCase().contains(_filter),
+                )
+                .toList();
 
     return ListView.builder(
       controller: _scroll,
@@ -380,11 +383,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             vertical: 2,
           ),
           leading: SongArtwork(songId: song.id, size: 55),
-          title: Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             subtitleBuilder?.call(song) ?? song.artist,
             maxLines: 1,

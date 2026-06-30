@@ -37,13 +37,13 @@ class _ReverbSection extends StatelessWidget {
 
   // Icons untuk setiap PresetReverb preset (index 0–6)
   static const List<IconData> _presetIcons = [
-    Icons.music_off_outlined,         // 0  None
-    Icons.meeting_room_outlined,      // 1  Small Room
-    Icons.home_outlined,              // 2  Medium Room
-    Icons.warehouse_outlined,         // 3  Large Room
-    Icons.domain_outlined,            // 4  Medium Hall
-    Icons.location_city_outlined,     // 5  Large Hall
-    Icons.album_outlined,             // 6  Plate
+    Icons.music_off_outlined, // 0  None
+    Icons.meeting_room_outlined, // 1  Small Room
+    Icons.home_outlined, // 2  Medium Room
+    Icons.warehouse_outlined, // 3  Large Room
+    Icons.domain_outlined, // 4  Medium Hall
+    Icons.location_city_outlined, // 5  Large Hall
+    Icons.album_outlined, // 6  Plate
   ];
 
   @override
@@ -58,7 +58,11 @@ class _ReverbSection extends StatelessWidget {
             // Jujurkan batasan native API kepada pengguna.
             'android.media.audiofx.PresetReverb — 7 preset diskrit. '
             'Tidak ada parameter kontinu (wet/dry, decay, roomSize, dll.) pada API ini.',
-            style: TextStyle(color: Color(0xFF636366), fontSize: 11, height: 1.4),
+            style: TextStyle(
+              color: Color(0xFF636366),
+              fontSize: 11,
+              height: 1.4,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -86,8 +90,11 @@ class _ReverbSection extends StatelessWidget {
         child: const Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline_rounded,
-                color: Color(0xFF636366), size: 18),
+            Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF636366),
+              size: 18,
+            ),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -95,7 +102,10 @@ class _ReverbSection extends StatelessWidget {
                 'AudioEffect.EFFECT_TYPE_PRESET_REVERB tidak didukung '
                 'atau diblokir oleh ROM.',
                 style: TextStyle(
-                    color: Color(0xFF636366), fontSize: 12, height: 1.5),
+                  color: Color(0xFF636366),
+                  fontSize: 12,
+                  height: 1.5,
+                ),
               ),
             ),
           ],
@@ -121,12 +131,16 @@ class _ReverbSection extends StatelessWidget {
             childAspectRatio: 0.95,
           ),
           itemCount: names.length,
-          itemBuilder: (_, i) => _ReverbPresetTile(
-            index: i,
-            name: names[i],
-            icon: i < _presetIcons.length ? _presetIcons[i] : Icons.graphic_eq,
-            isSelected: i == selected,
-          ),
+          itemBuilder:
+              (_, i) => _ReverbPresetTile(
+                index: i,
+                name: names[i],
+                icon:
+                    i < _presetIcons.length
+                        ? _presetIcons[i]
+                        : Icons.graphic_eq,
+                isSelected: i == selected,
+              ),
         );
       },
     );
@@ -155,14 +169,16 @@ class _ReverbPresetTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFFF92D48).withValues(alpha: 0.14)
-              : const Color(0xFF1C1C1E),
+          color:
+              isSelected
+                  ? const Color(0xFFF92D48).withValues(alpha: 0.14)
+                  : const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFFF92D48)
-                : Colors.white.withValues(alpha: 0.06),
+            color:
+                isSelected
+                    ? const Color(0xFFF92D48)
+                    : Colors.white.withValues(alpha: 0.06),
             width: 1.4,
           ),
         ),
@@ -172,9 +188,10 @@ class _ReverbPresetTile extends StatelessWidget {
             Icon(
               icon,
               size: 24,
-              color: isSelected
-                  ? const Color(0xFFF92D48)
-                  : const Color(0xFF8E8E93),
+              color:
+                  isSelected
+                      ? const Color(0xFFF92D48)
+                      : const Color(0xFF8E8E93),
             ),
             const SizedBox(height: 6),
             Padding(
@@ -184,8 +201,7 @@ class _ReverbPresetTile extends StatelessWidget {
                 style: TextStyle(
                   color: isSelected ? Colors.white : const Color(0xFFAEAEB2),
                   fontSize: 10,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   height: 1.2,
                 ),
                 textAlign: TextAlign.center,

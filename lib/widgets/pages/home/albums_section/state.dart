@@ -17,12 +17,22 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
       for (final song in songs) {
         map.putIfAbsent(song.albumId, () => []).add(song);
       }
-      final albums = map.entries
-          .map((e) => _AlbumGroup(albumId: e.key, songs: e.value))
-          .toList();
-      if (mounted) setState(() { _albums = albums; _isLoading = false; });
+      final albums =
+          map.entries
+              .map((e) => _AlbumGroup(albumId: e.key, songs: e.value))
+              .toList();
+      if (mounted) {
+        setState(() {
+          _albums = albums;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -52,8 +62,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(10),
             itemCount: _albums.length,
-            itemBuilder: (context, index) =>
-                _AlbumCard(album: _albums[index]),
+            itemBuilder: (context, index) => _AlbumCard(album: _albums[index]),
           ),
         ),
       ],

@@ -38,27 +38,30 @@ class _VersionTileState extends State<_VersionTile> {
       behavior: HitTestBehavior.opaque,
       child: ValueListenableBuilder<bool>(
         valueListenable: _DebugState.enabled,
-        builder: (_, debug, _) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Versi',
-                  style: TextStyle(
-                    color: debug ? const Color(0xFFF92D48) : Colors.white,
-                    fontSize: 16,
+        builder:
+            (_, debug, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Versi',
+                      style: TextStyle(
+                        color: debug ? const Color(0xFFF92D48) : Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
-                ),
+                  Text(
+                    debug ? '1.0.0 [DEBUG]' : '1.0.0',
+                    style: const TextStyle(
+                      color: Color(0xFF8E8E93),
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                debug ? '1.0.0 [DEBUG]' : '1.0.0',
-                style: const TextStyle(
-                    color: Color(0xFF8E8E93), fontSize: 15),
-              ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }

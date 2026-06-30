@@ -24,13 +24,17 @@ class _LyricsBody extends StatelessWidget {
               bottom: 14,
               left: 24,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12), width: 0.5),
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -46,7 +50,9 @@ class _LyricsBody extends StatelessWidget {
                     Text(
                       result.sourceLabel,
                       style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),

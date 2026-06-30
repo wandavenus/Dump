@@ -4,11 +4,7 @@ import '../../models/local_song.dart';
 import 'detail_sections.dart';
 
 class AlbumPageContent extends StatelessWidget {
-  const AlbumPageContent({
-    super.key,
-    required this.album,
-    required this.songs,
-  });
+  const AlbumPageContent({super.key, required this.album, required this.songs});
 
   final LocalSong album;
   final List<LocalSong> songs;

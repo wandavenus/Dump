@@ -36,12 +36,13 @@ class CommonActions extends StatelessWidget {
                 Navigator.pushNamed(context, '/settings');
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Text('Pengaturan'),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem<String>(
+                    value: 'settings',
+                    child: Text('Pengaturan'),
+                  ),
+                ],
           ),
         ),
       ],

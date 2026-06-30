@@ -64,7 +64,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         if (_frameTicker.isActive) _frameTicker.stop();
-        break;
 
       case AppLifecycleState.resumed:
         final s = AudioService.playbackState.value;
@@ -80,7 +79,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           if (!mounted) return;
           _scrollToCenter(_currentIndex, animate: true);
         });
-        break;
 
       default:
         break;
@@ -92,7 +90,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     super.didUpdateWidget(old);
     if (old.lyrics != widget.lyrics || old.rawLrc != widget.rawLrc) {
       _rebuildWordTimelines();
-      
+
       final currentPos = _interpolatedPosition;
       _currentIndex = _computeLineIndex(currentPos);
       _activateTimelineForCurrentLine(currentPos);
@@ -125,7 +123,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             ? const <List<ElrcWord>>[]
             : ElrcWordExtractor.extractAll(widget.rawLrc!);
 
-    _wordTimelines = List<List<_TimelineWord>>.generate(widget.lyrics.length, (i) {
+    _wordTimelines = List<List<_TimelineWord>>.generate(widget.lyrics.length, (
+      i,
+    ) {
       final lineStart = widget.lyrics[i].timestamp;
       final lineEnd = _lineEndFor(i);
       if (i < elrcLines.length && elrcLines[i].isNotEmpty) {
@@ -226,7 +226,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-      void _onPosition(Duration position) {
+  void _onPosition(Duration position) {
     // ── Media3 Proximity Guard: Sumbat data purba pasca seek ───────────
     if (_pendingSeekPos != null) {
       final delta = (position - _pendingSeekPos!).inMilliseconds.abs();
@@ -285,7 +285,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     if (widget.lyrics.isEmpty) return;
 
     var activeIndex = _currentIndex;
-    
+
     if (activeIndex >= widget.lyrics.length) {
       activeIndex = widget.lyrics.length - 1;
     }
@@ -298,7 +298,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           position >= widget.lyrics[activeIndex + 1].timestamp);
     } else if (position < widget.lyrics[activeIndex].timestamp) {
       if (!allowBinarySearch) {
-        while (activeIndex > 0 && position < widget.lyrics[activeIndex].timestamp) {
+        while (activeIndex > 0 &&
+            position < widget.lyrics[activeIndex].timestamp) {
           activeIndex--;
         }
       } else {
@@ -388,7 +389,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             itemBuilder: (context, index) {
               final isActive = index == _currentIndex;
 
-                            return GestureDetector(
+              return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
                   final targetPos = widget.lyrics[index].timestamp;
@@ -407,35 +408,36 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                   AudioService.seek(targetPos);
                 },
                 child: Padding(
-
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: AnimatedDefaultTextStyle(
-      duration: const Duration(milliseconds: 380),
-      curve: Curves.easeOutCubic,
-      style: TextStyle(
-        fontSize: fs,
-        fontWeight: FontWeight.bold,
-        color: isActive ? active : dim,
-        height: 1.4,
-      ),
-      child: isActive && karaokeOn
-          ? _UnifiedKaraokeLine(
-              key: ValueKey(_currentIndex),
-              text: widget.lyrics[index].text,
-              timeline: _wordTimelines[index],
-              controller: _karaokeController,
-              activeColor: active,
-              dimColor: dim,
-              fontSize: fs,
-              textAlign: align,
-              textScaleFactor: MediaQuery.textScalerOf(context).scale(1.0),
-              textDirection: Directionality.of(context),
-            )
-          : Text(widget.lyrics[index].text, textAlign: align),
-    ),
-  ),
-);
-
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOutCubic,
+                    style: TextStyle(
+                      fontSize: fs,
+                      fontWeight: FontWeight.bold,
+                      color: isActive ? active : dim,
+                      height: 1.4,
+                    ),
+                    child:
+                        isActive && karaokeOn
+                            ? _UnifiedKaraokeLine(
+                              key: ValueKey(_currentIndex),
+                              text: widget.lyrics[index].text,
+                              timeline: _wordTimelines[index],
+                              controller: _karaokeController,
+                              activeColor: active,
+                              dimColor: dim,
+                              fontSize: fs,
+                              textAlign: align,
+                              textScaleFactor: MediaQuery.textScalerOf(
+                                context,
+                              ).scale(1.0),
+                              textDirection: Directionality.of(context),
+                            )
+                            : Text(widget.lyrics[index].text, textAlign: align),
+                  ),
+                ),
+              );
             },
           );
         },
@@ -593,10 +595,12 @@ class _KaraokeLinePainter extends CustomPainter {
     final startMs = word.start.inMilliseconds.toDouble();
     final endMs = word.end.inMilliseconds.toDouble();
     final durationMs = (endMs - startMs).clamp(1.0, 30000.0);
-    final progress = ((controller.position.inMilliseconds - startMs) / durationMs).clamp(0.0, 1.0);
+    final progress = ((controller.position.inMilliseconds - startMs) /
+            durationMs)
+        .clamp(0.0, 1.0);
 
     final Path clipPath = Path();
-    
+
     for (int i = 0; i <= cursor; i++) {
       final rects = _wordRects[i];
       if (i < cursor) {
@@ -607,9 +611,23 @@ class _KaraokeLinePainter extends CustomPainter {
         for (final rect in rects) {
           final clipW = rect.width * progress;
           if (textDirection == TextDirection.rtl) {
-            clipPath.addRect(Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom));
+            clipPath.addRect(
+              Rect.fromLTRB(
+                rect.right - clipW,
+                rect.top,
+                rect.right,
+                rect.bottom,
+              ),
+            );
           } else {
-            clipPath.addRect(Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom));
+            clipPath.addRect(
+              Rect.fromLTRB(
+                rect.left,
+                rect.top,
+                rect.left + clipW,
+                rect.bottom,
+              ),
+            );
           }
         }
       }
@@ -639,7 +657,7 @@ class _KaraokeLinePainter extends CustomPainter {
       textDirection: textDirection,
       textScaler: TextScaler.linear(textScaleFactor),
     )..layout(maxWidth: width);
-    
+
     _highlightPainter = TextPainter(
       text: TextSpan(text: text, style: style.copyWith(color: activeColor)),
       textAlign: textAlign,
@@ -658,7 +676,7 @@ class _KaraokeLinePainter extends CustomPainter {
     final painter = _basePainter!;
     final rectsList = <List<Rect>>[];
     var searchFrom = 0;
-    
+
     for (final word in timeline) {
       final index = text.indexOf(word.text, searchFrom);
       if (index < 0) {

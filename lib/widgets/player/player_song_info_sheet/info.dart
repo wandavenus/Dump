@@ -4,10 +4,7 @@ class _InfoSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _InfoSection({
-    required this.title,
-    required this.children,
-  });
+  const _InfoSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {

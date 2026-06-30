@@ -3,7 +3,9 @@ part of '../song_metadata_service.dart';
 class SongMetadataService {
   SongMetadataService._();
 
-  static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/media_store',
+  );
   static const String unknown = 'Unknown';
 
   /// Returns full technical metadata for [song].
@@ -19,33 +21,34 @@ class SongMetadataService {
     // Fast path — MediaStore already gave us bitrate/sampleRate (API 31+).
     if (!kIsWeb && (song.bitrate != null || song.sampleRate != null)) {
       return SongInfo(
-        title:      _clean(song.title),
-        artist:     _clean(song.albumArtist ?? song.artist),
-        album:      _clean(song.album),
-        year:       song.year != null ? song.year.toString() : unknown,
-        duration:   _formatDuration(song.duration),
-        format:     extractAudioFormat(song.path),
-        bitrate:    _formatBitrate(song.bitrate?.toString()),
+        title: _clean(song.title),
+        artist: _clean(song.albumArtist ?? song.artist),
+        album: _clean(song.album),
+        year: song.year != null ? song.year.toString() : unknown,
+        duration: _formatDuration(song.duration),
+        format: extractAudioFormat(song.path),
+        bitrate: _formatBitrate(song.bitrate?.toString()),
         sampleRate: _formatSampleRate(song.sampleRate?.toString()),
-        fileSize:   formatFileSize(int.tryParse(fileSizeStr)),
-        filePath:   _clean(song.path),
+        fileSize: formatFileSize(int.tryParse(fileSizeStr)),
+        filePath: _clean(song.path),
       );
     }
 
     // Slow path — call MediaMetadataRetriever via native channel.
     final metadata = await _loadNativeMetadata(song);
     return SongInfo(
-      title:      _clean(song.title),
-      artist:     _clean(song.albumArtist ?? song.artist),
-      album:      _clean(song.album),
-      year:       _clean(metadata['year'] ?? song.year?.toString()),
-      duration:   _formatDuration(song.duration),
-      format:     extractAudioFormat(song.path),
-      bitrate:    _formatBitrate(metadata['bitrate']),
+      title: _clean(song.title),
+      artist: _clean(song.albumArtist ?? song.artist),
+      album: _clean(song.album),
+      year: _clean(metadata['year'] ?? song.year?.toString()),
+      duration: _formatDuration(song.duration),
+      format: extractAudioFormat(song.path),
+      bitrate: _formatBitrate(metadata['bitrate']),
       sampleRate: _formatSampleRate(metadata['sampleRate']),
-      fileSize:   formatFileSize(
-                    int.tryParse(metadata['fileSize'] ?? fileSizeStr)),
-      filePath:   _clean(song.path),
+      fileSize: formatFileSize(
+        int.tryParse(metadata['fileSize'] ?? fileSizeStr),
+      ),
+      filePath: _clean(song.path),
     );
   }
 
@@ -60,14 +63,16 @@ class SongMetadataService {
 
       if (result == null) return const <String, String>{};
 
-      return result.map(
-        (key, value) => MapEntry(key, value?.toString() ?? ''),
-      );
+      return result.map((key, value) => MapEntry(key, value?.toString() ?? ''));
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load metadata for ${song.path}: $error\n$stackTrace');
+      debugPrint(
+        'Failed to load metadata for ${song.path}: $error\n$stackTrace',
+      );
       return const <String, String>{};
     } catch (error, stackTrace) {
-      debugPrint('Invalid metadata payload for ${song.path}: $error\n$stackTrace');
+      debugPrint(
+        'Invalid metadata payload for ${song.path}: $error\n$stackTrace',
+      );
       return const <String, String>{};
     }
   }
@@ -109,16 +114,17 @@ class SongMetadataService {
       unitIndex++;
     }
 
-    final formatted = unitIndex == 0
-        ? size.toStringAsFixed(0)
-        : size.toStringAsFixed(size >= 10 ? 1 : 2);
+    final formatted =
+        unitIndex == 0
+            ? size.toStringAsFixed(0)
+            : size.toStringAsFixed(size >= 10 ? 1 : 2);
     return '$formatted ${units[unitIndex]}';
   }
 
   static String _formatDuration(Duration duration) {
     if (duration <= Duration.zero) return unknown;
 
-    final hours   = duration.inHours;
+    final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     final seconds = duration.inSeconds.remainder(60);
 
@@ -141,10 +147,11 @@ class SongMetadataService {
     final sampleRate = int.tryParse(rawSampleRate ?? '');
     if (sampleRate == null || sampleRate <= 0) return unknown;
 
-    final khz       = sampleRate / 1000;
-    final formatted = khz == khz.roundToDouble()
-        ? khz.toStringAsFixed(0)
-        : khz.toStringAsFixed(1);
+    final khz = sampleRate / 1000;
+    final formatted =
+        khz == khz.roundToDouble()
+            ? khz.toStringAsFixed(0)
+            : khz.toStringAsFixed(1);
     return '$formatted kHz';
   }
 

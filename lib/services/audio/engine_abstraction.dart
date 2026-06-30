@@ -27,19 +27,19 @@ enum PlaybackEngineType {
   mediaKit;
 
   String get displayName => switch (this) {
-        PlaybackEngineType.media3   => 'Native Media3',
-        PlaybackEngineType.mediaKit => 'Media_kit',
-      };
+    PlaybackEngineType.media3 => 'Native Media3',
+    PlaybackEngineType.mediaKit => 'Media_kit',
+  };
 
   String get prefKey => switch (this) {
-        PlaybackEngineType.media3   => 'media3',
-        PlaybackEngineType.mediaKit => 'media_kit',
-      };
+    PlaybackEngineType.media3 => 'media3',
+    PlaybackEngineType.mediaKit => 'media_kit',
+  };
 
   static PlaybackEngineType fromPrefKey(String key) => switch (key) {
-        'media_kit' => PlaybackEngineType.mediaKit,
-        _           => PlaybackEngineType.media3,
-      };
+    'media_kit' => PlaybackEngineType.mediaKit,
+    _ => PlaybackEngineType.media3,
+  };
 }
 
 // ─── AbstractAudioEngine ──────────────────────────────────────────────────────
@@ -139,7 +139,10 @@ abstract class AbstractAudioEngine {
   // ── Capabilities ─────────────────────────────────────────────────────────
   /// Engines yang tidak mendukung mengembalikan Future.value() (no-op).
   Future<void> setSkipSilence(bool enabled);
-  Future<void> setStereoWidening({required bool enabled, required double strength});
+  Future<void> setStereoWidening({
+    required bool enabled,
+    required double strength,
+  });
 
   /// Mengembalikan null jika engine tidak mendukung atau belum ada sesi.
   Future<Map<String, dynamic>?> getPlaybackStats();
@@ -158,15 +161,15 @@ abstract class AbstractAudioEngine {
 
   // ── Streams ───────────────────────────────────────────────────────────────
   Stream<Map<dynamic, dynamic>> get playbackStateStream;
-  Stream<Duration>              get positionStream;
-  Stream<Duration>              get durationStream;
+  Stream<Duration> get positionStream;
+  Stream<Duration> get durationStream;
   Stream<Map<dynamic, dynamic>?> get currentTrackStream;
-  Stream<List<dynamic>>         get queueStream;
-  Stream<bool>                  get bufferingStateStream;
-  Stream<bool>                  get shuffleModeStream;
-  Stream<String>                get repeatModeStream;
+  Stream<List<dynamic>> get queueStream;
+  Stream<bool> get bufferingStateStream;
+  Stream<bool> get shuffleModeStream;
+  Stream<String> get repeatModeStream;
   Stream<Map<dynamic, dynamic>> get sleepTimerStream;
-  Stream<int>                   get audioSessionIdStream;
+  Stream<int> get audioSessionIdStream;
 
   /// Memancar saat format audio berubah (track change/decode change).
   /// Engine yang tidak mendukung harus mengembalikan Stream kosong.

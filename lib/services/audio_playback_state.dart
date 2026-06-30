@@ -69,20 +69,22 @@ class AudioPlaybackState {
     bool clearNextTrackIndex = false,
   }) {
     return AudioPlaybackState(
-      currentSong:          clearCurrentSong ? null : currentSong ?? this.currentSong,
-      isPlaying:            isPlaying ?? this.isPlaying,
-      isLoading:            isLoading ?? this.isLoading,
-      currentIndex:         currentIndex ?? this.currentIndex,
-      currentPlaylist:      currentPlaylist ?? this.currentPlaylist,
-      processingState:      processingState ?? this.processingState,
-      duration:             duration ?? this.duration,
-      position:             position ?? this.position,
-      loopMode:             loopMode ?? this.loopMode,
-      shuffleEnabled:       shuffleEnabled ?? this.shuffleEnabled,
-      speed:                speed ?? this.speed,
-      sleepTimerActive:     sleepTimerActive ?? this.sleepTimerActive,
-      sleepTimerRemainingMs: sleepTimerRemainingMs ?? this.sleepTimerRemainingMs,
-      nextTrackIndex:       clearNextTrackIndex ? null : nextTrackIndex ?? this.nextTrackIndex,
+      currentSong: clearCurrentSong ? null : currentSong ?? this.currentSong,
+      isPlaying: isPlaying ?? this.isPlaying,
+      isLoading: isLoading ?? this.isLoading,
+      currentIndex: currentIndex ?? this.currentIndex,
+      currentPlaylist: currentPlaylist ?? this.currentPlaylist,
+      processingState: processingState ?? this.processingState,
+      duration: duration ?? this.duration,
+      position: position ?? this.position,
+      loopMode: loopMode ?? this.loopMode,
+      shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
+      speed: speed ?? this.speed,
+      sleepTimerActive: sleepTimerActive ?? this.sleepTimerActive,
+      sleepTimerRemainingMs:
+          sleepTimerRemainingMs ?? this.sleepTimerRemainingMs,
+      nextTrackIndex:
+          clearNextTrackIndex ? null : nextTrackIndex ?? this.nextTrackIndex,
     );
   }
 }

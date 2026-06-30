@@ -33,9 +33,9 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
       if (mounted) {
         setState(() {
           _bannerSongs = banners;
-          _recommend   = shuffled.take(third).toList();
-          _newMusic    = shuffled.skip(third).take(third).toList();
-          _daily       = shuffled.skip(third * 2).toList();
+          _recommend = shuffled.take(third).toList();
+          _newMusic = shuffled.skip(third).take(third).toList();
+          _daily = shuffled.skip(third * 2).toList();
         });
       }
     } catch (_) {

@@ -16,7 +16,9 @@ class _CircleButton extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1), width: 0.5),
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
         ),
         child: Icon(icon, color: Colors.white, size: 18),
       ),

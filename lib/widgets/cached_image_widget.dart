@@ -24,19 +24,14 @@ class CachedImageWidget extends StatelessWidget {
       height: height,
       width: width,
       fit: fit,
-      placeholder: (context, url) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-      errorWidget: (context, url, error) => const Center(
-        child: Icon(Icons.error),
-      ),
+      placeholder:
+          (context, url) => const Center(child: CircularProgressIndicator()),
+      errorWidget:
+          (context, url, error) => const Center(child: Icon(Icons.error)),
     );
 
     if (borderRadius != null) {
-      return ClipRRect(
-        borderRadius: borderRadius!,
-        child: image,
-      );
+      return ClipRRect(borderRadius: borderRadius!, child: image);
     }
 
     return image;

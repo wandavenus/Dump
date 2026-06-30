@@ -114,28 +114,33 @@ class _SongContextMenu extends StatelessWidget {
   void _showSongInfo(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text('Informasi Lagu',
-            style: TextStyle(color: Colors.white, fontSize: 17)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _InfoRow('Judul', song.title),
-            _InfoRow('Artis', song.artist),
-            _InfoRow('Album', song.album),
-            _InfoRow('Durasi', _formatDuration(song.duration)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup',
-                style: TextStyle(color: Color(0xFFF92D48))),
+      builder:
+          (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1C1C1E),
+            title: const Text(
+              'Informasi Lagu',
+              style: TextStyle(color: Colors.white, fontSize: 17),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InfoRow('Judul', song.title),
+                _InfoRow('Artis', song.artist),
+                _InfoRow('Album', song.album),
+                _InfoRow('Durasi', _formatDuration(song.duration)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Tutup',
+                  style: TextStyle(color: Color(0xFFF92D48)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

@@ -29,9 +29,9 @@ void main() {
     methodCalls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      methodCalls.add(call.method);
-      return null;
-    });
+          methodCalls.add(call.method);
+          return null;
+        });
   });
 
   tearDown(() {
@@ -44,13 +44,15 @@ void main() {
   // ───────────────────────────────────────────────────────────────────────────
 
   group('A — dispose() sends "release"', () {
-    test('A01 dispose after initialize invokes "release" on the MethodChannel',
-        () async {
-      final engine = Media3Engine();
-      await engine.initialize();
-      await engine.dispose();
-      expect(methodCalls, contains('release'));
-    });
+    test(
+      'A01 dispose after initialize invokes "release" on the MethodChannel',
+      () async {
+        final engine = Media3Engine();
+        await engine.initialize();
+        await engine.dispose();
+        expect(methodCalls, contains('release'));
+      },
+    );
 
     test('A02 dispose sends exactly one "release" call', () async {
       final engine = Media3Engine();
@@ -82,23 +84,28 @@ void main() {
       expect(methodCalls, isEmpty);
     });
 
-    test('B02 three dispose() calls send "release" exactly once total',
-        () async {
-      final engine = Media3Engine();
-      await engine.initialize();
-      await engine.dispose();
-      await engine.dispose();
-      await engine.dispose();
-      expect(methodCalls.where((m) => m == 'release').length, 1);
-    });
+    test(
+      'B02 three dispose() calls send "release" exactly once total',
+      () async {
+        final engine = Media3Engine();
+        await engine.initialize();
+        await engine.dispose();
+        await engine.dispose();
+        await engine.dispose();
+        expect(methodCalls.where((m) => m == 'release').length, 1);
+      },
+    );
 
-    test('B03 isInitialized stays false after repeated dispose calls', () async {
-      final engine = Media3Engine();
-      await engine.initialize();
-      await engine.dispose();
-      await engine.dispose();
-      expect(engine.isInitialized, isFalse);
-    });
+    test(
+      'B03 isInitialized stays false after repeated dispose calls',
+      () async {
+        final engine = Media3Engine();
+        await engine.initialize();
+        await engine.dispose();
+        await engine.dispose();
+        expect(engine.isInitialized, isFalse);
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -106,12 +113,14 @@ void main() {
   // ───────────────────────────────────────────────────────────────────────────
 
   group('C — dispose() before initialize()', () {
-    test('C01 dispose before initialize sends nothing to the MethodChannel',
-        () async {
-      final engine = Media3Engine();
-      await engine.dispose(); // never initialized
-      expect(methodCalls, isEmpty);
-    });
+    test(
+      'C01 dispose before initialize sends nothing to the MethodChannel',
+      () async {
+        final engine = Media3Engine();
+        await engine.dispose(); // never initialized
+        expect(methodCalls, isEmpty);
+      },
+    );
 
     test('C02 dispose before initialize does not throw', () async {
       final engine = Media3Engine();
@@ -134,11 +143,14 @@ void main() {
     test('D01 PlatformException from native side is swallowed', () async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'release') {
-          throw PlatformException(code: 'NATIVE_ERROR', message: 'service dead');
-        }
-        return null;
-      });
+            if (call.method == 'release') {
+              throw PlatformException(
+                code: 'NATIVE_ERROR',
+                message: 'service dead',
+              );
+            }
+            return null;
+          });
 
       final engine = Media3Engine();
       await engine.initialize();
@@ -149,29 +161,32 @@ void main() {
     test('D02 MissingPluginException from native side is swallowed', () async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'release') {
-          throw MissingPluginException('No implementation found');
-        }
-        return null;
-      });
+            if (call.method == 'release') {
+              throw MissingPluginException('No implementation found');
+            }
+            return null;
+          });
 
       final engine = Media3Engine();
       await engine.initialize();
       await expectLater(engine.dispose(), completes);
     });
 
-    test('D03 isInitialized is false even when native release throws', () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-        throw PlatformException(code: 'ERR');
-      });
+    test(
+      'D03 isInitialized is false even when native release throws',
+      () async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              throw PlatformException(code: 'ERR');
+            });
 
-      final engine = Media3Engine();
-      await engine.initialize();
-      await engine.dispose();
-      // _initialized was cleared before the await, so it stays false.
-      expect(engine.isInitialized, isFalse);
-    });
+        final engine = Media3Engine();
+        await engine.initialize();
+        await engine.dispose();
+        // _initialized was cleared before the await, so it stays false.
+        expect(engine.isInitialized, isFalse);
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -200,16 +215,18 @@ void main() {
       expect(methodCalls, isNot(contains('stop')));
     });
 
-    test('E03 stop then dispose sends both methods in the correct order',
-        () async {
-      final engine = Media3Engine();
-      await engine.initialize();
-      await engine.stop();
-      await engine.dispose();
-      final stopIndex    = methodCalls.indexOf('stop');
-      final releaseIndex = methodCalls.indexOf('release');
-      expect(stopIndex,    greaterThanOrEqualTo(0));
-      expect(releaseIndex, greaterThan(stopIndex));
-    });
+    test(
+      'E03 stop then dispose sends both methods in the correct order',
+      () async {
+        final engine = Media3Engine();
+        await engine.initialize();
+        await engine.stop();
+        await engine.dispose();
+        final stopIndex = methodCalls.indexOf('stop');
+        final releaseIndex = methodCalls.indexOf('release');
+        expect(stopIndex, greaterThanOrEqualTo(0));
+        expect(releaseIndex, greaterThan(stopIndex));
+      },
+    );
   });
 }

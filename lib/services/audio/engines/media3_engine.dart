@@ -57,14 +57,20 @@ class Media3Engine implements AbstractAudioEngine {
     if (!_initialized) return;
     // Set false before any await to prevent concurrent double-dispose.
     _initialized = false;
-    LogService.log('Media3Engine', 'Disposing — initiating complete native teardown');
+    LogService.log(
+      'Media3Engine',
+      'Disposing — initiating complete native teardown',
+    );
     try {
       await Media3PlaybackBridge.release();
     } catch (e) {
       // Native side may already be stopped — safe to ignore.
       LogService.warn('Media3Engine', 'dispose() release error (ignored): $e');
     }
-    LogService.log('Media3Engine', 'Disposed — native service teardown initiated');
+    LogService.log(
+      'Media3Engine',
+      'Disposed — native service teardown initiated',
+    );
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────
@@ -185,7 +191,7 @@ class Media3Engine implements AbstractAudioEngine {
       return EngineEqualizerParameters(
         minDecibels: raw.minDecibels,
         maxDecibels: raw.maxDecibels,
-        bandCount:   raw.bands.length,
+        bandCount: raw.bands.length,
       );
     } catch (_) {
       return null;
@@ -206,11 +212,10 @@ class Media3Engine implements AbstractAudioEngine {
   Future<void> setStereoWidening({
     required bool enabled,
     required double strength,
-  }) =>
-      Media3PlaybackBridge.setStereoWidening(
-        enabled:  enabled,
-        strength: strength,
-      );
+  }) => Media3PlaybackBridge.setStereoWidening(
+    enabled: enabled,
+    strength: strength,
+  );
 
   @override
   Future<Map<String, dynamic>?> getPlaybackStats() =>

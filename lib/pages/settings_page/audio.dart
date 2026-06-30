@@ -18,12 +18,13 @@ class _AudioSection extends StatelessWidget {
         // ── Legacy Normalize ────────────────────────────────────────────────
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.audioNormalize,
-          builder: (_, v, _) => SettingsToggleRow(
-            title: 'Audio Normalize',
-            subtitle: 'Boost volume rendah',
-            value: v,
-            onChanged: AudioEffectsService.setNormalize,
-          ),
+          builder:
+              (_, v, _) => SettingsToggleRow(
+                title: 'Audio Normalize',
+                subtitle: 'Boost volume rendah',
+                value: v,
+                onChanged: AudioEffectsService.setNormalize,
+              ),
         ),
         const SettingsDivider(),
 
@@ -32,55 +33,61 @@ class _AudioSection extends StatelessWidget {
 
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.playbackSpeed,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Kecepatan Putar',
-            subtitle: '${v.toStringAsFixed(2)}x',
-            value: v,
-            min: 0.25,
-            max: 3.0,
-            onChanged: AudioEffectsService.setSpeed,
-            divisions: 22,
-            showReset: v != 1.0,
-            onReset: () => AudioEffectsService.setSpeed(1.0),
-          ),
+          builder:
+              (_, v, _) => SettingsSliderRow(
+                title: 'Kecepatan Putar',
+                subtitle: '${v.toStringAsFixed(2)}x',
+                value: v,
+                min: 0.25,
+                max: 3.0,
+                onChanged: AudioEffectsService.setSpeed,
+                divisions: 22,
+                showReset: v != 1.0,
+                onReset: () => AudioEffectsService.setSpeed(1.0),
+              ),
         ),
         const SettingsDivider(),
 
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.pitchShift,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Pitch Shift',
-            subtitle: v == 0
-                ? 'Normal'
-                : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} semitone',
-            value: v,
-            min: -6,
-            max: 6,
-            onChanged: AudioEffectsService.setPitch,
-            divisions: 24,
-            showReset: v != 0,
-            onReset: () => AudioEffectsService.setPitch(0),
-          ),
+          builder:
+              (_, v, _) => SettingsSliderRow(
+                title: 'Pitch Shift',
+                subtitle:
+                    v == 0
+                        ? 'Normal'
+                        : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} semitone',
+                value: v,
+                min: -6,
+                max: 6,
+                onChanged: AudioEffectsService.setPitch,
+                divisions: 24,
+                showReset: v != 0,
+                onReset: () => AudioEffectsService.setPitch(0),
+              ),
         ),
         const SettingsDivider(),
 
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.bassBoost,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Bass Boost',
-            subtitle: v == 0
-                ? 'Nonaktif'
-                : AudioEngine.bassBoostSupported
-                    ? '${(v / 10).round()}%'
-                    : 'Tidak didukung perangkat ini',
-            value: v.toDouble(),
-            min: 0,
-            max: 1000,
-            onChanged: (val) => AudioEffectsService.setBassBoost(val.round()),
-            divisions: 20,
-            showReset: v != 0,
-            onReset: () => AudioEffectsService.setBassBoost(0),
-          ),
+          builder:
+              (_, v, _) => SettingsSliderRow(
+                title: 'Bass Boost',
+                subtitle:
+                    v == 0
+                        ? 'Nonaktif'
+                        : AudioEngine.bassBoostSupported
+                        ? '${(v / 10).round()}%'
+                        : 'Tidak didukung perangkat ini',
+                value: v.toDouble(),
+                min: 0,
+                max: 1000,
+                onChanged:
+                    (val) => AudioEffectsService.setBassBoost(val.round()),
+                divisions: 20,
+                showReset: v != 0,
+                onReset: () => AudioEffectsService.setBassBoost(0),
+              ),
         ),
         const SettingsDivider(),
       ],
@@ -121,19 +128,21 @@ class _ReplayGainSection extends StatelessWidget {
               const SizedBox(height: 4),
               ValueListenableBuilder<double>(
                 valueListenable: AudioEffectsService.replayGainPreamp,
-                builder: (_, preamp, _) => SettingsSliderRow(
-                  title: 'Preamp',
-                  subtitle: preamp == 0
-                      ? '0 dB'
-                      : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
-                  value: preamp,
-                  min: -15,
-                  max: 15,
-                  onChanged: AudioEffectsService.setReplayGainPreamp,
-                  divisions: 30,
-                  showReset: preamp != 0,
-                  onReset: () => AudioEffectsService.setReplayGainPreamp(0),
-                ),
+                builder:
+                    (_, preamp, _) => SettingsSliderRow(
+                      title: 'Preamp',
+                      subtitle:
+                          preamp == 0
+                              ? '0 dB'
+                              : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
+                      value: preamp,
+                      min: -15,
+                      max: 15,
+                      onChanged: AudioEffectsService.setReplayGainPreamp,
+                      divisions: 30,
+                      showReset: preamp != 0,
+                      onReset: () => AudioEffectsService.setReplayGainPreamp(0),
+                    ),
               ),
             ],
           ],
@@ -162,14 +171,16 @@ class _ModeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: active
-            ? const Color(0xFFFC3C44).withAlpha(30)
-            : Colors.white.withAlpha(15),
+        color:
+            active
+                ? const Color(0xFFFC3C44).withAlpha(30)
+                : Colors.white.withAlpha(15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: active
-              ? const Color(0xFFFC3C44).withAlpha(120)
-              : Colors.white.withAlpha(30),
+          color:
+              active
+                  ? const Color(0xFFFC3C44).withAlpha(120)
+                  : Colors.white.withAlpha(30),
           width: 0.8,
         ),
       ),
@@ -255,9 +266,10 @@ class _ModeOption extends StatelessWidget {
           ),
           color: selected ? const Color(0xFFFC3C44) : Colors.transparent,
         ),
-        child: selected
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
-            : null,
+        child:
+            selected
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : null,
       ),
       title: Text(
         mode.label,
@@ -309,7 +321,9 @@ class _CrossfadePicker extends StatelessWidget {
                         ? 'Nonaktif'
                         : '${current.toStringAsFixed(0)} detik',
                     style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 13),
+                      color: Color(0xFF8E8E93),
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -320,18 +334,19 @@ class _CrossfadePicker extends StatelessWidget {
                   final isLast = i == _steps.length - 1;
                   return Expanded(
                     child: GestureDetector(
-                      onTap: () =>
-                          AudioEffectsService.setCrossfade(_steps[i]),
+                      onTap: () => AudioEffectsService.setCrossfade(_steps[i]),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        margin: isLast
-                            ? EdgeInsets.zero
-                            : const EdgeInsets.only(right: 5),
+                        margin:
+                            isLast
+                                ? EdgeInsets.zero
+                                : const EdgeInsets.only(right: 5),
                         height: 36,
                         decoration: BoxDecoration(
-                          color: active
-                              ? const Color(0xFFF92D48)
-                              : Colors.white.withValues(alpha: 0.08),
+                          color:
+                              active
+                                  ? const Color(0xFFF92D48)
+                                  : Colors.white.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
@@ -339,9 +354,8 @@ class _CrossfadePicker extends StatelessWidget {
                           _labels[i],
                           style: TextStyle(
                             color: active ? Colors.white : Colors.white54,
-                            fontWeight: active
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                            fontWeight:
+                                active ? FontWeight.w600 : FontWeight.w400,
                             fontSize: 12,
                           ),
                         ),

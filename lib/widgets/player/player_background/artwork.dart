@@ -19,8 +19,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   ui.Image? _blurredImage;
-  
-  
+
   @override
   void initState() {
     super.initState();
@@ -35,40 +34,34 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   void didUpdateWidget(covariant BlurredArtworkBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      
       _loadBlurred();
     }
   }
 
   Future<void> _loadBlurred() async {
-  final requestSongId = widget.songId;
+    final requestSongId = widget.songId;
 
-  final cached = BlurredImageCache.getSync(
-    requestSongId,
-  );
+    final cached = BlurredImageCache.getSync(requestSongId);
 
-  if (cached != null) {
-    if (mounted && requestSongId == widget.songId) {
-      setState(() => _blurredImage = cached);
+    if (cached != null) {
+      if (mounted && requestSongId == widget.songId) {
+        setState(() => _blurredImage = cached);
+      }
+      return;
     }
-    return;
+
+    final img = await BlurredImageCache.get(requestSongId, widget.artwork);
+
+    if (!mounted) return;
+
+    if (requestSongId != widget.songId) {
+      return;
+    }
+
+    setState(() {
+      _blurredImage = img;
+    });
   }
-
-  final img = await BlurredImageCache.get(
-    requestSongId,
-    widget.artwork,
-  );
-
-  if (!mounted) return;
-
-  if (requestSongId != widget.songId) {
-    return;
-  }
-
-  setState(() {
-    _blurredImage = img;
-  });
-}
 
   @override
   void dispose() {
@@ -101,58 +94,55 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       children: [
         // Layer 1 — dim, over-scaled, slow oscillation
         RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final t = _controller.value * math.pi * 2;
 
-      return Transform.translate(
-        offset: Offset(
-          math.sin(t) * 20,
-          math.cos(t * 0.75) * 10,
+              return Transform.translate(
+                offset: Offset(math.sin(t) * 20, math.cos(t * 0.75) * 10),
+                child: Transform.scale(
+                  scale: 1.32 + math.sin(t * 0.5) * 0.015,
+                  child: child,
+                ),
+              );
+            },
+            child: Opacity(
+              opacity: 0.28,
+              child: RawImage(
+                image: blurred,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.low,
+              ),
+            ),
+          ),
         ),
-        child: Transform.scale(
-          scale: 1.32 + math.sin(t * 0.5) * 0.015,
-          child: child,
-        ),
-      );
-    },
-    child: Opacity(
-      opacity: 0.28,
-      child: RawImage(
-        image: blurred,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.low,
-      ),
-    ),
-  ),
-),
 
         // Layer 2 — full opacity, slightly smaller, counter-oscillation
         RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final t = _controller.value * math.pi * 2;
 
-      return Transform.translate(
-        offset: Offset(
-          -math.sin(t * 0.85) * 12,
-          math.cos(t * 1.15) * 6,
+              return Transform.translate(
+                offset: Offset(
+                  -math.sin(t * 0.85) * 12,
+                  math.cos(t * 1.15) * 6,
+                ),
+                child: Transform.scale(
+                  scale: 1.18 + math.cos(t * 0.45) * 0.010,
+                  child: child,
+                ),
+              );
+            },
+            child: RawImage(
+              image: blurred,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
+            ),
+          ),
         ),
-        child: Transform.scale(
-          scale: 1.18 + math.cos(t * 0.45) * 0.010,
-          child: child,
-        ),
-      );
-    },
-    child: RawImage(
-      image: blurred,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.low,
-    ),
-  ),
-),
 
         const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
       ],

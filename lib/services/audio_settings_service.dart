@@ -17,8 +17,7 @@ class AudioSettingsService {
       AudioEffectsService.audioNormalize;
   static ValueNotifier<double> get crossfadeDuration =>
       AudioEffectsService.crossfadeDuration;
-  static ValueNotifier<double> get pitchShift =>
-      AudioEffectsService.pitchShift;
+  static ValueNotifier<double> get pitchShift => AudioEffectsService.pitchShift;
   static ValueNotifier<bool> get spatialAudio =>
       AudioEffectsService.spatialAudio;
 

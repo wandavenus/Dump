@@ -1,11 +1,11 @@
 /// Kualitas lirik dari tertinggi ke terendah (ordinal = prioritas).
 enum LyricsQuality {
-  wordTimedLrc,    // Enhanced LRC dengan word-timing <mm:ss.xx> per kata
-  charTimedLrc,    // Enhanced LRC dengan character-timing
-  lineTimedLrc,    // Standard LRC [mm:ss.xx] per baris
-  plainLrc,        // LRC dengan struktur tapi tanpa timestamp bermakna
-  unsyncedLyrics,  // Teks biasa tanpa timing
-  none,            // Tidak ada lirik
+  wordTimedLrc, // Enhanced LRC dengan word-timing <mm:ss.xx> per kata
+  charTimedLrc, // Enhanced LRC dengan character-timing
+  lineTimedLrc, // Standard LRC [mm:ss.xx] per baris
+  plainLrc, // LRC dengan struktur tapi tanpa timestamp bermakna
+  unsyncedLyrics, // Teks biasa tanpa timing
+  none, // Tidak ada lirik
 }
 
 extension LyricsQualityX on LyricsQuality {
@@ -18,12 +18,18 @@ extension LyricsQualityX on LyricsQuality {
 
   String get displayName {
     switch (this) {
-      case LyricsQuality.wordTimedLrc:   return 'Word-timed LRC';
-      case LyricsQuality.charTimedLrc:   return 'Char-timed LRC';
-      case LyricsQuality.lineTimedLrc:   return 'Synced LRC';
-      case LyricsQuality.plainLrc:       return 'Plain LRC';
-      case LyricsQuality.unsyncedLyrics: return 'Unsynced';
-      case LyricsQuality.none:           return 'None';
+      case LyricsQuality.wordTimedLrc:
+        return 'Word-timed LRC';
+      case LyricsQuality.charTimedLrc:
+        return 'Char-timed LRC';
+      case LyricsQuality.lineTimedLrc:
+        return 'Synced LRC';
+      case LyricsQuality.plainLrc:
+        return 'Plain LRC';
+      case LyricsQuality.unsyncedLyrics:
+        return 'Unsynced';
+      case LyricsQuality.none:
+        return 'None';
     }
   }
 

@@ -26,8 +26,7 @@ class HistoryService {
       jsonDecode(prefs.getString(_playCountKey) ?? '{}'),
     );
 
-    playCounts[song.id.toString()] =
-        (playCounts[song.id.toString()] ?? 0) + 1;
+    playCounts[song.id.toString()] = (playCounts[song.id.toString()] ?? 0) + 1;
 
     await prefs.setString(_playCountKey, jsonEncode(playCounts));
 
@@ -35,21 +34,15 @@ class HistoryService {
       jsonDecode(prefs.getString(_artistPlayCountKey) ?? '{}'),
     );
 
-    artistCounts[song.artist] =
-        (artistCounts[song.artist] ?? 0) + 1;
+    artistCounts[song.artist] = (artistCounts[song.artist] ?? 0) + 1;
 
-    await prefs.setString(
-      _artistPlayCountKey,
-      jsonEncode(artistCounts),
-    );
+    await prefs.setString(_artistPlayCountKey, jsonEncode(artistCounts));
   }
 
   static Future<List<int>> getRecentlyPlayedIds() async {
     final prefs = await SharedPreferences.getInstance();
 
-    return (prefs.getStringList(_recentKey) ?? [])
-        .map(int.parse)
-        .toList();
+    return (prefs.getStringList(_recentKey) ?? []).map(int.parse).toList();
   }
 
   static Future<Map<String, dynamic>> getPlayCounts() async {

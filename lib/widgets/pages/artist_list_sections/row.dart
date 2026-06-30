@@ -8,7 +8,9 @@ class ArtistListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
+      onTap:
+          () =>
+              Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
         padding: const EdgeInsets.only(top: 10, left: 5, right: 5),
         child: Column(
@@ -18,8 +20,6 @@ class ArtistListRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    
-                    
                     SongArtwork(
                       songId: artist.coverSongId,
                       size: 70,
@@ -29,7 +29,11 @@ class ArtistListRow extends StatelessWidget {
                     Text(artist.name, style: const TextStyle(fontSize: 22)),
                   ],
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 18),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.grey,
+                  size: 18,
+                ),
               ],
             ),
             const Divider(

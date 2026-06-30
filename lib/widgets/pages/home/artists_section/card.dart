@@ -7,8 +7,9 @@ class _ArtistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () =>
-          Navigator.pushNamed(context, '/artist', arguments: artist.songs),
+      onTap:
+          () =>
+              Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
         margin: const EdgeInsets.only(top: 20, left: 15, bottom: 20),
         child: Column(

@@ -16,8 +16,8 @@ class AudioEngine {
 
   // ── Effect-support flags (queried from active engine, exposed to UI) ────────
   static bool _virtualizerSupported = false;
-  static bool _bassBoostSupported   = false;
-  static bool _reverbSupported      = false;
+  static bool _bassBoostSupported = false;
+  static bool _reverbSupported = false;
 
   static bool _initialized = false;
   static int _lastSessionId = -1;
@@ -28,8 +28,8 @@ class AudioEngine {
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static bool get virtualizerSupported => _virtualizerSupported;
-  static bool get bassBoostSupported   => _bassBoostSupported;
-  static bool get reverbSupported      => _reverbSupported;
+  static bool get bassBoostSupported => _bassBoostSupported;
+  static bool get reverbSupported => _reverbSupported;
 
   // ── Initialization ─────────────────────────────────────────────────────────
 
@@ -53,12 +53,12 @@ class AudioEngine {
       final result = await AudioEngineManager.getEffectSupport();
       if (result == null) return;
       _virtualizerSupported = result['virtualizerSupported'] as bool? ?? false;
-      _bassBoostSupported   = result['bassBoostSupported']   as bool? ?? false;
-      _reverbSupported      = result['reverbSupported']      as bool? ?? false;
+      _bassBoostSupported = result['bassBoostSupported'] as bool? ?? false;
+      _reverbSupported = result['reverbSupported'] as bool? ?? false;
       LogService.log(
         'AudioEngine',
         'Effect support — virt=$_virtualizerSupported, '
-        'bass=$_bassBoostSupported, reverb=$_reverbSupported',
+            'bass=$_bassBoostSupported, reverb=$_reverbSupported',
       );
     } catch (e) {
       LogService.warn('AudioEngine', 'queryEffectSupport: $e');
@@ -92,17 +92,19 @@ class AudioEngine {
     // Clamp to ±2400 mb (±24 dB) matching LoudnessEnhancer limits on Android.
     final clamped = targetGainMb.clamp(-2400.0, 2400.0);
     unawaited(AudioEngineManager.setLoudnessEnabled(enabled));
-    unawaited(AudioEngineManager.setLoudnessTargetGain(enabled ? clamped : 0.0));
+    unawaited(
+      AudioEngineManager.setLoudnessTargetGain(enabled ? clamped : 0.0),
+    );
   }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
   static Future<void> dispose() async {
     _virtualizerSupported = false;
-    _bassBoostSupported   = false;
-    _reverbSupported      = false;
-    _initialized          = false;
-    _lastSessionId        = -1;
+    _bassBoostSupported = false;
+    _reverbSupported = false;
+    _initialized = false;
+    _lastSessionId = -1;
     LogService.log('AudioEngine', 'Disposed');
   }
 }

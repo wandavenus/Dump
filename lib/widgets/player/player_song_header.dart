@@ -66,9 +66,10 @@ class PlayerSongHeader extends StatelessWidget {
       type: MaterialType.transparency,
       child: FadeTransition(
         opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-        child: flightDirection == HeroFlightDirection.push
-            ? (toHeroContext.widget as Hero).child
-            : (fromHeroContext.widget as Hero).child,
+        child:
+            flightDirection == HeroFlightDirection.push
+                ? (toHeroContext.widget as Hero).child
+                : (fromHeroContext.widget as Hero).child,
       ),
     );
   }

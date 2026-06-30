@@ -15,13 +15,23 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       final recentIds = await HistoryService.getRecentlyPlayedIds();
       final allSongs = await MediaStoreService.getSongs();
       final songMap = {for (final s in allSongs) s.id: s};
-      final recent = recentIds
-          .where(songMap.containsKey)
-          .map((id) => songMap[id]!)
-          .toList();
-      if (mounted) setState(() { _songs = recent; _isLoading = false; });
+      final recent =
+          recentIds
+              .where(songMap.containsKey)
+              .map((id) => songMap[id]!)
+              .toList();
+      if (mounted) {
+        setState(() {
+          _songs = recent;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

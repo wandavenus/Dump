@@ -31,9 +31,10 @@ class _LyricsAppearanceSheet extends StatelessWidget {
                 const Text(
                   'Tampilan Lirik',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600),
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 _sheetLabel('Ukuran Teks'),
@@ -69,12 +70,13 @@ class _LyricsAppearanceSheet extends StatelessWidget {
   }
 
   static Widget _sheetLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-            color: Color(0xFF8E8E93),
-            fontSize: 12,
-            fontWeight: FontWeight.w500),
-      );
+    text,
+    style: const TextStyle(
+      color: Color(0xFF8E8E93),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 }
 
 // ─── Reusable toggle row ───────────────────────────────────────────────────────
@@ -96,33 +98,38 @@ class _SwitchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: notifier,
-      builder: (_, v, _) => Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 15)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 1),
-                  Text(subtitle!,
-                      style: TextStyle(
+      builder:
+          (_, v, _) => Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 12)),
-                ],
-              ],
-            ),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              CupertinoSwitch(
+                value: v,
+                onChanged: onChanged,
+                activeTrackColor: const Color(0xFFF92D48),
+              ),
+            ],
           ),
-          CupertinoSwitch(
-            value: v,
-            onChanged: onChanged,
-            activeTrackColor: const Color(0xFFF92D48),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -32,12 +32,14 @@ class MediaCapabilitiesService {
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
   /// correctly to both players during a crossfade overlap.
-  static final ValueNotifier<bool>   stereoWideningEnabled  = ValueNotifier(false);
-  static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(0.5);
+  static final ValueNotifier<bool> stereoWideningEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(
+    0.5,
+  );
 
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
-  static StreamSubscription<bool>?                  _skipSilenceSub;
+  static StreamSubscription<bool>? _skipSilenceSub;
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
@@ -47,15 +49,17 @@ class MediaCapabilitiesService {
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')      ?? false;
-    stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')    ?? false;
-    stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
+    skipSilenceEnabled.value = prefs.getBool('${_kPrefix}skipSilence') ?? false;
+    stereoWideningEnabled.value =
+        prefs.getBool('${_kPrefix}stereoEnabled') ?? false;
+    stereoWideningStrength.value =
+        prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
 
     // ── Skip silence ─────────────────────────────────────────────────────────
     // Subscribes to the engine-manager-forwarded stream so the toggle
     // stays correct even when the native engine overrides the value
     // (e.g. future ExoPlayer version resets silence-skip on seek).
-    _skipSilenceSub?.cancel();
+    unawaited(_skipSilenceSub?.cancel());
     _skipSilenceSub = AudioEngineManager.skipSilenceStream.listen((v) {
       if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
     });
@@ -64,27 +68,36 @@ class MediaCapabilitiesService {
     // Mirrors the engine confirmation after the processor matrix is applied.
     // Ensures `strength` is always the value the engine is actually using,
     // not just what was requested.
-    _stereoWideningSub?.cancel();
+    unawaited(_stereoWideningSub?.cancel());
     _stereoWideningSub = AudioEngineManager.stereoWideningStream.listen((map) {
-      final enabled  = map['enabled']  as bool?   ?? false;
+      final enabled = map['enabled'] as bool? ?? false;
       final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
-      if (stereoWideningEnabled.value  != enabled)  stereoWideningEnabled.value  = enabled;
-      if (stereoWideningStrength.value != strength) stereoWideningStrength.value = strength;
+      if (stereoWideningEnabled.value != enabled) {
+        stereoWideningEnabled.value = enabled;
+      }
+      if (stereoWideningStrength.value != strength) {
+        stereoWideningStrength.value = strength;
+      }
     });
 
     // Push all settings to active engine on startup.
     unawaited(_applyAll());
 
-    LogService.log('MediaCap', 'Initialized — skipSilence=${skipSilenceEnabled.value} '
-        'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
+    LogService.log(
+      'MediaCap',
+      'Initialized — skipSilence=${skipSilenceEnabled.value} '
+          'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}',
+    );
   }
 
   static Future<void> _applyAll() async {
     unawaited(AudioEngineManager.setSkipSilence(skipSilenceEnabled.value));
-    unawaited(AudioEngineManager.setStereoWidening(
-      enabled:  stereoWideningEnabled.value,
-      strength: stereoWideningStrength.value,
-    ));
+    unawaited(
+      AudioEngineManager.setStereoWidening(
+        enabled: stereoWideningEnabled.value,
+        strength: stereoWideningStrength.value,
+      ),
+    );
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────
@@ -104,10 +117,12 @@ class MediaCapabilitiesService {
     stereoWideningEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}stereoEnabled', value);
-    unawaited(AudioEngineManager.setStereoWidening(
-      enabled:  value,
-      strength: stereoWideningStrength.value,
-    ));
+    unawaited(
+      AudioEngineManager.setStereoWidening(
+        enabled: value,
+        strength: stereoWideningStrength.value,
+      ),
+    );
     LogService.log('MediaCap', 'stereoWidening: $value');
   }
 
@@ -118,10 +133,9 @@ class MediaCapabilitiesService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('${_kPrefix}stereoStrength', v);
     if (stereoWideningEnabled.value) {
-      unawaited(AudioEngineManager.setStereoWidening(
-        enabled:  true,
-        strength: v,
-      ));
+      unawaited(
+        AudioEngineManager.setStereoWidening(enabled: true, strength: v),
+      );
     }
     LogService.log('MediaCap', 'stereoStrength: $v');
   }
@@ -144,9 +158,9 @@ class MediaCapabilitiesService {
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   static void dispose() {
-    _skipSilenceSub?.cancel();
-    _stereoWideningSub?.cancel();
-    _skipSilenceSub    = null;
+    unawaited(_skipSilenceSub?.cancel());
+    unawaited(_stereoWideningSub?.cancel());
+    _skipSilenceSub = null;
     _stereoWideningSub = null;
   }
 }

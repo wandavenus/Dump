@@ -14,7 +14,7 @@ class ElrcWord {
 /// Menghasilkan daftar yang PERSIS sama urutannya dengan [LrcParser.parseLrc],
 /// sehingga `_elrcWordLines[i]` selalu sesuai dengan `lyrics[i]`.
 class ElrcWordExtractor {
-  static final _tsRe   = RegExp(r'\[(\d+):(\d+(?:[.,]\d+)?)\]');
+  static final _tsRe = RegExp(r'\[(\d+):(\d+(?:[.,]\d+)?)\]');
   static final _inlineRe = RegExp(r'<(\d+):(\d+(?:[.,]\d+)?)>');
   static final _metaRe = RegExp(
     r'^\[(?:ti|ar|al|by|offset|length|re|ve|total|author|created)\s*:',
@@ -55,9 +55,9 @@ class ElrcWordExtractor {
             line.substring(cursor, m.start).trim().isNotEmpty) {
           break;
         }
-        final min    = int.tryParse(m.group(1) ?? '') ?? 0;
+        final min = int.tryParse(m.group(1) ?? '') ?? 0;
         final secStr = (m.group(2) ?? '').replaceAll(',', '.');
-        final sec    = double.tryParse(secStr) ?? 0.0;
+        final sec = double.tryParse(secStr) ?? 0.0;
         timestamps.add(
           Duration(milliseconds: ((min * 60 + sec) * 1000).round()),
         );
@@ -106,16 +106,15 @@ class ElrcWordExtractor {
     final words = <ElrcWord>[];
     for (int i = 0; i < matches.length; i++) {
       final m = matches[i];
-      final min    = int.tryParse(m.group(1) ?? '') ?? 0;
+      final min = int.tryParse(m.group(1) ?? '') ?? 0;
       final secStr = (m.group(2) ?? '').replaceAll(',', '.');
-      final sec    = double.tryParse(secStr) ?? 0.0;
+      final sec = double.tryParse(secStr) ?? 0.0;
       final startMs = ((min * 60 + sec) * 1000).round() + offsetMs;
-      final wordStart = Duration(
-        milliseconds: startMs.clamp(0, 9999999),
-      );
+      final wordStart = Duration(milliseconds: startMs.clamp(0, 9999999));
 
-      final textEnd   = i + 1 < matches.length ? matches[i + 1].start : rest.length;
-      final wordText  = rest.substring(m.end, textEnd).trim();
+      final textEnd =
+          i + 1 < matches.length ? matches[i + 1].start : rest.length;
+      final wordText = rest.substring(m.end, textEnd).trim();
 
       if (wordText.isNotEmpty) {
         words.add(ElrcWord(wordText, wordStart));

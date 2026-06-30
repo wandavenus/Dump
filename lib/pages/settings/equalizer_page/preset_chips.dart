@@ -62,24 +62,30 @@ class _PresetChip extends StatelessWidget {
             final isSelected = currentPreset == index;
 
             return GestureDetector(
-              onTap: enabled
-                  ? () => AudioEffectsService.applyEqPreset(index)
-                  : null,
+              onTap:
+                  enabled
+                      ? () => AudioEffectsService.applyEqPreset(index)
+                      : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 0,
+                ),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFFF92D48)
-                      : enabled
+                  color:
+                      isSelected
+                          ? const Color(0xFFF92D48)
+                          : enabled
                           ? Colors.white.withValues(alpha: 0.09)
                           : Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFF92D48)
-                        : enabled
+                    color:
+                        isSelected
+                            ? const Color(0xFFF92D48)
+                            : enabled
                             ? Colors.white.withValues(alpha: 0.12)
                             : Colors.white.withValues(alpha: 0.05),
                     width: 1.0,
@@ -88,14 +94,14 @@ class _PresetChip extends StatelessWidget {
                 child: Text(
                   name,
                   style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : enabled
+                    color:
+                        isSelected
+                            ? Colors.white
+                            : enabled
                             ? Colors.white.withValues(alpha: 0.85)
                             : Colors.white.withValues(alpha: 0.35),
                     fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ),

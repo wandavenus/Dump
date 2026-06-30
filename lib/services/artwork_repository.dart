@@ -28,7 +28,7 @@ class ArtworkRepository {
   // ── Memory caches ──────────────────────────────────────────────────────────
 
   // LRU map: insertion-order, move-to-back on hit.
-  final LinkedHashMap<int, String>    _paths     = LinkedHashMap();
+  final LinkedHashMap<int, String> _paths = LinkedHashMap();
   // Reuse FileImage objects to avoid repeated object allocation.
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
 
@@ -87,10 +87,7 @@ class ArtworkRepository {
   /// full-resolution original.  Pass null to skip resizing.
   ///
   /// Returns null when the song has no artwork.
-  Future<ImageProvider?> getProvider(
-    int songId, {
-    int? targetSizePx,
-  }) async {
+  Future<ImageProvider?> getProvider(int songId, {int? targetSizePx}) async {
     final path = await getPath(songId);
     if (path == null) return null;
 
@@ -148,11 +145,11 @@ class ArtworkRepository {
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).
   void clearMemory() {
-  _paths.clear();
-  _providers.clear();
+    _paths.clear();
+    _providers.clear();
 
-  PaintingBinding.instance.imageCache.clear();
-}
+    PaintingBinding.instance.imageCache.clear();
+  }
 
   // ── Private helpers ────────────────────────────────────────────────────────
 

@@ -4,11 +4,9 @@ import 'package:flutter/foundation.dart';
 class PlayerSheetController {
   PlayerSheetController._();
 
-  static final ValueNotifier<bool> expanded =
-      ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> expanded = ValueNotifier<bool>(false);
 
-  static final ValueNotifier<double> progress =
-      ValueNotifier<double>(0.0);
+  static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
   static Timer? _timer;
 

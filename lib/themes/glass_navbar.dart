@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 class GlassNavBar extends StatelessWidget {
   final Widget child;
 
-  const GlassNavBar({
-    super.key,
-    required this.child,
-  });
+  const GlassNavBar({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +17,7 @@ class GlassNavBar extends StatelessWidget {
             child: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: Container(
-                  color: Colors.white.withValues(alpha: 0.055),
-                ),
+                child: Container(color: Colors.white.withValues(alpha: 0.055)),
               ),
             ),
           ),

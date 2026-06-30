@@ -29,17 +29,18 @@ class _DebugSection extends StatelessWidget {
                 color: const Color(0xFFF92D48).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('MODE AKTIF',
-                  style: TextStyle(
-                      color: Color(0xFFF92D48),
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold)),
+              child: const Text(
+                'MODE AKTIF',
+                style: TextStyle(
+                  color: Color(0xFFF92D48),
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 6),
-
-        
 
         // Audio session info
         _AudioSessionInfo(),
@@ -62,7 +63,6 @@ class _DebugSection extends StatelessWidget {
           title: 'Keluar Mode Debug',
           trailing: '',
           onTap: () {
-
             PlayerSheetController.close();
             _DebugState.enabled.value = false;
           },
@@ -73,4 +73,3 @@ class _DebugSection extends StatelessWidget {
     );
   }
 }
-

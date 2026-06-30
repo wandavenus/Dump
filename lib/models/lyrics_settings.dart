@@ -32,13 +32,13 @@ class LyricsSettings {
 
   static Future<void> init() async {
     final p = await SharedPreferences.getInstance();
-    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 40.0;
-    textAlign.value    = p.getString('lyr_textAlign')   ?? 'left';
-    bgDim.value        = p.getDouble('lyr_bgDim')       ?? 0.0;
-    blurStrength.value = p.getDouble('lyr_blur')        ?? 0.0;
-    activeColor.value  = p.getString('lyr_activeColor') ?? 'white';
-    showSource.value   = p.getBool('lyr_showSource')    ?? false;
-    karaokeMode.value  = p.getBool('lyr_karaoke')       ?? true;
+    fontSize.value = p.getDouble('lyr_fontSize') ?? 40.0;
+    textAlign.value = p.getString('lyr_textAlign') ?? 'left';
+    bgDim.value = p.getDouble('lyr_bgDim') ?? 0.0;
+    blurStrength.value = p.getDouble('lyr_blur') ?? 0.0;
+    activeColor.value = p.getString('lyr_activeColor') ?? 'white';
+    showSource.value = p.getBool('lyr_showSource') ?? false;
+    karaokeMode.value = p.getBool('lyr_karaoke') ?? true;
   }
 
   // ── Setters ─────────────────────────────────────────────────────────────────
@@ -65,7 +65,10 @@ class LyricsSettings {
 
   static Future<void> setActiveColor(String v) async {
     activeColor.value = v;
-    await (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
+    await (await SharedPreferences.getInstance()).setString(
+      'lyr_activeColor',
+      v,
+    );
   }
 
   static Future<void> setShowSource(bool v) async {
@@ -82,17 +85,23 @@ class LyricsSettings {
 
   static TextAlign get resolvedTextAlign {
     switch (textAlign.value) {
-      case 'center': return TextAlign.center;
-      case 'right':  return TextAlign.right;
-      default:       return TextAlign.left;
+      case 'center':
+        return TextAlign.center;
+      case 'right':
+        return TextAlign.right;
+      default:
+        return TextAlign.left;
     }
   }
 
   static Color get resolvedActiveColor {
     switch (activeColor.value) {
-      case 'accent': return const Color(0xFFF92D48);
-      case 'yellow': return const Color(0xFFFFD60A);
-      default:       return Colors.white;
+      case 'accent':
+        return const Color(0xFFF92D48);
+      case 'yellow':
+        return const Color(0xFFFFD60A);
+      default:
+        return Colors.white;
     }
   }
 }

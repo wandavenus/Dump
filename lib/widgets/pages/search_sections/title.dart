@@ -14,7 +14,10 @@ class _SearchTitle extends StatelessWidget {
         child: Text(
           'Cari',
           style: TextStyle(
-              fontSize: 34, fontWeight: FontWeight.bold, color: Colors.white),
+            fontSize: 34,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
     );

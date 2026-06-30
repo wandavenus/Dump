@@ -13,8 +13,9 @@ part of '../replay_gain_service.dart';
 class ReplayGainService {
   ReplayGainService._();
 
-  static const MethodChannel _channel =
-      MethodChannel('musicplayer/media_store');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/media_store',
+  );
 
   // In-memory cache (cleared on hot-restart).
   static final Map<int, LoudnessData> _cache = {};
@@ -84,7 +85,10 @@ class ReplayGainService {
       if (result == null) return {};
       return result.map((k, v) => MapEntry(k, v?.toString()));
     } catch (e) {
-      LogService.verbose('ReplayGain', 'Tag read failed for "${song.title}": $e');
+      LogService.verbose(
+        'ReplayGain',
+        'Tag read failed for "${song.title}": $e',
+      );
       return {};
     }
   }
@@ -111,9 +115,9 @@ class ReplayGainService {
     final rgGain = _parseGainDb(tags['replayGainTrackGain']);
     if (rgGain != null) {
       return LoudnessData(
-        gainDb:     rgGain,
+        gainDb: rgGain,
         peakLinear: _parsePeak(tags['replayGainTrackPeak']),
-        source:     LoudnessSource.replayGainTrack,
+        source: LoudnessSource.replayGainTrack,
       );
     }
 
@@ -122,10 +126,7 @@ class ReplayGainService {
     if (r128 != null) {
       final parsed = _parseR128(r128);
       if (parsed != null) {
-        return LoudnessData(
-          gainDb: parsed,
-          source: LoudnessSource.r128Track,
-        );
+        return LoudnessData(gainDb: parsed, source: LoudnessSource.r128Track);
       }
     }
 
@@ -144,9 +145,9 @@ class ReplayGainService {
     final rgGain = _parseGainDb(tags['replayGainAlbumGain']);
     if (rgGain != null) {
       return LoudnessData(
-        gainDb:     rgGain,
+        gainDb: rgGain,
         peakLinear: _parsePeak(tags['replayGainAlbumPeak']),
-        source:     LoudnessSource.replayGainAlbum,
+        source: LoudnessSource.replayGainAlbum,
       );
     }
 
@@ -155,10 +156,7 @@ class ReplayGainService {
     if (r128 != null) {
       final parsed = _parseR128(r128);
       if (parsed != null) {
-        return LoudnessData(
-          gainDb: parsed,
-          source: LoudnessSource.r128Album,
-        );
+        return LoudnessData(gainDb: parsed, source: LoudnessSource.r128Album);
       }
     }
 
@@ -170,12 +168,12 @@ class ReplayGainService {
 
   /// Parses "  -3.45 dB" → -3.45.  Returns null if not parseable.
   static double? _parseGainDb(String? raw) {
-  if (raw == null || raw.trim().isEmpty) return null;
-  // Ambil angka desimal dengan tanda opsional di awal
-  final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
-  if (match == null) return null;
-  return double.tryParse(match.group(1)!);
-}
+    if (raw == null || raw.trim().isEmpty) return null;
+    // Ambil angka desimal dengan tanda opsional di awal
+    final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
+    if (match == null) return null;
+    return double.tryParse(match.group(1)!);
+  }
 
   /// Parses peak value "0.987654" → 0.987654.
   static double? _parsePeak(String? raw) {
@@ -198,10 +196,10 @@ class ReplayGainService {
   /// Volume difference = 1000/max(track_left, track_right) in linear scale.
   static LoudnessData? _parseITunNorm(String raw) {
     try {
-      final parts = raw.trim().split(RegExp(r'\s+'))
-          .where((s) => s.isNotEmpty).toList();
+      final parts =
+          raw.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
       if (parts.length < 2) return null;
-      final left  = int.parse(parts[0], radix: 16);
+      final left = int.parse(parts[0], radix: 16);
       final right = int.parse(parts[1], radix: 16);
       final volume = [left, right].reduce((a, b) => a > b ? a : b);
       if (volume <= 0) return null;
@@ -214,9 +212,9 @@ class ReplayGainService {
   }
 
   static double _log10(double x) {
-  if (x <= 0) return double.negativeInfinity;
-  return math.log(x) / math.ln10;
-} 
+    if (x <= 0) return double.negativeInfinity;
+    return math.log(x) / math.ln10;
+  }
 
   // ── SharedPrefs persistence ────────────────────────────────────────────────
 
@@ -224,12 +222,16 @@ class ReplayGainService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final gainStr = prefs.getString('rg_${songId}_gain');
-      final srcIdx  = prefs.getInt('rg_${songId}_src');
+      final srcIdx = prefs.getInt('rg_${songId}_src');
       if (gainStr == null || srcIdx == null) return null;
       final gain = double.tryParse(gainStr);
       if (gain == null) return null;
       final peak = double.tryParse(prefs.getString('rg_${songId}_peak') ?? '');
-      final src = LoudnessSource.values[srcIdx.clamp(0, LoudnessSource.values.length - 1)];
+      final src =
+          LoudnessSource.values[srcIdx.clamp(
+            0,
+            LoudnessSource.values.length - 1,
+          )];
       return LoudnessData(gainDb: gain, peakLinear: peak, source: src);
     } catch (_) {
       return null;

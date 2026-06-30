@@ -20,11 +20,15 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = Row(
       children: [
-        Text(title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         if (showChevron)
-          const Icon(Icons.chevron_right_rounded,
-              color: Color.fromARGB(255, 186, 186, 186)),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Color.fromARGB(255, 186, 186, 186),
+          ),
       ],
     );
 
@@ -32,12 +36,13 @@ class SectionTitle extends StatelessWidget {
       margin: EdgeInsets.only(top: topMargin),
       height: 30,
       padding: EdgeInsets.only(left: horizontalPadding),
-      child: routeName == null
-          ? row
-          : InkWell(
-              onTap: () => Navigator.pushNamed(context, routeName!),
-              child: row,
-            ),
+      child:
+          routeName == null
+              ? row
+              : InkWell(
+                onTap: () => Navigator.pushNamed(context, routeName!),
+                child: row,
+              ),
     );
   }
 }

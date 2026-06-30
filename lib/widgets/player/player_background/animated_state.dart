@@ -24,7 +24,7 @@ class _AnimatedBlurredPlayerBackgroundState
 
     if (targetSongId <= 0) {
       setState(() {
-        _currentSongId  = targetSongId;
+        _currentSongId = targetSongId;
         _currentArtwork = null;
       });
       return;
@@ -35,7 +35,7 @@ class _AnimatedBlurredPlayerBackgroundState
     ArtworkRepository.instance.getBytes(targetSongId).then((artwork) {
       if (!mounted || widget.songId != targetSongId) return;
       setState(() {
-        _currentSongId  = targetSongId;
+        _currentSongId = targetSongId;
         _currentArtwork = artwork;
       });
     });
@@ -46,13 +46,14 @@ class _AnimatedBlurredPlayerBackgroundState
     final showFallback = _currentArtwork == null || _currentArtwork!.isEmpty;
 
     // Key dan data dijamin selalu sinkron karena pake state yang sama
-    final child = showFallback
-        ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
-        : BlurredArtworkBackground(
-            key: ValueKey<int>(_currentSongId ?? 0),    
-            songId: _currentSongId ?? 0,
-            artwork: _currentArtwork!,
-          );
+    final child =
+        showFallback
+            ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
+            : BlurredArtworkBackground(
+              key: ValueKey<int>(_currentSongId ?? 0),
+              songId: _currentSongId ?? 0,
+              artwork: _currentArtwork!,
+            );
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 420),

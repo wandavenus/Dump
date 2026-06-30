@@ -23,8 +23,7 @@ class _SearchResultsSliver extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Tidak ada hasil untuk "$query"',
-                style:
-                    const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
               ),
             ],
           ),
@@ -33,18 +32,15 @@ class _SearchResultsSliver extends StatelessWidget {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, i) {
-          final song = results[i];
-          final indexInAll = allSongs.indexOf(song);
-          return _SearchResultTile(
-            song: song,
-            playlist: allSongs,
-            index: indexInAll >= 0 ? indexInAll : 0,
-          );
-        },
-        childCount: results.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, i) {
+        final song = results[i];
+        final indexInAll = allSongs.indexOf(song);
+        return _SearchResultTile(
+          song: song,
+          playlist: allSongs,
+          index: indexInAll >= 0 ? indexInAll : 0,
+        );
+      }, childCount: results.length),
     );
   }
 }

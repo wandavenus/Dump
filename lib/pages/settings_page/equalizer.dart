@@ -30,18 +30,20 @@ class _EqualizerSection extends StatelessWidget {
                 } else if (presetIdx >= 0 &&
                     presetIdx < AudioEffectsService.eqPresets.length) {
                   trailing =
-                      AudioEffectsService.eqPresets[presetIdx]['name'] as String;
+                      AudioEffectsService.eqPresets[presetIdx]['name']
+                          as String;
                 } else {
                   trailing = 'Custom';
                 }
                 return SettingsActionRow(
                   title: 'Equalizer',
                   trailing: trailing,
-                  onTap: () => Navigator.of(context).push(
-                    CupertinoPageRoute<void>(
-                      builder: (_) => const EqualizerPage(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const EqualizerPage(),
+                        ),
+                      ),
                 );
               },
             );

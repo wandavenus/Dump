@@ -50,7 +50,10 @@ class KugouProvider implements LyricsProvider {
         _searchUrl.replaceFirst('{q}', Uri.encodeComponent(q)),
       );
       final searchResp = await ProviderHttp.get(
-        searchUri, name, cancelToken, headers: _headers,
+        searchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (searchResp == null || searchResp.statusCode == 429) {
         if (searchResp?.statusCode == 429) {
@@ -78,17 +81,24 @@ class KugouProvider implements LyricsProvider {
             .replaceFirst('{hash}', hash),
       );
       final lyricSearchResp = await ProviderHttp.get(
-        lyricSearchUri, name, cancelToken, headers: _headers,
+        lyricSearchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
-      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200) return null;
+      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200) {
+        return null;
+      }
       cancelToken.throwIfCancelled();
 
       final lyricSearchData = jsonDecode(lyricSearchResp.body);
       final candidates = lyricSearchData['candidates'];
-      if (candidates == null || candidates is! List || candidates.isEmpty) return null;
+      if (candidates == null || candidates is! List || candidates.isEmpty) {
+        return null;
+      }
 
       final candidate = candidates[0];
-      final lyricId   = '${candidate['id'] ?? ''}';
+      final lyricId = '${candidate['id'] ?? ''}';
       final accessKey = '${candidate['accesskey'] ?? ''}';
       if (lyricId.isEmpty || accessKey.isEmpty) return null;
 
@@ -99,7 +109,10 @@ class KugouProvider implements LyricsProvider {
             .replaceFirst('{key}', Uri.encodeComponent(accessKey)),
       );
       final lyricGetResp = await ProviderHttp.get(
-        lyricGetUri, name, cancelToken, headers: _headers,
+        lyricGetUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (lyricGetResp == null || lyricGetResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -117,10 +130,13 @@ class KugouProvider implements LyricsProvider {
       }
 
       final quality = LrcParser.detectQuality(content);
-      final lines   = LrcParser.parseLrc(content);
+      final lines = LrcParser.parseLrc(content);
       if (lines.isEmpty) return null;
 
-      LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+      LogService.verbose(
+        name,
+        '${lines.length} lines [${quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: lines,
         quality: quality,

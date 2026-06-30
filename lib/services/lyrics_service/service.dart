@@ -52,9 +52,10 @@ class LyricsService {
       return const LyricsResult([], LyricsSource.none);
     }
 
-    final source = providerResult.isInternet
-        ? LyricsSource.internet
-        : providerResult.providerName.contains('tag')
+    final source =
+        providerResult.isInternet
+            ? LyricsSource.internet
+            : providerResult.providerName.contains('tag')
             ? LyricsSource.embedded
             : LyricsSource.localFile;
 
@@ -86,5 +87,4 @@ class LyricsService {
   /// Parse LRC format ke daftar [LyricLine].
   /// Tetap publik karena digunakan oleh kode lain.
   static List<LyricLine> parseLrc(String lrc) => LrcParser.parseLrc(lrc);
-
 }

@@ -67,9 +67,10 @@ class MusixmatchProvider implements LyricsProvider {
     if (ProviderRateLimiter.instance.isLimited(name)) return null;
 
     try {
-      final durSec = query.durationMs != null
-          ? (query.durationMs! / 1000).round().toString()
-          : '0';
+      final durSec =
+          query.durationMs != null
+              ? (query.durationMs! / 1000).round().toString()
+              : '0';
 
       // Coba Rich Sync (word-timed) dulu
       final richUri = Uri.parse(
@@ -80,13 +81,18 @@ class MusixmatchProvider implements LyricsProvider {
             .replaceFirst('{dur}', durSec),
       );
       final richResp = await ProviderHttp.get(
-        richUri, name, cancelToken, headers: _headers,
+        richUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
 
       if (richResp != null) {
         if (richResp.statusCode == 429) {
-          ProviderRateLimiter.instance.markRateLimited(name,
-              duration: const Duration(minutes: 5));
+          ProviderRateLimiter.instance.markRateLimited(
+            name,
+            duration: const Duration(minutes: 5),
+          );
           return null;
         }
         if (richResp.statusCode == 200) {
@@ -105,7 +111,10 @@ class MusixmatchProvider implements LyricsProvider {
             .replaceFirst('{dur}', durSec),
       );
       final subResp = await ProviderHttp.get(
-        subUri, name, cancelToken, headers: _headers,
+        subUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (subResp == null || subResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -158,8 +167,8 @@ class MusixmatchProvider implements LyricsProvider {
       final List<dynamic> lines = jsonDecode(richBody);
       final buf = StringBuffer();
       for (final line in lines) {
-        final ts  = (line['ts'] as num?)?.toDouble() ?? 0.0;
-        final text = (line['x']  as String?) ?? '';
+        final ts = (line['ts'] as num?)?.toDouble() ?? 0.0;
+        final text = (line['x'] as String?) ?? '';
         if (text.isEmpty) continue;
         final min = (ts ~/ 60).toString().padLeft(2, '0');
         final sec = (ts % 60).toStringAsFixed(2).padLeft(5, '0');
@@ -175,18 +184,21 @@ class MusixmatchProvider implements LyricsProvider {
     try {
       final data = jsonDecode(body);
       final macro = data['message']?['body']?['macro_calls'];
-      final sub = macro?['track.subtitles.get']?['message']?['body']
-          ?['subtitle_list'];
+      final sub =
+          macro?['track.subtitles.get']?['message']?['body']?['subtitle_list'];
       if (sub == null || sub is! List || sub.isEmpty) return null;
 
       final lrc = sub[0]['subtitle']?['subtitle_body'] as String?;
       if (lrc == null || lrc.isEmpty) return null;
 
       final quality = LrcParser.detectQuality(lrc);
-      final lines   = LrcParser.parseLrc(lrc);
+      final lines = LrcParser.parseLrc(lrc);
       if (lines.isEmpty) return null;
 
-      LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+      LogService.verbose(
+        name,
+        '${lines.length} lines [${quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: lines,
         quality: quality,

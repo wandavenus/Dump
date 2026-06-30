@@ -10,11 +10,7 @@ class PlayerFallbackBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2A2A2E),
-            Color(0xFF111113),
-            Color(0xFF000000),
-          ],
+          colors: [Color(0xFF2A2A2E), Color(0xFF111113), Color(0xFF000000)],
         ),
       ),
     );

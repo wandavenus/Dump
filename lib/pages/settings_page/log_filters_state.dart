@@ -7,11 +7,25 @@ class _LogFilterChipsState extends State<_LogFilterChips> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _Chip(label: 'Semua',    selected: _filter == 0, onTap: () => setState(() => _filter = 0)),
+        _Chip(
+          label: 'Semua',
+          selected: _filter == 0,
+          onTap: () => setState(() => _filter = 0),
+        ),
         const SizedBox(width: 4),
-        _Chip(label: 'Error',    selected: _filter == 1, onTap: () => setState(() => _filter = 1), color: const Color(0xFFF92D48)),
+        _Chip(
+          label: 'Error',
+          selected: _filter == 1,
+          onTap: () => setState(() => _filter = 1),
+          color: const Color(0xFFF92D48),
+        ),
         const SizedBox(width: 4),
-        _Chip(label: 'Warning',  selected: _filter == 2, onTap: () => setState(() => _filter = 2), color: Colors.orange),
+        _Chip(
+          label: 'Warning',
+          selected: _filter == 2,
+          onTap: () => setState(() => _filter = 2),
+          color: Colors.orange,
+        ),
       ],
     );
   }

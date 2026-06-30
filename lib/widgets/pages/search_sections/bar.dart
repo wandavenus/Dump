@@ -37,13 +37,15 @@ class _SearchBar extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
-                  autofocus: false,   // Never autofocus on page load
+                  autofocus: false, // Never autofocus on page load
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                   cursorColor: const Color(0xFFF92D48),
                   decoration: const InputDecoration(
                     hintText: 'Artis, Lagu, Album, dan lainnya',
-                    hintStyle:
-                        TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                    hintStyle: TextStyle(
+                      color: Color(0xFF8E8E93),
+                      fontSize: 15,
+                    ),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -70,8 +72,11 @@ class _SearchBar extends StatelessWidget {
                   onTap: onClear,
                   child: const Padding(
                     padding: EdgeInsets.only(right: 8),
-                    child:
-                        Icon(Icons.cancel, color: Color(0xFF8E8E93), size: 18),
+                    child: Icon(
+                      Icons.cancel,
+                      color: Color(0xFF8E8E93),
+                      size: 18,
+                    ),
                   ),
                 ),
             ],

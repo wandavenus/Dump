@@ -33,7 +33,9 @@ class SettingsToggleRow extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 12),
+                      color: Color(0xFF8E8E93),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ],

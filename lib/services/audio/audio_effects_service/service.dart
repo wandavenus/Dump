@@ -17,8 +17,9 @@ class AudioEffectsService {
   // ── Value notifiers ────────────────────────────────────────────────────────
 
   static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
-  static final ValueNotifier<ReplayGainMode> replayGainMode =
-      ValueNotifier(ReplayGainMode.off);
+  static final ValueNotifier<ReplayGainMode> replayGainMode = ValueNotifier(
+    ReplayGainMode.off,
+  );
   static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
@@ -113,18 +114,18 @@ class AudioEffectsService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    audioNormalize.value   = prefs.getBool('normalize')       ?? false;
-    crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
-    pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
-    spatialAudio.value     = prefs.getBool('spatial')         ?? false;
-    spatialStrength.value  = prefs.getInt('spatialStr')       ?? 1000;
-    bassBoost.value        = prefs.getInt('bassBoost')        ?? 0;
-    reverbPreset.value     = prefs.getInt('reverb')           ?? 0;
-    playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
-    equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
-    roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
-    eqPreset.value         = prefs.getInt('eqPreset')         ?? -1;
-    lyricsPath.value       = prefs.getString('lyricsPath')    ?? '';
+    audioNormalize.value = prefs.getBool('normalize') ?? false;
+    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
+    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
+    spatialAudio.value = prefs.getBool('spatial') ?? false;
+    spatialStrength.value = prefs.getInt('spatialStr') ?? 1000;
+    bassBoost.value = prefs.getInt('bassBoost') ?? 0;
+    reverbPreset.value = prefs.getInt('reverb') ?? 0;
+    playbackSpeed.value = prefs.getDouble('speed') ?? 1.0;
+    equalizerEnabled.value = prefs.getBool('eqEnabled') ?? false;
+    roomPreset.value = prefs.getInt('roomPreset') ?? 0;
+    eqPreset.value = prefs.getInt('eqPreset') ?? -1;
+    lyricsPath.value = prefs.getString('lyricsPath') ?? '';
 
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
     replayGainMode.value =
@@ -266,7 +267,7 @@ class AudioEffectsService {
   }
 
   static Future<void> restoreEqualizerBands() async {
-    final prefs  = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     final params = await getEqualizerParameters();
     if (params == null) return;
     for (var i = 0; i < params.bandCount; i++) {
@@ -279,16 +280,46 @@ class AudioEffectsService {
 
   // Legacy EQ presets kept for backward compat
   static const List<Map<String, dynamic>> eqPresets = [
-    {'name': 'Normal',      'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Classical',   'gains': [5.0, 3.0, 0.0, 3.0, 4.0]},
-    {'name': 'Dance',       'gains': [6.0, 0.0, 2.0, 4.0, 1.0]},
-    {'name': 'Flat',        'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Folk',        'gains': [3.0, 0.0, 0.0, 2.0, -1.0]},
-    {'name': 'Heavy Metal', 'gains': [4.0, 1.0, 9.0, 3.0, 0.0]},
-    {'name': 'Hip-Hop',     'gains': [5.0, 4.0, 1.0, 1.0, 3.0]},
-    {'name': 'Jazz',        'gains': [4.0, 2.0, -2.0, 2.0, 5.0]},
-    {'name': 'Pop',         'gains': [-1.0, 2.0, 5.0, 1.0, -2.0]},
-    {'name': 'Rock',        'gains': [5.0, 3.0, -1.0, 3.0, 5.0]},
+    {
+      'name': 'Normal',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Classical',
+      'gains': [5.0, 3.0, 0.0, 3.0, 4.0],
+    },
+    {
+      'name': 'Dance',
+      'gains': [6.0, 0.0, 2.0, 4.0, 1.0],
+    },
+    {
+      'name': 'Flat',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Folk',
+      'gains': [3.0, 0.0, 0.0, 2.0, -1.0],
+    },
+    {
+      'name': 'Heavy Metal',
+      'gains': [4.0, 1.0, 9.0, 3.0, 0.0],
+    },
+    {
+      'name': 'Hip-Hop',
+      'gains': [5.0, 4.0, 1.0, 1.0, 3.0],
+    },
+    {
+      'name': 'Jazz',
+      'gains': [4.0, 2.0, -2.0, 2.0, 5.0],
+    },
+    {
+      'name': 'Pop',
+      'gains': [-1.0, 2.0, 5.0, 1.0, -2.0],
+    },
+    {
+      'name': 'Rock',
+      'gains': [5.0, 3.0, -1.0, 3.0, 5.0],
+    },
   ];
 
   static Future<void> applyEqPreset(int presetIndex) async {
@@ -310,7 +341,10 @@ class AudioEffectsService {
       unawaited(AudioEngineManager.setEqualizerBandGain(i, clamped));
       await prefs.setDouble('eqBand_$i', clamped);
     }
-    LogService.log('AudioEffects', 'EQ preset: ${eqPresets[presetIndex]['name']}');
+    LogService.log(
+      'AudioEffects',
+      'EQ preset: ${eqPresets[presetIndex]['name']}',
+    );
   }
 
   // ── Crossfade ──────────────────────────────────────────────────────────────

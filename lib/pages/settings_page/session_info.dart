@@ -8,17 +8,29 @@ class _AudioSessionInfo extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Info Audio Engine',
-              style: TextStyle(color: Colors.white, fontSize: 15)),
+          const Text(
+            'Info Audio Engine',
+            style: TextStyle(color: Colors.white, fontSize: 15),
+          ),
           const SizedBox(height: 6),
-          _InfoLine('DSP Pipeline',
-              AudioEngine.isAndroid ? 'Android DSP' : 'Web / Fallback'),
-          _InfoLine('Virtualizer',
-              AudioEngine.virtualizerSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
-          _InfoLine('BassBoost',
-              AudioEngine.bassBoostSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
-          _InfoLine('PresetReverb',
-              AudioEngine.reverbSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
+          _InfoLine(
+            'DSP Pipeline',
+            AudioEngine.isAndroid ? 'Android DSP' : 'Web / Fallback',
+          ),
+          _InfoLine(
+            'Virtualizer',
+            AudioEngine.virtualizerSupported
+                ? 'Didukung ✓'
+                : 'Tidak tersedia ✗',
+          ),
+          _InfoLine(
+            'BassBoost',
+            AudioEngine.bassBoostSupported ? 'Didukung ✓' : 'Tidak tersedia ✗',
+          ),
+          _InfoLine(
+            'PresetReverb',
+            AudioEngine.reverbSupported ? 'Didukung ✓' : 'Tidak tersedia ✗',
+          ),
         ],
       ),
     );

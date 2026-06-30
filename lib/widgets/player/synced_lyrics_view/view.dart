@@ -6,9 +6,11 @@ class SyncedLyricsView extends StatefulWidget {
   final List<LyricLine> lyrics;
   final EdgeInsetsGeometry padding;
   final ScrollController? controller;
+
   /// Sinyal visibilitas dari parent. Ketika berubah dari false → true,
   /// widget langsung melakukan re-centering ke highlight aktif.
   final bool isVisible;
+
   /// String LRC mentah termasuk inline word timestamps (Enhanced LRC).
   /// Jika diberikan dan berisi word timestamps, renderer akan menggunakan
   /// timing kata yang akurat. Null berarti gunakan renderer karakter standar.

@@ -15,7 +15,9 @@ class _LyricsPageState extends State<LyricsPage>
       filePath: widget.song.path.isNotEmpty ? widget.song.path : null,
     );
     _fadeCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 360));
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    );
     _fade = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
   }
@@ -39,28 +41,35 @@ class _LyricsPageState extends State<LyricsPage>
           // Overlay gelap + tambahan blur
           ValueListenableBuilder<double>(
             valueListenable: LyricsSettings.bgDim,
-            builder: (_, dim, _) => ValueListenableBuilder<double>(
-              valueListenable: LyricsSettings.blurStrength,
-              builder: (_, blur, _) => Stack(
-                fit: StackFit.expand,
-                children: [
-                  // RepaintBoundary + ClipRect prevent the BackdropFilter
-                  // from contaminating surrounding layers during slider drag.
-                  if (blur > 0)
-                    RepaintBoundary(
-                      child: ClipRect(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(
-                              sigmaX: blur * 0.3, sigmaY: blur * 0.3),
-                          child: const SizedBox.expand(),
-                        ),
+            builder:
+                (_, dim, _) => ValueListenableBuilder<double>(
+                  valueListenable: LyricsSettings.blurStrength,
+                  builder:
+                      (_, blur, _) => Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // RepaintBoundary + ClipRect prevent the BackdropFilter
+                          // from contaminating surrounding layers during slider drag.
+                          if (blur > 0)
+                            RepaintBoundary(
+                              child: ClipRect(
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: blur * 0.3,
+                                    sigmaY: blur * 0.3,
+                                  ),
+                                  child: const SizedBox.expand(),
+                                ),
+                              ),
+                            ),
+                          ColoredBox(
+                            color: Colors.black.withValues(
+                              alpha: dim.clamp(0.0, 0.95).toDouble(),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ColoredBox(
-                      color: Colors.black.withValues(alpha: dim.clamp(0.0, 0.95).toDouble())),
-                ],
-              ),
-            ),
+                ),
           ),
 
           // Gradient atas dan bawah
@@ -85,7 +94,8 @@ class _LyricsPageState extends State<LyricsPage>
                           ),
                         );
                       }
-                      final result = snapshot.data ??
+                      final result =
+                          snapshot.data ??
                           const LyricsResult([], LyricsSource.none);
                       if (result.isEmpty) {
                         return _EmptyLyrics(song: widget.song);

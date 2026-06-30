@@ -8,10 +8,7 @@ class _SongInfoContent extends StatelessWidget {
   /// AUDIO QUALITY section — they reflect what is actually being decoded now.
   final Map<String, dynamic>? liveFormat;
 
-  const _SongInfoContent({
-    required this.songInfo,
-    this.liveFormat,
-  });
+  const _SongInfoContent({required this.songInfo, this.liveFormat});
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +20,10 @@ class _SongInfoContent extends StatelessWidget {
         live != null && ((live['sampleRate'] as num?)?.toInt() ?? 0) > 0;
 
     // Compute Bit Depth string once; empty string means "skip this row".
-    final bitDepth = hasLive
-        ? _fmtPcmEncoding((live['pcmEncoding'] as num?)?.toInt() ?? 0)
-        : '';
+    final bitDepth =
+        hasLive
+            ? _fmtPcmEncoding((live['pcmEncoding'] as num?)?.toInt() ?? 0)
+            : '';
 
     return SingleChildScrollView(
       child: Column(
@@ -93,12 +91,13 @@ class _SongInfoContent extends StatelessWidget {
               // Format — MIME type label > file extension
               PlayerSongInfoRow(
                 label: 'Format',
-                value: hasLive
-                    ? _fmtMimeType(
-                        live['mimeType'] as String? ?? '',
-                        songInfo.format,
-                      )
-                    : songInfo.format,
+                value:
+                    hasLive
+                        ? _fmtMimeType(
+                          live['mimeType'] as String? ?? '',
+                          songInfo.format,
+                        )
+                        : songInfo.format,
               ),
 
               // Bit Depth — only present for PCM formats (WAV, some FLAC)
@@ -108,12 +107,13 @@ class _SongInfoContent extends StatelessWidget {
               // Sample Rate — live Hz > metadata string
               PlayerSongInfoRow(
                 label: 'Sample Rate',
-                value: hasLive
-                    ? _fmtSampleRate(
-                        (live['sampleRate'] as num?)?.toInt() ?? 0,
-                        songInfo.sampleRate,
-                      )
-                    : songInfo.sampleRate,
+                value:
+                    hasLive
+                        ? _fmtSampleRate(
+                          (live['sampleRate'] as num?)?.toInt() ?? 0,
+                          songInfo.sampleRate,
+                        )
+                        : songInfo.sampleRate,
               ),
 
               // Channels — live only
@@ -128,12 +128,13 @@ class _SongInfoContent extends StatelessWidget {
               // Bitrate — live bps > metadata string; 0 bps = lossless
               PlayerSongInfoRow(
                 label: 'Bitrate',
-                value: hasLive
-                    ? _fmtBitrate(
-                        (live['bitrate'] as num?)?.toInt() ?? 0,
-                        songInfo.bitrate,
-                      )
-                    : songInfo.bitrate,
+                value:
+                    hasLive
+                        ? _fmtBitrate(
+                          (live['bitrate'] as num?)?.toInt() ?? 0,
+                          songInfo.bitrate,
+                        )
+                        : songInfo.bitrate,
               ),
 
               // File Size — always from metadata (no native live equivalent)
@@ -154,14 +155,14 @@ class _SongInfoContent extends StatelessWidget {
   /// MIME string is empty or unrecognised.
   static String _fmtMimeType(String mime, String fallback) {
     final label = switch (mime) {
-      'audio/flac'                       => 'FLAC',
-      'audio/mpeg' || 'audio/mp3'        => 'MP3',
-      'audio/aac'  || 'audio/mp4a-latm'  => 'AAC',
-      'audio/ogg'  || 'audio/vorbis'     => 'OGG Vorbis',
-      'audio/opus'                       => 'Opus',
-      'audio/wav'  || 'audio/x-wav'      => 'WAV',
-      'audio/alac' || 'audio/x-alac'     => 'ALAC',
-      'audio/raw'  || 'audio/pcm'        => 'PCM',
+      'audio/flac' => 'FLAC',
+      'audio/mpeg' || 'audio/mp3' => 'MP3',
+      'audio/aac' || 'audio/mp4a-latm' => 'AAC',
+      'audio/ogg' || 'audio/vorbis' => 'OGG Vorbis',
+      'audio/opus' => 'Opus',
+      'audio/wav' || 'audio/x-wav' => 'WAV',
+      'audio/alac' || 'audio/x-alac' => 'ALAC',
+      'audio/raw' || 'audio/pcm' => 'PCM',
       _ => mime.isNotEmpty ? mime.split('/').last.toUpperCase() : '',
     };
     return label.isNotEmpty ? label : fallback;

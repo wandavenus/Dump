@@ -57,9 +57,10 @@ class LrcParser {
     final lineCount = raw.split('\n').where((l) => l.trim().isNotEmpty).length;
 
     // Jika rata-rata > 1 tag inline per baris → word-timed Enhanced LRC
-    final quality = inlineMatches > lineCount
-        ? LyricsQuality.wordTimedLrc
-        : inlineMatches > 0
+    final quality =
+        inlineMatches > lineCount
+            ? LyricsQuality.wordTimedLrc
+            : inlineMatches > 0
             ? LyricsQuality.charTimedLrc
             : LyricsQuality.lineTimedLrc;
 
@@ -71,15 +72,17 @@ class LrcParser {
   /// Parse plain text (tanpa timestamp) — distribusikan secara proporsional
   /// across ~3 menit 30 detik agar auto-scroll tetap bermakna.
   static ParsedLyrics _parsePlain(String raw) {
-    final lines = raw
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .toList();
+    final lines =
+        raw
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
     if (lines.isEmpty) return const ParsedLyrics([], LyricsQuality.none);
-    final int stepMs = lines.length > 1
-        ? (210000 / (lines.length - 1)).round().clamp(1000, 4000)
-        : 0;
+    final int stepMs =
+        lines.length > 1
+            ? (210000 / (lines.length - 1)).round().clamp(1000, 4000)
+            : 0;
     final result = List.generate(
       lines.length,
       (i) => LyricLine(
@@ -136,8 +139,7 @@ class LrcParser {
       if (timestamps.isEmpty) continue;
 
       // Teks = sesudah timestamp terakhir, strip inline word-timing
-      final rawText =
-          line.substring(cursor).replaceAll(_inlineRe, '').trim();
+      final rawText = line.substring(cursor).replaceAll(_inlineRe, '').trim();
       if (rawText.isEmpty) continue;
 
       for (final ts in timestamps) {
@@ -170,8 +172,11 @@ class LrcParser {
     if (!hasTs) return LyricsQuality.unsyncedLyrics;
 
     final inlineCount = _enhancedRe.allMatches(raw).length;
-    final lineCount =
-        raw.split('\n').where((l) => l.trim().isNotEmpty).length.clamp(1, 9999);
+    final lineCount = raw
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .length
+        .clamp(1, 9999);
     if (inlineCount > lineCount) return LyricsQuality.wordTimedLrc;
     if (inlineCount > 0) return LyricsQuality.charTimedLrc;
     return LyricsQuality.lineTimedLrc;

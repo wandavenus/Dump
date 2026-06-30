@@ -89,7 +89,7 @@ class PlayerMoreMenu extends StatelessWidget {
   }
 
   PopupMenuItem<_PlayerMoreAction> _sleepTimerItem() {
-    final active    = SleepTimerService.isActive.value;
+    final active = SleepTimerService.isActive.value;
     final remaining = SleepTimerService.remaining.value;
 
     String? statusLabel;

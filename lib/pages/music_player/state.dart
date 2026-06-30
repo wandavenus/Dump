@@ -34,9 +34,9 @@ class _MusicPlayerState extends State<MusicPlayer> {
       await AudioService.playSongAt(playlist: songs, index: rawIndex);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error playing song: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error playing song: $error')));
     }
   }
 
@@ -79,23 +79,26 @@ class _MusicPlayerState extends State<MusicPlayer> {
                 SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 40),
-                    child: song == null
-                        ? const PlayerEmptyState()
-                        : PlayerContent(
-                            song: song,
-                            playbackState: playbackState,
-                            formatTime: _formatTime,
-                            showLyrics: _showLyrics,
-                            onLyricsToggle: () => setState(() {
-                              _showLyrics = !_showLyrics;
-                              if (_showLyrics) _showQueue = false;
-                            }),
-                            showQueue: _showQueue,
-                            onQueueToggle: () => setState(() {
-                              _showQueue = !_showQueue;
-                              if (_showQueue) _showLyrics = false;
-                            }),
-                          ),
+                    child:
+                        song == null
+                            ? const PlayerEmptyState()
+                            : PlayerContent(
+                              song: song,
+                              playbackState: playbackState,
+                              formatTime: _formatTime,
+                              showLyrics: _showLyrics,
+                              onLyricsToggle:
+                                  () => setState(() {
+                                    _showLyrics = !_showLyrics;
+                                    if (_showLyrics) _showQueue = false;
+                                  }),
+                              showQueue: _showQueue,
+                              onQueueToggle:
+                                  () => setState(() {
+                                    _showQueue = !_showQueue;
+                                    if (_showQueue) _showLyrics = false;
+                                  }),
+                            ),
                   ),
                 ),
               ],

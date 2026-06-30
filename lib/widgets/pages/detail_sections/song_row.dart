@@ -49,7 +49,10 @@ class SongListRow extends StatelessWidget {
                         ),
                         Text(
                           song.album,
-                          style: const TextStyle(fontSize: 15, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],

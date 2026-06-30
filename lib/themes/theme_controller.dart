@@ -10,32 +10,32 @@ class ThemeController {
 
   // ─── Per-komponen glass (hanya aktif jika master ON) ────────────────────────
   // Player UI
-  static final ValueNotifier<bool> glassNavBar      = ValueNotifier(true);
-  static final ValueNotifier<bool> glassAppBar      = ValueNotifier(true);
-  static final ValueNotifier<bool> glassMiniPlayer  = ValueNotifier(true);
+  static final ValueNotifier<bool> glassNavBar = ValueNotifier(true);
+  static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
+  static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<bool> glassPlayerSheet = ValueNotifier(true);
   // Library & Cards
-  static final ValueNotifier<bool> glassAlbumCard   = ValueNotifier(true);
-  static final ValueNotifier<bool> glassArtistCard  = ValueNotifier(true);
-  static final ValueNotifier<bool> glassLibraryBar  = ValueNotifier(true);
+  static final ValueNotifier<bool> glassAlbumCard = ValueNotifier(true);
+  static final ValueNotifier<bool> glassArtistCard = ValueNotifier(true);
+  static final ValueNotifier<bool> glassLibraryBar = ValueNotifier(true);
   // Search
-  static final ValueNotifier<bool> glassSearchBar   = ValueNotifier(true);
+  static final ValueNotifier<bool> glassSearchBar = ValueNotifier(true);
   // Settings
-  static final ValueNotifier<bool> glassSettings    = ValueNotifier(false);
+  static final ValueNotifier<bool> glassSettings = ValueNotifier(false);
 
   // ─── Init ───────────────────────────────────────────────────────────────────
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    glassTheme.value       = prefs.getBool('glass_theme')        ?? false;
-    glassNavBar.value      = prefs.getBool('glass_navbar')       ?? true;
-    glassAppBar.value      = prefs.getBool('glass_appbar')       ?? true;
-    glassMiniPlayer.value  = prefs.getBool('glass_mini_player')  ?? true;
+    glassTheme.value = prefs.getBool('glass_theme') ?? false;
+    glassNavBar.value = prefs.getBool('glass_navbar') ?? true;
+    glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
+    glassMiniPlayer.value = prefs.getBool('glass_mini_player') ?? true;
     glassPlayerSheet.value = prefs.getBool('glass_player_sheet') ?? true;
-    glassAlbumCard.value   = prefs.getBool('glass_album_card')   ?? true;
-    glassArtistCard.value  = prefs.getBool('glass_artist_card')  ?? true;
-    glassLibraryBar.value  = prefs.getBool('glass_library_bar')  ?? true;
-    glassSearchBar.value   = prefs.getBool('glass_search_bar')   ?? true;
-    glassSettings.value    = prefs.getBool('glass_settings')     ?? false;
+    glassAlbumCard.value = prefs.getBool('glass_album_card') ?? true;
+    glassArtistCard.value = prefs.getBool('glass_artist_card') ?? true;
+    glassLibraryBar.value = prefs.getBool('glass_library_bar') ?? true;
+    glassSearchBar.value = prefs.getBool('glass_search_bar') ?? true;
+    glassSettings.value = prefs.getBool('glass_settings') ?? false;
   }
 
   // ─── Helper ─────────────────────────────────────────────────────────────────

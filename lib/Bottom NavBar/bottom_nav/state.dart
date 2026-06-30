@@ -36,18 +36,34 @@ class _FirstPageState extends State<FirstPage> {
             currentIndex: _selectedIndex,
             onTap: _navgateBottomBar,
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home_filled, size: 26), label: 'Beranda'),
-              BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded, size: 26), label: 'Baru'),
-              BottomNavigationBarItem(icon: Icon(Icons.sensors, size: 26), label: 'Radio'),
-              BottomNavigationBarItem(icon: Icon(Icons.subscriptions_rounded, size: 26), label: 'Perpustakaan'),
-              BottomNavigationBarItem(icon: Icon(Icons.search, size: 26), label: 'Cari'),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_filled, size: 26),
+                label: 'Beranda',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.grid_view_rounded, size: 26),
+                label: 'Baru',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.sensors, size: 26),
+                label: 'Radio',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.subscriptions_rounded, size: 26),
+                label: 'Perpustakaan',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.search, size: 26),
+                label: 'Cari',
+              ),
             ],
             elevation: 0,
             selectedLabelStyle: const TextStyle(color: Colors.white),
             selectedItemColor: const Color(0xFFF92D48),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
-            backgroundColor: isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
+            backgroundColor:
+                isGlass ? Colors.transparent : const Color(0xFF1C1C1E),
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
@@ -74,7 +90,6 @@ class _FirstPageState extends State<FirstPage> {
                     bottomNavigationBar: ValueListenableBuilder<double>(
                       valueListenable: PlayerSheetController.progress,
                       builder: (context, progress, _) {
-
                         final column = Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -83,18 +98,14 @@ class _FirstPageState extends State<FirstPage> {
                                 height: 1.5,
                                 color: const Color(0xFF38383A),
                               ),
-                            SizedBox(
-                              height: 70,
-                              child: navBar,
-                            ),
+                            SizedBox(height: 70, child: navBar),
                           ],
                         );
 
                         return Transform.translate(
                           offset: Offset(0, 70 * progress),
-                          
-                            child: isGlass ? GlassNavBar(child: column) : column,
-                          
+
+                          child: isGlass ? GlassNavBar(child: column) : column,
                         );
                       },
                     ),

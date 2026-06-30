@@ -17,8 +17,8 @@ import 'providers/netease_provider.dart';
 import 'providers/qq_music_provider.dart';
 
 /// Timeout dan window settings
-const _globalDeadline  = Duration(seconds: 15);
-const _upgradeWindow   = Duration(seconds: 2);
+const _globalDeadline = Duration(seconds: 15);
+const _upgradeWindow = Duration(seconds: 2);
 
 /// Orkestrasi pengambilan lirik dari semua provider.
 ///
@@ -40,9 +40,7 @@ class LyricsFetchManager {
 
   final List<LyricsProvider> _localProviders = [
     EmbeddedProvider(),
-    LocalFileProvider(
-      getConfiguredFolder: _getConfiguredFolder,
-    ),
+    const LocalFileProvider(getConfiguredFolder: _getConfiguredFolder),
   ];
 
   final List<LyricsProvider> _onlineProviders = [
@@ -51,7 +49,7 @@ class LyricsFetchManager {
     KugouProvider(),
     KuwoProvider(),
     QQMusicProvider(),
-    MusixmatchProvider(), // requires userToken — graceful skip if absent
+    const MusixmatchProvider(), // requires userToken — graceful skip if absent
   ];
 
   static String Function() _configuredFolderGetter = () => '';
@@ -81,32 +79,41 @@ class LyricsFetchManager {
     _activeToken = token;
 
     final key = query.cacheKey;
-    final sw  = Stopwatch()..start();
+    final sw = Stopwatch()..start();
 
     // 1. Memory cache
     final memResult = LyricsCacheManager.instance.getMemory(key);
     if (memResult != null) {
-      LogService.verbose('FetchManager',
-          'Memory cache hit: "${query.title}" [${memResult.quality.displayName}]');
+      LogService.verbose(
+        'FetchManager',
+        'Memory cache hit: "${query.title}" [${memResult.quality.displayName}]',
+      );
       return memResult;
     }
 
     // 2. Failure TTL — jangan coba lagi jika baru-baru ini gagal total
     if (LyricsCacheManager.instance.isRecentlyFailed(key)) {
-      LogService.verbose('FetchManager',
-          'Failure TTL active: "${query.title}" — skip');
+      LogService.verbose(
+        'FetchManager',
+        'Failure TTL active: "${query.title}" — skip',
+      );
       return null;
     }
 
-    LogService.log('FetchManager', 'Fetching: "${query.title}" — ${query.artist}');
+    LogService.log(
+      'FetchManager',
+      'Fetching: "${query.title}" — ${query.artist}',
+    );
 
     // 3. Disk cache
     if (!token.isCancelled) {
       final diskResult = await LyricsCacheManager.instance.getDisk(key);
       if (diskResult != null) {
         LyricsCacheManager.instance.putMemory(key, diskResult);
-        LogService.verbose('FetchManager',
-            'Disk cache hit: "${query.title}" [${diskResult.quality.displayName}]');
+        LogService.verbose(
+          'FetchManager',
+          'Disk cache hit: "${query.title}" [${diskResult.quality.displayName}]',
+        );
         return diskResult;
       }
     }
@@ -117,9 +124,11 @@ class LyricsFetchManager {
       try {
         final result = await provider.fetch(query, token);
         if (result != null && result.isNotEmpty) {
-          LogService.log('FetchManager',
-              '${provider.name}: "${query.title}" — ${result.lines.length} lines'
-              ' [${result.quality.displayName}] (${sw.elapsedMilliseconds}ms)');
+          LogService.log(
+            'FetchManager',
+            '${provider.name}: "${query.title}" — ${result.lines.length} lines'
+                ' [${result.quality.displayName}] (${sw.elapsedMilliseconds}ms)',
+          );
           LyricsCacheManager.instance.putMemory(key, result);
           // Local results tidak disimpan ke disk cache (sudah ada di disk)
           return result;
@@ -132,19 +141,23 @@ class LyricsFetchManager {
 
     // 5. Online providers — SEMUA BERJALAN PARALEL
     if (token.isCancelled) return null;
-    LogService.verbose('FetchManager',
-        'Starting ${_onlineProviders.length} online providers in parallel');
+    LogService.verbose(
+      'FetchManager',
+      'Starting ${_onlineProviders.length} online providers in parallel',
+    );
 
     final onlineResult = await _runParallel(_onlineProviders, query, token);
 
     if (token.isCancelled) return null;
 
     if (onlineResult != null && onlineResult.isNotEmpty) {
-      LogService.log('FetchManager',
-          'Online result: "${query.title}" — ${onlineResult.lines.length} lines'
-          ' [${onlineResult.quality.displayName}]'
-          ' from ${onlineResult.providerName}'
-          ' (${sw.elapsedMilliseconds}ms)');
+      LogService.log(
+        'FetchManager',
+        'Online result: "${query.title}" — ${onlineResult.lines.length} lines'
+            ' [${onlineResult.quality.displayName}]'
+            ' from ${onlineResult.providerName}'
+            ' (${sw.elapsedMilliseconds}ms)',
+      );
 
       LyricsCacheManager.instance.putMemory(key, onlineResult);
 
@@ -156,8 +169,10 @@ class LyricsFetchManager {
 
     // 6. Tidak ditemukan — catat failure TTL
     LyricsCacheManager.instance.markFailed(key);
-    LogService.warn('FetchManager',
-        'Not found: "${query.title}" — ${query.artist} (${sw.elapsedMilliseconds}ms)');
+    LogService.warn(
+      'FetchManager',
+      'Not found: "${query.title}" — ${query.artist} (${sw.elapsedMilliseconds}ms)',
+    );
     return null;
   }
 
@@ -171,9 +186,10 @@ class LyricsFetchManager {
     if (providers.isEmpty) return null;
 
     // Filter provider yang sedang rate-limited
-    final active = providers
-        .where((p) => !ProviderRateLimiter.instance.isLimited(p.name))
-        .toList();
+    final active =
+        providers
+            .where((p) => !ProviderRateLimiter.instance.isLimited(p.name))
+            .toList();
     if (active.isEmpty) return null;
 
     LyricsProviderResult? best;
@@ -194,12 +210,15 @@ class LyricsFetchManager {
       }
 
       if (result != null && result.isNotEmpty) {
-        final isUpgrade = best == null || result.quality.isBetterThan(bestQuality);
+        final isUpgrade =
+            best == null || result.quality.isBetterThan(bestQuality);
         if (isUpgrade) {
           best = result;
           bestQuality = result.quality;
-          LogService.verbose('FetchManager',
-              '${result.providerName}: [${result.quality.displayName}] ($remaining remaining)');
+          LogService.verbose(
+            'FetchManager',
+            '${result.providerName}: [${result.quality.displayName}] ($remaining remaining)',
+          );
 
           // Jika kualitas maksimal (word-timed), selesaikan segera
           if (bestQuality == LyricsQuality.wordTimedLrc) {
@@ -223,12 +242,14 @@ class LyricsFetchManager {
 
     // Jalankan semua provider secara paralel
     for (final provider in active) {
-      provider.fetch(query, token).then(onProviderResult).catchError((e) {
-        if (e is! CancelledException) {
-          LogService.verbose('FetchManager', '${provider.name} error: $e');
-        }
-        onProviderResult(null);
-      });
+      unawaited(
+        provider.fetch(query, token).then(onProviderResult).catchError((e) {
+          if (e is! CancelledException) {
+            LogService.verbose('FetchManager', '${provider.name} error: $e');
+          }
+          onProviderResult(null);
+        }),
+      );
     }
 
     // Tunggu: semua selesai, upgrade window, atau global deadline
@@ -254,7 +275,7 @@ class LyricsFetchManager {
   String _reconstructLrc(List<LyricLine> lines) {
     final buf = StringBuffer();
     for (final line in lines) {
-      final ms  = line.timestamp.inMilliseconds;
+      final ms = line.timestamp.inMilliseconds;
       final min = ms ~/ 60000;
       final sec = ((ms % 60000) / 1000.0);
       final secStr = sec.toStringAsFixed(2).padLeft(5, '0');

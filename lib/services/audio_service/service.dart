@@ -20,7 +20,8 @@ class AudioService {
   AudioService._();
 
   // ── Position stream (engine-agnostic, high-frequency, for lyrics sync) ─────
-  static Stream<Duration> get positionStream => AudioEngineManager.positionStream;
+  static Stream<Duration> get positionStream =>
+      AudioEngineManager.positionStream;
 
   // ── Playback state (single source of truth) ───────────────────────────────
   static final ValueNotifier<AudioPlaybackState> playbackState =
@@ -30,23 +31,24 @@ class AudioService {
   // Kept as a Dart list purely for LocalSong object access (song.duration,
   // ReplayGain data, etc.).  The AUTHORITATIVE queue lives in native.
   static List<LocalSong> _playlist = [];
-  static int             _currentIndex = 0;
+  static int _currentIndex = 0;
 
   /// Last song played — for LoudnessSourceResolver album-gain auto-mode.
   static LocalSong? _previousSong;
 
   // ── Misc ───────────────────────────────────────────────────────────────────
   static bool _initialized = false;
-  static bool _isLoading   = false;
+  static bool _isLoading = false;
   static final List<StreamSubscription<dynamic>> _staticSubs = [];
 
   // ── Convenience getters ───────────────────────────────────────────────────
-  static LocalSong? get currentSong     => playbackState.value.currentSong;
-  static bool       get isPlaying       => playbackState.value.isPlaying;
-  static int        get currentIndex    => playbackState.value.currentIndex;
-  static List<LocalSong> get currentPlaylist => playbackState.value.currentPlaylist;
-  static LoopMode   get loopMode        => playbackState.value.loopMode;
-  static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
+  static LocalSong? get currentSong => playbackState.value.currentSong;
+  static bool get isPlaying => playbackState.value.isPlaying;
+  static int get currentIndex => playbackState.value.currentIndex;
+  static List<LocalSong> get currentPlaylist =>
+      playbackState.value.currentPlaylist;
+  static LoopMode get loopMode => playbackState.value.loopMode;
+  static bool get shuffleEnabled => playbackState.value.shuffleEnabled;
 
   /// Next queue index — shuffle-correct when native value is available.
   ///
@@ -63,10 +65,10 @@ class AudioService {
     if (nativeNext != null) return nativeNext;
     // Fallback: linear calculation (used before first native currentTrack event).
     final state = playbackState.value;
-    final sz    = state.currentPlaylist.length;
+    final sz = state.currentPlaylist.length;
     if (sz == 0) return -1;
     if (state.loopMode == LoopMode.one) return state.currentIndex;
-    if (state.currentIndex < sz - 1)    return state.currentIndex + 1;
+    if (state.currentIndex < sz - 1) return state.currentIndex + 1;
     if (state.loopMode == LoopMode.all) return 0;
     return -1;
   }
@@ -81,11 +83,13 @@ class AudioService {
     _staticSubs.add(
       AudioEngineManager.playbackStateStream.listen((event) {
         final isPlaying = event['playing'] == true;
-        final ps        = _parseProcessingState(event['processingState']);
-        _setState(playbackState.value.copyWith(
-          isPlaying:       isPlaying,
-          processingState: ps,
-        ));
+        final ps = _parseProcessingState(event['processingState']);
+        _setState(
+          playbackState.value.copyWith(
+            isPlaying: isPlaying,
+            processingState: ps,
+          ),
+        );
         if (ps == ProcessingState.completed && !_isLoading) {
           LogService.verbose('AudioService', 'Track completed (queue ended)');
           _onTrackCompleted();
@@ -109,7 +113,9 @@ class AudioService {
 
     // ── Current track ──────────────────────────────────────────────────────
     _staticSubs.add(
-      AudioEngineManager.currentTrackStream.listen(_onNativeCurrentTrackChanged),
+      AudioEngineManager.currentTrackStream.listen(
+        _onNativeCurrentTrackChanged,
+      ),
     );
 
     // ── Full queue (pushed after every mutation) ──────────────────────────
@@ -121,7 +127,10 @@ class AudioService {
     _staticSubs.add(
       AudioEngineManager.shuffleModeStream.listen((enabled) {
         _setState(playbackState.value.copyWith(shuffleEnabled: enabled));
-        LogService.verbose('AudioService', 'Shuffle → ${enabled ? "on" : "off"}');
+        LogService.verbose(
+          'AudioService',
+          'Shuffle → ${enabled ? "on" : "off"}',
+        );
       }),
     );
 
@@ -137,12 +146,14 @@ class AudioService {
     // ── Sleep timer ────────────────────────────────────────────────────────
     _staticSubs.add(
       AudioEngineManager.sleepTimerStream.listen((map) {
-        final active      = map['active']      as bool? ?? false;
+        final active = map['active'] as bool? ?? false;
         final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
-        _setState(playbackState.value.copyWith(
-          sleepTimerActive:      active,
-          sleepTimerRemainingMs: remainingMs,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            sleepTimerActive: active,
+            sleepTimerRemainingMs: remainingMs,
+          ),
+        );
       }),
     );
 
@@ -157,9 +168,14 @@ class AudioService {
 
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
-    AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainPreamp.addListener(
+      _onReplayGainSettingChanged,
+    );
 
-    LogService.log('AudioService', 'Initialized — engine: ${AudioEngineManager.engineType.displayName}');
+    LogService.log(
+      'AudioService',
+      'Initialized — engine: ${AudioEngineManager.engineType.displayName}',
+    );
   }
 
   static void _onReplayGainSettingChanged() {
@@ -167,7 +183,10 @@ class AudioService {
     if (song != null) {
       // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
       _applyReplayGain(song).catchError((Object e) {
-        LogService.warn('AudioService', '_applyReplayGain (setting change) error: $e');
+        LogService.warn(
+          'AudioService',
+          '_applyReplayGain (setting change) error: $e',
+        );
       });
     }
   }
@@ -184,10 +203,11 @@ class AudioService {
   /// removeFromQueue / reorderQueue).
   static void _onNativeQueueChanged(List<dynamic> rawQueue) {
     try {
-      final songs = rawQueue
-          .whereType<Map>()
-          .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
-          .toList();
+      final songs =
+          rawQueue
+              .whereType<Map>()
+              .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
+              .toList();
       // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
       // playlist rather than keeping a stale list from the previous session.
       if (songs.isEmpty) {
@@ -212,20 +232,21 @@ class AudioService {
     if (_playlist.isEmpty || trackMap == null) return;
 
     final nativeIndex = trackMap['index'] as int? ?? -1;
-    final nativeId    = trackMap['id'];
+    final nativeId = trackMap['id'];
 
-    final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
-        ? nativeIndex
-        : _playlist.indexWhere((s) {
-            // nativeId bisa String atau int, konversi ke int jika perlu
-            if (nativeId is String) {
-              final id = int.tryParse(nativeId);
-              return id != null && s.id == id;
-            } else if (nativeId is int) {
-              return s.id == nativeId;
-            }
-            return false;
-          });
+    final int resolved =
+        (nativeIndex >= 0 && nativeIndex < _playlist.length)
+            ? nativeIndex
+            : _playlist.indexWhere((s) {
+              // nativeId bisa String atau int, konversi ke int jika perlu
+              if (nativeId is String) {
+                final id = int.tryParse(nativeId);
+                return id != null && s.id == id;
+              } else if (nativeId is int) {
+                return s.id == nativeId;
+              }
+              return false;
+            });
 
     if (resolved < 0 || resolved >= _playlist.length) {
       LogService.warn(
@@ -253,10 +274,12 @@ class AudioService {
     if (resolved == _currentIndex &&
         playbackState.value.currentSong?.id == _playlist[resolved].id) {
       if (nativeNext != playbackState.value.nextTrackIndex) {
-        _setState(playbackState.value.copyWith(
-          nextTrackIndex:      nativeNext,
-          clearNextTrackIndex: nativeNext == null,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            nextTrackIndex: nativeNext,
+            clearNextTrackIndex: nativeNext == null,
+          ),
+        );
       }
       return;
     }
@@ -265,29 +288,31 @@ class AudioService {
   }
 
   static void _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) {
-    final song      = _playlist[index];
+    final song = _playlist[index];
     final prevIndex = _currentIndex;
-    _currentIndex   = index;
+    _currentIndex = index;
     // ARCH-01 fix: capture _previousSong BEFORE overwriting it. The static field
     // was previously written before _applyReplayGain ran, so album-gain auto-mode
     // always compared the current song to itself (wrong). prevSong now carries the
     // correct predecessor into the async resolve call.
-    final prevSong  = _previousSong;
-    _previousSong   = song;
+    final prevSong = _previousSong;
+    _previousSong = song;
 
-    _setState(playbackState.value.copyWith(
-      currentSong:         song,
-      currentIndex:        index,
-      currentPlaylist:     _playlist,
-      duration:            song.duration,
-      nextTrackIndex:      nativeNextIndex,
-      clearNextTrackIndex: nativeNextIndex == null,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: song,
+        currentIndex: index,
+        currentPlaylist: _playlist,
+        duration: song.duration,
+        nextTrackIndex: nativeNextIndex,
+        clearNextTrackIndex: nativeNextIndex == null,
+      ),
+    );
 
     LogService.log(
       'AudioService',
       'Native → [${index + 1}/${_playlist.length}]: '
-      '"${song.title}" — ${song.artist}',
+          '"${song.title}" — ${song.artist}',
     );
 
     if (index != prevIndex) unawaited(HistoryService.trackPlay(song));
@@ -319,7 +344,10 @@ class AudioService {
     initialize();
 
     if (_isLoading) {
-      LogService.verbose('AudioService', 'playSongAt ignored — already loading');
+      LogService.verbose(
+        'AudioService',
+        'playSongAt ignored — already loading',
+      );
       return;
     }
     if (playlist.isEmpty || index < 0 || index >= playlist.length) {
@@ -331,17 +359,19 @@ class AudioService {
     }
 
     _isLoading = true;
-    final immutable     = List<LocalSong>.unmodifiable(playlist);
-    final selectedSong  = immutable[index];
-    _playlist           = immutable;
-    _currentIndex       = index;
+    final immutable = List<LocalSong>.unmodifiable(playlist);
+    final selectedSong = immutable[index];
+    _playlist = immutable;
+    _currentIndex = index;
 
-    _setState(playbackState.value.copyWith(
-      currentSong:     selectedSong,
-      currentIndex:    index,
-      currentPlaylist: immutable,
-      isLoading:       true,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: selectedSong,
+        currentIndex: index,
+        currentPlaylist: immutable,
+        isLoading: true,
+      ),
+    );
 
     try {
       // Yield I/O bandwidth to the audio decode pipeline by stopping the
@@ -356,14 +386,18 @@ class AudioService {
       LogService.log(
         'AudioService',
         'Now playing [${index + 1}/${immutable.length}]: '
-        '"${selectedSong.title}" — ${selectedSong.artist}',
+            '"${selectedSong.title}" — ${selectedSong.artist}',
       );
       unawaited(HistoryService.trackPlay(selectedSong));
     } catch (e, st) {
-      LogService.error('AudioService', 'playSongAt failed: $e', stackTrace: st.toString());
+      LogService.error(
+        'AudioService',
+        'playSongAt failed: $e',
+        stackTrace: st.toString(),
+      );
     } finally {
       _previousSong = selectedSong;
-      _isLoading    = false;
+      _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
     }
   }
@@ -417,17 +451,19 @@ class AudioService {
   static Future<void> playFromCurrentQueue(int index) async {
     if (index < 0 || index >= _playlist.length) return;
     _currentIndex = index;
-    final song    = _playlist[index];
-    _setState(playbackState.value.copyWith(
-      currentSong:  song,
-      currentIndex: index,
-    ));
+    final song = _playlist[index];
+    _setState(
+      playbackState.value.copyWith(currentSong: song, currentIndex: index),
+    );
     await AudioEngineManager.setTrack(index);
     await AudioEngineManager.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
     unawaited(_applyReplayGain(song));
-    LogService.log('AudioService', 'Queue jump → [${index + 1}]: "${song.title}"');
+    LogService.log(
+      'AudioService',
+      'Queue jump → [${index + 1}]: "${song.title}"',
+    );
   }
 
   // ── Loop / Shuffle (native-delegated) ─────────────────────────────────────
@@ -435,7 +471,7 @@ class AudioService {
   static Future<void> cycleLoopMode() async {
     initialize();
     final current = playbackState.value.loopMode;
-    final next    = switch (current) {
+    final next = switch (current) {
       LoopMode.off => LoopMode.all,
       LoopMode.all => LoopMode.one,
       LoopMode.one => LoopMode.off,
@@ -449,7 +485,7 @@ class AudioService {
   static Future<void> toggleShuffle() async {
     initialize();
     final current = playbackState.value.shuffleEnabled;
-    final next    = !current;
+    final next = !current;
     // Optimistic UI update — native confirms via shuffleModeStream.
     _setState(playbackState.value.copyWith(shuffleEnabled: next));
     await AudioEngineManager.setShuffleMode(next);
@@ -462,9 +498,9 @@ class AudioService {
   static void addToQueueNext(LocalSong song) {
     // Optimistic update for immediate UI feedback.
     if (_playlist.isNotEmpty) {
-      final pos     = (_currentIndex + 1).clamp(0, _playlist.length);
+      final pos = (_currentIndex + 1).clamp(0, _playlist.length);
       final mutable = List<LocalSong>.from(_playlist)..insert(pos, song);
-      _playlist     = List<LocalSong>.unmodifiable(mutable);
+      _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
     unawaited(AudioEngineManager.insertNext(song));
@@ -475,11 +511,14 @@ class AudioService {
   static void addToQueue(LocalSong song) {
     if (_playlist.isNotEmpty) {
       final mutable = List<LocalSong>.from(_playlist)..add(song);
-      _playlist     = List<LocalSong>.unmodifiable(mutable);
+      _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
     unawaited(AudioEngineManager.appendToQueue(song));
-    LogService.log('AudioService', 'Queued at end: "${song.title}" (${_playlist.length})');
+    LogService.log(
+      'AudioService',
+      'Queued at end: "${song.title}" (${_playlist.length})',
+    );
   }
 
   /// Reorder the queue. Follows Flutter's ReorderableListView convention:
@@ -489,11 +528,13 @@ class AudioService {
     if (oldIndex < 0 || oldIndex >= _playlist.length) return;
 
     // Adjust for Flutter's off-by-one in ReorderableListView.onReorder.
-    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex)
-        .clamp(0, _playlist.length - 1);
+    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex).clamp(
+      0,
+      _playlist.length - 1,
+    );
 
     final mutable = List<LocalSong>.from(_playlist);
-    final item    = mutable.removeAt(oldIndex);
+    final item = mutable.removeAt(oldIndex);
     mutable.insert(adjustedNew, item);
 
     int newCurrent = _currentIndex;
@@ -506,14 +547,19 @@ class AudioService {
     }
 
     _currentIndex = newCurrent;
-    _playlist     = List<LocalSong>.unmodifiable(mutable);
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: _playlist,
-      currentIndex:    _currentIndex,
-    ));
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _setState(
+      playbackState.value.copyWith(
+        currentPlaylist: _playlist,
+        currentIndex: _currentIndex,
+      ),
+    );
 
     unawaited(AudioEngineManager.reorderQueue(oldIndex, adjustedNew));
-    LogService.log('AudioService', 'Queue reordered: [$oldIndex] → [$adjustedNew]');
+    LogService.log(
+      'AudioService',
+      'Queue reordered: [$oldIndex] → [$adjustedNew]',
+    );
   }
 
   // ── Track-completed handler ────────────────────────────────────────────────
@@ -538,15 +584,18 @@ class AudioService {
   /// [_previousSong] static field from inside an async call. Callers that have
   /// already advanced [_previousSong] should pass the captured predecessor here.
   /// Callers that haven't yet overwritten [_previousSong] can omit this param.
-  static Future<void> _applyReplayGain(LocalSong song, {LocalSong? prevSong}) async {
+  static Future<void> _applyReplayGain(
+    LocalSong song, {
+    LocalSong? prevSong,
+  }) async {
     final mode = AudioEffectsService.replayGainMode.value;
     if (mode == ReplayGainMode.off) {
       AudioEngine.applyNormalize(enabled: false);
       return;
     }
     final data = await LoudnessSourceResolver.resolve(
-      song:         song,
-      mode:         mode,
+      song: song,
+      mode: mode,
       previousSong: prevSong ?? _previousSong,
     );
     if (!data.hasData) {
@@ -574,47 +623,53 @@ class AudioService {
       final List<dynamic> queueList = rawQueue is List ? rawQueue : <dynamic>[];
       if (queueList.isEmpty) return;
 
-      final songs = queueList
-          .whereType<Map>()
-          .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
-          .toList();
+      final songs =
+          queueList
+              .whereType<Map>()
+              .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
+              .toList();
       if (songs.isEmpty) return;
 
-      final index   = ((snapshot['currentIndex'] as num?)?.toInt() ?? 0)
-          .clamp(0, songs.length - 1);
-      final isPlaying  = snapshot['isPlaying']       as bool?   ?? false;
-      final stateStr   = snapshot['processingState'] as String? ?? 'idle';
-      final positionMs = (snapshot['positionMs']     as num?)?.toInt() ?? 0;
-      final durationMs = (snapshot['durationMs']     as num?)?.toInt() ?? 0;
-      final shuffleOn  = snapshot['shuffleEnabled']  as bool?   ?? false;
-      final repeatStr  = snapshot['repeatMode']      as String? ?? 'off';
+      final index = ((snapshot['currentIndex'] as num?)?.toInt() ?? 0).clamp(
+        0,
+        songs.length - 1,
+      );
+      final isPlaying = snapshot['isPlaying'] as bool? ?? false;
+      final stateStr = snapshot['processingState'] as String? ?? 'idle';
+      final positionMs = (snapshot['positionMs'] as num?)?.toInt() ?? 0;
+      final durationMs = (snapshot['durationMs'] as num?)?.toInt() ?? 0;
+      final shuffleOn = snapshot['shuffleEnabled'] as bool? ?? false;
+      final repeatStr = snapshot['repeatMode'] as String? ?? 'off';
       final timerActive = snapshot['sleepTimerActive'] as bool? ?? false;
-      final timerMs    = (snapshot['sleepTimerRemainingMs'] as num?)?.toInt() ?? 0;
+      final timerMs = (snapshot['sleepTimerRemainingMs'] as num?)?.toInt() ?? 0;
 
-      _playlist     = List<LocalSong>.unmodifiable(songs);
+      _playlist = List<LocalSong>.unmodifiable(songs);
       _currentIndex = index;
-      final song    = songs[index];
+      final song = songs[index];
 
-      _setState(playbackState.value.copyWith(
-        currentSong:           song,
-        currentIndex:          index,
-        currentPlaylist:       _playlist,
-        isPlaying:             isPlaying,
-        processingState:       _parseProcessingState(stateStr),
-        duration: durationMs > 0
-            ? Duration(milliseconds: durationMs)
-            : song.duration,
-        position:              Duration(milliseconds: positionMs),
-        shuffleEnabled:        shuffleOn,
-        loopMode:              _loopModeFromString(repeatStr),
-        sleepTimerActive:      timerActive,
-        sleepTimerRemainingMs: timerMs,
-      ));
+      _setState(
+        playbackState.value.copyWith(
+          currentSong: song,
+          currentIndex: index,
+          currentPlaylist: _playlist,
+          isPlaying: isPlaying,
+          processingState: _parseProcessingState(stateStr),
+          duration:
+              durationMs > 0
+                  ? Duration(milliseconds: durationMs)
+                  : song.duration,
+          position: Duration(milliseconds: positionMs),
+          shuffleEnabled: shuffleOn,
+          loopMode: _loopModeFromString(repeatStr),
+          sleepTimerActive: timerActive,
+          sleepTimerRemainingMs: timerMs,
+        ),
+      );
 
       LogService.log(
         'AudioService',
         'syncFromNative: ${songs.length} tracks, idx=$index, '
-        'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
+            'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
       );
 
       await _applyReplayGain(song);
@@ -632,15 +687,15 @@ class AudioService {
 
   static ProcessingState _parseProcessingState(dynamic raw) => switch (raw) {
     'buffering' => ProcessingState.buffering,
-    'ready'     => ProcessingState.ready,
+    'ready' => ProcessingState.ready,
     'completed' => ProcessingState.completed,
-    _           => ProcessingState.idle,
+    _ => ProcessingState.idle,
   };
 
   static LoopMode _loopModeFromString(String mode) => switch (mode) {
     'one' => LoopMode.one,
     'all' => LoopMode.all,
-    _     => LoopMode.off,
+    _ => LoopMode.off,
   };
 
   static String _fmtDur(Duration d) {

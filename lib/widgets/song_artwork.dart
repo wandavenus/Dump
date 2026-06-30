@@ -35,8 +35,8 @@ class _SongArtworkState extends State<SongArtwork> {
   // _loading:     whether an async load is currently in flight.
   // Together these implement a "latest-wins" strategy: if the widget's songId
   // changes while a load is in flight, the loop picks up the new ID.
-  int  _requestedId = -1;
-  bool _loading     = false;
+  int _requestedId = -1;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -60,7 +60,7 @@ class _SongArtworkState extends State<SongArtwork> {
     // crossing here forces a reload with targetSizePx: null so the full-res
     // FileImage is used for the full player.
     final wasSmall = old.size < 250;
-    final isLarge  = widget.size >= 250;
+    final isLarge = widget.size >= 250;
     if (wasSmall && isLarge) _load(widget.songId);
   }
 
@@ -74,12 +74,18 @@ class _SongArtworkState extends State<SongArtwork> {
       final targetId = _requestedId;
 
       // Read pixel ratio before the await (safe on the UI isolate).
-      final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+      final dpr =
+          WidgetsBinding
+              .instance
+              .platformDispatcher
+              .views
+              .first
+              .devicePixelRatio;
       final targetPx = (widget.size * dpr).round();
 
       final provider = await ArtworkRepository.instance.getProvider(
-      targetId,
-      targetSizePx: widget.size >= 250 ? null : targetPx,
+        targetId,
+        targetSizePx: widget.size >= 250 ? null : targetPx,
       );
 
       if (!mounted) break;
@@ -115,12 +121,12 @@ class _SongArtworkState extends State<SongArtwork> {
   }
 
   Widget _fallback() => Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(
-          borderRadius: widget.borderRadius,
-          color: Colors.grey.shade900,
-        ),
-        child: const Icon(Icons.music_note),
-      );
+    width: widget.size,
+    height: widget.size,
+    decoration: BoxDecoration(
+      borderRadius: widget.borderRadius,
+      color: Colors.grey.shade900,
+    ),
+    child: const Icon(Icons.music_note),
+  );
 }

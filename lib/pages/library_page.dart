@@ -49,10 +49,7 @@ class _LibraryPageState extends State<LibraryPage> {
         actions: const [CommonActions()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.9,
-            color: Colors.transparent,
-          ),
+          child: Container(height: 0.9, color: Colors.transparent),
         ),
       ),
       body: PrimaryScrollController(

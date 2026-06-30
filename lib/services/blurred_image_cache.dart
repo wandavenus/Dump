@@ -29,20 +29,22 @@ class BlurredImageCache {
 
     final completer = Completer<ui.Image?>();
     _pending[songId] = completer;
-    _compute(songId, bytes).then((img) {
-            if (img != null) {
-        if (_cache.length >= _maxEntries) {
-          final oldestKey = _cache.keys.first;
-          _cache.remove(oldestKey)?.dispose();
-        }
-        _cache[songId] = img;
-      }
-      _pending.remove(songId);
-      completer.complete(img);
-    }).catchError((Object _) {
-      _pending.remove(songId);
-      completer.complete(null);
-    });
+    _compute(songId, bytes)
+        .then((img) {
+          if (img != null) {
+            if (_cache.length >= _maxEntries) {
+              final oldestKey = _cache.keys.first;
+              _cache.remove(oldestKey)?.dispose();
+            }
+            _cache[songId] = img;
+          }
+          _pending.remove(songId);
+          completer.complete(img);
+        })
+        .catchError((Object _) {
+          _pending.remove(songId);
+          completer.complete(null);
+        });
 
     return completer.future;
   }
@@ -60,10 +62,7 @@ class BlurredImageCache {
       // Render the image with heavy blur into a PictureRecorder.
       // tileMode.mirror prevents dark halo at edges.
       final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(
-        recorder,
-        ui.Rect.fromLTWH(0, 0, w, h),
-      );
+      final canvas = ui.Canvas(recorder, ui.Rect.fromLTWH(0, 0, w, h));
       canvas.drawImage(
         src,
         ui.Offset.zero,

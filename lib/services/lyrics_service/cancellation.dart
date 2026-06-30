@@ -38,20 +38,24 @@ class CancellationToken {
 
   /// Lempar [CancelledException] jika token sudah dibatalkan.
   void throwIfCancelled() {
-    if (_cancelled) throw CancelledException();
+    if (_cancelled) throw const CancelledException();
   }
 
   /// Wrap sebuah Future agar otomatis dibatalkan jika token dibatalkan.
   Future<T> guardFuture<T>(Future<T> future) {
-    if (_cancelled) return Future.error(CancelledException());
+    if (_cancelled) return Future.error(const CancelledException());
     final completer = Completer<T>();
-    future.then((v) {
-      if (!completer.isCompleted) completer.complete(v);
-    }).catchError((e) {
-      if (!completer.isCompleted) completer.completeError(e);
-    });
+    future
+        .then((v) {
+          if (!completer.isCompleted) completer.complete(v);
+        })
+        .catchError((e) {
+          if (!completer.isCompleted) completer.completeError(e);
+        });
     onCancel(() {
-      if (!completer.isCompleted) completer.completeError(CancelledException());
+      if (!completer.isCompleted) {
+        completer.completeError(const CancelledException());
+      }
     });
     return completer.future;
   }

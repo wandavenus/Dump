@@ -8,17 +8,17 @@ class LogService {
   static final List<LogEntry> _logs = [];
   static final ValueNotifier<int> logCount = ValueNotifier(0);
 
-  static final ValueNotifier<bool> loggingEnabled  = ValueNotifier(true);
-  static final ValueNotifier<bool> errorsOnly       = ValueNotifier(false);
-  static final ValueNotifier<bool> verboseEnabled   = ValueNotifier(false);
+  static final ValueNotifier<bool> loggingEnabled = ValueNotifier(true);
+  static final ValueNotifier<bool> errorsOnly = ValueNotifier(false);
+  static final ValueNotifier<bool> verboseEnabled = ValueNotifier(false);
 
   // ── Init ────────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    loggingEnabled.value  = prefs.getBool('log_enabled')      ?? true;
-    errorsOnly.value      = prefs.getBool('log_errors_only')  ?? false;
-    verboseEnabled.value  = prefs.getBool('log_verbose')      ?? false;
+    loggingEnabled.value = prefs.getBool('log_enabled') ?? true;
+    errorsOnly.value = prefs.getBool('log_errors_only') ?? false;
+    verboseEnabled.value = prefs.getBool('log_verbose') ?? false;
   }
 
   // ── Settings ────────────────────────────────────────────────────────────────
@@ -55,10 +55,10 @@ class LogService {
     if (level == LogLevel.verbose && !verboseEnabled.value) return;
 
     final entry = LogEntry(
-      timestamp:  DateTime.now(),
-      category:   category,
-      message:    message,
-      level:      level,
+      timestamp: DateTime.now(),
+      category: category,
+      message: message,
+      level: level,
       stackTrace: stackTrace,
     );
 
@@ -106,7 +106,7 @@ class LogService {
     return cats;
   }
 
-  static List<LogEntry> getErrors()   => getLogs(level: LogLevel.error);
+  static List<LogEntry> getErrors() => getLogs(level: LogLevel.error);
   static List<LogEntry> getWarnings() => getLogs(level: LogLevel.warning);
 
   // ── Count helpers ────────────────────────────────────────────────────────────

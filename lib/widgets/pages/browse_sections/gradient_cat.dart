@@ -35,7 +35,11 @@ class _GradientCategory extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
                 shadows: [
-                  Shadow(color: Colors.white, offset: Offset(0, 0), blurRadius: 15),
+                  Shadow(
+                    color: Colors.white,
+                    offset: Offset(0, 0),
+                    blurRadius: 15,
+                  ),
                 ],
               ),
             ),

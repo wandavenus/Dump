@@ -17,13 +17,23 @@ class _ArtistListContentState extends State<ArtistListContent> {
       for (final song in songs) {
         artistMap.putIfAbsent(song.artist, () => []).add(song);
       }
-      final artists = artistMap.entries
-          .map((e) => ArtistInfo(name: e.key, songs: e.value))
-          .toList()
-        ..sort((a, b) => a.name.compareTo(b.name));
-      if (mounted) setState(() { _artists = artists; _isLoading = false; });
+      final artists =
+          artistMap.entries
+              .map((e) => ArtistInfo(name: e.key, songs: e.value))
+              .toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
+      if (mounted) {
+        setState(() {
+          _artists = artists;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -34,7 +44,10 @@ class _ArtistListContentState extends State<ArtistListContent> {
     }
     if (_artists.isEmpty) {
       return const Center(
-        child: Text('Tidak ada artis ditemukan', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'Tidak ada artis ditemukan',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
     return ListView.builder(

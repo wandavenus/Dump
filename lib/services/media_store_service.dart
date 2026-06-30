@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import '../models/local_song.dart';
 
 class MediaStoreService {
-  static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/media_store',
+  );
   static const int _maxArtworkCacheEntries = 80;
 
   static final LinkedHashMap<int, Future<Uint8List?>> _artworkCache =
@@ -25,12 +27,10 @@ class MediaStoreService {
 
   static Future<List<LocalSong>> refreshSongs() async {
     try {
-      final List<dynamic>? songs =
-          await _channel.invokeListMethod('getSongs');
+      final List<dynamic>? songs = await _channel.invokeListMethod('getSongs');
 
       final parsedSongs = (songs ?? const <dynamic>[])
-          .map((song) =>
-              LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
+          .map((song) => LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
           .where((song) => song.path.isNotEmpty)
           .toList(growable: false);
 
@@ -86,15 +86,16 @@ class MediaStoreService {
 
   static Future<Uint8List?> _loadArtwork(int songId) async {
     try {
-      return _channel.invokeMethod<Uint8List>(
-        'getArtwork',
-        {'songId': songId},
-      );
+      return _channel.invokeMethod<Uint8List>('getArtwork', {'songId': songId});
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load artwork for song $songId: $error\n$stackTrace');
+      debugPrint(
+        'Failed to load artwork for song $songId: $error\n$stackTrace',
+      );
       return null;
     } catch (error, stackTrace) {
-      debugPrint('Invalid artwork payload for song $songId: $error\n$stackTrace');
+      debugPrint(
+        'Invalid artwork payload for song $songId: $error\n$stackTrace',
+      );
       return null;
     }
   }
@@ -116,10 +117,7 @@ class MediaStoreService {
   /// Call whenever the queue is set, shuffled, or items are added/removed.
   static Future<void> setActiveQueueIds(List<int> songIds) async {
     try {
-      await _channel.invokeMethod<void>(
-        'setActiveQueueIds',
-        {'ids': songIds},
-      );
+      await _channel.invokeMethod<void>('setActiveQueueIds', {'ids': songIds});
     } catch (e) {
       debugPrint('setActiveQueueIds error: $e');
     }
@@ -128,10 +126,9 @@ class MediaStoreService {
   static Future<String?> getArtworkPath(int songId) async {
     if (songId <= 0) return null;
     try {
-      return await _channel.invokeMethod<String>(
-        'getArtworkPath',
-        {'songId': songId},
-      );
+      return await _channel.invokeMethod<String>('getArtworkPath', {
+        'songId': songId,
+      });
     } on PlatformException catch (e) {
       debugPrint('getArtworkPath error songId=$songId: $e');
       return null;

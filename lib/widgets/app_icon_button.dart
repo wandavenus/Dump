@@ -27,12 +27,13 @@ class CommonActions extends StatelessWidget {
               color: Color(0xFFF92D48),
               size: 24,
             ),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Pengaturan'),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: Text('Pengaturan'),
+                  ),
+                ],
           ),
         ),
       ],

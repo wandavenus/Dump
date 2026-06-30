@@ -7,11 +7,12 @@ class _AlbumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/album',
-        arguments: {'album': album.songs.first, 'songs': album.songs},
-      ),
+      onTap:
+          () => Navigator.pushNamed(
+            context,
+            '/album',
+            arguments: {'album': album.songs.first, 'songs': album.songs},
+          ),
       child: Container(
         margin: const EdgeInsets.only(right: 10, left: 6),
         child: Column(
@@ -54,8 +55,8 @@ class _AlbumCard extends StatelessWidget {
                 height: 70,
                 width: 250,
                 decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 53, 53, 53),
-              ),
+                  color: Color.fromARGB(255, 53, 53, 53),
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

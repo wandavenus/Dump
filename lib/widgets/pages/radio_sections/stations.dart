@@ -17,19 +17,19 @@ class _SmartCardData {
 
 // Non-const because MaterialColor isn't a compile-time constant.
 final _smartCards = [
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Favorit',
     icon: Icons.favorite,
     color: Colors.red,
     type: SmartPlaylistType.favorites,
   ),
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Diputar Terakhir',
     icon: Icons.history,
     color: Colors.blue,
     type: SmartPlaylistType.recentlyPlayed,
   ),
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Paling Sering',
     icon: Icons.trending_up,
     color: Colors.orange,
@@ -69,12 +69,14 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           ids = await HistoryService.getRecentlyPlayedIds();
         case SmartPlaylistType.mostPlayed:
           final counts = await HistoryService.getPlayCounts();
-          final sorted = counts.entries.toList()
-            ..sort((a, b) => (b.value as int).compareTo(a.value as int));
-          ids = sorted
-              .map((e) => int.tryParse(e.key) ?? 0)
-              .where((id) => id != 0)
-              .toList();
+          final sorted =
+              counts.entries.toList()
+                ..sort((a, b) => (b.value as int).compareTo(a.value as int));
+          ids =
+              sorted
+                  .map((e) => int.tryParse(e.key) ?? 0)
+                  .where((id) => id != 0)
+                  .toList();
       }
       if (mounted) {
         setState(() {
@@ -90,12 +92,13 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PlaylistPage.smart(
-          name: data.name,
-          icon: data.icon,
-          iconColor: data.color,
-          type: data.type,
-        ),
+        builder:
+            (_) => PlaylistPage.smart(
+              name: data.name,
+              icon: data.icon,
+              iconColor: data.color,
+              type: data.type,
+            ),
       ),
     );
   }
@@ -157,36 +160,37 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(2),
-              ),
+      builder:
+          (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade700,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text(
+                    'Hapus Playlist',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await PlaylistService.deletePlaylist(widget.playlist.id);
+                    widget.onDeleted();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text(
-                'Hapus Playlist',
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await PlaylistService.deletePlaylist(widget.playlist.id);
-                widget.onDeleted();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -232,46 +236,47 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text(
-          'Playlist Baru',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Nama playlist',
-            hintStyle: TextStyle(color: Colors.grey),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text(
-              'Buat',
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1C1C1E),
+            title: const Text(
+              'Playlist Baru',
               style: TextStyle(color: Colors.white),
             ),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Nama playlist',
+                hintStyle: TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                child: const Text(
+                  'Buat',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (name != null && name.isNotEmpty) {
       await PlaylistService.createPlaylist(name);
-      _load();
+      unawaited(_load());
     }
   }
 
@@ -296,8 +301,10 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
               GestureDetector(
                 onTap: _createPlaylist,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2C2C2E),
                     borderRadius: BorderRadius.circular(20),

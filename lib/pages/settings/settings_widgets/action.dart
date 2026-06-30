@@ -26,9 +26,7 @@ class SettingsActionRow extends StatelessWidget {
               child: Text(
                 title,
                 style: TextStyle(
-                  color: isDestructive
-                      ? const Color(0xFFF92D48)
-                      : Colors.white,
+                  color: isDestructive ? const Color(0xFFF92D48) : Colors.white,
                   fontSize: 16,
                 ),
               ),

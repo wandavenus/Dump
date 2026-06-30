@@ -57,10 +57,12 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
     }
     try {
       final params = await Media3PlaybackBridge.getEqualizerParameters();
-      final rawLabels = params.bands.map((b) => _formatHz(b.centerFrequencyHz)).toList();
-      final labels = rawLabels.every((l) => l != '?') && rawLabels.isNotEmpty
-          ? rawLabels
-          : _defaultLabels;
+      final rawLabels =
+          params.bands.map((b) => _formatHz(b.centerFrequencyHz)).toList();
+      final labels =
+          rawLabels.every((l) => l != '?') && rawLabels.isNotEmpty
+              ? rawLabels
+              : _defaultLabels;
       final count = labels.length;
 
       if (!mounted) return;
@@ -79,7 +81,10 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
 
   Future<void> _restoreGainsFromPrefs(int count) async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = List.generate(count, (i) => prefs.getDouble('eqBand_$i') ?? 0.0);
+    final saved = List.generate(
+      count,
+      (i) => prefs.getDouble('eqBand_$i') ?? 0.0,
+    );
     if (mounted) setState(() => _gains = saved);
   }
 
@@ -125,22 +130,26 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
           children: [
             _SectionLabel(
               'BAND EQ',
-              trailing: enabled
-                  ? GestureDetector(
-                      onTap: _resetAll,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        child: Text(
-                          'Reset',
-                          style: TextStyle(
-                            color: Color(0xFFF92D48),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+              trailing:
+                  enabled
+                      ? GestureDetector(
+                        onTap: _resetAll,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: Text(
+                            'Reset',
+                            style: TextStyle(
+                              color: Color(0xFFF92D48),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                      : null,
             ),
             const SizedBox(height: 16),
             AnimatedOpacity(
@@ -283,9 +292,10 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
           child: AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 150),
             style: TextStyle(
-              color: isDragging || isActive
-                  ? const Color(0xFFF92D48)
-                  : const Color(0xFF636366),
+              color:
+                  isDragging || isActive
+                      ? const Color(0xFFF92D48)
+                      : const Color(0xFF636366),
               fontSize: 10,
               fontWeight:
                   isDragging || isActive ? FontWeight.w600 : FontWeight.normal,
@@ -299,26 +309,31 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
         // ── Slider track (Listener for multitouch-safe drags) ────────
         Expanded(
           child: LayoutBuilder(
-            builder: (_, constraints) => Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (e) => _onPointerDown(e, constraints),
-              onPointerMove: (e) => _onPointerMove(e, constraints),
-              onPointerUp: _onPointerUp,
-              onPointerCancel: _onPointerCancel,
-              child: AnimatedBuilder(
-                animation: _pressCtrl,
-                builder: (_, _) => CustomPaint(
-                  size: Size(constraints.maxWidth, constraints.maxHeight),
-                  painter: _BandTrackPainter(
-                    gain: widget.gain,
-                    min: widget.min,
-                    max: widget.max,
-                    pressAmount: _pressCtrl.value,
-                    enabled: widget.enabled,
+            builder:
+                (_, constraints) => Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (e) => _onPointerDown(e, constraints),
+                  onPointerMove: (e) => _onPointerMove(e, constraints),
+                  onPointerUp: _onPointerUp,
+                  onPointerCancel: _onPointerCancel,
+                  child: AnimatedBuilder(
+                    animation: _pressCtrl,
+                    builder:
+                        (_, _) => CustomPaint(
+                          size: Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
+                          painter: _BandTrackPainter(
+                            gain: widget.gain,
+                            min: widget.min,
+                            max: widget.max,
+                            pressAmount: _pressCtrl.value,
+                            enabled: widget.enabled,
+                          ),
+                        ),
                   ),
                 ),
-              ),
-            ),
           ),
         ),
 
@@ -329,10 +344,7 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
           height: 16,
           child: Text(
             widget.freqLabel,
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 10),
             textAlign: TextAlign.center,
           ),
         ),
@@ -376,39 +388,47 @@ class _BandTrackPainter extends CustomPainter {
     if (range <= 0) return;
 
     final cx = size.width / 2;
-    final gainFraction = (gain - min) / range;          // 0.0 (min) → 1.0 (max)
-    final zeroFraction = (-min) / range;                // position of 0 dB
+    final gainFraction = (gain - min) / range; // 0.0 (min) → 1.0 (max)
+    final zeroFraction = (-min) / range; // position of 0 dB
     final thumbY = size.height * (1.0 - gainFraction);
     final centerY = size.height * (1.0 - zeroFraction);
 
     // ── Colours ──────────────────────────────────────────────────────────────
     const trackBg = Color(0xFF3A3A3C);
     const centerTick = Color(0xFF636366);
-    final accentColor = enabled
-        ? Color.lerp(
-            const Color(0xFF888888),
-            const Color(0xFFF92D48),
-            (gain.abs() / (range / 2)).clamp(0.0, 1.0),
-          )!
-        : const Color(0xFF3A3A3C);
-    final thumbColor = enabled
-        ? Color.lerp(const Color(0xFF8A8A8E), const Color(0xFFF92D48),
-            (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 + pressAmount * 0.2)!
-        : const Color(0xFF5A5A5E);
+    final accentColor =
+        enabled
+            ? Color.lerp(
+              const Color(0xFF888888),
+              const Color(0xFFF92D48),
+              (gain.abs() / (range / 2)).clamp(0.0, 1.0),
+            )!
+            : const Color(0xFF3A3A3C);
+    final thumbColor =
+        enabled
+            ? Color.lerp(
+              const Color(0xFF8A8A8E),
+              const Color(0xFFF92D48),
+              (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 +
+                  pressAmount * 0.2,
+            )!
+            : const Color(0xFF5A5A5E);
 
     // ── Background track ─────────────────────────────────────────────────────
-    final bgPaint = Paint()
-      ..color = trackBg
-      ..strokeWidth = _trackW
-      ..strokeCap = StrokeCap.round;
+    final bgPaint =
+        Paint()
+          ..color = trackBg
+          ..strokeWidth = _trackW
+          ..strokeCap = StrokeCap.round;
     canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), bgPaint);
 
     // ── Active fill (center → thumb) ─────────────────────────────────────────
     if (gain.abs() > 0.05) {
-      final activePaint = Paint()
-        ..color = accentColor
-        ..strokeWidth = _trackW + pressAmount
-        ..strokeCap = StrokeCap.round;
+      final activePaint =
+          Paint()
+            ..color = accentColor
+            ..strokeWidth = _trackW + pressAmount
+            ..strokeCap = StrokeCap.round;
       canvas.drawLine(
         Offset(cx, gain > 0 ? thumbY : centerY),
         Offset(cx, gain > 0 ? centerY : thumbY),
@@ -417,10 +437,11 @@ class _BandTrackPainter extends CustomPainter {
     }
 
     // ── Center tick (0 dB reference) ─────────────────────────────────────────
-    final centerPaint = Paint()
-      ..color = centerTick
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
+    final centerPaint =
+        Paint()
+          ..color = centerTick
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round;
     canvas.drawLine(
       Offset(cx - _centerTickHalfW, centerY),
       Offset(cx + _centerTickHalfW, centerY),
@@ -428,12 +449,12 @@ class _BandTrackPainter extends CustomPainter {
     );
 
     // ── Thumb glow (when pressed or gain ≠ 0) ────────────────────────────────
-    final glowOpacity = (pressAmount * 0.25 +
-        (gain.abs() > 0.1 ? 0.08 : 0.0));
+    final glowOpacity = (pressAmount * 0.25 + (gain.abs() > 0.1 ? 0.08 : 0.0));
     if (glowOpacity > 0 && enabled) {
-      final glowPaint = Paint()
-        ..color = const Color(0xFFF92D48).withValues(alpha: glowOpacity)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      final glowPaint =
+          Paint()
+            ..color = const Color(0xFFF92D48).withValues(alpha: glowOpacity)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(
         Offset(cx, thumbY),
         _thumbBaseR + _thumbPressExtra + 4,
@@ -448,8 +469,9 @@ class _BandTrackPainter extends CustomPainter {
 
     // Inner highlight on thumb
     if (enabled && gain.abs() > 0.05) {
-      final innerPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.18 + pressAmount * 0.12);
+      final innerPaint =
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.18 + pressAmount * 0.12);
       canvas.drawCircle(Offset(cx, thumbY), thumbR * 0.45, innerPaint);
     }
   }

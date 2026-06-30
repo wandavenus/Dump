@@ -13,13 +13,19 @@ class _SearchAppBar extends StatelessWidget {
       automaticallyImplyLeading: false,
       surfaceTintColor: Colors.transparent,
       title: Transform.translate(
-        offset: Offset(0, (1 - (scrollOffset / 100).clamp(0.0, 1.0).toDouble()) * 40),
+        offset: Offset(
+          0,
+          (1 - (scrollOffset / 100).clamp(0.0, 1.0).toDouble()) * 40,
+        ),
         child: Opacity(
-          opacity: ((((scrollOffset - 25) / 25).clamp(0.0, 1.0).toDouble()) * 1.5)
-              .clamp(0.0, 1.0)
-              .toDouble(),
-          child: const Text('Cari',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+          opacity:
+              ((((scrollOffset - 25) / 25).clamp(0.0, 1.0).toDouble()) * 1.5)
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+          child: const Text(
+            'Cari',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
       bottom: PreferredSize(

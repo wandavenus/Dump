@@ -12,22 +12,28 @@ class _EmptyLyrics extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(CupertinoIcons.music_note,
-                size: 48, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(
+              CupertinoIcons.music_note,
+              size: 48,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 16),
             Text(
               'Lirik tidak ditemukan',
               style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500),
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               '${song.title} · ${song.artist}',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3), fontSize: 13),
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -35,7 +41,9 @@ class _EmptyLyrics extends StatelessWidget {
               'atau konfigurasi folder lirik di Pengaturan.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                color: Colors.white.withValues(alpha: 0.2),
+                fontSize: 12,
+              ),
             ),
           ],
         ),

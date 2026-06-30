@@ -51,9 +51,8 @@ class _RadioPageState extends State<RadioPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
-        final topPad = isGlass
-            ? MediaQuery.of(context).padding.top + kToolbarHeight
-            : 0.0;
+        final topPad =
+            isGlass ? MediaQuery.of(context).padding.top + kToolbarHeight : 0.0;
 
         return Scaffold(
           extendBodyBehindAppBar: isGlass,

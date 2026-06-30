@@ -29,18 +29,19 @@ class EmbeddedProvider implements LyricsProvider {
 
     try {
       cancelToken.throwIfCancelled();
-      final raw = await _channel.invokeMethod<String>(
-        'getEmbeddedLyrics',
-        {'path': path},
-      );
+      final raw = await _channel.invokeMethod<String>('getEmbeddedLyrics', {
+        'path': path,
+      });
       if (raw == null || raw.trim().isEmpty) return null;
       cancelToken.throwIfCancelled();
 
       final parsed = LrcParser.parse(raw.trim());
       if (parsed.isEmpty) return null;
 
-      LogService.verbose('EmbeddedProvider',
-          '${parsed.lines.length} lines [${parsed.quality.displayName}]');
+      LogService.verbose(
+        'EmbeddedProvider',
+        '${parsed.lines.length} lines [${parsed.quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: parsed.lines,
         quality: parsed.quality,

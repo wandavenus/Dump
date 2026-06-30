@@ -22,7 +22,10 @@ class _Chip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? color : const Color(0xFF48484A), width: 0.5),
+          border: Border.all(
+            color: selected ? color : const Color(0xFF48484A),
+            width: 0.5,
+          ),
         ),
         child: Text(label, style: TextStyle(color: color, fontSize: 11)),
       ),

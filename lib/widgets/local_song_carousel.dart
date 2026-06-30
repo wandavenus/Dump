@@ -8,10 +8,7 @@ import 'local_song_card.dart';
 class LocalSongCarousel extends StatelessWidget {
   final List<LocalSong> songs;
 
-  const LocalSongCarousel({
-    super.key,
-    required this.songs,
-  });
+  const LocalSongCarousel({super.key, required this.songs});
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +20,12 @@ class LocalSongCarousel extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(10),
         itemCount: songs.length,
-        itemBuilder: (context, index) => LocalSongCard(
-          song: songs[index],
-          playlist: songs,
-          index: index,
-        ),
+        itemBuilder:
+            (context, index) => LocalSongCard(
+              song: songs[index],
+              playlist: songs,
+              index: index,
+            ),
       ),
     );
   }

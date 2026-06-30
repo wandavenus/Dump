@@ -9,7 +9,10 @@ class _EdgeGradients extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Positioned(
-          top: 0, left: 0, right: 0, height: 160,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 160,
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -17,14 +20,17 @@ class _EdgeGradients extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.black.withValues(alpha: 0.92),
-                  Colors.transparent
+                  Colors.transparent,
                 ],
               ),
             ),
           ),
         ),
         Positioned(
-          bottom: 0, left: 0, right: 0, height: 100,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 100,
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -32,7 +38,7 @@ class _EdgeGradients extends StatelessWidget {
                 end: Alignment.topCenter,
                 colors: [
                   Colors.black.withValues(alpha: 0.85),
-                  Colors.transparent
+                  Colors.transparent,
                 ],
               ),
             ),

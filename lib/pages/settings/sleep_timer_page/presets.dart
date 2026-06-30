@@ -20,13 +20,18 @@ class _PresetList extends StatelessWidget {
           return Column(
             children: [
               InkWell(
-                borderRadius: isLast
-                    ? const BorderRadius.vertical(bottom: Radius.circular(12))
-                    : BorderRadius.zero,
+                borderRadius:
+                    isLast
+                        ? const BorderRadius.vertical(
+                          bottom: Radius.circular(12),
+                        )
+                        : BorderRadius.zero,
                 onTap: () => _startPreset(context, preset),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -41,11 +46,16 @@ class _PresetList extends StatelessWidget {
                         child: Text(
                           preset.label,
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                      const Icon(Icons.chevron_right,
-                          color: Color(0xFF48484A), size: 20),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFF48484A),
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -65,8 +75,9 @@ class _PresetList extends StatelessWidget {
   }
 
   void _startPreset(
-      BuildContext context,
-      ({String label, Duration? duration}) preset) {
+    BuildContext context,
+    ({String label, Duration? duration}) preset,
+  ) {
     if (preset.duration == null) {
       SleepTimerService.startEndOfSong();
     } else {
@@ -88,8 +99,7 @@ class _PresetList extends StatelessWidget {
         ),
         backgroundColor: const Color(0xFF1C1C1E),
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
     );

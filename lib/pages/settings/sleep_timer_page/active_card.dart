@@ -10,7 +10,9 @@ class _ActiveTimerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1C1E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF92D48).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFFF92D48).withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [
@@ -22,9 +24,10 @@ class _ActiveTimerCard extends StatelessWidget {
               Text(
                 'Sleep Timer Aktif',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -35,16 +38,16 @@ class _ActiveTimerCard extends StatelessWidget {
               if (remaining == null) {
                 return const Text(
                   'Berhenti setelah lagu ini selesai',
-                  style: TextStyle(
-                      color: Color(0xFF8E8E93), fontSize: 14),
+                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
                 );
               }
               final h = remaining.inHours;
               final m = remaining.inMinutes % 60;
               final s = remaining.inSeconds % 60;
-              final label = h > 0
-                  ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
-                  : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+              final label =
+                  h > 0
+                      ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+                      : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
               return Text(
                 label,
                 style: const TextStyle(

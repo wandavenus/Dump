@@ -28,8 +28,9 @@ class MediaKitServiceBridge {
   MediaKitServiceBridge._();
 
   static const _serviceChannel = MethodChannel('musicplayer/mediakit_service');
-  static const _transportChannel =
-      EventChannel('musicplayer/mediakit_transport');
+  static const _transportChannel = EventChannel(
+    'musicplayer/mediakit_transport',
+  );
 
   static StreamSubscription<dynamic>? _transportSub;
 
@@ -55,7 +56,7 @@ class MediaKitServiceBridge {
     _transportSub = _transportChannel.receiveBroadcastStream().listen(
       (event) {
         if (event is! Map) return;
-        final action     = event['action']     as String? ?? '';
+        final action = event['action'] as String? ?? '';
         final positionMs = (event['positionMs'] as num?)?.toInt();
         if (action.isNotEmpty) {
           _transportHandler?.call(action, positionMs);
@@ -111,8 +112,8 @@ class MediaKitServiceBridge {
   }) async {
     if (!_isAndroid) return;
     final args = <String, Object?>{
-      'title':      title,
-      'artist':     artist,
+      'title': title,
+      'artist': artist,
       'artworkUri': artworkUri,
       'durationMs': durationMs,
     };
@@ -125,7 +126,10 @@ class MediaKitServiceBridge {
         try {
           await _serviceChannel.invokeMethod<void>('updateMetadata', args);
         } catch (e2) {
-          LogService.warn('MediaKitServiceBridge', 'updateMetadata retry failed: $e2');
+          LogService.warn(
+            'MediaKitServiceBridge',
+            'updateMetadata retry failed: $e2',
+          );
         }
       } else {
         LogService.warn('MediaKitServiceBridge', 'updateMetadata error: $e');
@@ -146,7 +150,7 @@ class MediaKitServiceBridge {
     if (!_isAndroid) return;
     try {
       await _serviceChannel.invokeMethod<void>('updatePlaybackState', {
-        'isPlaying':  isPlaying,
+        'isPlaying': isPlaying,
         'positionMs': positionMs,
       });
     } catch (e) {
@@ -165,13 +169,13 @@ class MediaKitServiceBridge {
   static Map<String, Object?> songToMetadata(
     LocalSong song, {
     Duration duration = Duration.zero,
-  }) =>
-      {
-        'title':      song.title,
-        'artist':     song.artist,
-        'artworkUri': song.artworkUri,
-        'durationMs': duration == Duration.zero
+  }) => {
+    'title': song.title,
+    'artist': song.artist,
+    'artworkUri': song.artworkUri,
+    'durationMs':
+        duration == Duration.zero
             ? song.duration.inMilliseconds
             : duration.inMilliseconds,
-      };
+  };
 }

@@ -25,33 +25,33 @@ class MediaKitSettingsService {
 
   // ── Kunci SharedPreferences ──────────────────────────────────────────────
 
-  static const _kGapless      = 'mk_gapless';
-  static const _kRgEnabled    = 'mk_rg_enabled';
-  static const _kRgMode       = 'mk_rg_mode';       // 'track' | 'album'
-  static const _kRgPreamp     = 'mk_rg_preamp';     // double, dB
-  static const _kRgClip       = 'mk_rg_clip';
+  static const _kGapless = 'mk_gapless';
+  static const _kRgEnabled = 'mk_rg_enabled';
+  static const _kRgMode = 'mk_rg_mode'; // 'track' | 'album'
+  static const _kRgPreamp = 'mk_rg_preamp'; // double, dB
+  static const _kRgClip = 'mk_rg_clip';
   static const _kCacheEnabled = 'mk_cache_enabled';
-  static const _kCacheSecs    = 'mk_cache_secs';    // int
+  static const _kCacheSecs = 'mk_cache_secs'; // int
 
   // ── ValueNotifiers ───────────────────────────────────────────────────────
 
   /// Transisi mulus antar lagu (mpv gapless-audio).
-  static final gaplessEnabled     = ValueNotifier<bool>(true);
+  static final gaplessEnabled = ValueNotifier<bool>(true);
 
   /// ReplayGain aktif — baca tag dari file secara native.
-  static final replayGainEnabled  = ValueNotifier<bool>(false);
+  static final replayGainEnabled = ValueNotifier<bool>(false);
 
   /// Mode ReplayGain: 'track' atau 'album'.
-  static final replayGainMode     = ValueNotifier<String>('track');
+  static final replayGainMode = ValueNotifier<String>('track');
 
   /// Preamp ReplayGain dalam dB (rentang −15 … +15).
   static final replayGainPreampDb = ValueNotifier<double>(0.0);
 
   /// Cegah clipping saat gain tinggi.
-  static final replayGainClip     = ValueNotifier<bool>(true);
+  static final replayGainClip = ValueNotifier<bool>(true);
 
   /// Aktifkan prebuffer demuxer.
-  static final cacheEnabled       = ValueNotifier<bool>(true);
+  static final cacheEnabled = ValueNotifier<bool>(true);
 
   /// Durasi readahead buffer dalam detik (5 … 60).
   static final cacheReadaheadSecs = ValueNotifier<int>(30);
@@ -74,13 +74,13 @@ class MediaKitSettingsService {
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    gaplessEnabled.value     = prefs.getBool(_kGapless)      ?? true;
-    replayGainEnabled.value  = prefs.getBool(_kRgEnabled)    ?? false;
-    replayGainMode.value     = prefs.getString(_kRgMode)     ?? 'track';
-    replayGainPreampDb.value = prefs.getDouble(_kRgPreamp)   ?? 0.0;
-    replayGainClip.value     = prefs.getBool(_kRgClip)       ?? true;
-    cacheEnabled.value       = prefs.getBool(_kCacheEnabled) ?? true;
-    cacheReadaheadSecs.value = prefs.getInt(_kCacheSecs)     ?? 30;
+    gaplessEnabled.value = prefs.getBool(_kGapless) ?? true;
+    replayGainEnabled.value = prefs.getBool(_kRgEnabled) ?? false;
+    replayGainMode.value = prefs.getString(_kRgMode) ?? 'track';
+    replayGainPreampDb.value = prefs.getDouble(_kRgPreamp) ?? 0.0;
+    replayGainClip.value = prefs.getBool(_kRgClip) ?? true;
+    cacheEnabled.value = prefs.getBool(_kCacheEnabled) ?? true;
+    cacheReadaheadSecs.value = prefs.getInt(_kCacheSecs) ?? 30;
 
     LogService.log('MediaKitSettings', 'Loaded from prefs');
   }
@@ -108,10 +108,7 @@ class MediaKitSettingsService {
   }
 
   static Future<void> _applyGapless(dynamic p) async {
-    await p.setProperty(
-      'gapless-audio',
-      gaplessEnabled.value ? 'yes' : 'no',
-    );
+    await p.setProperty('gapless-audio', gaplessEnabled.value ? 'yes' : 'no');
   }
 
   static Future<void> _applyReplayGain(dynamic p) async {
@@ -196,9 +193,7 @@ class MediaKitSettingsService {
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
-  static Future<void> _withNative(
-    Future<void> Function(dynamic) fn,
-  ) async {
+  static Future<void> _withNative(Future<void> Function(dynamic) fn) async {
     if (kIsWeb) return;
     final player = _activePlayer;
     if (player == null) return;

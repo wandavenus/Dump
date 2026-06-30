@@ -23,15 +23,9 @@ class PlayerSecondaryControls extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _LyricsToggleButton(
-            active: showLyrics,
-            onTap: onLyricsToggle,
-          ),
+          _LyricsToggleButton(active: showLyrics, onTap: onLyricsToggle),
           const SizedBox(width: 140),
-          _QueueToggleButton(
-            active: showQueue,
-            onTap: onQueueToggle,
-          ),
+          _QueueToggleButton(active: showQueue, onTap: onQueueToggle),
         ],
       ),
     );
@@ -56,9 +50,10 @@ class _LyricsToggleButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: active
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.transparent,
+          color:
+              active
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
@@ -89,9 +84,10 @@ class _QueueToggleButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: active
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.transparent,
+          color:
+              active
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(

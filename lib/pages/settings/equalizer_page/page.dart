@@ -15,11 +15,12 @@ class EqualizerPage extends StatelessWidget {
         actions: [
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.equalizerEnabled,
-            builder: (_, enabled, _) => CupertinoSwitch(
-              value: enabled,
-              onChanged: AudioEffectsService.setEqualizerEnabled,
-              activeTrackColor: const Color(0xFFF92D48),
-            ),
+            builder:
+                (_, enabled, _) => CupertinoSwitch(
+                  value: enabled,
+                  onChanged: AudioEffectsService.setEqualizerEnabled,
+                  activeTrackColor: const Color(0xFFF92D48),
+                ),
           ),
           const SizedBox(width: 8),
         ],
@@ -82,10 +83,7 @@ class _SectionLabel extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          if (trailing != null) ...[
-            const Spacer(),
-            trailing!,
-          ],
+          if (trailing != null) ...[const Spacer(), trailing!],
         ],
       ),
     );
