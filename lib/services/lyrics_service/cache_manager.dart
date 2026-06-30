@@ -71,6 +71,7 @@ class LyricsCacheManager {
         quality: quality,
         providerName: providerName,
         isInternet: isInternet,
+        rawLrc: lrc,
       );
     } catch (_) {
       return null;

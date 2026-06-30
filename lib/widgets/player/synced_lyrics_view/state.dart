@@ -16,22 +16,22 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   late final Ticker _frameTicker;
   StreamSubscription<Duration>? _posSub;
 
-  // ── Pre-computed karaoke state ─────────────────────────────────────────────
+  // ── Pre-computed karaoke state (standard character-fill) ───────────────────
   // Updated only when _currentIndex changes — never on every frame.
   List<String> _karaokeChars = [];
   int _karaokeNonSpaceCount = 0;
   double _karaokeLineDurationMs = 3000.0;
 
+  // ── Pre-computed ELRC word state ───────────────────────────────────────────
+  // Populated once from rawLrc when available; updated per line-change.
+  List<List<ElrcWord>> _elrcWordLines = const [];
+  List<ElrcWord> _currentLineElrcWords = const [];
+
   // ── Manual-scroll suppression ──────────────────────────────────────────────
-  // When the user is dragging the list, auto-scroll is paused.
-  // After they lift their finger, a 3-second grace period is granted before
-  // auto-scroll resumes — matching the behaviour of Spotify / Apple Music.
   bool _userIsManualScrolling = false;
   Timer? _scrollResumeTimer;
 
   // ── Single merged listenable for all display settings ─────────────────────
-  // Using Listenable.merge triggers ONE AnimatedBuilder rebuild instead of
-  // the previous cascade of 3 nested ValueListenableBuilders.
   late final Listenable _settingsListenable;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -49,6 +49,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       LyricsSettings.activeColor,
       LyricsSettings.karaokeMode,
     ]);
+
+    _parseElrcWords();
 
     final s = AudioService.playbackState.value;
     _syncFromPlaybackState(s);
@@ -102,7 +104,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   @override
   void didUpdateWidget(SyncedLyricsView old) {
     super.didUpdateWidget(old);
-    if (old.lyrics != widget.lyrics) {
+    if (old.lyrics != widget.lyrics || old.rawLrc != widget.rawLrc) {
+      _parseElrcWords();
       _currentIndex = 0;
       _charCtrl.value = 0.0;
       _anchorPos = Duration.zero;
@@ -129,6 +132,19 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     super.dispose();
   }
 
+  // ── ELRC parse (once per song) ────────────────────────────────────────────
+
+  void _parseElrcWords() {
+    final raw = widget.rawLrc;
+    if (raw == null || raw.isEmpty) {
+      _elrcWordLines = const [];
+      _currentLineElrcWords = const [];
+      return;
+    }
+    _elrcWordLines = ElrcWordExtractor.extractAll(raw);
+    _currentLineElrcWords = const [];
+  }
+
   // ── Pre-compute ───────────────────────────────────────────────────────────
 
   /// Rebuild karaoke data for the current line.
@@ -138,12 +154,23 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _karaokeChars = [];
       _karaokeNonSpaceCount = 0;
       _karaokeLineDurationMs = 3000.0;
+      _currentLineElrcWords = const [];
       return;
     }
+
+    // Standard character-fill state
     final text = widget.lyrics[_currentIndex].text;
     _karaokeChars = text.characters.toList();
     _karaokeNonSpaceCount = _karaokeChars.where((c) => c != ' ').length;
     _karaokeLineDurationMs = _computeLineDurationMs(_currentIndex);
+
+    // ELRC word state — indexed in parallel with widget.lyrics
+    if (_elrcWordLines.isNotEmpty &&
+        _currentIndex < _elrcWordLines.length) {
+      _currentLineElrcWords = _elrcWordLines[_currentIndex];
+    } else {
+      _currentLineElrcWords = const [];
+    }
   }
 
   // ── Playback state ────────────────────────────────────────────────────────
@@ -217,7 +244,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     _currentIndex = activeIndex;
     _charCtrl.value = 0.0;
-    _updateKaraokePrecompute(); // update once here, not per frame
+    _updateKaraokePrecompute();
 
     if (mounted) setState(() {});
 
@@ -254,7 +281,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   // ── Scroll ────────────────────────────────────────────────────────────────
 
   void _scrollToCenter(int index, {bool animate = true}) {
-    // Don't interrupt an active user drag gesture.
     if (_userIsManualScrolling && animate) return;
     if (animate) {
       _itemScrollController.scrollTo(
@@ -299,15 +325,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   @override
   Widget build(BuildContext context) {
-    // NotificationListener distinguishes user drag (dragDetails != null) from
-    // programmatic scroll, enabling manual-scroll suppression of auto-center.
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
         if (n is ScrollStartNotification && n.dragDetails != null) {
           _userIsManualScrolling = true;
           _scrollResumeTimer?.cancel();
         } else if (n is ScrollEndNotification && _userIsManualScrolling) {
-          // After the user lifts their finger, wait 3 s then snap back.
           _scrollResumeTimer?.cancel();
           _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
             if (!mounted) return;
@@ -317,8 +340,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         }
         return false;
       },
-      // AnimatedBuilder on a merged Listenable triggers a single rebuild for
-      // any settings change — replaces the old cascade of 3 nested VLBs.
       child: AnimatedBuilder(
         animation: _settingsListenable,
         builder: (context, _) {
@@ -341,9 +362,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                     AudioService.seek(widget.lyrics[index].timestamp),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  // AnimatedDefaultTextStyle handles the active→inactive colour
-                  // crossfade.  Flutter only runs the animation when the style
-                  // actually changes, so non-transitioning items are free.
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 380),
                     curve: Curves.easeOutCubic,
@@ -354,18 +372,30 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                       height: 1.4,
                     ),
                     child: isActive && karaokeOn
-                        // Active + karaoke: animate character fill every frame.
                         ? AnimatedBuilder(
                             animation: _charCtrl,
-                            builder: (_, _) => _buildKaraokeText(
-                              _charCtrl.value,
-                              active,
-                              dim,
-                              fs,
-                              align,
-                            ),
+                            builder: (_, _) {
+                              // ELRC path: true word timestamps available.
+                              if (_currentLineElrcWords.isNotEmpty) {
+                                return _buildElrcText(
+                                  _interpolatedPosition,
+                                  _currentLineElrcWords,
+                                  active,
+                                  dim,
+                                  fs,
+                                  align,
+                                );
+                              }
+                              // Standard path: character-fill interpolation.
+                              return _buildKaraokeText(
+                                _charCtrl.value,
+                                active,
+                                dim,
+                                fs,
+                                align,
+                              );
+                            },
                           )
-                        // Inactive, or karaoke disabled: plain text, zero cost.
                         : Text(
                             widget.lyrics[index].text,
                             textAlign: align,
@@ -380,7 +410,98 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     );
   }
 
-  // ── Karaoke renderer ──────────────────────────────────────────────────────
+  // ── ELRC word renderer ────────────────────────────────────────────────────
+
+  /// Builds true karaoke word highlighting driven entirely by parsed
+  /// word timestamps from Enhanced LRC.
+  ///
+  /// - Previous words: fully highlighted ([activeColor]).
+  /// - Current word: fills smoothly from [dimColor] → [activeColor] based on
+  ///   elapsed time within the word's own timestamp window.
+  /// - Future words: [dimColor].
+  ///
+  /// No timing is estimated or interpolated — every boundary is from [words].
+  Widget _buildElrcText(
+    Duration position,
+    List<ElrcWord> words,
+    Color activeColor,
+    Color dimColor,
+    double fontSize,
+    TextAlign textAlign,
+  ) {
+    // Binary search: last word with start <= position.
+    int lo = 0, hi = words.length - 1, currentWordIdx = -1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (words[mid].start <= position) {
+        currentWordIdx = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    // Fill fraction for the current word based on its own timestamp window.
+    double fillFraction = 1.0;
+    if (currentWordIdx >= 0 && currentWordIdx < words.length - 1) {
+      final wStartMs = words[currentWordIdx].start.inMilliseconds.toDouble();
+      final wEndMs   = words[currentWordIdx + 1].start.inMilliseconds.toDouble();
+      final dur = wEndMs - wStartMs;
+      if (dur > 0) {
+        fillFraction = ((position.inMilliseconds - wStartMs) / dur)
+            .clamp(0.0, 1.0);
+      }
+    }
+
+    // Build spans: one per word with single space between words.
+    // Allocation is O(words.length) — same as the standard char-fill path.
+    final spans = <InlineSpan>[];
+    for (int i = 0; i < words.length; i++) {
+      if (i > 0) {
+        // Space inherits left neighbour's brightness — no visible gap.
+        final spaceColor = i <= currentWordIdx ? activeColor : dimColor;
+        spans.add(TextSpan(
+          text: ' ',
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+            color: spaceColor,
+            height: 1.4,
+          ),
+        ));
+      }
+
+      final Color wordColor;
+      if (i < currentWordIdx) {
+        wordColor = activeColor;
+      } else if (i == currentWordIdx) {
+        wordColor = Color.lerp(
+          dimColor,
+          activeColor,
+          Curves.easeOut.transform(fillFraction),
+        )!;
+      } else {
+        wordColor = dimColor;
+      }
+
+      spans.add(TextSpan(
+        text: words[i].text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          color: wordColor,
+          height: 1.4,
+        ),
+      ));
+    }
+
+    return RichText(
+      textAlign: textAlign,
+      text: TextSpan(children: spans),
+    );
+  }
+
+  // ── Standard karaoke renderer (character-fill) ────────────────────────────
 
   /// Builds character-fill karaoke text using pre-computed state fields.
   ///
@@ -410,8 +531,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
     final double covered = eased * nonSpaceCount;
 
-    // Gradient width adapts to reading speed: fast lyrics → narrower gradient
-    // (sharper highlight front); slow lyrics → wider (softer wash-over).
+    // Gradient width adapts to reading speed.
     final double charsPerSec = nonSpaceCount /
         (_karaokeLineDurationMs / 1000.0).clamp(0.1, 30.0);
     final double gradientWidth =
@@ -426,7 +546,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         children: List.generate(total, (i) {
           double charProgress;
           if (chars[i] == ' ') {
-            // Spaces inherit their left neighbour's brightness — no visible gap.
             charProgress = lastCharProgress;
           } else {
             charProgress =

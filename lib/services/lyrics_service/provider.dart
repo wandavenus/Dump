@@ -9,12 +9,16 @@ class LyricsProviderResult {
   final LyricsQuality quality;
   final String providerName;
   final bool isInternet;
+  /// String LRC asli sebelum di-parse (termasuk inline word timestamps
+  /// untuk Enhanced LRC). Null untuk provider yang tidak menyediakan.
+  final String? rawLrc;
 
   const LyricsProviderResult({
     required this.lines,
     required this.quality,
     required this.providerName,
     this.isInternet = false,
+    this.rawLrc,
   });
 
   bool get isEmpty => lines.isEmpty;

@@ -63,6 +63,7 @@ class LyricsService {
       source,
       quality: providerResult.quality,
       providerName: providerResult.providerName,
+      rawLrc: providerResult.rawLrc,
     );
 
     _cache[legacyKey] = result;

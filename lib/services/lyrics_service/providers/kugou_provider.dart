@@ -126,6 +126,7 @@ class KugouProvider implements LyricsProvider {
         quality: quality,
         providerName: 'Kugou Music',
         isInternet: true,
+        rawLrc: content,
       );
     } on CancelledException {
       return null;

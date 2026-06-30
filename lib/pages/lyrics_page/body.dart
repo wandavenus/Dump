@@ -11,6 +11,7 @@ class _LyricsBody extends StatelessWidget {
         SyncedLyricsView(
           lyrics: result.lines,
           padding: const EdgeInsets.fromLTRB(24, 16, 48, 100),
+          rawLrc: result.rawLrc,
         ),
         // Lencana sumber lirik
         ValueListenableBuilder<bool>(

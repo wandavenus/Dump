@@ -90,6 +90,7 @@ class NeteaseProvider implements LyricsProvider {
         quality: quality,
         providerName: 'NetEase Music',
         isInternet: true,
+        rawLrc: raw,
       );
     } on CancelledException {
       return null;

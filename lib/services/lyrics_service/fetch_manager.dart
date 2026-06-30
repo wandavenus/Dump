@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../models/lyric_line.dart';
 import '../../services/log_service.dart';
 import 'cache_manager.dart';
 import 'cancellation.dart';
@@ -244,16 +245,22 @@ class LyricsFetchManager {
   // ── Disk cache write ───────────────────────────────────────────────────────
 
   Future<void> _saveToDisk(String key, LyricsProviderResult result) async {
-    // Rekonstruksi string LRC dari lines untuk disk cache
+    // Gunakan rawLrc asli jika tersedia (mempertahankan word timestamps ELRC).
+    // Jika tidak ada, rekonstruksi LRC standar dari lines.
+    final String lrcToSave = result.rawLrc ?? _reconstructLrc(result.lines);
+    await LyricsCacheManager.instance.putDisk(key, lrcToSave, result);
+  }
+
+  String _reconstructLrc(List<LyricLine> lines) {
     final buf = StringBuffer();
-    for (final line in result.lines) {
+    for (final line in lines) {
       final ms  = line.timestamp.inMilliseconds;
       final min = ms ~/ 60000;
       final sec = ((ms % 60000) / 1000.0);
       final secStr = sec.toStringAsFixed(2).padLeft(5, '0');
       buf.writeln('[${min.toString().padLeft(2, '0')}:$secStr]${line.text}');
     }
-    await LyricsCacheManager.instance.putDisk(key, buf.toString(), result);
+    return buf.toString();
   }
 
   // ── Cache management ───────────────────────────────────────────────────────

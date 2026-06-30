@@ -99,6 +99,7 @@ class QQMusicProvider implements LyricsProvider {
         quality: quality,
         providerName: 'QQ Music',
         isInternet: true,
+        rawLrc: raw,
       );
     } on CancelledException {
       return null;

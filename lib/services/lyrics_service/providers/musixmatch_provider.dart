@@ -141,6 +141,7 @@ class MusixmatchProvider implements LyricsProvider {
               quality: LyricsQuality.wordTimedLrc,
               providerName: 'Musixmatch',
               isInternet: true,
+              rawLrc: lrc,
             );
           }
         }
@@ -191,6 +192,7 @@ class MusixmatchProvider implements LyricsProvider {
         quality: quality,
         providerName: 'Musixmatch',
         isInternet: true,
+        rawLrc: lrc,
       );
     } catch (_) {
       return null;

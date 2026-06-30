@@ -47,6 +47,7 @@ class LrclibProvider implements LyricsProvider {
       quality: quality,
       providerName: 'LRCLIB',
       isInternet: true,
+      rawLrc: raw,
     );
   }
 

@@ -93,6 +93,7 @@ class LocalFileProvider implements LyricsProvider {
         quality: parsed.quality,
         providerName: 'Dari file lokal',
         isInternet: false,
+        rawLrc: raw.trim(),
       );
     }
     return null;

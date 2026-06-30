@@ -98,6 +98,7 @@ class KuwoProvider implements LyricsProvider {
         quality: quality,
         providerName: 'Kuwo Music',
         isInternet: true,
+        rawLrc: lrc,
       );
     } on CancelledException {
       return null;
