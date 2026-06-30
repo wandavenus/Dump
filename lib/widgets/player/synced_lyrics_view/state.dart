@@ -64,7 +64,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         if (_frameTicker.isActive) _frameTicker.stop();
-        break;
 
       case AppLifecycleState.resumed:
         final s = AudioService.playbackState.value;
@@ -80,7 +79,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           if (!mounted) return;
           _scrollToCenter(_currentIndex, animate: true);
         });
-        break;
 
       default:
         break;

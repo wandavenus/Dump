@@ -1,3 +1,5 @@
+// ignore_for_file: unawaited_futures
+
 part of '../radio_sections.dart';
 
 // ─── Data for smart playlist cards ───────────────────────────────────────────
@@ -17,19 +19,19 @@ class _SmartCardData {
 
 // Non-const because MaterialColor isn't a compile-time constant.
 final _smartCards = [
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Favorit',
     icon: Icons.favorite,
     color: Colors.red,
     type: SmartPlaylistType.favorites,
   ),
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Diputar Terakhir',
     icon: Icons.history,
     color: Colors.blue,
     type: SmartPlaylistType.recentlyPlayed,
   ),
-  _SmartCardData(
+  const _SmartCardData(
     name: 'Paling Sering',
     icon: Icons.trending_up,
     color: Colors.orange,

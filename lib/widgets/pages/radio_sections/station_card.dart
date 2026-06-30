@@ -47,7 +47,7 @@ class PlaylistCard extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.9),
+                      Colors.black.withValues(alpha: 0.9),
                     ],
                     stops: const [0.25, 1.0],
                   ),
@@ -121,13 +121,13 @@ class _ArtworkGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (songIds.isEmpty) {
-      return Container(
+      return ColoredBox(
         color: const Color(0xFF1C1C1E),
         child: Center(
           child: Icon(
             emptyIcon,
             size: 64,
-            color: emptyIconColor.withOpacity(0.3),
+            color: emptyIconColor.withValues(alpha: 0.3),
           ),
         ),
       );

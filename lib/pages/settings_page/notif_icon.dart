@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 part of '../settings_page.dart';
 
 class _NotifIconRow extends StatelessWidget {

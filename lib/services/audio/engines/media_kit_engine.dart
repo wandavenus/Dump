@@ -1,3 +1,5 @@
+// ignore_for_file: close_sinks, unawaited_futures, unused_field
+
 import 'dart:async';
 
 import 'package:media_kit/media_kit.dart';
@@ -74,8 +76,8 @@ class MediaKitEngine implements AbstractAudioEngine {
   final _stereoWideningCtrl = StreamController<Map<dynamic, dynamic>>.broadcast();
 
   // audioFormatStream — media_kit tidak mengekspos info format; stream ini kosong.
-  static final Stream<Map<dynamic, dynamic>> _emptyAudioFormatStream =
-      const Stream<Map<dynamic, dynamic>>.empty();
+  static const Stream<Map<dynamic, dynamic>> _emptyAudioFormatStream =
+      Stream<Map<dynamic, dynamic>>.empty();
 
   final List<StreamSubscription<dynamic>> _subs = [];
 
@@ -246,15 +248,12 @@ class MediaKitEngine implements AbstractAudioEngine {
   switch (action) {
     case 'play':
       await _player?.play();
-      break;
 
     case 'pause':
       await _player?.pause();
-      break;
 
     case 'next':
       await _player?.next();
-      break;
 
     case 'previous':
       final pos = _player?.state.position ?? Duration.zero;
@@ -263,19 +262,16 @@ class MediaKitEngine implements AbstractAudioEngine {
       } else {
         await _player?.previous();
       }
-      break;
 
     case 'seek':
       if (positionMs != null) {
         _lastPositionSentMs = 0;
         await _player?.seek(Duration(milliseconds: positionMs));
       }
-      break;
 
     case 'stop':
       await _player?.pause();
       await _player?.seek(Duration.zero);
-      break;
 
     default:
       LogService.warn(

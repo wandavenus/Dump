@@ -1,3 +1,5 @@
+// ignore_for_file: unawaited_futures
+
 import 'dart:async';
 
 import '../../models/lyric_line.dart';
@@ -40,7 +42,7 @@ class LyricsFetchManager {
 
   final List<LyricsProvider> _localProviders = [
     EmbeddedProvider(),
-    LocalFileProvider(
+    const LocalFileProvider(
       getConfiguredFolder: _getConfiguredFolder,
     ),
   ];
@@ -51,7 +53,7 @@ class LyricsFetchManager {
     KugouProvider(),
     KuwoProvider(),
     QQMusicProvider(),
-    MusixmatchProvider(), // requires userToken — graceful skip if absent
+    const MusixmatchProvider(), // requires userToken — graceful skip if absent
   ];
 
   static String Function() _configuredFolderGetter = () => '';

@@ -33,7 +33,7 @@ class ProviderHttp {
       if (attempt > 0) {
         final delay = Duration(milliseconds: 1000 * attempt);
         LogService.verbose(providerName,
-            'Retry $attempt/${_maxRetries} setelah ${delay.inMilliseconds}ms');
+            'Retry $attempt/$_maxRetries setelah ${delay.inMilliseconds}ms');
         await Future.delayed(delay);
         if (cancelToken.isCancelled) return null;
       }

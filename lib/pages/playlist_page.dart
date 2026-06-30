@@ -74,16 +74,18 @@ class _PlaylistPageState extends State<PlaylistPage> {
       final songs =
           ids.where(songMap.containsKey).map((id) => songMap[id]!).toList();
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _songs = songs;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
         });
+      }
     }
   }
 
@@ -186,7 +188,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ],
           ),
     );
-    if (ok == true && mounted) {
+    if ((ok ?? false) && mounted) {
       await PlaylistService.deletePlaylist(widget.userPlaylist!.id);
       if (mounted) Navigator.pop(context);
     }
@@ -362,7 +364,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: color.withOpacity(0.4)),
+          Icon(icon, size: 64, color: color.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           const Text(
             'Belum ada lagu',
