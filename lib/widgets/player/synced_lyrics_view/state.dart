@@ -379,7 +379,20 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
+                onTap: () {
+  final targetPos = widget.lyrics[index].timestamp;
+
+  // ── Optimistic update biar Ticker ga narik mundur ──────────────────
+  _anchorPos = targetPos;
+  _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+
+  _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
+  _karaokeController.updatePosition(targetPos);
+  // ───────────────────────────────────────────────────────────────────
+
+  // Baru deh panggil native seek-nya
+  AudioService.seek(targetPos);
+},
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: AnimatedDefaultTextStyle(
