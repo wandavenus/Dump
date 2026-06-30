@@ -67,7 +67,7 @@ class KuwoProvider implements LyricsProvider {
       if (musicId.isEmpty) return null;
 
       // Ambil hanya numeric ID
-      final numericId = musicId.replaceAll(RegExp(r'[^0-9]'), '');
+      final numericId = musicId.replaceAll(RegExp('[^0-9]'), '');
       if (numericId.isEmpty) return null;
 
       // 2. Ambil LRC

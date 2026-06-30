@@ -1,3 +1,5 @@
+// ignore_for_file: unawaited_futures
+
 part of '../media_capabilities_service.dart';
 
 /// Dart facade for Media3 advanced playback capabilities.
