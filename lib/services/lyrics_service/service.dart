@@ -2,6 +2,13 @@ part of '../lyrics_service.dart';
 
 class LyricsService {
   static final Map<String, LyricsResult> _cache = {};
+
+  // Failed-result TTL cache — avoids hammering all 4 sources on every open
+  // for a song that genuinely has no lyrics. Key mirrors _cache key.
+  // Value: epoch-ms when the failed result was first recorded.
+  static final Map<String, int> _failedAtMs = {};
+  static const int _failedTtlMs = 60 * 60 * 1000; // 1 hour
+
   static const _channel = MethodChannel('musicplayer/media_store');
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -14,12 +21,21 @@ class LyricsService {
   }) async {
     final key = '$artist|$title|${filePath ?? ''}';
 
-    // Cache hit
+    // Cache hit (successful result)
     if (_cache.containsKey(key)) {
       final cached = _cache[key]!;
       LogService.verbose('Lyrics',
           'Cache hit: "$title" — ${cached.lines.length} lines (${cached.sourceLabel})');
       return cached;
+    }
+
+    // TTL check: skip all sources if a recent failure is recorded.
+    final failedAt = _failedAtMs[key];
+    if (failedAt != null &&
+        DateTime.now().millisecondsSinceEpoch - failedAt < _failedTtlMs) {
+      LogService.verbose('Lyrics',
+          'Failed-TTL active for "$title" — skipping fetch for ~1 h');
+      return const LyricsResult([], LyricsSource.none);
     }
 
     final sw = Stopwatch()..start();
@@ -71,6 +87,8 @@ class LyricsService {
       return result;
     }
 
+    // Record failure timestamp — subsequent opens within 1 h skip all sources.
+    _failedAtMs[key] = DateTime.now().millisecondsSinceEpoch;
     LogService.warn('Lyrics',
         'Not found: "$title" — $artist (${sw.elapsedMilliseconds}ms searched)');
     return const LyricsResult([], LyricsSource.none);
@@ -80,6 +98,7 @@ class LyricsService {
   static void clearCache() {
     final count = _cache.length;
     _cache.clear();
+    _failedAtMs.clear();
     LogService.verbose('Lyrics', 'Cache cleared ($count entries removed)');
   }
 
@@ -93,7 +112,8 @@ class LyricsService {
       );
       if (raw == null || raw.trim().isEmpty) return [];
       final lines = _parseLyricsString(raw.trim());
-      LogService.verbose('Lyrics', 'Embedded tag read: ${lines.length} lines from $filePath');
+      LogService.verbose('Lyrics',
+          'Embedded tag read: ${lines.length} lines from $filePath');
       return lines;
     } catch (e) {
       LogService.verbose('Lyrics', 'Embedded tag error: $e');
@@ -116,7 +136,20 @@ class LyricsService {
         LogService.verbose('Lyrics', 'No .lrc at: $lrcPath');
         return [];
       }
-      final raw = await lrcFile.readAsString();
+
+      // Try UTF-8 first; fall back to Latin-1 (ISO-8859-1) for legacy files
+      // created by WinLyrics, KMPlayer, and similar Windows software.
+      String raw;
+      try {
+        raw = await lrcFile.readAsString(encoding: utf8);
+        // U+FFFD replacement character signals a broken UTF-8 sequence.
+        if (raw.contains('\uFFFD')) {
+          raw = await lrcFile.readAsString(encoding: latin1);
+        }
+      } catch (_) {
+        raw = await lrcFile.readAsString(encoding: latin1);
+      }
+
       final lines = parseLrc(raw);
       LogService.verbose('Lyrics', 'Read .lrc: $lrcPath — ${lines.length} lines');
       return lines;
@@ -183,32 +216,49 @@ class LyricsService {
     if (response.statusCode != 200) return null;
     final data = jsonDecode(response.body);
     if (data is! List || data.isEmpty) return null;
-    final synced =
-        (data.first['syncedLyrics'] ?? data.first['lyrics'] ?? '') as String;
-    return synced.isEmpty ? null : synced;
+
+    // Scan ALL results: prefer the first entry that has synced (timestamped)
+    // lyrics, then fall back to the first entry with any plain lyrics.
+    // Previously only data[0] was checked, missing synced lyrics in later results.
+    String? bestSynced;
+    String? bestPlain;
+    for (final entry in data) {
+      final synced = (entry['syncedLyrics'] as String?) ?? '';
+      final plain  = (entry['lyrics']       as String?) ?? '';
+      if (synced.isNotEmpty && bestSynced == null) bestSynced = synced;
+      if (plain.isNotEmpty  && bestPlain  == null) bestPlain  = plain;
+      if (bestSynced != null) break; // synced takes priority — stop early
+    }
+    final result = bestSynced ?? bestPlain;
+    return (result == null || result.isEmpty) ? null : result;
   }
 
-  // ── Parser ────────────────────────────────────────────────────────────────
+  // ── Parsers ───────────────────────────────────────────────────────────────
 
+  /// Auto-detect LRC vs plain text (used for embedded tag content only).
   static List<LyricLine> _parseLyricsString(String raw) {
     if (RegExp(r'^\[\d+:\d+', multiLine: true).hasMatch(raw)) {
       return parseLrc(raw);
     }
-    // Plain text: each line is a lyric line with a 4-second offset
-    int offset = 0;
-    return raw
+    // Plain-text fallback: distribute lines evenly across a 3 m 30 s window
+    // so that auto-scroll remains meaningful for typical song lengths.
+    // Step is capped at 4 s (short lyric files) and floored at 1 s.
+    final lines = raw
         .split('\n')
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
-        .map((l) {
-          final line = LyricLine(
-            timestamp: Duration(seconds: offset * 4),
-            text: l,
-          );
-          offset++;
-          return line;
-        })
         .toList();
+    if (lines.isEmpty) return [];
+    final int stepMs = lines.length > 1
+        ? (210000 / (lines.length - 1)).round().clamp(1000, 4000)
+        : 0;
+    return List.generate(
+      lines.length,
+      (i) => LyricLine(
+        timestamp: Duration(milliseconds: i * stepMs),
+        text: lines[i],
+      ),
+    );
   }
 
   /// Parse LRC format — public so it can be reused elsewhere.
@@ -217,11 +267,27 @@ class LyricsService {
   ///   • Standard:            `[mm:ss.xx]text`
   ///   • No centiseconds:     `[mm:ss]text`
   ///   • Multi-timestamp:     `[mm:ss.xx][mm:ss.xx]text` → two LyricLines
-  ///   • Metadata tags:       `[ti:]`, `[ar:]`, `[al:]`, `[by:]`, `[offset:]` → skipped
+  ///   • Metadata tags:       `[ti:]`, `[ar:]`, `[al:]`, `[by:]` → skipped
+  ///   • `[offset:N]`         → applied as timestamp shift (ms); N may be negative
   ///   • Inline karaoke times:`<mm:ss.xx>` inside the text → stripped
-  ///   • Empty text lines:    skipped (keep list clean)
+  ///   • Duplicate timestamps: deduplicated (first occurrence kept)
+  ///   • Empty text lines:    skipped
   ///   • Windows line endings: `\r\n` → handled by trim()
   static List<LyricLine> parseLrc(String lrc) {
+    // ── Extract [offset:N] before main parse ──────────────────────────────
+    // Positive N → timestamps shifted later; negative → shifted earlier.
+    // Industry-standard LRC behaviour (matches AIMP, foobar2000, Poweramp).
+    int offsetMs = 0;
+    final offsetRe = RegExp(
+      r'^\[offset\s*:\s*([+-]?\d+)\]',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    final offsetMatch = offsetRe.firstMatch(lrc);
+    if (offsetMatch != null) {
+      offsetMs = int.tryParse(offsetMatch.group(1) ?? '0') ?? 0;
+    }
+
     // Regex for a single [mm:ss] or [mm:ss.xx] or [mm:ss.xxx] timestamp.
     final tsRe = RegExp(r'\[(\d+):(\d+(?:[.,]\d+)?)\]');
 
@@ -246,28 +312,49 @@ class LyricsService {
       int cursor = 0;
       for (final m in tsRe.allMatches(line)) {
         // Only accept timestamps that appear before any non-timestamp text.
-        // A timestamp embedded mid-text (karaoke) is handled by inlineRe strip below.
-        if (m.start > cursor && line.substring(cursor, m.start).trim().isNotEmpty) break;
-        final min = int.tryParse(m.group(1) ?? '') ?? 0;
+        if (m.start > cursor &&
+            line.substring(cursor, m.start).trim().isNotEmpty) {
+          break;
+        }
+        final min    = int.tryParse(m.group(1) ?? '') ?? 0;
         // Accept both '.' and ',' as decimal separator (regional LRC variants).
         final secStr = (m.group(2) ?? '').replaceAll(',', '.');
         final sec    = double.tryParse(secStr) ?? 0;
-        timestamps.add(Duration(milliseconds: ((min * 60 + sec) * 1000).round()));
+        timestamps.add(
+          Duration(milliseconds: ((min * 60 + sec) * 1000).round()),
+        );
         cursor = m.end;
       }
 
       if (timestamps.isEmpty) continue;
 
-      // Text is everything after the last leading timestamp, with inline timings stripped.
+      // Text is everything after the last leading timestamp,
+      // with inline karaoke timings stripped.
       final rawText = line.substring(cursor).replaceAll(inlineRe, '').trim();
       if (rawText.isEmpty) continue;
 
       for (final ts in timestamps) {
-        result.add(LyricLine(timestamp: ts, text: rawText));
+        // Apply [offset:] and clamp to non-negative.
+        final adjusted = Duration(
+          milliseconds: (ts.inMilliseconds + offsetMs).clamp(0, 9999999),
+        );
+        result.add(LyricLine(timestamp: adjusted, text: rawText));
       }
     }
 
     result.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    // Deduplicate consecutive lines with the same timestamp (keep first).
+    // Prevents flicker when malformed LRC files contain duplicate entries.
+    if (result.length > 1) {
+      final deduped = <LyricLine>[result.first];
+      for (int i = 1; i < result.length; i++) {
+        if (result[i].timestamp != result[i - 1].timestamp) {
+          deduped.add(result[i]);
+        }
+      }
+      return deduped;
+    }
     return result;
   }
 }

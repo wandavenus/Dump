@@ -2,7 +2,7 @@ part of '../synced_lyrics_view.dart';
 
 class _SyncedLyricsViewState extends State<SyncedLyricsView>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  
+
   final ItemScrollController _itemScrollController = ItemScrollController();
   int _currentIndex = 0;
 
@@ -16,6 +16,26 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   late final Ticker _frameTicker;
   StreamSubscription<Duration>? _posSub;
 
+  // ── Pre-computed karaoke state ─────────────────────────────────────────────
+  // Updated only when _currentIndex changes — never on every frame.
+  List<String> _karaokeChars = [];
+  int _karaokeNonSpaceCount = 0;
+  double _karaokeLineDurationMs = 3000.0;
+
+  // ── Manual-scroll suppression ──────────────────────────────────────────────
+  // When the user is dragging the list, auto-scroll is paused.
+  // After they lift their finger, a 3-second grace period is granted before
+  // auto-scroll resumes — matching the behaviour of Spotify / Apple Music.
+  bool _userIsManualScrolling = false;
+  Timer? _scrollResumeTimer;
+
+  // ── Single merged listenable for all display settings ─────────────────────
+  // Using Listenable.merge triggers ONE AnimatedBuilder rebuild instead of
+  // the previous cascade of 3 nested ValueListenableBuilders.
+  late final Listenable _settingsListenable;
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
@@ -23,11 +43,19 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _charCtrl = AnimationController(vsync: this);
     _frameTicker = createTicker(_onFrameTick);
 
+    _settingsListenable = Listenable.merge([
+      LyricsSettings.fontSize,
+      LyricsSettings.textAlign,
+      LyricsSettings.activeColor,
+      LyricsSettings.karaokeMode,
+    ]);
+
     final s = AudioService.playbackState.value;
     _syncFromPlaybackState(s);
     _anchorPos = s.position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     _currentIndex = _computeLineIndex(s.position);
+    _updateKaraokePrecompute();
 
     if (_isPlaying) _frameTicker.start();
 
@@ -57,13 +85,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
         _currentIndex = _computeLineIndex(s.position);
         _charCtrl.value = 0.0;
+        _updateKaraokePrecompute();
         if (mounted) setState(() {});
 
         if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
-        
+
         WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _scrollToCenter(_currentIndex, animate: true);
+          if (!mounted) return;
+          _scrollToCenter(_currentIndex, animate: true);
         });
 
       default:
@@ -78,12 +107,13 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
       _charCtrl.value = 0.0;
       _anchorPos = Duration.zero;
       _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+      _updateKaraokePrecompute();
     }
-    
+
     if (!old.isVisible && widget.isVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _scrollToCenter(_currentIndex, animate: false);
+        if (!mounted) return;
+        _scrollToCenter(_currentIndex, animate: false);
       });
     }
   }
@@ -95,8 +125,28 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
     _charCtrl.dispose();
+    _scrollResumeTimer?.cancel();
     super.dispose();
   }
+
+  // ── Pre-compute ───────────────────────────────────────────────────────────
+
+  /// Rebuild karaoke data for the current line.
+  /// Called once when [_currentIndex] changes — never per frame.
+  void _updateKaraokePrecompute() {
+    if (widget.lyrics.isEmpty || _currentIndex >= widget.lyrics.length) {
+      _karaokeChars = [];
+      _karaokeNonSpaceCount = 0;
+      _karaokeLineDurationMs = 3000.0;
+      return;
+    }
+    final text = widget.lyrics[_currentIndex].text;
+    _karaokeChars = text.characters.toList();
+    _karaokeNonSpaceCount = _karaokeChars.where((c) => c != ' ').length;
+    _karaokeLineDurationMs = _computeLineDurationMs(_currentIndex);
+  }
+
+  // ── Playback state ────────────────────────────────────────────────────────
 
   void _syncFromPlaybackState(AudioPlaybackState s) {
     _isPlaying = s.isPlaying;
@@ -142,6 +192,9 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     return _anchorPos + Duration(milliseconds: audioElapsedMs);
   }
 
+  // ── Line index ────────────────────────────────────────────────────────────
+
+  /// Binary search — O(log n).
   int _computeLineIndex(Duration position) {
     if (widget.lyrics.isEmpty) return 0;
     int lo = 0, hi = widget.lyrics.length - 1, activeIndex = 0;
@@ -160,15 +213,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   void _maybeUpdateCurrentLine(Duration position) {
     if (widget.lyrics.isEmpty) return;
     final activeIndex = _computeLineIndex(position);
-
     if (activeIndex == _currentIndex) return;
 
     _currentIndex = activeIndex;
     _charCtrl.value = 0.0;
+    _updateKaraokePrecompute(); // update once here, not per frame
 
     if (mounted) setState(() {});
-    
-    // Default pakai animasi biar smooth, atau ganti ke false kalau mau instant
+
     _scrollToCenter(_currentIndex, animate: true);
   }
 
@@ -192,14 +244,18 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         (position - lineStart).inMilliseconds.toDouble().clamp(0.0, totalMs);
     final double progress = elapsedMs / totalMs;
 
+    // Threshold prevents micro-updates that waste GPU time without visual change.
     final double threshold = 0.5 / totalMs;
     if ((_charCtrl.value - progress).abs() > threshold) {
       _charCtrl.value = progress;
     }
   }
 
-  // FIXED FUNGSI SCROLL DI SINI
+  // ── Scroll ────────────────────────────────────────────────────────────────
+
   void _scrollToCenter(int index, {bool animate = true}) {
+    // Don't interrupt an active user drag gesture.
+    if (_userIsManualScrolling && animate) return;
     if (animate) {
       _itemScrollController.scrollTo(
         index: index,
@@ -215,68 +271,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
-      valueListenable: LyricsSettings.fontSize,
-      builder: (_, fs, _) => ValueListenableBuilder<String>(
-        valueListenable: LyricsSettings.textAlign,
-        builder: (_, _, _) => ValueListenableBuilder<String>(
-          valueListenable: LyricsSettings.activeColor,
-          builder: (_, _, _) {
-            final activeColor = LyricsSettings.resolvedActiveColor;
-            final textAlign = LyricsSettings.resolvedTextAlign;
-            final dimColor = Colors.white.withValues(alpha: 0.35);
-
-            return ScrollablePositionedList.builder(
-              itemScrollController: _itemScrollController,
-              padding: widget.padding.resolve(TextDirection.ltr),
-              itemCount: widget.lyrics.length,
-              itemBuilder: (context, index) {
-                final active = index == _currentIndex;
-                final double lineDurationMs = active ? _computeLineDurationMs(index) : 0.0;
-
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => AudioService.seek(widget.lyrics[index].timestamp),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 380),
-                      curve: Curves.easeOutCubic,
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: active ? activeColor : dimColor,
-                        height: 1.4,
-                      ),
-                      child: active
-                          ? AnimatedBuilder(
-                              animation: _charCtrl,
-                              builder: (_, _) => _buildKaraokeText(
-                                widget.lyrics[index].text,
-                                _charCtrl.value,
-                                activeColor,
-                                dimColor,
-                                fs,
-                                textAlign,
-                                lineDurationMs,
-                              ),
-                            )
-                          : Text(
-                              widget.lyrics[index].text,
-                              textAlign: textAlign,
-                            ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ),
-    );
-  }
+  // ── Duration helpers ──────────────────────────────────────────────────────
 
   double _computeLineDurationMs(int index) {
     if (widget.lyrics.length < 2) return 3000.0;
@@ -287,6 +282,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           .toDouble()
           .clamp(100.0, 30000.0);
     }
+    // Last line: use the average of the preceding 5 gaps as an estimate.
     final sampleStart = (index - 5).clamp(0, index - 1);
     double total = 0;
     int count = 0;
@@ -299,26 +295,127 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     return count > 0 ? (total / count).clamp(500.0, 5000.0) : 3000.0;
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    // NotificationListener distinguishes user drag (dragDetails != null) from
+    // programmatic scroll, enabling manual-scroll suppression of auto-center.
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollStartNotification && n.dragDetails != null) {
+          _userIsManualScrolling = true;
+          _scrollResumeTimer?.cancel();
+        } else if (n is ScrollEndNotification && _userIsManualScrolling) {
+          // After the user lifts their finger, wait 3 s then snap back.
+          _scrollResumeTimer?.cancel();
+          _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
+            if (!mounted) return;
+            _userIsManualScrolling = false;
+            _scrollToCenter(_currentIndex, animate: true);
+          });
+        }
+        return false;
+      },
+      // AnimatedBuilder on a merged Listenable triggers a single rebuild for
+      // any settings change — replaces the old cascade of 3 nested VLBs.
+      child: AnimatedBuilder(
+        animation: _settingsListenable,
+        builder: (context, _) {
+          final double fs      = LyricsSettings.fontSize.value;
+          final Color active   = LyricsSettings.resolvedActiveColor;
+          final TextAlign align = LyricsSettings.resolvedTextAlign;
+          final bool karaokeOn = LyricsSettings.karaokeMode.value;
+          final Color dim      = Colors.white.withValues(alpha: 0.35);
+
+          return ScrollablePositionedList.builder(
+            itemScrollController: _itemScrollController,
+            padding: widget.padding.resolve(TextDirection.ltr),
+            itemCount: widget.lyrics.length,
+            itemBuilder: (context, index) {
+              final isActive = index == _currentIndex;
+
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    AudioService.seek(widget.lyrics[index].timestamp),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  // AnimatedDefaultTextStyle handles the active→inactive colour
+                  // crossfade.  Flutter only runs the animation when the style
+                  // actually changes, so non-transitioning items are free.
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOutCubic,
+                    style: TextStyle(
+                      fontSize: fs,
+                      fontWeight: FontWeight.bold,
+                      color: isActive ? active : dim,
+                      height: 1.4,
+                    ),
+                    child: isActive && karaokeOn
+                        // Active + karaoke: animate character fill every frame.
+                        ? AnimatedBuilder(
+                            animation: _charCtrl,
+                            builder: (_, _) => _buildKaraokeText(
+                              _charCtrl.value,
+                              active,
+                              dim,
+                              fs,
+                              align,
+                            ),
+                          )
+                        // Inactive, or karaoke disabled: plain text, zero cost.
+                        : Text(
+                            widget.lyrics[index].text,
+                            textAlign: align,
+                          ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Karaoke renderer ──────────────────────────────────────────────────────
+
+  /// Builds character-fill karaoke text using pre-computed state fields.
+  ///
+  /// Uses [_karaokeChars], [_karaokeNonSpaceCount], and
+  /// [_karaokeLineDurationMs] — all set once in [_updateKaraokePrecompute].
+  /// Only [progress] changes every frame, keeping per-frame allocations minimal.
   Widget _buildKaraokeText(
-    String text,
     double progress,
     Color activeColor,
     Color dimColor,
     double fontSize,
     TextAlign textAlign,
-    double lineDurationMs,
   ) {
-    final chars = text.characters.toList();
+    final List<String> chars = _karaokeChars;
     final int total = chars.length;
     if (total == 0) return const SizedBox.shrink();
 
-    final int nonSpaceCount = chars.where((c) => c != ' ').length;
-    if (nonSpaceCount == 0) return Text(text, textAlign: textAlign);
+    final int nonSpaceCount = _karaokeNonSpaceCount;
+    if (nonSpaceCount == 0) {
+      return Text(
+        widget.lyrics[_currentIndex].text,
+        textAlign: textAlign,
+      );
+    }
 
-    final double easedProgress = Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
-    final double covered = easedProgress * nonSpaceCount;
-    final double charsPerSec = nonSpaceCount / ((lineDurationMs / 1000.0).clamp(0.1, 30.0));
-    final double gradientWidth = (4.0 / charsPerSec.clamp(1.8, 10.0)).clamp(0.8, 2.2);
+    final double eased =
+        Curves.easeInOut.transform(progress.clamp(0.0, 1.0));
+    final double covered = eased * nonSpaceCount;
+
+    // Gradient width adapts to reading speed: fast lyrics → narrower gradient
+    // (sharper highlight front); slow lyrics → wider (softer wash-over).
+    final double charsPerSec = nonSpaceCount /
+        (_karaokeLineDurationMs / 1000.0).clamp(0.1, 30.0);
+    final double gradientWidth =
+        (4.0 / charsPerSec.clamp(1.8, 10.0)).clamp(0.8, 2.2);
 
     int nonSpaceIdx = 0;
     double lastCharProgress = 0.0;
@@ -329,9 +426,11 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         children: List.generate(total, (i) {
           double charProgress;
           if (chars[i] == ' ') {
+            // Spaces inherit their left neighbour's brightness — no visible gap.
             charProgress = lastCharProgress;
           } else {
-            charProgress = ((covered - nonSpaceIdx) / gradientWidth).clamp(0.0, 1.0);
+            charProgress =
+                ((covered - nonSpaceIdx) / gradientWidth).clamp(0.0, 1.0);
             lastCharProgress = charProgress;
             nonSpaceIdx++;
           }
