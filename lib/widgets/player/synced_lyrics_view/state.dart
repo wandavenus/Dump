@@ -20,7 +20,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   // ── Manual-scroll suppression ──────────────────────────────────────────────
   bool _userIsManualScrolling = false;
   Timer? _scrollResumeTimer;
-
+  int _lastSeekWallMs = 0;
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
 
@@ -226,7 +226,14 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     }
   }
 
-  void _onPosition(Duration position) {
+    void _onPosition(Duration position) {
+    // ── Squelch stream pasca seek biar anti-flicker Media3 ───────────
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastSeekWallMs < 400) {
+      return; // Cuekin data delay dari native engine beb (๑˃ᴗ˂)
+    }
+    // ───────────────────────────────────────────────────────────────
+
     _anchorPos = position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
@@ -378,49 +385,53 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
               final isActive = index == _currentIndex;
 
               return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-  final targetPos = widget.lyrics[index].timestamp;
+  behavior: HitTestBehavior.opaque,
+  onTap: () {
+    final targetPos = widget.lyrics[index].timestamp;
 
-  // ── Optimistic update biar Ticker ga narik mundur ──────────────────
-  _anchorPos = targetPos;
-  _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+    // Catat waktu pas klik seek bby
+    _lastSeekWallMs = DateTime.now().millisecondsSinceEpoch;
 
-  _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
-  _karaokeController.updatePosition(targetPos);
-  // ───────────────────────────────────────────────────────────────────
+    // ── Optimistic update biar Ticker ga narik mundur ──────────────────
+    _anchorPos = targetPos;
+    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-  // Baru deh panggil native seek-nya
-  AudioService.seek(targetPos);
-},
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.easeOutCubic,
-                    style: TextStyle(
-                      fontSize: fs,
-                      fontWeight: FontWeight.bold,
-                      color: isActive ? active : dim,
-                      height: 1.4,
-                    ),
-                    child: isActive && karaokeOn
-                        ? _UnifiedKaraokeLine(
-                            key: ValueKey(_currentIndex),
-                            text: widget.lyrics[index].text,
-                            timeline: _wordTimelines[index],
-                            controller: _karaokeController,
-                            activeColor: active,
-                            dimColor: dim,
-                            fontSize: fs,
-                            textAlign: align,
-                            textScaleFactor: MediaQuery.textScalerOf(context).scale(1.0),
-                            textDirection: Directionality.of(context),
-                          )
-                        : Text(widget.lyrics[index].text, textAlign: align),
-                  ),
-                ),
-              );
+    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
+    _karaokeController.updatePosition(targetPos);
+    // ───────────────────────────────────────────────────────────────────
+
+    // Baru deh panggil native seek-nya
+    AudioService.seek(targetPos);
+  },
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: AnimatedDefaultTextStyle(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      style: TextStyle(
+        fontSize: fs,
+        fontWeight: FontWeight.bold,
+        color: isActive ? active : dim,
+        height: 1.4,
+      ),
+      child: isActive && karaokeOn
+          ? _UnifiedKaraokeLine(
+              key: ValueKey(_currentIndex),
+              text: widget.lyrics[index].text,
+              timeline: _wordTimelines[index],
+              controller: _karaokeController,
+              activeColor: active,
+              dimColor: dim,
+              fontSize: fs,
+              textAlign: align,
+              textScaleFactor: MediaQuery.textScalerOf(context).scale(1.0),
+              textDirection: Directionality.of(context),
+            )
+          : Text(widget.lyrics[index].text, textAlign: align),
+    ),
+  ),
+);
+
             },
           );
         },
