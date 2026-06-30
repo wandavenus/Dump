@@ -211,9 +211,9 @@ class _EngineOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle = switch (type) {
       PlaybackEngineType.media3 =>
-        'Native Media3 / ExoPlayer — DSP, crossfade, efek native',
+        'DSP, crossfade, efek native',
       PlaybackEngineType.mediaKit =>
-        'Media_kit — cross-platform, pitch/EQ terbatas',
+        'Cross-platform, pitch/EQ terbatas',
     };
 
     return InkWell(

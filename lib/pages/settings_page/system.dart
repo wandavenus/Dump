@@ -48,7 +48,7 @@ class _SystemSection extends StatelessWidget {
               valueListenable: LogService.verboseEnabled,
               builder: (_, verbose, _) => SettingsToggleRow(
                 title: 'Log Verbose',
-                subtitle: 'Tampilkan log detail (seek, speed, dll)',
+                subtitle: 'Tampilkan log detail',
                 value: verbose,
                 onChanged: (v) async {
                   if (logEnabled && !errOnly) {
@@ -85,10 +85,10 @@ class _SystemSection extends StatelessWidget {
   void _showLogs(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF080808),
+      backgroundColor: const Color(0xFF000000),
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(1)),
       ),
       builder: (_) => const _LogViewerModal(),
     );

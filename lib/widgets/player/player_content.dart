@@ -20,3 +20,8 @@ import 'player_up_next_card.dart';
 import 'synced_lyrics_view.dart';
 
 part 'player_content/content.dart';
+part 'player_content/queue_overlay.dart';
+part 'player_content/lyrics_overlay.dart';
+part 'player_content/lyrics_appearance.dart';
+part 'player_content/lyrics_pickers.dart';
+part 'player_content/queue_control_button.dart';

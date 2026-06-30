@@ -28,7 +28,7 @@ enum PlaybackEngineType {
 
   String get displayName => switch (this) {
         PlaybackEngineType.media3   => 'Native Media3',
-        PlaybackEngineType.mediaKit => 'media_kit',
+        PlaybackEngineType.mediaKit => 'Media_kit',
       };
 
   String get prefKey => switch (this) {
