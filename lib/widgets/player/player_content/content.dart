@@ -534,6 +534,7 @@ height: showOverlay
         return _LyricsOverlayBody(
           result: result,
           scrollController: _lyricsScrollController,
+          isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
             setState(() {
@@ -829,11 +830,13 @@ class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
   final ScrollController scrollController;
   final ValueChanged<bool> onExpandChanged;
+  final bool isVisible;
 
   const _LyricsOverlayBody({
     required this.result,
     required this.scrollController,
     required this.onExpandChanged,
+    this.isVisible = true,
   });
 
   @override
@@ -874,8 +877,9 @@ class _LyricsOverlayBody extends StatelessWidget {
             blendMode: BlendMode.dstIn,
             child: SyncedLyricsView(
               lyrics: result.lines,
-              padding: const EdgeInsets.fromLTRB(24, 8, 48, 24),
+              padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
               controller: scrollController,
+              isVisible: isVisible,
             ),
           ),
         ),
@@ -1066,22 +1070,17 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                   const _ColorPicker(),
                   
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text('Tampilkan Sumber Lirik',
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 15)),
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: LyricsSettings.showSource,
-                        builder: (_, v, _) => CupertinoSwitch(
-                          value: v,
-                          onChanged: LyricsSettings.setShowSource,
-                          activeTrackColor: const Color(0xFFF92D48),
-                        ),
-                      ),
-                    ],
+                  _ToggleRow(
+                    label: 'Highlight Karaoke',
+                    subtitle: 'Animasi karakter per karakter',
+                    notifier: LyricsSettings.karaokeMode,
+                    onChanged: LyricsSettings.setKaraokeMode,
+                  ),
+                  const SizedBox(height: 4),
+                  _ToggleRow(
+                    label: 'Tampilkan Sumber Lirik',
+                    notifier: LyricsSettings.showSource,
+                    onChanged: LyricsSettings.setShowSource,
                   ),
                 ],
               ),
@@ -1098,6 +1097,56 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
             fontSize: 12,
             fontWeight: FontWeight.w500),
       );
+}
+
+// ─── Reusable toggle row ──────────────────────────────────────────────────────
+
+class _ToggleRow extends StatelessWidget {
+  final String label;
+  final String? subtitle;
+  final ValueNotifier<bool> notifier;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleRow({
+    required this.label,
+    this.subtitle,
+    required this.notifier,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: notifier,
+      builder: (_, v, _) => Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 15)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 1),
+                  Text(subtitle!,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+          CupertinoSwitch(
+            value: v,
+            onChanged: onChanged,
+            activeTrackColor: const Color(0xFFF92D48),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Font size picker ─────────────────────────────────────────────────────────
@@ -1243,66 +1292,6 @@ class _ColorPicker extends StatelessWidget {
             ),
           );
         }).toList(),
-      ),
-    );
-  }
-}
-
-// ─── Dim slider ───────────────────────────────────────────────────────────────
-
-class _DimSlider extends StatelessWidget {
-  const _DimSlider();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
-      valueListenable: LyricsSettings.bgDim,
-      builder: (_, v, _) => Row(
-        children: [
-          
-          Expanded(
-            child: Slider(
-              value: v,
-              min: 0.2,
-              max: 0.95,
-              
-              activeColor: Colors.transparent,
-              inactiveColor: Colors.transparent,
-              onChanged: LyricsSettings.setBgDim,
-            ),
-          ),
-          
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Blur slider ──────────────────────────────────────────────────────────────
-
-class _BlurSlider extends StatelessWidget {
-  const _BlurSlider();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
-      valueListenable: LyricsSettings.blurStrength,
-      builder: (_, v, _) => Row(
-        children: [
-          
-          Expanded(
-            child: Slider(
-              value: v,
-              min: 0,
-              max: 50,
-              
-              activeColor: Colors.transparent,
-              inactiveColor: Colors.transparent,
-              onChanged: LyricsSettings.setBlurStrength,
-            ),
-          ),
-          
-        ],
       ),
     );
   }
