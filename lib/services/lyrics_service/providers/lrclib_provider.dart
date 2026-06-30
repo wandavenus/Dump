@@ -89,8 +89,8 @@ class LrclibProvider implements LyricsProvider {
         final q = LrcParser.detectQuality(synced);
         if (q == LyricsQuality.wordTimedLrc && bestWord == null) {
           bestWord = synced;
-        } else if (bestSynced == null) {
-          bestSynced = synced;
+        } else {
+          bestSynced ??= synced;
         }
       }
       if (plain.isNotEmpty && bestPlain == null) bestPlain = plain;

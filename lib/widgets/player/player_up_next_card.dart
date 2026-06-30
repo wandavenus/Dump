@@ -42,7 +42,7 @@ class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
                 child: SizeTransition(
                   sizeFactor: animation,
                   axis: Axis.vertical,
-                  axisAlignment: -1,
+                  alignment: const Alignment(-1.0, -1.0),
                   child: child,
                 ),
               ),
@@ -55,7 +55,7 @@ class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
                         final velocity = d.primaryVelocity?.abs() ?? 0;
                         if (_dragDx.abs() > 80 || velocity > 300) {
                           setState(() {
-                            _dismissedSongId = nextSong?.id;
+                            _dismissedSongId = nextSong.id;
                             _dragDx = 0.0;
                           });
                         } else {
