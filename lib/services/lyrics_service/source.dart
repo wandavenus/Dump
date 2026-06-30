@@ -1,4 +1,4 @@
 part of '../lyrics_service.dart';
 
-/// Sumber lirik yang berhasil ditemukan.
+/// Kategori sumber lirik (digunakan untuk ikon di UI).
 enum LyricsSource { embedded, localFile, internet, none }

@@ -32,6 +32,7 @@ Future<void> main() async {
   await AudioEngineManager.initialize();
   await AudioEngine.initialize();
   await AudioEffectsService.init();
+  LyricsService.init();
   await MediaCapabilitiesService.initialize();
   AudioService.initialize();
   AudioFocusService.initialize();
