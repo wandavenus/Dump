@@ -14,7 +14,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   StreamSubscription<Duration>? _posSub;
 
   // ── Format-agnostic karaoke renderer state ───────────────────────────────
-  // ELRC and normal LRC differ only in how this timeline is generated.
   List<List<_TimelineWord>> _wordTimelines = const [];
   final _KaraokeLineController _karaokeController = _KaraokeLineController();
 
@@ -24,8 +23,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -55,9 +52,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     AudioService.playbackState.addListener(_onPlaybackState);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _scrollToCenter(_currentIndex, animate: false);
     });
   }
@@ -67,6 +62,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
         if (_frameTicker.isActive) _frameTicker.stop();
         break;
 
@@ -129,9 +125,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
             ? const <List<ElrcWord>>[]
             : ElrcWordExtractor.extractAll(widget.rawLrc!);
 
-    _wordTimelines = List<List<_TimelineWord>>.generate(widget.lyrics.length, (
-      i,
-    ) {
+    _wordTimelines = List<List<_TimelineWord>>.generate(widget.lyrics.length, (i) {
       final lineStart = widget.lyrics[i].timestamp;
       final lineEnd = _lineEndFor(i);
       if (i < elrcLines.length && elrcLines[i].isNotEmpty) {
@@ -281,7 +275,6 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     var activeIndex = _currentIndex;
     
-    // Bounds check to avoid index out of bounds if lyrics list shrunk
     if (activeIndex >= widget.lyrics.length) {
       activeIndex = widget.lyrics.length - 1;
     }
@@ -353,9 +346,11 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   Widget build(BuildContext context) {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n is ScrollStartNotification && n.dragDetails != null) {
-          _userIsManualScrolling = true;
-          _scrollResumeTimer?.cancel();
+        if (n is UserScrollNotification) {
+          if (n.direction != ScrollDirection.idle) {
+            _userIsManualScrolling = true;
+            _scrollResumeTimer?.cancel();
+          }
         } else if (n is ScrollEndNotification && _userIsManualScrolling) {
           _scrollResumeTimer?.cancel();
           _scrollResumeTimer = Timer(const Duration(seconds: 3), () {
@@ -396,23 +391,20 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
                       color: isActive ? active : dim,
                       height: 1.4,
                     ),
-                    child:
-                        isActive && karaokeOn
-                            ? _UnifiedKaraokeLine(
-                              key: ValueKey(_currentIndex),
-                              text: widget.lyrics[index].text,
-                              timeline: _wordTimelines[index],
-                              controller: _karaokeController,
-                              activeColor: active,
-                              dimColor: dim,
-                              fontSize: fs,
-                              textAlign: align,
-                              textScaleFactor: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(1.0),
-                              textDirection: Directionality.of(context),
-                            )
-                            : Text(widget.lyrics[index].text, textAlign: align),
+                    child: isActive && karaokeOn
+                        ? _UnifiedKaraokeLine(
+                            key: ValueKey(_currentIndex),
+                            text: widget.lyrics[index].text,
+                            timeline: _wordTimelines[index],
+                            controller: _karaokeController,
+                            activeColor: active,
+                            dimColor: dim,
+                            fontSize: fs,
+                            textAlign: align,
+                            textScaleFactor: MediaQuery.textScalerOf(context).scale(1.0),
+                            textDirection: Directionality.of(context),
+                          )
+                        : Text(widget.lyrics[index].text, textAlign: align),
                   ),
                 ),
               );
@@ -542,8 +534,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
   TextPainter? _basePainter;
   TextPainter? _highlightPainter;
-  List<double> _wordStartPixels = const [];
-  List<double> _wordEndPixels = const [];
+  List<List<Rect>> _wordRects = const [];
   double _lastWidth = -1;
 
   _KaraokeLinePainter({
@@ -567,25 +558,41 @@ class _KaraokeLinePainter extends CustomPainter {
 
     base.paint(canvas, Offset.zero);
 
-    final clipX = _clipXForPosition(controller.position);
+    if (timeline.isEmpty || _wordRects.length != timeline.length) return;
+
+    final cursor = controller.cursor.clamp(0, timeline.length - 1);
+    final word = timeline[cursor];
+    final startMs = word.start.inMilliseconds.toDouble();
+    final endMs = word.end.inMilliseconds.toDouble();
+    final durationMs = (endMs - startMs).clamp(1.0, 30000.0);
+    final progress = ((controller.position.inMilliseconds - startMs) / durationMs).clamp(0.0, 1.0);
+
+    final Path clipPath = Path();
     
-    canvas.save();
-    if (textDirection == TextDirection.rtl) {
-      if (clipX < size.width) {
-        canvas.clipRect(
-          Rect.fromLTRB(clipX.clamp(0.0, size.width), 0, size.width, size.height),
-        );
-        highlight.paint(canvas, Offset.zero);
-      }
-    } else {
-      if (clipX > 0) {
-        canvas.clipRect(
-          Rect.fromLTRB(0, 0, clipX.clamp(0.0, size.width), size.height),
-        );
-        highlight.paint(canvas, Offset.zero);
+    for (int i = 0; i <= cursor; i++) {
+      final rects = _wordRects[i];
+      if (i < cursor) {
+        for (final rect in rects) {
+          clipPath.addRect(rect);
+        }
+      } else {
+        for (final rect in rects) {
+          final clipW = rect.width * progress;
+          if (textDirection == TextDirection.rtl) {
+            clipPath.addRect(Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom));
+          } else {
+            clipPath.addRect(Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom));
+          }
+        }
       }
     }
-    canvas.restore();
+
+    if (!clipPath.getBounds().isEmpty) {
+      canvas.save();
+      canvas.clipPath(clipPath);
+      highlight.paint(canvas, Offset.zero);
+      canvas.restore();
+    }
   }
 
   void _ensureLayout(double width) {
@@ -604,6 +611,7 @@ class _KaraokeLinePainter extends CustomPainter {
       textDirection: textDirection,
       textScaler: TextScaler.linear(textScaleFactor),
     )..layout(maxWidth: width);
+    
     _highlightPainter = TextPainter(
       text: TextSpan(text: text, style: style.copyWith(color: activeColor)),
       textAlign: textAlign,
@@ -616,59 +624,26 @@ class _KaraokeLinePainter extends CustomPainter {
 
   void _cacheWordPixels() {
     if (timeline.isEmpty || text.isEmpty) {
-      _wordStartPixels = const [];
-      _wordEndPixels = const [];
+      _wordRects = const [];
       return;
     }
     final painter = _basePainter!;
-    final starts = <double>[];
-    final ends = <double>[];
+    final rectsList = <List<Rect>>[];
     var searchFrom = 0;
     
     for (final word in timeline) {
       final index = text.indexOf(word.text, searchFrom);
       if (index < 0) {
-        starts.add(ends.isEmpty ? (textDirection == TextDirection.rtl ? _lastWidth : 0.0) : ends.last);
-        ends.add(starts.last);
+        rectsList.add(const []);
         continue;
       }
       searchFrom = index + word.text.length;
       final boxes = painter.getBoxesForSelection(
         TextSelection(baseOffset: index, extentOffset: searchFrom),
       );
-      if (boxes.isEmpty) {
-        starts.add(ends.isEmpty ? (textDirection == TextDirection.rtl ? _lastWidth : 0.0) : ends.last);
-        ends.add(starts.last);
-      } else {
-        if (textDirection == TextDirection.rtl) {
-          starts.add(boxes.first.right);
-          ends.add(boxes.last.left);
-        } else {
-          starts.add(boxes.first.left);
-          ends.add(boxes.last.right);
-        }
-      }
+      rectsList.add(boxes.map((b) => b.toRect()).toList());
     }
-    _wordStartPixels = List<double>.unmodifiable(starts);
-    _wordEndPixels = List<double>.unmodifiable(ends);
-  }
-
-  double _clipXForPosition(Duration position) {
-    if (timeline.isEmpty || _wordStartPixels.isEmpty) {
-       return textDirection == TextDirection.rtl ? _lastWidth : 0.0;
-    }
-    final cursor = controller.cursor.clamp(0, timeline.length - 1);
-    final word = timeline[cursor];
-    final startMs = word.start.inMilliseconds.toDouble();
-    final endMs = word.end.inMilliseconds.toDouble();
-    final durationMs = (endMs - startMs).clamp(1.0, 30000.0);
-    final progress = ((position.inMilliseconds - startMs) / durationMs).clamp(
-      0.0,
-      1.0,
-    );
-    final startPixel = _wordStartPixels[cursor];
-    final endPixel = _wordEndPixels[cursor];
-    return startPixel + (endPixel - startPixel) * progress;
+    _wordRects = List<List<Rect>>.unmodifiable(rectsList);
   }
 
   @override
