@@ -4,17 +4,16 @@ class _InfoSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _InfoSection({required this.title, required this.children});
+  const _InfoSection({
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
+      color: Colors.black, // ganti sesuai kebutuhan
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

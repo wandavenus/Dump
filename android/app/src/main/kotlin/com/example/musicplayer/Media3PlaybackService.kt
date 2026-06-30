@@ -816,14 +816,25 @@ class Media3PlaybackService : MediaSessionService() {
             private fun isActiveEvent(): Boolean = p === activePlayer
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (!isActiveEvent()) return
-                transportState.emitAll()
-                notificationManager.refresh()
-                if (playbackState == Player.STATE_READY &&
-                    crossfadeController.crossfadeDurationSec > 0f) {
-                    preloadManager.preloadNextTrack()
-                }
-            }
+    if (!isActiveEvent()) return
+
+    transportState.emitAll()
+    notificationManager.refresh()
+
+    if (playbackState == Player.STATE_READY &&
+        crossfadeController.crossfadeDurationSec > 0f) {
+        preloadManager.preloadNextTrack()
+    }
+
+    if (playbackState == Player.STATE_ENDED &&
+        sleepTimerManager.sleepTimerActive &&
+        sleepTimerManager.sleepEndOfSong &&
+        !crossfadeController.crossfadeInProgress) {
+        handler.post {
+            sleepTimerManager.triggerStop()
+        }
+    }
+}
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isActiveEvent()) return
