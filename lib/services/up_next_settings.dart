@@ -6,11 +6,11 @@ class UpNextSettings {
 
   static const _kShowUpNextCard = 'up_next_card_enabled';
 
-  static final ValueNotifier<bool> showUpNextCard = ValueNotifier(true);
+  static final ValueNotifier<bool> showUpNextCard = ValueNotifier(false);
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    showUpNextCard.value = prefs.getBool(_kShowUpNextCard) ?? true;
+    showUpNextCard.value = prefs.getBool(_kShowUpNextCard) ?? false;
   }
 
   static Future<void> setShowUpNextCard(bool value) async {
