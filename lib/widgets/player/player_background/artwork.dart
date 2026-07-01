@@ -18,16 +18,19 @@ class BlurredArtworkBackground extends StatefulWidget {
 class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final NoiseMotion _motion;
   BlurredPair? _blurredImage;
-  
-  
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 60),
+      duration: const Duration(seconds: 40),
     )..repeat();
+    _motion = NoiseMotion(
+      flowField: FlowField(seed: _seedForSong(widget.songId)),
+    );
     _loadBlurred();
   }
 
@@ -35,40 +38,28 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   void didUpdateWidget(covariant BlurredArtworkBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      
       _loadBlurred();
     }
   }
 
   Future<void> _loadBlurred() async {
-  final requestSongId = widget.songId;
+    final requestSongId = widget.songId;
+    final cached = BlurredImageCache.getSync(requestSongId);
 
-  final cached = BlurredImageCache.getSync(
-    requestSongId,
-  );
-
-  if (cached != null) {
-    if (mounted && requestSongId == widget.songId) {
-      setState(() => _blurredImage = cached);
+    if (cached != null) {
+      if (mounted && requestSongId == widget.songId) {
+        setState(() => _blurredImage = cached);
+      }
+      return;
     }
-    return;
+
+    final img = await BlurredImageCache.get(requestSongId, widget.artwork);
+    if (!mounted || requestSongId != widget.songId) return;
+
+    setState(() {
+      _blurredImage = img;
+    });
   }
-
-  final img = await BlurredImageCache.get(
-    requestSongId,
-    widget.artwork,
-  );
-
-  if (!mounted) return;
-
-  if (requestSongId != widget.songId) {
-    return;
-  }
-
-  setState(() {
-    _blurredImage = img;
-  });
-}
 
   @override
   void dispose() {
@@ -81,7 +72,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     final blurred = _blurredImage;
 
     // While the blur is computing show a low-opacity raw image so there is
-    // no blank flash.  Cost is a single decode — no runtime filter.
+    // no blank flash. Cost is a single decode — no runtime filter.
     if (blurred == null) {
       return Opacity(
         opacity: 0.25,
@@ -94,96 +85,75 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       );
     }
 
-    // Once cached: two cheap texture blits with animation transforms.
+    // Once cached: two cheap texture blits with procedural transform motion.
     // No ImageFilter / BackdropFilter anywhere in this subtree.
     return Stack(
-  fit: StackFit.expand,
-  children: [
-    // Layer 1 — Deep fog
-    RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) {
-          final t = _controller.value * math.pi * 2;
-
-          final dx =
-              math.sin(t * 0.55) * 110 +
-              math.sin(t * 1.7) * 28 +
-              math.cos(t * 0.23) * 22;
-
-          final dy =
-              math.cos(t * 0.42) * 75 +
-              math.sin(t * 1.35) * 20 +
-              math.cos(t * 2.1) * 10;
-
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: Transform.rotate(
-              angle: math.sin(t * 0.18) * 0.02,
-              child: Transform.scale(
-                scale:
-                    1.82 +
-                    math.sin(t * 0.25) * 0.05 +
-                    math.cos(t * 0.8) * 0.02,
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: Opacity(
-          opacity: 0.20,
-          child: RawImage(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: _FlowFieldRawImageLayer(
+            controller: _controller,
+            motion: _motion,
+            layer: NoiseMotionLayer.deepBackground,
             image: blurred.back,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.low,
           ),
         ),
-      ),
-    ),
-
-    // Layer 2 — Foreground fog
-    RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) {
-          final t = _controller.value * math.pi * 2;
-
-          final dx =
-              math.cos(t * 0.85) * 65 +
-              math.sin(t * 2.3) * 18 +
-              math.cos(t * 1.4) * 12;
-
-          final dy =
-              math.sin(t * 0.65) * 45 +
-              math.cos(t * 1.9) * 15 +
-              math.sin(t * 2.8) * 8;
-
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: Transform.rotate(
-              angle: -math.cos(t * 0.25) * 0.015,
-              child: Transform.scale(
-                scale:
-                    1.42 +
-                    math.cos(t * 0.35) * 0.035 +
-                    math.sin(t * 1.2) * 0.01,
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: RawImage(
-          image: blurred.front,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.low,
+        RepaintBoundary(
+          child: _FlowFieldRawImageLayer(
+            controller: _controller,
+            motion: _motion,
+            layer: NoiseMotionLayer.foregroundFog,
+            image: blurred.front,
+          ),
         ),
-      ),
-    ),
+        const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
+      ],
+    );
+  }
 
-    const ColoredBox(
-      color: Color.fromARGB(30, 0, 0, 0),
-    ),
-  ],
-);
+  static int _seedForSong(int songId) => songId == 0 ? 1337 : songId;
+}
+
+class _FlowFieldRawImageLayer extends StatelessWidget {
+  const _FlowFieldRawImageLayer({
+    required this.controller,
+    required this.motion,
+    required this.layer,
+    required this.image,
+  });
+
+  final AnimationController controller;
+  final NoiseMotion motion;
+  final NoiseMotionLayer layer;
+  final ui.Image image;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: RawImage(
+        image: image,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.low,
+      ),
+      builder: (_, child) {
+        final frame = motion.frameFor(
+          layer: layer,
+          timeSeconds:
+              (controller.lastElapsedDuration?.inMicroseconds ?? 0) / 1000000.0,
+        );
+
+        return Opacity(
+          opacity: frame.opacity,
+          child: Transform.translate(
+            offset: frame.translation,
+            child: Transform.rotate(
+              angle: frame.rotation,
+              child: Transform.scale(scale: frame.scale, child: child),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
