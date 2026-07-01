@@ -26,7 +26,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(second: 40),
+      duration: const Duration(seconds: 40),
     )..repeat();
     _motion = NoiseMotion(
       flowField: FlowField(seed: _seedForSong(widget.songId)),
