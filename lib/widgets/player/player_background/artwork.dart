@@ -108,8 +108,8 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
 
       return Transform.translate(
         offset: Offset(
-  math.sin(t * 0.45) * 45,
-  math.cos(t * 0.35) * 28,
+  math.sin(t * 0.45) * 50,
+  math.cos(t * 0.35) * 30,
 ),
         child: Transform.scale(
           scale: 1.48 + math.sin(t * 0.35) * 0.03,
