@@ -10,7 +10,15 @@ class BlurredPair {
     required this.front,
     required this.back,
   });
+ 
+  void dispose() {
+    front.dispose();
+    back.dispose();
+    }
   }
+
+
+
 
 class BlurredImageCache {
   BlurredImageCache._();
