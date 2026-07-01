@@ -133,7 +133,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   child: AnimatedBuilder(
     animation: _controller,
     builder: (_, child) {
-      final t = _controller.value * math.pi * 2 + math.pi * 0.8;
+      final t = _controller.value * math.pi * 2 + math.pi * 0.75;
 
       return Transform.translate(
         offset: Offset(
