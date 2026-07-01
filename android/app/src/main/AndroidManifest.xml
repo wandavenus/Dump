@@ -56,7 +56,7 @@
 
         <meta-data
     android:name="io.flutter.embedding.android.EnableImpeller"
-    android:value="true" />       
+    android:value="false" />       
         <meta-data android:name="flutterEmbedding" android:value="2"/>
     </application>
     <!-- Required to query activities that can process text, see:
