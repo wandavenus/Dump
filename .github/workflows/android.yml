@@ -34,10 +34,10 @@ jobs:
       - name: cache pub
         uses: actions/cache@v6
         with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+           path: ~/.pub-cache
+           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+           restore-keys: |
+                ${{ runner.os }}-pub-
 
       - run: flutter pub get
 
@@ -48,5 +48,6 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error 
           compression-level: 0    
           archive: false
