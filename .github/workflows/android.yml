@@ -43,34 +43,12 @@ jobs:
 
       - name: Patch media_kit (arm64 only)
         run: |
-            FILE=$(find "$PUB_CACHE" -path "*/media_kit_libs_android_audio-*/android/build.gradle" | head -n1)
-            python3 <<'PY' "$FILE"
-            import sys
-
-            path = sys.argv[1]
-
-            with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
-
-            old = """        filesToDownload.each { fileInfo ->
-            """
-
-            new = """        filesToDownload.each { fileInfo ->
-            if (!fileInfo.url.contains("arm64-v8a")) {
-                return
-            }
-            """
-
-            if old not in text:
-            raise Exception("Patch target not found")
-
-            text = text.replace(old, new, 1)
-
-             with open(path, "w", encoding="utf-8") as f:
-             f.write(text)
-
-             print("Patched:", path)
-              PY
+              FILE=$(find "$PUB_CACHE" -path "*/media_kit_libs_android_audio-*/android/build.gradle" | head -n1)
+              sed -i '/filesToDownload.each { fileInfo ->/a\
+               if (!fileInfo.url.contains("arm64-v8a")) {\
+                return\
+                }' "$FILE"
+                grep -A5 "filesToDownload.each" "$FILE"
       
       - run: flutter build apk --release --target-platform android-arm64 --no-pub
 
