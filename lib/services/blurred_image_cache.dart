@@ -60,7 +60,7 @@ class BlurredImageCache {
   static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
     try {
       // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 200);
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 320);
       final frame = await codec.getNextFrame();
       final src = frame.image;
 
@@ -94,8 +94,8 @@ class BlurredImageCache {
   return image;
 }
 
-final front = await renderBlur(24);
-final back = await renderBlur(60);
+final front = await renderBlur(8);
+final back = await renderBlur(20);
 
 src.dispose();
 
