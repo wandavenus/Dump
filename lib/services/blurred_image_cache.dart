@@ -94,8 +94,8 @@ class BlurredImageCache {
   return image;
 }
 
-final front = await renderBlur(8);
-final back = await renderBlur(20);
+final front = await renderBlur(40);
+final back = await renderBlur(40);
 
 src.dispose();
 
