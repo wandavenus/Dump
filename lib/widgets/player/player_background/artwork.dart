@@ -18,7 +18,7 @@ class BlurredArtworkBackground extends StatefulWidget {
 class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  ui.Image? _blurredImage;
+  BlurredPair? _blurredImage;
   
   
   @override
@@ -120,7 +120,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     child: Opacity(
       opacity: 0.22,
       child: RawImage(
-        image: blurred,
+        image: blurred.back,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.low,
       ),
@@ -147,7 +147,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       );
     },
     child: RawImage(
-      image: blurred,
+      image: blurred.front,
       fit: BoxFit.cover,
       filterQuality: FilterQuality.low,
     ),
