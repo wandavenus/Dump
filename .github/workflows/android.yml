@@ -41,6 +41,14 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Show media_kit build.gradle
+        run: |
+          FILE=$(find "$PUB_CACHE" -path "*/media_kit_libs_android_audio-*/android/build.gradle" | head -n1)
+          echo "===== FILE ====="
+          echo "$FILE"
+          echo "===== CONTENT ====="
+          cat "$FILE"
+      
       - run: flutter build apk --release --target-platform android-arm64 --no-pub
 
       - name: upload artifact apk
