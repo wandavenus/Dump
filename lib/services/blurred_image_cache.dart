@@ -17,9 +17,6 @@ class BlurredPair {
     }
   }
 
-
-
-
 class BlurredImageCache {
   BlurredImageCache._();
 
