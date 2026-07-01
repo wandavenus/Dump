@@ -23,8 +23,9 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4.3.0
-
+        uses: gradle/actions/setup-gradle@v6
+        with: enhanced
+   
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.4'
