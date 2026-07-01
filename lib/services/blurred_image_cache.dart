@@ -2,17 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-/// Pre-renders artwork blur to a cached [ui.Image] at reduced resolution.
-///
-/// Calling [get] the first time triggers async GPU rendering via
-/// PictureRecorder. Subsequent calls return the cached image synchronously
-/// via [getSync], so every frame is just a cheap texture blit with no
-/// runtime ImageFilter cost.
-class BlurredImageCache {
-  BlurredImageCache._();
-
-  static const int _maxEntries = 100;
-  class BlurredPair {
+class BlurredPair {
   final ui.Image front;
   final ui.Image back;
 
@@ -21,6 +11,12 @@ class BlurredImageCache {
     required this.back,
   });
   }
+
+class BlurredImageCache {
+  BlurredImageCache._();
+
+  static const int _maxEntries = 100;
+  
 
   static final Map<int, BlurredPair> _cache = {};
   static final Map<int, Completer<BlurredPair?>> _pending = {};
