@@ -50,6 +50,8 @@ jobs:
                 }' "$FILE"
                 grep -A5 "filesToDownload.each" "$FILE"
       
+      - run: flutter analyze --fatal-warnings
+
       - run: flutter build apk --release --target-platform android-arm64 --no-pub
 
       - name: upload artifact apk
