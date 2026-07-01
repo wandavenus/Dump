@@ -96,6 +96,11 @@ class _KaraokeLinePainter extends CustomPainter {
     if (_basePainter != null && _lastWidth == width) return;
     _lastWidth = width;
 
+    // Dispose painter lama sebelum membuat yang baru agar tidak bocor
+    // memory native Paragraph (wajib sejak Flutter 3.x).
+    _basePainter?.dispose();
+    _highlightPainter?.dispose();
+
     final style = TextStyle(
       fontSize: fontSize,
       fontWeight: FontWeight.bold,
