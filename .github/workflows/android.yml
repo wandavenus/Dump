@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -43,7 +43,9 @@ jobs:
       - run: flutter build apk --release --target-platform android-arm64
 
       - name: upload artifact apk
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          compression-level: 0    
+          archive: false
