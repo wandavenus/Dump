@@ -1,10 +1,11 @@
 import 'dart:typed_data';
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../services/artwork_repository.dart';
 import '../../services/blurred_image_cache.dart';
+import '../../services/flow_field.dart';
+import '../../services/noise_motion.dart';
 
 part 'player_background/animated.dart';
 part 'player_background/animated_state.dart';

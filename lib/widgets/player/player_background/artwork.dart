@@ -1,5 +1,6 @@
 part of '../player_background.dart';
 
+/// Animated player background rendered from cached blurred artwork.
 class BlurredArtworkBackground extends StatefulWidget {
   final int songId;
   final Uint8List artwork;
@@ -18,9 +19,29 @@ class BlurredArtworkBackground extends StatefulWidget {
 class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final Stopwatch _motionClock;
+  late NoiseMotionSampler _motionSampler;
   BlurredPair? _blurredImage;
-  
-  
+
+  static const NoiseMotionConfig _backgroundMotion = NoiseMotionConfig(
+    origin: Offset(0, 0),
+    translationExtent: Offset(132, 96),
+    rotationExtent: 0.018,
+    baseScale: 1.84,
+    scaleExtent: 0.045,
+    baseOpacity: 0.20,
+    opacityExtent: 0.018,
+  );
+
+  static const NoiseMotionConfig _foregroundMotion = NoiseMotionConfig(
+    origin: Offset(4096, -2048),
+    translationExtent: Offset(70, 52),
+    rotationExtent: 0.012,
+    baseScale: 1.42,
+    scaleExtent: 0.028,
+    baseOpacity: 1.0,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +49,10 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       vsync: this,
       duration: const Duration(seconds: 60),
     )..repeat();
+    _motionClock = Stopwatch()..start();
+    _motionSampler = NoiseMotionSampler(
+      FlowField(config: FlowFieldConfig(seed: widget.songId)),
+    );
     _loadBlurred();
   }
 
@@ -35,40 +60,36 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   void didUpdateWidget(covariant BlurredArtworkBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      
+      _motionSampler = NoiseMotionSampler(
+        FlowField(config: FlowFieldConfig(seed: widget.songId)),
+      );
+      _motionClock
+        ..reset()
+        ..start();
       _loadBlurred();
     }
   }
 
   Future<void> _loadBlurred() async {
-  final requestSongId = widget.songId;
+    final requestSongId = widget.songId;
 
-  final cached = BlurredImageCache.getSync(
-    requestSongId,
-  );
-
-  if (cached != null) {
-    if (mounted && requestSongId == widget.songId) {
-      setState(() => _blurredImage = cached);
+    final cached = BlurredImageCache.getSync(requestSongId);
+    if (cached != null) {
+      if (mounted && requestSongId == widget.songId) {
+        setState(() => _blurredImage = cached);
+      }
+      return;
     }
-    return;
+
+    final img = await BlurredImageCache.get(requestSongId, widget.artwork);
+
+    if (!mounted) return;
+    if (requestSongId != widget.songId) return;
+
+    setState(() {
+      _blurredImage = img;
+    });
   }
-
-  final img = await BlurredImageCache.get(
-    requestSongId,
-    widget.artwork,
-  );
-
-  if (!mounted) return;
-
-  if (requestSongId != widget.songId) {
-    return;
-  }
-
-  setState(() {
-    _blurredImage = img;
-  });
-}
 
   @override
   void dispose() {
@@ -94,96 +115,67 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       );
     }
 
-    // Once cached: two cheap texture blits with animation transforms.
-    // No ImageFilter / BackdropFilter anywhere in this subtree.
+    // Once cached: two cheap texture blits with procedural transforms.
+    // The controller only ticks frames; motion samples elapsed wall-clock time so
+    // repeat() never creates a visible reset or positional jump.
     return Stack(
-  fit: StackFit.expand,
-  children: [
-    // Layer 1 — Deep fog
-    RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) {
-          final t = _controller.value * math.pi * 2;
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final motion = _motionSampler.sample(
+                _backgroundMotion,
+                _motionClock.elapsedMicroseconds /
+                    Duration.microsecondsPerSecond,
+              );
 
-          final dx =
-              math.sin(t * 0.55) * 110 +
-              math.sin(t * 1.7) * 28 +
-              math.cos(t * 0.23) * 22;
-
-          final dy =
-              math.cos(t * 0.42) * 75 +
-              math.sin(t * 1.35) * 20 +
-              math.cos(t * 2.1) * 10;
-
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: Transform.rotate(
-              angle: math.sin(t * 0.18) * 0.02,
-              child: Transform.scale(
-                scale:
-                    1.82 +
-                    math.sin(t * 0.25) * 0.05 +
-                    math.cos(t * 0.8) * 0.02,
-                child: child,
-              ),
+              return Opacity(
+                opacity: motion.opacity,
+                child: Transform.translate(
+                  offset: motion.translation,
+                  child: Transform.rotate(
+                    angle: motion.rotation,
+                    child: Transform.scale(scale: motion.scale, child: child),
+                  ),
+                ),
+              );
+            },
+            child: RawImage(
+              image: blurred.back,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
             ),
-          );
-        },
-        child: Opacity(
-          opacity: 0.20,
-          child: RawImage(
-            image: blurred.back,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.low,
           ),
         ),
-      ),
-    ),
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, child) {
+              final motion = _motionSampler.sample(
+                _foregroundMotion,
+                _motionClock.elapsedMicroseconds /
+                    Duration.microsecondsPerSecond,
+              );
 
-    // Layer 2 — Foreground fog
-    RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) {
-          final t = _controller.value * math.pi * 2;
-
-          final dx =
-              math.cos(t * 0.85) * 65 +
-              math.sin(t * 2.3) * 18 +
-              math.cos(t * 1.4) * 12;
-
-          final dy =
-              math.sin(t * 0.65) * 45 +
-              math.cos(t * 1.9) * 15 +
-              math.sin(t * 2.8) * 8;
-
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: Transform.rotate(
-              angle: -math.cos(t * 0.25) * 0.015,
-              child: Transform.scale(
-                scale:
-                    1.42 +
-                    math.cos(t * 0.35) * 0.035 +
-                    math.sin(t * 1.2) * 0.01,
-                child: child,
-              ),
+              return Transform.translate(
+                offset: motion.translation,
+                child: Transform.rotate(
+                  angle: motion.rotation,
+                  child: Transform.scale(scale: motion.scale, child: child),
+                ),
+              );
+            },
+            child: RawImage(
+              image: blurred.front,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
             ),
-          );
-        },
-        child: RawImage(
-          image: blurred.front,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.low,
+          ),
         ),
-      ),
-    ),
-
-    const ColoredBox(
-      color: Color.fromARGB(30, 0, 0, 0),
-    ),
-  ],
-);
+        const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
+      ],
+    );
   }
 }

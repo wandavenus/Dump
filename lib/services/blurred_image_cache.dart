@@ -2,32 +2,31 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+/// Pair of cached artwork images blurred at different strengths.
 class BlurredPair {
   final ui.Image front;
   final ui.Image back;
 
-  const BlurredPair({
-    required this.front,
-    required this.back,
-  });
- 
+  const BlurredPair({required this.front, required this.back});
+
   void dispose() {
     front.dispose();
     back.dispose();
-    }
   }
+}
 
+/// Process-wide cache for pre-blurred artwork textures.
 class BlurredImageCache {
   BlurredImageCache._();
 
   static const int _maxEntries = 100;
-  
 
   static final Map<int, BlurredPair> _cache = {};
   static final Map<int, Completer<BlurredPair?>> _pending = {};
 
   /// Returns the pre-blurred image synchronously if cached, otherwise null.
   static BlurredPair? getSync(int songId) => _cache[songId];
+
   /// Returns a pre-blurred [ui.Image] for [songId], computing it if needed.
   static Future<BlurredPair?> get(int songId, Uint8List bytes) {
     if (_cache.containsKey(songId)) {
@@ -39,20 +38,22 @@ class BlurredImageCache {
 
     final completer = Completer<BlurredPair?>();
     _pending[songId] = completer;
-    _compute(songId, bytes).then((img) {
-            if (img != null) {
-        if (_cache.length >= _maxEntries) {
-          final oldestKey = _cache.keys.first;
-          _cache.remove(oldestKey)?.dispose();
-        }
-        _cache[songId] = img;
-      }
-      _pending.remove(songId);
-      completer.complete(img);
-    }).catchError((Object _) {
-      _pending.remove(songId);
-      completer.complete(null);
-    });
+    _compute(songId, bytes)
+        .then((img) {
+          if (img != null) {
+            if (_cache.length >= _maxEntries) {
+              final oldestKey = _cache.keys.first;
+              _cache.remove(oldestKey)?.dispose();
+            }
+            _cache[songId] = img;
+          }
+          _pending.remove(songId);
+          completer.complete(img);
+        })
+        .catchError((Object _) {
+          _pending.remove(songId);
+          completer.complete(null);
+        });
 
     return completer.future;
   }
@@ -70,39 +71,33 @@ class BlurredImageCache {
       // Render the image with heavy blur into a PictureRecorder.
       // tileMode.mirror prevents dark halo at edges.
       Future<ui.Image> renderBlur(double sigma) async {
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(
-      recorder,
-      ui.Rect.fromLTWH(0, 0, w, h),
-      );
+        final recorder = ui.PictureRecorder();
+        final canvas = ui.Canvas(recorder, ui.Rect.fromLTWH(0, 0, w, h));
 
-      canvas.drawImage(
-      src,
-      ui.Offset.zero,
-      ui.Paint()
-      ..imageFilter = ui.ImageFilter.blur(
-        sigmaX: sigma,
-        sigmaY: sigma,
-        tileMode: ui.TileMode.mirror,
-      ),
-  );
+        canvas.drawImage(
+          src,
+          ui.Offset.zero,
+          ui.Paint()
+            ..imageFilter = ui.ImageFilter.blur(
+              sigmaX: sigma,
+              sigmaY: sigma,
+              tileMode: ui.TileMode.mirror,
+            ),
+        );
 
-  final picture = recorder.endRecording();
-  final image = await picture.toImage(w.toInt(), h.toInt());
-  picture.dispose();
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(w.toInt(), h.toInt());
+        picture.dispose();
 
-  return image;
-}
+        return image;
+      }
 
-final front = await renderBlur(40);
-final back = await renderBlur(40);
+      final front = await renderBlur(10);
+      final back = await renderBlur(24);
 
-src.dispose();
+      src.dispose();
 
-return BlurredPair(
-  front: front,
-  back: back,
-);
+      return BlurredPair(front: front, back: back);
     } catch (_) {
       return null;
     }
