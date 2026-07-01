@@ -108,11 +108,11 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
 
       return Transform.translate(
         offset: Offset(
-  math.sin(t * 0.45) * 50,
-  math.cos(t * 0.35) * 30,
+  math.sin(t * 0.25) * 55,
+  math.cos(t * 0.40) * 35,
 ),
         child: Transform.scale(
-          scale: 1.48 + math.sin(t * 0.35) * 0.03,
+          scale: 1.6 + math.sin(t * 0.35) * 0.03,
           child: child,
         ),
       );
@@ -138,10 +138,10 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       return Transform.translate(
         offset: Offset(
   math.cos(t * 1.15) * 18,
-  math.sin(t * 0.9) * 12,
+  math.sin(t * 0.95) * 12,
 ),
         child: Transform.scale(
-          scale: 1.16 + math.cos(t * 0.75) * 0.015,
+          scale: 1.25 + math.cos(t * 0.75) * 0.015,
           child: child,
         ),
       );
