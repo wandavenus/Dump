@@ -97,65 +97,67 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     // Once cached: two cheap texture blits with animation transforms.
     // No ImageFilter / BackdropFilter anywhere in this subtree.
     return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Layer 1 — dim, over-scaled, slow oscillation
-        RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
+  fit: StackFit.expand,
+  children: [
+    // Layer 1 — background fog
+    RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, child) {
+          final t = _controller.value * math.pi * 2;
 
-      return Transform.translate(
-        offset: Offset(
-  math.sin(t * 0.25) * 55,
-  math.cos(t * 0.40) * 35,
-),
-        child: Transform.scale(
-          scale: 1.6 + math.sin(t * 0.35) * 0.03,
-          child: child,
+          return Transform.translate(
+            offset: Offset(
+              math.sin(t) * 40,
+              math.cos(t * 2) * 20,
+            ),
+            child: Transform.scale(
+              scale: 1.50 + math.sin(t) * 0.02,
+              child: child,
+            ),
+          );
+        },
+        child: Opacity(
+          opacity: 0.22,
+          child: RawImage(
+            image: blurred.back,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.low,
+          ),
         ),
-      );
-    },
-    child: Opacity(
-      opacity: 0.22,
-      child: RawImage(
-        image: blurred.back,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.low,
       ),
     ),
-  ),
-),
 
-        // Layer 2 — full opacity, slightly smaller, counter-oscillation
-        RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2 + math.pi * 0.75;
+    // Layer 2 — foreground fog
+    RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, child) {
+          final t = _controller.value * math.pi * 2 + math.pi;
 
-      return Transform.translate(
-        offset: Offset(
-  math.cos(t * 1.15) * 18,
-  math.sin(t * 0.95) * 12,
-),
-        child: Transform.scale(
-          scale: 1.25 + math.cos(t * 0.75) * 0.015,
-          child: child,
+          return Transform.translate(
+            offset: Offset(
+              math.cos(t * 2) * 18,
+              math.sin(t) * 12,
+            ),
+            child: Transform.scale(
+              scale: 1.25 + math.cos(t) * 0.015,
+              child: child,
+            ),
+          );
+        },
+        child: RawImage(
+          image: blurred.front,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.low,
         ),
-      );
-    },
-    child: RawImage(
-      image: blurred.front,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.low,
+      ),
     ),
-  ),
-),
 
-        const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
-      ],
-    );
+    const ColoredBox(
+      color: Color.fromARGB(30, 0, 0, 0),
+    ),
+  ],
+);
   }
 }
