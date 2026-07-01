@@ -26,7 +26,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 40),
     )..repeat();
     _loadBlurred();
   }
@@ -108,17 +108,17 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
 
       return Transform.translate(
         offset: Offset(
-          math.sin(t) * 20,
-          math.cos(t * 0.75) * 10,
-        ),
+  math.sin(t * 0.45) * 45,
+  math.cos(t * 0.35) * 28,
+),
         child: Transform.scale(
-          scale: 1.32 + math.sin(t * 0.5) * 0.015,
+          scale: 1.48 + math.sin(t * 0.35) * 0.03,
           child: child,
         ),
       );
     },
     child: Opacity(
-      opacity: 0.28,
+      opacity: 0.22,
       child: RawImage(
         image: blurred,
         fit: BoxFit.cover,
@@ -133,15 +133,15 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   child: AnimatedBuilder(
     animation: _controller,
     builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
+      final t = _controller.value * math.pi * 2 + math.pi * 0.8;
 
       return Transform.translate(
         offset: Offset(
-          -math.sin(t * 0.85) * 12,
-          math.cos(t * 1.15) * 6,
-        ),
+  math.cos(t * 1.15) * 18,
+  math.sin(t * 0.9) * 12,
+),
         child: Transform.scale(
-          scale: 1.18 + math.cos(t * 0.45) * 0.010,
+          scale: 1.16 + math.cos(t * 0.75) * 0.015,
           child: child,
         ),
       );
