@@ -22,19 +22,6 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// 🌟 SUNTIKAN SAKTI: Paksa Gradle buat nolak download jar media-kit selain arm64!
-configurations.all {
-    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
-        if (details.requested.group == 'com.github.media-kit') {
-            // Kalau namanya mengandung unsur v7a, x86, atau x86_64, kita potong jalurnya
-            if (details.requested.name.contains('armeabi-v7a') || 
-                details.requested.name.contains('x86')) {
-                details.useTarget("com.github.media-kit:libmpv-android-audio-build:v1.1.8") 
-            }
-        }
-    }
-}
-
 android {
     namespace "com.example.musicplayer"
     compileSdk 36
@@ -56,7 +43,7 @@ android {
 
     lint {
         baseline = file("lint-baseline.xml")
-        abortOnError false // 🌟 Cari aman beb, biar build di GitHub gak gampang jebol gara-gara warning lint kecil
+        abortOnError = false // Tetep pasang false ya beb biar gak sensitif error lint-nya
         warningsAsErrors = false
         checkDependencies = false
         xmlReport = true
@@ -81,7 +68,7 @@ android {
         versionName flutterVersionName
 
         ndk {
-            abiFilters "arm64-v8a" // 🌟 Tetap dikunci di arm64
+            abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
     }
 
@@ -96,7 +83,7 @@ android {
                 "META-INF/LGPL2.1"
             ]
         }
-        // 🌟 Jaga-jaga tingkat dewa biar binary arsitektur lain gak ikut ke-pack ke APK
+        // 🌟 Biar file .so dari v7a atau x86 punya media-kit gak ikut disuntik ke dalem APK lu
         jniLibs {
             excludes += [
                 'lib/armeabi-v7a/**',
