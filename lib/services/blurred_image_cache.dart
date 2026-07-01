@@ -12,14 +12,23 @@ class BlurredImageCache {
   BlurredImageCache._();
 
   static const int _maxEntries = 100;
-  static final Map<int, ui.Image> _cache = {};
-  static final Map<int, Completer<ui.Image?>> _pending = {};
+  class BlurredPair {
+  final ui.Image front;
+  final ui.Image back;
+
+  const BlurredPair({
+    required this.front,
+    required this.back,
+  });
+  }
+
+  static final Map<int, BlurredPair> _cache = {};
+  static final Map<int, Completer<BlurredPair?>> _pending = {};
 
   /// Returns the pre-blurred image synchronously if cached, otherwise null.
-  static ui.Image? getSync(int songId) => _cache[songId];
-
+  static BlurredPair? getSync(int songId) => _cache[songId];
   /// Returns a pre-blurred [ui.Image] for [songId], computing it if needed.
-  static Future<ui.Image?> get(int songId, Uint8List bytes) {
+  static Future<BlurredPair?> get(int songId, Uint8List bytes) {
     if (_cache.containsKey(songId)) {
       return Future.value(_cache[songId]);
     }
@@ -27,7 +36,7 @@ class BlurredImageCache {
       return _pending[songId]!.future;
     }
 
-    final completer = Completer<ui.Image?>();
+    final completer = Completer<BlurredPair?>();
     _pending[songId] = completer;
     _compute(songId, bytes).then((img) {
             if (img != null) {
@@ -47,7 +56,7 @@ class BlurredImageCache {
     return completer.future;
   }
 
-  static Future<ui.Image?> _compute(int songId, Uint8List bytes) async {
+  static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
     try {
       // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
       final codec = await ui.instantiateImageCodec(bytes, targetWidth: 200);
@@ -59,28 +68,40 @@ class BlurredImageCache {
 
       // Render the image with heavy blur into a PictureRecorder.
       // tileMode.mirror prevents dark halo at edges.
+      Future<ui.Image> renderBlur(double sigma) async {
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(
-        recorder,
-        ui.Rect.fromLTWH(0, 0, w, h),
+      recorder,
+      ui.Rect.fromLTWH(0, 0, w, h),
       );
+
       canvas.drawImage(
-        src,
-        ui.Offset.zero,
-        ui.Paint()
-          ..imageFilter = ui.ImageFilter.blur(
-            sigmaX: 28,
-            sigmaY: 28,
-            tileMode: ui.TileMode.mirror,
-          ),
-      );
-      src.dispose();
+      src,
+      ui.Offset.zero,
+      ui.Paint()
+      ..imageFilter = ui.ImageFilter.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        tileMode: ui.TileMode.mirror,
+      ),
+  );
 
-      final picture = recorder.endRecording();
-      final result = await picture.toImage(w.toInt(), h.toInt());
-      picture.dispose();
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(w.toInt(), h.toInt());
+  picture.dispose();
 
-      return result;
+  return image;
+}
+
+final front = await renderBlur(24);
+final back = await renderBlur(60);
+
+src.dispose();
+
+return BlurredPair(
+  front: front,
+  back: back,
+);
     } catch (_) {
       return null;
     }
