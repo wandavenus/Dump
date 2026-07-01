@@ -41,6 +41,15 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Patch media_kit (arm64 only)
+        run: |
+              FILE=$(find "$PUB_CACHE" -path "*/media_kit_libs_android_audio-*/android/build.gradle" | head -n1)
+              sed -i '/filesToDownload.each { fileInfo ->/a\
+               if (!fileInfo.url.contains("arm64-v8a")) {\
+                return\
+                }' "$FILE"
+                grep -A5 "filesToDownload.each" "$FILE"
+      
       - run: flutter build apk --release --target-platform android-arm64 --no-pub
 
       - name: upload artifact apk
