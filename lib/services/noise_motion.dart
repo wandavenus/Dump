@@ -28,17 +28,17 @@ class NoiseMotion {
 
     // Primary drift — owns the bulk of the translation.
     final sample = _flowField.sample(
-      x: layer.fieldX,
-      y: layer.fieldY,
-      timeSeconds: t,
+    x: layer.fieldX,
+    y: layer.fieldY,
+    timeSeconds: t * (layer == NoiseMotionLayer.deepBackground ? 0.7 : 1.15),
     );
 
     // Companion drift — spatially and temporally de-correlated from [sample]
     // so the two layers move on independent trajectories (parallax).
     final companion = _flowField.sample(
-      x: layer.fieldX + 29.3,
-      y: layer.fieldY - 21.7,
-      timeSeconds: t * 0.61, // was 0.73 — less correlated
+    x: layer.fieldX + 29.3,
+    y: layer.fieldY - 21.7,
+    timeSeconds: t * (layer == NoiseMotionLayer.deepBackground ? 0.55 : 1.35),
     );
 
     // Breathing sample — used only for scale modulation; never touches tx/ty.
@@ -47,19 +47,19 @@ class NoiseMotion {
     final breath = _flowField.sample(
       x: layer.fieldX - 41.0,
       y: layer.fieldY + 33.5,
-      timeSeconds: t * 0.31 + 7.9,
+      timeSeconds: t * 0.45 + 7.9,
     );
 
     // --- Translation ----------------------------------------------------------
     // Y is damped slightly relative to X (× 0.82 / × 0.22) for a natural
     // horizontal-dominant drift that matches how fog moves across a surface.
     final tx =
-        (sample.x    * layer.translationRadius) +
-        (companion.x * layer.translationRadius * 0.28);
-    final ty =
-        (sample.y    * layer.translationRadius * 0.82) +
-        (companion.y * layer.translationRadius * 0.22);
+    ((sample.x * 0.70) + (companion.x * 0.30)) *
+    layer.translationRadius;
 
+    final ty =
+    ((sample.y * 0.70) + (companion.y * 0.30)) *
+    layer.translationRadius;
     // --- Rotation -------------------------------------------------------------
     // Kept extremely subtle — full-screen rotation is very distracting.
     final rot =
@@ -83,7 +83,10 @@ class NoiseMotion {
         );
 
     return NoiseMotionFrame(
-      translation: Offset(tx, ty),
+      translation: Offset(
+      tx + (sample.rotation * layer.translationRadius * 0.18),
+      ty + (companion.rotation * layer.translationRadius * 0.18),
+      ),
       rotation: rot,
       scale: scale,
       opacity: opacity,
@@ -118,14 +121,14 @@ class NoiseMotionLayer {
     fieldX:            -8.0,
     fieldY:            12.0,
     timeOffset:         0.0,
-    translationRadius: 36.0,   // was 122 — slow fog drift, not a camera shake
-    rotationRange:      0.004, // was 0.022 — nearly invisible
-    baseScale:          1.32,  // was 1.84 — still covers edges at max drift
-    scaleRange:         0.011, // ≈ 1.1 % breathing
-    baseOpacity:        0.22,
-    opacityRange:       0.045,
-    minimumOpacity:     0.17,
-    maximumOpacity:     0.29,
+    translationRadius: 72.0,
+    rotationRange:    0.008,
+    baseScale:         1.20,
+    scaleRange:       0.025,
+    baseOpacity:       0.30,
+    opacityRange:     0.08,
+    minimumOpacity:    0.17,
+    maximumOpacity:    0.29,
   );
 
   /// Lighter foreground fog layer — moves faster to create parallax depth.
@@ -139,12 +142,12 @@ class NoiseMotionLayer {
     fieldX:            15.0,
     fieldY:            -6.0,
     timeOffset:        41.0,   // large phase offset ensures no sync with back
-    translationRadius: 24.0,   // was 72 — moves less than back → clear parallax
-    rotationRange:      0.003, // was 0.017
-    baseScale:          1.22,  // was 1.43
-    scaleRange:         0.009, // ≈ 0.9 % breathing
-    baseOpacity:        0.88,
-    opacityRange:       0.055,
+    translationRadius: 48.0,
+    rotationRange: 0.007,
+    baseScale: 1.14,
+    scaleRange: 0.020,
+    baseOpacity:        0.95,
+    opacityRange:       0.04,
     minimumOpacity:     0.80,
     maximumOpacity:     0.96,
   );

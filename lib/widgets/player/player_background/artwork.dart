@@ -28,7 +28,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 40),
+      duration: const Duration(seconds: 60),
     )..repeat();
     _fadeController = AnimationController(
      vsync: this,
@@ -206,8 +206,8 @@ class _FlowFieldRawImageLayer extends StatelessWidget {
       builder: (_, child) {
         final frame = motion.frameFor(
           layer: layer,
-          timeSeconds:
-              (controller.lastElapsedDuration?.inMicroseconds ?? 0) / 1000000.0,
+          
+          timeSeconds: controller.value * 120.0,
         );
 
         return Opacity(
