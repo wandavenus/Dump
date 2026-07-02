@@ -47,7 +47,7 @@ class PlaylistCard extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.9),
+                      Colors.black.withValues(alpha: 0.5),
                     ],
                     stops: const [0.25, 1.0],
                   ),
