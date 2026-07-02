@@ -1,0 +1,36 @@
+# Music Player — Flutter App
+
+A feature-rich Flutter music player, primarily targeting Android with a web preview build included.
+
+## Stack
+
+- **Framework:** Flutter / Dart
+- **Android backend:** Media3 (ExoPlayer), native Kotlin services
+- **Key features:** Crossfade, lyrics (multi-provider), ReplayGain, sleep timer, queue persistence, themes
+
+## How to run
+
+The web build (`build/web/`) is pre-compiled and served by `server.js` on port 5000:
+
+```
+node server.js
+```
+
+To rebuild the web output after Dart/Flutter changes:
+```
+flutter build web --release --base-href /
+```
+
+The Android APK is the primary target — build with Android Studio or `flutter build apk`.
+
+## Project structure
+
+- `lib/` — Dart/Flutter source (pages, services, models, widgets, themes)
+- `android/` — Native Kotlin code (Media3 playback service, audio effects, etc.)
+- `assets/` — Fonts, images
+- `build/web/` — Pre-compiled web output (served by server.js)
+- `pubspec.yaml` — Flutter dependencies
+
+## User preferences
+
+_None recorded yet._

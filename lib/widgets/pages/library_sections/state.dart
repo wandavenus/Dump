@@ -98,7 +98,7 @@ class _LibraryContentState extends State<LibraryContent> {
               child: child,
             ),
           ),
-      onReorderItem: _onReorder,
+      onReorder: _onReorder,
       children:
           _items
               .map(
