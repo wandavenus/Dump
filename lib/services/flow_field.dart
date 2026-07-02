@@ -28,27 +28,38 @@ class FlowField {
     final mediumTime = timeSeconds * 0.010; // was 0.032
     final breathTime = timeSeconds * 0.003; // very slow; purely for zoom pulse
 
-    final vx    = _primary.getNoise3(x + 11.7, y - 3.4,  slowTime);
-    final vy    = _primary.getNoise3(x -  5.2, y + 9.8,  slowTime  + 17.0);
-    final swirl = _secondary.getNoise3(x + vx,  y + vy,  mediumTime + 31.0);
+    final warpX = vx * 1.8;
+final warpY = vy * 1.8;
+
+final swirl = _secondary.getNoise3(
+  x + warpX,
+  y + warpY,
+  mediumTime + 31.0,
+);
+
+final lift = _secondary.getNoise3(
+  x - warpY,
+  y + warpX,
+  mediumTime - 19.0,
+);
     final lift  = _secondary.getNoise3(
       x - vy * 0.7,
       y + vx * 0.7,
       mediumTime - 19.0,
     );
     final density = _depth.getNoise3(
-      x + swirl * 0.5,
-      y + lift  * 0.5,
-      slowTime + 53.0,
-    );
+  x + warpX + swirl,
+  y + warpY + lift,
+  slowTime + 53.0,
+);
     // Breathing sample lives at a spatially separate point so it carries no
     // directional information and can modulate scale independently.
     final breathe = _breathe.getNoise3(x + 7.3, y - 4.1, breathTime + 3.7);
 
     return FlowFieldSample(
-      x:       (vx    * 0.58) + (swirl * 0.42),
-      y:       (vy    * 0.62) + (lift  * 0.38),
-      rotation: (swirl - lift) * 0.5,
+      x: (vx * 0.30) + (swirl * 0.70),
+y: (vy * 0.30) + (lift * 0.70),
+      rotation: (swirl - lift) * 1.10,
       depth:   density,
       breathe: breathe,
     );
