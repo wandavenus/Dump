@@ -20,7 +20,7 @@ class BlurredPair {
 class BlurredImageCache {
   BlurredImageCache._();
 
-  static const int _maxEntries = 50;
+  static const int _maxEntries = 80;
   
 
   static final Map<int, BlurredPair> _cache = {};
@@ -68,50 +68,67 @@ class BlurredImageCache {
   }
 
   static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
-    try {
+  if (bytes.isEmpty) return null;
+
+  try {
       // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 256);
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 192);
       final frame = await codec.getNextFrame();
       codec.dispose();
       final src = frame.image;
 
       final w = src.width.toDouble();
       final h = src.height.toDouble();
+      final width = src.width;
+      final height = src.height;
+      final bounds = ui.Rect.fromLTWH(
+      0,
+      0,
+      width.toDouble(),
+      height.toDouble(),
+      );
+   
+      final frontPaint = ui.Paint()
+  ..imageFilter = ui.ImageFilter.blur(
+    sigmaX: 40,
+    sigmaY: 40,
+    tileMode: ui.TileMode.mirror,
+  );
 
-      // Render the image with heavy blur into a PictureRecorder.
+final backPaint = ui.Paint()
+  ..imageFilter = ui.ImageFilter.blur(
+    sigmaX: 30,
+    sigmaY: 30,
+    tileMode: ui.TileMode.mirror,
+  );  
+    
+    // Render the image with heavy blur into a PictureRecorder.
       // tileMode.mirror prevents dark halo at edges.
-      Future<ui.Image> renderBlur(double sigma) async {
+      Future<ui.Image> renderBlur(ui.Paint paint) async {
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(
       recorder,
-      ui.Rect.fromLTWH(0, 0, w, h),
+      bounds,
       );
 
       canvas.drawImage(
-      src,
-      ui.Offset.zero,
-      ui.Paint()
-      ..imageFilter = ui.ImageFilter.blur(
-        sigmaX: sigma,
-        sigmaY: sigma,
-        tileMode: ui.TileMode.mirror,
-      ),
-  );
+  src,
+  ui.Offset.zero,
+  paint,
+);
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(w.toInt(), h.toInt());
+  final image = await picture.toImage(
+  width,
+  height,
+);
   picture.dispose();
 
   return image;
 }
 
-final results = await Future.wait([
-  renderBlur(40),
-  renderBlur(30),
-]);
-
-final front = results[0];
-final back = results[1];
+final front = await renderBlur(frontPaint);
+final back = await renderBlur(backPaint);
 
 src.dispose();
 
