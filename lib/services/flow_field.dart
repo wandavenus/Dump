@@ -7,10 +7,10 @@ import 'fast_noise_lite.dart';
 /// slow breathing-zoom signal so it never correlates with drift direction.
 class FlowField {
   FlowField({required int seed})
-    : _primary   = FastNoiseLite(seed: seed)..frequency = 0.48,
-      _secondary = FastNoiseLite(seed: seed ^ 0x6D2B79F5)..frequency = 0.29,
-      _depth     = FastNoiseLite(seed: seed ^ 0x1B873593)..frequency = 0.16,
-      _breathe   = FastNoiseLite(seed: seed ^ 0x45612F3A)..frequency = 0.11;
+    : _primary   = FastNoiseLite(seed: seed)..frequency = 0.72,
+      _secondary = FastNoiseLite(seed: seed ^ 0x6D2B79F5)..frequency = 0.46,
+      _depth     = FastNoiseLite(seed: seed ^ 0x1B873593)..frequency = 0.28,
+      _breathe   = FastNoiseLite(seed: seed ^ 0x45612F3A)..frequency = 0.18;
 
   final FastNoiseLite _primary;
   final FastNoiseLite _secondary;
@@ -24,9 +24,9 @@ class FlowField {
     required double timeSeconds,
   }) {
     // Slower temporal rates → the field evolves like fog, not turbulent smoke.
-    final slowTime   = timeSeconds * 0.012; // was 0.018
-    final mediumTime = timeSeconds * 0.021; // was 0.032
-    final breathTime = timeSeconds * 0.007; // very slow; purely for zoom pulse
+    final slowTime   = timeSeconds * 0.006; // was 0.018
+    final mediumTime = timeSeconds * 0.012; // was 0.032
+    final breathTime = timeSeconds * 0.003; // very slow; purely for zoom pulse
 
     final vx    = _primary.getNoise3(x + 11.7, y - 3.4,  slowTime);
     final vy    = _primary.getNoise3(x -  5.2, y + 9.8,  slowTime  + 17.0);
