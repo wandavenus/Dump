@@ -20,22 +20,32 @@ class BlurredPair {
 class BlurredImageCache {
   BlurredImageCache._();
 
-  static const int _maxEntries = 100;
+  static const int _maxEntries = 50;
   
 
   static final Map<int, BlurredPair> _cache = {};
   static final Map<int, Completer<BlurredPair?>> _pending = {};
 
+  static BlurredPair? _touch(int songId) {
+  final value = _cache.remove(songId);
+  if (value != null) {
+    _cache[songId] = value;
+  }
+  return value;
+  }
+  
   /// Returns the pre-blurred image synchronously if cached, otherwise null.
-  static BlurredPair? getSync(int songId) => _cache[songId];
+  static BlurredPair? getSync(int songId) => _touch(songId);
   /// Returns a pre-blurred [ui.Image] for [songId], computing it if needed.
   static Future<BlurredPair?> get(int songId, Uint8List bytes) {
-    if (_cache.containsKey(songId)) {
-      return Future.value(_cache[songId]);
-    }
-    if (_pending.containsKey(songId)) {
-      return _pending[songId]!.future;
-    }
+  final cached = _touch(songId);
+  if (cached != null) {
+    return Future.value(cached);
+  }
+
+  if (_pending.containsKey(songId)) {
+    return _pending[songId]!.future;
+  }
 
     final completer = Completer<BlurredPair?>();
     _pending[songId] = completer;
@@ -60,8 +70,9 @@ class BlurredImageCache {
   static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
     try {
       // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 320);
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 256);
       final frame = await codec.getNextFrame();
+      codec.dispose();
       final src = frame.image;
 
       final w = src.width.toDouble();
@@ -94,8 +105,13 @@ class BlurredImageCache {
   return image;
 }
 
-final front = await renderBlur(40);
-final back = await renderBlur(30);
+final results = await Future.wait([
+  renderBlur(40),
+  renderBlur(30),
+]);
+
+final front = results[0];
+final back = results[1];
 
 src.dispose();
 
