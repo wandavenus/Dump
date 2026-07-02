@@ -41,12 +41,19 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   }
 
   @override
-  void didUpdateWidget(covariant BlurredArtworkBackground old) {
-    super.didUpdateWidget(old);
-    if (old.songId != widget.songId) {
-      _loadBlurred();
-    }
+void didUpdateWidget(covariant BlurredArtworkBackground old) {
+  super.didUpdateWidget(old);
+
+  if (old.songId != widget.songId) {
+    _motion = NoiseMotion(
+      flowField: FlowField(
+        seed: _seedForSong(widget.songId),
+      ),
+    );
+
+    _loadBlurred();
   }
+}
 
   Future<void> _loadBlurred() async {
   final requestSongId = widget.songId;
