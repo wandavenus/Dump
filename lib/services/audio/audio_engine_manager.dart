@@ -405,6 +405,10 @@ _activePrefetches++;
   } finally {
     if (index >= 0 && index < _currentQueue.length) {
       _prefetchingSongs.remove(_currentQueue[index].id);
+
+if (_activePrefetches > 0) {
+  _activePrefetches--;
+}
     }
   }
 }
