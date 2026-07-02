@@ -20,7 +20,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   late final AnimationController _controller;
   late final AnimationController _fadeController;
   late final NoiseMotion _motion;
-  BlurredPair? _blurredImage;
+  
   BlurredPair? _currentBlurred;
   BlurredPair? _nextBlurred;
   @override
@@ -55,35 +55,47 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       BlurredImageCache.getSync(requestSongId) == _currentBlurred) {
     return;
   }
-    final cached = BlurredImageCache.getSync(requestSongId);
 
-    if (cached != null) {
-      if (mounted && requestSongId == widget.songId) {
-        setState(() {
-  _currentBlurred = cached;
-});
-      }
-      return;
-    }
+  BlurredPair? blurred = BlurredImageCache.getSync(requestSongId);
 
-    final img = await BlurredImageCache.get(requestSongId, widget.artwork);
-    if (!mounted || requestSongId != widget.songId) return;
+  blurred ??= await BlurredImageCache.get(
+    requestSongId,
+    widget.artwork,
+  );
 
-    setState(() {
-  _nextBlurred = img;
-});
-
-await _fadeController.forward();
-
-if (!mounted || requestSongId != widget.songId) return;
-
-setState(() {
-  _currentBlurred = _nextBlurred;
-  _nextBlurred = null;
-});
-
-_fadeController.value = 0;
+  if (!mounted ||
+      requestSongId != widget.songId ||
+      blurred == null) {
+    return;
   }
+
+  // pertama kali
+  if (_currentBlurred == null) {
+    setState(() {
+      _currentBlurred = blurred;
+    });
+    return;
+  }
+
+  setState(() {
+    _nextBlurred = blurred;
+  });
+
+  await Future<void>.delayed(Duration.zero);
+
+  if (!mounted || requestSongId != widget.songId) return;
+
+  await _fadeController.forward();
+
+  if (!mounted || requestSongId != widget.songId) return;
+
+  setState(() {
+    _currentBlurred = _nextBlurred;
+    _nextBlurred = null;
+  });
+
+  _fadeController.value = 0;
+}
 
   @override
   void dispose() {
