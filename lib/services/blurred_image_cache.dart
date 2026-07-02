@@ -14,43 +14,50 @@ class BlurredPair {
   void dispose() {
     front.dispose();
     back.dispose();
-    }
   }
+}
 
 class BlurredImageCache {
   BlurredImageCache._();
 
   static const int _maxEntries = 80;
-  
-
   static final Map<int, BlurredPair> _cache = {};
   static final Map<int, Completer<BlurredPair?>> _pending = {};
 
   static BlurredPair? _touch(int songId) {
-  final value = _cache.remove(songId);
-  if (value != null) {
-    _cache[songId] = value;
-  }
-  return value;
+    final value = _cache.remove(songId);
+    if (value != null) {
+      _cache[songId] = value;
+    }
+    return value;
   }
   
-  /// Returns the pre-blurred image synchronously if cached, otherwise null.
   static BlurredPair? getSync(int songId) => _touch(songId);
-  /// Returns a pre-blurred [ui.Image] for [songId], computing it if needed.
-  static Future<BlurredPair?> get(int songId, Uint8List bytes) {
-  final cached = _touch(songId);
-  if (cached != null) {
-    return Future.value(cached);
+
+  /// Method buat preload secara background (Fire-and-forget)
+  /// Panggil ini pas playlist keload, atau pas lagu berikutnya mau deketan abis
+  static void preload(int songId, Uint8List bytes) {
+    if (_cache.containsKey(songId) || _pending.containsKey(songId)) return;
+    
+    // Jalanin secara async tanpa di-await biar gak ngadat
+    get(songId, bytes);
   }
 
-  if (_pending.containsKey(songId)) {
-    return _pending[songId]!.future;
-  }
+  static Future<BlurredPair?> get(int songId, Uint8List bytes) {
+    final cached = _touch(songId);
+    if (cached != null) {
+      return Future.value(cached);
+    }
+
+    if (_pending.containsKey(songId)) {
+      return _pending[songId]!.future;
+    }
 
     final completer = Completer<BlurredPair?>();
     _pending[songId] = completer;
-    _compute(songId, bytes).then((img) {
-            if (img != null) {
+
+    _compute(bytes).then((img) {
+      if (img != null) {
         if (_cache.length >= _maxEntries) {
           final oldestKey = _cache.keys.first;
           _cache.remove(oldestKey)?.dispose();
@@ -67,78 +74,64 @@ class BlurredImageCache {
     return completer.future;
   }
 
-  static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
-  if (bytes.isEmpty) return null;
+  static Future<BlurredPair?> _compute(Uint8List bytes) async {
+    if (bytes.isEmpty) return null;
 
-  try {
-      // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 192);
+    try {
+      // Diturunin ke 128px biar preloading-nya super ngebut dan hemat resource
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 128);
       final frame = await codec.getNextFrame();
       codec.dispose();
+
       final src = frame.image;
       final width = src.width;
       final height = src.height;
-      final bounds = ui.Rect.fromLTWH(
-      0,
-      0,
-      width.toDouble(),
-      height.toDouble(),
-      );
+      final bounds = ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
    
       final frontPaint = ui.Paint()
-  ..imageFilter = ui.ImageFilter.blur(
-    sigmaX: 40,
-    sigmaY: 40,
-    tileMode: ui.TileMode.mirror,
-  );
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: 40,
+          sigmaY: 40,
+          tileMode: ui.TileMode.mirror,
+        );
 
-final backPaint = ui.Paint()
-  ..imageFilter = ui.ImageFilter.blur(
-    sigmaX: 30,
-    sigmaY: 30,
-    tileMode: ui.TileMode.mirror,
-  );  
+      final backPaint = ui.Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: 30,
+          sigmaY: 30,
+          tileMode: ui.TileMode.mirror,
+        );  
     
-    // Render the image with heavy blur into a PictureRecorder.
-      // tileMode.mirror prevents dark halo at edges.
       Future<ui.Image> renderBlur(ui.Paint paint) async {
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(
-      recorder,
-      bounds,
+        final recorder = ui.PictureRecorder();
+        final canvas = ui.Canvas(recorder, bounds);
+
+        canvas.drawImage(src, ui.Offset.zero, paint);
+
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(width, height);
+        picture.dispose();
+
+        return image;
+      }
+
+      // Concurrency dieksekusi barengan biar optimal
+      final blurredImages = await Future.wait([
+        renderBlur(frontPaint),
+        renderBlur(backPaint),
+      ]);
+
+      src.dispose();
+
+      return BlurredPair(
+        front: blurredImages[0],
+        back: blurredImages[1],
       );
-
-      canvas.drawImage(
-  src,
-  ui.Offset.zero,
-  paint,
-);
-
-  final picture = recorder.endRecording();
-  final image = await picture.toImage(
-  width,
-  height,
-);
-  picture.dispose();
-
-  return image;
-}
-
-final front = await renderBlur(frontPaint);
-final back = await renderBlur(backPaint);
-
-src.dispose();
-
-return BlurredPair(
-  front: front,
-  back: back,
-);
     } catch (_) {
       return null;
     }
   }
 
-  /// Evict a single song's cache (e.g. when it is removed from library).
   static void evict(int songId) {
     _cache[songId]?.dispose();
     _cache.remove(songId);
