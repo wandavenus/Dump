@@ -5,7 +5,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../artwork_repository.dart';
+import '../blurred_image_cache.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
 import 'engine_abstraction.dart';
@@ -75,7 +76,8 @@ class AudioEngineManager {
   static final _stereoWideningCtrl  = StreamController<Map<dynamic, dynamic>>.broadcast();
 
   static final List<StreamSubscription<dynamic>> _engineSubs = [];
-
+  static List<LocalSong> _currentQueue = const [];
+  static int _lastPrefetchedIndex = -1;
   // ── Public streams ────────────────────────────────────────────────────────
 
   static Stream<Map<dynamic, dynamic>>  get playbackStateStream  => _playbackStateCtrl.stream;
@@ -320,8 +322,30 @@ class AudioEngineManager {
       engine.playbackStateStream.listen(_playbackStateCtrl.add),
       engine.positionStream.listen(_positionCtrl.add),
       engine.durationStream.listen(_durationCtrl.add),
-      engine.currentTrackStream.listen(_currentTrackCtrl.add),
-      engine.queueStream.listen(_queueCtrl.add),
+      engine.currentTrackStream.listen((event) {
+  _currentTrackCtrl.add(event);
+
+  engine.currentTrackStream.listen((event) {
+  _currentTrackCtrl.add(event);
+
+  final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
+  if (currentIndex < 0) return;
+
+  if (_lastPrefetchedIndex == currentIndex) return;
+  _lastPrefetchedIndex = currentIndex;
+
+  for (var i = 1; i <= 3; i++) {
+    unawaited(_prefetchArtwork(currentIndex + i));
+  }
+}),
+      engine.queueStream.listen((queue) {
+  _queueCtrl.add(queue);
+
+  _currentQueue = queue
+      .whereType<Map>()
+      .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
+      .toList();
+}),
       engine.bufferingStateStream.listen(_bufferingCtrl.add),
       engine.shuffleModeStream.listen(_shuffleCtrl.add),
       engine.repeatModeStream.listen(_repeatCtrl.add),
@@ -340,6 +364,28 @@ class AudioEngineManager {
     _engineSubs.clear();
   }
 
+ static Future<void> _prefetchArtwork(int index) async {
+  try {
+    if (index < 0 || index >= _currentQueue.length) return;
+
+    final song = _currentQueue[index];
+
+    if (BlurredImageCache.getSync(song.id) != null) {
+      return;
+    }
+
+    final path = await ArtworkRepository.instance.getPath(song.id);
+if (path == null) return;
+
+final bytes = await ArtworkRepository.instance.getBytes(song.id);
+if (bytes == null) return;
+
+await BlurredImageCache.get(song.id, bytes);
+  } catch (_) {
+    // Ignore prefetch failures.
+  }
+}
+  
   static List<LocalSong> _extractQueue(Map<String, dynamic>? snapshot) {
     try {
       final raw = snapshot?['queue'];
