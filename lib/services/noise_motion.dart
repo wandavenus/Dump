@@ -38,7 +38,7 @@ class NoiseMotion {
     final companion = _flowField.sample(
       x: layer.fieldX + 29.3,
       y: layer.fieldY - 21.7,
-      timeSeconds: t * 0.85, // was 0.73 — less correlated
+      timeSeconds: t * 0.95, // was 0.73 — less correlated
     );
 
     // Breathing sample — used only for scale modulation; never touches tx/ty.
@@ -47,19 +47,19 @@ class NoiseMotion {
     final breath = _flowField.sample(
       x: layer.fieldX - 41.0,
       y: layer.fieldY + 33.5,
-      timeSeconds: t * 0.31 + 7.9,
+      timeSeconds: t * 0.45 + 7.9,
     );
 
     // --- Translation ----------------------------------------------------------
     // Y is damped slightly relative to X (× 0.82 / × 0.22) for a natural
     // horizontal-dominant drift that matches how fog moves across a surface.
     final tx =
-        (sample.x    * layer.translationRadius) +
-        (companion.x * layer.translationRadius * 0.28);
-    final ty =
-        (sample.y    * layer.translationRadius * 0.82) +
-        (companion.y * layer.translationRadius * 0.22);
+    ((sample.x * 0.70) + (companion.x * 0.30)) *
+    layer.translationRadius;
 
+    final ty =
+    ((sample.y * 0.70) + (companion.y * 0.30)) *
+    layer.translationRadius;
     // --- Rotation -------------------------------------------------------------
     // Kept extremely subtle — full-screen rotation is very distracting.
     final rot =
@@ -119,11 +119,11 @@ class NoiseMotionLayer {
     fieldY:            12.0,
     timeOffset:         0.0,
     translationRadius: 72.0,
-    rotationRange:    0.010,
-    baseScale:         1.24,
-    scaleRange:       0.018,
-    baseOpacity:       0.22,
-    opacityRange:     0.045,
+    rotationRange:    0.008,
+    baseScale:         1.20,
+    scaleRange:       0.025,
+    baseOpacity:       0.30,
+    opacityRange:     0.08,
     minimumOpacity:    0.17,
     maximumOpacity:    0.29,
   );
@@ -142,9 +142,9 @@ class NoiseMotionLayer {
     translationRadius: 48.0,
     rotationRange: 0.007,
     baseScale: 1.14,
-    scaleRange: 0.015,
-    baseOpacity:        0.88,
-    opacityRange:       0.055,
+    scaleRange: 0.020,
+    baseOpacity:        0.95,
+    opacityRange:       0.04,
     minimumOpacity:     0.80,
     maximumOpacity:     0.96,
   );
