@@ -132,7 +132,7 @@ class _AnimatedSectionState extends State<_AnimatedSection>
   Widget build(BuildContext context) {
     return SizeTransition(
       sizeFactor: _anim,
-      alignment: const Alignment(-1.0, -1.0), // kembang dari atas
+      axisAlignment: -1.0, // kembang dari atas
       child: FadeTransition(
         opacity: _anim,
         child: widget.child,

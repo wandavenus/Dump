@@ -42,7 +42,7 @@ class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
                 child: SizeTransition(
                   sizeFactor: animation,
                   axis: Axis.vertical,
-                  alignment: const Alignment(-1.0, -1.0),
+                  axisAlignment: -1.0,
                   child: child,
                 ),
               ),

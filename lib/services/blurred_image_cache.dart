@@ -2,32 +2,52 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-/// Pre-renders artwork blur to a cached [ui.Image] at reduced resolution.
-///
-/// Calling [get] the first time triggers async GPU rendering via
-/// PictureRecorder. Subsequent calls return the cached image synchronously
-/// via [getSync], so every frame is just a cheap texture blit with no
-/// runtime ImageFilter cost.
+class BlurredPair {
+  final ui.Image front;
+  final ui.Image back;
+
+  const BlurredPair({
+    required this.front,
+    required this.back,
+  });
+ 
+  void dispose() {
+    front.dispose();
+    back.dispose();
+    }
+  }
+
 class BlurredImageCache {
   BlurredImageCache._();
 
-  static const int _maxEntries = 100;
-  static final Map<int, ui.Image> _cache = {};
-  static final Map<int, Completer<ui.Image?>> _pending = {};
+  static const int _maxEntries = 80;
+  
 
+  static final Map<int, BlurredPair> _cache = {};
+  static final Map<int, Completer<BlurredPair?>> _pending = {};
+
+  static BlurredPair? _touch(int songId) {
+  final value = _cache.remove(songId);
+  if (value != null) {
+    _cache[songId] = value;
+  }
+  return value;
+  }
+  
   /// Returns the pre-blurred image synchronously if cached, otherwise null.
-  static ui.Image? getSync(int songId) => _cache[songId];
-
+  static BlurredPair? getSync(int songId) => _touch(songId);
   /// Returns a pre-blurred [ui.Image] for [songId], computing it if needed.
-  static Future<ui.Image?> get(int songId, Uint8List bytes) {
-    if (_cache.containsKey(songId)) {
-      return Future.value(_cache[songId]);
-    }
-    if (_pending.containsKey(songId)) {
-      return _pending[songId]!.future;
-    }
+  static Future<BlurredPair?> get(int songId, Uint8List bytes) {
+  final cached = _touch(songId);
+  if (cached != null) {
+    return Future.value(cached);
+  }
 
-    final completer = Completer<ui.Image?>();
+  if (_pending.containsKey(songId)) {
+    return _pending[songId]!.future;
+  }
+
+    final completer = Completer<BlurredPair?>();
     _pending[songId] = completer;
     _compute(songId, bytes).then((img) {
             if (img != null) {
@@ -47,40 +67,72 @@ class BlurredImageCache {
     return completer.future;
   }
 
-  static Future<ui.Image?> _compute(int songId, Uint8List bytes) async {
-    try {
+  static Future<BlurredPair?> _compute(int songId, Uint8List bytes) async {
+  if (bytes.isEmpty) return null;
+
+  try {
       // Decode at 1/3 size — at sigma 30 blur any detail is already lost.
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 200);
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 192);
       final frame = await codec.getNextFrame();
+      codec.dispose();
       final src = frame.image;
+      final width = src.width;
+      final height = src.height;
+      final bounds = ui.Rect.fromLTWH(
+      0,
+      0,
+      width.toDouble(),
+      height.toDouble(),
+      );
+   
+      final frontPaint = ui.Paint()
+  ..imageFilter = ui.ImageFilter.blur(
+    sigmaX: 40,
+    sigmaY: 40,
+    tileMode: ui.TileMode.mirror,
+  );
 
-      final w = src.width.toDouble();
-      final h = src.height.toDouble();
-
-      // Render the image with heavy blur into a PictureRecorder.
+final backPaint = ui.Paint()
+  ..imageFilter = ui.ImageFilter.blur(
+    sigmaX: 30,
+    sigmaY: 30,
+    tileMode: ui.TileMode.mirror,
+  );  
+    
+    // Render the image with heavy blur into a PictureRecorder.
       // tileMode.mirror prevents dark halo at edges.
+      Future<ui.Image> renderBlur(ui.Paint paint) async {
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(
-        recorder,
-        ui.Rect.fromLTWH(0, 0, w, h),
+      recorder,
+      bounds,
       );
+
       canvas.drawImage(
-        src,
-        ui.Offset.zero,
-        ui.Paint()
-          ..imageFilter = ui.ImageFilter.blur(
-            sigmaX: 28,
-            sigmaY: 28,
-            tileMode: ui.TileMode.mirror,
-          ),
-      );
-      src.dispose();
+  src,
+  ui.Offset.zero,
+  paint,
+);
 
-      final picture = recorder.endRecording();
-      final result = await picture.toImage(w.toInt(), h.toInt());
-      picture.dispose();
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(
+  width,
+  height,
+);
+  picture.dispose();
 
-      return result;
+  return image;
+}
+
+final front = await renderBlur(frontPaint);
+final back = await renderBlur(backPaint);
+
+src.dispose();
+
+return BlurredPair(
+  front: front,
+  back: back,
+);
     } catch (_) {
       return null;
     }

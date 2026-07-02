@@ -31,7 +31,8 @@ class ArtworkRepository {
   final LinkedHashMap<int, String>    _paths     = LinkedHashMap();
   // Reuse FileImage objects to avoid repeated object allocation.
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
-
+  // Reuse artwork bytes to avoid repeated disk reads.
+  final LinkedHashMap<int, Uint8List> _bytes = LinkedHashMap();
   // Deduplicate concurrent requests for the same songId.
   final Map<int, Future<String?>> _inFlight = {};
 
@@ -115,14 +116,29 @@ class ArtworkRepository {
   ///
   /// Returns null when the song has no artwork or the file cannot be read.
   Future<Uint8List?> getBytes(int songId) async {
-    final path = await getPath(songId);
-    if (path == null) return null;
-    try {
-      return await File(path).readAsBytes();
-    } catch (_) {
-      return null;
-    }
+  final cached = _bytes.remove(songId);
+  if (cached != null) {
+    _bytes[songId] = cached;
+    return cached;
   }
+
+  final path = await getPath(songId);
+  if (path == null) return null;
+
+  try {
+    final bytes = await File(path).readAsBytes();
+
+    _bytes[songId] = bytes;
+
+    while (_bytes.length > _maxEntries) {
+      _bytes.remove(_bytes.keys.first);
+    }
+
+    return bytes;
+  } catch (_) {
+    return null;
+  }
+}
 
   // ── Active-queue registration ──────────────────────────────────────────────
 
@@ -141,17 +157,20 @@ class ArtworkRepository {
   /// Remove [songId] from memory caches (e.g. after a library change).
   /// The disk file is NOT deleted; call native cleanupIfNeeded for that.
   void evict(int songId) {
-    _paths.remove(songId);
-    _providers.remove(songId);
-    _inFlight.remove(songId);
-  }
+  _paths.remove(songId);
+  _providers.remove(songId);
+  _bytes.remove(songId);
+  _inFlight.remove(songId);
+}
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).
   void clearMemory() {
   _paths.clear();
   _providers.clear();
+  _bytes.clear();
 
   PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
 }
 
   // ── Private helpers ────────────────────────────────────────────────────────

@@ -18,71 +18,110 @@ class BlurredArtworkBackground extends StatefulWidget {
 class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  ui.Image? _blurredImage;
+  late final AnimationController _fadeController;
+  late NoiseMotion _motion;
   
-  
+  BlurredPair? _currentBlurred;
+  BlurredPair? _nextBlurred;
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 40),
     )..repeat();
+    _fadeController = AnimationController(
+     vsync: this,
+     duration: const Duration(milliseconds: 450),
+   ); 
+    _motion = NoiseMotion(
+      flowField: FlowField(seed: _seedForSong(widget.songId)),
+    );
     _loadBlurred();
   }
 
   @override
-  void didUpdateWidget(covariant BlurredArtworkBackground old) {
-    super.didUpdateWidget(old);
-    if (old.songId != widget.songId) {
-      
-      _loadBlurred();
-    }
+void didUpdateWidget(covariant BlurredArtworkBackground old) {
+  super.didUpdateWidget(old);
+
+  if (old.songId != widget.songId) {
+  _fadeController.stop();
+  _fadeController.value = 0;
+
+  _motion = NoiseMotion(
+    flowField: FlowField(
+      seed: _seedForSong(widget.songId),
+    ),
+  );
+
+  _loadBlurred();
   }
+}
 
   Future<void> _loadBlurred() async {
   final requestSongId = widget.songId;
 
-  final cached = BlurredImageCache.getSync(
-    requestSongId,
-  );
-
-  if (cached != null) {
-    if (mounted && requestSongId == widget.songId) {
-      setState(() => _blurredImage = cached);
-    }
+  if (_currentBlurred != null &&
+      BlurredImageCache.getSync(requestSongId) == _currentBlurred) {
     return;
   }
 
-  final img = await BlurredImageCache.get(
+  BlurredPair? blurred = BlurredImageCache.getSync(requestSongId);
+
+  blurred ??= await BlurredImageCache.get(
     requestSongId,
     widget.artwork,
   );
 
-  if (!mounted) return;
+  if (!mounted ||
+      requestSongId != widget.songId ||
+      blurred == null) {
+    return;
+  }
 
-  if (requestSongId != widget.songId) {
+  // pertama kali
+  if (_currentBlurred == null) {
+    setState(() {
+      _currentBlurred = blurred;
+    });
     return;
   }
 
   setState(() {
-    _blurredImage = img;
+    _nextBlurred = blurred;
   });
+
+  await Future<void>.delayed(Duration.zero);
+
+  if (!mounted || requestSongId != widget.songId) return;
+
+  await _fadeController.forward();
+
+  if (!mounted || requestSongId != widget.songId) return;
+
+  setState(() {
+    _currentBlurred = _nextBlurred;
+    _nextBlurred = null;
+  });
+
+  _fadeController.value = 0;
 }
 
   @override
   void dispose() {
     _controller.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final blurred = _blurredImage;
+    final current = _currentBlurred;
+    final next = _nextBlurred;
 
     // While the blur is computing show a low-opacity raw image so there is
-    // no blank flash.  Cost is a single decode — no runtime filter.
-    if (blurred == null) {
+    // no blank flash. Cost is a single decode — no runtime filter.
+    if (current == null) {
       return Opacity(
         opacity: 0.25,
         child: Image.memory(
@@ -94,68 +133,94 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       );
     }
 
-    // Once cached: two cheap texture blits with animation transforms.
+    // Once cached: two cheap texture blits with procedural transform motion.
     // No ImageFilter / BackdropFilter anywhere in this subtree.
     return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Layer 1 — dim, over-scaled, slow oscillation
-        RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
+  fit: StackFit.expand,
+  children: [
+    _buildBlurredPair(current),
 
-      return Transform.translate(
-        offset: Offset(
-          math.sin(t) * 20,
-          math.cos(t * 0.75) * 10,
+    if (next != null)
+      FadeTransition(
+        opacity: _fadeController,
+        child: _buildBlurredPair(next),
+      ),
+
+    const ColoredBox(
+      color: Color.fromARGB(30, 0, 0, 0),
+    ),
+  ],
+);
+  }
+
+  static int _seedForSong(int songId) => songId == 0 ? 1337 : songId;
+
+  Widget _buildBlurredPair(BlurredPair pair) {
+  return Stack(
+    fit: StackFit.expand,
+    children: [
+      RepaintBoundary(
+        child: _FlowFieldRawImageLayer(
+          controller: _controller,
+          motion: _motion,
+          layer: NoiseMotionLayer.deepBackground,
+          image: pair.back,
         ),
-        child: Transform.scale(
-          scale: 1.32 + math.sin(t * 0.5) * 0.015,
-          child: child,
+      ),
+      RepaintBoundary(
+        child: _FlowFieldRawImageLayer(
+          controller: _controller,
+          motion: _motion,
+          layer: NoiseMotionLayer.foregroundFog,
+          image: pair.front,
         ),
-      );
-    },
-    child: Opacity(
-      opacity: 0.28,
+      ),
+    ],
+  );
+  }
+
+}
+
+class _FlowFieldRawImageLayer extends StatelessWidget {
+  const _FlowFieldRawImageLayer({
+    required this.controller,
+    required this.motion,
+    required this.layer,
+    required this.image,
+  });
+
+  final AnimationController controller;
+  final NoiseMotion motion;
+  final NoiseMotionLayer layer;
+  final ui.Image image;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
       child: RawImage(
-        image: blurred,
+        image: image,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.low,
       ),
-    ),
-  ),
-),
+      builder: (_, child) {
+        final frame = motion.frameFor(
+          layer: layer,
+          timeSeconds:
+              (controller.lastElapsedDuration?.inMicroseconds ?? 0) / 1000000.0,
+        );
 
-        // Layer 2 — full opacity, slightly smaller, counter-oscillation
-        RepaintBoundary(
-  child: AnimatedBuilder(
-    animation: _controller,
-    builder: (_, child) {
-      final t = _controller.value * math.pi * 2;
-
-      return Transform.translate(
-        offset: Offset(
-          -math.sin(t * 0.85) * 12,
-          math.cos(t * 1.15) * 6,
-        ),
-        child: Transform.scale(
-          scale: 1.18 + math.cos(t * 0.45) * 0.010,
-          child: child,
-        ),
-      );
-    },
-    child: RawImage(
-      image: blurred,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.low,
-    ),
-  ),
-),
-
-        const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
-      ],
+        return Opacity(
+          opacity: frame.opacity,
+          child: Transform.translate(
+            offset: frame.translation,
+            child: Transform.rotate(
+              angle: frame.rotation,
+              child: Transform.scale(scale: frame.scale, child: child),
+            ),
+          ),
+        );
+      },
     );
   }
 }
