@@ -19,7 +19,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final AnimationController _fadeController;
-  late final NoiseMotion _motion;
+  late NoiseMotion _motion;
   
   BlurredPair? _currentBlurred;
   BlurredPair? _nextBlurred;
