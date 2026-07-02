@@ -128,8 +128,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     return Stack(
   fit: StackFit.expand,
   children: [
-    if (current != null)
-      _buildBlurredPair(current),
+    _buildBlurredPair(current),
 
     if (next != null)
       FadeTransition(
