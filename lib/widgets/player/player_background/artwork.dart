@@ -28,7 +28,7 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 40),
+      duration: const Duration(seconds: 60),
     )..repeat();
     _fadeController = AnimationController(
      vsync: this,
