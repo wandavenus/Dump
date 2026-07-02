@@ -76,9 +76,6 @@ class BlurredImageCache {
       final frame = await codec.getNextFrame();
       codec.dispose();
       final src = frame.image;
-
-      final w = src.width.toDouble();
-      final h = src.height.toDouble();
       final width = src.width;
       final height = src.height;
       final bounds = ui.Rect.fromLTWH(
