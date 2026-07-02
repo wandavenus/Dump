@@ -325,9 +325,6 @@ class AudioEngineManager {
       engine.currentTrackStream.listen((event) {
   _currentTrackCtrl.add(event);
 
-  engine.currentTrackStream.listen((event) {
-  _currentTrackCtrl.add(event);
-
   final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
   if (currentIndex < 0) return;
 
