@@ -152,6 +152,7 @@ class ArtworkRepository {
   _providers.clear();
 
   PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
 }
 
   // ── Private helpers ────────────────────────────────────────────────────────
