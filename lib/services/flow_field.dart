@@ -25,7 +25,7 @@ class FlowField {
   }) {
     // Slower temporal rates → the field evolves like fog, not turbulent smoke.
     final slowTime   = timeSeconds * 0.006; // was 0.018
-    final mediumTime = timeSeconds * 0.012; // was 0.032
+    final mediumTime = timeSeconds * 0.010; // was 0.032
     final breathTime = timeSeconds * 0.003; // very slow; purely for zoom pulse
 
     final vx    = _primary.getNoise3(x + 11.7, y - 3.4,  slowTime);
