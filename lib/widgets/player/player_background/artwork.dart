@@ -45,14 +45,16 @@ void didUpdateWidget(covariant BlurredArtworkBackground old) {
   super.didUpdateWidget(old);
 
   if (old.songId != widget.songId) {
-    _motion = NoiseMotion(
-      flowField: FlowField(
-        seed: _seedForSong(widget.songId),
-      ),
-    );
+  _fadeController.stop();
+  _fadeController.value = 0;
 
-    _loadBlurred();
-  }
+  _motion = NoiseMotion(
+    flowField: FlowField(
+      seed: _seedForSong(widget.songId),
+    ),
+  );
+
+  _loadBlurred();
 }
 
   Future<void> _loadBlurred() async {
