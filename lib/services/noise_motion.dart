@@ -28,17 +28,17 @@ class NoiseMotion {
 
     // Primary drift — owns the bulk of the translation.
     final sample = _flowField.sample(
-      x: layer.fieldX,
-      y: layer.fieldY,
-      timeSeconds: t,
+    x: layer.fieldX,
+    y: layer.fieldY,
+    timeSeconds: t * (layer == NoiseMotionLayer.deepBackground ? 0.7 : 1.15),
     );
 
     // Companion drift — spatially and temporally de-correlated from [sample]
     // so the two layers move on independent trajectories (parallax).
     final companion = _flowField.sample(
-      x: layer.fieldX + 29.3,
-      y: layer.fieldY - 21.7,
-      timeSeconds: t * 0.95, // was 0.73 — less correlated
+    x: layer.fieldX + 29.3,
+    y: layer.fieldY - 21.7,
+    timeSeconds: t * (layer == NoiseMotionLayer.deepBackground ? 0.55 : 1.35),
     );
 
     // Breathing sample — used only for scale modulation; never touches tx/ty.
@@ -83,7 +83,10 @@ class NoiseMotion {
         );
 
     return NoiseMotionFrame(
-      translation: Offset(tx, ty),
+      translation: Offset(
+      tx + (sample.rotation * layer.translationRadius * 0.18),
+      ty + (companion.rotation * layer.translationRadius * 0.18),
+      ),
       rotation: rot,
       scale: scale,
       opacity: opacity,
