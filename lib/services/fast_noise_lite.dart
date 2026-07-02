@@ -13,13 +13,13 @@ class FastNoiseLite {
   double frequency = 0.01;
 
   /// Number of fractal octaves used for each sample.
-  int octaves = 4;
+  int octaves = 5;
 
   /// Amplitude multiplier between octaves.
-  double gain = 0.5;
+  double gain = 0.58;
 
   /// Frequency multiplier between octaves.
-  double lacunarity = 2.0;
+  double lacunarity = 1.85;
 
   /// Returns deterministic 3D fractal value noise for the coordinate.
   double getNoise3(double x, double y, double z) {
