@@ -78,6 +78,9 @@ class AudioEngineManager {
   static final List<StreamSubscription<dynamic>> _engineSubs = [];
   static List<LocalSong> _currentQueue = const [];
   static int _lastPrefetchedIndex = -1;
+  static final Set<int> _prefetchingSongs = <int>{};
+  static int _activePrefetches = 0;
+  static const int _maxConcurrentPrefetches = 2; 
   // ── Public streams ────────────────────────────────────────────────────────
 
   static Stream<Map<dynamic, dynamic>>  get playbackStateStream  => _playbackStateCtrl.stream;
@@ -331,9 +334,9 @@ class AudioEngineManager {
   if (_lastPrefetchedIndex == currentIndex) return;
   _lastPrefetchedIndex = currentIndex;
 
-  for (var i = 1; i <= 3; i++) {
-    unawaited(_prefetchArtwork(currentIndex + i));
-  }
+  for (var i = -1; i <= 3; i++) {
+  unawaited(_prefetchArtwork(currentIndex + i));
+}
 }),
       engine.queueStream.listen((queue) {
   _queueCtrl.add(queue);
@@ -342,6 +345,10 @@ class AudioEngineManager {
       .whereType<Map>()
       .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
       .toList();
+
+  for (var i = 0; i < _currentQueue.length && i < 3; i++) {
+    unawaited(_prefetchArtwork(i));
+  }
 }),
       engine.bufferingStateStream.listen(_bufferingCtrl.add),
       engine.shuffleModeStream.listen(_shuffleCtrl.add),
@@ -367,19 +374,38 @@ class AudioEngineManager {
 
     final song = _currentQueue[index];
 
+    if (!_prefetchingSongs.add(song.id)) {
+      return;
+    }
+
+    if (_activePrefetches >= _maxConcurrentPrefetches) {
+  _prefetchingSongs.remove(song.id);
+  return;
+   }
+
+_activePrefetches++;
+    
     if (BlurredImageCache.getSync(song.id) != null) {
       return;
     }
 
     final path = await ArtworkRepository.instance.getPath(song.id);
-if (path == null) return;
+    if (path == null) return;
 
-final bytes = await ArtworkRepository.instance.getBytes(song.id);
-if (bytes == null) return;
+    if (BlurredImageCache.getSync(song.id) != null) {
+      return;
+    }
 
-await BlurredImageCache.get(song.id, bytes);
+    final bytes = await ArtworkRepository.instance.getBytes(song.id);
+    if (bytes == null) return;
+
+    await BlurredImageCache.get(song.id, bytes);
   } catch (_) {
     // Ignore prefetch failures.
+  } finally {
+    if (index >= 0 && index < _currentQueue.length) {
+      _prefetchingSongs.remove(_currentQueue[index].id);
+    }
   }
 }
   
