@@ -38,7 +38,7 @@ class NoiseMotion {
     final companion = _flowField.sample(
       x: layer.fieldX + 29.3,
       y: layer.fieldY - 21.7,
-      timeSeconds: t * 0.61, // was 0.73 — less correlated
+      timeSeconds: t * 0.85, // was 0.73 — less correlated
     );
 
     // Breathing sample — used only for scale modulation; never touches tx/ty.
@@ -118,14 +118,14 @@ class NoiseMotionLayer {
     fieldX:            -8.0,
     fieldY:            12.0,
     timeOffset:         0.0,
-    translationRadius: 36.0,   // was 122 — slow fog drift, not a camera shake
-    rotationRange:      0.004, // was 0.022 — nearly invisible
-    baseScale:          1.32,  // was 1.84 — still covers edges at max drift
-    scaleRange:         0.011, // ≈ 1.1 % breathing
-    baseOpacity:        0.22,
-    opacityRange:       0.045,
-    minimumOpacity:     0.17,
-    maximumOpacity:     0.29,
+    translationRadius: 72.0,
+    rotationRange:    0.010,
+    baseScale:         1.24,
+    scaleRange:       0.018,
+    baseOpacity:       0.22,
+    opacityRange:     0.045,
+    minimumOpacity:    0.17,
+    maximumOpacity:    0.29,
   );
 
   /// Lighter foreground fog layer — moves faster to create parallax depth.
@@ -139,10 +139,10 @@ class NoiseMotionLayer {
     fieldX:            15.0,
     fieldY:            -6.0,
     timeOffset:        41.0,   // large phase offset ensures no sync with back
-    translationRadius: 24.0,   // was 72 — moves less than back → clear parallax
-    rotationRange:      0.003, // was 0.017
-    baseScale:          1.22,  // was 1.43
-    scaleRange:         0.009, // ≈ 0.9 % breathing
+    translationRadius: 48.0,
+    rotationRange: 0.007,
+    baseScale: 1.14,
+    scaleRange: 0.015,
     baseOpacity:        0.88,
     opacityRange:       0.055,
     minimumOpacity:     0.80,
