@@ -206,8 +206,8 @@ class _FlowFieldRawImageLayer extends StatelessWidget {
       builder: (_, child) {
         final frame = motion.frameFor(
           layer: layer,
-          timeSeconds:
-              (controller.lastElapsedDuration?.inMicroseconds ?? 0) / 1000000.0,
+          
+          timeSeconds: controller.value * 120.0,
         );
 
         return Opacity(
