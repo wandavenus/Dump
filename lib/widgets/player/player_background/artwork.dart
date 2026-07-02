@@ -55,6 +55,7 @@ void didUpdateWidget(covariant BlurredArtworkBackground old) {
   );
 
   _loadBlurred();
+  }
 }
 
   Future<void> _loadBlurred() async {
