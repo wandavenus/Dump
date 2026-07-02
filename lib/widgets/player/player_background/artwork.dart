@@ -18,9 +18,11 @@ class BlurredArtworkBackground extends StatefulWidget {
 class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final AnimationController _fadeController;
   late final NoiseMotion _motion;
   BlurredPair? _blurredImage;
-
+  BlurredPair? _currentBlurred;
+  BlurredPair? _nextBlurred;
   @override
   void initState() {
     super.initState();
@@ -28,6 +30,10 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
       vsync: this,
       duration: const Duration(seconds: 40),
     )..repeat();
+    _fadeController = AnimationController(
+     vsync: this,
+     duration: const Duration(milliseconds: 450),
+   ); 
     _motion = NoiseMotion(
       flowField: FlowField(seed: _seedForSong(widget.songId)),
     );
@@ -43,12 +49,19 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   }
 
   Future<void> _loadBlurred() async {
-    final requestSongId = widget.songId;
+  final requestSongId = widget.songId;
+
+  if (_currentBlurred != null &&
+      BlurredImageCache.getSync(requestSongId) == _currentBlurred) {
+    return;
+  }
     final cached = BlurredImageCache.getSync(requestSongId);
 
     if (cached != null) {
       if (mounted && requestSongId == widget.songId) {
-        setState(() => _blurredImage = cached);
+        setState(() {
+  _currentBlurred = cached;
+});
       }
       return;
     }
@@ -57,23 +70,36 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     if (!mounted || requestSongId != widget.songId) return;
 
     setState(() {
-      _blurredImage = img;
-    });
+  _nextBlurred = img;
+});
+
+await _fadeController.forward();
+
+if (!mounted || requestSongId != widget.songId) return;
+
+setState(() {
+  _currentBlurred = _nextBlurred;
+  _nextBlurred = null;
+});
+
+_fadeController.value = 0;
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final blurred = _blurredImage;
+    final current = _currentBlurred;
+    final next = _nextBlurred;
 
     // While the blur is computing show a low-opacity raw image so there is
     // no blank flash. Cost is a single decode — no runtime filter.
-    if (blurred == null) {
+    if (current == null) {
       return Opacity(
         opacity: 0.25,
         child: Image.memory(
@@ -88,30 +114,50 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
     // Once cached: two cheap texture blits with procedural transform motion.
     // No ImageFilter / BackdropFilter anywhere in this subtree.
     return Stack(
-      fit: StackFit.expand,
-      children: [
-        RepaintBoundary(
-          child: _FlowFieldRawImageLayer(
-            controller: _controller,
-            motion: _motion,
-            layer: NoiseMotionLayer.deepBackground,
-            image: blurred.back,
-          ),
-        ),
-        RepaintBoundary(
-          child: _FlowFieldRawImageLayer(
-            controller: _controller,
-            motion: _motion,
-            layer: NoiseMotionLayer.foregroundFog,
-            image: blurred.front,
-          ),
-        ),
-        const ColoredBox(color: Color.fromARGB(30, 0, 0, 0)),
-      ],
-    );
+  fit: StackFit.expand,
+  children: [
+    if (current != null)
+      _buildBlurredPair(current),
+
+    if (next != null)
+      FadeTransition(
+        opacity: _fadeController,
+        child: _buildBlurredPair(next),
+      ),
+
+    const ColoredBox(
+      color: Color.fromARGB(30, 0, 0, 0),
+    ),
+  ],
+);
   }
 
   static int _seedForSong(int songId) => songId == 0 ? 1337 : songId;
+
+  Widget _buildBlurredPair(BlurredPair pair) {
+  return Stack(
+    fit: StackFit.expand,
+    children: [
+      RepaintBoundary(
+        child: _FlowFieldRawImageLayer(
+          controller: _controller,
+          motion: _motion,
+          layer: NoiseMotionLayer.deepBackground,
+          image: pair.back,
+        ),
+      ),
+      RepaintBoundary(
+        child: _FlowFieldRawImageLayer(
+          controller: _controller,
+          motion: _motion,
+          layer: NoiseMotionLayer.foregroundFog,
+          image: pair.front,
+        ),
+      ),
+    ],
+  );
+  }
+
 }
 
 class _FlowFieldRawImageLayer extends StatelessWidget {
