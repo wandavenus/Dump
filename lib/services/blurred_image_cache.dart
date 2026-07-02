@@ -24,6 +24,21 @@ class BlurredImageCache {
   static final Map<int, BlurredPair> _cache = {};
   static final Map<int, Completer<BlurredPair?>> _pending = {};
 
+  // Hoisting Paint & Filter ke level statis biar gak re-alokasi di memory terus-menerus
+  static final ui.Paint _frontPaint = ui.Paint()
+    ..imageFilter = ui.ImageFilter.blur(
+      sigmaX: 40,
+      sigmaY: 40,
+      tileMode: ui.TileMode.mirror,
+    );
+
+  static final ui.Paint _backPaint = ui.Paint()
+    ..imageFilter = ui.ImageFilter.blur(
+      sigmaX: 30,
+      sigmaY: 30,
+      tileMode: ui.TileMode.mirror,
+    );  
+
   static BlurredPair? _touch(int songId) {
     final value = _cache.remove(songId);
     if (value != null) {
@@ -34,12 +49,8 @@ class BlurredImageCache {
   
   static BlurredPair? getSync(int songId) => _touch(songId);
 
-  /// Method buat preload secara background (Fire-and-forget)
-  /// Panggil ini pas playlist keload, atau pas lagu berikutnya mau deketan abis
   static void preload(int songId, Uint8List bytes) {
     if (_cache.containsKey(songId) || _pending.containsKey(songId)) return;
-    
-    // Jalanin secara async tanpa di-await biar gak ngadat
     get(songId, bytes);
   }
 
@@ -57,6 +68,13 @@ class BlurredImageCache {
     _pending[songId] = completer;
 
     _compute(bytes).then((img) {
+      // Guard race condition aman
+      if (_pending[songId] != completer) {
+        img?.dispose();
+        if (!completer.isCompleted) completer.complete(null);
+        return;
+      }
+
       if (img != null) {
         if (_cache.length >= _maxEntries) {
           final oldestKey = _cache.keys.first;
@@ -67,8 +85,10 @@ class BlurredImageCache {
       _pending.remove(songId);
       completer.complete(img);
     }).catchError((Object _) {
-      _pending.remove(songId);
-      completer.complete(null);
+      if (_pending[songId] == completer) {
+        _pending.remove(songId);
+      }
+      if (!completer.isCompleted) completer.complete(null);
     });
 
     return completer.future;
@@ -78,7 +98,6 @@ class BlurredImageCache {
     if (bytes.isEmpty) return null;
 
     try {
-      // Diturunin ke 128px biar preloading-nya super ngebut dan hemat resource
       final codec = await ui.instantiateImageCodec(bytes, targetWidth: 128);
       final frame = await codec.getNextFrame();
       codec.dispose();
@@ -88,20 +107,6 @@ class BlurredImageCache {
       final height = src.height;
       final bounds = ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
    
-      final frontPaint = ui.Paint()
-        ..imageFilter = ui.ImageFilter.blur(
-          sigmaX: 40,
-          sigmaY: 40,
-          tileMode: ui.TileMode.mirror,
-        );
-
-      final backPaint = ui.Paint()
-        ..imageFilter = ui.ImageFilter.blur(
-          sigmaX: 30,
-          sigmaY: 30,
-          tileMode: ui.TileMode.mirror,
-        );  
-    
       Future<ui.Image> renderBlur(ui.Paint paint) async {
         final recorder = ui.PictureRecorder();
         final canvas = ui.Canvas(recorder, bounds);
@@ -115,10 +120,10 @@ class BlurredImageCache {
         return image;
       }
 
-      // Concurrency dieksekusi barengan biar optimal
+      // Concurrency super ngebut pake static paint yang udah di-cache
       final blurredImages = await Future.wait([
-        renderBlur(frontPaint),
-        renderBlur(backPaint),
+        renderBlur(_frontPaint),
+        renderBlur(_backPaint),
       ]);
 
       src.dispose();
@@ -135,6 +140,7 @@ class BlurredImageCache {
   static void evict(int songId) {
     _cache[songId]?.dispose();
     _cache.remove(songId);
+    _pending.remove(songId); 
   }
 
   static void clear() {
@@ -142,5 +148,6 @@ class BlurredImageCache {
       img.dispose();
     }
     _cache.clear();
+    _pending.clear(); 
   }
 }
