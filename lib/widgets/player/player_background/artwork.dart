@@ -125,8 +125,8 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     // While the shader asset is loading (typically < 1 frame on warm cache,
     // a few frames on first run) show a solid dark background.
     if (painter == null) {
-      return const ColoredBox(color: Color(0xFF080812));
-    }
+  return const SizedBox.shrink();
+}
 
     // SizedBox.expand forces FittedBox to receive tight constraints equal to
     // the full available size, so BoxFit.cover scales the 256×512 shader
