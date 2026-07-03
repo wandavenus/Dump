@@ -117,13 +117,13 @@ class NoiseMotionLayer {
   ///   baseScale 1.32 → 64 px margin each side on a 400 px screen — safe.
   ///   scaleRange 0.011 → ±1.1 % breathing zoom from [breath] channel.
   ///   rotationRange 0.004 rad ≈ 0.23° — imperceptible on a full-screen image.
-  static const deepBackground = NoiseMotionLayer(
+    static const deepBackground = NoiseMotionLayer(
     fieldX:            -8.0,
     fieldY:            12.0,
     timeOffset:         0.0,
-    translationRadius: 72.0,
+    translationRadius: 40.0,    // Di-tweak biar gesernya ga terlalu liar tapi pas ama frame rate
     rotationRange:    0.008,
-    baseScale:         1.20,
+    baseScale:         1.35,    // UP! Disamain ama foreground biar nge-cover seluruh area geser tanpa bolong
     scaleRange:       0.025,
     baseOpacity:       0.30,
     opacityRange:     0.08,
