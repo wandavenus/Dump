@@ -50,13 +50,13 @@ class _ShaderPainter extends CustomPainter {
   // "Cur" = colour set we are fading toward.
   // Fallback: dark navy tones used before the first extraction completes.
 
-  double _o0r = 0.102, _o0g = 0.165, _o0b = 0.290;
-  double _o1r = 0.180, _o1g = 0.314, _o1b = 0.565;
-  double _o2r = 0.290, _o2g = 0.376, _o2b = 0.502;
+  double _o0r = 43 / 255.0, _o0g = 49 / 255.0, _o0b = 58 / 255.0;
+double _o1r = 78 / 255.0, _o1g = 101 / 255.0, _o1b = 125 / 255.0;
+double _o2r = 123 / 255.0, _o2g = 135 / 255.0, _o2b = 148 / 255.0;
 
-  double _c0r = 0.102, _c0g = 0.165, _c0b = 0.290;
-  double _c1r = 0.180, _c1g = 0.314, _c1b = 0.565;
-  double _c2r = 0.290, _c2g = 0.376, _c2b = 0.502;
+double _c0r = 43 / 255.0, _c0g = 49 / 255.0, _c0b = 58 / 255.0;
+double _c1r = 78 / 255.0, _c1g = 101 / 255.0, _c1b = 125 / 255.0;
+double _c2r = 123 / 255.0, _c2g = 135 / 255.0, _c2b = 148 / 255.0;
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
 
@@ -70,10 +70,9 @@ class _ShaderPainter extends CustomPainter {
     _o2r = _lerp(_o2r, _c2r, b);  _o2g = _lerp(_o2g, _c2g, b);  _o2b = _lerp(_o2b, _c2b, b);
 
     // Set new target colours.
-    final c0 = colors.isNotEmpty ? colors[0] : const Color(0xFF1A2A4A);
-    final c1 = colors.length > 1 ? colors[1] : c0;
-    final c2 = colors.length > 2 ? colors[2] : c0;
-
+    final c0 = colors[0];
+    final c1 = colors[1];
+    final c2 = colors[2];
     _c0r = c0.red   / 255.0;  _c0g = c0.green / 255.0;  _c0b = c0.blue / 255.0;
     _c1r = c1.red   / 255.0;  _c1g = c1.green / 255.0;  _c1b = c1.blue / 255.0;
     _c2r = c2.red   / 255.0;  _c2g = c2.green / 255.0;  _c2b = c2.blue / 255.0;
