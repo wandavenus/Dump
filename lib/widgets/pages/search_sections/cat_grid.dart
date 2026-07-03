@@ -17,7 +17,7 @@ class SearchCategoryGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 2.31,
+          childAspectRatio: 2.9,
         ),
       ),
     );
