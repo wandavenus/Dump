@@ -6,7 +6,7 @@ class SearchCategoryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       sliver: SliverGrid(
         delegate: SliverChildBuilderDelegate(
           (context, index) =>
