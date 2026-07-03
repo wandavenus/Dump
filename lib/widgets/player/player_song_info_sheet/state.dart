@@ -47,7 +47,7 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context) {
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
@@ -67,50 +67,6 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
                 decoration: BoxDecoration(
                   color: Colors.white24,
                   borderRadius: BorderRadius.circular(2),
-    final dragFraction = (_dragOffset / 240).clamp(0.0, 1.0);
-
-    return Transform.translate(
-      offset: Offset(0, _dragOffset),
-      child: Opacity(
-        opacity: 1 - (dragFraction * 0.35),
-        child: Container(
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle + header — swipe down here to dismiss.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: _handleDragUpdate,
-                  onVerticalDragEnd: _handleDragEnd,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 12),
-                      Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
                 ),
               ),
               const SizedBox(height: 16),
