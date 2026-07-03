@@ -22,12 +22,12 @@ class PaletteExtractor {
 
   // Fallback palette when artwork is absent or extraction fails.
   static const List<Color> _kFallback = [
-    Color(0xFF1A2A4A), // dominant  — deep navy
-    Color(0xFF2E5090), // vibrant   — mid blue
-    Color(0xFF4A6080), // muted     — steel blue
-  ];
+  Color(0xFF2B313A),
+  Color(0xFF4E657D),
+  Color(0xFF7B8794),
+];
 
-  static final _cache = _LruCache<int, List<Color>>(64);
+  static final _cache = _LruCache<int, List<Color>>(256);
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ class PaletteExtractor {
       // maximumColorCount = 16 gives a good spread without excess computation.
       final generator = await PaletteGenerator.fromImageProvider(
         MemoryImage(artwork),
-        maximumColorCount: 16,
+        maximumColorCount: 24,
       );
 
       final dominant = generator.dominantColor?.color ?? _kFallback[0];
