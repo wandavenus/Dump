@@ -47,15 +47,15 @@ class _AnimatedBlurredPlayerBackgroundState
     setState(() { _songId = id; _palette = colors; });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final Widget child = _palette.isEmpty
-        ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
-        : ProceduralFogBackground(
-            
-            songId:  _songId,
-            palette: _palette,
-          );
-       return child;
-  }
+@override
+Widget build(BuildContext context) {
+  final Widget child = _palette.isEmpty
+      ? const PlayerFallbackBackground()
+      : ProceduralFogBackground(
+          songId: _songId,
+          palette: _palette,
+        );
+
+  return child;
+}
 }
