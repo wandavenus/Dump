@@ -18,6 +18,7 @@ import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
 import com.example.musicplayer.sleep_timer.SleepTimerManager
+import com.example.musicplayer.transport.PlayPauseFadeController
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -70,6 +71,14 @@ class TransportCommands(
      * or null when no session is in progress.
      */
     private val getPlaybackStats: () -> Map<String, Any>? = { null },
+    /**
+     * Play/pause volume fade — a thin, single-purpose animator that fades in
+     * on play() and fades out before pause(). It never runs while
+     * crossfadeController.crossfadeInProgress is true (see PlayPauseFadeController
+     * doc for the full conflict-prevention argument), so it can never write
+     * player.volume at the same time as the crossfade equal-power fade.
+     */
+    private val playPauseFadeController: PlayPauseFadeController,
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
@@ -443,6 +452,9 @@ class TransportCommands(
                 queueManager.setActiveQueueIndex(restartIndex)
                 if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
             }
+            // Snap volume to 0 (unless a crossfade already owns this player's
+            // volume) BEFORE play() so there is no audible pop, then ramp up.
+            playPauseFadeController.fadeInOnPlay(p)
             p.play()
             SessionAuditLogger.onPlay(p.currentPosition)
             ensureMediaForeground()
@@ -460,19 +472,28 @@ class TransportCommands(
     }
 
     private fun handlePause(p: ExoPlayer, result: MethodChannel.Result) {
-        p.pause()
-        SessionAuditLogger.onPause(p.currentPosition)
-        transportState.stopPositionTicker()
-        audioFocusManager.abandon()
-        log("info", "pause @ ${p.currentPosition}ms")
-        // onIsPlayingChanged listener also emits, but explicit call ensures
-        // audioFocus is abandoned before Flutter sees the paused state.
-        transportState.emitAll()
-        notificationManager.refresh()
+        // Fade out, then perform the actual pause + bookkeeping only once the
+        // fade completes (or immediately, unchanged, if a crossfade is active
+        // or fade duration resolves to 0 — see PlayPauseFadeController).
+        playPauseFadeController.fadeOutThenPause(p) {
+            p.pause()
+            SessionAuditLogger.onPause(p.currentPosition)
+            transportState.stopPositionTicker()
+            audioFocusManager.abandon()
+            log("info", "pause @ ${p.currentPosition}ms")
+            // onIsPlayingChanged listener also emits, but explicit call ensures
+            // audioFocus is abandoned before Flutter sees the paused state.
+            transportState.emitAll()
+            notificationManager.refresh()
+        }
         result.success(null)
     }
 
     private fun handleStop(p: ExoPlayer, result: MethodChannel.Result) {
+        // Stop is not a user "pause" gesture (used for setQueue/teardown paths
+        // elsewhere) — no fade here, matches prior instant behavior. Cancel any
+        // in-flight play/pause fade so it can't keep writing to a stopped player.
+        playPauseFadeController.cancel(p, resetVolume = true)
         p.stop()
         transportState.stopPositionTicker()
         audioFocusManager.abandon()

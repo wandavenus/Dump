@@ -29,23 +29,56 @@ class PaletteExtractor {
 
   static final _cache = _LruCache<int, List<Color>>(256);
 
+  // In-flight extraction dedup: without this, a concurrent prefetch call and
+  // a UI-triggered call for the same songId (which happens routinely on a
+  // track change — see AudioEngineManager prefetch racing animated_state's
+  // own _loadPalette) would each independently run the full CPU-bound
+  // decode + quantization pipeline, doubling UI-isolate blocking time right
+  // when it matters most.
+  static final Map<int, Future<List<Color>>> _pending = {};
+
+  // Artwork is decoded and quantized synchronously on the UI isolate by the
+  // palette_generator package (no internal downscaling, no isolate/compute
+  // offload). Native artwork cache stores WebP up to 2000x2000px, so without
+  // capping the decode size here, extraction can iterate millions of pixels
+  // per call. Quantization only needs a coarse color histogram, so a small
+  // decode target drastically cuts UI-isolate blocking time with no visible
+  // quality loss in the resulting palette.
+  static const int _quantizeTargetSize = 112;
+
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /// Returns the cached palette for [songId], or null if not yet extracted.
   static List<Color>? getSync(int songId) => _cache.get(songId);
 
   /// Extracts and caches the palette for [songId] from [artwork] bytes.
-  /// Returns the cached result immediately if already available.
-  static Future<List<Color>> get(int songId, Uint8List artwork) async {
+  /// Returns the cached result immediately if already available. Concurrent
+  /// calls for the same [songId] share a single in-flight extraction.
+  static Future<List<Color>> get(int songId, Uint8List artwork) {
     final cached = _cache.get(songId);
-    if (cached != null) return cached;
+    if (cached != null) return Future.value(cached);
 
+    final inFlight = _pending[songId];
+    if (inFlight != null) return inFlight;
+
+    final future = _extract(songId, artwork);
+    _pending[songId] = future;
+    return future;
+  }
+
+  static Future<List<Color>> _extract(int songId, Uint8List artwork) async {
     List<Color> colors;
     try {
-      // palette_generator handles downscaling internally.
-      // maximumColorCount = 16 gives a good spread without excess computation.
+      // maximumColorCount = 24 gives a good spread without excess computation.
+      // ResizeImage caps the decoded pixel buffer so quantization runs over a
+      // small, bounded number of pixels regardless of the source artwork's
+      // native resolution.
       final generator = await PaletteGenerator.fromImageProvider(
-        MemoryImage(artwork),
+        ResizeImage(
+          MemoryImage(artwork),
+          width: _quantizeTargetSize,
+          height: _quantizeTargetSize,
+        ),
         maximumColorCount: 24,
       );
 
@@ -59,6 +92,8 @@ class PaletteExtractor {
     }
 
     _cache.put(songId, colors);
+    // ignore: unawaited_futures
+    _pending.remove(songId);
     return colors;
   }
 }

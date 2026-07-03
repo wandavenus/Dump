@@ -111,8 +111,8 @@ class ArtworkRepository {
   }
 
   /// Returns raw bytes for [songId]'s artwork, reading from the cached WebP
-  /// file.  Use this for blur / image-processing pipelines that require a
-  /// [Uint8List] (e.g. [BlurredImageCache]).
+  /// file.  Use this for image-processing pipelines that require a
+  /// [Uint8List] (e.g. [PaletteExtractor]).
   ///
   /// Returns null when the song has no artwork or the file cannot be read.
   Future<Uint8List?> getBytes(int songId) async {
