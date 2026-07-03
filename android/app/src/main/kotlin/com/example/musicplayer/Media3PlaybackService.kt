@@ -33,6 +33,7 @@ import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
 import com.example.musicplayer.sleep_timer.SleepTimerManager
+import com.example.musicplayer.transport.PlayPauseFadeController
 import com.example.musicplayer.transport.TransportCommands
 import com.example.musicplayer.transport.TransportState
 import io.flutter.plugin.common.MethodCall
@@ -96,6 +97,7 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var effectsManager:       AudioEffectsManager
     private lateinit var transportState:       TransportState
     private lateinit var transportCommands:    TransportCommands
+    private lateinit var playPauseFadeController: PlayPauseFadeController
     private lateinit var offloadManager:       AudioOffloadManager
     private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
 
@@ -404,6 +406,15 @@ class Media3PlaybackService : MediaSessionService() {
 
         effectsManager = AudioEffectsManager(handler)
 
+        // Play/pause volume fade — shares the same main-thread Handler as
+        // CrossfadeController and defers to it whenever a crossfade is active,
+        // so the two can never write player.volume at the same time.
+        playPauseFadeController = PlayPauseFadeController(
+            handler          = handler,
+            getTargetVolume  = { audioFocusManager.volumeBeforeDuck },
+            isCrossfadeActive = { crossfadeController.crossfadeInProgress },
+        )
+
         transportState = TransportState(
             handler             = handler,
             getPlayer           = { activePlayer },
@@ -451,6 +462,7 @@ class Media3PlaybackService : MediaSessionService() {
             effectsManager        = effectsManager,
             ensureMediaForeground = { notificationManager.ensureMediaForeground() },
             offloadManager        = offloadManager,
+            playPauseFadeController = playPauseFadeController,
 
             // Item 1: skip silence — applied to ALL live players atomically so
             // both active and standby behave identically during crossfade overlap.
