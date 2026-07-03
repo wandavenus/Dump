@@ -183,11 +183,7 @@ class PlayerMoreMenu extends StatelessWidget {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.72),
-      builder:
-          (context) => FractionallySizedBox(
-            heightFactor: 0.72,
-            child: PlayerSongInfoSheet(song: song),
-          ),
+      builder: (context) => PlayerSongInfoSheet(song: song),
     );
   }
 }

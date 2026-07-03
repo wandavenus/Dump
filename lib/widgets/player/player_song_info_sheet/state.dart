@@ -49,31 +49,90 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-  borderRadius: const BorderRadius.vertical(top: Radius.circular(1)),
-  child: ColoredBox(
-    color: Colors.black,
-    child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 10),
-        child: FutureBuilder<SongInfo>(
-          future: _songInfoFuture,
-          builder: (context, snapshot) {
-            final songInfo = snapshot.data;
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: songInfo == null
-                  ? const _LoadingSongInfo()
-                  : _SongInfoContent(
-                      songInfo: songInfo,
-                      liveFormat: _liveFormat,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: ColoredBox(
+        color: Colors.black,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              const Padding(
+                padding: EdgeInsets.only(top: 12, bottom: 4),
+                child: Center(
+                  child: _DragHandle(),
+                ),
+              ),
+              // Header row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 12, 4),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Song Info',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-            );
-          },
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Scrollable body — constrained to 75% of screen height
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 10),
+                  child: FutureBuilder<SongInfo>(
+                    future: _songInfoFuture,
+                    builder: (context, snapshot) {
+                      final songInfo = snapshot.data;
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: songInfo == null
+                            ? const _LoadingSongInfo()
+                            : _SongInfoContent(
+                                songInfo: songInfo,
+                                liveFormat: _liveFormat,
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
+  }
+}
+
+class _DragHandle extends StatelessWidget {
+  const _DragHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: Colors.white24,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
   }
 }
