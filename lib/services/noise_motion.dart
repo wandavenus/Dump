@@ -117,13 +117,13 @@ class NoiseMotionLayer {
   ///   baseScale 1.32 → 64 px margin each side on a 400 px screen — safe.
   ///   scaleRange 0.011 → ±1.1 % breathing zoom from [breath] channel.
   ///   rotationRange 0.004 rad ≈ 0.23° — imperceptible on a full-screen image.
-  static const deepBackground = NoiseMotionLayer(
+    static const deepBackground = NoiseMotionLayer(
     fieldX:            -8.0,
     fieldY:            12.0,
     timeOffset:         0.0,
-    translationRadius: 72.0,
+    translationRadius: 40.0,    // Di-tweak biar gesernya ga terlalu liar tapi pas ama frame rate
     rotationRange:    0.008,
-    baseScale:         1.20,
+    baseScale:         1.35,    // UP! Disamain ama foreground biar nge-cover seluruh area geser tanpa bolong
     scaleRange:       0.025,
     baseOpacity:       0.30,
     opacityRange:     0.08,
@@ -138,19 +138,20 @@ class NoiseMotionLayer {
   ///   baseScale 1.22 → 44 px margin each side on a 400 px screen — safe.
   ///   scaleRange 0.009 → ±0.9 % breathing (slightly less than back layer).
   ///   rotationRange 0.003 rad ≈ 0.17° — imperceptible.
-  static const foregroundFog = NoiseMotionLayer(
+    static const foregroundFog = NoiseMotionLayer(
     fieldX:            15.0,
     fieldY:            -6.0,
-    timeOffset:        41.0,   // large phase offset ensures no sync with back
+    timeOffset:        41.0,   
     translationRadius: 48.0,
     rotationRange: 0.007,
-    baseScale: 1.14,
+    baseScale: 1.35,       // UP! Biar pas digeser sejauh 48px, pinggiran gambar ga kelihatan kepotong
     scaleRange: 0.020,
-    baseOpacity:        0.95,
-    opacityRange:       0.04,
-    minimumOpacity:     0.80,
-    maximumOpacity:     0.96,
+    baseOpacity: 0.50,     // DOWN! Biar transparan, jadi efek tabrakan warna layer bawah bisa kelihatan
+    opacityRange: 0.15,    // UP! Biar perubahan opasitas pas bergerak lebih dramatis
+    minimumOpacity: 0.35,  // DOWN! Batas paling transparan saat berdenyut
+    maximumOpacity: 0.65,  // DOWN! Batas paling pekat saat berdenyut
   );
+
 
   final double fieldX;
   final double fieldY;

@@ -1,226 +1,152 @@
 part of '../player_background.dart';
 
-class BlurredArtworkBackground extends StatefulWidget {
-  final int songId;
-  final Uint8List artwork;
+// ─────────────────────────────────────────────────────────────────────────────
+// ProceduralFogBackground
+//
+// Renders the fluid GLSL shader as a living colour-field background.
+// Artwork is NEVER drawn — only the palette extracted from it is used.
+//
+// Performance trick (downscale → upscale):
+//   The shader runs on a 256×512 canvas, not the full screen.
+//   FittedBox(fit: BoxFit.cover) scales the result to fill any screen size.
+//   This reduces GPU pixel work by ~6-8× versus rendering at 1080p while
+//   still producing a smooth, blur-like appearance naturally.
+//
+// Time handling:
+//   An AnimationController (30-minute loop) drives the animation.
+//   Time is accumulated monotonically via a listener so the shader's uTime
+//   coordinate never resets — no visual snap at the loop boundary.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const BlurredArtworkBackground({
+class ProceduralFogBackground extends StatefulWidget {
+  const ProceduralFogBackground({
     super.key,
     required this.songId,
-    required this.artwork,
+    required this.palette,
   });
 
+  final int         songId;
+  final List<Color> palette;
+
   @override
-  State<BlurredArtworkBackground> createState() =>
-      _BlurredArtworkBackgroundState();
+  State<ProceduralFogBackground> createState() =>
+      _ProceduralFogBackgroundState();
 }
 
-class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
+class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     with SingleTickerProviderStateMixin {
+  // Render resolution — the shader canvas size before FittedBox upscaling.
+  static const double _kW = 256.0;
+  static const double _kH = 512.0;
+
   late final AnimationController _controller;
-  late final AnimationController _fadeController;
-  late NoiseMotion _motion;
-  
-  BlurredPair? _currentBlurred;
-  BlurredPair? _nextBlurred;
+
+  // Shader state — null until the async asset load finishes.
+  ui.FragmentProgram? _program;
+  _ShaderPainter?     _painter;
+
+  // Monotonically increasing time (seconds).
+  double _t    = 0.0;
+  double _prev = -1.0;
+
   @override
   void initState() {
     super.initState();
+
+    // 30-minute loop keeps the visual snap imperceptible; time accumulation
+    // in _onTick() prevents any discontinuity at the boundary.
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 60),
+      duration: const Duration(minutes: 30),
     )..repeat();
-    _fadeController = AnimationController(
-     vsync: this,
-     duration: const Duration(milliseconds: 450),
-   ); 
-    _motion = NoiseMotion(
-      flowField: FlowField(seed: _seedForSong(widget.songId)),
-    );
-    _loadBlurred();
+
+    _controller.addListener(_onTick);
+    _loadShader();
   }
+
+  // ── Shader loading (once per widget lifetime) ─────────────────────────────
+
+  Future<void> _loadShader() async {
+    final program = await ui.FragmentProgram.fromAsset(
+      'assets/shaders/fluid.frag',
+    );
+    if (!mounted) return;
+
+    final shader  = program.fragmentShader();
+    final painter = _ShaderPainter(shader: shader, repaint: _controller);
+    painter
+      ..setTime(_t)
+      ..setColors(widget.palette);
+
+    setState(() {
+      _program = program; // keep alive — GC would destroy the shader
+      _painter = painter;
+    });
+  }
+
+  // ── Time accumulation ─────────────────────────────────────────────────────
+
+  void _onTick() {
+    final v = _controller.value;
+    if (_prev >= 0.0) {
+      var dt = v - _prev;
+      if (dt < 0.0) dt += 1.0;   // controller looped (30 min boundary)
+      final realDt = dt * 1800.0; // convert to real seconds (1 unit ≈ 1 s)
+      _t += realDt;
+      _painter?.setTime(_t);      // single field write — no state rebuild
+      _painter?.advanceBlend(realDt); // advances colour crossfade if active
+    }
+    _prev = v;
+  }
+
+  // ── Widget updates ────────────────────────────────────────────────────────
 
   @override
-void didUpdateWidget(covariant BlurredArtworkBackground old) {
-  super.didUpdateWidget(old);
-
-  if (old.songId != widget.songId) {
-  _fadeController.stop();
-  _fadeController.value = 0;
-
-  _motion = NoiseMotion(
-    flowField: FlowField(
-      seed: _seedForSong(widget.songId),
-    ),
-  );
-
-  _loadBlurred();
+  void didUpdateWidget(ProceduralFogBackground old) {
+    super.didUpdateWidget(old);
+    if (old.palette != widget.palette) {
+      _painter?.setColors(widget.palette);
+    }
   }
-}
-
-  Future<void> _loadBlurred() async {
-  final requestSongId = widget.songId;
-
-  if (_currentBlurred != null &&
-      BlurredImageCache.getSync(requestSongId) == _currentBlurred) {
-    return;
-  }
-
-  BlurredPair? blurred = BlurredImageCache.getSync(requestSongId);
-
-  blurred ??= await BlurredImageCache.get(
-    requestSongId,
-    widget.artwork,
-  );
-
-  if (!mounted ||
-      requestSongId != widget.songId ||
-      blurred == null) {
-    return;
-  }
-
-  // pertama kali
-  if (_currentBlurred == null) {
-    setState(() {
-      _currentBlurred = blurred;
-    });
-    return;
-  }
-
-  setState(() {
-    _nextBlurred = blurred;
-  });
-
-  await Future<void>.delayed(Duration.zero);
-
-  if (!mounted || requestSongId != widget.songId) return;
-
-  await _fadeController.forward();
-
-  if (!mounted || requestSongId != widget.songId) return;
-
-  setState(() {
-    _currentBlurred = _nextBlurred;
-    _nextBlurred = null;
-  });
-
-  _fadeController.value = 0;
-}
 
   @override
   void dispose() {
+    _controller.removeListener(_onTick);
     _controller.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final current = _currentBlurred;
-    final next = _nextBlurred;
+    final painter = _painter;
 
-    // While the blur is computing show a low-opacity raw image so there is
-    // no blank flash. Cost is a single decode — no runtime filter.
-    if (current == null) {
-      return Opacity(
-        opacity: 0.25,
-        child: Image.memory(
-          widget.artwork,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          filterQuality: FilterQuality.low,
-        ),
-      );
-    }
-
-    // Once cached: two cheap texture blits with procedural transform motion.
-    // No ImageFilter / BackdropFilter anywhere in this subtree.
-    return Stack(
-  fit: StackFit.expand,
-  children: [
-    _buildBlurredPair(current),
-
-    if (next != null)
-      FadeTransition(
-        opacity: _fadeController,
-        child: _buildBlurredPair(next),
-      ),
-
-    const ColoredBox(
-      color: Color.fromARGB(30, 0, 0, 0),
-    ),
-  ],
-);
-  }
-
-  static int _seedForSong(int songId) => songId == 0 ? 1337 : songId;
-
-  Widget _buildBlurredPair(BlurredPair pair) {
-  return Stack(
-    fit: StackFit.expand,
-    children: [
-      RepaintBoundary(
-        child: _FlowFieldRawImageLayer(
-          controller: _controller,
-          motion: _motion,
-          layer: NoiseMotionLayer.deepBackground,
-          image: pair.back,
-        ),
-      ),
-      RepaintBoundary(
-        child: _FlowFieldRawImageLayer(
-          controller: _controller,
-          motion: _motion,
-          layer: NoiseMotionLayer.foregroundFog,
-          image: pair.front,
-        ),
-      ),
-    ],
-  );
-  }
-
+    // While the shader asset is loading (typically < 1 frame on warm cache,
+    // a few frames on first run) show a solid dark background.
+    if (painter == null) {
+  return const SizedBox.shrink();
 }
 
-class _FlowFieldRawImageLayer extends StatelessWidget {
-  const _FlowFieldRawImageLayer({
-    required this.controller,
-    required this.motion,
-    required this.layer,
-    required this.image,
-  });
-
-  final AnimationController controller;
-  final NoiseMotion motion;
-  final NoiseMotionLayer layer;
-  final ui.Image image;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      child: RawImage(
-        image: image,
+    // SizedBox.expand forces FittedBox to receive tight constraints equal to
+    // the full available size, so BoxFit.cover scales the 256×512 shader
+    // canvas to fill the entire screen regardless of aspect ratio.
+    // RepaintBoundary isolates the CustomPaint subtree so only the background
+    // repaints on each animation tick — not the entire player UI.
+    return SizedBox.expand(
+      child: FittedBox(
         fit: BoxFit.cover,
-        filterQuality: FilterQuality.low,
-      ),
-      builder: (_, child) {
-        final frame = motion.frameFor(
-          layer: layer,
-          
-          timeSeconds: controller.value * 120.0,
-        );
-
-        return Opacity(
-          opacity: frame.opacity,
-          child: Transform.translate(
-            offset: frame.translation,
-            child: Transform.rotate(
-              angle: frame.rotation,
-              child: Transform.scale(scale: frame.scale, child: child),
+        clipBehavior: Clip.hardEdge,
+        child: RepaintBoundary(
+          child: SizedBox(
+            width:  _kW,
+            height: _kH,
+            child: CustomPaint(
+              painter: painter,
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

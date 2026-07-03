@@ -27,15 +27,15 @@ class BlurredImageCache {
   // Hoisting Paint & Filter ke level statis biar gak re-alokasi di memory terus-menerus
   static final ui.Paint _frontPaint = ui.Paint()
     ..imageFilter = ui.ImageFilter.blur(
-      sigmaX: 40,
-      sigmaY: 40,
+      sigmaX: 30,
+      sigmaY: 30,
       tileMode: ui.TileMode.mirror,
     );
 
   static final ui.Paint _backPaint = ui.Paint()
     ..imageFilter = ui.ImageFilter.blur(
-      sigmaX: 30,
-      sigmaY: 30,
+      sigmaX: 20,
+      sigmaY: 20,
       tileMode: ui.TileMode.mirror,
     );  
 
