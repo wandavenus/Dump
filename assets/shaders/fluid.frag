@@ -61,5 +61,13 @@ void main() {
   float vig = 1.0 - length(uv - 0.5) * 0.50;
   col *= clamp(vig, 0.0, 1.0);
 
+  // ── Animated film grain (0.5 %) ────────────────────────────────────────────
+  // Hash function maps pixel position + time to a pseudo-random value in [0,1].
+  // Multiplying uTime by a large prime shifts the hash pattern every frame so
+  // the grain is always animated (no static texture repeating across frames).
+  vec2  grainUV = FlutterFragCoord().xy + uTime * 137.0;
+  float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
+  col = mix(col, vec3(grain), 0.005);
+
   fragColor = vec4(col, 1.0);
 }

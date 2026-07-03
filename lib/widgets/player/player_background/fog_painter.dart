@@ -5,15 +5,19 @@ part of '../player_background.dart';
 //
 // CustomPainter that renders the fluid.frag GLSL shader.
 //
-// Optimisation strategy:
-//   • Colour values (9 floats) are pre-divided to [0, 1] range once per song
-//     change via setColors() — zero division work inside paint().
-//   • Only uTime (one float) changes every frame; the remaining 11 uniform
-//     slots are stable until the song changes.
-//   • shouldRepaint always returns true because the animation runs continuously
-//     and uTime changes on every tick.
-//   • The owning State reuses this painter object across frames — no
-//     re-allocation per frame.
+// Colour crossfade:
+//   • setColors() is called once per song change.  It captures the current
+//     interpolated position as the new "old" baseline and starts _blend at 0.
+//   • advanceBlend(realDt) is called every animation tick by the owning State.
+//     It increments _blend toward 1 over _kBlendDuration seconds.
+//   • paint() lerps old→new colours using _blend before pushing floats to the
+//     shader — zero GPU overhead, trivial Dart arithmetic.
+//   • Rapid song skips are handled correctly: setColors() always captures the
+//     mid-transition interpolated position so there is no visual snap.
+//
+// Per-frame cost:
+//   • 9 lerps (doubles) + 12 setFloat() calls + 1 drawRect() — negligible.
+//   • All heavy work (trig × 131 072 pixels) runs on the GPU.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ShaderPainter extends CustomPainter {
@@ -24,23 +28,48 @@ class _ShaderPainter extends CustomPainter {
 
   final ui.FragmentShader shader;
 
+  // Crossfade duration in real seconds (matches dt units from _onTick).
+  static const double _kBlendDuration = 0.8;
+
   // ── Per-frame state ───────────────────────────────────────────────────────
 
-  double _time = 0.0;
+  double _time  = 0.0;
+  double _blend = 1.0; // 0 = fully old, 1 = fully new
 
-  /// Called each frame by the owning State — just a field write, no work.
   void setTime(double t) => _time = t;
 
-  // ── Per-song state (pre-normalised to [0, 1]) ─────────────────────────────
+  /// Advance colour crossfade.  [realDt] is elapsed time in real seconds.
+  void advanceBlend(double realDt) {
+    if (_blend < 1.0) {
+      _blend = (_blend + realDt / _kBlendDuration).clamp(0.0, 1.0);
+    }
+  }
 
+  // ── Per-song colour state ─────────────────────────────────────────────────
+  // "Old" = colour set we are fading from (updated at every setColors call).
+  // "Cur" = colour set we are fading toward.
   // Fallback: dark navy tones used before the first extraction completes.
-  double _c0r = 0.102, _c0g = 0.165, _c0b = 0.290; // dominant
-  double _c1r = 0.180, _c1g = 0.314, _c1b = 0.565; // vibrant
-  double _c2r = 0.290, _c2g = 0.376, _c2b = 0.502; // muted
 
-  /// Called once per song change — normalises RGB integers to floats once,
-  /// so paint() never does any division or conditional logic.
+  double _o0r = 0.102, _o0g = 0.165, _o0b = 0.290;
+  double _o1r = 0.180, _o1g = 0.314, _o1b = 0.565;
+  double _o2r = 0.290, _o2g = 0.376, _o2b = 0.502;
+
+  double _c0r = 0.102, _c0g = 0.165, _c0b = 0.290;
+  double _c1r = 0.180, _c1g = 0.314, _c1b = 0.565;
+  double _c2r = 0.290, _c2g = 0.376, _c2b = 0.502;
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  /// Called once per song change.  Captures the current interpolated position
+  /// as the new baseline so rapid skips never cause a colour snap.
   void setColors(List<Color> colors) {
+    // Snapshot current interpolated position → new "old" baseline.
+    final b = _blend;
+    _o0r = _lerp(_o0r, _c0r, b);  _o0g = _lerp(_o0g, _c0g, b);  _o0b = _lerp(_o0b, _c0b, b);
+    _o1r = _lerp(_o1r, _c1r, b);  _o1g = _lerp(_o1g, _c1g, b);  _o1b = _lerp(_o1b, _c1b, b);
+    _o2r = _lerp(_o2r, _c2r, b);  _o2g = _lerp(_o2g, _c2g, b);  _o2b = _lerp(_o2b, _c2b, b);
+
+    // Set new target colours.
     final c0 = colors.isNotEmpty ? colors[0] : const Color(0xFF1A2A4A);
     final c1 = colors.length > 1 ? colors[1] : c0;
     final c2 = colors.length > 2 ? colors[2] : c0;
@@ -48,31 +77,33 @@ class _ShaderPainter extends CustomPainter {
     _c0r = c0.red   / 255.0;  _c0g = c0.green / 255.0;  _c0b = c0.blue / 255.0;
     _c1r = c1.red   / 255.0;  _c1g = c1.green / 255.0;  _c1b = c1.blue / 255.0;
     _c2r = c2.red   / 255.0;  _c2g = c2.green / 255.0;  _c2b = c2.blue / 255.0;
+
+    // Restart the crossfade from 0.
+    _blend = 0.0;
   }
 
   // ── CustomPainter ─────────────────────────────────────────────────────────
 
-  // Pre-allocated Paint — reused every frame.
   final _paint = Paint();
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Bind all 12 uniform floats.
-    // Per-frame cost: 12 float writes + 1 drawRect call — negligible Dart work.
-    // The heavy work (9 trig calls × 131072 pixels) runs entirely on the GPU.
+    // Interpolate between old and new colour sets using current blend progress.
+    final b = _blend;
+
     shader
-      ..setFloat(0,  size.width)   // uSize.x
-      ..setFloat(1,  size.height)  // uSize.y
-      ..setFloat(2,  _time)        // uTime  ← only this changes per frame
-      ..setFloat(3,  _c0r)         // uColor0 (dominant)
-      ..setFloat(4,  _c0g)
-      ..setFloat(5,  _c0b)
-      ..setFloat(6,  _c1r)         // uColor1 (vibrant)
-      ..setFloat(7,  _c1g)
-      ..setFloat(8,  _c1b)
-      ..setFloat(9,  _c2r)         // uColor2 (muted)
-      ..setFloat(10, _c2g)
-      ..setFloat(11, _c2b);
+      ..setFloat(0,  size.width)
+      ..setFloat(1,  size.height)
+      ..setFloat(2,  _time)
+      ..setFloat(3,  _lerp(_o0r, _c0r, b))   // uColor0.r
+      ..setFloat(4,  _lerp(_o0g, _c0g, b))   // uColor0.g
+      ..setFloat(5,  _lerp(_o0b, _c0b, b))   // uColor0.b
+      ..setFloat(6,  _lerp(_o1r, _c1r, b))   // uColor1.r
+      ..setFloat(7,  _lerp(_o1g, _c1g, b))   // uColor1.g
+      ..setFloat(8,  _lerp(_o1b, _c1b, b))   // uColor1.b
+      ..setFloat(9,  _lerp(_o2r, _c2r, b))   // uColor2.r
+      ..setFloat(10, _lerp(_o2g, _c2g, b))   // uColor2.g
+      ..setFloat(11, _lerp(_o2b, _c2b, b));  // uColor2.b
 
     _paint.shader = shader;
     canvas.drawRect(

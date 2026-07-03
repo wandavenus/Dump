@@ -90,9 +90,11 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     final v = _controller.value;
     if (_prev >= 0.0) {
       var dt = v - _prev;
-      if (dt < 0.0) dt += 1.0; // controller looped (30 min boundary)
-      _t += dt * 1800.0;        // 1 real second ≈ 1 shader time unit
-      _painter?.setTime(_t);    // single field write — no state rebuild
+      if (dt < 0.0) dt += 1.0;   // controller looped (30 min boundary)
+      final realDt = dt * 1800.0; // convert to real seconds (1 unit ≈ 1 s)
+      _t += realDt;
+      _painter?.setTime(_t);      // single field write — no state rebuild
+      _painter?.advanceBlend(realDt); // advances colour crossfade if active
     }
     _prev = v;
   }
@@ -126,17 +128,22 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
       return const ColoredBox(color: Color(0xFF080812));
     }
 
-    // FittedBox scales the 256×512 shader canvas to fill the screen.
+    // SizedBox.expand forces FittedBox to receive tight constraints equal to
+    // the full available size, so BoxFit.cover scales the 256×512 shader
+    // canvas to fill the entire screen regardless of aspect ratio.
     // RepaintBoundary isolates the CustomPaint subtree so only the background
     // repaints on each animation tick — not the entire player UI.
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: RepaintBoundary(
-        child: SizedBox(
-          width:  _kW,
-          height: _kH,
-          child: CustomPaint(
-            painter: painter,
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: RepaintBoundary(
+          child: SizedBox(
+            width:  _kW,
+            height: _kH,
+            child: CustomPaint(
+              painter: painter,
+            ),
           ),
         ),
       ),
