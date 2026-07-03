@@ -20,6 +20,8 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
 
@@ -29,6 +31,9 @@ class MainActivity : FlutterActivity() {
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
+    private val artworkExecutor: ExecutorService = Executors.newFixedThreadPool(2) { runnable ->
+        Thread(runnable, "artwork-cache-worker").apply { isDaemon = true }
+    }
 
     // Stored after every getSongs() call so startMetadataPrescanner can
     // restart without a second MediaStore round-trip.
@@ -48,6 +53,12 @@ class MainActivity : FlutterActivity() {
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
         setupMediaKitPlaybackChannels(flutterEngine)
+    }
+
+
+    override fun onDestroy() {
+        artworkExecutor.shutdown()
+        super.onDestroy()
     }
 
     // ── MediaKit playback channels ────────────────────────────────────────────
@@ -155,7 +166,7 @@ class MainActivity : FlutterActivity() {
 
                     "getArtworkPath" -> {
                         val songId = call.argument<Int>("songId") ?: 0
-                        Thread {
+                        artworkExecutor.execute {
                             try {
                                 val path = artworkCacheManager.getOrExtract(songId)
                                 runOnUiThread { result.success(path) }
@@ -164,7 +175,7 @@ class MainActivity : FlutterActivity() {
                                     result.error("artwork_cache_error", e.message, null)
                                 }
                             }
-                        }.apply { name = "artwork-cache-$songId"; start() }
+                        }
                     }
 
                     "setActiveQueueIds" -> {
