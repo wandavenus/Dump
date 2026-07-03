@@ -12,3 +12,9 @@ id = "zoKpC9lwN4LQwe3XgwKKL"
 uri = "file://bit_perfect_playback_report.md"
 type = "text"
 title = "Bit-Perfect Playback Feasibility Report"
+
+[[outputs]]
+id = "l_Vmb_lpWkYEq98pdPrdO"
+uri = "file://device_aaudio_offload_feasibility_report.md"
+type = "text"
+title = "AAudio/Offload Feasibility — Mi 9T/K20 (Snapdragon 730, MIUI 12)"
