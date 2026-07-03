@@ -21,7 +21,7 @@ class _AnimatedBlurredPlayerBackgroundState
 
   Future<void> _loadPalette(int id) async {
     if (id <= 0) {
-      if (mounted) setState(() { _songId = id; _palette = const []; });
+      if (mounted) setState(() { _songId = id; });
       return;
     }
 
@@ -37,7 +37,7 @@ class _AnimatedBlurredPlayerBackgroundState
     if (!mounted || widget.songId != id) return;
 
     if (bytes == null || bytes.isEmpty) {
-      setState(() { _songId = id; _palette = const []; });
+      setState(() { _songId = id; });
       return;
     }
 
@@ -52,16 +52,10 @@ class _AnimatedBlurredPlayerBackgroundState
     final Widget child = _palette.isEmpty
         ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
         : ProceduralFogBackground(
-            key:     ValueKey<int>(_songId),
+            
             songId:  _songId,
             palette: _palette,
           );
-
-    return AnimatedSwitcher(
-      duration:       const Duration(milliseconds: 480),
-      switchInCurve:  Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: child,
-    );
+       return child;
   }
 }
