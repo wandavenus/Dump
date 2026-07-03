@@ -34,10 +34,10 @@ void main() {
   // ── Domain warp ────────────────────────────────────────────────────────────
   // Four overlapping waves bend the UV grid.  Different frequencies and phase
   // offsets prevent repetitive diagonal patterns.
-  float wX = sin(uv.y * 3.14 + t * 0.53) * 0.15
-           + cos(uv.y * 1.57 - t * 0.31) * 0.08;
-  float wY = cos(uv.x * 2.72 + t * 0.41) * 0.12
-           + sin(uv.x * 1.20 - t * 0.67) * 0.07;
+  float wX = sin(uv.y * 3.14 + t * 0.318) * 0.15
+           + cos(uv.y * 1.57 - t * 0.186) * 0.08;
+  float wY = cos(uv.x * 2.72 + t * 0.246) * 0.12
+           + sin(uv.x * 1.20 - t * 0.402) * 0.07;
 
   vec2 uvd = uv + vec2(wX, wY);   // warped UV
 
@@ -45,9 +45,9 @@ void main() {
   // Each field produces a smooth value in [0, 1].  Using both x and y of the
   // warped UV plus an independent time rate ensures the three fields evolve
   // at different speeds and never lock into the same phase.
-  float f0 = sin(uvd.x * 2.10 + uvd.y * 1.84 + t * 0.37) * 0.5 + 0.5;
-  float f1 = cos(uvd.x * 1.73 - uvd.y * 2.30 - t * 0.26) * 0.5 + 0.5;
-  float f2 = sin(uvd.x * 1.50 + uvd.y * 1.20 + t * 0.44) * 0.5 + 0.5;
+  float f0 = sin(uvd.x * 2.10 + uvd.y * 1.84 + t * 0.222) * 0.5 + 0.5;
+  float f1 = cos(uvd.x * 1.73 - uvd.y * 2.30 - t * 0.156) * 0.5 + 0.5;
+  float f2 = sin(uvd.x * 1.50 + uvd.y * 1.20 + t * 0.264) * 0.5 + 0.5;
 
   // ── Palette blend ──────────────────────────────────────────────────────────
   // Layered mix() calls fold all three colours together.  The weights (0.55,
@@ -65,9 +65,9 @@ void main() {
   // Hash function maps pixel position + time to a pseudo-random value in [0,1].
   // Multiplying uTime by a large prime shifts the hash pattern every frame so
   // the grain is always animated (no static texture repeating across frames).
-  vec2  grainUV = FlutterFragCoord().xy + uTime * 137.0;
+  vec2  grainUV = FlutterFragCoord().xy + uTime * 82.2;
   float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
-  col = mix(col, vec3(grain), 0.005);
+  col = mix(col, vec3(grain), 0.01);
 
   fragColor = vec4(col, 1.0);
 }
