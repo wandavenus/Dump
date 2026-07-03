@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../artwork_repository.dart';
-import '../blurred_image_cache.dart';
+import '../palette_extractor.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
 import 'engine_abstraction.dart';
@@ -80,7 +80,8 @@ class AudioEngineManager {
   static int _lastPrefetchedIndex = -1;
   static final Set<int> _prefetchingSongs = <int>{};
   static int _activePrefetches = 0;
-  static const int _maxConcurrentPrefetches = 2; 
+  static const int _maxConcurrentPrefetches = 2;
+
   // ── Public streams ────────────────────────────────────────────────────────
 
   static Stream<Map<dynamic, dynamic>>  get playbackStateStream  => _playbackStateCtrl.stream;
@@ -384,22 +385,19 @@ class AudioEngineManager {
    }
 
 _activePrefetches++;
-    
-    if (BlurredImageCache.getSync(song.id) != null) {
-      return;
-    }
 
-    final path = await ArtworkRepository.instance.getPath(song.id);
-    if (path == null) return;
-
-    if (BlurredImageCache.getSync(song.id) != null) {
+    if (PaletteExtractor.getSync(song.id) != null) {
       return;
     }
 
     final bytes = await ArtworkRepository.instance.getBytes(song.id);
     if (bytes == null) return;
 
-    await BlurredImageCache.get(song.id, bytes);
+    if (PaletteExtractor.getSync(song.id) != null) {
+      return;
+    }
+
+    await PaletteExtractor.get(song.id, bytes);
   } catch (_) {
     // Ignore prefetch failures.
   } finally {
