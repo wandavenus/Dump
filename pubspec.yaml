@@ -21,7 +21,8 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.5
   scrollable_positioned_list: ^0.3.8
-  
+  palette_generator: ^0.3.3
+
   media_kit: ^1.2.6
   media_kit_libs_android_audio: ^1.3.8
 
@@ -46,6 +47,9 @@ flutter:
     - assets/
     - assets/images/
     - assets/images/search/
+
+  shaders:
+    - assets/shaders/fluid.frag
 
   fonts:
     - family: SF Pro Display

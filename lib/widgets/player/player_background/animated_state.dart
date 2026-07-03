@@ -2,62 +2,65 @@ part of '../player_background.dart';
 
 class _AnimatedBlurredPlayerBackgroundState
     extends State<AnimatedBlurredPlayerBackground> {
-  int? _currentSongId;
-  Uint8List? _currentArtwork;
+  int          _songId  = -1;
+  List<Color>  _palette = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadArtwork();
+    _loadPalette(widget.songId);
   }
 
   @override
-  void didUpdateWidget(AnimatedBlurredPlayerBackground oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.songId != widget.songId) {
-      _loadArtwork();
+  void didUpdateWidget(AnimatedBlurredPlayerBackground old) {
+    super.didUpdateWidget(old);
+    if (old.songId != widget.songId) {
+      _loadPalette(widget.songId);
     }
   }
 
-  void _loadArtwork() {
-    final targetSongId = widget.songId;
-
-    if (targetSongId <= 0) {
-      setState(() {
-        _currentSongId  = targetSongId;
-        _currentArtwork = null;
-      });
+  Future<void> _loadPalette(int id) async {
+    if (id <= 0) {
+      if (mounted) setState(() { _songId = id; _palette = const []; });
       return;
     }
 
-    // Use ArtworkRepository so bytes come from the cached WebP file on disk
-    // rather than re-extracting from MediaStore on every player open.
-    ArtworkRepository.instance.getBytes(targetSongId).then((artwork) {
-      if (!mounted || widget.songId != targetSongId) return;
-      setState(() {
-        _currentSongId  = targetSongId;
-        _currentArtwork = artwork;
-      });
-    });
+    // Fast path: already in the LRU cache — no I/O needed.
+    final cached = PaletteExtractor.getSync(id);
+    if (cached != null) {
+      if (mounted) setState(() { _songId = id; _palette = cached; });
+      return;
+    }
+
+    // Slow path: fetch artwork bytes then run palette_generator extraction.
+    final bytes = await ArtworkRepository.instance.getBytes(id);
+    if (!mounted || widget.songId != id) return;
+
+    if (bytes == null || bytes.isEmpty) {
+      setState(() { _songId = id; _palette = const []; });
+      return;
+    }
+
+    final colors = await PaletteExtractor.get(id, bytes);
+    if (!mounted || widget.songId != id) return;
+
+    setState(() { _songId = id; _palette = colors; });
   }
 
   @override
   Widget build(BuildContext context) {
-    final showFallback = _currentArtwork == null || _currentArtwork!.isEmpty;
-
-    // Key dan data dijamin selalu sinkron karena pake state yang sama
-    final child = showFallback
+    final Widget child = _palette.isEmpty
         ? const PlayerFallbackBackground(key: ValueKey<String>('fallback'))
-        : BlurredArtworkBackground(
-            key: ValueKey<int>(_currentSongId ?? 0),    
-            songId: _currentSongId ?? 0,
-            artwork: _currentArtwork!,
+        : ProceduralFogBackground(
+            key:     ValueKey<int>(_songId),
+            songId:  _songId,
+            palette: _palette,
           );
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 420),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeOutCubic,
+      duration:       const Duration(milliseconds: 480),
+      switchInCurve:  Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
       child: child,
     );
   }
