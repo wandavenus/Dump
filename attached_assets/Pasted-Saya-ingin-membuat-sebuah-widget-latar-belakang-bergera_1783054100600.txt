@@ -1,0 +1,23 @@
+Saya ingin membuat sebuah widget latar belakang bergerak (animated fluid background) di Flutter 3.44.4 yang mengombinasikan 'palette_generator' dan 'Custom Fragment Shader (GLSL)' untuk menciptakan efek cairan dinamis mirip Apple Music Full Player.
+
+Karena target perangkatnya adalah smartphone lama dengan spesifikasi menengah (seperti Snapdragon 730), implementasi ini HARUS dioptimalkan dengan sangat ketat agar menghindari penggunaan 'BackdropFilter' atau manipulasi blur real-time berbasis piksel yang berat, sehingga aplikasi tetap berjalan stabil di 60 FPS tanpa mengalami framedrop.
+
+Mohon buatkan implementasi lengkap dengan ketentuan arsitektur berikut:
+
+1. Manajemen State & Aliran Data Warna:
+   - Buat fungsi asynchronous menggunakan 'palette_generator' untuk mengekstrak 3 warna utama (Dominan, Vibrant, dan Muted) dari gambar artwork/album art. Gambar asli tidak boleh terlihat sama sekali.
+   - Variabel warna RGB hasil ekstraksi ini HANYA dikirim ke FragmentShader saat terjadi perubahan gambar/lagu. JANGAN mengirim ulang data warna baru hasil kalkulasi di dalam loop render frame (method paint) untuk menghindari bottleneck komunikasi Dart-ke-GPU.
+
+2. Optimasi Resolusi Canvas (Trik Utama Performa):
+   - Jangan merender Shader pada resolusi layar penuh (1080p). Bungkus widget 'CustomPaint' ke dalam sebuah 'SizedBox' atau 'Container' dengan resolusi kecil yang statis (misalnya 256x512 piksel).
+   - Kemudian, bungkus 'SizedBox' tersebut menggunakan widget 'FittedBox(fit: BoxFit.cover)' agar hasil render shader yang beresolusi rendah ditarik secara paksa ke ukuran layar penuh. Trik downscaling ini akan meringankan beban GPU secara drastis sekaligus memberikan efek blur/cairan abstrak yang halus secara alami.
+
+3. Logika Fragment Shader (GLSL):
+   - Buat file shader 'assets/shaders/fluid.frag' yang efisien. Gunakan uniform vec2 uSize, uniform float uTime, serta tiga uniform vec3 untuk menampung warna dari palette generator.
+   - Hindari fungsi matematika berantai yang berat atau loop 'for' di dalam shader. Manfaatkan fungsi 'mix()' bawaan GLSL dan distorsi koordinat UV sederhana berbasis sin/cos untuk mencampurkan ketiga warna tersebut menjadi animasi cairan bergerak organik. Jangan lupa ingatkan saya untuk mendaftarkannya di pubspec.yaml.
+
+4. Kode Dart (Widget & Painter):
+   - Sediakan StatefulWidget untuk mengelola animasi waktu menggunakan AnimationController looping dengan durasi lambat (misal 15-20 detik).
+   - Sediakan CustomPainter yang efisien, pastikan fungsi 'shouldRepaint' dikonfigurasi dengan benar agar hanya merender ulang saat nilai waktu (uTime) atau warna berubah.
+
+Mohon berikan kode yang modular, bersih, siap pakai, serta pisahkan dengan jelas antara kode GLSL (.frag) dan kode Flutter-nya.
