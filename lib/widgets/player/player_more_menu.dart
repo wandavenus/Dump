@@ -182,7 +182,6 @@ class PlayerMoreMenu extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (context) => PlayerSongInfoSheet(song: song),
     );
   }
