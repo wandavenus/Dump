@@ -26,10 +26,11 @@ class _BlurredArtworkBackgroundState extends State<BlurredArtworkBackground>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+   _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 60),
-    )..repeat();
+    )..repeat(reverse: true); // FIX! Pake reverse biar pas dapet nilai max, dia mundur alus ga langsung reset ke 0
+
     _fadeController = AnimationController(
      vsync: this,
      duration: const Duration(milliseconds: 450),
