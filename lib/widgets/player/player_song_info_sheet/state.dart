@@ -16,31 +16,6 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
   Map<String, dynamic>? _liveFormat;
   StreamSubscription<Map<dynamic, dynamic>>? _formatSub;
 
-  /// Vertical offset (px) currently applied while the user drags the
-  /// handle/header down to dismiss the sheet. Snaps back to 0 if the
-  /// drag doesn't clear the dismiss threshold.
-  double _dragOffset = 0;
-
-  static const double _dismissDistanceThreshold = 80;
-  static const double _dismissVelocityThreshold = 700;
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    final delta = details.primaryDelta ?? 0;
-    setState(() {
-      _dragOffset = (_dragOffset + delta).clamp(0, double.infinity);
-    });
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (_dragOffset > _dismissDistanceThreshold ||
-        velocity > _dismissVelocityThreshold) {
-      Navigator.of(context).maybePop();
-      return;
-    }
-    setState(() => _dragOffset = 0);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -73,85 +48,70 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final dragFraction = (_dragOffset / 240).clamp(0.0, 1.0);
-
-    return Transform.translate(
-      offset: Offset(0, _dragOffset),
-      child: Opacity(
-        opacity: 1 - (dragFraction * 0.35),
-        child: Container(
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle + header — swipe down here to dismiss.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: _handleDragUpdate,
-                  onVerticalDragEnd: _handleDragEnd,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 12),
-                      Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Song Info',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+    return SwipeToDismissSheet(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                // Scrollable body — constrained to 75% of screen height
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.75,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-                    child: FutureBuilder<SongInfo>(
-                      future: _songInfoFuture,
-                      builder: (context, snapshot) {
-                        final songInfo = snapshot.data;
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: songInfo == null
-                              ? const _LoadingSongInfo()
-                              : _SongInfoContent(
-                                  songInfo: songInfo,
-                                  liveFormat: _liveFormat,
-                                ),
-                        );
-                      },
+              ),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Song Info',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              // Body — constrained to 75% of screen height. Not scrollable
+              // internally (fits within the constraint), so the whole card
+              // can safely respond to swipe-to-dismiss drags.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  child: FutureBuilder<SongInfo>(
+                    future: _songInfoFuture,
+                    builder: (context, snapshot) {
+                      final songInfo = snapshot.data;
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: songInfo == null
+                            ? const _LoadingSongInfo()
+                            : _SongInfoContent(
+                                songInfo: songInfo,
+                                liveFormat: _liveFormat,
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

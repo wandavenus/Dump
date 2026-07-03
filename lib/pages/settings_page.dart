@@ -15,6 +15,7 @@ import 'package:musicplayer/services/audio/mediakit/mediakit_settings_service.da
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
+import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 
 export 'settings/settings_widgets.dart';
 
