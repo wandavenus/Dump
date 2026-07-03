@@ -6,3 +6,9 @@ id = "e3Rs4vkd1S2JXAshRkAlN"
 uri = "file://AUDIO_SYSTEM_AUDIT.md"
 type = "text"
 title = "Audio System Audit Report"
+
+[[outputs]]
+id = "zoKpC9lwN4LQwe3XgwKKL"
+uri = "file://bit_perfect_playback_report.md"
+type = "text"
+title = "Bit-Perfect Playback Feasibility Report"
