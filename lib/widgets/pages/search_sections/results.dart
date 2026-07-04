@@ -38,9 +38,10 @@ class _SearchResultsSliver extends StatelessWidget {
           if (i.isOdd) {
             return const Divider(
               height: 1,
-              thickness: 0.5,
+              thickness: 1,
               color: Color(0x1FFFFFFF),
               indent: 76,
+              endIndent: 16,
             );
           }
           final idx = i ~/ 2;

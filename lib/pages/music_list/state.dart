@@ -79,9 +79,10 @@ class _MusicListState extends State<MusicList> {
                   ? const SizedBox.shrink()
                   : const Divider(
                       height: 1,
-                      thickness: 0.5,
+                      thickness: 1,
                       color: Color(0x1FFFFFFF),
                       indent: 87,
+                      endIndent: 16,
                     ),
               itemBuilder: (context, index) {
                 if (index == 0) {

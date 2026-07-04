@@ -34,8 +34,8 @@ class _LibraryRow extends StatelessWidget {
           ),
         ),
         const Divider(
-          color: Color(0xFF38383A),
-          thickness: 0.5,
+          color: Color(0x1FFFFFFF),
+          thickness: 1,
           indent: 38,
           endIndent: 0,
         ),
