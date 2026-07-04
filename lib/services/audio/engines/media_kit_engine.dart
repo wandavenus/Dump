@@ -39,6 +39,12 @@ class MediaKitEngine implements AbstractAudioEngine {
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
 
+  // Lookup map: 'file://path' → index di _queue.
+  // Dibangun ulang setiap kali _queue berubah (setQueue / _rebuildQueue).
+  // Menjamin O(1) lookup dan perilaku first-occurrence yang deterministik,
+  // konsisten dengan semantik indexWhere() yang digantikannya.
+  Map<String, int> _uriToQueueIndex = {};
+
   // Speed dan pitch disimpan secara terpisah untuk keperluan snapshot/restore.
   // Dengan PlayerConfiguration(pitch:true), player.setRate() dan player.setPitch()
   // adalah dua jalur independen — mengubah satu tidak mempengaruhi yang lain.
@@ -138,9 +144,10 @@ class MediaKitEngine implements AbstractAudioEngine {
     //    _player is already null.  The captured reference is used below to
     //    actually dispose the instance after all other teardown is complete.
     final playerToDispose = _player;
-    _player       = null;
-    _queue        = [];
-    _currentIndex = 0;
+    _player           = null;
+    _queue            = [];
+    _currentIndex     = 0;
+    _uriToQueueIndex  = {};
 
     // ④.5 Stop playback explicitly, right now, using the captured reference —
     //     do NOT rely on a native "stop" transport event to do this for us.
@@ -257,14 +264,12 @@ class MediaKitEngine implements AbstractAudioEngine {
         final idx = state.index;
         if (idx < 0 || idx >= state.medias.length) return;
         final currentUri = state.medias[idx].uri;
-        final queueIdx = _queue.indexWhere(
-  (s) => 'file://${s.path}' == currentUri,
-);
+        final queueIdx   = _uriToQueueIndex[currentUri] ?? -1;
 
-if (queueIdx < 0) {
-  LogService.warn('MediaKitEngine', 'URI mismatch detected');
-  return;
-}
+        if (queueIdx < 0) {
+          LogService.warn('MediaKitEngine', 'URI mismatch detected: $currentUri');
+          return;
+        }
         _currentIndex = queueIdx;
         final song = _queue[queueIdx];
         _currentTrackCtrl.add({
@@ -412,12 +417,15 @@ if (queueIdx < 0) {
   @override
   Future<void> setQueue(List<LocalSong> queue, int index) async {
     if (queue.isEmpty) return;
-    _queue        = List.unmodifiable(queue);
-    _currentIndex = index.clamp(0, queue.length - 1);
+    _queue           = List.unmodifiable(queue);
+    _currentIndex    = index.clamp(0, queue.length - 1);
+    _rebuildUriIndex(_queue);
     await _player?.open(
       Playlist(_buildMediaList(queue), index: _currentIndex),
       play: false,
     );
+    // Guard: engine mungkin sudah di-dispose saat open() masih berjalan.
+    if (_disposed) return;
     // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
     // urutan native mpv konsisten dengan _shuffleEnabled.
     if (_shuffleEnabled) await _player?.setShuffle(true);
@@ -542,13 +550,18 @@ if (queueIdx < 0) {
         targetIndex < songs.length &&
         songs[targetIndex].id == _queue[prevIndex].id;
 
-    _queue        = List.unmodifiable(songs);
-    _currentIndex = targetIndex;
+    _queue           = List.unmodifiable(songs);
+    _currentIndex    = targetIndex;
+    _rebuildUriIndex(_queue);
 
     await _player?.open(
       Playlist(_buildMediaList(songs), index: _currentIndex),
       play: false,
     );
+    // Guard: engine mungkin sudah di-dispose saat open() masih berjalan.
+    // Cegah emisi stale (_emitQueueSnapshot, seek, play) ke stream yang
+    // sudah closed — simetris dengan guard yang sama di setQueue().
+    if (_disposed) return;
     // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
     // mpv kembali mengacak urutan native sesuai state yang tersimpan.
     if (_shuffleEnabled) await _player?.setShuffle(true);
@@ -584,10 +597,7 @@ Future<void> setShuffleMode(bool enabled) async {
       playlist.index >= 0 &&
       playlist.index < playlist.medias.length) {
     final currentUri = playlist.medias[playlist.index].uri;
-
-    final queueIdx = _queue.indexWhere(
-      (s) => 'file://${s.path}' == currentUri,
-    );
+    final queueIdx   = _uriToQueueIndex[currentUri] ?? -1;
 
     if (queueIdx >= 0) {
       _currentIndex = queueIdx;
@@ -796,6 +806,21 @@ Future<void> setShuffleMode(bool enabled) async {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  /// Membangun ulang [_uriToQueueIndex] dari [songs].
+  ///
+  /// Harus dipanggil setiap kali [_queue] di-assign ulang (setQueue /
+  /// _rebuildQueue). Map menjamin O(1) lookup dan perilaku first-occurrence
+  /// yang deterministik — konsisten dengan indexWhere() yang digantikannya.
+  void _rebuildUriIndex(List<LocalSong> songs) {
+    final map = <String, int>{};
+    for (var i = 0; i < songs.length; i++) {
+      // putIfAbsent memastikan entri pertama (indeks terkecil) yang menang —
+      // identik dengan semantik indexWhere() yang hanya menemukan first-match.
+      map.putIfAbsent('file://${songs[i].path}', () => i);
+    }
+    _uriToQueueIndex = map;
+  }
+
   List<Media> _buildMediaList(List<LocalSong> songs) =>
       songs.map((s) => Media('file://${s.path}')).toList();
 
@@ -850,26 +875,24 @@ Future<void> setShuffleMode(bool enabled) async {
       final p = _player;
       if (p != null) {
         final nativeMedias = p.state.playlist.medias;
-        final currentUri   = 'file://${_queue[current].path}';
-        final nativeIdx    = nativeMedias.indexWhere((m) => m.uri == currentUri);
+        // Cari posisi lagu saat ini di urutan native mpv via URI.
+        // nativeMedias bisa berisi Media baru (tanpa extras) setelah
+        // setShuffle() — URI adalah satu-satunya kunci yang reliabel.
+        final currentUri = 'file://${_queue[current].path}';
+        final nativeIdx  = nativeMedias.indexWhere((m) => m.uri == currentUri);
         if (nativeIdx >= 0) {
           final nextNativeIdx = nativeIdx + 1;
           if (nextNativeIdx < nativeMedias.length) {
             // Ada lagu berikutnya di urutan shuffle native.
-            final nextUri      = nativeMedias[nextNativeIdx].uri;
-            final nextQueueIdx = _queue.indexWhere(
-              (s) => 'file://${s.path}' == nextUri,
-            );
+            // Gunakan _uriToQueueIndex untuk O(1) reverse-lookup ke _queue.
+            final nextQueueIdx =
+                _uriToQueueIndex[nativeMedias[nextNativeIdx].uri] ?? -1;
             if (nextQueueIdx >= 0) return nextQueueIdx;
-          } else if (_repeatMode == 'all') {
+          } else if (_repeatMode == 'all' && nativeMedias.isNotEmpty) {
             // Akhir playlist shuffle → wrap ke native index 0.
-            if (nativeMedias.isNotEmpty) {
-              final nextUri      = nativeMedias[0].uri;
-              final nextQueueIdx = _queue.indexWhere(
-                (s) => 'file://${s.path}' == nextUri,
-              );
-              if (nextQueueIdx >= 0) return nextQueueIdx;
-            }
+            final nextQueueIdx =
+                _uriToQueueIndex[nativeMedias[0].uri] ?? -1;
+            if (nextQueueIdx >= 0) return nextQueueIdx;
           }
           return -1; // Akhir shuffle tanpa repeat — tidak ada lagu berikutnya.
         }
