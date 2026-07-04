@@ -68,7 +68,7 @@ class _SongContextMenu extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Divider(height: 0.5, color: Color(0xFF38383A)),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _ContextMenuItem(
               icon: Icons.play_arrow,
               label: 'Putar Sekarang',
@@ -78,7 +78,7 @@ class _SongContextMenu extends StatelessWidget {
                 PlayerPanelController.instance.open();
               },
             ),
-            const Divider(height: 0.5, color: Color(0xFF38383A), indent: 52),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A), indent: 52),
             _ContextMenuItem(
               icon: Icons.queue_music,
               label: 'Putar Selanjutnya',
@@ -88,7 +88,7 @@ class _SongContextMenu extends StatelessWidget {
                 AudioService.addToQueueNext(song);
               },
             ),
-            const Divider(height: 0.5, color: Color(0xFF38383A), indent: 52),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A), indent: 52),
             _ContextMenuItem(
               icon: Icons.playlist_add,
               label: 'Tambah ke Antrian',
@@ -97,7 +97,7 @@ class _SongContextMenu extends StatelessWidget {
                 AudioService.addToQueue(song);
               },
             ),
-            const Divider(height: 0.5, color: Color(0xFF38383A), indent: 52),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A), indent: 52),
             _ContextMenuItem(
               icon: Icons.info_outline,
               label: 'Informasi Lagu',

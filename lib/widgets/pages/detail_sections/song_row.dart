@@ -23,7 +23,7 @@ class SongListRow extends StatelessWidget {
         children: [
           const Divider(
             color: Color(0xFF48484A),
-            thickness: 1,
+            thickness: 0.5,
             height: 1,
             indent: 58,
             endIndent: 16,

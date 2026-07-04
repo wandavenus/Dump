@@ -79,7 +79,7 @@ class _MusicListState extends State<MusicList> {
                   ? const SizedBox.shrink()
                   : const Divider(
                       height: 1,
-                      thickness: 1,
+                      thickness: 0.5,
                       color: Color(0xFF48484A),
                       indent: 87,
                       endIndent: 16,
