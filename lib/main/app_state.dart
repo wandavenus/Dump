@@ -5,7 +5,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    applyEdgeToEdge();
+    
   }
 
   @override
@@ -34,6 +34,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
       builder: (context, child) {
+        applyEdgeToEdge();
         return child ?? const SizedBox.shrink();
       },
       theme: ThemeData(
