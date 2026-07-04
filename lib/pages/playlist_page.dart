@@ -248,7 +248,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   : const Divider(
                       height: 1,
                       thickness: 1,
-                      color: Color(0x1FFFFFFF),
+                      color: Color(0xFF48484A),
                       indent: 80,
                       endIndent: 16,
                     ),

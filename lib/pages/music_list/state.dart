@@ -80,7 +80,7 @@ class _MusicListState extends State<MusicList> {
                   : const Divider(
                       height: 1,
                       thickness: 1,
-                      color: Color(0x1FFFFFFF),
+                      color: Color(0xFF48484A),
                       indent: 87,
                       endIndent: 16,
                     ),

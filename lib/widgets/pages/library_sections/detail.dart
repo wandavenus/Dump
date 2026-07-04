@@ -282,7 +282,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           : const Divider(
               height: 1,
               thickness: 1,
-              color: Color(0x1FFFFFFF),
+              color: Color(0xFF48484A),
               indent: 87,
               endIndent: 16,
             ),
@@ -341,7 +341,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           : const Divider(
               height: 1,
               thickness: 1,
-              color: Color(0x1FFFFFFF),
+              color: Color(0xFF48484A),
               indent: 87,
               endIndent: 16,
             ),
@@ -394,7 +394,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           : const Divider(
               height: 1,
               thickness: 1,
-              color: Color(0x1FFFFFFF),
+              color: Color(0xFF48484A),
               indent: 87,
               endIndent: 16,
             ),

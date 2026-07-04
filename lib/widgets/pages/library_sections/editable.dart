@@ -29,7 +29,7 @@ class _EditableRow extends StatelessWidget {
           ),
         ),
         const Divider(
-          color: Color(0x1FFFFFFF),
+          color: Color(0xFF48484A),
           thickness: 1,
           indent: 38,
           endIndent: 0,
