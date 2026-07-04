@@ -5,6 +5,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    applyEdgeToEdge();
   }
 
   @override
@@ -20,6 +21,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Re-synchronize with the native Media3 service so the mini player
       // reappears immediately if background playback was active.
       unawaited(AudioService.syncFromNative());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // Flush any debounced settings writes (e.g. lyrics appearance sliders)
+      // before the app goes to background, so a pending write isn't lost.
+      unawaited(LyricsSettings.flush());
     }
   }
 
@@ -28,7 +34,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
       builder: (context, child) {
-        applyEdgeToEdge();
         return child ?? const SizedBox.shrink();
       },
       theme: ThemeData(

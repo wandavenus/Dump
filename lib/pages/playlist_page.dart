@@ -155,6 +155,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ],
           ),
     );
+    controller.dispose();
     if (result != null && result.isNotEmpty && mounted) {
       await PlaylistService.renamePlaylist(widget.userPlaylist!.id, result);
       if (mounted) setState(() {});

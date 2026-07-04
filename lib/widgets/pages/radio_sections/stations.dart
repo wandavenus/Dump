@@ -273,6 +273,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
         ],
       ),
     );
+    controller.dispose();
     if (name != null && name.isNotEmpty) {
       await PlaylistService.createPlaylist(name);
       _load();

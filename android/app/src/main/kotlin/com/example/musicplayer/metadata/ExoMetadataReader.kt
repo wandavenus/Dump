@@ -101,9 +101,14 @@ object ExoMetadataReader {
                 }
             }
             builder.build().also { tags ->
-                Log.d(TAG, "Read ${file.name}: " +
-                    "rg=${tags.rgTrackGain} r128=${tags.r128Track} " +
-                    "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}")
+                // Guarded so the string concatenation (allocations + toString calls)
+                // is skipped entirely during bulk library scans unless debug
+                // logging is actually enabled for this tag.
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    Log.d(TAG, "Read ${file.name}: " +
+                        "rg=${tags.rgTrackGain} r128=${tags.r128Track} " +
+                        "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}")
+                }
             }
         } catch (e: TimeoutException) {
             Log.w(TAG, "MetadataRetriever timed out for: $path")
