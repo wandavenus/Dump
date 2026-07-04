@@ -1,0 +1,73 @@
+[2026-07-04 18:26:27.308 Uid(value=11744):4749:4749 W/Looper]
+PerfMonitor looperActivity : package=com.example.musicplayer/.MainActivity time=0ms latency=447ms running=0ms  procState=2 ClientTransaction{ callbacks=[android.app.servertransaction.TopResumedActivityChangeItem] } historyMsgCount=2 (msgIndex=1 wall=87ms seq=2 running=66ms runnable=14ms late=2ms h=android.app.ActivityThread$H w=110) (msgIndex=2 wall=403ms seq=3 running=135ms runnable=21ms io=96ms late=40ms h=android.app.ActivityThread$H w=159)
+
+[2026-07-04 18:26:27.347 Uid(value=11744):4749:4749 W/Looper]
+PerfMonitor doFrame : time=33ms vsyncFrame=0 latency=412ms procState=2 historyMsgCount=2 (msgIndex=1 wall=403ms seq=3 running=135ms runnable=21ms io=96ms late=40ms h=android.app.ActivityThread$H w=159)
+
+[2026-07-04 18:26:29.213 Uid(value=11744):4749:4823 W/BpBinder]
+Slow Binder: BpBinder transact took 375ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-07-04 18:26:29.218 Uid(value=11744):4749:4825 W/BpBinder]
+Slow Binder: BpBinder transact took 370ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-07-04 18:26:30.142 Uid(value=11744):4749:4823 W/BpBinder]
+Slow Binder: BpBinder transact took 534ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-07-04 18:26:30.388 Uid(value=11744):4749:4825 W/BpBinder]
+Slow Binder: BpBinder transact took 810ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
+[2026-07-04 18:28:00.452 Uid(value=11744):4749:4749 E/flutter]
+[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: Bad state: No element
+#0      List.single (dart:core-patch/growable_array.dart:362)
+#1      ScrollController.position (package:flutter/src/widgets/scroll_controller.dart:173)
+#2      _ScrollablePositionedListState._startScroll (package:scrollable_positioned_list/src/scrollable_positioned_list.dart:559)
+#3      _ScrollablePositionedListState._scrollTo.<anonymous closure> (package:scrollable_positioned_list/src/scrollable_positioned_list.dart:515)
+#4      SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430)
+#5      SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1357)
+#6      SchedulerBinding._handleDrawFrame (package:flutter/src/scheduler/binding.dart:1198)
+#7      _invoke (dart:ui/hooks.dart:423)
+#8      PlatformDispatcher._drawFrame (dart:ui/platform_dispatcher.dart:447)
+#9      _drawFrame (dart:ui/hooks.dart:395)
+
+[2026-07-04 18:29:44.703 Uid(value=11744):4749:5542 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-07-04 18:29:44.703 Uid(value=11744):4749:5542 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-07-04 18:30:41.153 Uid(value=11744):4749:5542 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-07-04 18:30:41.153 Uid(value=11744):4749:5542 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-07-04 18:30:41.334 Uid(value=11744):4749:6433 W/Codec2Client]
+query -- param skipped: index = 1107298332.
+
+[2026-07-04 18:30:41.334 Uid(value=11744):4749:6433 W/CCodec]
+This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+
+[2026-07-04 18:30:41.336 Uid(value=11744):4749:6433 W/Codec2Client]
+query -- param skipped: index = 1342179345.
+
+[2026-07-04 18:30:41.336 Uid(value=11744):4749:6433 W/Codec2Client]
+query -- param skipped: index = 2415921170.
+
+[2026-07-04 18:30:41.336 Uid(value=11744):4749:6433 W/Codec2Client]
+query -- param skipped: index = 1610614798.
+
+[2026-07-04 18:30:41.337 Uid(value=11744):4749:6433 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-07-04 18:30:41.337 Uid(value=11744):4749:6433 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-07-04 18:30:41.341 Uid(value=11744):4749:6433 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-07-04 18:30:41.347 Uid(value=11744):4749:5073 E/FMQ]
+grantorIdx must be less than 3
+
+[2026-07-04 18:30:41.554 Uid(value=11744):4749:6432 W/BpBinder]
+Slow Binder: BpBinder transact took 225ms, interface=android.media.IMediaMetadataRetriever, code=3 oneway=false
+
