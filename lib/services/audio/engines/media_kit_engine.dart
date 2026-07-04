@@ -451,8 +451,24 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setTrack(int index) async {
     if (index < 0 || index >= _queue.length) return;
-    await _player?.jump(index);
-    LogService.verbose('MediaKitEngine', 'setTrack($index)');
+    final p = _player;
+    if (p == null) return;
+    // `index` arrives in `_queue`'s original (unshuffled) order — the same
+    // space the UI/queue view uses. media_kit's jump() sets mpv's native
+    // `playlist-pos` directly, which is in *native* playlist order and gets
+    // reordered independently when shuffle is enabled (see the playlist
+    // listener above for the same original↔native distinction). Resolve the
+    // target song's URI to its actual position in the native playlist so
+    // tapping a queue item jumps to the correct track regardless of shuffle
+    // state, instead of assuming the two index spaces align.
+    final targetUri = 'file://${_queue[index].path}';
+    final nativeMedias = p.state.playlist.medias;
+    final nativeIdx    = nativeMedias.indexWhere((m) => m.uri == targetUri);
+    await p.jump(nativeIdx >= 0 ? nativeIdx : index);
+    LogService.verbose(
+      'MediaKitEngine',
+      'setTrack(queueIdx=$index → nativeIdx=${nativeIdx >= 0 ? nativeIdx : index})',
+    );
   }
 
   // ── Queue mutations ───────────────────────────────────────────────────────
