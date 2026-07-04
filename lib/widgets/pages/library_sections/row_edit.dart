@@ -47,9 +47,7 @@ class _LibraryRow extends StatelessWidget {
       onTap: () {
         if (destination != null) {
           Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => _LibraryDetailPage(destination: destination!),
-            ),
+            ZoomFadeRoute<void>(page: _LibraryDetailPage(destination: destination!)),
           );
           return;
         }

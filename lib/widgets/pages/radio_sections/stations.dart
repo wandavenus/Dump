@@ -91,8 +91,8 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     final data = _smartCards[widget.index];
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlaylistPage.smart(
+      ZoomFadeRoute(
+        page: PlaylistPage.smart(
           name: data.name,
           icon: data.icon,
           iconColor: data.color,
@@ -143,9 +143,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void _open() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlaylistPage.user(playlist: widget.playlist),
-      ),
+      ZoomFadeRoute(page: PlaylistPage.user(playlist: widget.playlist)),
     ).then((_) {
       // refresh after returning (songs may have been removed)
       widget.onDeleted();

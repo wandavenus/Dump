@@ -73,19 +73,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
-      routes: {
-        '/settings':   (context) => const SettingsPage(),
-        '/firstpage':  (context) => const WebView(child: FirstPage()),
-        '/browse':     (context) => const WebView(child: BrowsePage()),
-        '/radio':      (context) => const WebView(child: RadioPage()),
-        '/library':    (context) => const WebView(child: LibraryPage()),
-        '/search':     (context) => const WebView(child: SearchPage()),
-        '/home':       (context) => const WebView(child: HomePage()),
-        '/album':      (context) => const WebView(child: AlbumPage()),
-        '/artist':     (context) => const WebView(child: ArtistPage()),
-        '/artistlist': (context) => const WebView(child: ArtistList()),
-        '/musiclist':  (context) => const WebView(child: MusicList()),
-        '/player':     (context) => const WebView(child: MusicPlayer()),
+      onGenerateRoute: (settings) {
+        Widget buildPage() {
+          switch (settings.name) {
+            case '/settings':   return const SettingsPage();
+            case '/firstpage':  return const WebView(child: FirstPage());
+            case '/browse':     return const WebView(child: BrowsePage());
+            case '/radio':      return const WebView(child: RadioPage());
+            case '/library':    return const WebView(child: LibraryPage());
+            case '/search':     return const WebView(child: SearchPage());
+            case '/home':       return const WebView(child: HomePage());
+            case '/album':      return const WebView(child: AlbumPage());
+            case '/artist':     return const WebView(child: ArtistPage());
+            case '/artistlist': return const WebView(child: ArtistList());
+            case '/musiclist':  return const WebView(child: MusicList());
+            case '/player':     return const WebView(child: MusicPlayer());
+            default:            return const SizedBox.shrink();
+          }
+        }
+
+        // Unknown route — let Flutter handle it.
+        if (settings.name == null ||
+            ![
+              '/settings', '/firstpage', '/browse', '/radio', '/library',
+              '/search', '/home', '/album', '/artist', '/artistlist',
+              '/musiclist', '/player',
+            ].contains(settings.name)) {
+          return null;
+        }
+
+        return ZoomFadeRoute(page: buildPage(), settings: settings);
       },
     );
   }
