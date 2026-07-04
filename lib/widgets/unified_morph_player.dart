@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/cupertino.dart';
 import '../models/local_song.dart';
 import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
@@ -558,7 +558,7 @@ Transform.translate(
         const IconButton(
           onPressed: AudioService.skipNext,
           icon: Icon(
-            Icons.fast_forward_rounded,
+            CupertinoIcons.forward_fill,
             size: 36,
             color: Colors.white,
           ),
