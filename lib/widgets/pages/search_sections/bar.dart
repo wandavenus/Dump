@@ -1,6 +1,6 @@
 part of '../search_sections.dart';
 
-const double _kSearchBarHeight = 62;
+const double _kSearchBarHeight = 68;
 
 class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
@@ -43,7 +43,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 10),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 10),
       child: GestureDetector(
         // Request focus ONLY when user explicitly taps the search bar
         onTap: focusNode.requestFocus,
