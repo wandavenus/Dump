@@ -242,16 +242,35 @@ class MediaKitEngine implements AbstractAudioEngine {
       }),
 
       // playlist / current track → emit to Dart stream + push metadata to service
+      //
+      // IMPORTANT: state.index is the position within media_kit's *native*
+      // playlist order. When shuffle is enabled, media_kit/mpv physically
+      // reorders its internal playlist — state.index no longer corresponds
+      // to the position of that same track in `_queue`, which is always
+      // kept in original (unshuffled) order for queue display/persistence.
+      // Resolve the actual currently-playing song by matching the native
+      // media's URI back to `_queue` instead of assuming the indices align,
+      // so metadata sent to Flutter always describes the track that is
+      // actually audible — regardless of shuffle state.
       p.stream.playlist.listen((state) {
         if (_disposed) return;
         final idx = state.index;
-        if (idx < 0 || idx >= _queue.length) return;
-        _currentIndex = idx;
-        final song = _queue[idx];
+        if (idx < 0 || idx >= state.medias.length) return;
+        final currentUri = state.medias[idx].uri;
+        var queueIdx = _queue.indexWhere((s) => 'file://${s.path}' == currentUri);
+        if (queueIdx < 0) {
+          // Fallback: should not normally happen (URIs are built 1:1 from
+          // _queue), but guards against any transient mismatch instead of
+          // silently reporting the wrong song.
+          if (idx >= _queue.length) return;
+          queueIdx = idx;
+        }
+        _currentIndex = queueIdx;
+        final song = _queue[queueIdx];
         _currentTrackCtrl.add({
-          'index':          idx,
+          'index':          queueIdx,
           'id':             song.id,
-          'nextTrackIndex': _computeNextIndex(idx),
+          'nextTrackIndex': _computeNextIndex(queueIdx),
         });
         // Reset position throttle so the first position event for the new
         // track is forwarded immediately (seek bar snaps to 0:00 at once).
