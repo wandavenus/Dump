@@ -11,7 +11,7 @@ class ZoomFadeRoute<T> extends PageRouteBuilder<T> {
 
   ZoomFadeRoute({required this.page, super.settings})
       : super(
-          transitionDuration: const Duration(milliseconds: 150),
+          transitionDuration: const Duration(milliseconds: 250),
           reverseTransitionDuration: const Duration(milliseconds: 150),
           pageBuilder: (context, animation, secondaryAnimation) => page,
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
