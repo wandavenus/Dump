@@ -54,6 +54,10 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// Minimum interval between position-only pushes to the Android service.
   static const int _kPositionUpdateIntervalMs = 5000; // 5 s
 
+  // Lifecycle guard — set to true as the very first step of dispose().
+  // Every callback that touches _player must check this and return early.
+  bool _disposed = false;
+
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
   Timer? _sleepCountdownTick;
@@ -114,24 +118,54 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> dispose() async {
+    // ① Mark disposed immediately — all callbacks and async continuations
+    //    that check _disposed will become no-ops from this point forward.
+    _disposed = true;
+
+    // ② Sever the transport handler before any async work so no native
+    //    command can reach _handleTransportCommand while we tear down.
+    MediaKitServiceBridge.setTransportCommandHandler(null);
+
+    // ③ Cancel sleep timers — pure Dart, no await needed.
     _cancelSleepTimerInternal();
 
-    // Hapus referensi player dari settings service sebelum dispose.
-    MediaKitSettingsService.unregisterPlayer();
+    // ④ Capture and null _player NOW, before the first await.
+    //
+    //    This closes the remaining async race window: an async method
+    //    (e.g. _handleTransportCommand, _rebuildQueue) that entered before
+    //    _disposed was set and is suspended at an internal `await` will
+    //    resume and call `_player?.method()` — which is now a no-op because
+    //    _player is already null.  The captured reference is used below to
+    //    actually dispose the instance after all other teardown is complete.
+    final playerToDispose = _player;
+    _player       = null;
+    _queue        = [];
+    _currentIndex = 0;
 
-    // Tell the Android service to remove the notification and stop itself
-    // before cancelling the event subscription.
-    await MediaKitServiceBridge.stopService();
+    // ⑤ Cancel the EventChannel subscription BEFORE telling native to stop.
+    //    Rationale: the native "release" handler calls updateStateAndEmit("stop")
+    //    which enqueues a transport event in the Dart event queue BEFORE
+    //    result.success(null) is returned. Cancelling the subscription first
+    //    ensures that event is dropped by the channel layer and never reaches
+    //    the Dart listener. No deadlock risk: stopService() waits on a
+    //    MethodChannel reply, not on any transport event.
     await MediaKitServiceBridge.stopListening();
 
+    // ⑥ Unregister player from settings service.
+    MediaKitSettingsService.unregisterPlayer();
+
+    // ⑦ Tell the Android service to remove the notification and stop itself.
+    await MediaKitServiceBridge.stopService();
+
+    // ⑧ Cancel player stream subscriptions.
     for (final s in _subs) {
       s.cancel();
     }
     _subs.clear();
-    await _player?.dispose();
-    _player        = null;
-    _queue         = [];
-    _currentIndex  = 0;
+
+    // ⑨ Dispose the captured player instance last, after all other
+    //    teardown is done and _player field is already null.
+    await playerToDispose?.dispose();
     LogService.log('MediaKitEngine', 'Disposed — semua resource dibebaskan');
   }
 
@@ -142,6 +176,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     _subs.addAll([
       // playing / processingState → emit to Dart stream + push to Android service
       p.stream.playing.listen((playing) {
+        if (_disposed) return;
         _emitPlaybackState(playing: playing);
         MediaKitServiceBridge.updatePlaybackState(
           isPlaying:  playing,
@@ -151,12 +186,14 @@ class MediaKitEngine implements AbstractAudioEngine {
 
       // buffering
       p.stream.buffering.listen((buffering) {
+        if (_disposed) return;
         _bufferingCtrl.add(buffering);
         _emitPlaybackState(buffering: buffering);
       }),
 
       // completed
       p.stream.completed.listen((completed) {
+        if (_disposed) return;
         if (!completed) return;
         if (_sleepEndOfSong && _sleepTimerActive) {
           _triggerSleepStop();
@@ -167,15 +204,20 @@ class MediaKitEngine implements AbstractAudioEngine {
 
       // position — forward to Dart stream and throttle-push to Android service
       p.stream.position.listen((pos) {
+        if (_disposed) return;
         _positionCtrl.add(pos);
         _pushPositionIfDue(pos);
       }),
 
       // duration
-      p.stream.duration.listen(_durationCtrl.add),
+      p.stream.duration.listen((dur) {
+        if (_disposed) return;
+        _durationCtrl.add(dur);
+      }),
 
       // playlist / current track → emit to Dart stream + push metadata to service
       p.stream.playlist.listen((state) {
+        if (_disposed) return;
         final idx = state.index;
         if (idx < 0 || idx >= _queue.length) return;
         _currentIndex = idx;
@@ -223,6 +265,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// [_lastPositionSentMs] is reset to 0 on track change and after a manual
   /// seek so those events always produce an immediate update.
   void _pushPositionIfDue(Duration pos) {
+    if (_disposed) return;
     if (!(_player?.state.playing ?? false)) return;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (nowMs - _lastPositionSentMs < _kPositionUpdateIntervalMs) return;
@@ -240,6 +283,12 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// Handles transport commands emitted by [MediaKitPlaybackService] when the
   /// user interacts with the lock screen, BT device, or notification buttons.
   Future<void> _handleTransportCommand(String action, int? positionMs) async {
+  // Guard: engine is in the process of being (or has been) disposed.
+  // This catches any event that was already queued in the Dart event loop
+  // before the subscription was cancelled, preventing calls to a player
+  // that is no longer valid.
+  if (_disposed) return;
+
   LogService.verbose(
     'MediaKitEngine',
     'transport command: $action positionMs=$positionMs',
@@ -418,6 +467,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// This fixes the bug where removing an item BEFORE the current track shifts
   /// the index, causing position restoration to be incorrectly skipped.
   Future<void> _rebuildQueue(List<LocalSong> songs, int targetIndex) async {
+    if (_disposed) return;
     final wasPlaying = _player?.state.playing ?? false;
     final position   = _player?.state.position ?? Duration.zero;
     final prevIndex  = _currentIndex;
@@ -590,6 +640,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   }
 
   Future<void> _triggerSleepStop() async {
+    if (_disposed) return;
     _cancelSleepTimerInternal();
     _emitSleepTimer();
     await _player?.pause();

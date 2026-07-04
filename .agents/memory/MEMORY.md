@@ -29,3 +29,4 @@
 - [Crossfade repeat-all artifact](crossfade-repeat-artifact.md) — queue[0] plays ~1 s during B's fade-in when REPEAT_MODE_ALL active; fix: remove prefix items + set repeatMode=OFF AFTER setActivePlayer.
 - [Player background shader architecture](player-bg-shader.md) — GLSL fluid shader (assets/shaders/fluid.frag) + palette_generator; render at 256×512 via FittedBox.cover for GPU savings; color floats pre-computed per song, only uTime sent per frame; web/ template dir must exist for flutter build web.
 - [Whole-body swipe-to-dismiss sheets](swipe-to-dismiss-sheets.md) — all bottom sheets use shared `SwipeToDismissSheet` on the whole body; `DraggableScrollableSheet` log viewer is intentionally excluded.
+- [MediaKit engine dispose pattern](mediakit-engine-dispose-pattern.md) — urutan shutdown wajib + alasan; null _player sebelum await pertama untuk menutup async race; stopListening sebelum stopService; semua lokasi guard _disposed.
