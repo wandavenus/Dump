@@ -39,6 +39,14 @@ class MediaKitEngine implements AbstractAudioEngine {
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
 
+  // Lookup map: raw path (tanpa prefix 'file://') → index di _queue.
+ // media_kit's Media.normalizeURI() selalu strip prefix file:// sehingga
+ // Media.uri berupa path mentah, bukan URI penuh.
+  // Dibangun ulang setiap kali _queue berubah (setQueue / _rebuildQueue).
+  // Menjamin O(1) lookup dan perilaku first-occurrence yang deterministik,
+  // konsisten dengan semantik indexWhere() yang digantikannya.
+  Map<String, int> _uriToQueueIndex = {};
+
   // Speed dan pitch disimpan secara terpisah untuk keperluan snapshot/restore.
   // Dengan PlayerConfiguration(pitch:true), player.setRate() dan player.setPitch()
   // adalah dua jalur independen — mengubah satu tidak mempengaruhi yang lain.
@@ -53,6 +61,10 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   /// Minimum interval between position-only pushes to the Android service.
   static const int _kPositionUpdateIntervalMs = 5000; // 5 s
+
+  // Lifecycle guard — set to true as the very first step of dispose().
+  // Every callback that touches _player must check this and return early.
+  bool _disposed = false;
 
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
@@ -114,24 +126,81 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> dispose() async {
+    // ① Mark disposed immediately — all callbacks and async continuations
+    //    that check _disposed will become no-ops from this point forward.
+    _disposed = true;
+
+    // ② Sever the transport handler before any async work so no native
+    //    command can reach _handleTransportCommand while we tear down.
+    MediaKitServiceBridge.setTransportCommandHandler(null);
+
+    // ③ Cancel sleep timers — pure Dart, no await needed.
     _cancelSleepTimerInternal();
 
-    // Hapus referensi player dari settings service sebelum dispose.
-    MediaKitSettingsService.unregisterPlayer();
+    // ④ Capture and null _player NOW, before the first await.
+    //
+    //    This closes the remaining async race window: an async method
+    //    (e.g. _handleTransportCommand, _rebuildQueue) that entered before
+    //    _disposed was set and is suspended at an internal `await` will
+    //    resume and call `_player?.method()` — which is now a no-op because
+    //    _player is already null.  The captured reference is used below to
+    //    actually dispose the instance after all other teardown is complete.
+    final playerToDispose = _player;
+    _player           = null;
+    _queue            = [];
+    _currentIndex     = 0;
+    _uriToQueueIndex  = {};
 
-    // Tell the Android service to remove the notification and stop itself
-    // before cancelling the event subscription.
-    await MediaKitServiceBridge.stopService();
+    // ④.5 Stop playback explicitly, right now, using the captured reference —
+    //     do NOT rely on a native "stop" transport event to do this for us.
+    //
+    //     Previously, playback was actually halted as a side effect of the
+    //     native service emitting a "stop" transport command, which flowed
+    //     through the (still-active) EventChannel into
+    //     _handleTransportCommand('stop') → _player.pause(). That path is
+    //     now intentionally severed before this point (_disposed = true and
+    //     the transport handler is cleared in steps ①–②), which closes the
+    //     dispose race — but it also means nothing else in this method stops
+    //     the audio. Without this explicit pause, stopListening()/
+    //     stopService() below just tear down the notification/service while
+    //     mpv keeps rendering audio, and playerToDispose.dispose() runs on a
+    //     player that is still playing.
+    //
+    //     media_kit's Player.pause() forwards to mpv's `pause` property on
+    //     the native platform thread; mpv applies that property change
+    //     synchronously before the platform-channel call returns, so the
+    //     returned Future only completes once playback has actually been
+    //     paused natively. There's no separate "confirmed paused" async
+    //     signal to await, so `await pause()` is sufficient here — no
+    //     Future.delayed() or extra polling required.
+    if (playerToDispose != null) {
+      await playerToDispose.pause();
+    }
+
+    // ⑤ Cancel the EventChannel subscription BEFORE telling native to stop.
+    //    Rationale: the native "release" handler calls updateStateAndEmit("stop")
+    //    which enqueues a transport event in the Dart event queue BEFORE
+    //    result.success(null) is returned. Cancelling the subscription first
+    //    ensures that event is dropped by the channel layer and never reaches
+    //    the Dart listener. No deadlock risk: stopService() waits on a
+    //    MethodChannel reply, not on any transport event.
     await MediaKitServiceBridge.stopListening();
 
+    // ⑥ Unregister player from settings service.
+    MediaKitSettingsService.unregisterPlayer();
+
+    // ⑦ Tell the Android service to remove the notification and stop itself.
+    await MediaKitServiceBridge.stopService();
+
+    // ⑧ Cancel player stream subscriptions.
     for (final s in _subs) {
       s.cancel();
     }
     _subs.clear();
-    await _player?.dispose();
-    _player        = null;
-    _queue         = [];
-    _currentIndex  = 0;
+
+    // ⑨ Dispose the captured player instance last, after all other
+    //    teardown is done and _player field is already null.
+    await playerToDispose?.dispose();
     LogService.log('MediaKitEngine', 'Disposed — semua resource dibebaskan');
   }
 
@@ -142,6 +211,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     _subs.addAll([
       // playing / processingState → emit to Dart stream + push to Android service
       p.stream.playing.listen((playing) {
+        if (_disposed) return;
         _emitPlaybackState(playing: playing);
         MediaKitServiceBridge.updatePlaybackState(
           isPlaying:  playing,
@@ -151,12 +221,14 @@ class MediaKitEngine implements AbstractAudioEngine {
 
       // buffering
       p.stream.buffering.listen((buffering) {
+        if (_disposed) return;
         _bufferingCtrl.add(buffering);
         _emitPlaybackState(buffering: buffering);
       }),
 
       // completed
       p.stream.completed.listen((completed) {
+        if (_disposed) return;
         if (!completed) return;
         if (_sleepEndOfSong && _sleepTimerActive) {
           _triggerSleepStop();
@@ -167,23 +239,45 @@ class MediaKitEngine implements AbstractAudioEngine {
 
       // position — forward to Dart stream and throttle-push to Android service
       p.stream.position.listen((pos) {
+        if (_disposed) return;
         _positionCtrl.add(pos);
         _pushPositionIfDue(pos);
       }),
 
       // duration
-      p.stream.duration.listen(_durationCtrl.add),
+      p.stream.duration.listen((dur) {
+        if (_disposed) return;
+        _durationCtrl.add(dur);
+      }),
 
       // playlist / current track → emit to Dart stream + push metadata to service
+      //
+      // IMPORTANT: state.index is the position within media_kit's *native*
+      // playlist order. When shuffle is enabled, media_kit/mpv physically
+      // reorders its internal playlist — state.index no longer corresponds
+      // to the position of that same track in `_queue`, which is always
+      // kept in original (unshuffled) order for queue display/persistence.
+      // Resolve the actual currently-playing song by matching the native
+      // media's URI back to `_queue` instead of assuming the indices align,
+      // so metadata sent to Flutter always describes the track that is
+      // actually audible — regardless of shuffle state.
       p.stream.playlist.listen((state) {
+        if (_disposed) return;
         final idx = state.index;
-        if (idx < 0 || idx >= _queue.length) return;
-        _currentIndex = idx;
-        final song = _queue[idx];
+        if (idx < 0 || idx >= state.medias.length) return;
+        final currentUri = state.medias[idx].uri;
+        final queueIdx   = _uriToQueueIndex[currentUri] ?? -1;
+
+        if (queueIdx < 0) {
+          LogService.warn('MediaKitEngine', 'URI mismatch detected: $currentUri');
+          return;
+        }
+        _currentIndex = queueIdx;
+        final song = _queue[queueIdx];
         _currentTrackCtrl.add({
-          'index':          idx,
+          'index':          queueIdx,
           'id':             song.id,
-          'nextTrackIndex': _computeNextIndex(idx),
+          'nextTrackIndex': _computeNextIndex(queueIdx),
         });
         // Reset position throttle so the first position event for the new
         // track is forwarded immediately (seek bar snaps to 0:00 at once).
@@ -223,6 +317,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// [_lastPositionSentMs] is reset to 0 on track change and after a manual
   /// seek so those events always produce an immediate update.
   void _pushPositionIfDue(Duration pos) {
+    if (_disposed) return;
     if (!(_player?.state.playing ?? false)) return;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (nowMs - _lastPositionSentMs < _kPositionUpdateIntervalMs) return;
@@ -240,6 +335,12 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// Handles transport commands emitted by [MediaKitPlaybackService] when the
   /// user interacts with the lock screen, BT device, or notification buttons.
   Future<void> _handleTransportCommand(String action, int? positionMs) async {
+  // Guard: engine is in the process of being (or has been) disposed.
+  // This catches any event that was already queued in the Dart event loop
+  // before the subscription was cancelled, preventing calls to a player
+  // that is no longer valid.
+  if (_disposed) return;
+
   LogService.verbose(
     'MediaKitEngine',
     'transport command: $action positionMs=$positionMs',
@@ -318,12 +419,18 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setQueue(List<LocalSong> queue, int index) async {
     if (queue.isEmpty) return;
-    _queue        = List.unmodifiable(queue);
-    _currentIndex = index.clamp(0, queue.length - 1);
+    _queue           = List.unmodifiable(queue);
+    _currentIndex    = index.clamp(0, queue.length - 1);
+    _rebuildUriIndex(_queue);
     await _player?.open(
       Playlist(_buildMediaList(queue), index: _currentIndex),
       play: false,
     );
+    // Guard: engine mungkin sudah di-dispose saat open() masih berjalan.
+    if (_disposed) return;
+    // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
+    // urutan native mpv konsisten dengan _shuffleEnabled.
+    if (_shuffleEnabled) await _player?.setShuffle(true);
     _emitQueueSnapshot();
     // Push the initial track metadata to the service immediately after setQueue
     // so the notification shows the correct song before playback starts.
@@ -357,8 +464,24 @@ class MediaKitEngine implements AbstractAudioEngine {
   @override
   Future<void> setTrack(int index) async {
     if (index < 0 || index >= _queue.length) return;
-    await _player?.jump(index);
-    LogService.verbose('MediaKitEngine', 'setTrack($index)');
+    final p = _player;
+    if (p == null) return;
+    // `index` arrives in `_queue`'s original (unshuffled) order — the same
+    // space the UI/queue view uses. media_kit's jump() sets mpv's native
+    // `playlist-pos` directly, which is in *native* playlist order and gets
+    // reordered independently when shuffle is enabled (see the playlist
+    // listener above for the same original↔native distinction). Resolve the
+    // target song's URI to its actual position in the native playlist so
+    // tapping a queue item jumps to the correct track regardless of shuffle
+    // state, instead of assuming the two index spaces align.
+    final targetUri = _queue[index].path;
+    final nativeMedias = p.state.playlist.medias;
+    final nativeIdx    = nativeMedias.indexWhere((m) => m.uri == targetUri);
+    await p.jump(nativeIdx >= 0 ? nativeIdx : index);
+    LogService.verbose(
+      'MediaKitEngine',
+      'setTrack(queueIdx=$index → nativeIdx=${nativeIdx >= 0 ? nativeIdx : index})',
+    );
   }
 
   // ── Queue mutations ───────────────────────────────────────────────────────
@@ -418,6 +541,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   /// This fixes the bug where removing an item BEFORE the current track shifts
   /// the index, causing position restoration to be incorrectly skipped.
   Future<void> _rebuildQueue(List<LocalSong> songs, int targetIndex) async {
+    if (_disposed) return;
     final wasPlaying = _player?.state.playing ?? false;
     final position   = _player?.state.position ?? Duration.zero;
     final prevIndex  = _currentIndex;
@@ -428,13 +552,21 @@ class MediaKitEngine implements AbstractAudioEngine {
         targetIndex < songs.length &&
         songs[targetIndex].id == _queue[prevIndex].id;
 
-    _queue        = List.unmodifiable(songs);
-    _currentIndex = targetIndex;
+    _queue           = List.unmodifiable(songs);
+    _currentIndex    = targetIndex;
+    _rebuildUriIndex(_queue);
 
     await _player?.open(
       Playlist(_buildMediaList(songs), index: _currentIndex),
       play: false,
     );
+    // Guard: engine mungkin sudah di-dispose saat open() masih berjalan.
+    // Cegah emisi stale (_emitQueueSnapshot, seek, play) ke stream yang
+    // sudah closed — simetris dengan guard yang sama di setQueue().
+    if (_disposed) return;
+    // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
+    // mpv kembali mengacak urutan native sesuai state yang tersimpan.
+    if (_shuffleEnabled) await _player?.setShuffle(true);
 
     if (sameTrack && position > Duration.zero) await _player?.seek(position);
     if (wasPlaying) await _player?.play();
@@ -456,13 +588,35 @@ class MediaKitEngine implements AbstractAudioEngine {
     LogService.verbose('MediaKitEngine', 'repeatMode=$mode');
   }
 
-  @override
-  Future<void> setShuffleMode(bool enabled) async {
-    _shuffleEnabled = enabled;
-    await _player?.setShuffle(enabled);
-    _shuffleCtrl.add(enabled);
-    LogService.verbose('MediaKitEngine', 'shuffle=$enabled');
+@override
+Future<void> setShuffleMode(bool enabled) async {
+  _shuffleEnabled = enabled;
+
+  await _player?.setShuffle(enabled);
+
+  final playlist = _player?.state.playlist;
+  if (playlist != null &&
+      playlist.index >= 0 &&
+      playlist.index < playlist.medias.length) {
+    final currentUri = playlist.medias[playlist.index].uri;
+    final queueIdx   = _uriToQueueIndex[currentUri] ?? -1;
+
+    if (queueIdx >= 0) {
+      _currentIndex = queueIdx;
+
+      final song = _queue[queueIdx];
+
+      _currentTrackCtrl.add({
+        'index': queueIdx,
+        'id': song.id,
+        'nextTrackIndex': _computeNextIndex(queueIdx),
+      });
+    }
   }
+
+  _shuffleCtrl.add(enabled);
+  LogService.verbose('MediaKitEngine', 'shuffle=$enabled');
+}
 
   // ── Playback parameters ───────────────────────────────────────────────────
 
@@ -590,6 +744,7 @@ class MediaKitEngine implements AbstractAudioEngine {
   }
 
   Future<void> _triggerSleepStop() async {
+    if (_disposed) return;
     _cancelSleepTimerInternal();
     _emitSleepTimer();
     await _player?.pause();
@@ -653,6 +808,25 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  /// Membangun ulang [_uriToQueueIndex] dari [songs].
+  ///
+  /// Harus dipanggil setiap kali [_queue] di-assign ulang (setQueue /
+  /// _rebuildQueue). Map menjamin O(1) lookup dan perilaku first-occurrence
+  /// yang deterministik — konsisten dengan indexWhere() yang digantikannya.
+  void _rebuildUriIndex(List<LocalSong> songs) {
+    final map = <String, int>{};
+    for (var i = 0; i < songs.length; i++) {
+      // putIfAbsent memastikan entri pertama (indeks terkecil) yang menang —
+      // identik dengan semantik indexWhere() yang hanya menemukan first-match.
+      // Gunakan path mentah (tanpa prefix 'file://') karena
+      // Media.normalizeURI() selalu strip scheme file:// sebelum menyimpan
+      // ke field .uri — jadi state.medias[i].uri == song.path, bukan
+      // 'file://' + song.path.
+      map.putIfAbsent(songs[i].path, () => i);
+    }
+    _uriToQueueIndex = map;
+  }
+
   List<Media> _buildMediaList(List<LocalSong> songs) =>
       songs.map((s) => Media('file://${s.path}')).toList();
 
@@ -699,6 +873,38 @@ class MediaKitEngine implements AbstractAudioEngine {
     final len = _queue.length;
     if (len == 0) return -1;
     if (_repeatMode == 'one') return current;
+
+    // Saat shuffle aktif, mpv memiliki urutan native-nya sendiri yang berbeda
+    // dari `_queue`. Resolve "lagu berikutnya" dari posisi native mpv supaya
+    // UI menampilkan lagu yang benar-benar akan diputar setelah ini.
+    if (_shuffleEnabled) {
+      final p = _player;
+      if (p != null) {
+        final nativeMedias = p.state.playlist.medias;
+        // Cari posisi lagu saat ini di urutan native mpv via URI.
+        // nativeMedias bisa berisi Media baru (tanpa extras) setelah
+        // setShuffle() — URI adalah satu-satunya kunci yang reliabel.
+        final currentUri = _queue[current].path;
+        final nativeIdx  = nativeMedias.indexWhere((m) => m.uri == currentUri);
+        if (nativeIdx >= 0) {
+          final nextNativeIdx = nativeIdx + 1;
+          if (nextNativeIdx < nativeMedias.length) {
+            // Ada lagu berikutnya di urutan shuffle native.
+            // Gunakan _uriToQueueIndex untuk O(1) reverse-lookup ke _queue.
+            final nextQueueIdx =
+                _uriToQueueIndex[nativeMedias[nextNativeIdx].uri] ?? -1;
+            if (nextQueueIdx >= 0) return nextQueueIdx;
+          } else if (_repeatMode == 'all' && nativeMedias.isNotEmpty) {
+            // Akhir playlist shuffle → wrap ke native index 0.
+            final nextQueueIdx =
+                _uriToQueueIndex[nativeMedias[0].uri] ?? -1;
+            if (nextQueueIdx >= 0) return nextQueueIdx;
+          }
+          return -1; // Akhir shuffle tanpa repeat — tidak ada lagu berikutnya.
+        }
+      }
+    }
+
     if (current < len - 1) return current + 1;
     if (_repeatMode == 'all') return 0;
     return -1;

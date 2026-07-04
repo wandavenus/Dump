@@ -35,7 +35,17 @@ class _SearchResultsSliver extends StatelessWidget {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, i) {
-          final song = results[i];
+          if (i.isOdd) {
+            return const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: Color(0xFF48484A),
+              indent: 76,
+              endIndent: 16,
+            );
+          }
+          final idx = i ~/ 2;
+          final song = results[idx];
           final indexInAll = allSongs.indexOf(song);
           return _SearchResultTile(
             song: song,
@@ -43,7 +53,7 @@ class _SearchResultsSliver extends StatelessWidget {
             index: indexInAll >= 0 ? indexInAll : 0,
           );
         },
-        childCount: results.length,
+        childCount: results.length * 2 - 1,
       ),
     );
   }

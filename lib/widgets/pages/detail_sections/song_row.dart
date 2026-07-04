@@ -22,9 +22,11 @@ class SongListRow extends StatelessWidget {
       child: Column(
         children: [
           const Divider(
-            color: Color.fromARGB(255, 80, 80, 80),
-            thickness: .4,
+            color: Color(0xFF48484A),
+            thickness: 0.5,
+            height: 1,
             indent: 58,
+            endIndent: 16,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

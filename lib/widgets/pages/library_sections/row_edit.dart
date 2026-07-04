@@ -34,7 +34,7 @@ class _LibraryRow extends StatelessWidget {
           ),
         ),
         const Divider(
-          color: Color(0xFF38383A),
+          color: Color(0xFF48484A),
           thickness: 0.5,
           indent: 38,
           endIndent: 0,
@@ -47,9 +47,7 @@ class _LibraryRow extends StatelessWidget {
       onTap: () {
         if (destination != null) {
           Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => _LibraryDetailPage(destination: destination!),
-            ),
+            ZoomFadeRoute<void>(page: _LibraryDetailPage(destination: destination!)),
           );
           return;
         }

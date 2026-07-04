@@ -1,3 +1,4 @@
+- [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
 - [MediaKit Android service](mediakit-android-service.md) — MediaKitPlaybackService architecture: mirror service (no audio), SimpleBasePlayer state player, transport command flow, metadata push, channel names.
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
@@ -27,3 +28,8 @@
 - [Media3 1.10.1 package migration](media3-package-migration.md) — audio processor classes moved from exoplayer.audio → common.audio; DefaultAudioProcessorChain is still public nested in DefaultAudioSink; verify via sources.jar not guessing.
 - [Crossfade repeat-all artifact](crossfade-repeat-artifact.md) — queue[0] plays ~1 s during B's fade-in when REPEAT_MODE_ALL active; fix: remove prefix items + set repeatMode=OFF AFTER setActivePlayer.
 - [Player background shader architecture](player-bg-shader.md) — GLSL fluid shader (assets/shaders/fluid.frag) + palette_generator; render at 256×512 via FittedBox.cover for GPU savings; color floats pre-computed per song, only uTime sent per frame; web/ template dir must exist for flutter build web.
+- [MediaKit URI normalization](mediakit-uri-normalization.md) — Media.normalizeURI() strip file:// → .uri = raw path; semua lookup key harus song.path bukan 'file://${song.path}'.
+- [Whole-body swipe-to-dismiss sheets](swipe-to-dismiss-sheets.md) — all bottom sheets use shared `SwipeToDismissSheet` on the whole body; `DraggableScrollableSheet` log viewer is intentionally excluded.
+- [MediaKit engine dispose pattern](mediakit-engine-dispose-pattern.md) — urutan shutdown wajib + alasan; null _player sebelum await pertama untuk menutup async race; stopListening sebelum stopService; semua lokasi guard _disposed.
+- [MediaKit shuffle index-space mismatch](mediakit-shuffle-index-space.md) — mpv native playlist order ≠ Dart `_queue` order when shuffled; any index crossing that boundary (both directions) must resolve via URI, never trusted as-is.
+- [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.

@@ -273,129 +273,131 @@ class _EngineSwitchConfirmSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Beralih ke ${target.displayName}?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Queue, posisi, shuffle, dan repeat akan disimpan dan di-restore. '
-              'Perpindahan membutuhkan beberapa detik.',
-              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
-            ),
-          ),
-          if (target == PlaybackEngineType.mediaKit) ...[
+    return SwipeToDismissSheet(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             const SizedBox(height: 12),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(12),
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.orange.withValues(alpha: 0.3),
-                  width: 0.8,
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Beralih ke ${target.displayName}?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              child: const Row(
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Queue, posisi, shuffle, dan repeat akan disimpan dan di-restore. '
+                'Perpindahan membutuhkan beberapa detik.',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+              ),
+            ),
+            if (target == PlaybackEngineType.mediaKit) ...[
+              const SizedBox(height: 12),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Efek audio (EQ, Bass Boost, Reverb) tidak aktif di engine ini.',
+                        style: TextStyle(color: Colors.orange, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.orange, size: 16),
-                  SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Efek audio (EQ, Bass Boost, Reverb) tidak aktif di engine ini.',
-                      style: TextStyle(color: Colors.orange, fontSize: 11),
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Batal',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        AudioEngineManager.switchEngine(target);
+                      },
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFC3C44),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Beralih',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 24),
           ],
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Batal',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      AudioEngineManager.switchEngine(target);
-                    },
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFC3C44),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Beralih',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }
@@ -409,86 +411,88 @@ class _PlaybackStatsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Statistik Sesi Pemutaran',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+    return SwipeToDismissSheet(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ValueListenableBuilder<PlaybackEngineType>(
-                valueListenable: AudioEngineManager.activeEngineType,
-                builder: (_, type, _) => Text(
-                  'Engine aktif: ${type.displayName}',
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (stats == null)
+            const SizedBox(height: 20),
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text(
-                'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Statistik Sesi Pemutaran',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            )
-          else ...[
-            _StatRow(
-              label: 'Waktu Putar',
-              value: _fmtMs((stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
-              icon: Icons.play_circle_outline_rounded,
             ),
-            _StatRow(
-              label: 'Waktu Buffering',
-              value: _fmtMs((stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
-              icon: Icons.hourglass_bottom_rounded,
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ValueListenableBuilder<PlaybackEngineType>(
+                  valueListenable: AudioEngineManager.activeEngineType,
+                  builder: (_, type, _) => Text(
+                    'Engine aktif: ${type.displayName}',
+                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                  ),
+                ),
+              ),
             ),
-            _StatRow(
-              label: 'Rebuffer',
-              value: '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
-              icon: Icons.cached_rounded,
-            ),
-            _StatRow(
-              label: 'Error',
-              value: '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
-              icon: Icons.error_outline_rounded,
-            ),
+            const SizedBox(height: 20),
+            if (stats == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+              )
+            else ...[
+              _StatRow(
+                label: 'Waktu Putar',
+                value: _fmtMs((stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
+                icon: Icons.play_circle_outline_rounded,
+              ),
+              _StatRow(
+                label: 'Waktu Buffering',
+                value: _fmtMs((stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
+                icon: Icons.hourglass_bottom_rounded,
+              ),
+              _StatRow(
+                label: 'Rebuffer',
+                value: '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+                icon: Icons.cached_rounded,
+              ),
+              _StatRow(
+                label: 'Error',
+                value: '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+                icon: Icons.error_outline_rounded,
+              ),
+            ],
+            const SizedBox(height: 24),
           ],
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }

@@ -155,6 +155,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ],
           ),
     );
+    controller.dispose();
     if (result != null && result.isNotEmpty && mounted) {
       await PlaylistService.renamePlaylist(widget.userPlaylist!.id, result);
       if (mounted) setState(() {});
@@ -238,10 +239,19 @@ class _PlaylistPageState extends State<PlaylistPage> {
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
           ? _EmptyState(icon: widget.icon, color: widget.iconColor)
-          : ListView.builder(
+          : ListView.separated(
               controller: _scroll,
               padding: const EdgeInsets.only(bottom: 80),
               itemCount: _songs.length + 1,
+              separatorBuilder: (ctx, i) => i == 0
+                  ? const SizedBox.shrink()
+                  : const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 80,
+                      endIndent: 16,
+                    ),
               itemBuilder: (ctx, i) {
                 if (i == 0) {
                   return Column(

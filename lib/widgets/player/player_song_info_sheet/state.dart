@@ -48,32 +48,66 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-  borderRadius: const BorderRadius.vertical(top: Radius.circular(1)),
-  child: ColoredBox(
-    color: Colors.black,
-    child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 10),
-        child: FutureBuilder<SongInfo>(
-          future: _songInfoFuture,
-          builder: (context, snapshot) {
-            final songInfo = snapshot.data;
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: songInfo == null
-                  ? const _LoadingSongInfo()
-                  : _SongInfoContent(
-                      songInfo: songInfo,
-                      liveFormat: _liveFormat,
-                    ),
-            );
-          },
+    return SwipeToDismissSheet(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Body — constrained to 75% of screen height. Not scrollable
+              // internally (fits within the constraint), so the whole card
+              // can safely respond to swipe-to-dismiss drags.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  child: FutureBuilder<SongInfo>(
+                    future: _songInfoFuture,
+                    builder: (context, snapshot) {
+                      final songInfo = snapshot.data;
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: songInfo == null
+                            ? const _LoadingSongInfo()
+                            : _SongInfoContent(
+                                songInfo: songInfo,
+                                liveFormat: _liveFormat,
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }

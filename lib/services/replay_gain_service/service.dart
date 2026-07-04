@@ -239,11 +239,14 @@ class ReplayGainService {
   static Future<void> _saveToPrefs(int songId, LoudnessData data) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('rg_${songId}_gain', data.gainDb.toString());
-      await prefs.setInt('rg_${songId}_src', data.source.index);
-      if (data.peakLinear != null) {
-        await prefs.setString('rg_${songId}_peak', data.peakLinear.toString());
-      }
+      // Tulis ke 3 key secara paralel (bukan berurutan) untuk mengurangi
+      // waktu tunggu I/O per lagu saat scanning library besar.
+      await Future.wait([
+        prefs.setString('rg_${songId}_gain', data.gainDb.toString()),
+        prefs.setInt('rg_${songId}_src', data.source.index),
+        if (data.peakLinear != null)
+          prefs.setString('rg_${songId}_peak', data.peakLinear.toString()),
+      ]);
     } catch (_) {}
   }
 }

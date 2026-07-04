@@ -273,54 +273,56 @@ class _MkRgModeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: MediaKitSettingsService.replayGainMode,
-      builder: (_, current, _) => Container(
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+      builder: (_, current, _) => SwipeToDismissSheet(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1C1E),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Mode ReplayGain',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Mode ReplayGain',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _MkRgModeOption(
-              label: 'Per Lagu (Track)',
-              value: 'track',
-              subtitle: 'Normalisasi berdasarkan gain tiap lagu',
-              selected: current == 'track',
-            ),
-            _MkRgModeOption(
-              label: 'Per Album',
-              value: 'album',
-              subtitle: 'Normalisasi berdasarkan gain seluruh album',
-              selected: current == 'album',
-            ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 8),
+              _MkRgModeOption(
+                label: 'Per Lagu (Track)',
+                value: 'track',
+                subtitle: 'Normalisasi berdasarkan gain tiap lagu',
+                selected: current == 'track',
+              ),
+              _MkRgModeOption(
+                label: 'Per Album',
+                value: 'album',
+                subtitle: 'Normalisasi berdasarkan gain seluruh album',
+                selected: current == 'album',
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

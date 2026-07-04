@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
+import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 
 import '../../services/sleep_timer_service.dart';
 
@@ -17,7 +18,6 @@ void showSleepTimerSheet(BuildContext context) {
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.72),
     builder: (_) => const _SleepTimerSheetWidget(),
   );
 }
@@ -27,39 +27,37 @@ class _SleepTimerSheetWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: ColoredBox(
-        color: Colors.black,
+    return SwipeToDismissSheet(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 4),
-                child: Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Header row
+              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 12, 4),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
                     const Text(
                       'Sleep Timer',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -91,7 +89,10 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              // Scrollable body — constrained to 65% of screen height
+              const SizedBox(height: 8),
+              // Body — constrained to 65% of screen height. Presets fit
+              // within the constraint, so the whole card can safely
+              // respond to swipe-to-dismiss drags.
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.65,

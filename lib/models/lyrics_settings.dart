@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,40 +44,89 @@ class LyricsSettings {
   }
 
   // ── Setters ─────────────────────────────────────────────────────────────────
+  //
+  // Persist ke SharedPreferences di-debounce 400ms per key: notifier di-update
+  // langsung (UI tetap responsif real-time), tapi disk write hanya terjadi
+  // setelah user berhenti menggeser/mengubah nilai sejenak. Mencegah I/O
+  // storm saat slider di-drag terus-menerus.
 
-  static Future<void> setFontSize(double v) async {
+  static final Map<String, Timer> _debounceTimers = {};
+  static const _debounceDelay = Duration(milliseconds: 400);
+
+  static void _persistDebounced(String key, Future<void> Function() write) {
+    _debounceTimers[key]?.cancel();
+    _debounceTimers[key] = Timer(_debounceDelay, () {
+      _debounceTimers.remove(key);
+      write();
+    });
+  }
+
+  /// Membatalkan semua debounce timer tertunda dan langsung menulis nilai
+  /// saat ini ke disk. Panggil saat halaman ditutup / app dijeda agar
+  /// perubahan terakhir tidak hilang.
+  static Future<void> flush() async {
+    final timers = _debounceTimers.values.toList();
+    _debounceTimers.clear();
+    for (final t in timers) {
+      t.cancel();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('lyr_fontSize', fontSize.value);
+    await prefs.setString('lyr_textAlign', textAlign.value);
+    await prefs.setDouble('lyr_bgDim', bgDim.value);
+    await prefs.setDouble('lyr_blur', blurStrength.value);
+    await prefs.setString('lyr_activeColor', activeColor.value);
+    await prefs.setBool('lyr_showSource', showSource.value);
+    await prefs.setBool('lyr_karaoke', karaokeMode.value);
+  }
+
+  static void setFontSize(double v) {
     fontSize.value = v;
-    await (await SharedPreferences.getInstance()).setDouble('lyr_fontSize', v);
+    _persistDebounced('lyr_fontSize', () async {
+      await (await SharedPreferences.getInstance()).setDouble('lyr_fontSize', v);
+    });
   }
 
-  static Future<void> setTextAlign(String v) async {
+  static void setTextAlign(String v) {
     textAlign.value = v;
-    await (await SharedPreferences.getInstance()).setString('lyr_textAlign', v);
+    _persistDebounced('lyr_textAlign', () async {
+      await (await SharedPreferences.getInstance()).setString('lyr_textAlign', v);
+    });
   }
 
-  static Future<void> setBgDim(double v) async {
+  static void setBgDim(double v) {
     bgDim.value = v;
-    await (await SharedPreferences.getInstance()).setDouble('lyr_bgDim', v);
+    _persistDebounced('lyr_bgDim', () async {
+      await (await SharedPreferences.getInstance()).setDouble('lyr_bgDim', v);
+    });
   }
 
-  static Future<void> setBlurStrength(double v) async {
+  static void setBlurStrength(double v) {
     blurStrength.value = v;
-    await (await SharedPreferences.getInstance()).setDouble('lyr_blur', v);
+    _persistDebounced('lyr_blur', () async {
+      await (await SharedPreferences.getInstance()).setDouble('lyr_blur', v);
+    });
   }
 
-  static Future<void> setActiveColor(String v) async {
+  static void setActiveColor(String v) {
     activeColor.value = v;
-    await (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
+    _persistDebounced('lyr_activeColor', () async {
+      await (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
+    });
   }
 
-  static Future<void> setShowSource(bool v) async {
+  static void setShowSource(bool v) {
     showSource.value = v;
-    await (await SharedPreferences.getInstance()).setBool('lyr_showSource', v);
+    _persistDebounced('lyr_showSource', () async {
+      await (await SharedPreferences.getInstance()).setBool('lyr_showSource', v);
+    });
   }
 
-  static Future<void> setKaraokeMode(bool v) async {
+  static void setKaraokeMode(bool v) {
     karaokeMode.value = v;
-    await (await SharedPreferences.getInstance()).setBool('lyr_karaoke', v);
+    _persistDebounced('lyr_karaoke', () async {
+      await (await SharedPreferences.getInstance()).setBool('lyr_karaoke', v);
+    });
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

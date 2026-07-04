@@ -33,7 +33,8 @@ class CommonActions extends StatelessWidget {
             ),
             onSelected: (value) {
               if (value == 'settings') {
-                Navigator.pushNamed(context, '/settings');
+                Navigator.of(context, rootNavigator: true)
+                    .pushNamed('/settings');
               }
             },
             itemBuilder: (context) => [

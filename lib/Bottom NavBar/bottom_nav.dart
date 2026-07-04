@@ -7,9 +7,16 @@ import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
 import 'package:musicplayer/pages/radio.dart';
 import 'package:musicplayer/pages/search_page.dart';
+import 'package:musicplayer/pages/album_page.dart';
+import 'package:musicplayer/pages/artist_list.dart';
+import 'package:musicplayer/pages/artist_page.dart';
+import 'package:musicplayer/pages/music_list.dart';
+import 'package:musicplayer/pages/music_player.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
+import 'package:musicplayer/utils/zoom_fade_route.dart';
+import 'package:musicplayer/webView/webViewContainer.dart';
 
 part 'bottom_nav/page.dart';
 part 'bottom_nav/state.dart';

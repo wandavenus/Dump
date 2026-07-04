@@ -15,11 +15,16 @@ Future<void> main() async {
     );
   }
 
-  await ThemeController.init();
-  await LogService.init();
+  // Empat service ini independen satu sama lain (masing-masing hanya
+  // memuat pengaturan sendiri dari SharedPreferences), jadi dijalankan
+  // paralel untuk mempercepat waktu ke first frame.
+  await Future.wait([
+    ThemeController.init(),
+    LogService.init(),
+    LyricsSettings.init(),
+    UpNextSettings.init(),
+  ]);
   NativeLogBridge.init();
-  await LyricsSettings.init();
-  await UpNextSettings.init();
 
   // MediaKitSettingsService harus diinisialisasi SEBELUM AudioEngineManager
   // agar setting ter-load ke ValueNotifiers sebelum MediaKitEngine.initialize()

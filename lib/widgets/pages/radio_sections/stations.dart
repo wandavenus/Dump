@@ -91,8 +91,8 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     final data = _smartCards[widget.index];
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlaylistPage.smart(
+      ZoomFadeRoute(
+        page: PlaylistPage.smart(
           name: data.name,
           icon: data.icon,
           iconColor: data.color,
@@ -143,9 +143,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void _open() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlaylistPage.user(playlist: widget.playlist),
-      ),
+      ZoomFadeRoute(page: PlaylistPage.user(playlist: widget.playlist)),
     ).then((_) {
       // refresh after returning (songs may have been removed)
       widget.onDeleted();
@@ -159,34 +157,36 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade700,
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => SwipeToDismissSheet(
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade700,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text(
-                'Hapus Playlist',
-                style: TextStyle(color: Colors.red),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Hapus Playlist',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await PlaylistService.deletePlaylist(widget.playlist.id);
+                  widget.onDeleted();
+                },
               ),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await PlaylistService.deletePlaylist(widget.playlist.id);
-                widget.onDeleted();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -271,6 +271,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
         ],
       ),
     );
+    controller.dispose();
     if (name != null && name.isNotEmpty) {
       await PlaylistService.createPlaylist(name);
       _load();

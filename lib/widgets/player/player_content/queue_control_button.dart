@@ -13,7 +13,7 @@ class _QueueControlButton extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _activeColor = Color(0xFF8E8E93);
+  static const _activeColor = Color(0xFFFFFFFF);
   static const _inactiveColor = Colors.white;
 
   @override

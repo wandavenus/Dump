@@ -274,9 +274,18 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 album.artist.toLowerCase().contains(_filter);
           }).toList();
 
-    return ListView.builder(
+    return ListView.separated(
       controller: _scroll,
       itemCount: filtered.length + 1,
+      separatorBuilder: (context, index) => index == 0
+          ? const SizedBox.shrink()
+          : const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: Color(0xFF48484A),
+              indent: 87,
+              endIndent: 16,
+            ),
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final albumSongs = filtered[index - 1];
@@ -324,9 +333,18 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
-    return ListView.builder(
+    return ListView.separated(
       controller: _scroll,
       itemCount: filtered.length + 1,
+      separatorBuilder: (context, index) => index == 0
+          ? const SizedBox.shrink()
+          : const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: Color(0xFF48484A),
+              indent: 87,
+              endIndent: 16,
+            ),
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final song = filtered[index - 1];
@@ -368,9 +386,18 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
-    return ListView.builder(
+    return ListView.separated(
       controller: _scroll,
       itemCount: filtered.length + 1,
+      separatorBuilder: (context, index) => index == 0
+          ? const SizedBox.shrink()
+          : const Divider(
+              height: 1,
+              thickness: 0.5,
+              color: Color(0xFF48484A),
+              indent: 87,
+              endIndent: 16,
+            ),
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final song = filtered[index - 1];

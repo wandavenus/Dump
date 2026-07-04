@@ -11,9 +11,8 @@ class _InfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
-      color: Colors.black, // ganti sesuai kebutuhan
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

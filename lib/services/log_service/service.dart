@@ -5,7 +5,7 @@ class LogService {
 
   static const int _maxEntries = 5000;
 
-  static final List<LogEntry> _logs = [];
+  static final Queue<LogEntry> _logs = Queue<LogEntry>();
   static final ValueNotifier<int> logCount = ValueNotifier(0);
 
   static final ValueNotifier<bool> loggingEnabled  = ValueNotifier(true);
@@ -62,7 +62,7 @@ class LogService {
       stackTrace: stackTrace,
     );
 
-    if (_logs.length >= _maxEntries) _logs.removeAt(0);
+    if (_logs.length >= _maxEntries) _logs.removeFirst();
     _logs.add(entry);
     logCount.value = _logs.length;
 

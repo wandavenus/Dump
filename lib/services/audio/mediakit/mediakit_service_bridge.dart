@@ -41,8 +41,11 @@ class MediaKitServiceBridge {
 
   /// Register the callback that receives transport commands from the system.
   /// Call this before [startListening].
+  ///
+  /// Pass [null] to sever the handler (e.g. at the very start of dispose so
+  /// no command can reach the engine while it is being torn down).
   static void setTransportCommandHandler(
-    void Function(String action, int? positionMs) handler,
+    void Function(String action, int? positionMs)? handler,
   ) {
     _transportHandler = handler;
   }

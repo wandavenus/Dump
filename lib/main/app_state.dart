@@ -5,6 +5,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
   }
 
   @override
@@ -20,6 +21,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Re-synchronize with the native Media3 service so the mini player
       // reappears immediately if background playback was active.
       unawaited(AudioService.syncFromNative());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // Flush any debounced settings writes (e.g. lyrics appearance sliders)
+      // before the app goes to background, so a pending write isn't lost.
+      unawaited(LyricsSettings.flush());
     }
   }
 
@@ -28,7 +34,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
       builder: (context, child) {
-        applyEdgeToEdge();
+        applyEdgeToEdge();   // Jangan di pindahkan
         return child ?? const SizedBox.shrink();
       },
       theme: ThemeData(
@@ -67,19 +73,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
-      routes: {
-        '/settings':   (context) => const SettingsPage(),
-        '/firstpage':  (context) => const WebView(child: FirstPage()),
-        '/browse':     (context) => const WebView(child: BrowsePage()),
-        '/radio':      (context) => const WebView(child: RadioPage()),
-        '/library':    (context) => const WebView(child: LibraryPage()),
-        '/search':     (context) => const WebView(child: SearchPage()),
-        '/home':       (context) => const WebView(child: HomePage()),
-        '/album':      (context) => const WebView(child: AlbumPage()),
-        '/artist':     (context) => const WebView(child: ArtistPage()),
-        '/artistlist': (context) => const WebView(child: ArtistList()),
-        '/musiclist':  (context) => const WebView(child: MusicList()),
-        '/player':     (context) => const WebView(child: MusicPlayer()),
+      onGenerateRoute: (settings) {
+        // Detail routes (/album, /artist, etc.) are now handled by each tab's
+        // inner Navigator inside FirstPage, so they won't reach here.
+        // Only the app shell and settings are handled at the root level.
+        switch (settings.name) {
+          case '/firstpage':
+            return ZoomFadeRoute(
+              page: const WebView(child: FirstPage()),
+              settings: settings,
+            );
+          case '/settings':
+            return ZoomFadeRoute(
+              page: const SettingsPage(),
+              settings: settings,
+            );
+          default:
+            return null;
+        }
       },
     );
   }

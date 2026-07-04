@@ -24,7 +24,7 @@ import com.example.musicplayer.events.NativeLogger
  *
  * All transport commands (play, pause, skip, seek) are routed through the
  * supplied lambdas (which delegate to TransportCommands in production) so audio
- * focus, crossfade cancellation, SessionAuditLogger, and position ticker are
+ * focus, crossfade cancellation, and position ticker are
  * handled identically regardless of the command source (Flutter MethodChannel,
  * Bluetooth AVRCP, lock screen, Android Auto).
  *

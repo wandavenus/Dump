@@ -72,9 +72,18 @@ class _MusicListState extends State<MusicList> {
 
           return RefreshIndicator(
             onRefresh: _refreshSongs,
-            child: ListView.builder(
+            child: ListView.separated(
               controller: _scroll,
               itemCount: songs.length + 1,
+              separatorBuilder: (context, index) => index == 0
+                  ? const SizedBox.shrink()
+                  : const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 87,
+                      endIndent: 16,
+                    ),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return const Column(

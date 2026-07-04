@@ -33,8 +33,8 @@ class ArtistListRow extends StatelessWidget {
               ],
             ),
             const Divider(
-              color: Color.fromARGB(255, 61, 61, 61),
-              thickness: .4,
+              color: Color(0xFF48484A),
+              thickness: 0.5,
               indent: 125,
               endIndent: 0,
             ),

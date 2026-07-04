@@ -38,9 +38,7 @@ class _EqualizerSection extends StatelessWidget {
                   title: 'Equalizer',
                   trailing: trailing,
                   onTap: () => Navigator.of(context).push(
-                    CupertinoPageRoute<void>(
-                      builder: (_) => const EqualizerPage(),
-                    ),
+                    ZoomFadeRoute<void>(page: const EqualizerPage()),
                   ),
                 );
               },

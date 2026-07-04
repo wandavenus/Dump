@@ -1,5 +1,30 @@
 part of '../search_sections.dart';
 
+const double _kSearchBarHeight = 68;
+
+class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  _StickySearchBarDelegate({required this.child});
+
+  @override
+  double get minExtent => _kSearchBarHeight;
+
+  @override
+  double get maxExtent => _kSearchBarHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(color: Colors.black, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickySearchBarDelegate oldDelegate) {
+    return oldDelegate.child != child;
+  }
+}
+
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -18,7 +43,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 10),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 10),
       child: GestureDetector(
         // Request focus ONLY when user explicitly taps the search bar
         onTap: focusNode.requestFocus,
