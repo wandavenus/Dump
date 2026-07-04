@@ -74,35 +74,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       initialRoute: '/firstpage',
       onGenerateRoute: (settings) {
-        Widget buildPage() {
-          switch (settings.name) {
-            case '/settings':   return const SettingsPage();
-            case '/firstpage':  return const WebView(child: FirstPage());
-            case '/browse':     return const WebView(child: BrowsePage());
-            case '/radio':      return const WebView(child: RadioPage());
-            case '/library':    return const WebView(child: LibraryPage());
-            case '/search':     return const WebView(child: SearchPage());
-            case '/home':       return const WebView(child: HomePage());
-            case '/album':      return const WebView(child: AlbumPage());
-            case '/artist':     return const WebView(child: ArtistPage());
-            case '/artistlist': return const WebView(child: ArtistList());
-            case '/musiclist':  return const WebView(child: MusicList());
-            case '/player':     return const WebView(child: MusicPlayer());
-            default:            return const SizedBox.shrink();
-          }
+        // Detail routes (/album, /artist, etc.) are now handled by each tab's
+        // inner Navigator inside FirstPage, so they won't reach here.
+        // Only the app shell and settings are handled at the root level.
+        switch (settings.name) {
+          case '/firstpage':
+            return ZoomFadeRoute(
+              page: const WebView(child: FirstPage()),
+              settings: settings,
+            );
+          case '/settings':
+            return ZoomFadeRoute(
+              page: const SettingsPage(),
+              settings: settings,
+            );
+          default:
+            return null;
         }
-
-        // Unknown route — let Flutter handle it.
-        if (settings.name == null ||
-            ![
-              '/settings', '/firstpage', '/browse', '/radio', '/library',
-              '/search', '/home', '/album', '/artist', '/artistlist',
-              '/musiclist', '/player',
-            ].contains(settings.name)) {
-          return null;
-        }
-
-        return ZoomFadeRoute(page: buildPage(), settings: settings);
       },
     );
   }

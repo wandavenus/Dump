@@ -3,6 +3,21 @@ part of '../bottom_nav.dart';
 class _FirstPageState extends State<FirstPage> {
   int _selectedIndex = 0;
 
+  // One Navigator key per tab — each tab has its own navigation stack.
+  final List<GlobalKey<NavigatorState>> _tabNavKeys = List.generate(
+    5,
+    (_) => GlobalKey<NavigatorState>(),
+  );
+
+  // Root widget for each tab.
+  static const List<Widget> _tabRoots = [
+    HomePage(),
+    BrowsePage(),
+    RadioPage(),
+    LibraryPage(),
+    SearchPage(),
+  ];
+
   void _navgateBottomBar(int index) {
     if (index == _selectedIndex) {
       ScrollToTopService.trigger(index);
@@ -13,13 +28,43 @@ class _FirstPageState extends State<FirstPage> {
     });
   }
 
-  final List _pages = [
-    const HomePage(),
-    const BrowsePage(),
-    const RadioPage(),
-    const LibraryPage(),
-    const SearchPage(),
-  ];
+  /// Route generator shared by every tab's inner Navigator.
+  /// Handles detail pages so they render inside the tab stack,
+  /// keeping BottomNav and MiniPlayer visible.
+  Route<dynamic>? _tabRoute(int tabIndex, RouteSettings settings) {
+    // Initial route — show the tab's root page with no transition.
+    if (settings.name == Navigator.defaultRouteName) {
+      return PageRouteBuilder<void>(
+        settings: settings,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, __, ___) => _tabRoots[tabIndex],
+        transitionsBuilder: (_, __, ___, child) => child,
+      );
+    }
+
+    // Detail routes pushed from within any tab.
+    Widget? page;
+    switch (settings.name) {
+      case '/album':
+        page = const WebView(child: AlbumPage());
+      case '/artist':
+        page = const WebView(child: ArtistPage());
+      case '/artistlist':
+        page = const WebView(child: ArtistList());
+      case '/musiclist':
+        page = const WebView(child: MusicList());
+      case '/player':
+        page = const WebView(child: MusicPlayer());
+      default:
+        return null;
+    }
+    return ZoomFadeRoute(page: page, settings: settings);
+  }
+
+  /// Returns true if the active tab's navigator can pop (has a route to go back to).
+  bool get _innerCanPop =>
+      _tabNavKeys[_selectedIndex].currentState?.canPop() ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -57,10 +102,14 @@ class _FirstPageState extends State<FirstPage> {
           valueListenable: PlayerSheetController.expanded,
           builder: (context, expanded, _) {
             return PopScope(
-              canPop: !expanded,
+              // Block back gesture if player is open OR a detail page is shown.
+              canPop: !expanded && !_innerCanPop,
               onPopInvokedWithResult: (didPop, _) {
-                if (!didPop && expanded) {
+                if (didPop) return;
+                if (expanded) {
                   PlayerSheetController.close();
+                } else {
+                  _tabNavKeys[_selectedIndex].currentState?.maybePop();
                 }
               },
               child: Stack(
@@ -69,12 +118,17 @@ class _FirstPageState extends State<FirstPage> {
                     extendBody: isGlass,
                     body: IndexedStack(
                       index: _selectedIndex,
-                      children: _pages.cast<Widget>(),
+                      children: List.generate(
+                        5,
+                        (i) => Navigator(
+                          key: _tabNavKeys[i],
+                          onGenerateRoute: (s) => _tabRoute(i, s),
+                        ),
+                      ),
                     ),
                     bottomNavigationBar: ValueListenableBuilder<double>(
                       valueListenable: PlayerSheetController.progress,
                       builder: (context, progress, _) {
-
                         final column = Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -92,15 +146,12 @@ class _FirstPageState extends State<FirstPage> {
 
                         return Transform.translate(
                           offset: Offset(0, 70 * progress),
-                          
-                            child: isGlass ? GlassNavBar(child: column) : column,
-                          
+                          child: isGlass ? GlassNavBar(child: column) : column,
                         );
                       },
                     ),
                   ),
-                  // Unified morph player: handles both mini and full-player
-                  // as a single widget with a fluid Apple Music–style morph.
+                  // Unified morph player: handles both mini and full-player.
                   const UnifiedMorphPlayer(),
                 ],
               ),
