@@ -96,13 +96,16 @@ class _SearchSliversState extends State<SearchSlivers>
       slivers: [
         _SearchAppBar(scrollOffset: widget.scrollOffset),
         SliverToBoxAdapter(child: _SearchTitle(isSearching: _isSearching)),
-        SliverToBoxAdapter(
-          child: _SearchBar(
-            controller: _controller,
-            focusNode: _focusNode,
-            isSearching: _isSearching,
-            loading: _loading,
-            onClear: _clearSearch,
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _StickySearchBarDelegate(
+            child: _SearchBar(
+              controller: _controller,
+              focusNode: _focusNode,
+              isSearching: _isSearching,
+              loading: _loading,
+              onClear: _clearSearch,
+            ),
           ),
         ),
         if (_isSearching)
