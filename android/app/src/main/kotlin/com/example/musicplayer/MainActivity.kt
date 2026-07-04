@@ -166,10 +166,15 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
         MethodChannel(messenger, media3PlaybackChannel).setMethodCallHandler { call, result ->
-            val needsService = call.method in setOf(
-                "play", "pause", "stop", "seek",
-                "setQueue", "setTrack", "skipNext", "skipPrevious"
-            )
+            // Only "play" (resume from a persisted queue) and "setQueue" (start a
+            // new queue) are legitimate reasons to spin up a stopped service.
+            // pause/stop/seek/setTrack/skipNext/skipPrevious have nothing to act on
+            // when no instance exists — starting the service for them leaves it
+            // alive with an empty queue and no path to startForeground(), which
+            // guarantees RemoteServiceException("did not then call
+            // Service.startForeground()"). See MediaKit channel below, which never
+            // included these methods in its own needsService set for the same reason.
+            val needsService = call.method in setOf("play", "setQueue")
 
             if (Media3PlaybackService.instance == null && needsService) {
                 val intent = Intent(this, Media3PlaybackService::class.java)
