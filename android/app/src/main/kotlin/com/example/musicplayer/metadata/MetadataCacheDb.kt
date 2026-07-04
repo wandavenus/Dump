@@ -90,8 +90,13 @@ class MetadataCacheDb private constructor(context: Context)
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
         if (!db.isReadOnly) {
-            // WAL = concurrent readers + one writer without blocking
-            db.execSQL("PRAGMA journal_mode=WAL")
+            // WAL = concurrent readers + one writer without blocking.
+            // IMPORTANT: PRAGMA journal_mode returns a result row, so execSQL() throws
+            // "Queries can be performed using SQLiteDatabase query or rawQuery methods only"
+            // on MIUI 12 (Android 11) and other strict enforcement environments.
+            // Use rawQuery() + consume the cursor instead.
+            db.rawQuery("PRAGMA journal_mode=WAL", null).use { it.moveToFirst() }
+            // PRAGMA synchronous=NORMAL is a pure setter (no result rows) — execSQL is fine.
             db.execSQL("PRAGMA synchronous=NORMAL")
         }
     }
