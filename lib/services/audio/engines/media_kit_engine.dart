@@ -418,6 +418,9 @@ if (queueIdx < 0) {
       Playlist(_buildMediaList(queue), index: _currentIndex),
       play: false,
     );
+    // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
+    // urutan native mpv konsisten dengan _shuffleEnabled.
+    if (_shuffleEnabled) await _player?.setShuffle(true);
     _emitQueueSnapshot();
     // Push the initial track metadata to the service immediately after setQueue
     // so the notification shows the correct song before playback starts.
@@ -546,6 +549,9 @@ if (queueIdx < 0) {
       Playlist(_buildMediaList(songs), index: _currentIndex),
       play: false,
     );
+    // open() me-reset playlist mpv ke urutan asli — re-apply shuffle agar
+    // mpv kembali mengacak urutan native sesuai state yang tersimpan.
+    if (_shuffleEnabled) await _player?.setShuffle(true);
 
     if (sameTrack && position > Duration.zero) await _player?.seek(position);
     if (wasPlaying) await _player?.play();
@@ -836,6 +842,40 @@ Future<void> setShuffleMode(bool enabled) async {
     final len = _queue.length;
     if (len == 0) return -1;
     if (_repeatMode == 'one') return current;
+
+    // Saat shuffle aktif, mpv memiliki urutan native-nya sendiri yang berbeda
+    // dari `_queue`. Resolve "lagu berikutnya" dari posisi native mpv supaya
+    // UI menampilkan lagu yang benar-benar akan diputar setelah ini.
+    if (_shuffleEnabled) {
+      final p = _player;
+      if (p != null) {
+        final nativeMedias = p.state.playlist.medias;
+        final currentUri   = 'file://${_queue[current].path}';
+        final nativeIdx    = nativeMedias.indexWhere((m) => m.uri == currentUri);
+        if (nativeIdx >= 0) {
+          final nextNativeIdx = nativeIdx + 1;
+          if (nextNativeIdx < nativeMedias.length) {
+            // Ada lagu berikutnya di urutan shuffle native.
+            final nextUri      = nativeMedias[nextNativeIdx].uri;
+            final nextQueueIdx = _queue.indexWhere(
+              (s) => 'file://${s.path}' == nextUri,
+            );
+            if (nextQueueIdx >= 0) return nextQueueIdx;
+          } else if (_repeatMode == 'all') {
+            // Akhir playlist shuffle → wrap ke native index 0.
+            if (nativeMedias.isNotEmpty) {
+              final nextUri      = nativeMedias[0].uri;
+              final nextQueueIdx = _queue.indexWhere(
+                (s) => 'file://${s.path}' == nextUri,
+              );
+              if (nextQueueIdx >= 0) return nextQueueIdx;
+            }
+          }
+          return -1; // Akhir shuffle tanpa repeat — tidak ada lagu berikutnya.
+        }
+      }
+    }
+
     if (current < len - 1) return current + 1;
     if (_repeatMode == 'all') return 0;
     return -1;
