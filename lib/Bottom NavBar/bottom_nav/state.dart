@@ -1,15 +1,53 @@
 part of '../bottom_nav.dart';
 
+/// Observer yang dipasang di setiap tab Navigator.
+/// Setiap kali route berubah (push/pop), ia memanggil [onChanged]
+/// sehingga _FirstPageState bisa rebuild dan PopScope.canPop selalu akurat.
+class _TabNavObserver extends NavigatorObserver {
+  final VoidCallback onChanged;
+  _TabNavObserver({required this.onChanged});
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      onChanged();
+}
+
 class _FirstPageState extends State<FirstPage> {
   int _selectedIndex = 0;
 
-  // One Navigator key per tab — each tab has its own navigation stack.
+  // Satu Navigator key per tab.
   final List<GlobalKey<NavigatorState>> _tabNavKeys = List.generate(
     5,
     (_) => GlobalKey<NavigatorState>(),
   );
 
-  // Root widget for each tab.
+  // Observer reaktif per tab — trigger setState agar canPop selalu segar.
+  late final List<_TabNavObserver> _tabObservers;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabObservers = List.generate(
+      5,
+      (_) => _TabNavObserver(onChanged: () {
+        if (mounted) setState(() {});
+      }),
+    );
+  }
+
+  // Root widget tiap tab.
   static const List<Widget> _tabRoots = [
     HomePage(),
     BrowsePage(),
@@ -28,11 +66,9 @@ class _FirstPageState extends State<FirstPage> {
     });
   }
 
-  /// Route generator shared by every tab's inner Navigator.
-  /// Handles detail pages so they render inside the tab stack,
-  /// keeping BottomNav and MiniPlayer visible.
+  /// Route generator bersama untuk semua tab Navigator.
   Route<dynamic>? _tabRoute(int tabIndex, RouteSettings settings) {
-    // Initial route — show the tab's root page with no transition.
+    // Initial route — tampilkan halaman tab tanpa animasi.
     if (settings.name == Navigator.defaultRouteName) {
       return PageRouteBuilder<void>(
         settings: settings,
@@ -43,7 +79,7 @@ class _FirstPageState extends State<FirstPage> {
       );
     }
 
-    // Detail routes pushed from within any tab.
+    // Detail routes yang di-push dari dalam tab manapun.
     Widget? page;
     switch (settings.name) {
       case '/album':
@@ -62,7 +98,7 @@ class _FirstPageState extends State<FirstPage> {
     return ZoomFadeRoute(page: page, settings: settings);
   }
 
-  /// Returns true if the active tab's navigator can pop (has a route to go back to).
+  /// Reaktif: selalu akurat karena _TabNavObserver trigger setState saat route berubah.
   bool get _innerCanPop =>
       _tabNavKeys[_selectedIndex].currentState?.canPop() ?? false;
 
@@ -102,7 +138,7 @@ class _FirstPageState extends State<FirstPage> {
           valueListenable: PlayerSheetController.expanded,
           builder: (context, expanded, _) {
             return PopScope(
-              // Block back gesture if player is open OR a detail page is shown.
+              // canPop akurat karena observer rebuild saat inner nav berubah.
               canPop: !expanded && !_innerCanPop,
               onPopInvokedWithResult: (didPop, _) {
                 if (didPop) return;
@@ -122,6 +158,7 @@ class _FirstPageState extends State<FirstPage> {
                         5,
                         (i) => Navigator(
                           key: _tabNavKeys[i],
+                          observers: [_tabObservers[i]],
                           onGenerateRoute: (s) => _tabRoute(i, s),
                         ),
                       ),
