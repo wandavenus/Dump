@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Handler
 import com.example.musicplayer.diagnostics.CrossfadeTimelineLogger
 import com.example.musicplayer.events.NativeLogger
-import com.example.musicplayer.events.SessionAuditLogger
 
 /**
  * Manages Android audio effects lifecycle (EQ, LoudnessEnhancer, BassBoost,
@@ -93,9 +92,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                 "attachEffects: SKIPPED (already on session=$sessionId lastAttached=$lastAttachedSessionId)")
             return
         }
-
-        // Audit: signal that we are beginning the effects-attach sequence
-        if (attempt == 0) SessionAuditLogger.onEffectsAttaching(sessionId)
 
         // ── Dropout investigation stamp ────────────────────────────────────────
         // releaseEffects() calls .release() on Equalizer, LoudnessEnhancer, etc.
@@ -201,15 +197,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             CrossfadeTimelineLogger.stamp(
                 "attachEffects: ALL DONE OK session=$sessionId" +
                 " bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported")
-            SessionAuditLogger.onEffectsOk(
-                sessionId = sessionId,
-                attempt   = attempt,
-                eq        = equalizer   != null,
-                loud      = loudness    != null,
-                bass      = bassBoostSupported,
-                virt      = virtualizerSupported,
-                reverb    = reverbSupported,
-            )
             return
         }
 
@@ -221,11 +208,9 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                 else -> 900L // final retry (MIUI 12 can be slow)
             }
             log("warn", "attachEffects session=$sessionId all failed, retry in ${delayMs}ms")
-            SessionAuditLogger.onEffectsRetrying(sessionId, attempt, delayMs)
             effectHandler.postDelayed({ attachEffects(sessionId, attempt + 1) }, delayMs)
         } else {
             log("warn", "attachEffects session=$sessionId failed after ${attempt+1} attempts")
-            SessionAuditLogger.onEffectsFailed(sessionId, attempt + 1)
         }
     }
 

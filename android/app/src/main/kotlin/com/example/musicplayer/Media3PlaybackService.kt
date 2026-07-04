@@ -28,7 +28,6 @@ import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
 import com.example.musicplayer.events.EventEmitter
 import com.example.musicplayer.events.NativeLogger
-import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
@@ -371,17 +370,6 @@ class Media3PlaybackService : MediaSessionService() {
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: attachEffects DONE session=$newSessionId", activePlayer)
 
-                // Open a fresh audit chapter for the newly promoted track.
-                // SessionAuditLogger.onCrossfadeComplete() was already called inside
-                // CrossfadeController.runEqualPowerFade before this callback fires,
-                // so the fade-complete line appears in the outgoing chapter first.
-                val promotedMap = queueManager.queue.getOrNull(queueManager.activeQueueIndex)
-                SessionAuditLogger.openChapter(
-                    title          = promotedMap?.get("title")  as? String ?: "Unknown",
-                    artist         = promotedMap?.get("artist") as? String ?: "",
-                    audioSessionId = newSessionId,
-                )
-
                 // Re-evaluate offload state on the newly promoted player.
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
@@ -431,8 +419,6 @@ class Media3PlaybackService : MediaSessionService() {
                     NativeLogger.emit("warn", "Watchdog",
                         "Recovery attempt $retryCount — pos=${pos}ms " +
                         "state=${p.playbackState} crossfade=${crossfadeController.crossfadeInProgress}")
-                    SessionAuditLogger.warn("Watchdog",
-                        "stuck at ${pos}ms retry=$retryCount")
                     if (retryCount <= 1) {
                         // Attempt 1: re-initialise the decoder pipeline for the current item.
                         // This resolves transient hardware codec freezes and post-call pipeline
@@ -649,7 +635,7 @@ class Media3PlaybackService : MediaSessionService() {
      *
      * Previously this duplicated skip/play/pause logic inline. Now every action goes
      * through the same TransportCommands path as the Flutter MethodChannel, so audio
-     * focus, crossfade cleanup, SessionAuditLogger, and preload management are handled
+     * focus, crossfade cleanup, and preload management are handled
      * identically regardless of how the user triggers the action.
      */
     private fun handleNotificationAction(action: String?) {
@@ -892,16 +878,6 @@ class Media3PlaybackService : MediaSessionService() {
                     if (crossfadeController.crossfadeDurationSec > 0f) {
                         preloadManager.preloadNextTrack(force = true)
                     }
-                    // Open a new audit chapter for this track transition.
-                    // Done here (inside the non-crossfade guard) so crossfade promotions
-                    // open their chapter from the onCrossfadeComplete callback instead,
-                    // avoiding a double-open on the same track.
-                    val trackMap = queueManager.queue.getOrNull(queueManager.activeQueueIndex)
-                    SessionAuditLogger.openChapter(
-                        title          = trackMap?.get("title")  as? String ?: "Unknown",
-                        artist         = trackMap?.get("artist") as? String ?: "",
-                        audioSessionId = p.audioSessionId,
-                    )
                 }
                 queueSync.save()
                 transportState.emitAll()
@@ -931,7 +907,6 @@ class Media3PlaybackService : MediaSessionService() {
                     "onAudioSessionIdChanged: NEW session=$audioSessionId (active player)", p)
                 NativeLogger.emit("info", "Media3",
                     "audioSessionId → $audioSessionId  thread=${Thread.currentThread().name}")
-                SessionAuditLogger.onAudioSessionAssigned(audioSessionId)
                 effectsManager.attachEffects(audioSessionId)
                 transportState.emitAll()
             }
@@ -1052,8 +1027,6 @@ class Media3PlaybackService : MediaSessionService() {
                 if (!isActiveEvent()) return
                 NativeLogger.emit("error", "Media3",
                     "PlayerError code=${error.errorCode}: ${error.message}")
-                SessionAuditLogger.warn("PlayerError",
-                    "code=${error.errorCode} msg=${error.message}")
                 EventEmitter.emit("error", mapOf(
                     "code"    to error.errorCode,
                     "message" to (error.message ?: "Unknown player error"),
@@ -1268,8 +1241,7 @@ class Media3PlaybackService : MediaSessionService() {
 
             /**
              * Audio sink errors (e.g. AudioTrack write failure, AudioFlinger
-             * disconnect). Logged and forwarded to the SessionAuditLogger so
-             * the full audit trail captures hardware-level failures.
+             * disconnect).
              */
             override fun onAudioSinkError(
                 eventTime: AnalyticsListener.EventTime,
@@ -1279,7 +1251,6 @@ class Media3PlaybackService : MediaSessionService() {
                     "AnalyticsListener.onAudioSinkError: isActive=${p === activePlayer}" +
                     "  ${audioSinkError.message}", p)
                 NativeLogger.emit("warn", "Media3", "AudioSink error: ${audioSinkError.message}")
-                SessionAuditLogger.warn("AudioSink", audioSinkError.message ?: "unknown")
             }
         }
         analyticsListeners[p] = analyticsListener

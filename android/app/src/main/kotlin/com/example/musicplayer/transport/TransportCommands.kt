@@ -13,7 +13,6 @@ import com.example.musicplayer.crossfade.PreloadManager
 import com.example.musicplayer.effects.AudioEffectsManager
 import com.example.musicplayer.events.EventEmitter
 import com.example.musicplayer.events.NativeLogger
-import com.example.musicplayer.events.SessionAuditLogger
 import com.example.musicplayer.notification.PlaybackNotificationManager
 import com.example.musicplayer.queue.QueueManager
 import com.example.musicplayer.queue.QueueSync
@@ -113,7 +112,6 @@ class TransportCommands(
             "seek" -> {
                 val pos = (call.argument<Number>("position")?.toLong() ?: 0L).coerceAtLeast(0L)
                 p.seekTo(pos)
-                SessionAuditLogger.onSeek(pos)
                 log("verbose", "seek → ${pos}ms")
                 // Player listener (onPlaybackStateChanged/onIsPlayingChanged) handles emission
                 result.success(null)
@@ -456,7 +454,6 @@ class TransportCommands(
             // volume) BEFORE play() so there is no audible pop, then ramp up.
             playPauseFadeController.fadeInOnPlay(p)
             p.play()
-            SessionAuditLogger.onPlay(p.currentPosition)
             ensureMediaForeground()
             notificationManager.refresh()
             transportState.startPositionTicker()
@@ -477,7 +474,6 @@ class TransportCommands(
         // or fade duration resolves to 0 — see PlayPauseFadeController).
         playPauseFadeController.fadeOutThenPause(p) {
             p.pause()
-            SessionAuditLogger.onPause(p.currentPosition)
             transportState.stopPositionTicker()
             audioFocusManager.abandon()
             log("info", "pause @ ${p.currentPosition}ms")
@@ -503,7 +499,6 @@ class TransportCommands(
     }
 
     private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
-        SessionAuditLogger.onSkipPrev()
         sleepTimerManager.cancel()
 
         // Capture before cancel() + clearStandbyQueue() erase this information.
@@ -549,7 +544,6 @@ class TransportCommands(
     }
 
     private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
-        SessionAuditLogger.onSkipNext()
         sleepTimerManager.cancel()
 
         // Capture before cancel() + clearStandbyQueue() erase this information.
@@ -619,7 +613,7 @@ class TransportCommands(
     }
     // ── Native transport wrappers ─────────────────────────────────────────────
     // Called from MediaSession.Callback and handleNotificationAction so that both
-    // paths share identical logic (audio focus, crossfade, SessionAuditLogger, etc.).
+    // paths share identical logic (audio focus, crossfade, etc.).
 
     private val noopResult = object : MethodChannel.Result {
         override fun success(result: Any?) {}
@@ -636,7 +630,6 @@ class TransportCommands(
     fun seekNative(posMs: Long) {
         val p = getPlayer() ?: return
         p.seekTo(posMs)
-        SessionAuditLogger.onSeek(posMs)
         log("verbose", "seekNative → ${posMs}ms")
     }
 

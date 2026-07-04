@@ -68,15 +68,12 @@ crossfade/
   CrossfadeController.kt       ← Equal-power fade (sin/cos curve)
   PreloadManager.kt            ← Standby player preload + prewarm
   CrossfadeTimelineLogger.kt   ← Diagnostics
-diagnostics/
-  SessionAuditLogger.kt        ← Per-session playback audit
 effects/
   AudioEffectsManager.kt       ← EQ, BassBoost, Virtualizer, Reverb, Loudness
   StereoWideningAudioProcessor.kt  ← Custom BaseAudioProcessor (PCM16 + Float)
   StereoWidthManager.kt        ← Atomic stereo-width untuk multi-player
 events/
   EventEmitter.kt              ← Semua EventChannel outbound
-  SessionAuditLogger.kt
 metadata/
   ExoMetadataReader.kt         ← ExoPlayer MetadataRetriever (embedded tags)
   MetadataCacheDb.kt           ← SQLite cache (mtime-keyed)
@@ -241,7 +238,6 @@ dependencies:
 | **Hi-res audio (24-bit)** | Custom AudioProcessor + pcmEncoding | ⚠️ PARSIAL | libmpv bisa decode, output tergantung OS |
 | **Audio format info** | onTracksChanged | 🟡 ULANG DART | `player.stream.tracks` |
 | **Playback stats** | PlaybackStatsListener | 🔴 DROPPED | Tidak ada equivalent |
-| **Session audit log** | SessionAuditLogger.kt | ⚫ TETAP KOTLIN / 🟡 DART | Opsional |
 | **Debug native logs** | NativeLogger.kt | ⚫ TETAP KOTLIN | |
 | **MIUI foreground service** | Media3PlaybackService | ⚫ BARU KOTLIN | Service baru berbasis `audio_service` |
 
@@ -775,7 +771,6 @@ metadata/MetadataPrescanner.kt ← Tetap
 metadata/TagBuilder.kt         ← Tetap
 replay_gain/ReplayGainScanner.kt ← Tetap
 events/EventEmitter.kt         ← Tetap (atau migrasi ke Dart)
-events/SessionAuditLogger.kt   ← Opsional
 diagnostics/CrossfadeTimelineLogger.kt ← Hapus atau port ke Dart
 ```
 
