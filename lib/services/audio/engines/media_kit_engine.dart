@@ -142,6 +142,32 @@ class MediaKitEngine implements AbstractAudioEngine {
     _queue        = [];
     _currentIndex = 0;
 
+    // ④.5 Stop playback explicitly, right now, using the captured reference —
+    //     do NOT rely on a native "stop" transport event to do this for us.
+    //
+    //     Previously, playback was actually halted as a side effect of the
+    //     native service emitting a "stop" transport command, which flowed
+    //     through the (still-active) EventChannel into
+    //     _handleTransportCommand('stop') → _player.pause(). That path is
+    //     now intentionally severed before this point (_disposed = true and
+    //     the transport handler is cleared in steps ①–②), which closes the
+    //     dispose race — but it also means nothing else in this method stops
+    //     the audio. Without this explicit pause, stopListening()/
+    //     stopService() below just tear down the notification/service while
+    //     mpv keeps rendering audio, and playerToDispose.dispose() runs on a
+    //     player that is still playing.
+    //
+    //     media_kit's Player.pause() forwards to mpv's `pause` property on
+    //     the native platform thread; mpv applies that property change
+    //     synchronously before the platform-channel call returns, so the
+    //     returned Future only completes once playback has actually been
+    //     paused natively. There's no separate "confirmed paused" async
+    //     signal to await, so `await pause()` is sufficient here — no
+    //     Future.delayed() or extra polling required.
+    if (playerToDispose != null) {
+      await playerToDispose.pause();
+    }
+
     // ⑤ Cancel the EventChannel subscription BEFORE telling native to stop.
     //    Rationale: the native "release" handler calls updateStateAndEmit("stop")
     //    which enqueues a transport event in the Dart event queue BEFORE
