@@ -39,7 +39,9 @@ class MediaKitEngine implements AbstractAudioEngine {
   bool _shuffleEnabled = false;
   String _repeatMode = 'off'; // 'off' | 'all' | 'one'
 
-  // Lookup map: 'file://path' → index di _queue.
+  // Lookup map: raw path (tanpa prefix 'file://') → index di _queue.
+ // media_kit's Media.normalizeURI() selalu strip prefix file:// sehingga
+ // Media.uri berupa path mentah, bukan URI penuh.
   // Dibangun ulang setiap kali _queue berubah (setQueue / _rebuildQueue).
   // Menjamin O(1) lookup dan perilaku first-occurrence yang deterministik,
   // konsisten dengan semantik indexWhere() yang digantikannya.
@@ -472,7 +474,7 @@ class MediaKitEngine implements AbstractAudioEngine {
     // target song's URI to its actual position in the native playlist so
     // tapping a queue item jumps to the correct track regardless of shuffle
     // state, instead of assuming the two index spaces align.
-    final targetUri = 'file://${_queue[index].path}';
+    final targetUri = _queue[index].path;
     final nativeMedias = p.state.playlist.medias;
     final nativeIdx    = nativeMedias.indexWhere((m) => m.uri == targetUri);
     await p.jump(nativeIdx >= 0 ? nativeIdx : index);
@@ -816,7 +818,11 @@ Future<void> setShuffleMode(bool enabled) async {
     for (var i = 0; i < songs.length; i++) {
       // putIfAbsent memastikan entri pertama (indeks terkecil) yang menang —
       // identik dengan semantik indexWhere() yang hanya menemukan first-match.
-      map.putIfAbsent('file://${songs[i].path}', () => i);
+      // Gunakan path mentah (tanpa prefix 'file://') karena
+      // Media.normalizeURI() selalu strip scheme file:// sebelum menyimpan
+      // ke field .uri — jadi state.medias[i].uri == song.path, bukan
+      // 'file://' + song.path.
+      map.putIfAbsent(songs[i].path, () => i);
     }
     _uriToQueueIndex = map;
   }
@@ -878,7 +884,7 @@ Future<void> setShuffleMode(bool enabled) async {
         // Cari posisi lagu saat ini di urutan native mpv via URI.
         // nativeMedias bisa berisi Media baru (tanpa extras) setelah
         // setShuffle() — URI adalah satu-satunya kunci yang reliabel.
-        final currentUri = 'file://${_queue[current].path}';
+        final currentUri = _queue[current].path;
         final nativeIdx  = nativeMedias.indexWhere((m) => m.uri == currentUri);
         if (nativeIdx >= 0) {
           final nextNativeIdx = nativeIdx + 1;
