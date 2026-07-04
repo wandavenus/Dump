@@ -20,6 +20,12 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : FlutterActivity() {
 
@@ -30,6 +36,27 @@ class MainActivity : FlutterActivity() {
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
 
+    // Snapdragon 730 / 6 GB RAM friendly pools: bounded queues avoid unbounded
+    // thread creation and keep artwork/metadata scans from competing with audio
+    // decoding or UI work on MIUI 12.
+    private val artworkExecutor: ExecutorService = boundedExecutor(
+        name = "artwork-cache",
+        threads = 2,
+        queueCapacity = 48,
+    )
+    private val metadataExecutor: ExecutorService = boundedExecutor(
+        name = "metadata-io",
+        threads = 2,
+        queueCapacity = 32,
+    )
+    private val replayGainScanExecutor: ExecutorService = boundedExecutor(
+        name = "rg-scan",
+        threads = 1,
+        queueCapacity = 4,
+    )
+
+    @Volatile private var shuttingDown = false
+
     // Stored after every getSongs() call so startMetadataPrescanner can
     // restart without a second MediaStore round-trip.
     @Volatile private var lastSongRefs: List<MetadataPrescanner.SongRef> = emptyList()
@@ -39,15 +66,58 @@ class MainActivity : FlutterActivity() {
         artworkCacheManager = ArtworkCacheManager(this)
         metadataCacheDb     = MetadataCacheDb.getInstance(this)
 
-        // Prune stale cache entries older than 90 days on a background thread
-        Thread {
-            metadataCacheDb.pruneOld()
-        }.apply { name = "metadata-cache-prune"; isDaemon = true; start() }
+        // Prune stale cache entries older than 90 days on a bounded background
+        // queue instead of spawning an extra ad-hoc thread during startup.
+        submitBackground(metadataExecutor) { metadataCacheDb.pruneOld() }
 
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
         setupMediaKitPlaybackChannels(flutterEngine)
+    }
+
+
+    private fun boundedExecutor(
+        name: String,
+        threads: Int,
+        queueCapacity: Int,
+    ): ExecutorService {
+        val index = AtomicInteger(1)
+        return ThreadPoolExecutor(
+            threads,
+            threads,
+            30L,
+            TimeUnit.SECONDS,
+            LinkedBlockingQueue(queueCapacity),
+            { runnable ->
+                Thread({
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                    runnable.run()
+                }, "$name-${index.getAndIncrement()}").apply { isDaemon = true }
+            },
+            ThreadPoolExecutor.AbortPolicy(),
+        ).apply { allowCoreThreadTimeOut(true) }
+    }
+
+    private fun submitBackground(
+        executor: ExecutorService,
+        onRejected: (() -> Unit)? = null,
+        block: () -> Unit,
+    ) {
+        try {
+            executor.execute {
+                if (!shuttingDown) block()
+            }
+        } catch (_: RejectedExecutionException) {
+            onRejected?.invoke()
+        }
+    }
+
+    private fun postToFlutter(block: () -> Unit) {
+        if (shuttingDown) return
+        runOnUiThread {
+            if (!shuttingDown) block()
+        }
     }
 
     // ── MediaKit playback channels ────────────────────────────────────────────
@@ -146,25 +216,60 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
 
-                    "getSongs" -> result.success(getSongs())
+                    "getSongs" -> {
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val songs = getSongs()
+                                postToFlutter { result.success(songs) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("songs_query_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
 
                     "getArtwork" -> {
-                        val songId = call.argument<Int>("songId")
-                        result.success(getArtwork(songId ?: 0))
+                        val songId = call.argument<Int>("songId") ?: 0
+                        submitBackground(
+                            artworkExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("artwork_cache_busy", "Artwork queue is busy", null)
+                                }
+                            },
+                        ) {
+                            val artwork = getArtwork(songId)
+                            postToFlutter { result.success(artwork) }
+                        }
                     }
 
                     "getArtworkPath" -> {
                         val songId = call.argument<Int>("songId") ?: 0
-                        Thread {
+                        submitBackground(
+                            artworkExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("artwork_cache_busy", "Artwork queue is busy", null)
+                                }
+                            },
+                        ) {
                             try {
                                 val path = artworkCacheManager.getOrExtract(songId)
-                                runOnUiThread { result.success(path) }
+                                postToFlutter { result.success(path) }
                             } catch (e: Exception) {
-                                runOnUiThread {
+                                postToFlutter {
                                     result.error("artwork_cache_error", e.message, null)
                                 }
                             }
-                        }.apply { name = "artwork-cache-$songId"; start() }
+                        }
                     }
 
                     "setActiveQueueIds" -> {
@@ -176,42 +281,97 @@ class MainActivity : FlutterActivity() {
                     "cleanupArtworkCache" -> {
                         val activeIds = call.argument<List<Int>>("activeIds")
                             ?.toSet() ?: emptySet()
-                        Thread {
-                            artworkCacheManager.cleanupIfNeeded(activeIds)
-                            val data = mapOf(
-                                "count"     to artworkCacheManager.cacheCount(),
-                                "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
-                            )
-                            runOnUiThread { result.success(data) }
-                        }.apply { name = "artwork-cleanup"; start() }
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                artworkCacheManager.cleanupIfNeeded(activeIds)
+                                val data = mapOf(
+                                    "count"     to artworkCacheManager.cacheCount(),
+                                    "sizeBytes" to artworkCacheManager.cacheSizeBytes(),
+                                )
+                                postToFlutter { result.success(data) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("artwork_cleanup_error", e.message, null)
+                                }
+                            }
+                        }
                     }
 
                     "getAudioMetadata" -> {
                         val path   = call.argument<String>("path")
                         val songId = call.argument<Int>("songId") ?: 0
-                        result.success(getAudioMetadata(path, songId))
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val metadata = getAudioMetadata(path, songId)
+                                postToFlutter { result.success(metadata) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("metadata_error", e.message, null)
+                                }
+                            }
+                        }
                     }
 
                     // ── Embedded lyrics ─────────────────────────────────────
                     // Reads via ExoPlayer MetadataRetriever + SQLite cache.
-                    // Runs on a background thread; result returned via runOnUiThread.
+                    // Runs on bounded background IO; result returned on UI thread.
                     "getEmbeddedLyrics" -> {
                         val path = call.argument<String>("path") ?: ""
-                        Thread {
-                            val lyrics = getEmbeddedLyrics(path)
-                            runOnUiThread { result.success(lyrics) }
-                        }.apply { name = "lyrics-reader"; start() }
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val lyrics = getEmbeddedLyrics(path)
+                                postToFlutter { result.success(lyrics) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("lyrics_error", e.message, null)
+                                }
+                            }
+                        }
                     }
 
                     // ── ReplayGain tag read ─────────────────────────────────
                     // Reads via ExoPlayer MetadataRetriever + SQLite cache.
-                    // Runs on a background thread; result returned via runOnUiThread.
+                    // Runs on bounded background IO; result returned on UI thread.
                     "getReplayGainTags" -> {
                         val path = call.argument<String>("path") ?: ""
-                        Thread {
-                            val tags = getReplayGainTags(path)
-                            runOnUiThread { result.success(tags) }
-                        }.apply { name = "rg-tags-reader"; start() }
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val tags = getReplayGainTags(path)
+                                postToFlutter { result.success(tags) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("rg_tags_error", e.message, null)
+                                }
+                            }
+                        }
                     }
 
                     // ── ReplayGain scan ─────────────────────────────────────
@@ -221,7 +381,14 @@ class MainActivity : FlutterActivity() {
                     // storage prevents arbitrary audio-file tag writes.
                     "scanReplayGain" -> {
                         val path = call.argument<String>("path") ?: ""
-                        Thread {
+                        submitBackground(
+                            replayGainScanExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("scan_busy", "ReplayGain scan queue is busy", null)
+                                }
+                            },
+                        ) {
                             try {
                                 val scanResult = com.example.musicplayer.replay_gain
                                     .ReplayGainScanner.scan(path) { _ -> }
@@ -242,7 +409,7 @@ class MainActivity : FlutterActivity() {
                                             lyrics      = existing?.lyrics,
                                         )
                                     )
-                                    runOnUiThread {
+                                    postToFlutter {
                                         result.success(mapOf(
                                             "integratedLufs" to scanResult.integratedLufs,
                                             "trackGainDb"    to scanResult.trackGainDb,
@@ -251,17 +418,17 @@ class MainActivity : FlutterActivity() {
                                         ))
                                     }
                                 } else {
-                                    runOnUiThread {
+                                    postToFlutter {
                                         result.error("scan_failed",
                                             "Could not decode audio", null)
                                     }
                                 }
                             } catch (e: Exception) {
-                                runOnUiThread {
+                                postToFlutter {
                                     result.error("scan_error", e.message, null)
                                 }
                             }
-                        }.apply { name = "rg-scanner"; start() }
+                        }
                     }
 
                     // ── Metadata cache diagnostics ──────────────────────────
@@ -473,15 +640,17 @@ class MainActivity : FlutterActivity() {
         }
 
     private fun getArtwork(songId: Int): ByteArray? {
+        val retriever = MediaMetadataRetriever()
         return try {
             val uri = Uri.withAppendedPath(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
-            val retriever = MediaMetadataRetriever()
             retriever.setDataSource(this, uri)
-            val artwork = retriever.embeddedPicture
+            retriever.embeddedPicture
+        } catch (_: Exception) {
+            null
+        } finally {
             retriever.release()
-            artwork
-        } catch (_: Exception) { null }
+        }
     }
 
     private fun getAudioMetadata(path: String?, songId: Int): Map<String, String?> {
@@ -657,7 +826,11 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        shuttingDown = true
         MetadataPrescanner.cancel()
+        artworkExecutor.shutdownNow()
+        metadataExecutor.shutdownNow()
+        replayGainScanExecutor.shutdownNow()
         super.onDestroy()
     }
 }

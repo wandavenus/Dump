@@ -7,9 +7,10 @@ class _SearchSliversState extends State<SearchSlivers>
   final FocusNode _focusNode = FocusNode();
 
   List<LocalSong> _allSongs = [];
-  List<LocalSong> _results  = [];
+  List<LocalSong> _results = [];
   bool _isSearching = false;
-  bool _loading     = false;
+  bool _loading = false;
+  Timer? _queryDebounce;
 
   @override
   bool get wantKeepAlive => false; // Don't preserve keyboard state on tab switch
@@ -30,6 +31,8 @@ class _SearchSliversState extends State<SearchSlivers>
 
   @override
   void dispose() {
+    _queryDebounce?.cancel();
+    _controller.removeListener(_onQueryChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -38,27 +41,52 @@ class _SearchSliversState extends State<SearchSlivers>
   Future<void> _loadSongs() async {
     setState(() => _loading = true);
     final songs = await MediaStoreService.getSongs();
-    if (mounted) setState(() { _allSongs = songs; _loading = false; });
+    if (mounted) {
+      setState(() {
+        _allSongs = songs;
+        _loading = false;
+      });
+    }
   }
 
   void _onQueryChanged() {
+    _queryDebounce?.cancel();
+
     final q = _controller.text.trim().toLowerCase();
     if (q.isEmpty) {
-      setState(() { _results = []; _isSearching = false; });
+      if (_results.isNotEmpty || _isSearching) {
+        setState(() {
+          _results = [];
+          _isSearching = false;
+        });
+      }
       return;
     }
-    final filtered = _allSongs.where((s) {
-      return s.title.toLowerCase().contains(q) ||
-          s.artist.toLowerCase().contains(q) ||
-          s.album.toLowerCase().contains(q);
-    }).toList();
-    setState(() { _results = filtered; _isSearching = true; });
+
+    _queryDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      final filtered = _allSongs
+          .where((s) {
+            return s.title.toLowerCase().contains(q) ||
+                s.artist.toLowerCase().contains(q) ||
+                s.album.toLowerCase().contains(q);
+          })
+          .toList(growable: false);
+      setState(() {
+        _results = filtered;
+        _isSearching = true;
+      });
+    });
   }
 
   void _clearSearch() {
+    _queryDebounce?.cancel();
     _controller.clear();
     _focusNode.unfocus();
-    setState(() { _results = []; _isSearching = false; });
+    setState(() {
+      _results = [];
+      _isSearching = false;
+    });
   }
 
   @override

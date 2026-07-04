@@ -34,7 +34,10 @@ class _HomePageState extends State<HomePage> {
   bool _handleScroll(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification &&
         notification.metrics.axis == Axis.vertical) {
-      setState(() => _scrollOffset = notification.metrics.pixels);
+      final nextOffset = notification.metrics.pixels;
+      if ((nextOffset - _scrollOffset).abs() >= 1.0) {
+        setState(() => _scrollOffset = nextOffset);
+      }
     }
     return false;
   }
