@@ -59,6 +59,11 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
 
     // ── BitmapLoader ──────────────────────────────────────────────────────────
 
+    override fun supportsMimeType(mimeType: String): Boolean {
+        // Accept all MIME types — artwork can be JPEG, PNG, WebP, etc.
+        return true
+    }
+
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
         executor.execute {
