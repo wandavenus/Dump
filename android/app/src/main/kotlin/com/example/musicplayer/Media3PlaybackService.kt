@@ -216,6 +216,11 @@ class Media3PlaybackService : MediaSessionService() {
         )
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
+            // Use FallbackBitmapLoader so MediaSessionLegacyStub (Bluetooth / lock screen)
+            // can load album art even for songs whose embedded artwork has not been indexed
+            // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
+            // albumart content URI first, then falls back to MediaMetadataRetriever.
+            .setBitmapLoader(FallbackBitmapLoader(this))
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
