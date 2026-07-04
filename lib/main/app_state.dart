@@ -34,7 +34,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       scrollBehavior: MyScrollBehavior(),
       builder: (context, child) {
-        applyEdgeToEdge();
+        applyEdgeToEdge();   // Jangan di pindahkan
         return child ?? const SizedBox.shrink();
       },
       theme: ThemeData(
