@@ -257,14 +257,14 @@ class MediaKitEngine implements AbstractAudioEngine {
         final idx = state.index;
         if (idx < 0 || idx >= state.medias.length) return;
         final currentUri = state.medias[idx].uri;
-        var queueIdx = _queue.indexWhere((s) => 'file://${s.path}' == currentUri);
-        if (queueIdx < 0) {
-          // Fallback: should not normally happen (URIs are built 1:1 from
-          // _queue), but guards against any transient mismatch instead of
-          // silently reporting the wrong song.
-          if (idx >= _queue.length) return;
-          queueIdx = idx;
-        }
+        final queueIdx = _queue.indexWhere(
+  (s) => 'file://${s.path}' == currentUri,
+);
+
+if (queueIdx < 0) {
+  LogService.warn('MediaKitEngine', 'URI mismatch detected');
+  return;
+}
         _currentIndex = queueIdx;
         final song = _queue[queueIdx];
         _currentTrackCtrl.add({
@@ -567,13 +567,38 @@ class MediaKitEngine implements AbstractAudioEngine {
     LogService.verbose('MediaKitEngine', 'repeatMode=$mode');
   }
 
-  @override
-  Future<void> setShuffleMode(bool enabled) async {
-    _shuffleEnabled = enabled;
-    await _player?.setShuffle(enabled);
-    _shuffleCtrl.add(enabled);
-    LogService.verbose('MediaKitEngine', 'shuffle=$enabled');
+@override
+Future<void> setShuffleMode(bool enabled) async {
+  _shuffleEnabled = enabled;
+
+  await _player?.setShuffle(enabled);
+
+  final playlist = _player?.state.playlist;
+  if (playlist != null &&
+      playlist.index >= 0 &&
+      playlist.index < playlist.medias.length) {
+    final currentUri = playlist.medias[playlist.index].uri;
+
+    final queueIdx = _queue.indexWhere(
+      (s) => 'file://${s.path}' == currentUri,
+    );
+
+    if (queueIdx >= 0) {
+      _currentIndex = queueIdx;
+
+      final song = _queue[queueIdx];
+
+      _currentTrackCtrl.add({
+        'index': queueIdx,
+        'id': song.id,
+        'nextTrackIndex': _computeNextIndex(queueIdx),
+      });
+    }
   }
+
+  _shuffleCtrl.add(enabled);
+  LogService.verbose('MediaKitEngine', 'shuffle=$enabled');
+}
 
   // ── Playback parameters ───────────────────────────────────────────────────
 
