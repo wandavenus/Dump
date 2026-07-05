@@ -5,7 +5,7 @@ A feature-rich Flutter music player, primarily targeting Android 10+ with a web 
 ## Stack
 
 - **Framework:** Flutter / Dart
-- **Android backend:** Media3 (ExoPlayer), native Kotlin services
+- **Android backend:** Media3 (ExoPlayer) + Media-Kit, native Kotlin services
 - **Key features:** Crossfade, lyrics (multi-provider), ReplayGain, sleep timer, queue persistence, themes
 
 ## How to run
