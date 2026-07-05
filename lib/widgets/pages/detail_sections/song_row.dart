@@ -19,6 +19,12 @@ class SongListRow extends StatelessWidget {
         await AudioService.playSongAt(playlist: playlist, index: index);
         PlayerPanelController.instance.open();
       },
+      onLongPress: () => showSongContextMenu(
+        context,
+        song: song,
+        playlist: playlist,
+        index: index,
+      ),
       child: Column(
         children: [
           const Divider(

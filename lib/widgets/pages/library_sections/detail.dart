@@ -348,6 +348,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final song = filtered[index - 1];
+        final songIndex = songs.indexOf(song);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -364,7 +365,13 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          onTap: () => _playAt(songs, songs.indexOf(song)),
+          onTap: () => _playAt(songs, songIndex),
+          onLongPress: () => showSongContextMenu(
+            context,
+            song: song,
+            playlist: songs,
+            index: songIndex,
+          ),
         );
       },
     );
@@ -401,6 +408,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final song = filtered[index - 1];
+        final songIndex = songs.indexOf(song);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -417,7 +425,13 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          onTap: () => _playAt(songs, songs.indexOf(song)),
+          onTap: () => _playAt(songs, songIndex),
+          onLongPress: () => showSongContextMenu(
+            context,
+            song: song,
+            playlist: songs,
+            index: songIndex,
+          ),
         );
       },
     );

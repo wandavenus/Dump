@@ -109,6 +109,12 @@ class _MusicListState extends State<MusicList> {
                     );
                     PlayerPanelController.instance.open();
                   },
+                  onLongPress: () => showSongContextMenu(
+                    context,
+                    song: song,
+                    playlist: songs,
+                    index: index - 1,
+                  ),
                   leading: Hero(
                     tag: PlayerHeroTags.artwork(song),
                     child: SongArtwork(songId: song.id, size: 55),

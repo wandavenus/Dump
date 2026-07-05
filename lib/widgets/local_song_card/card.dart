@@ -64,13 +64,11 @@ class LocalSongCard extends StatelessWidget {
   }
 
   void _showContextMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
-      builder: (_) => _SongContextMenu(song: song, playlist: playlist, index: index),
+    showSongContextMenu(
+      context,
+      song: song,
+      playlist: playlist,
+      index: index,
     );
   }
 }

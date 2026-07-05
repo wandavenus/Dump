@@ -1,0 +1,633 @@
+import 'package:flutter/material.dart';
+
+import '../models/local_song.dart';
+import '../models/playlist.dart';
+import '../pages/album_page.dart';
+import '../pages/artist_page.dart';
+import '../services/audio_service.dart';
+import '../services/media_store_service.dart';
+import '../services/playlist_service.dart';
+import '../utils/zoom_fade_route.dart';
+import 'common/swipe_to_dismiss_sheet.dart';
+import 'player/player_panel_controller.dart';
+import 'song_artwork.dart';
+
+/// Tampilkan context menu gaya Apple Music untuk sebuah lagu.
+void showSongContextMenu(
+  BuildContext context, {
+  required LocalSong song,
+  required List<LocalSong> playlist,
+  required int index,
+}) {
+  final navigator = Navigator.of(context);
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF1C1C1E),
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+    ),
+    builder: (_) => SongContextMenu(
+      song: song,
+      playlist: playlist,
+      index: index,
+      tabNavigator: navigator,
+    ),
+  );
+}
+
+// ─── SongContextMenu ──────────────────────────────────────────────────────────
+
+class SongContextMenu extends StatefulWidget {
+  final LocalSong song;
+  final List<LocalSong> playlist;
+  final int index;
+  final NavigatorState tabNavigator;
+
+  const SongContextMenu({
+    super.key,
+    required this.song,
+    required this.playlist,
+    required this.index,
+    required this.tabNavigator,
+  });
+
+  @override
+  State<SongContextMenu> createState() => _SongContextMenuState();
+}
+
+class _SongContextMenuState extends State<SongContextMenu> {
+  bool _isFavorite = false;
+  bool _favLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorite();
+  }
+
+  Future<void> _loadFavorite() async {
+    final fav = await PlaylistService.isFavorite(widget.song.id);
+    if (mounted) setState(() { _isFavorite = fav; _favLoaded = true; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwipeToDismissSheet(
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Drag handle ──────────────────────────────────────────────
+            const SizedBox(height: 6),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Song header ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  SongArtwork(
+                    songId: widget.song.id,
+                    size: 48,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          widget.song.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF8E8E93),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Grup 1: Pemutaran ─────────────────────────────────────────
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _MenuItem(
+              icon: Icons.play_arrow_rounded,
+              label: 'Putar Sekarang',
+              onTap: () async {
+                Navigator.pop(context);
+                await AudioService.playSongAt(
+                  playlist: widget.playlist,
+                  index: widget.index,
+                );
+                PlayerPanelController.instance.open();
+              },
+            ),
+            _insetDivider,
+            _MenuItem(
+              icon: Icons.skip_next_rounded,
+              label: 'Putar Selanjutnya',
+              onTap: () {
+                Navigator.pop(context);
+                AudioService.addToQueueNext(widget.song);
+              },
+            ),
+            _insetDivider,
+            _MenuItem(
+              icon: Icons.add_to_queue_rounded,
+              label: 'Tambah ke Antrian',
+              onTap: () {
+                Navigator.pop(context);
+                AudioService.addToQueue(widget.song);
+              },
+            ),
+
+            // ── Grup 2: Library ───────────────────────────────────────────
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _MenuItem(
+              icon: _isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              iconColor: _isFavorite ? const Color(0xFFF92D48) : Colors.white,
+              label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
+              onTap: _favLoaded
+                  ? () async {
+                      final nowFav =
+                          await PlaylistService.toggleFavorite(widget.song.id);
+                      if (mounted) setState(() => _isFavorite = nowFav);
+                      if (mounted) Navigator.pop(context);
+                    }
+                  : () {},
+            ),
+            _insetDivider,
+            _MenuItem(
+              icon: Icons.playlist_add_rounded,
+              label: 'Tambah ke Daftar Putar',
+              onTap: () => _showAddToPlaylist(context),
+            ),
+
+            // ── Grup 3: Navigasi ──────────────────────────────────────────
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _MenuItem(
+              icon: Icons.album_rounded,
+              label: 'Buka Album',
+              onTap: () => _openAlbum(),
+            ),
+            _insetDivider,
+            _MenuItem(
+              icon: Icons.person_rounded,
+              label: 'Buka Artis',
+              onTap: () => _openArtist(),
+            ),
+
+            // ── Grup 4: Informasi ─────────────────────────────────────────
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _MenuItem(
+              icon: Icons.info_outline_rounded,
+              label: 'Informasi Lagu',
+              onTap: () {
+                Navigator.pop(context);
+                _showSongInfo(context);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _insetDivider = Divider(
+    height: 1,
+    thickness: 0.5,
+    color: Color(0xFF48484A),
+    indent: 52,
+  );
+
+  // ── Tambah ke Daftar Putar ─────────────────────────────────────────────────
+
+  void _showAddToPlaylist(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (_) => _AddToPlaylistSheet(
+        song: widget.song,
+        tabNavigator: widget.tabNavigator,
+      ),
+    );
+  }
+
+  // ── Buka Album ─────────────────────────────────────────────────────────────
+
+  Future<void> _openAlbum() async {
+    final nav = widget.tabNavigator;
+    Navigator.pop(context);
+    try {
+      final allSongs = await MediaStoreService.getSongs();
+      final albumSongs =
+          allSongs.where((s) => s.album == widget.song.album).toList();
+      nav.push(
+        ZoomFadeRoute<void>(
+          settings: RouteSettings(
+            arguments: {'album': widget.song, 'songs': albumSongs},
+          ),
+          page: const AlbumPage(),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  // ── Buka Artis ─────────────────────────────────────────────────────────────
+
+  Future<void> _openArtist() async {
+    final nav = widget.tabNavigator;
+    Navigator.pop(context);
+    try {
+      final allSongs = await MediaStoreService.getSongs();
+      final artistSongs =
+          allSongs.where((s) => s.artist == widget.song.artist).toList();
+      nav.push(
+        ZoomFadeRoute<void>(
+          settings: RouteSettings(arguments: artistSongs),
+          page: const ArtistPage(),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  // ── Informasi Lagu ─────────────────────────────────────────────────────────
+
+  void _showSongInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      useRootNavigator: true,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Informasi Lagu',
+          style: TextStyle(color: Colors.white, fontSize: 17),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(label: 'Judul', value: widget.song.title),
+            _InfoRow(label: 'Artis', value: widget.song.artist),
+            _InfoRow(label: 'Album', value: widget.song.album),
+            _InfoRow(
+              label: 'Durasi',
+              value: _formatDuration(widget.song.duration),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Tutup',
+              style: TextStyle(color: Color(0xFFF92D48)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
+  }
+}
+
+// ─── _MenuItem ────────────────────────────────────────────────────────────────
+
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor ?? Colors.white, size: 22),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── _InfoRow ─────────────────────────────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── _AddToPlaylistSheet ──────────────────────────────────────────────────────
+
+class _AddToPlaylistSheet extends StatefulWidget {
+  final LocalSong song;
+  final NavigatorState tabNavigator;
+  const _AddToPlaylistSheet({
+    required this.song,
+    required this.tabNavigator,
+  });
+
+  @override
+  State<_AddToPlaylistSheet> createState() => _AddToPlaylistSheetState();
+}
+
+class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
+  late Future<List<Playlist>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = PlaylistService.getPlaylists();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwipeToDismissSheet(
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 6),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tambah ke Daftar Putar',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            // Buat baru
+            InkWell(
+              onTap: () => _createNew(context),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline_rounded,
+                      color: Color(0xFFF92D48),
+                      size: 22,
+                    ),
+                    SizedBox(width: 14),
+                    Text(
+                      'Buat Daftar Putar Baru',
+                      style: TextStyle(
+                        color: Color(0xFFF92D48),
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Daftar playlist yang ada
+            FutureBuilder<List<Playlist>>(
+              future: _future,
+              builder: (context, snap) {
+                final playlists = snap.data ?? [];
+                if (playlists.isEmpty && snap.connectionState == ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Belum ada daftar putar',
+                      style: TextStyle(color: Color(0xFF8E8E93)),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: playlists.length,
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: Color(0xFF48484A),
+                    indent: 52,
+                  ),
+                  itemBuilder: (context, i) {
+                    final pl = playlists[i];
+                    return InkWell(
+                      onTap: () => _addToExisting(context, pl),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.music_note_rounded,
+                              color: Colors.white54,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pl.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${pl.songIds.length} lagu',
+                                    style: const TextStyle(
+                                      color: Color(0xFF8E8E93),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addToExisting(BuildContext context, Playlist pl) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await PlaylistService.addSong(pl.id, widget.song.id);
+    if (!mounted) return;
+    Navigator.pop(context); // tutup sheet playlist
+    Navigator.pop(context); // tutup sheet utama
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Ditambahkan ke ${pl.name}'),
+        backgroundColor: const Color(0xFF2C2C2E),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _createNew(BuildContext context) async {
+    final nameController = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showDialog<String>(
+      context: context,
+      useRootNavigator: true,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text(
+          'Daftar Putar Baru',
+          style: TextStyle(color: Colors.white, fontSize: 17),
+        ),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Nama Daftar Putar',
+            hintStyle: TextStyle(color: Color(0xFF8E8E93)),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF48484A)),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFF92D48)),
+            ),
+          ),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color(0xFF8E8E93)),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, nameController.text.trim()),
+            child: const Text(
+              'Buat',
+              style: TextStyle(color: Color(0xFFF92D48)),
+            ),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    if (result == null || result.isEmpty) return;
+    final pl = await PlaylistService.createPlaylist(result);
+    await PlaylistService.addSong(pl.id, widget.song.id);
+    if (!mounted) return;
+    Navigator.pop(context); // tutup sheet playlist
+    Navigator.pop(context); // tutup sheet utama
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Ditambahkan ke $result'),
+        backgroundColor: const Color(0xFF2C2C2E),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
