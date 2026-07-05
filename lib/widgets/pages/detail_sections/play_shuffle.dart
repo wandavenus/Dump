@@ -21,7 +21,7 @@ class PlayShuffleButtons extends StatelessWidget {
             },
           ),
           _ActionButton(
-            icon: Icons.shuffle_rounded,
+            icon: CupertinoIcons.shuffle,
             label: 'Shuffle',
             onTap: () async {
               final shuffled = List<LocalSong>.from(songs)..shuffle();
