@@ -24,12 +24,9 @@ void showSongContextMenu(
   final navigator = Navigator.of(context);
   showModalBottomSheet(
     context: context,
-    backgroundColor: const Color(0xFF1C1C1E),
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
     useRootNavigator: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-    ),
     builder: (_) => SongContextMenu(
       song: song,
       playlist: playlist,
@@ -77,12 +74,16 @@ class _SongContextMenuState extends State<SongContextMenu> {
   @override
   Widget build(BuildContext context) {
     return SwipeToDismissSheet(
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Drag handle ──────────────────────────────────────────────
-            const SizedBox(height: 6),
+      child: Material(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Drag handle ──────────────────────────────────────────────
+              const SizedBox(height: 6),
             Container(
               width: 36,
               height: 4,
@@ -232,7 +233,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   static const _insetDivider = Divider(
@@ -308,12 +310,9 @@ class _SongContextMenuState extends State<SongContextMenu> {
   void _showAddToPlaylist(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
       builder: (_) => _AddToPlaylistSheet(
         song: widget.song,
         tabNavigator: widget.tabNavigator,
@@ -501,26 +500,30 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
   @override
   Widget build(BuildContext context) {
     return SwipeToDismissSheet(
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 6),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+      child: Material(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 6),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Tambah ke Daftar Putar',
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Tambah ke Daftar Putar',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -629,7 +632,8 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Future<void> _addToExisting(BuildContext context, Playlist pl) async {
