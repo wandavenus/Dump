@@ -214,6 +214,16 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 _showSongInfo(context);
               },
             ),
+
+            // ── Grup 5: Hapus ─────────────────────────────────────────────
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _MenuItem(
+              icon: Icons.delete_outline_rounded,
+              iconColor: const Color(0xFFF92D48),
+              labelColor: const Color(0xFFF92D48),
+              label: 'Hapus dari Perangkat',
+              onTap: () => _confirmDelete(context),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -227,6 +237,66 @@ class _SongContextMenuState extends State<SongContextMenu> {
     color: Color(0xFF48484A),
     indent: 52,
   );
+
+  // ── Hapus dari Perangkat ───────────────────────────────────────────────────
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF2C2C2E),
+        title: const Text(
+          'Hapus Lagu?',
+          style: TextStyle(color: Colors.white, fontSize: 17),
+        ),
+        content: Text(
+          '"${widget.song.title}" akan dihapus permanen dari perangkat.',
+          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color(0xFF0A84FF)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Hapus',
+              style: TextStyle(color: Color(0xFFF92D48)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+
+    final deleted = await MediaStoreService.deleteSong(widget.song.id);
+    if (deleted) {
+      MediaStoreService.clearSongsCache();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Lagu berhasil dihapus'),
+          backgroundColor: Color(0xFF2C2C2E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gagal menghapus lagu'),
+          backgroundColor: Color(0xFF2C2C2E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   // ── Tambah ke Daftar Putar ─────────────────────────────────────────────────
 
@@ -335,6 +405,7 @@ class _MenuItem extends StatelessWidget {
   final IconData icon;
   final Color? iconColor;
   final String label;
+  final Color? labelColor;
   final VoidCallback? onTap;
 
   const _MenuItem({
@@ -342,6 +413,7 @@ class _MenuItem extends StatelessWidget {
     required this.label,
     this.onTap,
     this.iconColor,
+    this.labelColor,
   });
 
   @override
@@ -356,7 +428,7 @@ class _MenuItem extends StatelessWidget {
             const SizedBox(width: 14),
             Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: labelColor ?? Colors.white, fontSize: 15),
             ),
           ],
         ),
