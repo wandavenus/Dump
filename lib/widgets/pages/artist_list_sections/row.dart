@@ -10,7 +10,7 @@ class ArtistListRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
-        padding: const EdgeInsets.only(top: 10, left: 5, right: 5),
+        padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
         child: Column(
           children: [
             Row(
@@ -22,11 +22,11 @@ class ArtistListRow extends StatelessWidget {
                     
                     SongArtwork(
                       songId: artist.coverSongId,
-                      size: 70,
-                      borderRadius: BorderRadius.circular(10),
+                      size: 50,
+                      borderRadius: BorderRadius.circular(5),
                     ),
-                    const SizedBox(width: 10),
-                    Text(artist.name, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 11),
+                    Text(artist.name, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
                 const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 18),
