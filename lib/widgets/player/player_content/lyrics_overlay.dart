@@ -33,7 +33,16 @@ class _LyricsOverlayBody extends StatelessWidget {
         NotificationListener<ScrollEndNotification>(
           onNotification: (notification) {
             final velocity = notification.dragDetails?.primaryVelocity ?? 0;
+            // In Flutter, primaryVelocity > 0 = finger moving down (swipe-down).
+            // Fast swipe-down anywhere on the list:
             if (velocity > 300) {
+              onExpandChanged(false);
+            }
+            // Slow swipe-down at the bottom of the list (nothing left to
+            // scroll past): collapse to half-view with any positive velocity.
+            // Mutually exclusive with the fast-swipe branch above to guarantee
+            // onExpandChanged fires at most once per notification.
+            else if (velocity > 0 && notification.metrics.extentAfter < 10) {
               onExpandChanged(false);
             }
             return false;
