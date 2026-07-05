@@ -125,7 +125,6 @@ class _PlayerSheetState extends State<PlayerSheet> {
                             ),
                           ),
                           SafeArea(
-                            bottom: false,
                             child: Padding(
                               padding: const EdgeInsets.only(top: 12),
                               child: song == null
@@ -149,6 +148,26 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                     ),
                             ),
                           ),
+                          // Extends the lyrics/queue swipe-to-scroll gesture
+                          // into the system gesture-nav inset below the
+                          // SafeArea, without moving any visible content
+                          // (which stays exactly where it was before this
+                          // gesture-extension feature was added).
+                          if (song != null && (_showLyrics || _showQueue))
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              height: MediaQuery.paddingOf(context).bottom,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onVerticalDragUpdate: (d) {
+                                  PlayerContent.forwardExternalDrag(
+                                    d.delta.dy,
+                                  );
+                                },
+                              ),
+                            ),
                         ],
                       ),
                     ),

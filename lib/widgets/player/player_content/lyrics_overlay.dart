@@ -21,7 +21,12 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        NotificationListener<UserScrollNotification>(
+        // ScrollUpdateNotification (not UserScrollNotification) so this also
+        // fires for drags forwarded from outside the list itself — e.g. the
+        // bottom-controls / gesture-inset drag relays in content.dart and
+        // player_sheet/state.dart, which scroll the list programmatically
+        // via ScrollOffsetController rather than a direct user drag on it.
+        NotificationListener<ScrollUpdateNotification>(
           onNotification: (notification) {
             final offset = notification.metrics.pixels;
 

@@ -26,6 +26,12 @@ class PlayerContent extends StatefulWidget {
 
   @override
   State<PlayerContent> createState() => _PlayerContentState();
+
+  /// Forwards a vertical drag delta into whichever overlay (lyrics/queue) is
+  /// currently active, from outside PlayerContent's own widget tree — used by
+  /// the extra gesture-inset hit area in player_sheet/state.dart.
+  static void forwardExternalDrag(double deltaY) =>
+      _PlayerContentState.forwardExternalDrag(deltaY);
 }
 
 class _PlayerContentState extends State<PlayerContent> {
@@ -50,6 +56,20 @@ class _PlayerContentState extends State<PlayerContent> {
   // must be used to forward external drags into the lyrics list.
   final _lyricsOffsetController = ScrollOffsetController();
 
+  // Bridges drags started outside this widget's own bounds (e.g. the extra
+  // hit area covering the system gesture inset in player_sheet/state.dart,
+  // which sits outside the SafeArea and therefore can't reach this State
+  // directly) into the same forwarding logic used internally.
+  static _PlayerContentState? _current;
+
+  static void forwardExternalDrag(double deltaY) {
+    _current?._forwardVerticalDrag(
+      showLyrics: _current!.widget.showLyrics,
+      showQueue: _current!.widget.showQueue,
+      deltaY: deltaY,
+    );
+  }
+
   void _forwardVerticalDrag({
     required bool showLyrics,
     required bool showQueue,
@@ -57,9 +77,14 @@ class _PlayerContentState extends State<PlayerContent> {
   }) {
     if (showLyrics) {
       try {
+        // duration: Duration.zero makes ScrollOffsetController.animateScroll
+        // resolve to an immediate jumpTo internally instead of spinning up a
+        // fresh AnimationController per drag-update event — using a tiny
+        // nonzero duration instead caused every frame's animation to
+        // interrupt the previous one, producing the jerky/rigid feel.
         _lyricsOffsetController.animateScroll(
           offset: -deltaY,
-          duration: const Duration(milliseconds: 1),
+          duration: Duration.zero,
           curve: Curves.linear,
         );
       } catch (_) {
@@ -78,12 +103,14 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   void initState() {
     super.initState();
+    _current = this;
     _fetchLyricsIfNeeded();
     _restartMarquee();
   }
 
   @override
   void dispose() {
+    if (_current == this) _current = null;
     _marqueeTimer?.cancel();
     _lyricsScrollController.dispose();
     _queueScrollController.dispose();
@@ -507,14 +534,6 @@ class _PlayerContentState extends State<PlayerContent> {
                               height: 0.8,
                               color: Colors.white.withValues(alpha: 0.13),
                             ),
-                          ),
-                          // Extra spacer reaching the true bottom edge of the
-                          // screen (system gesture-nav inset). Kept inside the
-                          // same GestureDetector so swipes started here still
-                          // scroll the lyrics/queue list instead of hitting
-                          // dead space below the visible controls.
-                          SizedBox(
-                            height: MediaQuery.paddingOf(context).bottom,
                           ),
                         ],
                       ),
