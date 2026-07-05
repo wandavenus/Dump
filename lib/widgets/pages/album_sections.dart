@@ -15,12 +15,14 @@ class AlbumPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return SingleChildScrollView(
       child: Column(
         children: [
           AlbumHero(album: album),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),
+          SizedBox(height: bottomClearance),
         ],
       ),
     );

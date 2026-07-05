@@ -45,6 +45,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -55,6 +56,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           _BrowseSection(title: 'We Recommend', songs: _recommend),
           _BrowseSection(title: 'New Music', songs: _newMusic),
           _BrowseSection(title: 'Daily Top 100', songs: _daily),
+          SizedBox(height: bottomClearance),
         ],
       ),
     );

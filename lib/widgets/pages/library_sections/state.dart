@@ -47,6 +47,7 @@ class _LibraryContentState extends State<LibraryContent> {
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return SingleChildScrollView(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -59,6 +60,7 @@ class _LibraryContentState extends State<LibraryContent> {
             const Divider(color: Color(0xFF48484A), thickness: 0.5, height: 0),
             const SizedBox(height: 9),
             _editMode ? _buildReorderable() : _buildStaticList(),
+            SizedBox(height: bottomClearance),
           ],
         ),
       ),

@@ -70,10 +70,12 @@ class _MusicListState extends State<MusicList> {
             );
           }
 
+          final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
           return RefreshIndicator(
             onRefresh: _refreshSongs,
             child: ListView.separated(
               controller: _scroll,
+              padding: EdgeInsets.only(bottom: bottomClearance),
               itemCount: songs.length + 1,
               separatorBuilder: (context, index) => index == 0
                   ? const SizedBox.shrink()

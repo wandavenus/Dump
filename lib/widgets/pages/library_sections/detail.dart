@@ -274,8 +274,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 album.artist.toLowerCase().contains(_filter);
           }).toList();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return ListView.separated(
       controller: _scroll,
+      padding: EdgeInsets.only(bottom: bottomClearance),
       itemCount: filtered.length + 1,
       separatorBuilder: (context, index) => index == 0
           ? const SizedBox.shrink()
@@ -333,8 +335,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return ListView.separated(
       controller: _scroll,
+      padding: EdgeInsets.only(bottom: bottomClearance),
       itemCount: filtered.length + 1,
       separatorBuilder: (context, index) => index == 0
           ? const SizedBox.shrink()
@@ -393,8 +397,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return ListView.separated(
       controller: _scroll,
+      padding: EdgeInsets.only(bottom: bottomClearance),
       itemCount: filtered.length + 1,
       separatorBuilder: (context, index) => index == 0
           ? const SizedBox.shrink()
