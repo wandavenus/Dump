@@ -24,6 +24,7 @@ void showSongContextMenu(
     context: context,
     backgroundColor: const Color(0xFF1C1C1E),
     isScrollControlled: true,
+    useRootNavigator: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
     ),
@@ -234,6 +235,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
       isScrollControlled: true,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),

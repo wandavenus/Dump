@@ -10278,7 +10278,7 @@ _.at=n},
 WO:function WO(){},
 b28(a,b,c,d,e,f,g,h,i,j,k,l){return new A.B9(a,h,c,g,l,j,i,b,f,k,d,e,null)},
 b2a(a,b){return A.bx("BottomSheet",B.c4,B.D,null,a)},
-lX(a,b,c,d,e,f,g){var s,r,q,p,o,n,m,l,k,j,i=null,h=A.bI(c,!1)
+lX(a,b,c,d,e,f,g,a0){var s,r,q,p,o,n,m,l,k,j,i=null,h=A.bI(c,f)
 A.eg(c,B.b6,t.E).toString
 s=h.c
 s.toString
@@ -10290,9 +10290,9 @@ o=$.a7
 n=A.kb(B.ci)
 m=A.b([],t.wi)
 l=$.a7
-k=g.h("a4<0?>")
-j=g.h("aJ<0?>")
-return h.il(new A.DH(b,s,d,0.5625,a,i,e,i,i,r.ry.e,!0,!0,i,i,i,f,i,"Close Bottom Sheet",new A.bB(B.a6,q,t.Tt),"Scrim",i,i,i,p,A.aB(t.f9),new A.bo(i,g.h("bo<jx<0>>")),new A.bo(i,t.B),new A.p_(),i,0,new A.aJ(new A.a4(o,g.h("a4<0?>")),g.h("aJ<0?>")),n,m,i,B.hg,new A.bB(i,q,t.XR),new A.aJ(new A.a4(l,k),j),new A.aJ(new A.a4(l,k),j),g.h("DH<0>")))},
+k=a0.h("a4<0?>")
+j=a0.h("aJ<0?>")
+return h.il(new A.DH(b,s,d,0.5625,a,i,e,i,i,r.ry.e,!0,!0,i,i,i,g,i,"Close Bottom Sheet",new A.bB(B.a6,q,t.Tt),"Scrim",i,i,i,p,A.aB(t.f9),new A.bo(i,a0.h("bo<jx<0>>")),new A.bo(i,t.B),new A.p_(),i,0,new A.aJ(new A.a4(o,a0.h("a4<0?>")),a0.h("aJ<0?>")),n,m,i,B.hg,new A.bB(i,q,t.XR),new A.aJ(new A.a4(l,k),j),new A.aJ(new A.a4(l,k),j),a0.h("DH<0>")))},
 aPe(a){var s=null
 return new A.avD(a,s,s,1,s,s,s,1,B.Wr,s,s,s,s,B.o1)},
 B9:function B9(a,b,c,d,e,f,g,h,i,j,k,l,m){var _=this
@@ -27550,7 +27550,7 @@ _.d=b
 _.e=c
 _.f=d
 _.a=e},
-bfL(a){A.lX(B.t,new A.aMj(),a,!0,null,!0,t.H)},
+bfL(a){A.lX(B.t,new A.aMj(),a,!0,null,!1,!0,t.H)},
 aMj:function aMj(){},
 zN:function zN(a){this.a=a},
 aHo:function aHo(a){this.a=a},
@@ -27565,7 +27565,7 @@ this.b=b},
 aEy:function aEy(a,b,c){this.a=a
 this.b=b
 this.c=c},
-bde(a){A.lX(B.t,new A.aLf(),a,!1,null,!1,t.H)},
+bde(a){A.lX(B.t,new A.aLf(),a,!1,null,!1,!1,t.H)},
 bdf(a){var s=$.c1
 s=s==null?null:s.yt()
 if(s==null)s=A.bn(null,t.nA)
@@ -30526,7 +30526,7 @@ _.c=_.a=null},
 aHL:function aHL(a,b){this.a=a
 this.b=b},
 aHM:function aHM(a){this.a=a},
-a5t(a,b,c,d){A.lX(B.ao,new A.aMk(d,c,b,A.bI(a,!1)),a,!0,B.Bd,!1,t.z)},
+a5t(a,b,c,d){A.lX(B.ao,new A.aMk(d,c,b,A.bI(a,!1)),a,!0,B.Bd,!0,!1,t.z)},
 aMk:function aMk(a,b,c,d){var _=this
 _.a=a
 _.b=b
@@ -96719,7 +96719,7 @@ $0(){return A.NU(0)},
 $S:0}
 A.a1b.prototype={
 t(a){return new A.as($.Al(),new A.aG1(this),null,null,t.k7)},
-ao5(a,b){A.lX(B.t,new A.aFY(b),a,!1,null,!1,t.H)}}
+ao5(a,b){A.lX(B.t,new A.aFY(b),a,!1,null,!1,!1,t.H)}}
 A.aG1.prototype={
 $3(a,b,c){var s=null,r=t.p,q=A.b([new A.kf("ReplayGain",b.gko(),new A.aG_(this.a,a,b),!1,s)],r),p=b!==B.eW
 if(p)q.push(new A.a2(B.JY,A.a3(b.gYC(),s,s,s,B.a0l,s,s),s))
@@ -96996,14 +96996,14 @@ $S:0}
 A.aLh.prototype={
 $1(a){var s=this.a
 if(s.e==null)return
-A.lX(B.t,new A.aLg(a),s,!1,null,!1,t.H)},
+A.lX(B.t,new A.aLg(a),s,!1,null,!1,!1,t.H)},
 $S:239}
 A.aLg.prototype={
 $1(a){return new A.zp(this.a,null)},
 $S:609}
 A.Yn.prototype={
 t(a){return new A.as($.Am(),new A.aya(this,a),null,null,t.lw)},
-aoX(a,b){A.lX(B.t,new A.ay6(b),a,!1,null,!1,t.H)}}
+aoX(a,b){A.lX(B.t,new A.ay6(b),a,!1,null,!1,!1,t.H)}}
 A.aya.prototype={
 $3(a,b,c){return new A.as($.aMq(),new A.ay9(this.a,b,this.b),null,null,t.A)},
 $S:610}
@@ -97109,7 +97109,7 @@ $S:0}
 A.a2E.prototype={
 t(a){var s=null,r=$.a5B(),q=t.A
 return A.av(A.b([B.XQ,B.aZ,new A.as(r,new A.aIK(),s,s,q),B.a_,new A.as(r,new A.aIL(),s,s,q),B.a_,new A.as(r,new A.aIM(),s,s,q),B.a_,new A.as($.N4(),new A.aIN(this,a),s,s,t.Id),B.a_,B.XK,B.a_],t.p),B.w,B.i,B.k)},
-ao4(a){A.lX(B.p,new A.aID(),a,!0,B.Ww,!1,t.z)}}
+ao4(a){A.lX(B.p,new A.aID(),a,!0,B.Ww,!1,!1,t.z)}}
 A.aIK.prototype={
 $3(a,b,c){return new A.ff("Logging Aktif","Catat aktivitas & error app",b,A.bf8(),null)},
 $S:44}
@@ -100473,7 +100473,7 @@ s=A.pL(new A.x6(s.b,B.qe,B.f,null,s,null),null,t.z)
 A.bI(r,!1).il(s).bd(new A.aK_(this),t.P)},
 ajS(){var s=this.c
 s.toString
-A.lX(B.ao,new A.aJZ(this),s,!1,B.Wt,!1,t.z)},
+A.lX(B.ao,new A.aJZ(this),s,!1,B.Wt,!1,!1,t.z)},
 t(a){var s=this,r=s.a.c,q=r.c.length,p=q===0?"Belum ada lagu":""+q+" lagu"
 return A.aUh(s.d,B.qe,B.f,r.b,s.gajR(),s.gHz(),p)}}
 A.aK_.prototype={
@@ -101085,7 +101085,7 @@ $S:0}
 A.Ws.prototype={
 t(a){var s=null
 return A.c2(s,A.b0(s,B.qt,B.n,s,s,B.o4,s,32,s,s,s,s,32),B.A,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,new A.auW(this,a),s,s,s,s,s,s)},
-alC(a){A.lX(B.t,new A.auV(),a,!0,null,!1,t.H)}}
+alC(a){A.lX(B.t,new A.auV(),a,!0,null,!1,!1,t.H)}}
 A.auW.prototype={
 $0(){return this.a.alC(this.b)},
 $S:0}
@@ -101243,7 +101243,7 @@ $S:0}
 A.Sx.prototype={
 t(a){var s=null
 return A.b0(s,A.aUk(B.p4,12,B.qt,new A.alj(this),B.TJ,new A.alk(this,a),B.a6,new A.cU(A.b7(18),B.v),t.NA),B.n,s,s,B.o4,s,34,s,s,s,s,34)},
-ao6(a){A.lX(B.t,new A.ali(this),a,!0,null,!0,t.H)}}
+ao6(a){A.lX(B.t,new A.ali(this),a,!0,null,!1,!0,t.H)}}
 A.alk.prototype={
 $1(a){switch(a.a){case 0:A.O5()
 break
@@ -101855,7 +101855,7 @@ q=s?B.J:B.f
 s=s?"Hapus dari Favorit":"Tambah ke Favorit"
 p=o.e?new A.aHU(o,a):new A.aHV()
 return A.nm(A.iD(!0,A.av(A.b([B.aZ,m,B.aY,new A.a2(B.bI,l,n),B.bd,B.fF,new A.kB(B.iC,n,"Putar Sekarang",new A.aHW(o,a),n),B.fG,new A.kB(B.M1,n,"Putar Selanjutnya",new A.aHX(o,a),n),B.fG,new A.kB(B.LE,n,"Tambah ke Antrian",new A.aHY(o,a),n),B.fF,new A.kB(r,q,s,p,n),B.fG,new A.kB(B.LY,n,"Tambah ke Daftar Putar",new A.aHZ(o,a),n),B.fF,new A.kB(B.LF,n,"Buka Album",new A.aI_(o),n),B.fG,new A.kB(B.LW,n,"Buka Artis",new A.aI0(o),n),B.fF,new A.kB(B.lG,n,"Informasi Lagu",new A.aI1(o,a),n),B.aU],k),B.m,B.i,B.a2),B.a6,!0))},
-ao1(a){A.lX(B.ao,new A.aHQ(this),a,!0,B.Bd,!1,t.z)},
+ao1(a){A.lX(B.ao,new A.aHQ(this),a,!0,B.Bd,!0,!1,t.z)},
 Am(){var s=0,r=A.l(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h
 var $async$Am=A.m(function(a,b){if(a===1){p.push(b)
 s=q}while(true)switch(s){case 0:j=o.a.f
