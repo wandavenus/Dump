@@ -47,7 +47,7 @@ class SongListRow extends StatelessWidget {
                   ),
                   Container(
                     width: 250,
-                    margin: const EdgeInsets.only(left: 25),
+                    margin: const EdgeInsets.only(left: 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
