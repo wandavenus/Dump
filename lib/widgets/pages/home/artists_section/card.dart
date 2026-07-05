@@ -10,7 +10,7 @@ class _ArtistCard extends StatelessWidget {
       onTap: () =>
           Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
-        margin: const EdgeInsets.only(top: 20, left: 15, bottom: 20),
+        margin: const EdgeInsets.only(top: 20, left: 10, right: 10, bottom: 20),
         child: Column(
           children: [
             ClipPath(
