@@ -82,21 +82,35 @@ class MediaKitEngine implements AbstractAudioEngine {
     _fadeTimer = null;
   }
 
+  // Smoothstep easing: S-curve with zero derivatives at both ends.
+  // Produces a perceptually smooth fade — no abrupt start or lingering end.
+  // Formula: 3t² − 2t³  (Ken Perlin smoothstep, standard in audio/graphics).
+  static double _smoothStep(double t) {
+    final tc = t.clamp(0.0, 1.0);
+    return tc * tc * (3.0 - 2.0 * tc);
+  }
+
   // Steps player volume from [from] toward the value returned by [getTo]
-  // (both in media_kit's 0–100 scale) over ~400 ms (20 steps × 20 ms).
+  // (both in media_kit's 0–100 scale) over ~480 ms (30 steps × 16 ms).
+  //
+  // Uses a smoothstep curve instead of linear interpolation so the fade
+  // accelerates gently at the start and decelerates at the end — matching
+  // human loudness perception and avoiding the abrupt/lingering feel of a
+  // straight-line ramp.
+  //
   // [getTo] is evaluated on every tick so that a mid-fade setVolume() call
   // is picked up immediately — the fade retargets smoothly without a restart.
   // Calls [onDone] after the final step.
   // Exits early and cancels itself if the engine is disposed or player gone.
   void _startFade(double from, double Function() getTo, void Function() onDone) {
     _cancelFade();
-    const totalSteps = 20;
+    const totalSteps = 30;
     int step = 0;
     LogService.verbose(
       'MediaKitEngine',
-      '_startFade from=$from → target=${getTo()} (${totalSteps} steps)',
+      '_startFade from=$from → target=${getTo()} ($totalSteps steps, smoothstep)',
     );
-    _fadeTimer = Timer.periodic(const Duration(milliseconds: 20), (t) {
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
       if (_disposed || _player == null) {
         t.cancel();
         _fadeTimer = null;
@@ -104,7 +118,7 @@ class MediaKitEngine implements AbstractAudioEngine {
       }
       step++;
       final to  = getTo();
-      final vol = from + (to - from) * (step / totalSteps);
+      final vol = from + (to - from) * _smoothStep(step / totalSteps);
       _player?.setVolume(vol.clamp(0.0, 100.0));
       LogService.verbose('MediaKitEngine', '_fade step=$step/$totalSteps vol=${vol.toStringAsFixed(1)}');
       if (step >= totalSteps) {
