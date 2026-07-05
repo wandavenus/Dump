@@ -96757,7 +96757,7 @@ s=t.A
 return A.av(A.b([B.eZ,B.XF,B.b3,new A.as($.N8(),new A.aCK(),r,r,s),B.a_,new A.as($.At(),new A.aCL(),r,r,s),B.a_],t.p),B.w,B.i,B.k)},
 $S:607}
 A.aCK.prototype={
-$3(a,b,c){return new A.fe("Gapless","Potong keheningan antar lagu secara otomatis",b,A.beu(),null)},
+$3(a,b,c){return new A.fe("Lewati Keheningan","Potong bagian senyap di dalam lagu (intro/outro), bukan jeda antar lagu \u2014 transisi antar lagu sudah mulus secara default",b,A.beu(),null)},
 $S:44}
 A.aCL.prototype={
 $3(a,b,c){var s=A.b([new A.fe("Pelebaran Stereo","ChannelMixingAudioProcessor \u2014 memperlebar medan stereo",b,A.bev(),null)],t.p)

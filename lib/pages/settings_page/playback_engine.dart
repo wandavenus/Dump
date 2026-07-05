@@ -52,8 +52,9 @@ class _PlaybackEngineSection extends StatelessWidget {
                 ValueListenableBuilder<bool>(
                   valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
                   builder: (_, v, _) => SettingsToggleRow(
-                    title: 'Gapless',
-                    subtitle: 'Potong keheningan antar lagu secara otomatis',
+                    title: 'Lewati Keheningan',
+                    subtitle:
+                        'Potong bagian senyap di dalam lagu (intro/outro), bukan jeda antar lagu — transisi antar lagu sudah mulus secara default',
                     value: v,
                     onChanged: MediaCapabilitiesService.setSkipSilence,
                   ),
