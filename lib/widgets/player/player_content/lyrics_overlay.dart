@@ -47,13 +47,20 @@ class _LyricsOverlayBody extends StatelessWidget {
             onNotification: (notification) {
               final offset = notification.metrics.pixels;
 
-              // Only a genuine user swipe-up (dragDetails != null) may expand
-              // to full mode and hide the bottom controls — automatic/
-              // programmatic scrolls (e.g. auto-following the current lyric
-              // line as the song plays) must never trigger that hide.
+              // Only a genuine user swipe-up may expand to full mode and
+              // hide the bottom controls — automatic/programmatic scrolls
+              // (e.g. auto-following the current lyric line as the song
+              // plays) must never trigger that hide. A real user drag shows
+              // up either as dragDetails != null (finger directly on the
+              // list) or dragHandle.isExternalDragActive (finger on one of
+              // the bottom hit-box areas, which forwards via jumpTo and so
+              // never carries dragDetails) — so either area feels identical.
               // Collapsing back to half-view (revealing the controls again)
               // stays unrestricted, as before.
-              if (offset > 150 && notification.dragDetails != null) {
+              final isGenuineUserDrag =
+                  notification.dragDetails != null ||
+                  dragHandle.isExternalDragActive;
+              if (offset > 150 && isGenuineUserDrag) {
                 onExpandChanged(true);
               } else if (offset < 50) {
                 onExpandChanged(false);

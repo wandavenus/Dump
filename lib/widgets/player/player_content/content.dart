@@ -37,6 +37,12 @@ class PlayerContent extends StatefulWidget {
   /// hit area, so it can hand off into a natural fling too.
   static void forwardExternalDragEnd(double velocity) =>
       _PlayerContentState.forwardExternalDragEnd(velocity);
+
+  /// Marks the start of a drag forwarded from the same external gesture-inset
+  /// hit area, so the expand/collapse gating in lyrics_overlay.dart treats it
+  /// as a genuine user gesture — see [LyricsDragHandle.isExternalDragActive].
+  static void forwardExternalDragStart() =>
+      _PlayerContentState.forwardExternalDragStart();
 }
 
 class _PlayerContentState extends State<PlayerContent> {
@@ -71,6 +77,12 @@ class _PlayerContentState extends State<PlayerContent> {
   // directly) into the same forwarding logic used internally.
   static _PlayerContentState? _current;
 
+  static void forwardExternalDragStart() {
+    _current?._forwardVerticalDragStart(
+      showLyrics: _current!.widget.showLyrics,
+    );
+  }
+
   static void forwardExternalDrag(double deltaY) {
     _current?._forwardVerticalDrag(
       showLyrics: _current!.widget.showLyrics,
@@ -85,6 +97,15 @@ class _PlayerContentState extends State<PlayerContent> {
       showQueue: _current!.widget.showQueue,
       velocity: velocity,
     );
+  }
+
+  // Marks a forwarded drag as "genuinely user-initiated" for as long as it
+  // lasts, so lyrics_overlay.dart's expand/collapse gating (which otherwise
+  // only trusts ScrollUpdateNotification.dragDetails != null, true only for
+  // drags directly on the Scrollable) also reacts when the user drags from
+  // one of the bottom hit-box areas instead of the list itself.
+  void _forwardVerticalDragStart({required bool showLyrics}) {
+    if (showLyrics) _lyricsDragHandle.isExternalDragActive = true;
   }
 
   void _forwardVerticalDrag({
@@ -120,6 +141,7 @@ class _PlayerContentState extends State<PlayerContent> {
   }) {
     if (showLyrics) {
       _lyricsDragHandle.flingByVelocity(velocity);
+      _lyricsDragHandle.isExternalDragActive = false;
       return;
     }
     if (!showQueue) return;
@@ -300,6 +322,11 @@ class _PlayerContentState extends State<PlayerContent> {
                             height: controlsHeight + 10,
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
+                              onVerticalDragStart: (_) {
+                                _forwardVerticalDragStart(
+                                  showLyrics: showLyrics,
+                                );
+                              },
                               onVerticalDragUpdate: (d) {
                                 _forwardVerticalDrag(
                                   showLyrics: showLyrics,
@@ -498,6 +525,12 @@ class _PlayerContentState extends State<PlayerContent> {
               // GestureDetector forwards vertical drags from controls area to list.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onVerticalDragStart:
+                    (showLyrics || showQueue)
+                        ? (_) {
+                          _forwardVerticalDragStart(showLyrics: showLyrics);
+                        }
+                        : null,
                 onVerticalDragUpdate:
                     (showLyrics || showQueue)
                         ? (d) {

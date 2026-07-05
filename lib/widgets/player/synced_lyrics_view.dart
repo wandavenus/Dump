@@ -37,6 +37,16 @@ part 'synced_lyrics_view/karaoke_line_painter.dart';
 class LyricsDragHandle {
   _SyncedLyricsViewState? _state;
 
+  /// True while a drag forwarded from outside the list (e.g. the bottom
+  /// hit-box areas / gesture-inset relay in content.dart and
+  /// player_sheet/state.dart) is in progress. Forwarded drags drive the list
+  /// via [ScrollPosition.jumpTo], which produces [ScrollUpdateNotification]s
+  /// with `dragDetails == null` (only real drags directly on the Scrollable
+  /// carry non-null dragDetails) — so listeners that need to distinguish
+  /// "genuine user gesture" from "programmatic scroll" (e.g. auto-follow)
+  /// must also check this flag, not just `dragDetails != null`.
+  bool isExternalDragActive = false;
+
   void _attach(_SyncedLyricsViewState state) => _state = state;
 
   void _detach(_SyncedLyricsViewState state) {

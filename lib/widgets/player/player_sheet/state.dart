@@ -161,6 +161,9 @@ class _PlayerSheetState extends State<PlayerSheet> {
                               height: MediaQuery.paddingOf(context).bottom,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.translucent,
+                                onVerticalDragStart: (_) {
+                                  PlayerContent.forwardExternalDragStart();
+                                },
                                 onVerticalDragUpdate: (d) {
                                   PlayerContent.forwardExternalDrag(
                                     d.delta.dy,
