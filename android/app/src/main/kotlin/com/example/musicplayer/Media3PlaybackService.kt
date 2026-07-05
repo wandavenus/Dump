@@ -216,6 +216,10 @@ class Media3PlaybackService : MediaSessionService() {
         )
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
+            // Explicit unique ID prevents "Session ID must be unique" crash when
+            // Media3PlaybackService and MediaKitPlaybackService are both alive briefly
+            // during an engine switch (both would otherwise default to ID="").
+            .setId("media3_playback_session")
             // Use FallbackBitmapLoader so MediaSessionLegacyStub (Bluetooth / lock screen)
             // can load album art even for songs whose embedded artwork has not been indexed
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
