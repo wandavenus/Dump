@@ -14986,7 +14986,7 @@ b1=new A.Op(n?B.oL:B.oO,c5,a0,a1,c5,c5,d1,s)
 b2=n?B.hW:B.Hs
 b3=n?B.oI:B.kt
 b4=n?B.oI:B.GF
-if(d6){b5=A.aV5(c8,c5,c5,B.a4o,B.a4g,B.a4i)
+if(d6){b5=A.aV5(c8,c5,c5,B.a4o,B.a4f,B.a4i)
 p=d1.a===B.az
 b6=p?d1.k3:d1.k2
 b7=p?d1.k2:d1.k3
@@ -15463,15 +15463,15 @@ _.w=h
 _.x=i
 _.y=j},
 a35:function a35(){},
-b91(a){return A.aV5(a,null,null,B.a4h,B.a4b,B.a4e)},
+b91(a){return A.aV5(a,null,null,B.a4g,B.a4b,B.a4d)},
 aV5(a,b,c,d,e,f){switch(a){case B.a6:b=B.a49
 c=B.a4j
 break
 case B.aC:case B.bX:b=B.a4n
-c=B.a4f
+c=B.a4e
 break
 case B.bL:b=B.a4m
-c=B.a4d
+c=B.a4c
 break
 case B.bo:b=B.a4p
 c=B.a4a
@@ -95574,7 +95574,7 @@ this.ar()},
 nr(a){if(a===B.cc){A.Go(B.CA)
 A.UT(B.CD)
 A.a6Y()}else if(a===B.hD||a===B.d5)A.ld()},
-t(a){return new A.Ds("/firstpage",new A.aCA(),new A.aCB(),A.y7(B.DS,null,B.Gs,"SF Pro Display",B.p,B.Zj,B.a4c,null),!1,new A.ak1(),null)}}
+t(a){return new A.Ds("/firstpage",new A.aCA(),new A.aCB(),A.y7(B.DS,null,B.Gs,"SF Pro Text",B.p,B.Zj,B.a4h,null),!1,new A.ak1(),null)}}
 A.aCB.prototype={
 $2(a,b){A.Go(B.CA)
 A.UT(B.CD)
@@ -99753,7 +99753,7 @@ $2(a,b){return new A.yq(this.a.d[b],null)},
 $S:654}
 A.yt.prototype={
 t(a){var s=null,r=this.c,q=r.b,p=J.cB(q)
-return A.c1(s,A.aZ(s,A.av(A.b([B.hl,A.qO(A.b5(3),new A.em(p.gaa(q).a,170,B.al,B.aH,s)),B.Cm,A.cv(A.a3(r.a,1,B.I,s,B.D3,s,s),s,165),A.a3(""+p.gG(q)+" lagu",1,B.I,s,B.CT,s,s)],t.p),B.w,B.i,B.k),B.m,s,s,s,s,s,B.l1,s,s,s,s),B.A,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,new A.auH(this,a),s,s,s,s,s,s)}}
+return A.c1(s,A.aZ(s,A.av(A.b([B.hl,A.qO(A.b5(10),new A.em(p.gaa(q).a,170,B.al,B.aH,s)),B.Cm,A.cv(A.a3(r.a,1,B.I,s,B.D3,s,s),s,165),A.a3(""+p.gG(q)+" lagu",1,B.I,s,B.CT,s,s)],t.p),B.w,B.i,B.k),B.m,s,s,s,s,s,B.l1,s,s,s,s),B.A,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,new A.auH(this,a),s,s,s,s,s,s)}}
 A.auH.prototype={
 $0(){return A.cb(this.b,!1).q1("/artist",this.a.c.b,t.X)},
 $S:0}
@@ -110409,8 +110409,6 @@ B.a10=new A.t(!1,null,null,null,null,null,15,B.X,null,null,null,B.ab,null,null,n
 B.a2a=new A.t(!1,null,null,null,null,null,12,B.q,null,null,null,B.ab,null,null,null,null,null,null,null,null,null,"dense labelMedium 2014",null,null,null,null)
 B.a_I=new A.t(!1,null,null,null,null,null,11,B.q,null,null,null,B.ab,null,null,null,null,null,null,null,null,null,"dense labelSmall 2014",null,null,null,null)
 B.a4b=new A.en(B.a0n,B.a2Q,B.a2C,B.a_g,B.a2m,B.a3q,B.a_u,B.a0m,B.a_F,B.a_Z,B.a_m,B.a1K,B.a10,B.a2a,B.a_I)
-B.bp=new A.t(!0,null,null,"SF Pro Display",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.a4c=new A.en(B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp)
 B.a1B=new A.t(!0,B.R,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond displayLarge",null,null,null,null)
 B.a_v=new A.t(!0,B.R,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond displayMedium",null,null,null,null)
 B.a3C=new A.t(!0,B.R,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond displaySmall",null,null,null,null)
@@ -110426,7 +110424,7 @@ B.a2q=new A.t(!0,B.R,null,"Segoe UI",null,null,null,null,null,null,null,null,nul
 B.a_K=new A.t(!0,B.f,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond labelLarge",null,null,null,null)
 B.a0Z=new A.t(!0,B.f,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond labelMedium",null,null,null,null)
 B.a_c=new A.t(!0,B.f,null,"Segoe UI",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteRedmond labelSmall",null,null,null,null)
-B.a4d=new A.en(B.a1B,B.a_v,B.a3C,B.a_J,B.a2P,B.a1N,B.a3A,B.a0k,B.a05,B.a3T,B.a3b,B.a2q,B.a_K,B.a0Z,B.a_c)
+B.a4c=new A.en(B.a1B,B.a_v,B.a3C,B.a_J,B.a2P,B.a1N,B.a3A,B.a0k,B.a05,B.a3T,B.a3b,B.a2q,B.a_K,B.a0Z,B.a_c)
 B.a1k=new A.t(!1,null,null,null,null,null,112,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall displayLarge 2014",null,null,null,null)
 B.a3p=new A.t(!1,null,null,null,null,null,56,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall displayMedium 2014",null,null,null,null)
 B.a1V=new A.t(!1,null,null,null,null,null,45,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall displaySmall 2014",null,null,null,null)
@@ -110442,7 +110440,7 @@ B.a_H=new A.t(!1,null,null,null,null,null,13,B.q,null,null,null,B.x,null,null,nu
 B.a1j=new A.t(!1,null,null,null,null,null,15,B.ad,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall labelLarge 2014",null,null,null,null)
 B.a34=new A.t(!1,null,null,null,null,null,12,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall labelMedium 2014",null,null,null,null)
 B.a1e=new A.t(!1,null,null,null,null,null,11,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"tall labelSmall 2014",null,null,null,null)
-B.a4e=new A.en(B.a1k,B.a3p,B.a1V,B.a17,B.a0b,B.a3u,B.a4_,B.a_L,B.a1p,B.a1R,B.a3y,B.a_H,B.a1j,B.a34,B.a1e)
+B.a4d=new A.en(B.a1k,B.a3p,B.a1V,B.a17,B.a0b,B.a3u,B.a4_,B.a_L,B.a1p,B.a1R,B.a3y,B.a_H,B.a1j,B.a34,B.a1e)
 B.a0z=new A.t(!0,B.R,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView displayLarge",null,null,null,null)
 B.a0K=new A.t(!0,B.R,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView displayMedium",null,null,null,null)
 B.a04=new A.t(!0,B.R,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView displaySmall",null,null,null,null)
@@ -110458,7 +110456,7 @@ B.a3Z=new A.t(!0,B.R,null,"Roboto",null,null,null,null,null,null,null,null,null,
 B.a0J=new A.t(!0,B.f,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView labelLarge",null,null,null,null)
 B.a2D=new A.t(!0,B.f,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView labelMedium",null,null,null,null)
 B.a3F=new A.t(!0,B.f,null,"Roboto",null,null,null,null,null,null,null,null,null,null,null,null,null,B.l,null,null,null,"whiteMountainView labelSmall",null,null,null,null)
-B.a4f=new A.en(B.a0z,B.a0K,B.a04,B.a_h,B.a1o,B.a3R,B.a02,B.a0q,B.a2o,B.a1r,B.a40,B.a3Z,B.a0J,B.a2D,B.a3F)
+B.a4e=new A.en(B.a0z,B.a0K,B.a04,B.a_h,B.a1o,B.a3R,B.a02,B.a0q,B.a2o,B.a1r,B.a40,B.a3Z,B.a0J,B.a2D,B.a3F)
 B.a3P=new A.t(!1,null,null,null,null,null,57,B.q,null,-0.25,null,B.ab,1.12,B.N,null,null,null,null,null,null,null,"dense displayLarge 2021",null,null,null,null)
 B.a3W=new A.t(!1,null,null,null,null,null,45,B.q,null,0,null,B.ab,1.16,B.N,null,null,null,null,null,null,null,"dense displayMedium 2021",null,null,null,null)
 B.a3X=new A.t(!1,null,null,null,null,null,36,B.q,null,0,null,B.ab,1.22,B.N,null,null,null,null,null,null,null,"dense displaySmall 2021",null,null,null,null)
@@ -110474,7 +110472,7 @@ B.a12=new A.t(!1,null,null,null,null,null,12,B.q,null,0.4,null,B.ab,1.33,B.N,nul
 B.a3V=new A.t(!1,null,null,null,null,null,14,B.X,null,0.1,null,B.ab,1.43,B.N,null,null,null,null,null,null,null,"dense labelLarge 2021",null,null,null,null)
 B.a3c=new A.t(!1,null,null,null,null,null,12,B.X,null,0.5,null,B.ab,1.33,B.N,null,null,null,null,null,null,null,"dense labelMedium 2021",null,null,null,null)
 B.a2y=new A.t(!1,null,null,null,null,null,11,B.X,null,0.5,null,B.ab,1.45,B.N,null,null,null,null,null,null,null,"dense labelSmall 2021",null,null,null,null)
-B.a4g=new A.en(B.a3P,B.a3W,B.a3X,B.a3L,B.a0r,B.a_P,B.a26,B.a0t,B.a2i,B.a3m,B.a0C,B.a12,B.a3V,B.a3c,B.a2y)
+B.a4f=new A.en(B.a3P,B.a3W,B.a3X,B.a3L,B.a0r,B.a_P,B.a26,B.a0t,B.a2i,B.a3m,B.a0C,B.a12,B.a3V,B.a3c,B.a2y)
 B.a0d=new A.t(!1,null,null,null,null,null,112,B.ly,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike displayLarge 2014",null,null,null,null)
 B.a2X=new A.t(!1,null,null,null,null,null,56,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike displayMedium 2014",null,null,null,null)
 B.a1t=new A.t(!1,null,null,null,null,null,45,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike displaySmall 2014",null,null,null,null)
@@ -110490,7 +110488,9 @@ B.a3t=new A.t(!1,null,null,null,null,null,12,B.q,null,null,null,B.x,null,null,nu
 B.a0f=new A.t(!1,null,null,null,null,null,14,B.X,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike labelLarge 2014",null,null,null,null)
 B.a2J=new A.t(!1,null,null,null,null,null,12,B.q,null,null,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike labelMedium 2014",null,null,null,null)
 B.a3n=new A.t(!1,null,null,null,null,null,10,B.q,null,1.5,null,B.x,null,null,null,null,null,null,null,null,null,"englishLike labelSmall 2014",null,null,null,null)
-B.a4h=new A.en(B.a0d,B.a2X,B.a1t,B.a_N,B.a11,B.a21,B.a3r,B.a3Q,B.a2e,B.a3K,B.a3I,B.a3t,B.a0f,B.a2J,B.a3n)
+B.a4g=new A.en(B.a0d,B.a2X,B.a1t,B.a_N,B.a11,B.a21,B.a3r,B.a3Q,B.a2e,B.a3K,B.a3I,B.a3t,B.a0f,B.a2J,B.a3n)
+B.bp=new A.t(!0,null,null,"SF Pro Text",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.a4h=new A.en(B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp,B.bp)
 B.a1h=new A.t(!1,null,null,null,null,null,57,B.q,null,-0.25,null,B.x,1.12,B.N,null,null,null,null,null,null,null,"tall displayLarge 2021",null,null,null,null)
 B.a33=new A.t(!1,null,null,null,null,null,45,B.q,null,0,null,B.x,1.16,B.N,null,null,null,null,null,null,null,"tall displayMedium 2021",null,null,null,null)
 B.a_X=new A.t(!1,null,null,null,null,null,36,B.q,null,0,null,B.x,1.22,B.N,null,null,null,null,null,null,null,"tall displaySmall 2021",null,null,null,null)

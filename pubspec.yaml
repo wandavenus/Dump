@@ -52,14 +52,6 @@ flutter:
     - assets/shaders/fluid.frag
 
   fonts:
-    - family: SF Pro Display
-      fonts:
-        - asset: assets/fonts/regular.otf
-        - asset: assets/fonts/medium.otf
-          weight: 500
-        - asset: assets/fonts/bold.otf
-          weight: 700
-
     - family: SF Pro Text
       fonts:
         - asset: assets/fonts/sf_pro_text_regular.otf
