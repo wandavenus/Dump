@@ -91,26 +91,39 @@ class MediaKitEngine implements AbstractAudioEngine {
   }
 
   // Steps player volume from [from] toward the value returned by [getTo]
-  // (both in media_kit's 0–100 scale) over ~480 ms (30 steps × 16 ms).
+  // (both in media_kit's 0–100 scale) over [durationMs] milliseconds.
   //
-  // Uses a smoothstep curve instead of linear interpolation so the fade
-  // accelerates gently at the start and decelerates at the end — matching
-  // human loudness perception and avoiding the abrupt/lingering feel of a
-  // straight-line ramp.
+  // Duration defaults match the Media3 PlayPauseFadeController reference:
+  //   • Fade-in  (play):  200 ms — snappy, audibly instant
+  //   • Fade-out (pause): 150 ms — quick enough to not feel sluggish
+  //
+  // Shorter durations matter more than the curve shape here: each setVolume()
+  // must cross a Dart→platform-channel→mpv round-trip, so fewer steps mean
+  // less accumulated jitter.  The smoothstep curve is retained so the limited
+  // steps still feel perceptually gradual at both endpoints.
   //
   // [getTo] is evaluated on every tick so that a mid-fade setVolume() call
   // is picked up immediately — the fade retargets smoothly without a restart.
   // Calls [onDone] after the final step.
   // Exits early and cancels itself if the engine is disposed or player gone.
-  void _startFade(double from, double Function() getTo, void Function() onDone) {
+  static const int _kFadeStepMs   = 16; // ~62 fps, same cadence as CrossfadeController
+  static const int _kFadeInMs     = 200;
+  static const int _kFadeOutMs    = 150;
+
+  void _startFade(
+    double from,
+    double Function() getTo,
+    void Function() onDone, {
+    int durationMs = _kFadeInMs,
+  }) {
     _cancelFade();
-    const totalSteps = 30;
+    final totalSteps = (durationMs / _kFadeStepMs).ceil().clamp(1, 200);
     int step = 0;
     LogService.verbose(
       'MediaKitEngine',
-      '_startFade from=$from → target=${getTo()} ($totalSteps steps, smoothstep)',
+      '_startFade from=$from → target=${getTo()} ($totalSteps steps × ${_kFadeStepMs}ms = ${durationMs}ms, smoothstep)',
     );
-    _fadeTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: _kFadeStepMs), (t) {
       if (_disposed || _player == null) {
         t.cancel();
         _fadeTimer = null;
@@ -459,8 +472,8 @@ class MediaKitEngine implements AbstractAudioEngine {
     // between the setVolume(0) call and the first decoded frame.
     await _player?.setVolume(0);
     await _player?.play();
-    _startFade(0, () => _userVolume * 100, () {});
-    LogService.verbose('MediaKitEngine', 'play() [fade-in]');
+    _startFade(0, () => _userVolume * 100, () {}, durationMs: _kFadeInMs);
+    LogService.verbose('MediaKitEngine', 'play() [fade-in ${_kFadeInMs}ms]');
   }
 
   @override
@@ -475,8 +488,8 @@ class MediaKitEngine implements AbstractAudioEngine {
       if (_disposed || _player == null) return;
       await _player?.pause();
       await _player?.setVolume(_userVolume * 100);
-    });
-    LogService.verbose('MediaKitEngine', 'pause() [fade-out]');
+    }, durationMs: _kFadeOutMs);
+    LogService.verbose('MediaKitEngine', 'pause() [fade-out ${_kFadeOutMs}ms]');
   }
 
   @override
