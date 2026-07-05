@@ -32,6 +32,11 @@ class PlayerContent extends StatefulWidget {
   /// the extra gesture-inset hit area in player_sheet/state.dart.
   static void forwardExternalDrag(double deltaY) =>
       _PlayerContentState.forwardExternalDrag(deltaY);
+
+  /// Forwards the drag-release velocity for the same external gesture-inset
+  /// hit area, so it can hand off into a natural fling too.
+  static void forwardExternalDragEnd(double velocity) =>
+      _PlayerContentState.forwardExternalDragEnd(velocity);
 }
 
 class _PlayerContentState extends State<PlayerContent> {
@@ -74,6 +79,14 @@ class _PlayerContentState extends State<PlayerContent> {
     );
   }
 
+  static void forwardExternalDragEnd(double velocity) {
+    _current?._forwardVerticalDragEnd(
+      showLyrics: _current!.widget.showLyrics,
+      showQueue: _current!.widget.showQueue,
+      velocity: velocity,
+    );
+  }
+
   void _forwardVerticalDrag({
     required bool showLyrics,
     required bool showQueue,
@@ -93,6 +106,21 @@ class _PlayerContentState extends State<PlayerContent> {
     ctrl.jumpTo(
       (ctrl.offset - deltaY).clamp(0.0, ctrl.position.maxScrollExtent),
     );
+  }
+
+  // Releases the lyrics list into a natural ballistic fling once a drag
+  // forwarded from one of the bottom hit-box areas ends — otherwise a
+  // forwarded drag (driven by jumpTo, which has no built-in momentum) stops
+  // dead the instant the finger lifts, unlike scrolling the list directly.
+  // Queue scrolling isn't touched here: it already flings on its own since
+  // _queueScrollController is attached directly to the ListView.
+  void _forwardVerticalDragEnd({
+    required bool showLyrics,
+    required bool showQueue,
+    required double velocity,
+  }) {
+    if (!showLyrics) return;
+    _lyricsDragHandle.flingByVelocity(velocity);
   }
 
   @override
@@ -266,6 +294,13 @@ class _PlayerContentState extends State<PlayerContent> {
                                   showLyrics: showLyrics,
                                   showQueue: showQueue,
                                   deltaY: d.delta.dy,
+                                );
+                              },
+                              onVerticalDragEnd: (d) {
+                                _forwardVerticalDragEnd(
+                                  showLyrics: showLyrics,
+                                  showQueue: showQueue,
+                                  velocity: d.primaryVelocity ?? 0,
                                 );
                               },
                             ),
@@ -459,6 +494,16 @@ class _PlayerContentState extends State<PlayerContent> {
                             showLyrics: showLyrics,
                             showQueue: showQueue,
                             deltaY: d.delta.dy,
+                          );
+                        }
+                        : null,
+                onVerticalDragEnd:
+                    (showLyrics || showQueue)
+                        ? (d) {
+                          _forwardVerticalDragEnd(
+                            showLyrics: showLyrics,
+                            showQueue: showQueue,
+                            velocity: d.primaryVelocity ?? 0,
                           );
                         }
                         : null,

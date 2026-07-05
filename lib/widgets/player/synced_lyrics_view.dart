@@ -47,4 +47,13 @@ class LyricsDragHandle {
   /// content should move up — matches the sign convention of
   /// [DragUpdateDetails.delta.dy]).
   void scrollByDelta(double deltaY) => _state?._jumpByDelta(deltaY);
+
+  /// Releases the live list into a normal ballistic fling on drag-release,
+  /// so a forwarded drag decelerates naturally instead of stopping dead —
+  /// matching the feel of scrolling the list directly. [primaryVelocity] is
+  /// the raw on-screen finger velocity (e.g. from
+  /// `DragEndDetails.primaryVelocity`); this negates it internally to match
+  /// [scrollByDelta]'s sign convention.
+  void flingByVelocity(double primaryVelocity) =>
+      _state?._flingByVelocity(-primaryVelocity);
 }

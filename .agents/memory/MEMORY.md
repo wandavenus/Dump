@@ -33,4 +33,5 @@
 - [MediaKit engine dispose pattern](mediakit-engine-dispose-pattern.md) — urutan shutdown wajib + alasan; null _player sebelum await pertama untuk menutup async race; stopListening sebelum stopService; semua lokasi guard _disposed.
 - [MediaKit shuffle index-space mismatch](mediakit-shuffle-index-space.md) — mpv native playlist order ≠ Dart `_queue` order when shuffled; any index crossing that boundary (both directions) must resolve via URI, never trusted as-is.
 - [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.
+- [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
 - [Lyrics full-view control hiding](lyrics-fullview-control-hiding.md) — bottom controls hide only on genuine user swipe-up (ScrollUpdateNotification.dragDetails != null), never on programmatic/auto-follow scrolls.

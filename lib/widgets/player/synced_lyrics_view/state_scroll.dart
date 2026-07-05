@@ -21,6 +21,23 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
     position.jumpTo(target);
   }
 
+  /// Releases the currently-live internal scrollable into a normal ballistic
+  /// fling, using the same physics a genuine drag-to-scroll gesture ends
+  /// with. [velocity] must already be in scroll-offset space (i.e. negated
+  /// relative to the raw forwarded [DragEndDetails.primaryVelocity], which
+  /// is in on-screen finger space — see [_jumpByDelta]'s sign convention).
+  /// Without this, a forwarded drag that stops abruptly on release (a plain
+  /// jumpTo has no built-in momentum) feels rigid compared to scrolling the
+  /// list directly.
+  void _flingByVelocity(double velocity) {
+    final ctx = liveScrollContext;
+    if (ctx == null || !ctx.mounted) return;
+    final position = Scrollable.maybeOf(ctx)?.position;
+    if (position is ScrollPositionWithSingleContext) {
+      position.goBallistic(velocity);
+    }
+  }
+
   void _scrollToCenter(int index, {bool animate = true}) {
     if (_userIsManualScrolling && animate) return;
     if (animate) {

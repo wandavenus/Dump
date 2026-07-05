@@ -166,6 +166,11 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                     d.delta.dy,
                                   );
                                 },
+                                onVerticalDragEnd: (d) {
+                                  PlayerContent.forwardExternalDragEnd(
+                                    d.primaryVelocity ?? 0,
+                                  );
+                                },
                               ),
                             ),
                         ],
