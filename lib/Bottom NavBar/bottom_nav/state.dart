@@ -90,8 +90,6 @@ class _FirstPageState extends State<FirstPage> {
         page = const WebView(child: ArtistList());
       case '/musiclist':
         page = const WebView(child: MusicList());
-      case '/player':
-        page = const WebView(child: MusicPlayer());
       default:
         return null;
     }
