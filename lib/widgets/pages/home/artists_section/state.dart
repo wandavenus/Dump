@@ -46,9 +46,10 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
     if (_artists.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 250,
+      height: 160,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 7, right: 7),
         itemCount: _artists.length,
         itemBuilder: (context, index) =>
             _ArtistCard(artist: _artists[index]),

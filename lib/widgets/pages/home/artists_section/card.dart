@@ -6,34 +6,55 @@ class _ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    const double avatarSize = 88.0;
+
+    return GestureDetector(
       onTap: () =>
           Navigator.pushNamed(context, '/artist', arguments: artist.songs),
-      child: Container(
-        margin: const EdgeInsets.only(top: 20, left: 10, right: 10, bottom: 20),
-        child: Column(
-          children: [
-            ClipPath(
-              clipper: const ShapeBorderClipper(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+      child: SizedBox(
+        width: 106,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Circle avatar ─────────────────────────────────────────────
+              ClipOval(
+                child: SongArtwork(
+                  songId: artist.coverSongId,
+                  size: avatarSize,
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
-              child: SongArtwork(
-                songId: artist.coverSongId,
-                size: 150,
-                borderRadius: BorderRadius.zero,
+              const SizedBox(height: 9),
+              // ── Artist name ───────────────────────────────────────────────
+              Text(
+                artist.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'SF Pro Display',
+                  height: 1.25,
+                ),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 5),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(artist.name, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 5),
-              ],
-            ),
-          ],
+              const SizedBox(height: 3),
+              // ── Song count — iOS gray ─────────────────────────────────────
+              Text(
+                '${artist.songs.length} lagu',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontFamily: 'SF Pro Display',
+                  color: Color(0xFF8E8E93),
+                ),
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
