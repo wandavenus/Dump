@@ -54,7 +54,7 @@ class _PlaybackEngineSection extends StatelessWidget {
                   builder: (_, v, _) => SettingsToggleRow(
                     title: 'Lewati Keheningan',
                     subtitle:
-                        'Potong bagian senyap di dalam lagu (intro/outro), bukan jeda antar lagu — transisi antar lagu sudah mulus secara default',
+                        'Potong bagian senyap di dalam lagu (intro/outro)',
                     value: v,
                     onChanged: MediaCapabilitiesService.setSkipSilence,
                   ),
