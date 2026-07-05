@@ -34,6 +34,7 @@ class SongListRow extends StatelessWidget {
             indent: 48,
             endIndent: 16,
           ),
+          const SizedBox(height: 5),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -55,11 +56,13 @@ class SongListRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 20),
                         ),
+                        const SizedBox(height: 0.5),
                         Text(
                           song.album,
                           style: const TextStyle(fontSize: 15, color: Colors.grey),
                           overflow: TextOverflow.ellipsis,
                         ),
+                       const SizedBox(height: 5), 
                       ],
                     ),
                   ),
