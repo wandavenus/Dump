@@ -6,7 +6,7 @@ class _ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double avatarSize = 88.0;
+    const double avatarSize = 150.0;
 
     return GestureDetector(
       onTap: () =>
