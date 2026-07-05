@@ -55,6 +55,10 @@ class _PlayerContentState extends State<PlayerContent> {
   // scroll mechanism exposed by scrollable_positioned_list, so it's what
   // must be used to forward external drags into the lyrics list.
   final _lyricsOffsetController = ScrollOffsetController();
+  // Forwards raw drag deltas directly into the lyrics list's live
+  // ScrollPosition via jumpTo — see LyricsDragHandle for why this replaces
+  // _lyricsOffsetController.animateScroll for external drag forwarding.
+  final _lyricsDragHandle = LyricsDragHandle();
 
   // Bridges drags started outside this widget's own bounds (e.g. the extra
   // hit area covering the system gesture inset in player_sheet/state.dart,
@@ -76,20 +80,11 @@ class _PlayerContentState extends State<PlayerContent> {
     required double deltaY,
   }) {
     if (showLyrics) {
-      try {
-        // duration: Duration.zero makes ScrollOffsetController.animateScroll
-        // resolve to an immediate jumpTo internally instead of spinning up a
-        // fresh AnimationController per drag-update event — using a tiny
-        // nonzero duration instead caused every frame's animation to
-        // interrupt the previous one, producing the jerky/rigid feel.
-        _lyricsOffsetController.animateScroll(
-          offset: -deltaY,
-          duration: Duration.zero,
-          curve: Curves.linear,
-        );
-      } catch (_) {
-        // Not attached yet (e.g. lyrics still loading) — ignore.
-      }
+      // Forwarded directly to the live ScrollPosition via jumpTo — see
+      // LyricsDragHandle for why this replaces
+      // _lyricsOffsetController.animateScroll (which always drives an
+      // animation, even with Duration.zero, producing a jerky/rigid feel).
+      _lyricsDragHandle.scrollByDelta(deltaY);
       return;
     }
     if (!showQueue) return;
@@ -575,6 +570,7 @@ class _PlayerContentState extends State<PlayerContent> {
           result: result,
           scrollController: _lyricsScrollController,
           offsetController: _lyricsOffsetController,
+          dragHandle: _lyricsDragHandle,
           isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;

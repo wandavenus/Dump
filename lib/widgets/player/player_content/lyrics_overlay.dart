@@ -60,6 +60,7 @@ class _LyricsOverlayBody extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
               controller: scrollController,
               offsetController: offsetController,
+              dragHandle: dragHandle,
               isVisible: isVisible,
               rawLrc: result.rawLrc,
             ),

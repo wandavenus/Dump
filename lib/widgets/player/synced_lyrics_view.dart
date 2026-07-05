@@ -9,6 +9,18 @@ import '../../models/lyrics_settings.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 
+part 'synced_lyrics_view/elrc_word.dart';
+part 'synced_lyrics_view/view.dart';
+part 'synced_lyrics_view/state.dart';
+part 'synced_lyrics_view/state_timeline.dart';
+part 'synced_lyrics_view/state_playback.dart';
+part 'synced_lyrics_view/state_indexing.dart';
+part 'synced_lyrics_view/state_scroll.dart';
+part 'synced_lyrics_view/state_build.dart';
+part 'synced_lyrics_view/karaoke_controller.dart';
+part 'synced_lyrics_view/karaoke_line.dart';
+part 'synced_lyrics_view/karaoke_line_painter.dart';
+
 /// Lightweight handle for forwarding raw drag deltas directly into whichever
 /// [ScrollPosition] is currently live inside a [SyncedLyricsView].
 ///
@@ -36,15 +48,3 @@ class LyricsDragHandle {
   /// [DragUpdateDetails.delta.dy]).
   void scrollByDelta(double deltaY) => _state?._jumpByDelta(deltaY);
 }
-
-part 'synced_lyrics_view/elrc_word.dart';
-part 'synced_lyrics_view/view.dart';
-part 'synced_lyrics_view/state.dart';
-part 'synced_lyrics_view/state_timeline.dart';
-part 'synced_lyrics_view/state_playback.dart';
-part 'synced_lyrics_view/state_indexing.dart';
-part 'synced_lyrics_view/state_scroll.dart';
-part 'synced_lyrics_view/state_build.dart';
-part 'synced_lyrics_view/karaoke_controller.dart';
-part 'synced_lyrics_view/karaoke_line.dart';
-part 'synced_lyrics_view/karaoke_line_painter.dart';
