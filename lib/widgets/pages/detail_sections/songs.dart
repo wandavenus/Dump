@@ -17,7 +17,7 @@ class SongListSection extends StatelessWidget {
       children: [
         if (showHeader)
           Container(
-            margin: const EdgeInsets.only(left: 10, top: 20),
+            margin: const EdgeInsets.only(left: 25, top: 20),
             child: const Row(
               children: [
                 Text(
@@ -28,12 +28,12 @@ class SongListSection extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey),
+            
               ],
             ),
           ),
         ListView.builder(
-          padding: const EdgeInsets.only(top: 0, left: 10, right: 10),
+          padding: const EdgeInsets.only(top: 10, left: 25, right: 25),
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
           itemCount: displayCount,
