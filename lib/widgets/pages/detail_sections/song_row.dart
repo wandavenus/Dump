@@ -31,7 +31,7 @@ class SongListRow extends StatelessWidget {
             color: Color(0xFF48484A),
             thickness: 0.5,
             height: 1,
-            indent: 58,
+            indent: 48,
             endIndent: 16,
           ),
           Row(
@@ -42,11 +42,11 @@ class SongListRow extends StatelessWidget {
                   SongArtwork(
                     songId: song.id,
                     size: 50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                   Container(
-                    width: 280,
-                    margin: const EdgeInsets.only(left: 10),
+                    width: 250,
+                    margin: const EdgeInsets.only(left: 25),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -65,7 +65,7 @@ class SongListRow extends StatelessWidget {
                   ),
                 ],
               ),
-              const Icon(Icons.more_horiz),
+              const Icon(Icons.more_vert),
             ],
           ),
         ],
