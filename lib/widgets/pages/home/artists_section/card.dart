@@ -16,7 +16,7 @@ class _ArtistCard extends StatelessWidget {
           children: [
             const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(10),
               child: SongArtwork(
                 songId: artist.coverSongId,
                 size: 170,
