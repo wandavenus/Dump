@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
@@ -176,10 +178,12 @@ class _SongContextMenuState extends State<SongContextMenu> {
               label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
               onTap: _favLoaded
                   ? () async {
+                      final navigator = Navigator.of(context);
                       final nowFav =
                           await PlaylistService.toggleFavorite(widget.song.id);
-                      if (mounted) setState(() => _isFavorite = nowFav);
-                      if (mounted) Navigator.pop(context);
+                      if (!mounted) return;
+                      setState(() => _isFavorite = nowFav);
+                      navigator.pop();
                     }
                   : () {},
             ),
@@ -195,13 +199,13 @@ class _SongContextMenuState extends State<SongContextMenu> {
             _MenuItem(
               icon: Icons.album_rounded,
               label: 'Buka Album',
-              onTap: () => _openAlbum(),
+              onTap: _openAlbum,
             ),
             _insetDivider,
             _MenuItem(
               icon: Icons.person_rounded,
               label: 'Buka Artis',
-              onTap: () => _openArtist(),
+              onTap: _openArtist,
             ),
 
             // ── Grup 4: Informasi ─────────────────────────────────────────
@@ -241,6 +245,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
   // ── Hapus dari Perangkat ───────────────────────────────────────────────────
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       useRootNavigator: true,
@@ -274,8 +280,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     );
     if (confirmed != true || !mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
+    navigator.pop();
 
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
@@ -325,14 +330,14 @@ class _SongContextMenuState extends State<SongContextMenu> {
       final allSongs = await MediaStoreService.getSongs();
       final albumSongs =
           allSongs.where((s) => s.album == widget.song.album).toList();
-      nav.push(
+      unawaited(nav.push(
         ZoomFadeRoute<void>(
           settings: RouteSettings(
             arguments: {'album': widget.song, 'songs': albumSongs},
           ),
           page: const AlbumPage(),
         ),
-      );
+      ));
     } catch (_) {}
   }
 
@@ -345,12 +350,12 @@ class _SongContextMenuState extends State<SongContextMenu> {
       final allSongs = await MediaStoreService.getSongs();
       final artistSongs =
           allSongs.where((s) => s.artist == widget.song.artist).toList();
-      nav.push(
+      unawaited(nav.push(
         ZoomFadeRoute<void>(
           settings: RouteSettings(arguments: artistSongs),
           page: const ArtistPage(),
         ),
-      );
+      ));
     } catch (_) {}
   }
 
@@ -568,7 +573,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: playlists.length,
-                  separatorBuilder: (_, __) => const Divider(
+                  separatorBuilder: (_, _) => const Divider(
                     height: 1,
                     thickness: 0.5,
                     color: Color(0xFF48484A),
@@ -629,10 +634,11 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   Future<void> _addToExisting(BuildContext context, Playlist pl) async {
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     await PlaylistService.addSong(pl.id, widget.song.id);
     if (!mounted) return;
-    Navigator.pop(context); // tutup sheet playlist
-    Navigator.pop(context); // tutup sheet utama
+    navigator.pop(); // tutup sheet playlist
+    navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
         content: Text('Ditambahkan ke ${pl.name}'),
@@ -645,6 +651,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
   Future<void> _createNew(BuildContext context) async {
     final nameController = TextEditingController();
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final result = await showDialog<String>(
       context: context,
       useRootNavigator: true,
@@ -694,8 +701,8 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     final pl = await PlaylistService.createPlaylist(result);
     await PlaylistService.addSong(pl.id, widget.song.id);
     if (!mounted) return;
-    Navigator.pop(context); // tutup sheet playlist
-    Navigator.pop(context); // tutup sheet utama
+    navigator.pop(); // tutup sheet playlist
+    navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
         content: Text('Ditambahkan ke $result'),
