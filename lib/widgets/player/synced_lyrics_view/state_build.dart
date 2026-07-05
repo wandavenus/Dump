@@ -32,6 +32,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
 
           return ScrollablePositionedList.builder(
             itemScrollController: _itemScrollController,
+            scrollOffsetController: widget.offsetController,
             padding: widget.padding.resolve(TextDirection.ltr),
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {

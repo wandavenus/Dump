@@ -5,12 +5,14 @@ part of '../player_content.dart';
 class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
   final ScrollController scrollController;
+  final ScrollOffsetController offsetController;
   final ValueChanged<bool> onExpandChanged;
   final bool isVisible;
 
   const _LyricsOverlayBody({
     required this.result,
     required this.scrollController,
+    required this.offsetController,
     required this.onExpandChanged,
     this.isVisible = true,
   });
@@ -50,6 +52,7 @@ class _LyricsOverlayBody extends StatelessWidget {
               lyrics: result.lines,
               padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
               controller: scrollController,
+              offsetController: offsetController,
               isVisible: isVisible,
               rawLrc: result.rawLrc,
             ),

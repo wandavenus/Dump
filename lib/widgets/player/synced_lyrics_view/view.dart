@@ -6,6 +6,11 @@ class SyncedLyricsView extends StatefulWidget {
   final List<LyricLine> lyrics;
   final EdgeInsetsGeometry padding;
   final ScrollController? controller;
+  /// Controller pixel-based untuk menggeser [ScrollablePositionedList] secara
+  /// relatif (mis. dari drag eksternal di area transport controls). Berbeda
+  /// dari [controller] biasa — [ItemScrollController]/[ScrollOffsetController]
+  /// adalah mekanisme scroll asli package `scrollable_positioned_list`.
+  final ScrollOffsetController? offsetController;
   /// Sinyal visibilitas dari parent. Ketika berubah dari false → true,
   /// widget langsung melakukan re-centering ke highlight aktif.
   final bool isVisible;
@@ -19,6 +24,7 @@ class SyncedLyricsView extends StatefulWidget {
     required this.lyrics,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
     this.controller,
+    this.offsetController,
     this.isVisible = true,
     this.rawLrc,
   });

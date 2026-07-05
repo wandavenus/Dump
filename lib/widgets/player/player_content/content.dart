@@ -43,6 +43,37 @@ class _PlayerContentState extends State<PlayerContent> {
 
   final _lyricsScrollController = ScrollController();
   final _queueScrollController = ScrollController();
+  // Pixel-based relative scroller for the lyrics list. Unlike
+  // [_lyricsScrollController] (which SyncedLyricsView's
+  // ScrollablePositionedList never actually attaches to), this is the real
+  // scroll mechanism exposed by scrollable_positioned_list, so it's what
+  // must be used to forward external drags into the lyrics list.
+  final _lyricsOffsetController = ScrollOffsetController();
+
+  void _forwardVerticalDrag({
+    required bool showLyrics,
+    required bool showQueue,
+    required double deltaY,
+  }) {
+    if (showLyrics) {
+      try {
+        _lyricsOffsetController.animateScroll(
+          offset: -deltaY,
+          duration: const Duration(milliseconds: 1),
+          curve: Curves.linear,
+        );
+      } catch (_) {
+        // Not attached yet (e.g. lyrics still loading) — ignore.
+      }
+      return;
+    }
+    if (!showQueue) return;
+    final ctrl = _queueScrollController;
+    if (!ctrl.hasClients) return;
+    ctrl.jumpTo(
+      (ctrl.offset - deltaY).clamp(0.0, ctrl.position.maxScrollExtent),
+    );
+  }
 
   @override
   void initState() {
@@ -209,16 +240,10 @@ class _PlayerContentState extends State<PlayerContent> {
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
                               onVerticalDragUpdate: (d) {
-                                final ctrl =
-                                    showLyrics
-                                        ? _lyricsScrollController
-                                        : _queueScrollController;
-                                if (!ctrl.hasClients) return;
-                                ctrl.jumpTo(
-                                  (ctrl.offset - d.delta.dy).clamp(
-                                    0.0,
-                                    ctrl.position.maxScrollExtent,
-                                  ),
+                                _forwardVerticalDrag(
+                                  showLyrics: showLyrics,
+                                  showQueue: showQueue,
+                                  deltaY: d.delta.dy,
                                 );
                               },
                             ),
@@ -408,16 +433,10 @@ class _PlayerContentState extends State<PlayerContent> {
                 onVerticalDragUpdate:
                     (showLyrics || showQueue)
                         ? (d) {
-                          final ctrl =
-                              showLyrics
-                                  ? _lyricsScrollController
-                                  : _queueScrollController;
-                          if (!ctrl.hasClients) return;
-                          ctrl.jumpTo(
-                            (ctrl.offset - d.delta.dy).clamp(
-                              0.0,
-                              ctrl.position.maxScrollExtent,
-                            ),
+                          _forwardVerticalDrag(
+                            showLyrics: showLyrics,
+                            showQueue: showQueue,
+                            deltaY: d.delta.dy,
                           );
                         }
                         : null,
@@ -536,6 +555,7 @@ class _PlayerContentState extends State<PlayerContent> {
         return _LyricsOverlayBody(
           result: result,
           scrollController: _lyricsScrollController,
+          offsetController: _lyricsOffsetController,
           isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
