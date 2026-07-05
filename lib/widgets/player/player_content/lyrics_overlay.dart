@@ -23,46 +23,62 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // ScrollUpdateNotification (not UserScrollNotification) so this also
-        // fires for drags forwarded from outside the list itself — e.g. the
-        // bottom-controls / gesture-inset drag relays in content.dart and
-        // player_sheet/state.dart, which scroll the list programmatically
-        // via ScrollOffsetController rather than a direct user drag on it.
-        NotificationListener<ScrollUpdateNotification>(
+        // Swipe-down-to-collapse: a fast downward drag released anywhere on
+        // the lyrics list (any line, any scroll position) collapses back to
+        // half-view mode while in full mode. Purely additive — wraps the
+        // existing offset-based listener below without altering it; only
+        // fires for genuine user drags (ScrollEndNotification.dragDetails is
+        // null for programmatic scrolls like jumpTo/animateScroll), and
+        // onExpandChanged(false) is already a no-op when not expanded.
+        NotificationListener<ScrollEndNotification>(
           onNotification: (notification) {
-            final offset = notification.metrics.pixels;
-
-            if (offset > 150) {
-              onExpandChanged(true);
-            } else if (offset < 50) {
+            final velocity = notification.dragDetails?.primaryVelocity ?? 0;
+            if (velocity > 300) {
               onExpandChanged(false);
             }
-
             return false;
           },
-          child: ShaderMask(
-            shaderCallback: (Rect rect) {
-              return const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.white,
-                  Colors.white,
-                  Colors.transparent,
-                ],
-                stops: [0.0, 0.35, 0.65, 1.0],
-              ).createShader(rect);
+          // ScrollUpdateNotification (not UserScrollNotification) so this also
+          // fires for drags forwarded from outside the list itself — e.g. the
+          // bottom-controls / gesture-inset drag relays in content.dart and
+          // player_sheet/state.dart, which scroll the list programmatically
+          // via ScrollOffsetController rather than a direct user drag on it.
+          child: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) {
+              final offset = notification.metrics.pixels;
+
+              if (offset > 150) {
+                onExpandChanged(true);
+              } else if (offset < 50) {
+                onExpandChanged(false);
+              }
+
+              return false;
             },
-            blendMode: BlendMode.dstIn,
-            child: SyncedLyricsView(
-              lyrics: result.lines,
-              padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
-              controller: scrollController,
-              offsetController: offsetController,
-              dragHandle: dragHandle,
-              isVisible: isVisible,
-              rawLrc: result.rawLrc,
+            child: ShaderMask(
+              shaderCallback: (Rect rect) {
+                return const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.white,
+                    Colors.white,
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.35, 0.65, 1.0],
+                ).createShader(rect);
+              },
+              blendMode: BlendMode.dstIn,
+              child: SyncedLyricsView(
+                lyrics: result.lines,
+                padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
+                controller: scrollController,
+                offsetController: offsetController,
+                dragHandle: dragHandle,
+                isVisible: isVisible,
+                rawLrc: result.rawLrc,
+              ),
             ),
           ),
         ),
