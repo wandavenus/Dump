@@ -83,24 +83,30 @@ class MediaKitEngine implements AbstractAudioEngine {
   }
 
   // Steps player volume from [from] toward the value returned by [getTo]
-  // (both in media_kit's 0–100 scale) over 150 ms (10 steps × 15 ms).
+  // (both in media_kit's 0–100 scale) over ~400 ms (20 steps × 20 ms).
   // [getTo] is evaluated on every tick so that a mid-fade setVolume() call
   // is picked up immediately — the fade retargets smoothly without a restart.
   // Calls [onDone] after the final step.
   // Exits early and cancels itself if the engine is disposed or player gone.
   void _startFade(double from, double Function() getTo, void Function() onDone) {
     _cancelFade();
-    const totalSteps = 10;
+    const totalSteps = 20;
     int step = 0;
-    _fadeTimer = Timer.periodic(const Duration(milliseconds: 15), (t) {
+    LogService.verbose(
+      'MediaKitEngine',
+      '_startFade from=$from → target=${getTo()} (${totalSteps} steps)',
+    );
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: 20), (t) {
       if (_disposed || _player == null) {
         t.cancel();
         _fadeTimer = null;
         return;
       }
       step++;
-      final vol = from + (getTo() - from) * (step / totalSteps);
+      final to  = getTo();
+      final vol = from + (to - from) * (step / totalSteps);
       _player?.setVolume(vol.clamp(0.0, 100.0));
+      LogService.verbose('MediaKitEngine', '_fade step=$step/$totalSteps vol=${vol.toStringAsFixed(1)}');
       if (step >= totalSteps) {
         t.cancel();
         _fadeTimer = null;
@@ -392,10 +398,10 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   switch (action) {
     case 'play':
-      await _player?.play();
+      await play();
 
     case 'pause':
-      await _player?.pause();
+      await pause();
 
     case 'next':
       await _player?.next();
