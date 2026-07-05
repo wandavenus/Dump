@@ -109,6 +109,27 @@ class MediaStoreService {
     _artworkCache.clear();
   }
 
+  /// Menghapus lagu dari perangkat secara permanen.
+  ///
+  /// Pada Android 11+ akan menampilkan dialog konfirmasi sistem.
+  /// Pada Android < 11 akan langsung menghapus via ContentResolver.
+  /// Mengembalikan `true` jika berhasil dihapus.
+  static Future<bool> deleteSong(int songId) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'deleteSong',
+        {'songId': songId},
+      );
+      return result ?? false;
+    } on PlatformException catch (error, stackTrace) {
+      debugPrint('deleteSong platform error: $error\n$stackTrace');
+      return false;
+    } catch (error, stackTrace) {
+      debugPrint('deleteSong unexpected error: $error\n$stackTrace');
+      return false;
+    }
+  }
+
   // ── Artwork path (persistent cache) ────────────────────────────────────────
 
   /// Updates the native [ArtworkCacheManager] with the current playback queue.

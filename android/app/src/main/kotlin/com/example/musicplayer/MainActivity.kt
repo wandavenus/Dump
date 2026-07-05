@@ -61,6 +61,13 @@ class MainActivity : FlutterActivity() {
     // restart without a second MediaStore round-trip.
     @Volatile private var lastSongRefs: List<MetadataPrescanner.SongRef> = emptyList()
 
+    // ── Delete song activity-result plumbing ────────────────────────────────
+    // Android 11+ needs a system dialog (createDeleteRequest) that returns via
+    // onActivityResult. We park the MethodChannel result here and resolve it
+    // when the user dismisses the dialog.
+    private var pendingDeleteResult: MethodChannel.Result? = null
+    private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
@@ -469,10 +476,105 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    // ── Hapus lagu dari perangkat ───────────────────────────
+                    // Android 11+ (API 30+): createDeleteRequest → dialog sistem
+                    //   → hasil dikembalikan lewat onActivityResult.
+                    // Android 10  (API 29):  coba delete langsung; tangkap
+                    //   RecoverableSecurityException jika file bukan milik app.
+                    // Android < 10 (API < 29): delete file + ContentResolver.
+                    "deleteSong" -> {
+                        val songId = call.argument<Int>("songId")
+                        if (songId == null) {
+                            result.error("invalid_args", "songId required", null)
+                        } else {
+                            val contentUri = android.content.ContentUris.withAppendedId(
+                                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                songId.toLong(),
+                            )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                // Android 11+: sistem menampilkan dialog konfirmasi.
+                                try {
+                                    val pi = MediaStore.createDeleteRequest(
+                                        contentResolver, listOf(contentUri),
+                                    )
+                                    pendingDeleteResult = result
+                                    startIntentSenderForResult(
+                                        pi.intentSender,
+                                        DELETE_REQUEST_CODE,
+                                        null, 0, 0, 0,
+                                    )
+                                } catch (e: Exception) {
+                                    result.error("delete_error", e.message, null)
+                                }
+                            } else {
+                                // Android < 11: coba hapus langsung di background.
+                                submitBackground(
+                                    metadataExecutor,
+                                    onRejected = {
+                                        postToFlutter {
+                                            result.error("metadata_busy", "Metadata queue is busy", null)
+                                        }
+                                    },
+                                ) {
+                                    val deleted = try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                            // Android 10: scoped storage — file milik app lain
+                                            // bisa lempar RecoverableSecurityException.
+                                            try {
+                                                contentResolver.delete(contentUri, null, null) > 0
+                                            } catch (e: android.app.RecoverableSecurityException) {
+                                                false
+                                            }
+                                        } else {
+                                            // Android < 10: hapus file fisik dulu, lalu update DB.
+                                            val path = getPathFromUri(contentUri)
+                                            val fileOk = if (path != null) File(path).delete() else false
+                                            val rows = try {
+                                                contentResolver.delete(contentUri, null, null)
+                                            } catch (_: Exception) { 0 }
+                                            fileOk || rows > 0
+                                        }
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                    postToFlutter { result.success(deleted) }
+                                }
+                            }
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }
     }
+
+    // ── Activity result — untuk deleteSong di Android 11+ ───────────────────
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == DELETE_REQUEST_CODE) {
+            val deleted = resultCode == android.app.Activity.RESULT_OK
+            pendingDeleteResult?.success(deleted)
+            pendingDeleteResult = null
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    // ── Helper: ambil path file dari content URI ─────────────────────────────
+    private fun getPathFromUri(uri: Uri): String? {
+        return try {
+            contentResolver.query(
+                uri,
+                arrayOf(MediaStore.Audio.Media.DATA),
+                null, null, null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA))
+                } else null
+            }
+        } catch (_: Exception) { null }
+    }
+
 
     // ── Audio effects channel ──────────────────────────────────────────────────
 
