@@ -22,18 +22,23 @@ class HomePageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SingleChildScrollView(
-      physics: ClampingScrollPhysics(),
+    // Ruang kosong di bawah section terakhir agar tidak tertutup mini player.
+    // Mini player: 64.5 px + system bottom inset (gesture nav bar).
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LargePageTitle(title: 'Beranda', align: false),
-          HeaderDivider(),
-          _LocalAlbumsSection(),
-          SectionTitle(title: 'Baru Dimainkan', routeName: '/musiclist'),
-          _RecentlyPlayedSection(),
-          SectionTitle(title: 'Artis Favorit', routeName: '/artistlist'),
-          _LocalArtistsSection(),
+          const LargePageTitle(title: 'Beranda', align: false),
+          const HeaderDivider(),
+          const _LocalAlbumsSection(),
+          const SectionTitle(title: 'Baru Dimainkan', routeName: '/musiclist'),
+          const _RecentlyPlayedSection(),
+          const SectionTitle(title: 'Artis Favorit', routeName: '/artistlist'),
+          const _LocalArtistsSection(),
+          SizedBox(height: bottomClearance),
         ],
       ),
     );
