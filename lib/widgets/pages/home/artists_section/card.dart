@@ -18,8 +18,9 @@ class _ArtistCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── Circle avatar ─────────────────────────────────────────────
-              ClipOval(
+              // ── Square avatar with 3px radius ────────────────────────────
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
                 child: SongArtwork(
                   songId: artist.coverSongId,
                   size: avatarSize,
