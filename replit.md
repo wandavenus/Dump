@@ -1,6 +1,6 @@
 # Music Player — Flutter App
 
-A feature-rich Flutter music player, primarily targeting Android with a web preview build included.
+A feature-rich Flutter music player, primarily targeting Android 10+ with a web preview build included.
 
 ## Stack
 
