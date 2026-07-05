@@ -66,6 +66,49 @@ class MediaKitEngine implements AbstractAudioEngine {
   // Every callback that touches _player must check this and return early.
   bool _disposed = false;
 
+  // ── Play/pause fade ───────────────────────────────────────────────────────
+  // Tracks the volume the user intentionally set (0.0–1.0, default 1.0).
+  // The fade temporarily drives player volume below this; setVolume() always
+  // updates this field so the next fade-in restores to the correct level.
+  double _userVolume = 1.0;
+
+  // Active fade ticker — cancelled and replaced on every new play/pause call
+  // so rapid toggling always starts a clean fade from the current position.
+  Timer? _fadeTimer;
+
+  // Cancel any in-progress fade without touching player volume.
+  void _cancelFade() {
+    _fadeTimer?.cancel();
+    _fadeTimer = null;
+  }
+
+  // Steps player volume from [from] toward the value returned by [getTo]
+  // (both in media_kit's 0–100 scale) over 150 ms (10 steps × 15 ms).
+  // [getTo] is evaluated on every tick so that a mid-fade setVolume() call
+  // is picked up immediately — the fade retargets smoothly without a restart.
+  // Calls [onDone] after the final step.
+  // Exits early and cancels itself if the engine is disposed or player gone.
+  void _startFade(double from, double Function() getTo, void Function() onDone) {
+    _cancelFade();
+    const totalSteps = 10;
+    int step = 0;
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: 15), (t) {
+      if (_disposed || _player == null) {
+        t.cancel();
+        _fadeTimer = null;
+        return;
+      }
+      step++;
+      final vol = from + (getTo() - from) * (step / totalSteps);
+      _player?.setVolume(vol.clamp(0.0, 100.0));
+      if (step >= totalSteps) {
+        t.cancel();
+        _fadeTimer = null;
+        onDone();
+      }
+    });
+  }
+
   // Sleep timer (Dart-side)
   Timer? _sleepTimer;
   Timer? _sleepCountdownTick;
@@ -134,8 +177,9 @@ class MediaKitEngine implements AbstractAudioEngine {
     //    command can reach _handleTransportCommand while we tear down.
     MediaKitServiceBridge.setTransportCommandHandler(null);
 
-    // ③ Cancel sleep timers — pure Dart, no await needed.
+    // ③ Cancel sleep timers and any in-progress fade — pure Dart, no await needed.
     _cancelSleepTimerInternal();
+    _cancelFade();
 
     // ④ Capture and null _player NOW, before the first await.
     //
@@ -386,14 +430,33 @@ class MediaKitEngine implements AbstractAudioEngine {
 
   @override
   Future<void> play() async {
+    if (_disposed || _player == null) return;
+    // Cancel any fade that was in progress (e.g. a pause fade that hadn't
+    // finished yet) so we always start the fade-in from a known state.
+    _cancelFade();
+    // Set to silent first, then start playback, then fade up.
+    // Starting playback before fading ensures there is no audible gap
+    // between the setVolume(0) call and the first decoded frame.
+    await _player?.setVolume(0);
     await _player?.play();
-    LogService.verbose('MediaKitEngine', 'play()');
+    _startFade(0, () => _userVolume * 100, () {});
+    LogService.verbose('MediaKitEngine', 'play() [fade-in]');
   }
 
   @override
   Future<void> pause() async {
-    await _player?.pause();
-    LogService.verbose('MediaKitEngine', 'pause()');
+    if (_disposed || _player == null) return;
+    // Capture current volume before cancelling (cancel doesn't touch volume).
+    final currentVol = _player!.state.volume; // 0–100
+    _cancelFade();
+    // Fade to silence, then pause, then restore volume to _userVolume so
+    // the next play() fade-in starts from the correct target level.
+    _startFade(currentVol, () => 0, () async {
+      if (_disposed || _player == null) return;
+      await _player?.pause();
+      await _player?.setVolume(_userVolume * 100);
+    });
+    LogService.verbose('MediaKitEngine', 'pause() [fade-out]');
   }
 
   @override
@@ -622,7 +685,12 @@ Future<void> setShuffleMode(bool enabled) async {
 
   @override
   Future<void> setVolume(double volume) async {
-    await _player?.setVolume(volume.clamp(0.0, 1.0) * 100.0);
+    _userVolume = volume.clamp(0.0, 1.0);
+    // Only push to player immediately when not fading — if a fade is running,
+    // the target is already _userVolume * 100 so it will land there naturally.
+    if (_fadeTimer == null) {
+      await _player?.setVolume(_userVolume * 100.0);
+    }
   }
 
   /// Mengatur kecepatan putar. Rate dikirim langsung ke player.
