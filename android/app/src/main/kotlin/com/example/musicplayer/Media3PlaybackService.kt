@@ -805,7 +805,16 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
 
     private fun attachPlayerListener(p: ExoPlayer) {
-        detachPlayerListener(p)
+        // De-dupe listeners only — intentionally does NOT call detachPlayerListener()
+        // here. detachPlayerListener() also removes the StereoWideningAudioProcessor
+        // from StereoWidthManager (via playerProcessors), which leaves processors=0
+        // and makes stereo widening silently inoperative for the lifetime of the
+        // service. Processor cleanup belongs only in the true release path:
+        // the detachListener callback passed to CrossfadeController (line 312) and
+        // onDestroy. Listener de-duplication is kept here to prevent double-attach.
+        playerListeners.remove(p)?.let { p.removeListener(it) }
+        analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
 
         // Item 6: PlaybackStatsListener — accumulates per-session metrics for
         // getPlaybackStats(). keepHistory=false: we only need the running totals
