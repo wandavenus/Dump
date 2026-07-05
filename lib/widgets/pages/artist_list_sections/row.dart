@@ -10,7 +10,7 @@ class ArtistListRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
-        padding: const EdgeInsets.only(top: 15, left: 17, right: 17),
+        padding: const EdgeInsets.only(top: 7, left: 17, right: 17),
         child: Column(
           children: [
             Row(
