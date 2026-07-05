@@ -76,7 +76,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     return SwipeToDismissSheet(
       child: Material(
         color: const Color(0xFF1C1C1E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
           child: Column(
@@ -102,7 +102,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
                   SongArtwork(
                     songId: widget.song.id,
                     size: 48,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
