@@ -14,13 +14,13 @@ class _ArtistCard extends StatelessWidget {
       child: SizedBox(
         width: 106,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── Square avatar with 3px radius ────────────────────────────
               ClipRRect(
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(8),
                 child: SongArtwork(
                   songId: artist.coverSongId,
                   size: avatarSize,
@@ -33,11 +33,11 @@ class _ArtistCard extends StatelessWidget {
                 artist.name,
                 style: const TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   fontFamily: 'SF Pro Display',
                   height: 1.25,
                 ),
-                maxLines: 2,
+                maxLines: 1,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
               ),
