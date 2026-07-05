@@ -33,4 +33,4 @@ The Android APK is the primary target — build with Android Studio or `flutter 
 
 ## User preferences
 
-_None recorded yet._
+- Setelah selesai pengerjaan, jalankan `flutter analyze` saja — **jangan rebuild web (`flutter build web`)** kecuali ada perintah eksplisit dari user.
