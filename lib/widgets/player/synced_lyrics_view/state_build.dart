@@ -6,6 +6,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
   Widget _buildLyricsView(BuildContext context) {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
+        liveScrollContext = n.context ?? liveScrollContext;
         if (n is UserScrollNotification) {
           if (n.direction != ScrollDirection.idle) {
             _userIsManualScrolling = true;

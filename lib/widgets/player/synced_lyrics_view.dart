@@ -9,6 +9,34 @@ import '../../models/lyrics_settings.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';
 
+/// Lightweight handle for forwarding raw drag deltas directly into whichever
+/// [ScrollPosition] is currently live inside a [SyncedLyricsView].
+///
+/// [ScrollOffsetController.animateScroll] (the mechanism `scrollable_positioned_list`
+/// exposes publicly) always drives the scroll via an animated
+/// `DrivenScrollActivity`, even with `Duration.zero` — there is no direct
+/// `jumpTo`-equivalent on it. Calling it once per drag-update event spins up a
+/// fresh animation every time, which feels laggy/rigid compared to a real
+/// finger-tracking scroll. This handle instead captures the actual
+/// [BuildContext] of the live internal `Scrollable` (via `ScrollNotification.context`)
+/// and calls [ScrollPosition.jumpTo] on it directly — the same primitive a
+/// normal drag-to-scroll list uses, so it tracks the finger 1:1 and fires the
+/// same scroll notifications a genuine user scroll would.
+class LyricsDragHandle {
+  _SyncedLyricsViewState? _state;
+
+  void _attach(_SyncedLyricsViewState state) => _state = state;
+
+  void _detach(_SyncedLyricsViewState state) {
+    if (_state == state) _state = null;
+  }
+
+  /// Scrolls the live list by [deltaY] pixels (positive = finger moved down,
+  /// content should move up — matches the sign convention of
+  /// [DragUpdateDetails.delta.dy]).
+  void scrollByDelta(double deltaY) => _state?._jumpByDelta(deltaY);
+}
+
 part 'synced_lyrics_view/elrc_word.dart';
 part 'synced_lyrics_view/view.dart';
 part 'synced_lyrics_view/state.dart';

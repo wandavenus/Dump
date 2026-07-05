@@ -21,12 +21,18 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   bool _userIsManualScrolling = false;
   Timer? _scrollResumeTimer;
   Duration? _pendingSeekPos;
+  // BuildContext of the currently-live internal ScrollablePositionedList
+  // Scrollable, captured from the last ScrollNotification. Used by
+  // _jumpByDelta (state_scroll.dart) to reach the real ScrollPosition
+  // directly instead of going through ScrollOffsetController.animateScroll.
+  BuildContext? liveScrollContext;
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
 
   @override
   void initState() {
     super.initState();
+    widget.dragHandle?._attach(this);
     WidgetsBinding.instance.addObserver(this);
     _frameTicker = createTicker(_onFrameTick);
 
@@ -88,6 +94,10 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   @override
   void didUpdateWidget(SyncedLyricsView old) {
     super.didUpdateWidget(old);
+    if (old.dragHandle != widget.dragHandle) {
+      old.dragHandle?._detach(this);
+      widget.dragHandle?._attach(this);
+    }
     if (old.lyrics != widget.lyrics || old.rawLrc != widget.rawLrc) {
       _rebuildWordTimelines();
 
@@ -106,6 +116,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
   @override
   void dispose() {
+    widget.dragHandle?._detach(this);
     WidgetsBinding.instance.removeObserver(this);
     _posSub?.cancel();
     AudioService.playbackState.removeListener(_onPlaybackState);

@@ -3,6 +3,24 @@ part of '../synced_lyrics_view.dart';
 extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
   // ── Scroll ────────────────────────────────────────────────────────────────
 
+  /// Jumps the currently-live internal scrollable by [deltaY] pixels, using
+  /// the real [ScrollPosition] captured from the last [ScrollNotification]
+  /// (see [_SyncedLyricsViewBuildState._buildLyricsView]). This is a direct,
+  /// synchronous [ScrollPosition.jumpTo] — no animation controller involved —
+  /// so it tracks the forwarded drag 1:1, exactly like a normal user drag.
+  void _jumpByDelta(double deltaY) {
+    final ctx = liveScrollContext;
+    if (ctx == null || !ctx.mounted) return;
+    final position = Scrollable.maybeOf(ctx)?.position;
+    if (position == null || !position.hasPixels) return;
+    final target = (position.pixels - deltaY).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target == position.pixels) return;
+    position.jumpTo(target);
+  }
+
   void _scrollToCenter(int index, {bool animate = true}) {
     if (_userIsManualScrolling && animate) return;
     if (animate) {

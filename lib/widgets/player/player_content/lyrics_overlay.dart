@@ -6,6 +6,7 @@ class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
   final ScrollController scrollController;
   final ScrollOffsetController offsetController;
+  final LyricsDragHandle dragHandle;
   final ValueChanged<bool> onExpandChanged;
   final bool isVisible;
 
@@ -13,6 +14,7 @@ class _LyricsOverlayBody extends StatelessWidget {
     required this.result,
     required this.scrollController,
     required this.offsetController,
+    required this.dragHandle,
     required this.onExpandChanged,
     this.isVisible = true,
   });
