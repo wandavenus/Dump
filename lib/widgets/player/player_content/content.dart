@@ -489,6 +489,14 @@ class _PlayerContentState extends State<PlayerContent> {
                               color: Colors.white.withValues(alpha: 0.13),
                             ),
                           ),
+                          // Extra spacer reaching the true bottom edge of the
+                          // screen (system gesture-nav inset). Kept inside the
+                          // same GestureDetector so swipes started here still
+                          // scroll the lyrics/queue list instead of hitting
+                          // dead space below the visible controls.
+                          SizedBox(
+                            height: MediaQuery.paddingOf(context).bottom,
+                          ),
                         ],
                       ),
                     ),

@@ -125,6 +125,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
                             ),
                           ),
                           SafeArea(
+                            bottom: false,
                             child: Padding(
                               padding: const EdgeInsets.only(top: 12),
                               child: song == null
