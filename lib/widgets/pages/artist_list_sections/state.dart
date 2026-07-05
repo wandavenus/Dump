@@ -45,7 +45,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
           return const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LargePageTitle(title: 'Favourite Artists'),
+              LargePageTitle(title: 'Artis Favorit'),
               HeaderDivider(),
             ],
           );
