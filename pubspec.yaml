@@ -59,3 +59,15 @@ flutter:
           weight: 500
         - asset: assets/fonts/bold.otf
           weight: 700
+
+    - family: SF Pro Text
+      fonts:
+        - asset: assets/fonts/sf_pro_text_regular.otf
+        - asset: assets/fonts/sf_pro_text_medium.otf
+          weight: 500
+        - asset: assets/fonts/sf_pro_text_semibold.otf
+          weight: 600
+        - asset: assets/fonts/sf_pro_text_bold.otf
+          weight: 700
+        - asset: assets/fonts/sf_pro_text_black.otf
+          weight: 900
