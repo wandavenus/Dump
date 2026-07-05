@@ -12,5 +12,3 @@ part 'browse_sections/content.dart';
 part 'browse_sections/state.dart';
 part 'browse_sections/banners.dart';
 part 'browse_sections/section.dart';
-part 'browse_sections/categories.dart';
-part 'browse_sections/gradient_cat.dart';

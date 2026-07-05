@@ -54,7 +54,6 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           BrowseBannerCarousel(songs: _bannerSongs),
           _BrowseSection(title: 'We Recommend', songs: _recommend),
           _BrowseSection(title: 'New Music', songs: _newMusic),
-          const BrowseCategoryStrip(),
           _BrowseSection(title: 'Daily Top 100', songs: _daily),
         ],
       ),
