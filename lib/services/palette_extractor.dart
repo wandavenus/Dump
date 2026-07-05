@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -106,7 +105,7 @@ class _LruCache<K, V> {
   _LruCache(this._maxSize);
 
   final int                _maxSize;
-  final _map = LinkedHashMap<K, V>();
+  final _map = <K, V>{};
 
   V? get(K key) {
     final value = _map.remove(key);

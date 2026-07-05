@@ -74,8 +74,8 @@ class _FirstPageState extends State<FirstPage> {
         settings: settings,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, __, ___) => _tabRoots[tabIndex],
-        transitionsBuilder: (_, __, ___, child) => child,
+        pageBuilder: (_, _, _) => _tabRoots[tabIndex],
+        transitionsBuilder: (_, _, _, child) => child,
       );
     }
 
