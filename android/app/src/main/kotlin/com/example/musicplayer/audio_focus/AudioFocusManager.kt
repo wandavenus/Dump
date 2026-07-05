@@ -158,6 +158,13 @@ class AudioFocusManager(
     }
 
     fun abandon() {
+        // Guard: if focus is not held, skip the system call and log entirely.
+        // ServiceShutdownCoordinator calls abandon() in both prepareShutdown()
+        // and performTeardown() (to cover the system-kill path where Phase 1 is
+        // skipped). Without this guard the second call fires a redundant
+        // abandonAudioFocusRequest — harmless on API O+ (focusRequest is already
+        // null so the let-block is a no-op), but produces a misleading log entry.
+        if (!_hasAudioFocus) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         } else {
