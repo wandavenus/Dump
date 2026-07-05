@@ -108,19 +108,30 @@ class _PlayerContentState extends State<PlayerContent> {
     );
   }
 
-  // Releases the lyrics list into a natural ballistic fling once a drag
-  // forwarded from one of the bottom hit-box areas ends — otherwise a
-  // forwarded drag (driven by jumpTo, which has no built-in momentum) stops
-  // dead the instant the finger lifts, unlike scrolling the list directly.
-  // Queue scrolling isn't touched here: it already flings on its own since
-  // _queueScrollController is attached directly to the ListView.
+  // Releases the active list (lyrics or queue) into a natural ballistic
+  // fling once a drag forwarded from one of the bottom hit-box areas ends —
+  // otherwise a forwarded drag (driven by jumpTo, which has no built-in
+  // momentum) stops dead the instant the finger lifts, unlike scrolling the
+  // list directly.
   void _forwardVerticalDragEnd({
     required bool showLyrics,
     required bool showQueue,
     required double velocity,
   }) {
-    if (!showLyrics) return;
-    _lyricsDragHandle.flingByVelocity(velocity);
+    if (showLyrics) {
+      _lyricsDragHandle.flingByVelocity(velocity);
+      return;
+    }
+    if (!showQueue) return;
+    final ctrl = _queueScrollController;
+    if (!ctrl.hasClients) return;
+    final position = ctrl.position;
+    if (position is ScrollPositionWithSingleContext) {
+      // Same sign convention as _jumpByDelta/_forwardVerticalDrag: the
+      // forwarded velocity is in on-screen finger space, goBallistic wants
+      // scroll-offset space, hence the negation.
+      position.goBallistic(-velocity);
+    }
   }
 
   @override
