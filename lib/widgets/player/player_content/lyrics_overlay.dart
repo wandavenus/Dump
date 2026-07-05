@@ -47,7 +47,13 @@ class _LyricsOverlayBody extends StatelessWidget {
             onNotification: (notification) {
               final offset = notification.metrics.pixels;
 
-              if (offset > 150) {
+              // Only a genuine user swipe-up (dragDetails != null) may expand
+              // to full mode and hide the bottom controls — automatic/
+              // programmatic scrolls (e.g. auto-following the current lyric
+              // line as the song plays) must never trigger that hide.
+              // Collapsing back to half-view (revealing the controls again)
+              // stays unrestricted, as before.
+              if (offset > 150 && notification.dragDetails != null) {
                 onExpandChanged(true);
               } else if (offset < 50) {
                 onExpandChanged(false);
