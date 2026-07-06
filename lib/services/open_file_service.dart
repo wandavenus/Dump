@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/log_service.dart';
+import 'package:musicplayer/services/player_sheet_controller.dart';
 
 /// Handles audio files opened from external apps (file managers, Telegram, etc.)
 /// via Android ACTION_VIEW intents.
@@ -97,6 +98,9 @@ class OpenFileService {
       );
 
       await AudioService.playSongAt(playlist: [song], index: 0);
+
+      // Expand the player sheet so the user sees the preview player immediately.
+      PlayerSheetController.open();
     } catch (e) {
       LogService.error('OpenFileService', 'Failed to play URI $uri: $e');
     }

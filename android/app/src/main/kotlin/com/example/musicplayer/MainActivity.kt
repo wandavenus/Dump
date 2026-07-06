@@ -72,38 +72,6 @@ class MainActivity : FlutterActivity() {
     // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
     @Volatile private var pendingOpenFileUri: String? = null
     private var openFileChannel: MethodChannel? = null
-    // True when onCreate() already dispatched the intent to Media3PlaybackService
-    // natively — configureFlutterEngine must NOT repopulate pendingOpenFileUri.
-    @Volatile private var intentHandledNatively = false
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // If the app was cold-started by an audio ACTION_VIEW intent, start
-        // the native Media3 service immediately and return to the caller app —
-        // the user stays in ZArchiver (or any file manager) while audio plays
-        // via the notification/media controls.
-        val audioUri = extractAudioUri(intent) ?: return
-        intentHandledNatively = true
-
-        val svcIntent = Intent(this, Media3PlaybackService::class.java).apply {
-            action = Media3PlaybackService.ACTION_PLAY_URI
-            putExtra(Media3PlaybackService.EXTRA_URI, audioUri)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(svcIntent)
-        } else {
-            startService(svcIntent)
-        }
-        // Ensure pendingOpenFileUri stays null so Dart's OpenFileService
-        // doesn't double-play the same URI later.
-        pendingOpenFileUri = null
-
-        // Immediately send the activity to the back so the user stays in their
-        // file manager. Flutter continues loading in the background and will be
-        // ready when the user taps the notification to open the full player UI.
-        moveTaskToBack(true)
-    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -114,11 +82,8 @@ class MainActivity : FlutterActivity() {
         // queue instead of spawning an extra ad-hoc thread during startup.
         submitBackground(metadataExecutor) { metadataCacheDb.pruneOld() }
 
-        // Capture URI from the intent that cold-started the app — but only
-        // when onCreate() did NOT already handle it natively (no double-play).
-        if (!intentHandledNatively) {
-            pendingOpenFileUri = extractAudioUri(intent)
-        }
+        // Capture URI from the intent that cold-started the app.
+        pendingOpenFileUri = extractAudioUri(intent)
 
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
