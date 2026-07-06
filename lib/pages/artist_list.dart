@@ -37,7 +37,7 @@ class _ArtistListState extends State<ArtistList> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
-        title: 'Favourite Artists',
+        title: 'Artis Favorit',
         scrollOffset: _offset,
         actions: const [],
       ),
