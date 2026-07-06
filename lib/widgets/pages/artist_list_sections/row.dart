@@ -13,7 +13,7 @@ class ArtistListRow extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Artwork kotak penuh lebar, rounded corners
           AspectRatio(
@@ -34,6 +34,7 @@ class ArtistListRow extends StatelessWidget {
             artist.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,  
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -48,6 +49,7 @@ class ArtistListRow extends StatelessWidget {
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,  
             style: const TextStyle(
               color: Color(0xFF8E8E93),
               fontSize: 12,
