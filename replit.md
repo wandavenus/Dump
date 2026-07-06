@@ -43,5 +43,5 @@ The Android APK is the primary target — build with Android Studio or `flutter 
 - **Chipset:** Snapdragon 730 (Kryo 470, octa-core, ~2.2GHz)
 - **RAM:** 6GB
 - **Storage:** 64GB
-- **OS:** MIUI 12 (berbasis Android 10)
+- **OS:** MIUI 12 (berbasis Android 11)
 - Ini adalah device mid-range — pertimbangkan batasan RAM/CPU/storage saat menambahkan fitur baru (misal: prefetch/cache warm-up harus konservatif, hindari operasi berat/paralel besar-besaran yang bisa bikin app lag atau boros storage/baterai di device ini).
