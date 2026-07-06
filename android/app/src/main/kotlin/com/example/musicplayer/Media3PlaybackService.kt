@@ -141,6 +141,9 @@ class Media3PlaybackService : MediaSessionService() {
         const val ACTION_SKIP_PREV  = PlaybackNotificationManager.ACTION_SKIP_PREV
         const val ACTION_STOP       = PlaybackNotificationManager.ACTION_STOP
         const val PREFS_NAME        = QueueSync.PREFS_NAME
+        /** Sent by MainActivity when user opens an audio file via ACTION_VIEW. */
+        const val ACTION_PLAY_URI   = "com.example.musicplayer.ACTION_PLAY_URI"
+        const val EXTRA_URI         = "uri"
 
         @Volatile var instance: Media3PlaybackService? = null
     }
@@ -582,8 +585,95 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        handleNotificationAction(intent?.action)
+        if (intent?.action == ACTION_PLAY_URI) {
+            val uriStr = intent.getStringExtra(EXTRA_URI)
+            // Security: only accept local URIs; reject http/https to prevent
+            // arbitrary remote audio injection from external apps.
+            if (!uriStr.isNullOrBlank() &&
+                (uriStr.startsWith("file://") || uriStr.startsWith("content://") ||
+                 !uriStr.contains("://"))) {
+                handlePlayUri(uriStr)
+            } else {
+                NativeLogger.emit("warn", "Media3",
+                    "ACTION_PLAY_URI rejected — non-local URI: $uriStr")
+            }
+        } else {
+            handleNotificationAction(intent?.action)
+        }
         return START_STICKY
+    }
+
+    /**
+     * Handles a direct open-file request without Flutter/Dart involvement.
+     * Calls ensureMediaForeground() immediately (satisfies Android's 5-second
+     * foreground deadline), then reads metadata off-thread and plays.
+     */
+    private fun handlePlayUri(uriStr: String) {
+        // Satisfy Android's foreground-service requirement BEFORE any I/O.
+        // transportCommands.playNative() will call it again later (no-op).
+        notificationManager.ensureMediaForeground()
+
+        Thread {
+            val songMap = buildSongMapFromUri(uriStr)
+            handler.post {
+                try {
+                    crossfadeController.cancel(resetVolume = true)
+                    preloadManager.releaseStandbyPlayer()
+                    queueManager.setQueue(listOf(songMap), 0)
+                    transportCommands.playNative()
+                    NativeLogger.emit("info", "Media3", "ACTION_PLAY_URI → '${songMap["title"]}'")
+                } catch (e: Exception) {
+                    NativeLogger.emit("error", "Media3", "handlePlayUri failed: $e")
+                }
+            }
+        }.start()
+    }
+
+    /** Reads title/artist/album/duration from a URI using MediaMetadataRetriever. */
+    private fun buildSongMapFromUri(uriStr: String): Map<String, Any?> {
+        var title = "Unknown Title"
+        var artist = "Unknown Artist"
+        var album = "Unknown Album"
+        var durationMs = 0L
+
+        // Derive a fallback title from the filename.
+        val rawName = uriStr.substringAfterLast('/')
+            .let { if (it.contains('?')) it.substringBefore('?') else it }
+        val filenameTitle = if (rawName.contains('.'))
+            rawName.substringBeforeLast('.') else rawName
+        if (filenameTitle.isNotBlank()) title = filenameTitle
+
+        try {
+            val retriever = android.media.MediaMetadataRetriever()
+            if (uriStr.startsWith("content://")) {
+                retriever.setDataSource(applicationContext, android.net.Uri.parse(uriStr))
+            } else {
+                val path = if (uriStr.startsWith("file://"))
+                    android.net.Uri.parse(uriStr).path ?: uriStr else uriStr
+                retriever.setDataSource(path)
+            }
+            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.takeIf { it.isNotBlank() }?.let { title = it }
+            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() }?.let { artist = it }
+            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                ?.takeIf { it.isNotBlank() }?.let { album = it }
+            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()?.let { durationMs = it }
+            retriever.release()
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "Media3", "buildSongMapFromUri: metadata read failed: $e")
+        }
+
+        return mapOf(
+            "id"       to 0,
+            "title"    to title,
+            "artist"   to artist,
+            "album"    to album,
+            "albumId"  to 0,
+            "path"     to uriStr,
+            "duration" to durationMs,
+        )
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
