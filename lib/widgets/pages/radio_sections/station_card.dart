@@ -59,39 +59,26 @@ class PlaylistCard extends StatelessWidget {
                 right: 0,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 12, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.play_circle_filled,
-                        color: Colors.white,
-                        size: 48,
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
