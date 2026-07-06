@@ -6,6 +6,7 @@ import 'package:musicplayer/services/history_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/playlist_service.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
+import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
 
 class PlaylistPage extends StatefulWidget {
@@ -233,6 +234,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               onPressed: _delete,
             ),
           ],
+          const CommonActions(),
         ],
       ),
       body: _loading

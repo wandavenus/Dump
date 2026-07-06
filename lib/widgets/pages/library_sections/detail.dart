@@ -66,7 +66,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       appBar: FadingTitleAppBar(
         title: _title,
         scrollOffset: _offset,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,

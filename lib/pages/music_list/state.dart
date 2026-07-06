@@ -37,7 +37,7 @@ class _MusicListState extends State<MusicList> {
       appBar: FadingTitleAppBar(
         title: 'Unduhan',
         scrollOffset: _offset,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,

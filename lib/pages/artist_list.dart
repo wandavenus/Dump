@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/common/scrolling_page_chrome.dart';
+import '../widgets/common_actions.dart';
 import '../widgets/pages/artist_list_sections.dart';
 
 class ArtistList extends StatefulWidget {
@@ -39,7 +40,7 @@ class _ArtistListState extends State<ArtistList> {
       appBar: FadingTitleAppBar(
         title: 'Artis Favorit',
         scrollOffset: _offset,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: ArtistListContent(scrollController: _scroll),
     );

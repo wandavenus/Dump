@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
+import '../widgets/common_actions.dart';
 import '../widgets/pages/artist_sections.dart';
 
 class ArtistPage extends StatelessWidget {
@@ -17,7 +18,7 @@ class ArtistPage extends StatelessWidget {
       appBar: FadingTitleAppBar(
         title: artistName,
         scrollOffset: 100,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: ArtistPageContent(songs: songs),
     );
