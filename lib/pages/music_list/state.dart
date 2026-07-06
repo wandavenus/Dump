@@ -91,7 +91,7 @@ class _MusicListState extends State<MusicList> {
                   return const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LargePageTitle(title: 'Unduhan'),
+                      LargePageTitle(title: 'Baru Dimainkan'),
                       HeaderDivider(),
                     ],
                   );
