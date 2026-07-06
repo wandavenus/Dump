@@ -24,6 +24,7 @@ class _CommonActionsState extends State<CommonActions> {
             content: Text('Ditemukan ${songs.length} lagu'),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1C1C1E),
           ),
         );
       }
@@ -34,6 +35,7 @@ class _CommonActionsState extends State<CommonActions> {
             content: Text('Gagal scan lagu'),
             duration: Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF1C1C1E),
           ),
         );
       }
