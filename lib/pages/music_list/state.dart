@@ -109,7 +109,6 @@ class _MusicListState extends State<MusicList> {
                       playlist: songs,
                       index: index - 1,
                     );
-                    PlayerPanelController.instance.open();
                   },
                   onLongPress: () => showSongContextMenu(
                     context,

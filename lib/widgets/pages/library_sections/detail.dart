@@ -447,7 +447,6 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Future<void> _playAt(List<LocalSong> songs, int index) async {
     await AudioService.playSongAt(playlist: songs, index: index);
-    PlayerPanelController.instance.open();
   }
 
   Future<void> _playShuffled(List<LocalSong> songs) async {

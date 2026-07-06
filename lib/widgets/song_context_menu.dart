@@ -147,7 +147,6 @@ class _SongContextMenuState extends State<SongContextMenu> {
                   playlist: widget.playlist,
                   index: widget.index,
                 );
-                PlayerPanelController.instance.open();
               },
             ),
             _insetDivider,

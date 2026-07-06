@@ -17,7 +17,6 @@ class SongListRow extends StatelessWidget {
     return InkWell(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
-        PlayerPanelController.instance.open();
       },
       onLongPress: () => showSongContextMenu(
         context,

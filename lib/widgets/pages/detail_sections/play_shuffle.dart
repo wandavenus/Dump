@@ -16,7 +16,6 @@ class PlayShuffleButtons extends StatelessWidget {
             label: 'Putar',
             onTap: () async {
               await AudioService.playSongAt(playlist: songs, index: 0);
-              PlayerPanelController.instance.open();
             },
           ),
           const SizedBox(width: 8),
@@ -26,7 +25,6 @@ class PlayShuffleButtons extends StatelessWidget {
             onTap: () async {
               final shuffled = List<LocalSong>.from(songs)..shuffle();
               await AudioService.playSongAt(playlist: shuffled, index: 0);
-              PlayerPanelController.instance.open();
             },
           ),
         ],

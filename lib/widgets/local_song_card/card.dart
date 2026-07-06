@@ -19,7 +19,6 @@ class LocalSongCard extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
-        PlayerPanelController.instance.open();
       },
       onLongPress: () => _showContextMenu(context),
       child: Container(
