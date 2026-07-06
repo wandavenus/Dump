@@ -32,7 +32,7 @@ class PlayerMoreMenu extends StatelessWidget {
         color: const Color(0xFF242426),
         elevation: 12,
         offset: const Offset(0, 42),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onSelected: (action) {
           switch (action) {
             case _PlayerMoreAction.shuffle:
@@ -60,7 +60,7 @@ class PlayerMoreMenu extends StatelessWidget {
               label: 'Loop ${_loopLabel(state.loopMode)}',
               active: state.loopMode != LoopMode.off,
             ),
-            const PopupMenuDivider(height: 2),
+            const PopupMenuDivider(height: 1),
             const PopupMenuItem<_PlayerMoreAction>(
               value: _PlayerMoreAction.songInfo,
               child: Row(
@@ -81,7 +81,7 @@ class PlayerMoreMenu extends StatelessWidget {
                 ],
               ),
             ),
-            const PopupMenuDivider(height: 2),
+            const PopupMenuDivider(height: 1),
             _sleepTimerItem(),
           ];
         },
