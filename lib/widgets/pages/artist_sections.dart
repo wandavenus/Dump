@@ -50,7 +50,7 @@ class _ArtistFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$artistName',
+            artistName,
             style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
           ),
           const SizedBox(height: 2),

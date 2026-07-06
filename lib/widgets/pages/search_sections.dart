@@ -7,7 +7,6 @@ import '../../services/audio_service.dart';
 import '../../services/media_store_service.dart';
 import '../../utils/sample_music_data.dart';
 import '../common_actions.dart';
-import '../player/player_panel_controller.dart';
 import '../song_artwork.dart';
 
 // ─── Main entry point ─────────────────────────────────────────────────────────

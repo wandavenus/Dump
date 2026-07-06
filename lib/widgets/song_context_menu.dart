@@ -14,7 +14,6 @@ import '../services/replay_gain_service.dart';
 import '../services/song_metadata_service.dart';
 import '../utils/zoom_fade_route.dart';
 import 'common/swipe_to_dismiss_sheet.dart';
-import 'player/player_panel_controller.dart';
 import 'song_artwork.dart';
 
 /// Tampilkan context menu gaya Apple Music untuk sebuah lagu.
