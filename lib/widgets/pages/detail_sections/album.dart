@@ -14,7 +14,10 @@ class AlbumHero extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
-      child: Column(
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Artwork — centered, ~220px
           ClipRRect(
@@ -78,6 +81,7 @@ class AlbumHero extends StatelessWidget {
             ],
           ),
         ],
+        ),
       ),
     );
   }
