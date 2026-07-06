@@ -169,7 +169,7 @@ class PlayerMoreMenu extends StatelessWidget {
   }
 
   static IconData _loopIcon(LoopMode mode) =>
-      mode == LoopMode.one ? CupertinoIcons.loop_1 : CupertinoIcons.loop;
+      mode == LoopMode.one ? CupertinoIcons.repeat_1 : CupertinoIcons.repeat;
 
   static String _loopLabel(LoopMode mode) => switch (mode) {
     LoopMode.off => 'Off',
