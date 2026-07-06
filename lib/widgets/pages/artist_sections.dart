@@ -13,7 +13,7 @@ class ArtistPageContent extends StatelessWidget {
     final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return SingleChildScrollView(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           ArtistHero(songs: songs),
           PlayShuffleButtons(songs: songs),
