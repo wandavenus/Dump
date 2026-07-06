@@ -11,6 +11,11 @@ part of '../audio_effects_service.dart';
 ///
 /// No layer in this file may reference [Media3PlaybackBridge] directly.
 /// All engine calls go through [AudioEngineManager].
+
+// Default gain untuk "Audio Normalize" sederhana (tanpa ReplayGain tags).
+// 300 mb = +3 dB — cukup untuk kompensasi loudness tanpa over-amplify.
+const double _kNormalizeDefaultGainMb = 300.0;
+
 class AudioEffectsService {
   AudioEffectsService._();
 
@@ -168,9 +173,9 @@ class AudioEffectsService {
     // Loudness normalize (when ReplayGain is off)
     if (replayGainMode.value == ReplayGainMode.off) {
       unawaited(AudioEngineManager.setLoudnessEnabled(audioNormalize.value));
-      if (!audioNormalize.value) {
-        unawaited(AudioEngineManager.setLoudnessTargetGain(0));
-      }
+      unawaited(AudioEngineManager.setLoudnessTargetGain(
+        audioNormalize.value ? _kNormalizeDefaultGainMb : 0.0,
+      ));
     }
 
     // Crossfade
@@ -184,9 +189,11 @@ class AudioEffectsService {
     await _saveBool('normalize', value);
     if (replayGainMode.value == ReplayGainMode.off) {
       unawaited(AudioEngineManager.setLoudnessEnabled(value));
-      if (!value) unawaited(AudioEngineManager.setLoudnessTargetGain(0));
+      unawaited(AudioEngineManager.setLoudnessTargetGain(
+        value ? _kNormalizeDefaultGainMb : 0.0,
+      ));
     }
-    LogService.log('AudioEffects', 'Normalize: $value');
+    LogService.log('AudioEffects', 'Normalize: $value (${value ? "${_kNormalizeDefaultGainMb.toInt()} mb" : "off"})');
   }
 
   // ── ReplayGain ────────────────────────────────────────────────────────────
