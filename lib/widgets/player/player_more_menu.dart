@@ -49,7 +49,7 @@ class PlayerMoreMenu extends StatelessWidget {
           return [
             _toggleItem(
               value: _PlayerMoreAction.shuffle,
-              icon: Icons.shuffle_rounded,
+              icon: CupertinoIcons.shuffle,
               label: state.shuffleEnabled ? 'Shuffle On' : 'Shuffle Off',
               active: state.shuffleEnabled,
             ),
@@ -59,13 +59,13 @@ class PlayerMoreMenu extends StatelessWidget {
               label: 'Loop ${_loopLabel(state.loopMode)}',
               active: state.loopMode != LoopMode.off,
             ),
-            const PopupMenuDivider(height: 4),
+            const PopupMenuDivider(height: 2),
             const PopupMenuItem<_PlayerMoreAction>(
               value: _PlayerMoreAction.songInfo,
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline_rounded,
+                    CupertinoIcons.info,
                     color: Colors.white70,
                     size: 20,
                   ),
@@ -80,7 +80,7 @@ class PlayerMoreMenu extends StatelessWidget {
                 ],
               ),
             ),
-            const PopupMenuDivider(height: 4),
+            const PopupMenuDivider(height: 2),
             _sleepTimerItem(),
           ];
         },
@@ -108,7 +108,7 @@ class PlayerMoreMenu extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.bedtime_rounded,
+            CupertinoIcons.time,
             color: active ? const Color(0xFFF92D48) : Colors.white70,
             size: 20,
           ),
@@ -168,7 +168,7 @@ class PlayerMoreMenu extends StatelessWidget {
   }
 
   static IconData _loopIcon(LoopMode mode) =>
-      mode == LoopMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded;
+      mode == LoopMode.one ? CupertinoIcons.loop_one : CupertinoIcons.loop;
 
   static String _loopLabel(LoopMode mode) => switch (mode) {
     LoopMode.off => 'Off',
