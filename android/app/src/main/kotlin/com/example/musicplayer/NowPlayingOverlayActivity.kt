@@ -141,14 +141,19 @@ class NowPlayingOverlayActivity : Activity() {
         }.start()
     }
 
-    private fun startPlaybackService(uriStr: String) {
+            private fun startPlaybackService(uriStr: String) {
         val svcIntent = Intent(this, Media3PlaybackService::class.java).apply {
             action = Media3PlaybackService.ACTION_PLAY_URI
             putExtra(Media3PlaybackService.EXTRA_URI, uriStr)
+            // ── Tambahin baris di bawah ini ──
+            putExtra("IS_OVERLAY_PREVIEW", true) 
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(svcIntent)
-        else startService(svcIntent)
+        
+        // Tetep pake startService biasa biar sistem ga maksa bikin foreground notification
+        startService(svcIntent) 
     }
+
+
 
     // ── MediaController ───────────────────────────────────────────────────────
     private fun connectController() {
