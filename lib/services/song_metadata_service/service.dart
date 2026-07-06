@@ -45,6 +45,13 @@ class SongMetadataService {
     }
   }
 
+  /// Removes the cached entry for a single song (e.g. after deletion from
+  /// the library, so a stale [SongInfo] can never be served for a reused
+  /// songId).
+  static void invalidate(int songId) {
+    _cache.remove(songId);
+  }
+
   /// Returns full technical metadata for [song].
   ///
   /// Fast path (API 31+ devices): bitrate and sampleRate are already present

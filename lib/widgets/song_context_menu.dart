@@ -6,9 +6,12 @@ import '../models/local_song.dart';
 import '../models/playlist.dart';
 import '../pages/album_page.dart';
 import '../pages/artist_page.dart';
+import '../services/artwork_repository.dart';
 import '../services/audio_service.dart';
 import '../services/media_store_service.dart';
 import '../services/playlist_service.dart';
+import '../services/replay_gain_service.dart';
+import '../services/song_metadata_service.dart';
 import '../utils/zoom_fade_route.dart';
 import 'common/swipe_to_dismiss_sheet.dart';
 import 'player/player_panel_controller.dart';
@@ -286,6 +289,9 @@ class _SongContextMenuState extends State<SongContextMenu> {
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
       MediaStoreService.clearSongsCache();
+      ArtworkRepository.instance.evict(widget.song.id);
+      SongMetadataService.invalidate(widget.song.id);
+      unawaited(ReplayGainService.invalidate(widget.song.id));
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Lagu berhasil dihapus'),
