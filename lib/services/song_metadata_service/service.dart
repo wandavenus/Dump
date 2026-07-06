@@ -22,6 +22,12 @@ class SongMetadataService {
   static final LinkedHashMap<int, ({SongInfo info, int mtimeMs})> _cache =
       LinkedHashMap();
 
+  // Deduplicates concurrent slow-path requests for the same song: if the
+  // Song Info sheet somehow triggers two lookups for the same songId before
+  // the first native call returns, the second one just awaits the first's
+  // result instead of issuing its own MediaMetadataRetriever round-trip.
+  static final Map<int, Future<SongInfo>> _inFlight = {};
+
   static int? _mtimeMs(String path) {
     try {
       return File(path).lastModifiedSync().millisecondsSinceEpoch;
@@ -79,6 +85,25 @@ class SongMetadataService {
     }
 
     // Slow path — call MediaMetadataRetriever via native channel.
+    // Deduplicate: if a lookup for this songId is already in flight, await
+    // that instead of starting a second native round-trip.
+    final existing = _inFlight[song.id];
+    if (existing != null) return existing;
+
+    final future = _fetchSlowPath(song, fileSizeStr, mtimeMs);
+    _inFlight[song.id] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlight.remove(song.id); // ignore: unawaited_futures
+    }
+  }
+
+  static Future<SongInfo> _fetchSlowPath(
+    LocalSong song,
+    String fileSizeStr,
+    int? mtimeMs,
+  ) async {
     final metadata = await _loadNativeMetadata(song);
     final info = SongInfo(
       title:      _clean(song.title),
