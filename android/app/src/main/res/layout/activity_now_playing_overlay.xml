@@ -92,12 +92,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:progressTint="#FF375F"
-            android:progressBackgroundTint="#40FFFFFF"
-            android:thumbTint="#00000000"
+            android:progressDrawable="@drawable/custom_slider"
+            android:thumbTint="@android:color/transparent"
             android:splitTrack="false"
-            android:minHeight="20dp"
-            android:maxHeight="20dp"/>
+            android:minHeight="24dp"
+            android:maxHeight="24dp"/>
+
 
 
         <!-- ── Time labels ───────────────────────────────────────────────── -->
