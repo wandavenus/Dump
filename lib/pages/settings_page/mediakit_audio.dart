@@ -96,7 +96,7 @@ class _MkReplayGainSection extends StatelessWidget {
       builder: (_, enabled, _) => Column(
         children: [
           SettingsToggleRow(
-            title: 'ReplayGain',
+            title: 'Audio Normalize',
             subtitle: 'Normalisasi volume dari tag file secara native (mpv replaygain)',
             value: enabled,
             onChanged: MediaKitSettingsService.setReplayGainEnabled,
@@ -298,7 +298,7 @@ class _MkRgModeSheet extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Mode ReplayGain',
+                    'Mode Audio Normalize',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,

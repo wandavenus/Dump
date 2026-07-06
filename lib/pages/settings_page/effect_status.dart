@@ -16,9 +16,9 @@ class _EffectStatusRow extends StatelessWidget {
             builder: (_, v, _) =>
                 _InfoLine('Spatial', v ? 'ON (${AudioEffectsService.spatialStrength.value})' : 'OFF'),
           ),
-          ValueListenableBuilder<bool>(
-            valueListenable: AudioEffectsService.audioNormalize,
-            builder: (_, v, _) => _InfoLine('Normalize', v ? 'ON' : 'OFF'),
+          ValueListenableBuilder<ReplayGainMode>(
+            valueListenable: AudioEffectsService.replayGainMode,
+            builder: (_, v, _) => _InfoLine('Normalize', v == ReplayGainMode.off ? 'OFF' : v.label),
           ),
           ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.bassBoost,

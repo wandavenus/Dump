@@ -11,20 +11,8 @@ class _AudioSection extends StatelessWidget {
         const SettingsSectionHeader('AUDIO'),
         const SizedBox(height: 6),
 
-        // ── ReplayGain ──────────────────────────────────────────────────────
+        // ── Audio Normalize ─────────────────────────────────────────────────
         const _ReplayGainSection(),
-        const SettingsDivider(),
-
-        // ── Legacy Normalize ────────────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: AudioEffectsService.audioNormalize,
-          builder: (_, v, _) => SettingsToggleRow(
-            title: 'Audio Normalize',
-            subtitle: 'Boost volume rendah',
-            value: v,
-            onChanged: AudioEffectsService.setNormalize,
-          ),
-        ),
         const SettingsDivider(),
 
         const _CrossfadePicker(),
@@ -103,7 +91,7 @@ class _ReplayGainSection extends StatelessWidget {
           children: [
             // Mode selector
             SettingsActionRow(
-              title: 'ReplayGain',
+              title: 'Audio Normalize',
               trailing: mode.label,
               onTap: () => _showModePicker(context, mode),
             ),
@@ -216,7 +204,7 @@ class _ReplayGainModePicker extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Mode ReplayGain',
+                  'Mode Audio Normalize',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,

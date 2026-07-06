@@ -12,16 +12,11 @@ part of '../audio_effects_service.dart';
 /// No layer in this file may reference [Media3PlaybackBridge] directly.
 /// All engine calls go through [AudioEngineManager].
 
-// Default gain untuk "Audio Normalize" sederhana (tanpa ReplayGain tags).
-// 300 mb = +3 dB — cukup untuk kompensasi loudness tanpa over-amplify.
-const double _kNormalizeDefaultGainMb = 300.0;
-
 class AudioEffectsService {
   AudioEffectsService._();
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
   static final ValueNotifier<ReplayGainMode> replayGainMode =
       ValueNotifier(ReplayGainMode.off);
   static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
@@ -118,7 +113,6 @@ class AudioEffectsService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    audioNormalize.value   = prefs.getBool('normalize')       ?? false;
     crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
     pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
     spatialAudio.value     = prefs.getBool('spatial')         ?? false;
@@ -170,33 +164,11 @@ class AudioEffectsService {
     unawaited(AudioEngineManager.setEqualizerEnabled(equalizerEnabled.value));
     if (equalizerEnabled.value) _sendRoomPresetEq(roomPreset.value);
 
-    // Loudness normalize (when ReplayGain is off)
-    if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(AudioEngineManager.setLoudnessEnabled(audioNormalize.value));
-      unawaited(AudioEngineManager.setLoudnessTargetGain(
-        audioNormalize.value ? _kNormalizeDefaultGainMb : 0.0,
-      ));
-    }
-
     // Crossfade
     unawaited(AudioEngineManager.setCrossfadeDuration(crossfadeDuration.value));
   }
 
-  // ── Normalize ─────────────────────────────────────────────────────────────
-
-  static Future<void> setNormalize(bool value) async {
-    audioNormalize.value = value;
-    await _saveBool('normalize', value);
-    if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(AudioEngineManager.setLoudnessEnabled(value));
-      unawaited(AudioEngineManager.setLoudnessTargetGain(
-        value ? _kNormalizeDefaultGainMb : 0.0,
-      ));
-    }
-    LogService.log('AudioEffects', 'Normalize: $value (${value ? "${_kNormalizeDefaultGainMb.toInt()} mb" : "off"})');
-  }
-
-  // ── ReplayGain ────────────────────────────────────────────────────────────
+  // ── ReplayGain (Audio Normalize) ───────────────────────────────────────────
 
   static Future<void> setReplayGainMode(ReplayGainMode mode) async {
     replayGainMode.value = mode;
