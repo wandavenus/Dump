@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Full-screen translucent scrim — tapping it dismisses the overlay.
+  The card is centered horizontally and sits just below mid-screen.
+-->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scrim"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#7F000000">
+
+    <!-- ── Card ─────────────────────────────────────────────────────────── -->
+    <LinearLayout
+        android:id="@+id/card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:background="@drawable/overlay_card_bg"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="8dp">
+
+        <!-- ── Top row: art · title/artist · play-pause ─────────────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- Album art -->
+            <ImageView
+                android:id="@+id/ivAlbumArt"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/overlay_art_bg"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_overlay_music_note"
+                android:tint="#66FFFFFF"
+                android:contentDescription="Album art"/>
+
+            <!-- Title + artist -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="4dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Loading…"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+
+                <TextView
+                    android:id="@+id/tvArtist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Unknown Artist"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+            </LinearLayout>
+
+            <!-- Play / Pause -->
+            <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_pause"
+                android:tint="#FFFFFF"
+                android:scaleType="centerInside"
+                android:padding="10dp"
+                android:contentDescription="Play or pause"/>
+        </LinearLayout>
+
+        <!-- ── SeekBar ───────────────────────────────────────────────────── -->
+        <SeekBar
+            android:id="@+id/seekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:progressTint="#FF375F"
+            android:progressBackgroundTint="#40FFFFFF"
+            android:thumbTint="#FF375F"/>
+
+        <!-- ── Time labels ───────────────────────────────────────────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvElapsed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#80FFFFFF"
+                android:textSize="11sp"/>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
+
+            <TextView
+                android:id="@+id/tvDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#80FFFFFF"
+                android:textSize="11sp"/>
+        </LinearLayout>
+
+        <!-- ── Divider ───────────────────────────────────────────────────── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:layout_marginTop="12dp"
+            android:background="#33FFFFFF"/>
+
+        <!-- ── "Open in App" button ──────────────────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/btnOpenApp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="10dp"
+            android:paddingBottom="4dp"
+            android:paddingStart="2dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@android:drawable/ic_menu_share"
+                android:tint="#80FFFFFF"
+                android:scaleType="centerInside"
+                android:contentDescription="Open in app"/>
+
+            <TextView
+                android:id="@+id/tvOpenApp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Buka di App"
+                android:textColor="#80FFFFFF"
+                android:textSize="13sp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

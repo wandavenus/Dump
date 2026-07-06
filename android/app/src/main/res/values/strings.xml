@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Apple Music</string>
+    <!-- %s is replaced with app_name at runtime -->
+    <string name="overlay_open_in_app">Buka di %s</string>
 </resources>

@@ -21,19 +21,43 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
 
-            <!-- Open audio files directly (file manager, Telegram, etc.) -->
+        <!--
+            NowPlayingOverlayActivity — shown when the user opens an audio file
+            from a file manager, Telegram, or any other app via "Open with".
+
+            Uses a translucent theme so the originating app stays visible behind
+            the floating card. taskAffinity="" ensures it never joins the main
+            app's back-stack, so pressing Back returns the user to their file
+            manager (not to our main UI).
+        -->
+        <activity
+            android:name=".NowPlayingOverlayActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/NowPlayingOverlayTheme"
+            android:configChanges="orientation|screenSize|uiMode">
+
+            <!-- audio/* with no scheme constraint — catches content:// URIs
+                 that omit an explicit scheme (e.g. from ZArchiver). -->
             <intent-filter android:label="@string/app_name">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="audio/*"/>
             </intent-filter>
+
+            <!-- file:// URIs from older file managers -->
             <intent-filter android:label="@string/app_name">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:scheme="file"/>
                 <data android:mimeType="audio/*"/>
             </intent-filter>
+
+            <!-- content:// URIs (modern file managers, Telegram) -->
             <intent-filter android:label="@string/app_name">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
