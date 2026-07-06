@@ -12,7 +12,7 @@ class _ArtistCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(left: 6, right: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
             ClipRRect(
@@ -25,11 +25,12 @@ class _ArtistCard extends StatelessWidget {
             ),
             const SizedBox(height: 2.5),
             SizedBox(
-              width: 165,
+              width: 170,
               child: Text(
                 artist.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 15,
@@ -37,14 +38,18 @@ class _ArtistCard extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              '${artist.songs.length} lagu',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 12,
-                color: Colors.grey,
+            SizedBox(
+              width: 170,
+              child: Text(
+                '${artist.songs.length} lagu',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
               ),
             ),
           ],
