@@ -269,11 +269,23 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final t = Curves.easeOutCubic.transform(progress);
 
     // ── Entry slide-up animation ─────────────────────────────────────────────
+    // Mini player starts flush with the very bottom of the screen (fully
+    // tucked behind/inside the bottom nav bar) and slides straight up to its
+    // resting spot above the nav bar — no fade, pure slide.
     final easedEntry = Curves.easeOutCubic.transform(_entryAnim.value);
-    final entrySlide = 72.0 * (1.0 - easedEntry);
-    final entryOpacity = Curves.easeOut.transform(_entryAnim.value).clamp(0.0, 1.0);
+    final baseBottom = navBarH + safeBottom + miniBottomGap;
+    final entrySlide = baseBottom * (1.0 - easedEntry);
 
     final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)! - entrySlide;
+
+    // Reveal boundary: while the entry animation hasn't finished (and the
+    // sheet is still at rest), clip away anything at/below the nav bar's top
+    // edge so the mini player appears to emerge from behind/inside the bar
+    // instead of sliding up on top of it. Relaxes to full-screen the moment
+    // either the entry animation completes or the user starts expanding the
+    // sheet, so it never interferes with the full-player view.
+    final revealProgress = easedEntry > t ? easedEntry : t;
+    final clipVisibleHeight = lerpDouble(screenH - baseBottom, screenH, revealProgress)!;
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: linear so corners snap crisply at 0
@@ -307,14 +319,17 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
     final artRadius = lerpDouble(4.0, 12.0, t)!;
 
-    return Positioned(
-      bottom: bottom,
-      left: horizMargin,
-      right: horizMargin,
-      height: height,
-      child: Opacity(
-        opacity: entryOpacity,
-        child: GestureDetector(
+    return Positioned.fill(
+      child: ClipRect(
+        clipper: _BottomRevealClipper(clipVisibleHeight),
+        child: Stack(
+          children: [
+            Positioned(
+              bottom: bottom,
+              left: horizMargin,
+              right: horizMargin,
+              height: height,
+              child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanStart: _onPanStart,
         onPanUpdate: _onPanUpdate,
@@ -510,8 +525,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           ),
         ),
       ),
-    ),   // closes Opacity
-  );
+            ), // closes inner Positioned
+          ],
+        ), // closes inner Stack
+      ), // closes ClipRect
+    ); // closes Positioned.fill
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
@@ -605,4 +623,19 @@ Transform.translate(
       ],
     );
   }
+}
+
+// ── Reveal clipper used by the mini-player entry animation ───────────────────
+// Clips away everything at/below a given height so the mini player appears to
+// rise from behind/inside the bottom nav bar instead of sliding on top of it.
+class _BottomRevealClipper extends CustomClipper<Rect> {
+  final double visibleHeight;
+  const _BottomRevealClipper(this.visibleHeight);
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, visibleHeight);
+
+  @override
+  bool shouldReclip(covariant _BottomRevealClipper oldClipper) =>
+      oldClipper.visibleHeight != visibleHeight;
 }
