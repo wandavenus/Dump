@@ -29,6 +29,7 @@ class ArtistHero extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Artwork centered — sama persis dengan AlbumHero
           Hero(
@@ -61,6 +62,7 @@ class ArtistHero extends StatelessWidget {
           // Meta: X lagu • X album
           Text(
             _buildMetadata(),
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF8E8E93),
