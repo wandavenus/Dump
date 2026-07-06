@@ -26,7 +26,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           .where(songMap.containsKey)
           .map((id) => songMap[id]!)
           .toList();
-      if (mounted) setState(() { _songs = recent; _isLoading = false; });
+      if (mounted) {
+        setState(() { _songs = recent; _isLoading = false; });
+        unawaited(
+          ArtworkRepository.instance.prefetch(recent.map((s) => s.id).toList()),
+        );
+      }
     } catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }

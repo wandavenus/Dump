@@ -140,6 +140,40 @@ class ArtworkRepository {
   }
 }
 
+  // ── Background prefetch (cache warm-up) ────────────────────────────────────
+
+  // Guards against overlapping prefetch batches stepping on each other.
+  bool _prefetching = false;
+
+  /// Warms the disk cache for [songIds] so artwork is likely already on disk
+  /// by the time the user scrolls to it, reducing how often the fallback
+  /// icon is visible.
+  ///
+  /// Deliberately conservative for mid-range devices (e.g. Snapdragon 730,
+  /// 6 GB RAM): only resolves [getPath] (disk path), never decodes bitmaps
+  /// into memory via [getProvider]. Runs sequentially, one song at a time,
+  /// with a small delay between each so it never competes with the UI
+  /// thread or saturates storage I/O. Silently skips songs already cached.
+  Future<void> prefetch(List<int> songIds, {int limit = 8}) async {
+    if (_prefetching || songIds.isEmpty) return;
+    _prefetching = true;
+    try {
+      for (final id in songIds.take(limit)) {
+        if (id <= 0 || _paths.containsKey(id)) continue;
+        try {
+          await getPath(id);
+        } catch (_) {
+          // Never let a single failed extraction abort the batch.
+        }
+        // Yield back to the event loop between items so scrolling/animation
+        // frames are never blocked by this low-priority background work.
+        await Future.delayed(const Duration(milliseconds: 120));
+      }
+    } finally {
+      _prefetching = false;
+    }
+  }
+
   // ── Active-queue registration ──────────────────────────────────────────────
 
   /// Tells the native cache manager which song IDs are currently in the

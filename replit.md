@@ -36,3 +36,12 @@ The Android APK is the primary target — build with Android Studio or `flutter 
 - Setelah selesai pengerjaan, jalankan `flutter analyze` saja — **jangan rebuild web (`flutter build web`)** kecuali ada perintah eksplisit dari user.
 - Gunakan **Bahasa Indonesia non-formal / gaul** untuk semua pesan progres, penjelasan, dan info pengerjaan. Pakai "aku/kamu", bukan "gue/lu".
 - Lakukan Pengerjaan dengan penuh pertimbangan supaya tidak membuat kesalahan yang tidak diingin kan dari hasil pengerjaan yang sudah di lakukan
+
+## Target device (real Android testing device)
+
+- **Model:** Xiaomi Mi 9T / K20 (sama hardware, beda nama regional)
+- **Chipset:** Snapdragon 730 (Kryo 470, octa-core, ~2.2GHz)
+- **RAM:** 6GB
+- **Storage:** 64GB
+- **OS:** MIUI 12 (berbasis Android 10)
+- Ini adalah device mid-range — pertimbangkan batasan RAM/CPU/storage saat menambahkan fitur baru (misal: prefetch/cache warm-up harus konservatif, hindari operasi berat/paralel besar-besaran yang bisa bikin app lag atau boros storage/baterai di device ini).

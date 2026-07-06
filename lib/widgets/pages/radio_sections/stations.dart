@@ -83,6 +83,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           _count = ids.length;
           _artworkIds = ids.take(4).toList();
         });
+        ArtworkRepository.instance.prefetch(_artworkIds);
       }
     } catch (_) {}
   }
@@ -136,6 +137,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void initState() {
     super.initState();
     _artworkIds = widget.playlist.songIds.take(4).toList();
+    ArtworkRepository.instance.prefetch(_artworkIds);
   }
 
   void _open() {
