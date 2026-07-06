@@ -94,7 +94,11 @@
             android:layout_marginTop="10dp"
             android:progressTint="#FF375F"
             android:progressBackgroundTint="#40FFFFFF"
-            android:thumbTint="#FF375F"/>
+            android:thumbTint="#00000000"
+            android:splitTrack="false"
+            android:minHeight="20dp"
+            android:maxHeight="20dp"/>
+
 
         <!-- ── Time labels ───────────────────────────────────────────────── -->
         <LinearLayout
