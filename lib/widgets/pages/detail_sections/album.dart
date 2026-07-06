@@ -70,7 +70,6 @@ class AlbumHero extends StatelessWidget {
                   style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                 ),
               ],
-              const Icon(Icons.wifi, size: 13, color: Color(0xFF8E8E93)),
               const SizedBox(width: 3),
               const Text(
                 'Lossless',
