@@ -2,7 +2,8 @@ part of '../../home_sections.dart';
 
 class _AlbumCard extends StatefulWidget {
   final _AlbumGroup album;
-  const _AlbumCard({required this.album});
+  final String caption;
+  const _AlbumCard({required this.album, required this.caption});
 
   @override
   State<_AlbumCard> createState() => _AlbumCardState();
@@ -56,9 +57,11 @@ class _AlbumCardState extends State<_AlbumCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Album',
-              style: TextStyle(
+            Text(
+              widget.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 color: Color.fromARGB(255, 153, 153, 153),
                 fontSize: 15,
               ),

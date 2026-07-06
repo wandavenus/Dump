@@ -26,6 +26,14 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     }
   }
 
+  // Caption di atas tiap kartu, meniru gaya "Listen Again" / "More from
+  // [Artist]" pada referensi: kartu pertama = ajakan dengarkan lagi,
+  // kartu selanjutnya = rekomendasi dari artis album tersebut.
+  String _captionFor(int index) {
+    if (index == 0) return 'Dengarkan Lagi';
+    return 'Lainnya dari ${_albums[index].artist}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -52,8 +60,10 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(10),
             itemCount: _albums.length,
-            itemBuilder: (context, index) =>
-                _AlbumCard(album: _albums[index]),
+            itemBuilder: (context, index) => _AlbumCard(
+              album: _albums[index],
+              caption: _captionFor(index),
+            ),
           ),
         ),
       ],
