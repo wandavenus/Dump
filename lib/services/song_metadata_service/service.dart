@@ -6,12 +6,46 @@ class SongMetadataService {
   static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
   static const String unknown = 'Unknown';
 
+  // ── In-memory result cache (mtime-keyed) ──────────────────────────────────
+  //
+  // Only matters on API 29-30 devices (e.g. this project's Android 11 test
+  // device), where bitrate/sampleRate aren't in the MediaStore projection and
+  // every Song Info open pays for a MediaMetadataRetriever round-trip. On
+  // API 31+ the fast path above already avoids native I/O entirely, so the
+  // cache is a pure no-op cost there (one map lookup).
+  //
+  // Keyed by songId; invalidated automatically if the file's mtime changes
+  // (e.g. re-tagged externally), so a stale entry can never be served.
+  // Capped at [_maxCacheEntries] with LRU eviction to keep memory bounded —
+  // important on a 6 GB RAM device.
+  static const int _maxCacheEntries = 100;
+  static final LinkedHashMap<int, ({SongInfo info, int mtimeMs})> _cache =
+      LinkedHashMap();
+
+  static int? _mtimeMs(String path) {
+    try {
+      return File(path).lastModifiedSync().millisecondsSinceEpoch;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void _cachePut(int songId, int? mtimeMs, SongInfo info) {
+    if (mtimeMs == null) return; // can't validate freshness later — skip.
+    _cache.remove(songId);
+    _cache[songId] = (info: info, mtimeMs: mtimeMs);
+    while (_cache.length > _maxCacheEntries) {
+      _cache.remove(_cache.keys.first);
+    }
+  }
+
   /// Returns full technical metadata for [song].
   ///
   /// Fast path (API 31+ devices): bitrate and sampleRate are already present
   /// in [LocalSong] from the expanded MediaStore projection — no native I/O.
   /// Slow path (API 29-30): falls back to [MediaMetadataRetriever] via the
-  /// native [getAudioMetadata] channel call.
+  /// native [getAudioMetadata] channel call, with an in-memory cache (see
+  /// above) so re-opening Song Info for the same unchanged file is instant.
   /// File size is read directly from [dart:io] on all API levels.
   static Future<SongInfo> getSongInfo(LocalSong song) async {
     final fileSizeStr = _readFileSizeString(song.path);
@@ -32,9 +66,21 @@ class SongMetadataService {
       );
     }
 
+    // Slow-path cache lookup — skip the native round-trip if we already
+    // fetched this exact (unchanged) file's metadata before.
+    final mtimeMs = kIsWeb ? null : _mtimeMs(song.path);
+    if (mtimeMs != null) {
+      final cached = _cache[song.id];
+      if (cached != null && cached.mtimeMs == mtimeMs) {
+        _cache.remove(song.id);
+        _cache[song.id] = cached; // move to MRU position
+        return cached.info;
+      }
+    }
+
     // Slow path — call MediaMetadataRetriever via native channel.
     final metadata = await _loadNativeMetadata(song);
-    return SongInfo(
+    final info = SongInfo(
       title:      _clean(song.title),
       artist:     _clean(song.albumArtist ?? song.artist),
       album:      _clean(song.album),
@@ -47,6 +93,8 @@ class SongMetadataService {
                     int.tryParse(metadata['fileSize'] ?? fileSizeStr)),
       filePath:   _clean(song.path),
     );
+    _cachePut(song.id, mtimeMs, info);
+    return info;
   }
 
   static Future<Map<String, String>> _loadNativeMetadata(LocalSong song) async {
