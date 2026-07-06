@@ -7,22 +7,22 @@ class PlayShuffleButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _ActionButton(
             icon: Icons.play_arrow_rounded,
-            label: 'Play',
+            label: 'Putar',
             onTap: () async {
               await AudioService.playSongAt(playlist: songs, index: 0);
               PlayerPanelController.instance.open();
             },
           ),
+          const SizedBox(width: 8),
           _ActionButton(
             icon: CupertinoIcons.shuffle,
-            label: 'Shuffle',
+            label: 'Acak',
             onTap: () async {
               final shuffled = List<LocalSong>.from(songs)..shuffle();
               await AudioService.playSongAt(playlist: shuffled, index: 0);

@@ -12,31 +12,26 @@ class SongListSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayCount = songs.length < 4 ? songs.length : 4;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showHeader)
-          Container(
-            margin: const EdgeInsets.only(left: 25, top: 20),
-            child: const Row(
-              children: [
-                Text(
-                  'Top Songs',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-            
-              ],
+          const Padding(
+            padding: EdgeInsets.only(left: 16, top: 20, bottom: 4),
+            child: Text(
+              'Top Songs',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ListView.builder(
-          padding: const EdgeInsets.only(top: 10, left: 25, right: 25),
+          padding: const EdgeInsets.only(top: 8),
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
-          itemCount: displayCount,
+          itemCount: songs.length,
           itemBuilder: (context, index) =>
               SongListRow(song: songs[index], index: index, playlist: songs),
         ),
