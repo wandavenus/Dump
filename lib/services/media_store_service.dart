@@ -24,6 +24,16 @@ class MediaStoreService {
   }
 
   static Future<List<LocalSong>> refreshSongs() async {
+    // MediaStore has no browser equivalent — `musicplayer/media_store` isn't
+    // implemented on web. Serve a small in-memory sample library instead so
+    // layout/UI (Home, Album/Artist detail, Search, Library) can be visually
+    // checked in the web preview. Never used on Android — real device builds
+    // always hit the native channel below.
+    if (kIsWeb) {
+      _songsCache = _webSampleSongs;
+      return _webSampleSongs;
+    }
+
     try {
       final List<dynamic>? songs =
           await _channel.invokeListMethod('getSongs');
@@ -44,6 +54,82 @@ class MediaStoreService {
       return const <LocalSong>[];
     }
   }
+
+  // ── Web-only sample library (never used on Android) ───────────────────────
+  static final List<LocalSong> _webSampleSongs = List.unmodifiable([
+    const LocalSong(
+      id: 1001, title: 'Senja di Ufuk', artist: 'Nadia Kirana',
+      path: 'web-sample://1001', album: 'Cerita Kota', albumId: 5001,
+      duration: Duration(minutes: 3, seconds: 42),
+      year: 2022, trackNumber: 1, albumArtist: 'Nadia Kirana', genre: 'Pop',
+    ),
+    const LocalSong(
+      id: 1002, title: 'Langkah Pertama', artist: 'Nadia Kirana',
+      path: 'web-sample://1002', album: 'Cerita Kota', albumId: 5001,
+      duration: Duration(minutes: 4, seconds: 5),
+      year: 2022, trackNumber: 2, albumArtist: 'Nadia Kirana', genre: 'Pop',
+    ),
+    const LocalSong(
+      id: 1003, title: 'Hujan November', artist: 'Nadia Kirana',
+      path: 'web-sample://1003', album: 'Cerita Kota', albumId: 5001,
+      duration: Duration(minutes: 3, seconds: 20),
+      year: 2022, trackNumber: 3, albumArtist: 'Nadia Kirana', genre: 'Pop',
+    ),
+    const LocalSong(
+      id: 1004, title: 'Jalan Pulang', artist: 'Bara Santoso',
+      path: 'web-sample://1004', album: 'Perjalanan', albumId: 5002,
+      duration: Duration(minutes: 5, seconds: 10),
+      year: 2020, trackNumber: 1, albumArtist: 'Bara Santoso', genre: 'Rock',
+    ),
+    const LocalSong(
+      id: 1005, title: 'Angin Malam', artist: 'Bara Santoso',
+      path: 'web-sample://1005', album: 'Perjalanan', albumId: 5002,
+      duration: Duration(minutes: 4, seconds: 30),
+      year: 2020, trackNumber: 2, albumArtist: 'Bara Santoso', genre: 'Rock',
+    ),
+    const LocalSong(
+      id: 1006, title: 'Rindu Sepanjang Jalan', artist: 'Bara Santoso',
+      path: 'web-sample://1006', album: 'Perjalanan', albumId: 5002,
+      duration: Duration(minutes: 3, seconds: 58),
+      year: 2020, trackNumber: 3, albumArtist: 'Bara Santoso', genre: 'Rock',
+    ),
+    const LocalSong(
+      id: 1007, title: 'Bintang Kecil Baru', artist: 'Diaz Ramadhan',
+      path: 'web-sample://1007', album: 'Malam Kota', albumId: 5003,
+      duration: Duration(minutes: 3, seconds: 15),
+      year: 2023, trackNumber: 1, albumArtist: 'Diaz Ramadhan', genre: 'Jazz',
+    ),
+    const LocalSong(
+      id: 1008, title: 'Kopi dan Kenangan', artist: 'Diaz Ramadhan',
+      path: 'web-sample://1008', album: 'Malam Kota', albumId: 5003,
+      duration: Duration(minutes: 4, seconds: 2),
+      year: 2023, trackNumber: 2, albumArtist: 'Diaz Ramadhan', genre: 'Jazz',
+    ),
+    const LocalSong(
+      id: 1009, title: 'Lampu Jalan', artist: 'Diaz Ramadhan',
+      path: 'web-sample://1009', album: 'Malam Kota', albumId: 5003,
+      duration: Duration(minutes: 3, seconds: 33),
+      year: 2023, trackNumber: 3, albumArtist: 'Diaz Ramadhan', genre: 'Jazz',
+    ),
+    const LocalSong(
+      id: 1010, title: 'Pelangi Setelah Hujan', artist: 'Nadia Kirana',
+      path: 'web-sample://1010', album: 'Kilau', albumId: 5004,
+      duration: Duration(minutes: 3, seconds: 48),
+      year: 2024, trackNumber: 1, albumArtist: 'Nadia Kirana', genre: 'Pop',
+    ),
+    const LocalSong(
+      id: 1011, title: 'Ombak Tenang', artist: 'Sinta Melati',
+      path: 'web-sample://1011', album: 'Kilau', albumId: 5004,
+      duration: Duration(minutes: 4, seconds: 12),
+      year: 2024, trackNumber: 2, albumArtist: 'Sinta Melati', genre: 'Pop',
+    ),
+    const LocalSong(
+      id: 1012, title: 'Cahaya Pertama', artist: 'Sinta Melati',
+      path: 'web-sample://1012', album: 'Titik Awal', albumId: 5005,
+      duration: Duration(minutes: 3, seconds: 27),
+      year: 2021, trackNumber: 1, albumArtist: 'Sinta Melati', genre: 'Akustik',
+    ),
+  ]);
 
   static void clearSongsCache() {
     _songsCache = null;
