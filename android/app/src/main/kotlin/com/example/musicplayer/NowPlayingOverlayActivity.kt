@@ -50,7 +50,8 @@ class NowPlayingOverlayActivity : Activity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var connectRetries = 0
-
+    private var isOpeningMainApp = false
+    
     // ── Progress ticker ───────────────────────────────────────────────────────
     private val ticker = object : Runnable {
         override fun run() {
@@ -114,7 +115,8 @@ class NowPlayingOverlayActivity : Activity() {
         val openLabel = getString(R.string.overlay_open_in_app, getString(R.string.app_name))
         findViewById<TextView>(R.id.tvOpenApp).text = openLabel
 
-        findViewById<View>(R.id.btnOpenApp).setOnClickListener {
+                findViewById<View>(R.id.btnOpenApp).setOnClickListener {
+            isOpeningMainApp = true // <── Tambahin ini biar pas buka app, musik ga mati
             startActivity(
                 Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -122,6 +124,7 @@ class NowPlayingOverlayActivity : Activity() {
             )
             finish()
         }
+
     }
 
     // ── Load metadata + start playback ────────────────────────────────────────
@@ -168,13 +171,26 @@ class NowPlayingOverlayActivity : Activity() {
         }, mainExecutor)
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+        // ── Lifecycle ─────────────────────────────────────────────────────────────
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
+
+        // Kalau user pencet luar (bukan pencet tombol Open App)
+        if (!isOpeningMainApp) {
+            try {
+                // Matiin service musiknya
+                val svcIntent = Intent(this, Media3PlaybackService::class.java)
+                stopService(svcIntent)
+            } catch (_: Exception) {}
+            
+            // Kill total aplikasi biar ga nggantung di background
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
     }
+
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private data class Meta(val title: String, val artist: String, val art: Bitmap?)
