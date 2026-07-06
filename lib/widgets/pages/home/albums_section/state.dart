@@ -30,7 +30,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
-        height: 371,
+        height: 368,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -47,7 +47,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
           ),
         ),
         SizedBox(
-          height: 371,
+          height: 368,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(10),

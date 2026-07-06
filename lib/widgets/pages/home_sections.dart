@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
+import '../../services/artwork_repository.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
+import '../../services/palette_extractor.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';

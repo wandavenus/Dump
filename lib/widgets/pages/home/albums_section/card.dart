@@ -1,11 +1,50 @@
 part of '../../home_sections.dart';
 
-class _AlbumCard extends StatelessWidget {
+class _AlbumCard extends StatefulWidget {
   final _AlbumGroup album;
   const _AlbumCard({required this.album});
 
   @override
+  State<_AlbumCard> createState() => _AlbumCardState();
+}
+
+class _AlbumCardState extends State<_AlbumCard> {
+  // Dimensi diukur presisi dari referensi desain (kartu "Top Picks" style):
+  // rasio lebar:tinggi-artwork:tinggi-info ≈ 250 : 258 : 68.
+  static const double _cardWidth = 250;
+  static const double _artworkHeight = 258;
+  static const double _infoHeight = 68;
+  static const double _cornerRadius = 20;
+
+  static const Color _fallbackColor = Color(0xFF2B313A);
+
+  Color _bgColor = _fallbackColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPaletteColor();
+  }
+
+  Future<void> _loadPaletteColor() async {
+    final songId = widget.album.coverSongId;
+
+    final cached = PaletteExtractor.getSync(songId);
+    if (cached != null) {
+      if (mounted) setState(() => _bgColor = cached[2]);
+      return;
+    }
+
+    final bytes = await ArtworkRepository.instance.getBytes(songId);
+    if (bytes == null || !mounted) return;
+
+    final colors = await PaletteExtractor.get(songId, bytes);
+    if (mounted) setState(() => _bgColor = colors[2]);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final album = widget.album;
     return InkWell(
       onTap: () => Navigator.pushNamed(
         context,
@@ -26,53 +65,37 @@ class _AlbumCard extends StatelessWidget {
             ),
             const SizedBox(height: 7),
 
-            // Full artwork + teks overlay gradient
+            // Kartu: artwork penuh di atas + blok warna solid berisi teks di bawah.
             ClipRRect(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(_cornerRadius),
               child: SizedBox(
-                width: 250,
-                height: 250,
-                child: Stack(
-                  fit: StackFit.expand,
+                width: _cardWidth,
+                height: _artworkHeight + _infoHeight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Artwork full
-                    SongArtwork(
-                      songId: album.coverSongId,
-                      size: 250,
-                      borderRadius: BorderRadius.zero,
-                    ),
-
-                    // Gradient gelap transparan di bagian bawah
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        height: 90,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Color(0xCC000000),
-                              Color(0x00000000),
-                            ],
-                          ),
-                        ),
+                    SizedBox(
+                      width: _cardWidth,
+                      height: _artworkHeight,
+                      child: SongArtwork(
+                        songId: album.coverSongId,
+                        size: _cardWidth,
+                        borderRadius: BorderRadius.zero,
                       ),
                     ),
-
-                    // Teks judul + artis di atas gradient
-                    Positioned(
-                      left: 10,
-                      right: 10,
-                      bottom: 10,
+                    Container(
+                      width: _cardWidth,
+                      height: _infoHeight,
+                      color: _bgColor,
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             album.name,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 15,
@@ -80,12 +103,14 @@ class _AlbumCard extends StatelessWidget {
                               color: Colors.white,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             album.artist,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xCCFFFFFF),
+                              fontSize: 12.5,
+                              color: Color(0xB3FFFFFF),
                             ),
                           ),
                         ],
