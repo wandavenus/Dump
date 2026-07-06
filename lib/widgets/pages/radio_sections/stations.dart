@@ -107,8 +107,6 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     return PlaylistCard(
       name: _smartCards[widget.index].name,
       subtitle: _count == 0 ? 'Belum ada lagu' : '$_count lagu',
-      emptyIcon: _smartCards[widget.index].icon,
-      emptyIconColor: _smartCards[widget.index].color,
       artworkIds: _artworkIds,
       onTap: _open,
     );
@@ -198,8 +196,6 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
     return PlaylistCard(
       name: widget.playlist.name,
       subtitle: count == 0 ? 'Belum ada lagu' : '$count lagu',
-      emptyIcon: Icons.queue_music,
-      emptyIconColor: Colors.white,
       artworkIds: _artworkIds,
       onTap: _open,
       onLongPress: _onLongPress,
