@@ -269,23 +269,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final t = Curves.easeOutCubic.transform(progress);
 
     // ── Entry slide-up animation ─────────────────────────────────────────────
-    // Mini player starts flush with the very bottom of the screen (fully
-    // tucked behind/inside the bottom nav bar) and slides straight up to its
-    // resting spot above the nav bar — no fade, pure slide.
+    // Mini player starts fully hidden below the screen's bottom edge (i.e.
+    // entirely behind/inside the bottom nav bar, not just at bottom:0 which
+    // would still let its top edge peek above the bar) and slides straight up
+    // to its resting spot above the nav bar — no fade, pure slide.
     final easedEntry = Curves.easeOutCubic.transform(_entryAnim.value);
     final baseBottom = navBarH + safeBottom + miniBottomGap;
-    final entrySlide = baseBottom * (1.0 - easedEntry);
+    final entrySlide = (baseBottom + miniH) * (1.0 - easedEntry);
 
     final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)! - entrySlide;
 
-    // Reveal boundary: while the entry animation hasn't finished (and the
-    // sheet is still at rest), clip away anything at/below the nav bar's top
-    // edge so the mini player appears to emerge from behind/inside the bar
-    // instead of sliding up on top of it. Relaxes to full-screen the moment
-    // either the entry animation completes or the user starts expanding the
-    // sheet, so it never interferes with the full-player view.
-    final revealProgress = easedEntry > t ? easedEntry : t;
-    final clipVisibleHeight = lerpDouble(screenH - baseBottom, screenH, revealProgress)!;
+    // Reveal boundary: while collapsed (t == 0, i.e. not expanding into the
+    // full player), clip away anything at/below the nav bar's top edge so the
+    // mini player can only ever be visible above that line — this is what
+    // makes it look like it emerges from behind/inside the bar as it slides
+    // up, instead of momentarily poking out below the bar's top edge. Fully
+    // relaxes to full-screen the moment the user starts expanding the sheet,
+    // so it never interferes with the full-player view.
+    final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: linear so corners snap crisply at 0
