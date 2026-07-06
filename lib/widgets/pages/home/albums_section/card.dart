@@ -14,7 +14,7 @@ class _AlbumCardState extends State<_AlbumCard> {
   static const double _cardWidth = 250;
   static const double _artworkHeight = 258;
   static const double _infoHeight = 68;
-  static const double _cornerRadius = 20;
+  static const double _cornerRadius = 10;
 
   static const Color _fallbackColor = Color(0xFF2B313A);
 
@@ -89,25 +89,27 @@ class _AlbumCardState extends State<_AlbumCard> {
                       color: _bgColor,
                       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+                        crossAxisAlignment: CrossAxisAlignment.center, 
+    mainAxisAlignment: MainAxisAlignment.center,
+    mainAxisSize: MainAxisSize.min,
+    children: [
                           Text(
                             album.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center, 
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 1),
                           Text(
                             album.artist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: Color(0xB3FFFFFF),
