@@ -51,7 +51,7 @@ class SongListRow extends StatelessWidget {
                   ),
                 ),
 
-                // Title + explicit badge
+                // Title
                 Expanded(
                   child: Row(
                     children: [
@@ -63,22 +63,6 @@ class SongListRow extends StatelessWidget {
                             fontSize: 15,
                             color: Colors.white,
                             fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF636366),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'E',
-                          style: TextStyle(
-                            fontSize: 8,
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
