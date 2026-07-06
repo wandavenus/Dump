@@ -41,7 +41,7 @@ class ArtistListRow extends StatelessWidget {
               height: 1.3,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
 
           // Subtitle — abu-abu
           Text(
