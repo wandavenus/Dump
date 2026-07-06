@@ -37,21 +37,38 @@ class _ArtistListContentState extends State<ArtistListContent> {
         child: Text('Tidak ada artis ditemukan', style: TextStyle(color: Colors.grey)),
       );
     }
-    return ListView.builder(
+
+    return CustomScrollView(
       controller: widget.scrollController,
-      itemCount: _artists.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return const Column(
+      slivers: [
+        // Header — judul tidak diubah
+        const SliverToBoxAdapter(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               LargePageTitle(title: 'Artis Favorit'),
               HeaderDivider(),
             ],
-          );
-        }
-        return ArtistListRow(artist: _artists[index - 1]);
-      },
+          ),
+        ),
+
+        // Grid 2 kolom
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.78,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => ArtistListRow(artist: _artists[index]),
+              childCount: _artists.length,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
