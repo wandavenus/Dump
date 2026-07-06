@@ -38,7 +38,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         height: 250,
         child: Center(
           child: Text(
-            'No recently played songs',
+            'Tidak ada lagu yang diputar baru-baru ini',
             style: TextStyle(color: Colors.grey),
           ),
         ),
