@@ -42,6 +42,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   double _animStartVal = 0.0;
   double _animTarget = 0.0;
 
+  // ── Entry animation — slide-up when mini player first appears ──────────────
+  late final AnimationController _entryAnim;
+  LocalSong? _lastSong;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -54,15 +58,30 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     )..addListener(_onReleaseAnimTick);
+    _entryAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
+    AudioService.playbackState.addListener(_onSongAppeared);
   }
 
   @override
   void dispose() {
     _overlayAnim.dispose();
     _releaseAnim.dispose();
+    _entryAnim.dispose();
+    AudioService.playbackState.removeListener(_onSongAppeared);
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
+  }
+
+  void _onSongAppeared() {
+    final current = AudioService.playbackState.value.currentSong;
+    if (_lastSong == null && current != null) {
+      _entryAnim.forward(from: 0.0);
+    }
+    _lastSong = current;
   }
 
   void _onReleaseAnimTick() {
@@ -209,15 +228,20 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AudioPlaybackState>(
-      valueListenable: AudioService.playbackState,
-      builder: (context, state, _) {
-        final song = state.currentSong;
-        if (song == null) return const SizedBox.shrink();
-        return ValueListenableBuilder<double>(
-          valueListenable: PlayerSheetController.progress,
-          builder: (context, progress, _) {
-            return _buildMorph(context, song, state, progress);
+    return AnimatedBuilder(
+      animation: _entryAnim,
+      builder: (context, _) {
+        return ValueListenableBuilder<AudioPlaybackState>(
+          valueListenable: AudioService.playbackState,
+          builder: (context, state, _) {
+            final song = state.currentSong;
+            if (song == null) return const SizedBox.shrink();
+            return ValueListenableBuilder<double>(
+              valueListenable: PlayerSheetController.progress,
+              builder: (context, progress, _) {
+                return _buildMorph(context, song, state, progress);
+              },
+            );
           },
         );
       },
@@ -244,7 +268,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
 
-    final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)!;
+    // ── Entry slide-up animation ─────────────────────────────────────────────
+    final easedEntry = Curves.easeOutCubic.transform(_entryAnim.value);
+    final entrySlide = 72.0 * (1.0 - easedEntry);
+    final entryOpacity = Curves.easeOut.transform(_entryAnim.value).clamp(0.0, 1.0);
+
+    final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)! - entrySlide;
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: linear so corners snap crisply at 0
@@ -283,7 +312,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       left: horizMargin,
       right: horizMargin,
       height: height,
-      child: GestureDetector(
+      child: Opacity(
+        opacity: entryOpacity,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanStart: _onPanStart,
         onPanUpdate: _onPanUpdate,
@@ -479,7 +510,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           ),
         ),
       ),
-    );
+    ),   // closes Opacity
+  );
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
