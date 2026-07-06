@@ -8,6 +8,17 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {

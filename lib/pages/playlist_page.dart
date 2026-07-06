@@ -47,6 +47,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
     super.initState();
     _load();
     _scroll.addListener(_onScroll);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
   }
 
   void _onScroll() {
@@ -56,6 +61,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();

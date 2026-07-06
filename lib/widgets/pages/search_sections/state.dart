@@ -20,6 +20,11 @@ class _SearchSliversState extends State<SearchSlivers>
     super.initState();
     _loadSongs();
     _controller.addListener(_onQueryChanged);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _loadSongs();
   }
 
   @override
@@ -31,6 +36,7 @@ class _SearchSliversState extends State<SearchSlivers>
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _queryDebounce?.cancel();
     _controller.removeListener(_onQueryChanged);
     _controller.dispose();

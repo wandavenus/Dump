@@ -14,6 +14,11 @@ class MediaStoreService {
 
   static List<LocalSong>? _songsCache;
 
+  /// Dipancarkan setiap kali rescan selesai — value adalah event counter
+  /// (increment +1 setiap rescan berhasil). Listener cukup panggil ulang
+  /// load mereka tanpa peduli nilai aktualnya.
+  static final ValueNotifier<int> rescanNotifier = ValueNotifier(0);
+
   static Future<List<LocalSong>> getSongs() async {
     final cachedSongs = _songsCache;
     if (cachedSongs != null) {

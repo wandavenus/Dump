@@ -10,6 +10,14 @@ class _MusicListState extends State<MusicList> {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
     _scroll.addListener(_onScroll);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (!mounted) return;
+    setState(() {
+      _songsFuture = MediaStoreService.getSongs();
+    });
   }
 
   void _onScroll() {
@@ -26,6 +34,7 @@ class _MusicListState extends State<MusicList> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();

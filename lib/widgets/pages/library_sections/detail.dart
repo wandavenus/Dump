@@ -23,6 +23,14 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     _songsFuture = MediaStoreService.getSongs();
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (!mounted) return;
+    setState(() {
+      _songsFuture = MediaStoreService.getSongs();
+    });
   }
 
   void _onScroll() {
@@ -37,6 +45,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _searchController.removeListener(_onSearch);

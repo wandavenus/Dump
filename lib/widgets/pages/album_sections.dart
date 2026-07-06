@@ -107,6 +107,18 @@ class _MoreByArtistState extends State<_MoreByArtist> {
   void initState() {
     super.initState();
     _future = _loadOtherAlbums();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (!mounted) return;
+    setState(() { _future = _loadOtherAlbums(); });
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<List<_AlbumGroup>> _loadOtherAlbums() async {
