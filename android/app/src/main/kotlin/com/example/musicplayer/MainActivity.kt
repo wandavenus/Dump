@@ -68,6 +68,11 @@ class MainActivity : FlutterActivity() {
     private var pendingDeleteResult: MethodChannel.Result? = null
     private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
 
+    // ── Open-file intent plumbing ────────────────────────────────────────────
+    // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
+    @Volatile private var pendingOpenFileUri: String? = null
+    private var openFileChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
@@ -77,10 +82,71 @@ class MainActivity : FlutterActivity() {
         // queue instead of spawning an extra ad-hoc thread during startup.
         submitBackground(metadataExecutor) { metadataCacheDb.pruneOld() }
 
+        // Capture URI from the intent that cold-started the app.
+        pendingOpenFileUri = extractAudioUri(intent)
+
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
         setupMediaKitPlaybackChannels(flutterEngine)
+        setupOpenFileChannel(flutterEngine)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val uri = extractAudioUri(intent) ?: return
+        // Always write to pendingOpenFileUri so getInitialUri() can drain it.
+        // Also invoke the Dart handler if it is already registered (best-effort
+        // for warm starts); Dart will call getInitialUri() on resume as a safety
+        // net if the invoke arrives before the handler is ready.
+        pendingOpenFileUri = uri
+        openFileChannel?.let { ch ->
+            runOnUiThread { ch.invokeMethod("openUri", uri) }
+        }
+    }
+
+    // Known audio file extensions for file:// URIs that omit a MIME type.
+    private val AUDIO_EXTENSIONS = setOf(
+        "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "aiff",
+        "aif", "wma", "alac", "ape", "dsf", "dff", "mka", "webm"
+    )
+
+    /** Returns a URI string if the intent is an audio ACTION_VIEW, else null. */
+    private fun extractAudioUri(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val uri: Uri = intent.data ?: return null
+        val scheme = uri.scheme ?: ""
+        val mimeType = intent.type ?: contentResolver.getType(uri) ?: ""
+
+        return when {
+            // Explicit audio MIME — always accept.
+            mimeType.startsWith("audio/") -> uri.toString()
+            // No MIME from content resolver; reject non-audio content:// URIs
+            // because we can't safely determine their type.
+            scheme == "content" -> null
+            // file:// URI: accept only known audio extensions.
+            scheme == "file" || scheme.isEmpty() -> {
+                val ext = uri.lastPathSegment?.substringAfterLast('.')
+                    ?.lowercase() ?: ""
+                if (ext in AUDIO_EXTENSIONS) uri.toString() else null
+            }
+            else -> null
+        }
+    }
+
+    private fun setupOpenFileChannel(flutterEngine: FlutterEngine) {
+        val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "musicplayer/open_file")
+        openFileChannel = ch
+        ch.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInitialUri" -> {
+                    result.success(pendingOpenFileUri)
+                    pendingOpenFileUri = null
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
 

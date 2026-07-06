@@ -26,6 +26,13 @@ Future<void> main() async {
   ]);
   NativeLogBridge.init();
 
+  // Register the open-file channel handler EARLY so warm-restart intents
+  // are not dropped before AudioService is ready. The URI is stored on the
+  // native side (pendingOpenFileUri) and drained by checkInitialUri() later.
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    OpenFileService.registerHandler();
+  }
+
   // MediaKitSettingsService harus diinisialisasi SEBELUM AudioEngineManager
   // agar setting ter-load ke ValueNotifiers sebelum MediaKitEngine.initialize()
   // memanggil MediaKitSettingsService.applyAll().
@@ -49,6 +56,13 @@ Future<void> main() async {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await Permission.storage.request();
     await Permission.audio.request();
+  }
+
+  // Drain URI from the intent that cold-started the app.
+  // Must come AFTER permissions and AudioService.initialize() because
+  // _playUri calls AudioService.playSongAt().
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    unawaited(OpenFileService.checkInitialUri());
   }
 
   runApp(const MyApp());

@@ -929,7 +929,15 @@ Future<void> setShuffleMode(bool enabled) async {
   }
 
   List<Media> _buildMediaList(List<LocalSong> songs) =>
-      songs.map((s) => Media('file://${s.path}')).toList();
+      songs.map((s) {
+        final p = s.path;
+        // content:// and already-qualified URIs must not get a 'file://' prefix.
+        if (p.startsWith('content://') || p.startsWith('http://') ||
+            p.startsWith('https://') || p.startsWith('file://')) {
+          return Media(p);
+        }
+        return Media('file://$p');
+      }).toList();
 
   void _emitQueueSnapshot() {
     _queueCtrl.add(_queue.map((s) => s.toMap()).toList());

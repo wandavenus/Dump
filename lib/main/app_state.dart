@@ -21,6 +21,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Re-synchronize with the native Media3 service so the mini player
       // reappears immediately if background playback was active.
       unawaited(AudioService.syncFromNative());
+      // Check for any pending open-file URI that arrived during a warm restart
+      // before the Dart handler was fully ready.
+      unawaited(OpenFileService.onResume());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       // Flush any debounced settings writes (e.g. lyrics appearance sliders)
