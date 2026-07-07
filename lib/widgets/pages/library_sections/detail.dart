@@ -262,8 +262,48 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   // ─── Artis ─────────────────────────────────────────────────────────────────
 
-  Widget _artistSongs(List<LocalSong> songs) =>
-      _songListView(songs, subtitleBuilder: (song) => song.artist);
+  Widget _artistSongs(List<LocalSong> songs) {
+    // Kelompokkan lagu per artis
+    final artistMap = <String, List<LocalSong>>{};
+    for (final song in songs) {
+      artistMap.putIfAbsent(song.artist, () => []).add(song);
+    }
+    final artists = artistMap.entries
+        .map((e) => ArtistInfo(name: e.key, songs: e.value))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Filter berdasarkan pencarian
+    final filtered = _filter.isEmpty
+        ? artists
+        : artists
+            .where((a) => a.name.toLowerCase().contains(_filter))
+            .toList();
+
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+
+    return CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        SliverToBoxAdapter(child: _listHeader(songs)),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.78,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => ArtistListRow(artist: filtered[index]),
+              childCount: filtered.length,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   // ─── Album ─────────────────────────────────────────────────────────────────
 

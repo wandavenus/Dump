@@ -12,6 +12,7 @@ import '../common/scrolling_page_chrome.dart';
 import '../common_actions.dart';
 import '../song_artwork.dart';
 import '../song_context_menu.dart';
+import 'artist_list_sections.dart';
 
 // ─── Data model tiap menu library ─────────────────────────────────────────────
 
