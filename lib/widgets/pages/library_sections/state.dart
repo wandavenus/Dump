@@ -36,7 +36,7 @@ class _LibraryContentState extends State<LibraryContent> {
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) newIndex--;
+      // onReorderItem sudah menyesuaikan newIndex, tidak perlu -1
       final item = _items.removeAt(oldIndex);
       _items.insert(newIndex, item);
     });
@@ -100,7 +100,7 @@ class _LibraryContentState extends State<LibraryContent> {
               child: child,
             ),
           ),
-      onReorder: _onReorder,
+      onReorderItem: _onReorder,
       children:
           _items
               .map(

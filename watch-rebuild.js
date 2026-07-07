@@ -9,7 +9,8 @@ const { watch } = require('fs');
 const { exec } = require('child_process');
 
 const WATCH_TARGETS = ['lib', 'assets', 'pubspec.yaml'];
-const BUILD_CMD = 'flutter build web --release --base-href /';
+const FLUTTER_BIN = '/home/runner/flutter/bin/flutter';
+const BUILD_CMD = `${FLUTTER_BIN} build web --release --base-href /`;
 const DEBOUNCE_MS = 1500; // wait 1.5s after last change before building
 
 let buildTimer = null;

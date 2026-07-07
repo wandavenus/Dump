@@ -13,6 +13,7 @@ console.log('[rebuild] Memulai flutter build web...\n');
 const proc = spawn('flutter', ['build', 'web', '--release', '--base-href', '/'], {
   stdio: 'inherit',
   shell: false,
+  env: { ...process.env, PATH: `/home/runner/flutter/bin:${process.env.PATH}` },
 });
 
 proc.on('close', (code) => {

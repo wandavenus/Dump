@@ -52,7 +52,7 @@ author = 61865488
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "flutter analyze"
+args = "export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter analyze"
 
 [[workflows.workflow]]
 name = "Rebuild Web"
@@ -72,4 +72,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
-build = ["bash", "-c", "flutter build web --release --base-href /"]
+build = ["bash", "-c", "export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter build web --release --base-href /"]

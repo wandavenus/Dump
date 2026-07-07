@@ -152,7 +152,10 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                   padding: const EdgeInsets.only(bottom: 16),
                   dragStartBehavior: DragStartBehavior.down,
                   itemCount: playlist.length,
-                  onReorder: AudioService.reorderQueue,
+                  // onReorderItem sudah adjust newIndex; reverse-adjust sebelum
+                  // dikirim ke AudioService.reorderQueue yang masih pakai konvensi lama
+                  onReorderItem: (o, n) =>
+                      AudioService.reorderQueue(o, n >= o ? n + 1 : n),
                   itemBuilder: (context, index) {
                     final song = playlist[index];
                     final isCurrent = index == currentIdx;
