@@ -38,9 +38,7 @@ class _LogPageState extends State<LogPage> {
 
   void _onNewLog() {
     if (!mounted) return;
-    setState(() {
-      _expanded.clear(); // reset expanded agar index tidak geser
-    });
+    setState(_expanded.clear);
     if (_liveTail && _scrollCtrl.hasClients) {
       _scrollCtrl.animateTo(
         0,
@@ -132,7 +130,7 @@ class _LogPageState extends State<LogPage> {
       if (!mounted) return;
       if (confirmed == true) {
         LogService.clear();
-        setState(() => _expanded.clear());
+        setState(_expanded.clear);
       }
     });
   }
@@ -280,14 +278,14 @@ class _LogPageState extends State<LogPage> {
                     isDense:        true,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: (_) => setState(() => _expanded.clear()),
+                  onChanged: (_) => setState(_expanded.clear),
                 ),
               ),
               if (_searchCtrl.text.isNotEmpty)
                 GestureDetector(
                   onTap: () {
                     _searchCtrl.clear();
-                    setState(() => _expanded.clear());
+                    setState(_expanded.clear);
                   },
                   child: const Icon(Icons.close_rounded,
                       color: Color(0xFF48484A), size: 15),
@@ -324,7 +322,7 @@ class _LogPageState extends State<LogPage> {
                         fontFamily: 'monospace')),
               ),
             ),
-            ...categories.map((c) => _catChip(c)),
+            ...categories.map(_catChip),
           ],
         ],
       ),
@@ -414,8 +412,8 @@ class _LogPageState extends State<LogPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.terminal_rounded,
-                color: const Color(0xFF2C2C2E), size: 36),
+            const Icon(Icons.terminal_rounded,
+                color: Color(0xFF2C2C2E), size: 36),
             const SizedBox(height: 12),
             Text(
               _searchCtrl.text.isNotEmpty ||
@@ -450,8 +448,8 @@ class _LogPageState extends State<LogPage> {
     return GestureDetector(
       behavior:    HitTestBehavior.opaque,
       onTap:       hasStack ? () => setState(() {
-        if (expanded) _expanded.remove(i);
-        else          _expanded.add(i);
+        if (expanded) { _expanded.remove(i); }
+        else          { _expanded.add(i); }
       }) : null,
       onLongPress: () {
         HapticFeedback.lightImpact();
