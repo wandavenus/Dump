@@ -47,9 +47,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
               0,
               (1 - (scrollOffset / 32).clamp(0.0, 1.0).toDouble()) * 40,
             ),
-            child: Opacity(
-              opacity:
-                  ((scrollOffset - 22) / 10).clamp(0.0, 1.0).toDouble(),
+             
               child: Text(
                 title,
                 style: const TextStyle(
@@ -57,7 +55,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
+            
           ),
           centerTitle: false,
           actions: actions,
