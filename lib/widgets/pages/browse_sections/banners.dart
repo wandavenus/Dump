@@ -45,16 +45,17 @@ class BrowseBannerCarousel extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 0.5), 
                   Text(
                     song.album,
                     style: const TextStyle(
-                      fontSize: 19,
+                      fontSize: 18,
                       fontWeight: FontWeight.normal,
                       color: Colors.grey,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
                   ClipPath(
                     clipper: ShapeBorderClipper(
                       shape: RoundedRectangleBorder(
