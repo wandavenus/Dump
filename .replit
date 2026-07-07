@@ -4,7 +4,7 @@ expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
-channel = "stable-24_05"
+channel = "stable-25_11"
 
 [workflows]
 runButton = "Project"
