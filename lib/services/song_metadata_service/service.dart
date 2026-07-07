@@ -144,10 +144,10 @@ class SongMetadataService {
         (key, value) => MapEntry(key, value?.toString() ?? ''),
       );
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load metadata for ${song.path}: $error\n$stackTrace');
+      LogService.error('Metadata', 'Failed to load metadata for ${song.path}: $error', stackTrace: stackTrace.toString());
       return const <String, String>{};
     } catch (error, stackTrace) {
-      debugPrint('Invalid metadata payload for ${song.path}: $error\n$stackTrace');
+      LogService.error('Metadata', 'Invalid metadata payload for ${song.path}: $error', stackTrace: stackTrace.toString());
       return const <String, String>{};
     }
   }

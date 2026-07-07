@@ -22,8 +22,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         }
         return false;
       },
-      child: AnimatedBuilder(
-        animation: _settingsListenable,
+      child: ListenableBuilder(
+        listenable: _settingsListenable,
         builder: (context, _) {
           final double fs = LyricsSettings.fontSize.value;
           final Color active = LyricsSettings.resolvedActiveColor;

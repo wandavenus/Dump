@@ -56,7 +56,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return SingleChildScrollView(
       child: Column(
         children: [

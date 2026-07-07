@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/local_song.dart';
+import 'log_service.dart';
 
 class MediaStoreService {
   static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
@@ -52,10 +53,10 @@ class MediaStoreService {
       _songsCache = parsedSongs;
       return parsedSongs;
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load songs from MediaStore: $error\n$stackTrace');
+      LogService.error('MediaStore', 'Failed to load songs: $error', stackTrace: stackTrace.toString());
       return const <LocalSong>[];
     } catch (error, stackTrace) {
-      debugPrint('Invalid song payload from MediaStore: $error\n$stackTrace');
+      LogService.error('MediaStore', 'Invalid song payload: $error', stackTrace: stackTrace.toString());
       return const <LocalSong>[];
     }
   }
@@ -182,10 +183,10 @@ class MediaStoreService {
         {'songId': songId},
       );
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('Failed to load artwork for song $songId: $error\n$stackTrace');
+      LogService.error('MediaStore', 'Failed to load artwork for song $songId: $error', stackTrace: stackTrace.toString());
       return null;
     } catch (error, stackTrace) {
-      debugPrint('Invalid artwork payload for song $songId: $error\n$stackTrace');
+      LogService.error('MediaStore', 'Invalid artwork payload for song $songId: $error', stackTrace: stackTrace.toString());
       return null;
     }
   }
@@ -213,10 +214,10 @@ class MediaStoreService {
       );
       return result ?? false;
     } on PlatformException catch (error, stackTrace) {
-      debugPrint('deleteSong platform error: $error\n$stackTrace');
+      LogService.error('MediaStore', 'deleteSong platform error: $error', stackTrace: stackTrace.toString());
       return false;
     } catch (error, stackTrace) {
-      debugPrint('deleteSong unexpected error: $error\n$stackTrace');
+      LogService.error('MediaStore', 'deleteSong unexpected error: $error', stackTrace: stackTrace.toString());
       return false;
     }
   }
@@ -233,7 +234,7 @@ class MediaStoreService {
         {'ids': songIds},
       );
     } catch (e) {
-      debugPrint('setActiveQueueIds error: $e');
+      LogService.error('MediaStore', 'setActiveQueueIds error: $e');
     }
   }
 
@@ -245,10 +246,10 @@ class MediaStoreService {
         {'songId': songId},
       );
     } on PlatformException catch (e) {
-      debugPrint('getArtworkPath error songId=$songId: $e');
+      LogService.error('MediaStore', 'getArtworkPath error songId=$songId: $e');
       return null;
     } catch (e) {
-      debugPrint('getArtworkPath unexpected error songId=$songId: $e');
+      LogService.error('MediaStore', 'getArtworkPath unexpected error songId=$songId: $e');
       return null;
     }
   }

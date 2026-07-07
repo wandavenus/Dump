@@ -221,7 +221,7 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   Widget build(BuildContext context) {
     final progress = PlayerSheetController.progress.value;
-    final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery.sizeOf(context).width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
     final showLyrics = widget.showLyrics;
     final showQueue = widget.showQueue;

@@ -192,7 +192,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       }
     } else {
       if (_showLyrics || _showQueue) return;
-      final sh = MediaQuery.of(context).size.height;
+      final sh = MediaQuery.sizeOf(context).height;
       final delta = -d.delta.dy / (sh * 0.55);
       PlayerSheetController.setProgress(
         (PlayerSheetController.progress.value + delta).clamp(0.0, 1.0),

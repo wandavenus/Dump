@@ -28,7 +28,7 @@ class HomePageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     // Ruang kosong di bawah section terakhir agar tidak tertutup mini player.
     // Mini player: 64.5 px + system bottom inset (gesture nav bar).
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),

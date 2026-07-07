@@ -48,7 +48,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
   }
 
   double get _dragProgress {
-    final h = MediaQuery.of(context).size.height;
+    final h = MediaQuery.sizeOf(context).height;
     return (_dragDy / (h * 0.35)).clamp(0.0, 1.0).toDouble();
   }
 
@@ -57,7 +57,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
     return ValueListenableBuilder<double>(
       valueListenable: PlayerSheetController.progress,
       builder: (context, sheetProgress, _) {
-        final screenHeight = MediaQuery.of(context).size.height;
+        final screenHeight = MediaQuery.sizeOf(context).height;
         final hiddenOffset = screenHeight * (1 - sheetProgress);
         final dragProgress = _dragProgress;
         final blurSigma = sheetProgress * 22.0;

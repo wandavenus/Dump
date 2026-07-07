@@ -250,7 +250,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             ),
           );
 
-        final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+        final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
 
         return CustomScrollView(
           controller: _scroll,

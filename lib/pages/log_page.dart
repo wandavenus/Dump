@@ -139,7 +139,7 @@ class _LogPageState extends State<LogPage> {
 
   @override
   Widget build(BuildContext context) {
-    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
     final entries    = _filtered;
     final categories = LogService.getCategories();
 

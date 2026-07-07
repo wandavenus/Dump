@@ -55,7 +55,7 @@ class _HomePageState extends State<HomePage> {
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
         final topPad = isGlass
-            ? MediaQuery.of(context).padding.top + kToolbarHeight
+            ? MediaQuery.paddingOf(context).top + kToolbarHeight
             : 0.0;
 
         return Scaffold(
