@@ -5,7 +5,7 @@
 
 set -e
 
-FLUTTER_VERSION="3.44.4"
+FLUTTER_VERSION="3.44.5"
 FLUTTER_DIR="/home/runner/flutter"
 FLUTTER_BIN="$FLUTTER_DIR/bin/flutter"
 ARCHIVE_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"

@@ -7,10 +7,11 @@
 
 const { spawn } = require('child_process');
 
+const FLUTTER_BIN = '/home/runner/flutter/bin/flutter';
 const start = Date.now();
 console.log('[rebuild] Memulai flutter build web...\n');
 
-const proc = spawn('flutter', ['build', 'web', '--release', '--base-href', '/'], {
+const proc = spawn(FLUTTER_BIN, ['build', 'web', '--release', '--base-href', '/'], {
   stdio: 'inherit',
   shell: false,
   env: { ...process.env, PATH: `/home/runner/flutter/bin:${process.env.PATH}` },

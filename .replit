@@ -40,7 +40,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node watch-rebuild.js"
+args = "bash setup-flutter.sh && node watch-rebuild.js"
 
 [workflows.workflow.metadata]
 outputType = "console"
@@ -52,7 +52,7 @@ author = 61865488
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter analyze"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter analyze"
 
 [[workflows.workflow]]
 name = "Rebuild Web"
@@ -60,7 +60,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node rebuild-web.js"
+args = "bash setup-flutter.sh && node rebuild-web.js"
 
 [workflows.workflow.metadata]
 outputType = "console"
@@ -72,4 +72,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
-build = ["bash", "-c", "export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter build web --release --base-href /"]
+build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter build web --release --base-href /"]

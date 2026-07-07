@@ -26,7 +26,7 @@ The Android APK is the primary target — build with Android Studio or `flutter 
 
 ## Flutter SDK (Replit)
 
-Flutter **3.44.4** diinstall manual di `/home/runner/flutter/` karena Nix hanya menyediakan 3.32.0.
+Flutter **3.44.5** diinstall manual di `/home/runner/flutter/` karena Nix hanya menyediakan 3.32.0.
 Semua workflow sudah dikonfigurasi dengan `export PATH="/home/runner/flutter/bin:$PATH"`.
 
 Kalau SDK hilang (environment reset), jalankan:
