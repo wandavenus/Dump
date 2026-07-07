@@ -18,10 +18,22 @@ node server.js
 
 To rebuild the web output after Dart/Flutter changes:
 ```
+export PATH="/home/runner/flutter/bin:$PATH"
 flutter build web --release --base-href /
 ```
 
 The Android APK is the primary target — build with Android Studio or `flutter build apk`.
+
+## Flutter SDK (Replit)
+
+Flutter **3.44.4** diinstall manual di `/home/runner/flutter/` karena Nix hanya menyediakan 3.32.0.
+Semua workflow sudah dikonfigurasi dengan `export PATH="/home/runner/flutter/bin:$PATH"`.
+
+Kalau SDK hilang (environment reset), jalankan:
+```
+bash setup-flutter.sh
+```
+Script ini otomatis download dan install Flutter 3.44.4 ke `/home/runner/flutter/`.
 
 ## Project structure
 
