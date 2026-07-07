@@ -400,6 +400,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             '${album.artist} • ${albumSongs.length} lagu',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ), 
           ),
           onTap: () => Navigator.pushNamed(
             context,
@@ -457,6 +461,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             song.artist,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ), 
           ),
           onTap: () => _playAt(songs, songIndex),
           onLongPress: () => showSongContextMenu(
