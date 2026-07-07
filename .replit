@@ -4,7 +4,7 @@ expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
-channel = "stable-25_05"
+channel = "stable-24_05"
 
 [workflows]
 runButton = "Project"
@@ -71,6 +71,7 @@ outputType = "console"
 
 [[ports]]
 localPort = 5000
+externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
