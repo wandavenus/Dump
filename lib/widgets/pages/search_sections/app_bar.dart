@@ -15,7 +15,7 @@ class _SearchAppBar extends StatelessWidget {
       title: Transform.translate(
         offset: Offset(
               0,
-              (1 - ((scrollOffset - 30) / 40).clamp(0.0, 1.0).toDouble()) * 40,
+              (1 - ((scrollOffset - 20) / 40).clamp(0.0, 1.0).toDouble()) * 40,
             ),
         child: Opacity(
           opacity: ((((scrollOffset - 25) / 25).clamp(0.0, 1.0).toDouble()) * 1.5)
