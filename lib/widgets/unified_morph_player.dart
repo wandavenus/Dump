@@ -268,10 +268,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     const miniH = 64.5;
     const miniHorizMargin = 0.0;
-    // Glass mode (extendBody:true): Scaffold positions navBar above safeBottom,
-    // so navBar top from screen bottom = navBarHeight + safeBottom = 70 + safeBottom.
-    // Default mode (extendBody:false): calibrated empirically to 55.1.
-    final navBarH = isGlass ? 70.0 : 55.1;
+    // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
+    // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
+    // lower — offset navBarH down by the same amount so mini player stays flush.
+    final navBarH = isGlass ? 53.6 : 55.1;
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
