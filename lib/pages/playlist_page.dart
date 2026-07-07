@@ -11,24 +11,18 @@ import 'package:musicplayer/widgets/song_artwork.dart';
 
 class PlaylistPage extends StatefulWidget {
   final String name;
-  final IconData icon;
-  final Color iconColor;
   final SmartPlaylistType? smartType;
   final Playlist? userPlaylist;
 
   const PlaylistPage.smart({
     super.key,
     required this.name,
-    required this.icon,
-    required this.iconColor,
     required SmartPlaylistType type,
   }) : smartType = type,
        userPlaylist = null;
 
   PlaylistPage.user({super.key, required Playlist playlist})
     : name = playlist.name,
-      icon = Icons.queue_music,
-      iconColor = Colors.white,
       smartType = null,
       userPlaylist = playlist;
 
@@ -246,7 +240,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
-          ? _EmptyState(icon: widget.icon, color: widget.iconColor)
+          ? const _EmptyState()
           : ListView.separated(
               controller: _scroll,
               padding: const EdgeInsets.only(bottom: 80),
@@ -372,23 +366,14 @@ class _PlayAllButton extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _EmptyState({required this.icon, required this.color});
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: color.withValues(alpha: 0.4)),
-          const SizedBox(height: 16),
-          const Text(
-            'Belum ada lagu',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
+    return const Center(
+      child: Text(
+        'Belum ada lagu',
+        style: TextStyle(color: Colors.grey, fontSize: 16),
       ),
     );
   }
