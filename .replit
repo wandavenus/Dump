@@ -4,7 +4,7 @@ expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
-channel = "stable-25_11"
+channel = "stable-25_05"
 
 [workflows]
 runButton = "Project"
@@ -21,10 +21,6 @@ args = "Start application"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Watch & Rebuild Web"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Rebuild Web"
 
 [[workflows.workflow]]
 name = "Start application"
