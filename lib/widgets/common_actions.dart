@@ -81,34 +81,13 @@ class _CommonActionsState extends State<CommonActions> {
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 value: 'rescan',
-                child: Row(
-                  children: [
-                    _scanning
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFFF92D48),
-                            ),
-                          )
-                        : const Icon(Icons.refresh, size: 18),
-                    const SizedBox(width: 12),
-                    const Text('Scan Ulang Lagu'),
-                  ],
-                ),
+                child: Text('Scan Ulang Lagu'),
               ),
               const PopupMenuItem<String>(
                 value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined, size: 18),
-                    SizedBox(width: 12),
-                    Text('Pengaturan'),
-                  ],
-                ),
+                child: Text('Pengaturan'),
               ),
             ],
           ),
