@@ -22,7 +22,7 @@ class LocalSongCard extends StatelessWidget {
       },
       onLongPress: () => _showContextMenu(context),
       child: Container(
-        margin: const EdgeInsets.only(right: 10, left: 6),
+        margin: const EdgeInsets.only(left: kCardMarginLeft, right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

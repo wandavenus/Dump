@@ -18,7 +18,7 @@ class LargePageTitle extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 14, kPageLeftPadding, 6),
       child: align ? Align(alignment: Alignment.centerLeft, child: text) : text,
     );
   }

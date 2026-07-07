@@ -13,7 +13,7 @@ class _BrowseSection extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 16, top: 10),
+          padding: const EdgeInsets.only(left: kPageLeftPadding, top: 10),
           child: Row(
             children: [
               Text(

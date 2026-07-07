@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
+import '../../utils/constants.dart';
 import '../../services/artwork_repository.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
@@ -38,9 +39,9 @@ class HomePageContent extends StatelessWidget {
           const LargePageTitle(title: 'Beranda', align: false),
           const HeaderDivider(),
           const _LocalAlbumsSection(),
-          const SectionTitle(title: 'Baru Dimainkan', routeName: '/musiclist', horizontalPadding: 16),
+          const SectionTitle(title: 'Baru Dimainkan', routeName: '/musiclist'),
           const _RecentlyPlayedSection(),
-          const SectionTitle(title: 'Artis Favorit', routeName: '/artistlist', horizontalPadding: 16),
+          const SectionTitle(title: 'Artis Favorit', routeName: '/artistlist'),
           const _LocalArtistsSection(),
           SizedBox(height: bottomClearance),
         ],

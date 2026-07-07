@@ -10,7 +10,7 @@ class _ArtistCard extends StatelessWidget {
       onTap: () =>
           Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
-        margin: const EdgeInsets.only(left: 6, right: 10),
+        margin: const EdgeInsets.only(left: kCardMarginLeft, right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

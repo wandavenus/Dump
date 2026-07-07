@@ -6,7 +6,7 @@ class SectionTitle extends StatelessWidget {
     required this.title,
     this.routeName,
     this.topMargin = 20,
-    this.horizontalPadding = 15,
+    this.horizontalPadding = kPageLeftPadding,
     this.showChevron = true,
   });
 
