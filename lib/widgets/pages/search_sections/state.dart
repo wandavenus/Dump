@@ -100,7 +100,6 @@ class _SearchSliversState extends State<SearchSlivers>
     super.build(context);
     return CustomScrollView(
       slivers: [
-        _SearchAppBar(scrollOffset: widget.scrollOffset),
         SliverToBoxAdapter(child: _SearchTitle(isSearching: _isSearching)),
         SliverPersistentHeader(
           pinned: true,

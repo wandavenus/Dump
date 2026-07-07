@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
 
+import '../widgets/common_actions.dart';
 import '../widgets/pages/search_sections.dart';
 
 class SearchPage extends StatefulWidget {
@@ -11,7 +12,6 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  double _scrollOffset = 0;
   final _scroll = ScrollController();
 
   @override
@@ -30,11 +30,6 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  bool _handleScroll(ScrollNotification notification) {
-    setState(() => _scrollOffset = notification.metrics.pixels);
-    return false;
-  }
-
   @override
   void dispose() {
     ScrollToTopService.signal(4).removeListener(_onScrollToTop);
@@ -45,12 +40,24 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.black,
+        surfaceTintColor: Colors.transparent,
+        title: const SizedBox.shrink(),
+        centerTitle: false,
+        actions: const [CommonActions()],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(
+            height: 0.9,
+            color: Colors.transparent,
+          ),
+        ),
+      ),
       body: PrimaryScrollController(
         controller: _scroll,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScroll,
-          child: SearchSlivers(scrollOffset: _scrollOffset),
-        ),
+        child: const SearchSlivers(),
       ),
     );
   }
