@@ -6,13 +6,9 @@ part of '../radio_sections.dart';
 
 class _SmartCardData {
   final String name;
-  final IconData icon;
-  final Color color;
   final SmartPlaylistType type;
   const _SmartCardData({
     required this.name,
-    required this.icon,
-    required this.color,
     required this.type,
   });
 }
@@ -21,20 +17,14 @@ class _SmartCardData {
 final _smartCards = [
   const _SmartCardData(
     name: 'Favorit',
-    icon: Icons.favorite,
-    color: Colors.red,
     type: SmartPlaylistType.favorites,
   ),
   const _SmartCardData(
     name: 'Diputar Terakhir',
-    icon: Icons.history,
-    color: Colors.blue,
     type: SmartPlaylistType.recentlyPlayed,
   ),
   const _SmartCardData(
     name: 'Paling Sering',
-    icon: Icons.trending_up,
-    color: Colors.orange,
     type: SmartPlaylistType.mostPlayed,
   ),
 ];
@@ -95,8 +85,6 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
       ZoomFadeRoute(
         page: PlaylistPage.smart(
           name: data.name,
-          icon: data.icon,
-          iconColor: data.color,
           type: data.type,
         ),
       ),
@@ -155,7 +143,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       builder: (ctx) => SwipeToDismissSheet(
         child: SafeArea(

@@ -58,7 +58,7 @@ class BrowseBannerCarousel extends StatelessWidget {
                   ClipPath(
                     clipper: ShapeBorderClipper(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: _BannerArtwork(
