@@ -57,13 +57,16 @@ class _AlbumCardState extends State<_AlbumCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color.fromARGB(255, 153, 153, 153),
-                fontSize: 15,
+            SizedBox(
+              width: _cardWidth,
+              child: Text(
+                widget.caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color.fromARGB(255, 153, 153, 153),
+                  fontSize: 15,
+                ),
               ),
             ),
             const SizedBox(height: 7),
