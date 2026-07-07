@@ -44,7 +44,8 @@ class _SearchPageState extends State<SearchPage> {
         automaticallyImplyLeading: false,
         backgroundColor: Colors.black,
         surfaceTintColor: Colors.transparent,
-        title: const SizedBox.shrink(),
+        title: const Text('Cari',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
         centerTitle: false,
         actions: const [CommonActions()],
         bottom: PreferredSize(
