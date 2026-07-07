@@ -15,6 +15,7 @@ import 'package:musicplayer/services/up_next_settings.dart';
 import 'package:musicplayer/services/audio/mediakit/mediakit_settings_service.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
+import 'log_page.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 
@@ -34,8 +35,6 @@ part 'settings_page/sleep_timer.dart';
 part 'settings_page/lyrics.dart';
 part 'settings_page/lyrics_rows.dart';
 part 'settings_page/system.dart';
-part 'settings_page/log_filters.dart';
-part 'settings_page/log_filters_state.dart';
 part 'settings_page/chip.dart';
 part 'settings_page/debug.dart';
 part 'settings_page/notif_icon.dart';

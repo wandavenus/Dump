@@ -1,6 +1,1 @@
-part of '../settings_page.dart';
-
-class _LogFilterChips extends StatefulWidget {
-  @override
-  State<_LogFilterChips> createState() => _LogFilterChipsState();
-}
+// Dipindah ke lib/pages/log_page.dart — file ini tidak dipakai lagi.
