@@ -436,7 +436,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               thickness: 0.5,
               color: Color(0xFF48484A),
               indent: 87,
-              endIndent: 16,
+              endIndent: 17,
             ),
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
