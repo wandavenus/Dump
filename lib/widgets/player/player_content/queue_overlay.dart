@@ -243,7 +243,7 @@ class _QueueRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFFC3C3A0),
+                        color: Color(0xFF8E8E93),
                         fontSize: 12,
                       ),
                     ),

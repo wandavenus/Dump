@@ -144,6 +144,7 @@ class _MusicListState extends State<MusicList> {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xFF8E8E93)),
                   ),
                 );
               },
