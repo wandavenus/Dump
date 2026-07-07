@@ -100523,7 +100523,7 @@ return A.Nm(s.a,s.d,s.c,s.b)},
 $S:0}
 A.zC.prototype={
 t(a){var s=this,r=null,q=s.c,p=A.aR(10),o=A.Z(q.b,2,B.F,r,B.a0i,r,r),n=s.d,m=q.c
-return new A.a4(B.JD,A.bL(r,A.ao(A.b([new A.B9(1,new A.er(q.a,600,p,B.aJ,r),r),B.aR,o,B.bK,A.Z(n>0?m+" \u2022 Diputar "+n+"x":m,1,B.F,r,B.f7,r,r)],t.p),B.u,B.i,B.k),B.w,!1,r,r,r,r,r,r,r,s.f,r,r,r,r,r,r,r,s.e,r,r,r,r,r,r),r)}}
+return new A.a4(B.JD,A.bL(r,A.ao(A.b([new A.B9(1.7777777777777777,new A.er(q.a,600,p,B.aJ,r),r),B.aR,o,B.bK,A.Z(n>0?m+" \u2022 Diputar "+n+"x":m,1,B.F,r,B.f7,r,r)],t.p),B.u,B.i,B.k),B.w,!1,r,r,r,r,r,r,r,s.f,r,r,r,r,r,r,r,s.e,r,r,r,r,r,r),r)}}
 A.uz.prototype={
 t(a){var s=null,r=t.p
 return A.ao(A.b([new A.a4(B.pR,A.b3(A.b([B.MG,B.ds,A.dP(this.c,B.G,s,28),B.CA,A.bG(A.Z(this.d,s,s,s,B.Df,s,s),1)],r),B.n,B.i,B.k),s),B.pv],r),B.n,B.i,B.k)}}

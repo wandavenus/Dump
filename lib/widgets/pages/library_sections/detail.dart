@@ -508,9 +508,9 @@ class _PlaylistBannerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Artwork banner — full width, rasio 1:1
+            // Artwork banner — full width, persegi panjang landscape
             AspectRatio(
-              aspectRatio: 1,
+              aspectRatio: 16 / 9,
               child: SongArtwork(
                 songId: song.id,
                 size: 600,
