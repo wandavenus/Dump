@@ -12,6 +12,11 @@ class LogService {
   static final ValueNotifier<bool> errorsOnly       = ValueNotifier(false);
   static final ValueNotifier<bool> verboseEnabled   = ValueNotifier(false);
 
+  /// True setelah [init] selesai. Digunakan oleh zone handler di main()
+  /// untuk memutuskan apakah aman memanggil [error] atau harus fallback
+  /// ke debugPrint.
+  static bool isInitialized = false;
+
   // ── Init ────────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
@@ -19,6 +24,7 @@ class LogService {
     loggingEnabled.value  = prefs.getBool('log_enabled')      ?? true;
     errorsOnly.value      = prefs.getBool('log_errors_only')  ?? false;
     verboseEnabled.value  = prefs.getBool('log_verbose')      ?? false;
+    isInitialized = true;
   }
 
   // ── Settings ────────────────────────────────────────────────────────────────
