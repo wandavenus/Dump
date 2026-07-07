@@ -16,6 +16,12 @@ class _KaraokeLinePainter extends CustomPainter {
   List<List<Rect>> _wordRects = const [];
   double _lastWidth = -1;
 
+  // ── Opsi A: Path di-reuse setiap frame, bukan dibuat baru ────────────────
+  final Path _clipPath = Path();
+
+  // ── Opsi B: Flag untuk skip _cacheWordPixels saat hanya warna berubah ───
+  bool _wordRectsPrecomputed = false;
+
   _KaraokeLinePainter({
     required this.text,
     required this.timeline,
@@ -27,6 +33,13 @@ class _KaraokeLinePainter extends CustomPainter {
     required this.textScaleFactor,
     required this.textDirection,
   }) : super(repaint: controller);
+
+  // ── Opsi B: Salin word rects dari painter lama saat hanya warna berubah ─
+  void inheritLayoutCache(_KaraokeLinePainter old) {
+    _wordRects = old._wordRects;
+    _lastWidth = old._lastWidth;
+    _wordRectsPrecomputed = true;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -50,19 +63,20 @@ class _KaraokeLinePainter extends CustomPainter {
           1.0,
         );
 
-    final Path clipPath = Path();
+    // ── Opsi A: reset Path yang sama, tidak instansiasi baru tiap frame ───
+    _clipPath.reset();
 
     for (int i = 0; i <= cursor; i++) {
       final rects = _wordRects[i];
       if (i < cursor) {
         for (final rect in rects) {
-          clipPath.addRect(rect);
+          _clipPath.addRect(rect);
         }
       } else {
         for (final rect in rects) {
           final clipW = rect.width * progress;
           if (textDirection == TextDirection.rtl) {
-            clipPath.addRect(
+            _clipPath.addRect(
               Rect.fromLTRB(
                 rect.right - clipW,
                 rect.top,
@@ -71,7 +85,7 @@ class _KaraokeLinePainter extends CustomPainter {
               ),
             );
           } else {
-            clipPath.addRect(
+            _clipPath.addRect(
               Rect.fromLTRB(
                 rect.left,
                 rect.top,
@@ -84,9 +98,9 @@ class _KaraokeLinePainter extends CustomPainter {
       }
     }
 
-    if (!clipPath.getBounds().isEmpty) {
+    if (!_clipPath.getBounds().isEmpty) {
       canvas.save();
-      canvas.clipPath(clipPath);
+      canvas.clipPath(_clipPath);
       highlight.paint(canvas, Offset.zero);
       canvas.restore();
     }
@@ -94,6 +108,9 @@ class _KaraokeLinePainter extends CustomPainter {
 
   void _ensureLayout(double width) {
     if (_basePainter != null && _lastWidth == width) return;
+
+    // ── Opsi B: deteksi apakah lebar berubah sebelum _lastWidth diupdate ─
+    final bool widthChanged = _lastWidth != width;
     _lastWidth = width;
 
     // Dispose painter lama sebelum membuat yang baru agar tidak bocor
@@ -124,7 +141,14 @@ class _KaraokeLinePainter extends CustomPainter {
       textScaler: TextScaler.linear(textScaleFactor),
     )..layout(maxWidth: width);
 
-    _cacheWordPixels();
+    // ── Opsi B: skip _cacheWordPixels jika word rects sudah diwarisi dan
+    //    lebar widget tidak berubah — getBoxesForSelection tidak perlu jalan.
+    if (_wordRectsPrecomputed && !widthChanged) {
+      _wordRectsPrecomputed = false;
+    } else {
+      _wordRectsPrecomputed = false;
+      _cacheWordPixels();
+    }
   }
 
   void _cacheWordPixels() {
