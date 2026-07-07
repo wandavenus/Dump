@@ -24,7 +24,7 @@ class PlaylistCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: kPageLeftPadding, vertical: 6),
         height: 200,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),

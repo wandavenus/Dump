@@ -270,7 +270,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 16, kPageLeftPadding, 4),
           child: Row(
             children: [
               const Text(
