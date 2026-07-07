@@ -342,15 +342,7 @@ class _LogPageState extends State<LogPage> {
       child: Container(
         margin: const EdgeInsets.only(right: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: active
-              ? color.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: active
-              ? Border.all(color: color.withValues(alpha: 0.3), width: 0.5)
-              : null,
-        ),
+        decoration: const BoxDecoration(),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
