@@ -118,8 +118,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         child: Row(
           children: [
             const SizedBox(width: 10),
-            const Icon(Icons.search, color: Color(0xFF8E8E93), size: 18),
-            const SizedBox(width: 6),
+            
             Expanded(
               child: TextField(
                 controller: _searchController,
