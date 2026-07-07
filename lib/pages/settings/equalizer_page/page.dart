@@ -34,11 +34,26 @@ class EqualizerPage extends StatelessWidget {
               SizedBox(height: 8),
               _EqPresetChips(),
               _EqBandSliderSection(),
+              _SectionDivider(),
               SizedBox(height: 40),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Reusable section divider ─────────────────────────────────────────────────
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Divider(color: Color(0xFF2C2C2E), height: 1),
     );
   }
 }
