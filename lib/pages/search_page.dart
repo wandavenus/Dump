@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
-
-import '../widgets/common_actions.dart';
+import 'package:musicplayer/themes/theme_controller.dart';
+import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/search_sections.dart';
 
 class SearchPage extends StatefulWidget {
@@ -12,6 +12,7 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
+  double _scrollOffset = 0;
   final _scroll = ScrollController();
 
   @override
@@ -30,6 +31,17 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  bool _handleScroll(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final nextOffset = notification.metrics.pixels;
+      if ((nextOffset - _scrollOffset).abs() >= 1.0) {
+        setState(() => _scrollOffset = nextOffset);
+      }
+    }
+    return false;
+  }
+
   @override
   void dispose() {
     ScrollToTopService.signal(4).removeListener(_onScrollToTop);
@@ -39,27 +51,31 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.black,
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Cari',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        centerTitle: false,
-        actions: const [CommonActions()],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.9,
-            color: Colors.transparent,
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        final topPad = isGlass
+            ? MediaQuery.paddingOf(context).top + kToolbarHeight
+            : 0.0;
+
+        return Scaffold(
+          extendBodyBehindAppBar: isGlass,
+          appBar: FadingTitleAppBar(
+            title: 'Cari',
+            scrollOffset: _scrollOffset,
           ),
-        ),
-      ),
-      body: PrimaryScrollController(
-        controller: _scroll,
-        child: const SearchSlivers(),
-      ),
+          body: PrimaryScrollController(
+            controller: _scroll,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScroll,
+              child: Padding(
+                padding: EdgeInsets.only(top: topPad),
+                child: const SearchSlivers(),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
