@@ -26,13 +26,13 @@ args = "Watch & Rebuild Web"
 name = "Start application"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "webview"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node server.js"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow]]
 name = "Watch & Rebuild Web"
@@ -45,9 +45,17 @@ args = "node watch-rebuild.js"
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Flutter Analyze"
+mode = "sequential"
+author = 61865488
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "flutter analyze"
+
 [[ports]]
 localPort = 5000
-externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
