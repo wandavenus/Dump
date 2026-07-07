@@ -122,7 +122,6 @@ abstract class AbstractAudioEngine {
   Future<void> setBassBoostEnabled(bool enabled);
   Future<void> setVirtualizerEnabled(bool enabled);
   Future<void> setVirtualizerStrength(int strength);
-  Future<void> setReverbPreset(int preset);
   Future<void> setEqualizerEnabled(bool enabled);
   Future<void> setEqualizerBandGain(int band, double gainDb);
   Future<void> setLoudnessEnabled(bool enabled);

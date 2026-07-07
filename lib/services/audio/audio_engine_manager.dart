@@ -183,7 +183,7 @@ class AudioEngineManager {
         if (wasPlaying) await _engine!.play();
       }
 
-      // 7. Re-apply semua pengaturan DSP (speed, pitch, EQ, bass, reverb, dll.)
+      // 7. Re-apply semua pengaturan DSP (speed, pitch, EQ, bass, dll.)
       // ke engine baru. Pengaturan ini tidak tersimpan di engine — hanya di
       // AudioEffectsService — sehingga harus dikirim ulang setelah setiap switch.
       // Dipanggil di luar blok queue agar selalu berjalan, bahkan saat queue kosong.
@@ -253,8 +253,6 @@ class AudioEngineManager {
       _engine?.setVirtualizerEnabled(e)         ?? Future.value();
   static Future<void> setVirtualizerStrength(int s) =>
       _engine?.setVirtualizerStrength(s)        ?? Future.value();
-  static Future<void> setReverbPreset(int p) =>
-      _engine?.setReverbPreset(p)               ?? Future.value();
   static Future<void> setEqualizerEnabled(bool e) =>
       _engine?.setEqualizerEnabled(e)           ?? Future.value();
   static Future<void> setEqualizerBandGain(int b, double g) =>

@@ -26,7 +26,7 @@ import '../mediakit/mediakit_settings_service.dart';
 ///   ✅ Sleep timer (Dart-side Timer)
 ///   ✅ Queue persistence (via getPlaybackSnapshot)
 ///   ✅ Notification / Lock screen / BT controls (via MediaKitPlaybackService)
-///   ❌ DSP (EQ, Bass, Reverb, Virtualizer, Crossfade, LoudnessEnhancer):
+///   ❌ DSP (EQ, Bass, Virtualizer, Crossfade, LoudnessEnhancer):
 ///      semua DSP method adalah no-op yang aman.
 ///   ❌ Skip silence / Stereo widening — no-op; stream memancar state lokal.
 ///   ❌ Audio format stream — tidak tersedia; audioFormatStream kosong.
@@ -755,7 +755,6 @@ Future<void> setShuffleMode(bool enabled) async {
   @override Future<void> setBassBoostEnabled(bool enabled) async {}
   @override Future<void> setVirtualizerEnabled(bool enabled) async {}
   @override Future<void> setVirtualizerStrength(int strength) async {}
-  @override Future<void> setReverbPreset(int preset) async {}
   @override Future<void> setEqualizerEnabled(bool enabled) async {}
   @override Future<void> setEqualizerBandGain(int band, double gainDb) async {}
   @override Future<void> setLoudnessEnabled(bool enabled) async {}
@@ -769,7 +768,6 @@ Future<void> setShuffleMode(bool enabled) async {
   Future<Map<String, dynamic>?> getEffectSupport() async => {
         'virtualizerSupported': false,
         'bassBoostSupported':   false,
-        'reverbSupported':      false,
       };
 
   // ── Capabilities (no-op — media_kit tidak mendukung) ─────────────────────

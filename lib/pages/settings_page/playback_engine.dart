@@ -336,7 +336,7 @@ class _EngineSwitchConfirmSheet extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Efek audio (EQ, Bass Boost, Reverb) tidak aktif di engine ini.',
+                        'Efek audio (EQ, Bass Boost) tidak aktif di engine ini.',
                         style: TextStyle(color: Colors.orange, fontSize: 11),
                       ),
                     ),

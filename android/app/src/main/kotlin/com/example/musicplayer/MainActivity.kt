@@ -656,8 +656,7 @@ class MainActivity : FlutterActivity() {
                     "attachEffects" -> {
                         result.success(mapOf(
                             "virtualizerSupported" to true,
-                            "bassBoostSupported"   to true,
-                            "reverbSupported"      to true
+                            "bassBoostSupported"   to true
                         ))
                     }
                     "setSpatialEnabled" -> {
@@ -676,11 +675,6 @@ class MainActivity : FlutterActivity() {
                             mutableMapOf<String, Any?>("enabled" to (strength > 0))), result)
                         service.handle(MethodCall("setBassBoostStrength",
                             mutableMapOf<String, Any?>("strength" to strength)), result)
-                    }
-                    "setReverb" -> {
-                        val preset = call.argument<Int>("preset") ?: 0
-                        service.handle(MethodCall("setReverbPreset",
-                            mutableMapOf<String, Any?>("preset" to preset)), result)
                     }
                     "setAudioOutputMode" -> result.success(null)
                     else               -> result.notImplemented()

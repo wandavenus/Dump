@@ -54,10 +54,10 @@ import com.example.musicplayer.events.NativeLogger
  *    The OS will de-offload the primary as soon as the secondary activates.
  *
  * 3. SOFTWARE AUDIO EFFECTS — FATAL
- *    Equalizer, LoudnessEnhancer, BassBoost, Virtualizer, and PresetReverb
- *    live in the AudioFlinger software effects chain.  Hardware offload routes
- *    audio around this chain directly to the DSP; effects stop processing while
- *    appearing to be enabled.
+ *    Equalizer, LoudnessEnhancer, BassBoost, and Virtualizer live in the
+ *    AudioFlinger software effects chain.  Hardware offload routes audio around
+ *    this chain directly to the DSP; effects stop processing while appearing to
+ *    be enabled.
  *
  * ════════════════════════════════════════════════════════════════════
  * IMPLEMENTATION: OBSERVER ONLY
@@ -202,7 +202,7 @@ class AudioOffloadManager(
                     val reasons = buildList {
                         if (crossfadeActive)          add("crossfade in progress (dual-player DSP slot conflict)")
                         else if (crossfadeDuration > 0f) add("crossfade enabled (${crossfadeDuration}s) — dual-player risk")
-                        add("software effects attached (EQ/LoudnessEnhancer/BassBoost/Virtualizer/Reverb bypass offload path)")
+                        add("software effects attached (EQ/LoudnessEnhancer/BassBoost/Virtualizer bypass offload path)")
                         add("audio format not DSP-supported on this device / Android version")
                     }
                     val reasonStr = reasons.joinToString("; ")

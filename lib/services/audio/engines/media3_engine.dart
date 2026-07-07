@@ -155,10 +155,6 @@ class Media3Engine implements AbstractAudioEngine {
       Media3PlaybackBridge.setVirtualizerStrength(strength);
 
   @override
-  Future<void> setReverbPreset(int preset) =>
-      Media3PlaybackBridge.setReverbPreset(preset);
-
-  @override
   Future<void> setEqualizerEnabled(bool enabled) =>
       Media3PlaybackBridge.setEqualizerEnabled(enabled);
 
