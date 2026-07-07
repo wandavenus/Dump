@@ -104895,7 +104895,7 @@ $3(a,b,c){var s,r,q,p,o=null,n=this.a,m=b?B.q:B.p
 if(b){s=A.ahI(24,24)
 s=new A.fF(A.ld(A.aaE(A.b8(o,o,B.m,B.f.b_(0.055),o,o,o,o,o,o,o,o,o),s),B.y,o),o)}else s=o
 r=n.d
-q=B.d.av(r/100,0,1)
+q=B.d.av(r/50,0,1)
 p=B.d.av(B.d.av((r-25)/25,0,1)*1.5,0,1)
 q=A.iq(A.eI(A.a1(n.c,o,o,o,B.Ed,o,o),p),new A.h(0,(1-q)*40))
 if(b)r=A.b8(o,o,B.m,B.f.b_(0.18),o,o,o,0.5,o,o,o,o,o)
