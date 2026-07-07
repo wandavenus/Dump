@@ -228,18 +228,23 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _entryAnim,
-      builder: (context, _) {
-        return ValueListenableBuilder<AudioPlaybackState>(
-          valueListenable: AudioService.playbackState,
-          builder: (context, state, _) {
-            final song = state.currentSong;
-            if (song == null) return const SizedBox.shrink();
-            return ValueListenableBuilder<double>(
-              valueListenable: PlayerSheetController.progress,
-              builder: (context, progress, _) {
-                return _buildMorph(context, song, state, progress);
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        return AnimatedBuilder(
+          animation: _entryAnim,
+          builder: (context, _) {
+            return ValueListenableBuilder<AudioPlaybackState>(
+              valueListenable: AudioService.playbackState,
+              builder: (context, state, _) {
+                final song = state.currentSong;
+                if (song == null) return const SizedBox.shrink();
+                return ValueListenableBuilder<double>(
+                  valueListenable: PlayerSheetController.progress,
+                  builder: (context, progress, _) {
+                    return _buildMorph(context, song, state, progress, isGlass);
+                  },
+                );
               },
             );
           },
@@ -253,6 +258,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     LocalSong song,
     AudioPlaybackState state,
     double progress,
+    bool isGlass,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -262,7 +268,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     const miniH = 64.5;
     const miniHorizMargin = 0.0;
-    const navBarH = 55.1;
+    // Glass mode (extendBody:true): Scaffold positions navBar above safeBottom,
+    // so navBar top from screen bottom = navBarHeight + safeBottom = 70 + safeBottom.
+    // Default mode (extendBody:false): calibrated empirically to 55.1.
+    final navBarH = isGlass ? 70.0 : 55.1;
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
