@@ -46,6 +46,7 @@ Script ini otomatis download dan install Flutter 3.44.4 ke `/home/runner/flutter
 ## User preferences
 
 - Setelah selesai pengerjaan, jalankan `flutter analyze` saja — **jangan rebuild web (`flutter build web`)** kecuali ada perintah eksplisit dari user.
+- Setelah kode selesai diubah dan analyze clean, langsung akhiri tanpa menunggu proses rebuild web selesai.
 - Gunakan **Bahasa Indonesia non-formal / gaul** untuk semua pesan progres, penjelasan, dan info pengerjaan. Pakai "aku/kamu", bukan "gue/lu".
 - Lakukan Pengerjaan dengan penuh pertimbangan supaya tidak membuat kesalahan yang tidak diingin kan dari hasil pengerjaan yang sudah di lakukan
 
