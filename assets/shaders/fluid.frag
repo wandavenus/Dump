@@ -31,15 +31,21 @@ void main() {
   vec2 uv = FlutterFragCoord().xy / uSize;
   float t = uTime;
 
-  // ── Domain warp ────────────────────────────────────────────────────────────
-  // Four overlapping waves bend the UV grid.  Different frequencies and phase
-  // offsets prevent repetitive diagonal patterns.
-  float wX = sin(uv.y * 3.14 + t * 0.318) * 0.15
-           + cos(uv.y * 1.57 - t * 0.186) * 0.08;
-  float wY = cos(uv.x * 2.72 + t * 0.246) * 0.12
-           + sin(uv.x * 1.20 - t * 0.402) * 0.07;
+    // ── Domain warp (Apple Music Style Randomizer) ─────────────────────────────
+  // Kita campur x dan y di setiap wave, dan tambahin noise frekuensi tinggi
+  // biar arah pergerakannya ga ketebak (ga linear).
+  
+  // Layer 1: Pergerakan macro (gerakan lambat buat geser massa warna)
+  float wX1 = sin(uv.y * 2.5 + uv.x * 1.2 + t * 0.210) * 0.18;
+  float wY1 = cos(uv.x * 2.8 + uv.y * 1.5 + t * 0.165) * 0.15;
 
-  vec2 uvd = uv + vec2(wX, wY);   // warped UV
+  // Layer 2: Pergerakan micro (bikin pusaran/arah putar yang random)
+  float wX2 = cos((uv.x + wX1) * 4.2 - t * 0.312) * 0.08;
+  float wY2 = sin((uv.y + wY1) * 3.8 + t * 0.245) * 0.07;
+
+  // Gabungin semua buat dapet warped UV yang chaotic tapi tetep smooth
+  vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
+
 
   // ── Scalar colour fields ───────────────────────────────────────────────────
   // Each field produces a smooth value in [0, 1].  Using both x and y of the
