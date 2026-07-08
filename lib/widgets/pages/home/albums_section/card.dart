@@ -72,66 +72,67 @@ class _AlbumCardState extends State<_AlbumCard> {
             const SizedBox(height: 7),
 
             // Kartu: artwork penuh di atas + blok warna solid berisi teks di bawah.
-            ClipRRect(
+            // Hairline stroke membungkus seluruh kartu (bukan hanya artwork),
+            // jadi border-nya ada di outer ClipRRect, dan SongArtwork di
+            // dalamnya tidak menggambar border-nya sendiri (showBorder: false)
+            // agar tidak dobel/ganjil di sambungan artwork-panel info.
+            ArtworkHairlineBorder(
               borderRadius: BorderRadius.circular(_cornerRadius),
-              child: SizedBox(
-                width: _cardWidth,
-                height: _artworkHeight + _infoHeight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: _cardWidth,
-                      height: _artworkHeight,
-                      child: SongArtwork(
-                        songId: album.coverSongId,
-                        size: _cardWidth,
-                        // Only the top corners are actually rounded (outer
-                        // ClipRRect clips the whole card, incl. the info
-                        // panel below) — matching the hairline stroke to
-                        // this shape avoids a stray line where art meets text.
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(_cornerRadius),
-                          topRight: Radius.circular(_cornerRadius),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_cornerRadius),
+                child: SizedBox(
+                  width: _cardWidth,
+                  height: _artworkHeight + _infoHeight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: _cardWidth,
+                        height: _artworkHeight,
+                        child: SongArtwork(
+                          songId: album.coverSongId,
+                          size: _cardWidth,
+                          borderRadius: BorderRadius.zero,
+                          showBorder: false,
                         ),
                       ),
-                    ),
-                    Container(
-                      width: _cardWidth,
-                      height: _infoHeight,
-                      color: _bgColor,
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center, 
-    mainAxisAlignment: MainAxisAlignment.center,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-                          Text(
-                            album.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center, 
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                      Container(
+                        width: _cardWidth,
+                        height: _infoHeight,
+                        color: _bgColor,
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center, 
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+                            Text(
+                              album.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center, 
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            album.artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Color(0xB3FFFFFF),
+                            const SizedBox(height: 1),
+                            Text(
+                              album.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xB3FFFFFF),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
