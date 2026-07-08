@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/models/playlist.dart';
@@ -224,13 +225,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
           if (isUserPlaylist) ...[
             IconButton(
               icon: const Icon(
-                Icons.drive_file_rename_outline,
-                color: Colors.white,
+                CupertinoIcons.pencil,
+                color: Color(0xFFF92D48),
               ),
               onPressed: _rename,
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: const Icon(CupertinoIcons.trash, color: Color(0xFFF92D48)),
               onPressed: _delete,
             ),
           ],
