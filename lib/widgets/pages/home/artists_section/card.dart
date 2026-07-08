@@ -15,13 +15,13 @@ class _ArtistCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
-            ClipRRect(
+            // SongArtwork owns its own clip + hairline border directly —
+            // no outer ClipRRect needed (avoids a radius mismatch that
+            // would otherwise clip the border's rounded corners).
+            SongArtwork(
+              songId: artist.coverSongId,
+              size: 170,
               borderRadius: BorderRadius.circular(10),
-              child: SongArtwork(
-                songId: artist.coverSongId,
-                size: 170,
-                borderRadius: BorderRadius.zero,
-              ),
             ),
             const SizedBox(height: 2.5),
             SizedBox(

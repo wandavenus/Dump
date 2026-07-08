@@ -57,16 +57,19 @@ class BrowseBannerCarousel extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  ClipPath(
-                    clipper: ShapeBorderClipper(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  ArtworkHairlineBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ClipPath(
+                      clipper: ShapeBorderClipper(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    child: _BannerArtwork(
-                      songId: song.id,
-                      width: 1080 / 3,
-                      height: 720 / 3,
+                      child: _BannerArtwork(
+                        songId: song.id,
+                        width: 1080 / 3,
+                        height: 720 / 3,
+                      ),
                     ),
                   ),
                 ],

@@ -490,6 +490,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(finalRadius),
+            // Hairline stroke lives on the visible bounding box (matching
+            // finalRadius) rather than inside SongArtwork, whose own border
+            // would otherwise get cut off by the outer ClipRRect's rounded
+            // corners during the morph animation.
+            border: Border.all(
+              color: kArtworkHairlineColor,
+              width: kArtworkHairlineWidth,
+            ),
             boxShadow: [
               BoxShadow(
                 color:      Colors.black.withValues(alpha: shadowAlpha),
@@ -504,6 +512,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               songId:       song.id,
               size:         artSize,
               borderRadius: BorderRadius.zero,
+              // Hairline already drawn on the outer DecoratedBox above —
+              // avoids a doubled/mismatched stroke here.
+              showBorder:   false,
             ),
           ),
         ),

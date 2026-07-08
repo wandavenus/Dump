@@ -8,6 +8,7 @@ import '../../services/artwork_repository.dart';
 import '../../services/media_store_service.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
+import '../song_artwork.dart';
 
 part 'browse_sections/content.dart';
 part 'browse_sections/state.dart';

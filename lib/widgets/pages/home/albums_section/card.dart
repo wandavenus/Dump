@@ -86,7 +86,14 @@ class _AlbumCardState extends State<_AlbumCard> {
                       child: SongArtwork(
                         songId: album.coverSongId,
                         size: _cardWidth,
-                        borderRadius: BorderRadius.zero,
+                        // Only the top corners are actually rounded (outer
+                        // ClipRRect clips the whole card, incl. the info
+                        // panel below) — matching the hairline stroke to
+                        // this shape avoids a stray line where art meets text.
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(_cornerRadius),
+                          topRight: Radius.circular(_cornerRadius),
+                        ),
                       ),
                     ),
                     Container(

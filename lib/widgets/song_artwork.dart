@@ -2,6 +2,40 @@ import 'package:flutter/material.dart';
 
 import '../services/artwork_repository.dart';
 
+/// Hairline border overlaid on every piece of artwork (mirrors Apple Music
+/// Android's thin white stroke around covers), so artwork never visually
+/// merges into a background of similar tone.
+const Color kArtworkHairlineColor = Color(0x29FFFFFF); // white @ ~16% opacity
+const double kArtworkHairlineWidth = 0.75;
+
+/// Wraps [child] with the shared hairline border, matching [borderRadius].
+/// Uses [foregroundDecoration] so the stroke paints on top of the image
+/// without affecting layout — safe to use around animated/resizing artwork.
+class ArtworkHairlineBorder extends StatelessWidget {
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  const ArtworkHairlineBorder({
+    super.key,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      foregroundDecoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: kArtworkHairlineColor,
+          width: kArtworkHairlineWidth,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// Displays a song's artwork using the persistent [ArtworkRepository] cache.
 ///
 /// Load order (handled by the repository):
@@ -16,12 +50,20 @@ class SongArtwork extends StatefulWidget {
   final BorderRadius borderRadius;
   final BoxFit fit;
 
+  /// Whether to draw the shared hairline stroke around this artwork.
+  /// Set to false when the caller already draws the stroke itself on an
+  /// outer bounding box (e.g. animated/morphing artwork that crops this
+  /// widget via FittedBox, where a border drawn here would be scaled or
+  /// clipped incorrectly) — avoids doubled/mismatched borders.
+  final bool showBorder;
+
   const SongArtwork({
     super.key,
     required this.songId,
     this.size = 55,
     this.borderRadius = const BorderRadius.all(Radius.circular(3)),
     this.fit = BoxFit.cover,
+    this.showBorder = true,
   });
 
   @override
@@ -98,7 +140,7 @@ class _SongArtworkState extends State<SongArtwork> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p != null) {
-      return ClipRRect(
+      final image = ClipRRect(
         borderRadius: widget.borderRadius,
         child: Image(
           image: p,
@@ -110,17 +152,29 @@ class _SongArtworkState extends State<SongArtwork> {
           errorBuilder: (_, _, _) => _fallback(),
         ),
       );
+      if (!widget.showBorder) return image;
+      return ArtworkHairlineBorder(
+        borderRadius: widget.borderRadius,
+        child: image,
+      );
     }
     return _fallback();
   }
 
-  Widget _fallback() => Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(
-          borderRadius: widget.borderRadius,
-          color: Colors.grey.shade900,
-        ),
-        child: const Icon(Icons.music_note),
-      );
+  Widget _fallback() {
+    final placeholder = Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        borderRadius: widget.borderRadius,
+        color: Colors.grey.shade900,
+      ),
+      child: const Icon(Icons.music_note),
+    );
+    if (!widget.showBorder) return placeholder;
+    return ArtworkHairlineBorder(
+      borderRadius: widget.borderRadius,
+      child: placeholder,
+    );
+  }
 }

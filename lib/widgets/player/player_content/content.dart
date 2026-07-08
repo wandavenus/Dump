@@ -494,6 +494,14 @@ class _PlayerContentState extends State<PlayerContent> {
                                   showOverlay ? 3 : lerpDouble(3, 3, progress)!,
                                 ),
                                 color: Colors.black,
+                                // Hairline stroke on the visible bounding box —
+                                // must live here (not inside SongArtwork) since
+                                // the inner image is cropped by FittedBox/cover
+                                // and would clip a border drawn on its own edge.
+                                border: Border.all(
+                                  color: kArtworkHairlineColor,
+                                  width: kArtworkHairlineWidth,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(
@@ -516,6 +524,10 @@ class _PlayerContentState extends State<PlayerContent> {
                                       songId: widget.song.id,
                                       size: largeCoverSize,
                                       borderRadius: BorderRadius.zero,
+                                      // Hairline already drawn on the outer
+                                      // AnimatedContainer above — avoids a
+                                      // doubled/mismatched stroke here.
+                                      showBorder: false,
                                     ),
                                   ),
                                 ),
