@@ -78,7 +78,7 @@ class PaletteExtractor {
           width: _quantizeTargetSize,
           height: _quantizeTargetSize,
         ),
-        maximumColorCount: 24,
+        maximumColorCount: 16,
       );
 
       final dominant = generator.dominantColor?.color ?? _kFallback[0];
