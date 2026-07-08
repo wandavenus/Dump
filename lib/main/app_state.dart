@@ -41,7 +41,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return child ?? const SizedBox.shrink();
       },
       theme: ThemeData(
-        colorScheme: const ColorScheme.dark(),
+        // ColorScheme.dark() defaults to a purple primary (0xFFBB86FC) and
+        // teal secondary (0xFF03DAC6) from Material's baseline dark theme.
+        // Any widget that relies on theme colors without an explicit color
+        // (text selection handles, Switch/Slider/Checkbox/Radio thumbs,
+        // ProgressIndicator, ripple/splash highlights, etc.) would otherwise
+        // render in that default purple/teal instead of the app's red accent.
+        // Overriding primary/secondary here makes them all follow the same
+        // red used everywhere else in the app (Color(0xFFF92D48)).
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFF92D48),
+          secondary: Color(0xFFF92D48),
+        ),
         scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
       
         snackBarTheme: const SnackBarThemeData(
