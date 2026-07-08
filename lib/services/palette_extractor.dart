@@ -83,24 +83,27 @@ class PaletteExtractor {
 
       final dominant = generator.dominantColor?.color ?? _kFallback[0];
 
-// Kalau warna vibrant utama ga dapet, pinjem warna lightVibrant
-final vibrant  = generator.vibrantColor?.color  
-              ?? generator.lightVibrantColor?.color 
-              ?? _kFallback[1];
+      // Kalau warna vibrant utama ga dapet, pinjem warna lightVibrant
+      final vibrant = generator.vibrantColor?.color
+                   ?? generator.lightVibrantColor?.color
+                   ?? _kFallback[1];
 
-// Kalau warna muted utama ga dapet, pinjem warna darkMuted biar kontras
-final muted    = generator.mutedColor?.color    
-              ?? generator.darkMutedColor?.color    
-              ?? _kFallback[2];
+      // Kalau warna muted utama ga dapet, pinjem warna darkMuted biar kontras
+      final muted = generator.mutedColor?.color
+                 ?? generator.darkMutedColor?.color
+                 ?? _kFallback[2];
 
       colors = [dominant, vibrant, muted];
     } catch (_) {
       colors = _kFallback;
+    } finally {
+      // finally menjamin _pending selalu dibersihkan — termasuk skenario di
+      // mana baris setelah try-catch (misal _cache.put) ikut melempar exception.
+      // ignore: unawaited_futures
+      _pending.remove(songId); // returns the Future value — intentionally not awaited
     }
 
     _cache.put(songId, colors);
-    // ignore: unawaited_futures
-    _pending.remove(songId);
     return colors;
   }
 }
