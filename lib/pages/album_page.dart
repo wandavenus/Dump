@@ -25,7 +25,7 @@ class AlbumPage extends StatelessWidget {
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
           child: const Icon(
-            CupertinoIcons.back,
+            CupertinoIcons.arrow_left,
             color: Color(0xFFF92D48),
             size: 28,
           ),
