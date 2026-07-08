@@ -12,7 +12,7 @@ class PlayShuffleButtons extends StatelessWidget {
       child: Row(
         children: [
           _ActionButton(
-            icon: Icons.play_arrow_rounded,
+            icon: CupertinoIcons.play_fill,
             label: 'Putar',
             onTap: () async {
               await AudioService.playSongAt(playlist: songs, index: 0);
