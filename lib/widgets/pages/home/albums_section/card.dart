@@ -106,7 +106,7 @@ class _AlbumCardState extends State<_AlbumCard> {
                             textAlign: TextAlign.center, 
                             style: const TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w500,
                               color: Colors.white,
                             ),
                           ),
