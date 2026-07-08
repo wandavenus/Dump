@@ -82,7 +82,7 @@ void main() {
   // the grain is always animated (no static texture repeating across frames).
   vec2  grainUV = FlutterFragCoord().xy + uTime * 82.2;
   float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
-  col = mix(col, vec3(grain), 0.01);
+  col = mix(col, vec3(grain), 0.02);
 
   fragColor = vec4(col, 1.0);
 }
