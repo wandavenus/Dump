@@ -39,7 +39,7 @@ const server = http.createServer((req, res) => {
   }
 
     // Files that must never be cached so the browser always picks up new builds
-  const NO_CACHE_FILES = ['index.html', 'flutter_service_worker.js', 'flutter_bootstrap.js', 'manifest.json'];
+  const NO_CACHE_FILES = ['index.html', 'flutter_service_worker.js', 'flutter_bootstrap.js', 'manifest.json', 'main.dart.js'];
 
   const tryFile = (fp) => {
     fs.stat(fp, (err, stat) => {
