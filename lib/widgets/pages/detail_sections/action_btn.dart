@@ -17,7 +17,7 @@ class _ActionButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            color: const Color(0xFF2C2C2E),
+            color: const Color(0xFF1C1C1E),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
