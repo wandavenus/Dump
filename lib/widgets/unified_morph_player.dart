@@ -483,21 +483,21 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       top:    finalTop,
       width:  finalSize,
       height: finalSize,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(finalRadius),
-          boxShadow: [
-            BoxShadow(
-              color:      Colors.black.withValues(alpha: shadowAlpha),
-              blurRadius: shadowBlur,
-              offset:     Offset(0, shadowOff),
-            ),
-          ],
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          curve:    Curves.easeOutCubic,
-          scale:    targetScale,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 300),
+        curve:    Curves.easeOutCubic,
+        scale:    targetScale,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(finalRadius),
+            boxShadow: [
+              BoxShadow(
+                color:      Colors.black.withValues(alpha: shadowAlpha),
+                blurRadius: shadowBlur,
+                offset:     Offset(0, shadowOff),
+              ),
+            ],
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(finalRadius),
             child: SongArtwork(
