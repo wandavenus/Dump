@@ -488,7 +488,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                         largeCoverSize,
                                         progress,
                                       )!,
-                              clipBehavior: Clip.antiAlias,
+                              clipBehavior: Clip.hardEdge,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(
                                   showOverlay ? 3 : lerpDouble(3, 3, progress)!,
