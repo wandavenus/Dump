@@ -531,7 +531,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                       // Hairline already drawn on the outer
                                       // AnimatedContainer above — avoids a
                                       // doubled/mismatched stroke here.
-                                      showBorder: true,
+                                      showBorder: false,
                                     ),
                                   ),
                                 ),
