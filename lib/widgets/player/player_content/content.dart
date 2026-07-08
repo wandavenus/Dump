@@ -497,9 +497,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(
-                                      alpha: 0.0 + (0.15 * progress),
+                                      alpha: 0.0 + (0.25 * progress),
                                     ),
-                                    blurRadius: 0.0 + (5 * progress),
+                                    blurRadius: 0.0 + (2 * progress),
                                     spreadRadius: 0.0 + (0.2 * progress),
                                     offset: Offset(0, 0 + (3 * progress)),
                                   ),
