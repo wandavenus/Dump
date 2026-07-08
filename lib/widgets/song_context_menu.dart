@@ -251,38 +251,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
   Future<void> _confirmDelete(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2E),
-        title: const Text(
-          'Hapus Lagu?',
-          style: TextStyle(color: Colors.white, fontSize: 17),
-        ),
-        content: Text(
-          '"${widget.song.title}" akan dihapus permanen dari perangkat.',
-          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Color(0xFF0A84FF)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Color(0xFFF92D48)),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    if (!mounted) return;
 
     navigator.pop();
 
