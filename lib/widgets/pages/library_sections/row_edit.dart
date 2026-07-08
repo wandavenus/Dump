@@ -19,7 +19,7 @@ class _LibraryRow extends StatelessWidget {
     final row = Column(
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 8, top: 2, bottom: 2),
+          padding: const EdgeInsets.only(left: 6, top: 2, bottom: 2),
           child: Row(
             children: [
               Icon(icon, color: const Color(0xFFF92D48), size: 28),
