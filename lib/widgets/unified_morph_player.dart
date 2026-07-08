@@ -497,6 +497,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
             border: Border.all(
               color: kArtworkHairlineColor,
               width: kArtworkHairlineWidth,
+              // Inset alignment — stays crisp instead of blurring outward
+              // as finalSize/finalRadius animate through the morph.
+              strokeAlign: BorderSide.strokeAlignInside,
             ),
             boxShadow: [
               BoxShadow(

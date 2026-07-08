@@ -29,6 +29,11 @@ class ArtworkHairlineBorder extends StatelessWidget {
         border: Border.all(
           color: kArtworkHairlineColor,
           width: kArtworkHairlineWidth,
+          // Inset alignment (matches Apple Music) so the stroke is drawn
+          // fully inside the visible bounds instead of straddling the edge —
+          // stays crisp instead of anti-aliasing/blurring outward, and is
+          // never partially clipped by an outer ClipRRect of the same radius.
+          strokeAlign: BorderSide.strokeAlignInside,
         ),
       ),
       child: child,

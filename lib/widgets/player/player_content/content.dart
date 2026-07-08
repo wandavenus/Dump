@@ -501,6 +501,10 @@ class _PlayerContentState extends State<PlayerContent> {
                                 border: Border.all(
                                   color: kArtworkHairlineColor,
                                   width: kArtworkHairlineWidth,
+                                  // Inset alignment — stays crisp instead of
+                                  // blurring outward as the cover scales
+                                  // from mini (70) to full (largeCoverSize).
+                                  strokeAlign: BorderSide.strokeAlignInside,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
