@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
@@ -141,7 +142,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             // ── Grup 1: Pemutaran ─────────────────────────────────────────
             const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _MenuItem(
-              icon: Icons.play_arrow_rounded,
+              icon: CupertinoIcons.play_fill,
               label: 'Putar Sekarang',
               onTap: () async {
                 Navigator.pop(context);
@@ -153,7 +154,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
             _insetDivider,
             _MenuItem(
-              icon: Icons.skip_next_rounded,
+              icon: CupertinoIcons.forward_end_fill,
               label: 'Putar Selanjutnya',
               onTap: () {
                 Navigator.pop(context);
@@ -162,7 +163,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
             _insetDivider,
             _MenuItem(
-              icon: Icons.add_to_queue_rounded,
+              icon: CupertinoIcons.text_badge_plus,
               label: 'Tambah ke Antrian',
               onTap: () {
                 Navigator.pop(context);
@@ -174,8 +175,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
             const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _MenuItem(
               icon: _isFavorite
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
+                  ? CupertinoIcons.heart_fill
+                  : CupertinoIcons.heart,
               iconColor: const Color(0xFFF92D48),
               label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
               onTap: _favLoaded
@@ -191,7 +192,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
             _insetDivider,
             _MenuItem(
-              icon: Icons.playlist_add_rounded,
+              icon: CupertinoIcons.music_note_list,
               label: 'Tambah ke Daftar Putar',
               onTap: () => _showAddToPlaylist(context),
             ),
@@ -199,13 +200,13 @@ class _SongContextMenuState extends State<SongContextMenu> {
             // ── Grup 3: Navigasi ──────────────────────────────────────────
             const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _MenuItem(
-              icon: Icons.album_rounded,
+              icon: CupertinoIcons.music_albums_fill,
               label: 'Buka Album',
               onTap: _openAlbum,
             ),
             _insetDivider,
             _MenuItem(
-              icon: Icons.person_rounded,
+              icon: CupertinoIcons.person_fill,
               label: 'Buka Artis',
               onTap: _openArtist,
             ),
@@ -213,7 +214,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             // ── Grup 4: Informasi ─────────────────────────────────────────
             const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _MenuItem(
-              icon: Icons.info_outline_rounded,
+              icon: CupertinoIcons.info_circle,
               label: 'Informasi Lagu',
               onTap: () {
                 Navigator.pop(context);
@@ -224,7 +225,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             // ── Grup 5: Hapus ─────────────────────────────────────────────
             const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
             _MenuItem(
-              icon: Icons.delete_outline_rounded,
+              icon: CupertinoIcons.trash,
               iconColor: const Color(0xFFF92D48),
               labelColor: const Color(0xFFF92D48),
               label: 'Hapus dari Perangkat',
@@ -546,7 +547,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.add_circle_outline_rounded,
+                      CupertinoIcons.plus_circle,
                       color: Color(0xFFF92D48),
                       size: 22,
                     ),
@@ -598,7 +599,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.music_note_rounded,
+                              CupertinoIcons.music_note,
                               color: Color(0xFFF92D48),
                               size: 22,
                             ),
