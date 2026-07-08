@@ -52,7 +52,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 title,
                 style: const TextStyle(
                   fontSize: 17,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             
