@@ -79,14 +79,14 @@ class _SongContextMenuState extends State<SongContextMenu> {
     return SwipeToDismissSheet(
       child: Material(
         color: const Color(0xFF1C1C1E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── Drag handle ──────────────────────────────────────────────
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
             Container(
               width: 36,
               height: 4,
