@@ -140,7 +140,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             const SizedBox(height: 12),
 
             // ── Grup 1: Pemutaran ─────────────────────────────────────────
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _insetDivider,
             _MenuItem(
               icon: CupertinoIcons.play_fill,
               label: 'Putar Sekarang',
@@ -172,7 +172,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
 
             // ── Grup 2: Library ───────────────────────────────────────────
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _insetDivider,
             _MenuItem(
               icon: _isFavorite
                   ? CupertinoIcons.heart_fill
@@ -198,7 +198,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
 
             // ── Grup 3: Navigasi ──────────────────────────────────────────
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _insetDivider,
             _MenuItem(
               icon: CupertinoIcons.music_albums_fill,
               label: 'Buka Album',
@@ -212,7 +212,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
 
             // ── Grup 4: Informasi ─────────────────────────────────────────
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _insetDivider,
             _MenuItem(
               icon: CupertinoIcons.info_circle,
               label: 'Informasi Lagu',
@@ -223,7 +223,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
             ),
 
             // ── Grup 5: Hapus ─────────────────────────────────────────────
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            _insetDivider,
             _MenuItem(
               icon: CupertinoIcons.trash,
               iconColor: const Color(0xFFF92D48),
@@ -538,7 +538,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A)),
+            const Divider(height: 1, thickness: 0.5, color: Color(0xFF48484A), indent: 52),
             // Buat baru
             InkWell(
               onTap: () => _createNew(context),
