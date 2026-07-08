@@ -151,12 +151,12 @@ class _ModeChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: active
-            ? const Color(0xFFFC3C44).withAlpha(30)
+            ? const Color(0xFFF92D48).withAlpha(30)
             : Colors.white.withAlpha(15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active
-              ? const Color(0xFFFC3C44).withAlpha(120)
+              ? const Color(0xFFF92D48).withAlpha(120)
               : Colors.white.withAlpha(30),
           width: 0.8,
         ),
@@ -165,7 +165,7 @@ class _ModeChip extends StatelessWidget {
         mode.label,
         style: TextStyle(
           fontSize: 12,
-          color: active ? const Color(0xFFFC3C44) : Colors.white60,
+          color: active ? const Color(0xFFF92D48) : Colors.white60,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -240,10 +240,10 @@ class _ModeOption extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? const Color(0xFFFC3C44) : Colors.white30,
+            color: selected ? const Color(0xFFF92D48) : Colors.white30,
             width: 2,
           ),
-          color: selected ? const Color(0xFFFC3C44) : Colors.transparent,
+          color: selected ? const Color(0xFFF92D48) : Colors.transparent,
         ),
         child: selected
             ? const Icon(Icons.check, size: 14, color: Colors.white)
@@ -252,7 +252,7 @@ class _ModeOption extends StatelessWidget {
       title: Text(
         mode.label,
         style: TextStyle(
-          color: selected ? const Color(0xFFFC3C44) : Colors.white,
+          color: selected ? const Color(0xFFF92D48) : Colors.white,
           fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           fontSize: 15,
         ),

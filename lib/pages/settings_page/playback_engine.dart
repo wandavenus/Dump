@@ -163,7 +163,7 @@ class _EngineSelector extends StatelessWidget {
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 1.5,
-                            color: Color(0xFFFC3C44),
+                            color: Color(0xFFF92D48),
                           ),
                         ),
                         SizedBox(width: 10),
@@ -379,7 +379,7 @@ class _EngineSwitchConfirmSheet extends StatelessWidget {
                       child: Container(
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFC3C44),
+                          color: const Color(0xFFF92D48),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
