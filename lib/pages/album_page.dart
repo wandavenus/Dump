@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
@@ -19,8 +20,16 @@ class AlbumPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
-        title: album.album,
         scrollOffset: 100,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.back,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
         actions: const [CommonActions()],
       ),
       body: AlbumPageContent(album: album, songs: songs),

@@ -3,14 +3,14 @@ part of '../scrolling_page_chrome.dart';
 class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
   const FadingTitleAppBar({
     super.key,
-    required this.title,
+    this.title,
     required this.scrollOffset,
     this.leading,
     this.actions = const [CommonActions()],
     this.automaticallyImplyLeading = false,
   });
 
-  final String title;
+  final String? title;
   final double scrollOffset;
   final Widget? leading;
   final List<Widget>? actions;
@@ -42,21 +42,21 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   )
                   : null,
-          title: Transform.translate(
-            offset: Offset(
-              0,
-              (1 - ((scrollOffset - 30) / 40).clamp(0.0, 1.0).toDouble()) * 40,
-            ),
-             
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            
-          ),
+          title: title != null
+              ? Transform.translate(
+                  offset: Offset(
+                    0,
+                    (1 - ((scrollOffset - 30) / 40).clamp(0.0, 1.0).toDouble()) * 40,
+                  ),
+                  child: Text(
+                    title!,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                )
+              : null,
           centerTitle: false,
           actions: actions,
           bottom: PreferredSize(
