@@ -19,9 +19,9 @@ class GlassNavBar extends StatelessWidget {
           child: RepaintBoundary(
             child: ClipRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
-                  color: Colors.white.withValues(alpha: 0.055),
+                  color: Colors.white.withValues(alpha: 0.035),
                 ),
               ),
             ),
