@@ -31,36 +31,37 @@ void main() {
   vec2 uv = FlutterFragCoord().xy / uSize;
   float t = uTime;
 
-    // ── Domain warp (Apple Music Style Randomizer) ─────────────────────────────
-  // Kita campur x dan y di setiap wave, dan tambahin noise frekuensi tinggi
-  // biar arah pergerakannya ga ketebak (ga linear).
+      // ── Domain warp (Softened for seamless blending) ─────────────────────────
+  // Kita gedeein range blur-nya (sin * 0.25) biar warnanya keseret lebih jauh,
+  // dan kecilin frekuensi-nya (y * 2.0) biar kerasa lebih adem.
   
-  // Layer 1: Pergerakan macro (gerakan lambat buat geser massa warna)
-  float wX1 = sin(uv.y * 2.5 + uv.x * 1.2 + t * 0.210) * 0.18;
-  float wY1 = cos(uv.x * 2.8 + uv.y * 1.5 + t * 0.165) * 0.15;
+  float wX1 = sin(uv.y * 2.0 + uv.x * 1.0 + t * 0.180) * 0.25; // Lebih lebar
+  float wY1 = cos(uv.x * 2.2 + uv.y * 1.2 + t * 0.145) * 0.22; // Lebih lebar
 
-  // Layer 2: Pergerakan micro (bikin pusaran/arah putar yang random)
-  float wX2 = cos((uv.x + wX1) * 4.2 - t * 0.312) * 0.08;
-  float wY2 = sin((uv.y + wY1) * 3.8 + t * 0.245) * 0.07;
+  // Layer 2 kita bikin super subtle aja buat hancurin pola garis
+  float wX2 = cos((uv.x + wX1) * 3.0 - t * 0.212) * 0.05; // Lebih halus
+  float wY2 = sin((uv.y + wY1) * 2.8 + t * 0.145) * 0.04; // Lebih halus
 
-  // Gabungin semua buat dapet warped UV yang chaotic tapi tetep smooth
   vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
 
 
-    // ── Scalar colour fields (Apple Music Liquid Style) ───────────────────────
-  // Kita ganti pola garis diagonal jadi pola lingkaran (radial) dan pusaran.
-  // Ini bikin warnanya nge-blend dari tengah atau titik acak, bukan nge-gulung.
+      // ── Scalar colour fields (Seamless Glow) ──────────────────────────────────
+  // Rahasia biar ga kayak ORB:
+  // 1. Kurangin pengali jarak (`dist1 * 1.5`), biar "lingkaran"-nya gede banget (nge-glow).
+  // 2. Ganti `* 0.5 + 0.5` jadi range yang lebih sempit (misal `* 0.35 + 0.4`) 
+  //    biar kontras antar warnanya ga terlalu ekstrim (ga ada bates tajem).
 
-  // Pusat 1: Gerakan memutar di sekitar tengah layar
-  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.15) * 0.2, 0.5 + cos(t * 0.22) * 0.2));
-  float f0 = sin(dist1 * 3.5 - t * 0.25) * 0.5 + 0.5;
+  // Pusat 1: Glow gede banget
+  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
+  float f0 = sin(dist1 * 1.5 - t * 0.15) * 0.35 + 0.4; // Halus range-nya
 
-  // Pusat 2: Pusaran interferensi (cross-multiplication bikin polanya organic)
-  float f1 = sin(uvd.x * 2.5 + t * 0.12) * cos(uvd.y * 3.0 - t * 0.18) * 0.5 + 0.5;
+  // Pusat 2: Interferensi tipis-tipis aja
+  float f1 = sin(uvd.x * 1.8 + t * 0.08) * cos(uvd.y * 2.0 - t * 0.11) * 0.30 + 0.35;
 
-  // Pusat 3: Efek liquid kedalaman (zoom in/out radial)
-  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.18) * 0.1, 0.7 + sin(t * 0.13) * 0.1));
-  float f2 = cos(dist2 * 4.0 + t * 0.3) * 0.5 + 0.5;
+  // Pusat 3: Glow kedua buat ngeramein blend
+  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
+  float f2 = cos(dist2 * 1.8 + t * 0.2) * 0.35 + 0.4;
+
 
 
   // ── Palette blend ──────────────────────────────────────────────────────────
