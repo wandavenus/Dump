@@ -487,20 +487,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         duration: const Duration(milliseconds: 300),
         curve:    Curves.easeOutCubic,
         scale:    targetScale,
-        child: DecoratedBox(
+        child: Container(
+          // Shadow in background so it renders behind the artwork.
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(finalRadius),
-            // Hairline stroke lives on the visible bounding box (matching
-            // finalRadius) rather than inside SongArtwork, whose own border
-            // would otherwise get cut off by the outer ClipRRect's rounded
-            // corners during the morph animation.
-            border: Border.all(
-              color: kArtworkHairlineColor,
-              width: kArtworkHairlineWidth,
-              // Inset alignment — stays crisp instead of blurring outward
-              // as finalSize/finalRadius animate through the morph.
-              strokeAlign: BorderSide.strokeAlignInside,
-            ),
             boxShadow: [
               BoxShadow(
                 color:      Colors.black.withValues(alpha: shadowAlpha),
@@ -509,13 +499,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               ),
             ],
           ),
+          // Hairline border in foreground so it paints ON TOP of the artwork
+          // and covers any antialiasing gaps left by ClipRRect at the corners.
+          // This matches the approach used in ArtworkHairlineBorder.
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(finalRadius),
+            border: Border.all(
+              color: kArtworkHairlineColor,
+              width: kArtworkHairlineWidth,
+              strokeAlign: BorderSide.strokeAlignInside,
+            ),
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(finalRadius),
             child: SongArtwork(
               songId:       song.id,
               size:         artSize,
               borderRadius: BorderRadius.zero,
-              // Hairline already drawn on the outer DecoratedBox above —
+              // Hairline already drawn on the outer Container above —
               // avoids a doubled/mismatched stroke here.
               showBorder:   false,
             ),
