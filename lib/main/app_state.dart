@@ -54,7 +54,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           secondary: Color(0xFFF92D48),
         ),
         scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
-      
+
+        // Radius kotak untuk semua AlertDialog & PopupMenuButton dipaksa 3px
+        // di sini supaya konsisten di seluruh app tanpa perlu set shape
+        // manual di tiap pemanggilan showDialog/PopupMenuButton.
+        dialogTheme: const DialogThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(3)),
+          ),
+        ),
+        popupMenuTheme: const PopupMenuThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(3)),
+          ),
+        ),
+
         snackBarTheme: const SnackBarThemeData(
   contentTextStyle: TextStyle(
     color: Colors.white,
