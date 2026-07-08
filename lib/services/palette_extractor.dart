@@ -8,7 +8,7 @@ import 'package:palette_generator_plus/palette_generator_plus.dart';
 //
 // Thin async wrapper around palette_generator.
 // Extracts [dominant, vibrant, muted] colours from artwork bytes, caches the
-// result by songId (LRU, 64 entries) so the extraction never runs twice for
+// result by songId (LRU, 256 entries) so the extraction never runs twice for
 // the same song.
 //
 // Public API
@@ -38,7 +38,7 @@ class PaletteExtractor {
 
   // Artwork is decoded and quantized synchronously on the UI isolate by the
   // palette_generator package (no internal downscaling, no isolate/compute
-  // offload). Native artwork cache stores WebP up to 2000x2000px, so without
+  // offload). Native artwork cache stores WebP up to 1000x1000px, so without
   // capping the decode size here, extraction can iterate millions of pixels
   // per call. Quantization only needs a coarse color histogram, so a small
   // decode target drastically cuts UI-isolate blocking time with no visible
@@ -68,7 +68,7 @@ class PaletteExtractor {
   static Future<List<Color>> _extract(int songId, Uint8List artwork) async {
     List<Color> colors;
     try {
-      // maximumColorCount = 24 gives a good spread without excess computation.
+      // maximumColorCount = 16 gives a good spread without excess computation.
       // ResizeImage caps the decoded pixel buffer so quantization runs over a
       // small, bounded number of pixels regardless of the source artwork's
       // native resolution.
@@ -82,8 +82,16 @@ class PaletteExtractor {
       );
 
       final dominant = generator.dominantColor?.color ?? _kFallback[0];
-      final vibrant  = generator.vibrantColor?.color  ?? _kFallback[1];
-      final muted    = generator.mutedColor?.color    ?? _kFallback[2];
+
+// Kalau warna vibrant utama ga dapet, pinjem warna lightVibrant
+final vibrant  = generator.vibrantColor?.color  
+              ?? generator.lightVibrantColor?.color 
+              ?? _kFallback[1];
+
+// Kalau warna muted utama ga dapet, pinjem warna darkMuted biar kontras
+final muted    = generator.mutedColor?.color    
+              ?? generator.darkMutedColor?.color    
+              ?? _kFallback[2];
 
       colors = [dominant, vibrant, muted];
     } catch (_) {
