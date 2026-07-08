@@ -338,7 +338,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     showDialog(
       context: context,
       useRootNavigator: true,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1C1C1E),
         title: const Text(
           'Informasi Lagu',
@@ -359,7 +359,11 @@ class _SongContextMenuState extends State<SongContextMenu> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            // Pakai context dialog sendiri (bukan context sheet lama yang
+            // sudah di-pop di _MenuItem.onTap), kalau tidak tombol ini
+            // memanggil Navigator.pop() dengan BuildContext yang sudah
+            // deactivated sehingga dialog gagal tertutup.
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text(
               'Tutup',
               style: TextStyle(color: Color(0xFFF92D48)),
