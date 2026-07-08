@@ -8,7 +8,7 @@ class _SearchCategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(10),
       child: Stack(
         fit: StackFit.expand,
         children: [
