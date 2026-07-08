@@ -47,13 +47,21 @@ void main() {
   vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
 
 
-  // ── Scalar colour fields ───────────────────────────────────────────────────
-  // Each field produces a smooth value in [0, 1].  Using both x and y of the
-  // warped UV plus an independent time rate ensures the three fields evolve
-  // at different speeds and never lock into the same phase.
-  float f0 = sin(uvd.x * 2.10 + uvd.y * 1.84 + t * 0.222) * 0.5 + 0.5;
-  float f1 = cos(uvd.x * 1.73 - uvd.y * 2.30 - t * 0.156) * 0.5 + 0.5;
-  float f2 = sin(uvd.x * 1.50 + uvd.y * 1.20 + t * 0.264) * 0.5 + 0.5;
+    // ── Scalar colour fields (Apple Music Liquid Style) ───────────────────────
+  // Kita ganti pola garis diagonal jadi pola lingkaran (radial) dan pusaran.
+  // Ini bikin warnanya nge-blend dari tengah atau titik acak, bukan nge-gulung.
+
+  // Pusat 1: Gerakan memutar di sekitar tengah layar
+  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.15) * 0.2, 0.5 + cos(t * 0.22) * 0.2));
+  float f0 = sin(dist1 * 3.5 - t * 0.25) * 0.5 + 0.5;
+
+  // Pusat 2: Pusaran interferensi (cross-multiplication bikin polanya organic)
+  float f1 = sin(uvd.x * 2.5 + t * 0.12) * cos(uvd.y * 3.0 - t * 0.18) * 0.5 + 0.5;
+
+  // Pusat 3: Efek liquid kedalaman (zoom in/out radial)
+  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.18) * 0.1, 0.7 + sin(t * 0.13) * 0.1));
+  float f2 = cos(dist2 * 4.0 + t * 0.3) * 0.5 + 0.5;
+
 
   // ── Palette blend ──────────────────────────────────────────────────────────
   // Layered mix() calls fold all three colours together.  The weights (0.55,
@@ -73,7 +81,7 @@ void main() {
   // the grain is always animated (no static texture repeating across frames).
   vec2  grainUV = FlutterFragCoord().xy + uTime * 82.2;
   float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
-  col = mix(col, vec3(grain), 0.01);
+  col = mix(col, vec3(grain), 0.05);
 
   fragColor = vec4(col, 1.0);
 }
