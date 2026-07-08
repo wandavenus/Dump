@@ -32287,8 +32287,7 @@ this.b=b},
 aNy:function aNy(a){this.a=a},
 aNw:function aNw(a){this.a=a},
 aNx:function aNx(a){this.a=a},
-aNA:function aNA(a,b){this.a=a
-this.b=b},
+aNA:function aNA(a){this.a=a},
 aNz:function aNz(a){this.a=a},
 jY:function jY(a,b,c,d,e,f){var _=this
 _.c=a
@@ -107819,7 +107818,7 @@ break
 case 5:return A.j(null,r)
 case 1:return A.i(p.at(-1),r)}})
 return A.k($async$BB,r)},
-ats(a){A.Pg(new A.aNA(this,a),a,!0,t.z)}}
+ats(a){A.Pg(new A.aNA(this),a,!0,t.z)}}
 A.aNv.prototype={
 $0(){var s=this.a
 s.d=this.b
@@ -107911,7 +107910,7 @@ p=B.e.aM(p,36e8)
 p=p>0?""+p+":":""
 s=t.p
 p=A.av(A.b([new A.vv("Judul",q.b,r),new A.vv("Artis",q.c,r),new A.vv("Album",q.e,r),new A.vv("Durasi",p+o+":"+n,r)],s),B.t,B.h,B.W)
-return A.BZ(A.b([A.jN(B.a6N,new A.aNz(this.b),r)],s),B.ae,p,B.a6Q)},
+return A.BZ(A.b([A.jN(B.a6N,new A.aNz(a),r)],s),B.ae,p,B.a6Q)},
 $S:68}
 A.aNz.prototype={
 $0(){A.bD(this.a,!1).dN(null)
