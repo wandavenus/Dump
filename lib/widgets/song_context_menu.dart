@@ -176,7 +176,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               icon: _isFavorite
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
-              iconColor: _isFavorite ? const Color(0xFFF92D48) : Colors.white,
+              iconColor: const Color(0xFFF92D48),
               label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
               onTap: _favLoaded
                   ? () async {
@@ -432,7 +432,7 @@ class _MenuItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
-            Icon(icon, color: iconColor ?? Colors.white, size: 22),
+            Icon(icon, color: iconColor ?? const Color(0xFFF92D48), size: 22),
             const SizedBox(width: 14),
             Text(
               label,
@@ -599,7 +599,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                           children: [
                             const Icon(
                               Icons.music_note_rounded,
-                              color: Colors.white54,
+                              color: Color(0xFFF92D48),
                               size: 22,
                             ),
                             const SizedBox(width: 14),
