@@ -140,7 +140,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 6,
                 activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0xFF808080),
+                inactiveTrackColor: const Color(0xFF8D8D8D),
                 thumbShape: const RoundSliderThumbShape(
                   enabledThumbRadius: 0,
                   disabledThumbRadius: 0,
@@ -158,7 +158,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                 onChangeEnd:   durationSeconds == 0 ? null : _onChangeEnd,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 9),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
