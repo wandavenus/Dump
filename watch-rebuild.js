@@ -10,7 +10,7 @@ const { exec } = require('child_process');
 
 const WATCH_TARGETS = ['lib', 'assets', 'pubspec.yaml'];
 const FLUTTER_BIN = '/home/runner/flutter/bin/flutter';
-const BUILD_CMD = `"${FLUTTER_BIN}" build web --release --base-href /`;
+const BUILD_CMD = `"${FLUTTER_BIN}" build web --release --base-href / --no-tree-shake-icons`;
 const DEBOUNCE_MS = 1500; // wait 1.5s after last change before building
 
 let buildTimer = null;
