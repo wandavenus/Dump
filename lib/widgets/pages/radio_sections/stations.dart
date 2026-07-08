@@ -161,10 +161,10 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
                 title: const Text(
                   'Hapus Playlist',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: Color(0xFFF92D48)),
                 ),
                 onTap: () async {
                   Navigator.pop(ctx);

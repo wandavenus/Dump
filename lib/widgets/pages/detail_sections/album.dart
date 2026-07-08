@@ -51,7 +51,7 @@ class AlbumHero extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.red,
+              color: Color(0xFFF92D48),
             ),
           ),
           const SizedBox(height: 4),

@@ -186,7 +186,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: const Text('Hapus', style: TextStyle(color: Color(0xFFF92D48))),
               ),
             ],
           ),

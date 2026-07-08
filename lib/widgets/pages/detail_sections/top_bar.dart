@@ -15,16 +15,16 @@ class DetailTopBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             child: const Padding(
               padding: EdgeInsets.all(6),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.red),
+              child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFFF92D48)),
             ),
           ),
           const Row(
             children: [
-              Icon(Icons.cast_rounded, size: 22, color: Colors.red),
+              Icon(Icons.cast_rounded, size: 22, color: Color(0xFFF92D48)),
               SizedBox(width: 20),
-              Icon(Icons.add, size: 22, color: Colors.red),
+              Icon(Icons.add, size: 22, color: Color(0xFFF92D48)),
               SizedBox(width: 20),
-              Icon(Icons.more_vert, size: 22, color: Colors.red),
+              Icon(Icons.more_vert, size: 22, color: Color(0xFFF92D48)),
             ],
           ),
         ],
