@@ -24,7 +24,7 @@ class _SearchResultTile extends StatelessWidget {
             SongArtwork(
               songId: song.id,
               size: 48,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(3),
             ),
             const SizedBox(width: 12),
             Expanded(
