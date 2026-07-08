@@ -324,7 +324,17 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return CustomScrollView(
       controller: _scroll,
       slivers: [
-        SliverToBoxAdapter(child: _listHeader(songs)),
+        // Header — judul + divider saja, tanpa search bar & tombol kontrol
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LargePageTitle(title: _title),
+              const HeaderDivider(),
+            ],
+          ),
+        ),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
           sliver: SliverGrid(
