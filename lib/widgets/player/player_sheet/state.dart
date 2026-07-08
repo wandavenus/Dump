@@ -118,8 +118,8 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Color.fromARGB(80, 0, 0, 0),
-                                  Color.fromARGB(180, 0, 0, 0),
+                                  Color.fromARGB(0, 0, 0, 0),
+                                  Color.fromARGB(0, 0, 0, 0),
                                 ],
                               ),
                             ),
