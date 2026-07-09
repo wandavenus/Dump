@@ -38,6 +38,11 @@ Future<void> main() async {
       // shader) so they render instantly on cold start too, matching the
       // artwork image's own instant-render behaviour above.
       PaletteExtractor.warmUp(),
+      // Hydrates the last-known song list from disk so the very first frame
+      // can render the full library (and each song's cached artwork)
+      // immediately instead of a spinner while MediaStore re-enumerates.
+      // A live MediaStore query still runs right after, in the background.
+      MediaStoreService.warmUp(),
     ]);
     NativeLogBridge.init();
 

@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/local_song.dart';
 import 'log_service.dart';
@@ -15,21 +19,138 @@ class MediaStoreService {
 
   static List<LocalSong>? _songsCache;
 
+  // Whether a live MediaStore query has completed this process lifetime.
+  // Starts false so the very first [getSongs] call after a cold start —
+  // even one served instantly from the persisted list below — still kicks
+  // off a background reconciliation with the real (possibly changed)
+  // library.
+  static bool _liveRefreshed = false;
+
   /// Dipancarkan setiap kali rescan selesai — value adalah event counter
   /// (increment +1 setiap rescan berhasil). Listener cukup panggil ulang
   /// load mereka tanpa peduli nilai aktualnya.
   static final ValueNotifier<int> rescanNotifier = ValueNotifier(0);
 
+  // ── Disk persistence (stale-while-revalidate) ──────────────────────────────
+  //
+  // Enumerating MediaStore from scratch is the slowest step of a cold start —
+  // every screen (home, list, player) waits on it before rendering anything,
+  // which is what actually shows up to the user as a global ~0.5-1s "loading"
+  // flash covering the whole UI, artwork included, right after the app is
+  // killed and reopened (a live process, e.g. just minimized, never re-queries
+  // and so never shows this).
+  //
+  // Fix: persist the last-fetched song list to disk. On the next cold start,
+  // [warmUp] hydrates [_songsCache] from that file BEFORE runApp, so the very
+  // first [getSongs] call returns instantly with the last-known library —
+  // letting the whole UI (and each song's already-disk-cached artwork) paint
+  // on the first frame. A real MediaStore query still runs right after, in
+  // the background, to silently reconcile any actual library changes.
+  static String? _cacheFilePath;
+
+  static Future<String> _resolvedCacheFilePath() async {
+    return _cacheFilePath ??=
+        '${(await getApplicationCacheDirectory()).path}/song_list_cache.json';
+  }
+
+  /// Loads the persisted song list from disk into [_songsCache]. Call once
+  /// during app startup (awaited, before `runApp`), alongside the artwork/
+  /// palette warm-ups — this is what lets the very first frame render the
+  /// full library (and its artwork) instead of a loading spinner.
+  static Future<void> warmUp() async {
+    if (kIsWeb) return;
+    try {
+      final path = await _resolvedCacheFilePath();
+      final file = File(path);
+      if (!file.existsSync()) return;
+
+      final raw = await file.readAsString();
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      _songsCache = decoded
+          .map((m) => LocalSong.fromMap(Map<dynamic, dynamic>.from(m as Map)))
+          .toList(growable: false);
+    } catch (_) {
+      // Corrupt or unreadable cache — fall through to a normal live query.
+    }
+  }
+
+  static Future<void> _persist(List<LocalSong> songs) async {
+    try {
+      final path = await _resolvedCacheFilePath();
+      final file = File(path);
+      await file.parent.create(recursive: true);
+      final tmp = File('$path.tmp');
+      await tmp.writeAsString(jsonEncode(songs.map((s) => s.toMap()).toList()));
+      await tmp.rename(path); // atomic — never leaves a half-written cache.
+    } catch (_) {
+      // Best-effort — a failed save just means next cold start falls back
+      // to waiting on a live MediaStore query, same as today.
+    }
+  }
+
+  // Deduplicates concurrent refreshes (startup reconcile racing a manual
+  // pull-to-refresh, a rescan event, etc.) so only one MediaStore query runs
+  // and every caller awaits the same in-flight result — mirrors the
+  // in-flight dedup pattern already used by ArtworkRepository/PaletteExtractor.
+  static Future<List<LocalSong>>? _inFlightRefresh;
+
+  // Throttles reconcile retries after a failed background refresh so a
+  // persistently-failing MediaStore query can't loop forever: getSongs() →
+  // reconcile fails → listener re-reads getSongs() → reconcile again → ...
+  static DateTime? _lastFailedReconcile;
+  static const _reconcileRetryBackoff = Duration(seconds: 10);
+
   static Future<List<LocalSong>> getSongs() async {
     final cachedSongs = _songsCache;
     if (cachedSongs != null) {
+      if (!_liveRefreshed) {
+        final lastFailure = _lastFailedReconcile;
+        if (lastFailure == null ||
+            DateTime.now().difference(lastFailure) > _reconcileRetryBackoff) {
+          // Serve the persisted/previous list immediately, and reconcile
+          // with a real MediaStore query in the background — never blocks
+          // this call or the first frame.
+          unawaited(_reconcileInBackground());
+        }
+      }
       return cachedSongs;
     }
 
     return refreshSongs();
   }
 
-  static Future<List<LocalSong>> refreshSongs() async {
+  static Future<void> _reconcileInBackground() async {
+    final before = _songsCache;
+    final after = await refreshSongs();
+    if (!_liveRefreshed) return; // refreshSongs() failed — do not notify.
+
+    // Only nudge already-built lists to reload if the library actually
+    // changed since the persisted snapshot — avoids a pointless rebuild on
+    // every cold start when nothing changed since last session.
+    if (!_sameSongs(before, after)) {
+      rescanNotifier.value++;
+    }
+  }
+
+  static bool _sameSongs(List<LocalSong>? a, List<LocalSong> b) {
+    if (a == null || a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].path != b[i].path) return false;
+    }
+    return true;
+  }
+
+  static Future<List<LocalSong>> refreshSongs() {
+    // Coalesce concurrent callers onto a single in-flight query/parse pass.
+    final inFlight = _inFlightRefresh;
+    if (inFlight != null) return inFlight;
+
+    final future = _refreshSongsImpl();
+    _inFlightRefresh = future;
+    return future.whenComplete(() => _inFlightRefresh = null);
+  }
+
+  static Future<List<LocalSong>> _refreshSongsImpl() async {
     // MediaStore has no browser equivalent — `musicplayer/media_store` isn't
     // implemented on web. Serve a small in-memory sample library instead so
     // layout/UI (Home, Album/Artist detail, Search, Library) can be visually
@@ -37,6 +158,7 @@ class MediaStoreService {
     // always hit the native channel below.
     if (kIsWeb) {
       _songsCache = _webSampleSongs;
+      _liveRefreshed = true;
       return _webSampleSongs;
     }
 
@@ -51,12 +173,17 @@ class MediaStoreService {
           .toList(growable: false);
 
       _songsCache = parsedSongs;
+      _liveRefreshed = true;
+      _lastFailedReconcile = null;
+      unawaited(_persist(parsedSongs));
       return parsedSongs;
     } on PlatformException catch (error, stackTrace) {
       LogService.error('MediaStore', 'Failed to load songs: $error', stackTrace: stackTrace.toString());
+      _lastFailedReconcile = DateTime.now();
       return const <LocalSong>[];
     } catch (error, stackTrace) {
       LogService.error('MediaStore', 'Invalid song payload: $error', stackTrace: stackTrace.toString());
+      _lastFailedReconcile = DateTime.now();
       return const <LocalSong>[];
     }
   }
