@@ -38,7 +38,40 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       scrollBehavior: MyScrollBehavior(),
       builder: (context, child) {
         applyEdgeToEdge();   // Jangan di pindahkan
-        return child ?? const SizedBox.shrink();
+        return ValueListenableBuilder<bool>(
+          valueListenable: WatermarkService.visible,
+          builder: (_, show, _) => Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              if (show)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: SafeArea(
+                      bottom: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'IG : Wndavenznchole',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.3,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
       },
       theme: ThemeData(
         // ColorScheme.dark() defaults to a purple primary (0xFFBB86FC) and
