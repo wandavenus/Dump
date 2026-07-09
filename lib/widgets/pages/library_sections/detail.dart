@@ -171,6 +171,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               Expanded(
                 child: _controlButton(
                   icon: CupertinoIcons.shuffle,
+                  label: 'Acak',
                   active: state.shuffleEnabled,
                   onTap: () => _playShuffled(songs),
                 ),
@@ -181,6 +182,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                   icon: state.loopMode == LoopMode.one
                       ? CupertinoIcons.repeat_1
                       : CupertinoIcons.repeat,
+                  label: 'Ulang',
                   active: state.loopMode != LoopMode.off,
                   onTap: AudioService.cycleLoopMode,
                 ),
@@ -194,10 +196,11 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Widget _controlButton({
     required IconData icon,
+    required String label,
     required bool active,
     required VoidCallback onTap,
   }) {
-    const activeColor = Color(0xFF8E8E93);
+    const brandColor = Color(0xFFF92D48);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -206,15 +209,29 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         height: 48,
         decoration: BoxDecoration(
           color: active
-              ? activeColor.withValues(alpha: 0.48)
+              ? brandColor.withValues(alpha: 0.48)
               : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
-          child: Icon(
-            icon,
-            size: 20,
-            color: active ? activeColor : Colors.white,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: brandColor,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: brandColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
