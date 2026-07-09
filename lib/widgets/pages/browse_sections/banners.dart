@@ -129,9 +129,6 @@ class _BannerArtworkState extends State<_BannerArtwork> {
         width: widget.width,
         height: widget.height,
         color: const Color(0xFF1C1C1E),
-        child: const Center(
-          child: Icon(Icons.music_note, color: Colors.white24, size: 48),
-        ),
       );
     }
     return Image(
