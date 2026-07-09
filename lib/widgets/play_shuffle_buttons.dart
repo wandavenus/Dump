@@ -9,14 +9,17 @@ import '../services/audio_service.dart';
 /// Shared "Putar" / "Acak" action buttons — used consistently across
 /// Song List, Album List (Library), Album Detail, and Artist Detail.
 class PlayShuffleButtons extends StatelessWidget {
-  const PlayShuffleButtons({super.key, required this.songs});
+  const PlayShuffleButtons({super.key, required this.songs, this.topPadding = 16});
 
   final List<LocalSong> songs;
+
+  /// Jarak dari elemen di atasnya (default 16, dipakai di Album/Artist Detail).
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 0),
       child: Row(
         children: [
           _ActionButton(

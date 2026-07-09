@@ -108,7 +108,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
@@ -161,7 +161,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Control buttons (shared Putar/Acak — same as Album/Artist Detail) ─────
 
   Widget _controlButtons(List<LocalSong> songs) {
-    return PlayShuffleButtons(songs: songs);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PlayShuffleButtons(songs: songs, topPadding: 12),
+    );
   }
 
   /// Judul + divider saja — scroll normal, tidak menumpuk.
@@ -548,7 +551,7 @@ class _PlaylistBannerCard extends StatelessWidget {
 // ─── Sticky header untuk search bar + tombol Putar/Acak ────────────────────
 // Sama seperti perilaku menumpuk di halaman Cari (_StickySearchBarDelegate).
 
-const double _kLibraryControlsHeight = 120;
+const double _kLibraryControlsHeight = 140;
 
 class _StickyLibraryControlsDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
