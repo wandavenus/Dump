@@ -158,84 +158,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     );
   }
 
-  // ─── Control buttons (Queue-sheet style) ───────────────────────────────────
+  // ─── Control buttons (shared Putar/Acak — same as Album/Artist Detail) ─────
 
   Widget _controlButtons(List<LocalSong> songs) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
-      child: ValueListenableBuilder<AudioPlaybackState>(
-        valueListenable: AudioService.playbackState,
-        builder: (context, state, _) {
-          return Row(
-            children: [
-              Expanded(
-                child: _controlButton(
-                  icon: CupertinoIcons.shuffle,
-                  label: 'Acak',
-                  active: state.shuffleEnabled,
-                  onTap: () => _playShuffled(songs),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _controlButton(
-                  icon: state.loopMode == LoopMode.one
-                      ? CupertinoIcons.repeat_1
-                      : CupertinoIcons.repeat,
-                  label: 'Ulang',
-                  active: state.loopMode != LoopMode.off,
-                  onTap: AudioService.cycleLoopMode,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _controlButton({
-    required IconData icon,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    const brandColor = Color(0xFFF92D48);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        height: 48,
-        decoration: BoxDecoration(
-          color: active
-              ? brandColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: brandColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: brandColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return PlayShuffleButtons(songs: songs);
   }
 
   // ─── Shared list header (LargePageTitle + divider + search + controls) ─────
@@ -509,11 +435,6 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Future<void> _playAt(List<LocalSong> songs, int index) async {
     await AudioService.playSongAt(playlist: songs, index: index);
-  }
-
-  Future<void> _playShuffled(List<LocalSong> songs) async {
-    final shuffled = List<LocalSong>.from(songs)..shuffle();
-    await _playAt(shuffled, 0);
   }
 }
 
