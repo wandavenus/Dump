@@ -8,6 +8,7 @@ import 'package:musicplayer/services/audio/audio_engine.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio/audio_engine_manager.dart';
 import 'package:musicplayer/services/artwork_repository.dart';
+import 'package:musicplayer/services/palette_extractor.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
 import 'package:musicplayer/services/log_service.dart';

@@ -34,6 +34,10 @@ Future<void> main() async {
       // frame — cached cover art then never flashes a placeholder on cold
       // start (app killed / removed from recents).
       ArtworkRepository.instance.warmUp(),
+      // Persisted palette colours (album card backgrounds, player background
+      // shader) so they render instantly on cold start too, matching the
+      // artwork image's own instant-render behaviour above.
+      PaletteExtractor.warmUp(),
     ]);
     NativeLogBridge.init();
 
