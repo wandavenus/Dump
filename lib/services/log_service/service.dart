@@ -8,7 +8,7 @@ class LogService {
   static final Queue<LogEntry> _logs = Queue<LogEntry>();
   static final ValueNotifier<int> logCount = ValueNotifier(0);
 
-  static final ValueNotifier<bool> loggingEnabled  = ValueNotifier(true);
+  static final ValueNotifier<bool> loggingEnabled  = ValueNotifier(false);
   static final ValueNotifier<bool> errorsOnly       = ValueNotifier(false);
   static final ValueNotifier<bool> verboseEnabled   = ValueNotifier(false);
 
@@ -21,7 +21,7 @@ class LogService {
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    loggingEnabled.value  = prefs.getBool('log_enabled')      ?? true;
+    loggingEnabled.value  = prefs.getBool('log_enabled')      ?? false;
     errorsOnly.value      = prefs.getBool('log_errors_only')  ?? false;
     verboseEnabled.value  = prefs.getBool('log_verbose')      ?? false;
     isInitialized = true;
