@@ -34,6 +34,7 @@ class _MediaKitAudioSection extends StatelessWidget {
             onChanged: AudioEffectsService.setSpeed,
             showReset: v != 1.0,
             onReset: () => AudioEffectsService.setSpeed(1.0),
+            expandable: true,
           ),
         ),
         const SettingsDivider(),
@@ -53,6 +54,7 @@ class _MediaKitAudioSection extends StatelessWidget {
             onChanged: AudioEffectsService.setPitch,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setPitch(0),
+            expandable: true,
           ),
         ),
         const SettingsDivider(),
@@ -86,91 +88,175 @@ class _MediaKitAudioSection extends StatelessWidget {
 
 // ─── ReplayGain Sub-section ────────────────────────────────────────────────────
 
-class _MkReplayGainSection extends StatelessWidget {
+class _MkReplayGainSection extends StatefulWidget {
   const _MkReplayGainSection();
+
+  @override
+  State<_MkReplayGainSection> createState() => _MkReplayGainSectionState();
+}
+
+class _MkReplayGainSectionState extends State<_MkReplayGainSection>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 260));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _ctrl.forward() : _ctrl.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: MediaKitSettingsService.replayGainEnabled,
-      builder: (_, enabled, _) => Column(
-        children: [
-          SettingsToggleRow(
-            title: 'Audio Normalize',
-            subtitle: 'Normalisasi volume dari tag file secara native (mpv replaygain)',
-            value: enabled,
-            onChanged: MediaKitSettingsService.setReplayGainEnabled,
-          ),
-          if (enabled) ...[
-            const SettingsDivider(),
-
-            // Mode picker row
-            ValueListenableBuilder<String>(
-              valueListenable: MediaKitSettingsService.replayGainMode,
-              builder: (_, mode, _) => InkWell(
-                onTap: () => _showMkRgModePicker(context),
+      builder: (_, enabled, _) => ValueListenableBuilder<String>(
+        valueListenable: MediaKitSettingsService.replayGainMode,
+        builder: (_, mode, _) {
+          final modeLabel =
+              mode == 'track' ? 'Per Lagu (Track)' : 'Per Album';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              InkWell(
+                onTap: _toggle,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 13),
                   child: Row(
                     children: [
+                      const Text('Audio Normalize',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 16)),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Mode',
-                              style: TextStyle(
-                                  color: Colors.white, fontSize: 16),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              mode == 'track' ? 'Per Lagu (Track)' : 'Per Album',
-                              style: const TextStyle(
-                                  color: Color(0xFF8E8E93), fontSize: 12),
-                            ),
-                          ],
+                        child: Text(
+                          enabled ? modeLabel : 'Nonaktif',
+                          style: const TextStyle(
+                              color: Color(0xFF8E8E93), fontSize: 13),
                         ),
+                      ),
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 220),
+                        child: const Icon(Icons.keyboard_arrow_down,
+                            color: Colors.white38, size: 18),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            const SettingsDivider(),
 
-            // Preamp slider
-            ValueListenableBuilder<double>(
-              valueListenable: MediaKitSettingsService.replayGainPreampDb,
-              builder: (_, v, _) {
-                final sign = v > 0 ? '+' : '';
-                return SettingsSliderRow(
-                  title: 'Preamp',
-                  subtitle: v == 0 ? '0 dB (default)' : '$sign${v.toStringAsFixed(1)} dB',
-                  value: v,
-                  min: -15,
-                  max: 15,
-                  divisions: 30,
-                  onChanged: MediaKitSettingsService.setReplayGainPreamp,
-                  showReset: v != 0,
-                  onReset: () => MediaKitSettingsService.setReplayGainPreamp(0),
-                );
-              },
-            ),
-            const SettingsDivider(),
+              // Konten collapsible
+              SizeTransition(
+                sizeFactor: _ctrl,
+                alignment: Alignment.topCenter,
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mode picker row — memilih mode juga mengaktifkan fitur
+                      InkWell(
+                        onTap: () => _showMkRgModePicker(context),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Mode',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15)),
+                                    const SizedBox(height: 2),
+                                    Text(modeLabel,
+                                        style: const TextStyle(
+                                            color: Color(0xFF8E8E93),
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right,
+                                  color: Colors.white38, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SettingsDivider(),
 
-            // Clip prevention
-            ValueListenableBuilder<bool>(
-              valueListenable: MediaKitSettingsService.replayGainClip,
-              builder: (_, v, _) => SettingsToggleRow(
-                title: 'Cegah Clipping',
-                subtitle: 'Batasi gain agar tidak distorsi (replaygain-clip)',
-                value: v,
-                onChanged: MediaKitSettingsService.setReplayGainClip,
+                      // Preamp slider — menggeser juga mengaktifkan fitur
+                      ValueListenableBuilder<double>(
+                        valueListenable:
+                            MediaKitSettingsService.replayGainPreampDb,
+                        builder: (_, v, _) {
+                          final sign = v > 0 ? '+' : '';
+                          return SettingsSliderRow(
+                            title: 'Preamp',
+                            subtitle: v == 0
+                                ? '0 dB (default)'
+                                : '$sign${v.toStringAsFixed(1)} dB',
+                            value: v,
+                            min: -15,
+                            max: 15,
+                            divisions: 30,
+                            onChanged: (val) async {
+                              await MediaKitSettingsService
+                                  .setReplayGainEnabled(true);
+                              await MediaKitSettingsService
+                                  .setReplayGainPreamp(val);
+                            },
+                            showReset: v != 0,
+                            onReset: () =>
+                                MediaKitSettingsService.setReplayGainPreamp(0),
+                          );
+                        },
+                      ),
+                      const SettingsDivider(),
+
+                      // Cegah Clipping — toggle juga mengaktifkan fitur
+                      ValueListenableBuilder<bool>(
+                        valueListenable: MediaKitSettingsService.replayGainClip,
+                        builder: (_, v, _) => SettingsToggleRow(
+                          title: 'Cegah Clipping',
+                          subtitle:
+                              'Batasi gain agar tidak distorsi (replaygain-clip)',
+                          value: v,
+                          onChanged: (val) async {
+                            await MediaKitSettingsService
+                                .setReplayGainEnabled(true);
+                            await MediaKitSettingsService
+                                .setReplayGainClip(val);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -178,40 +264,110 @@ class _MkReplayGainSection extends StatelessWidget {
 
 // ─── Cache & Buffer Sub-section ────────────────────────────────────────────────
 
-class _MkCacheSection extends StatelessWidget {
+class _MkCacheSection extends StatefulWidget {
   const _MkCacheSection();
+
+  @override
+  State<_MkCacheSection> createState() => _MkCacheSectionState();
+}
+
+class _MkCacheSectionState extends State<_MkCacheSection>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 260));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _ctrl.forward() : _ctrl.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: MediaKitSettingsService.cacheEnabled,
-      builder: (_, enabled, _) => Column(
-        children: [
-          SettingsToggleRow(
-            title: 'Cache & Buffer',
-            subtitle: 'Prebuffer audio untuk pemutaran mulus (mpv cache)',
-            value: enabled,
-            onChanged: MediaKitSettingsService.setCacheEnabled,
-          ),
-          if (enabled) ...[
-            const SettingsDivider(),
-            ValueListenableBuilder<int>(
-              valueListenable: MediaKitSettingsService.cacheReadaheadSecs,
-              builder: (_, v, _) => SettingsSliderRow(
-                title: 'Durasi Buffer',
-                subtitle: '$v detik',
-                value: v.toDouble(),
-                min: 5,
-                max: 60,
-                divisions: 11,
-                onChanged: (val) =>
-                    MediaKitSettingsService.setCacheReadahead(val.round()),
-                showReset: v != 30,
-                onReset: () => MediaKitSettingsService.setCacheReadahead(30),
+      builder: (_, enabled, _) => ValueListenableBuilder<int>(
+        valueListenable: MediaKitSettingsService.cacheReadaheadSecs,
+        builder: (_, v, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              InkWell(
+                onTap: _toggle,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 13),
+                  child: Row(
+                    children: [
+                      const Text('Cache & Buffer',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 16)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          enabled ? '$v detik' : 'Nonaktif',
+                          style: const TextStyle(
+                              color: Color(0xFF8E8E93), fontSize: 13),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 220),
+                        child: const Icon(Icons.keyboard_arrow_down,
+                            color: Colors.white38, size: 18),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ],
+
+              // Konten collapsible — menggeser slider mengaktifkan fitur
+              SizeTransition(
+                sizeFactor: _ctrl,
+                alignment: Alignment.topCenter,
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SettingsSliderRow(
+                      title: 'Durasi Buffer',
+                      subtitle: '$v detik',
+                      value: v.toDouble(),
+                      min: 5,
+                      max: 60,
+                      divisions: 11,
+                      onChanged: (val) async {
+                        await MediaKitSettingsService.setCacheEnabled(true);
+                        await MediaKitSettingsService
+                            .setCacheReadahead(val.round());
+                      },
+                      showReset: v != 30,
+                      onReset: () async {
+                        await MediaKitSettingsService.setCacheEnabled(true);
+                        await MediaKitSettingsService.setCacheReadahead(30);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -346,6 +502,8 @@ class _MkRgModeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
+        // Memilih mode sekaligus mengaktifkan fitur
+        await MediaKitSettingsService.setReplayGainEnabled(true);
         await MediaKitSettingsService.setReplayGainMode(value);
         if (context.mounted) Navigator.of(context).pop();
       },

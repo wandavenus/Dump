@@ -62,39 +62,38 @@ class _PlaybackEngineSection extends StatelessWidget {
                 const SettingsDivider(),
 
                 // ── Stereo Widening ──────────────────────────────────────────
+                // Accordion — fitur aktif saat slider digeser, bukan saat expand
                 ValueListenableBuilder<bool>(
                   valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-                  builder: (_, enabled, _) => Column(
-                    children: [
-                      SettingsToggleRow(
+                  builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                    valueListenable:
+                        MediaCapabilitiesService.stereoWideningStrength,
+                    builder: (_, v, _) {
+                      final pct = (v * 100).round();
+                      return SettingsSliderRow(
                         title: 'Pelebaran Stereo',
-                        subtitle:
-                            'ChannelMixingAudioProcessor — memperlebar medan stereo',
-                        value: enabled,
-                        onChanged: MediaCapabilitiesService.setStereoWidening,
-                      ),
-                      if (enabled)
-                        ValueListenableBuilder<double>(
-                          valueListenable:
-                              MediaCapabilitiesService.stereoWideningStrength,
-                          builder: (_, v, _) {
-                            final pct = (v * 100).round();
-                            return SettingsSliderRow(
-                              title: 'Lebar Stereo',
-                              subtitle: '$pct%',
-                              value: v,
-                              min: 0.0,
-                              max: 1.0,
-                              divisions: 20,
-                              onChanged:
-                                  MediaCapabilitiesService.setStereoWideningStrength,
-                              showReset: v != 0.5,
-                              onReset: () => MediaCapabilitiesService
-                                  .setStereoWideningStrength(0.5),
-                            );
-                          },
-                        ),
-                    ],
+                        subtitle: enabled ? '$pct%' : 'Nonaktif',
+                        // Slider dimulai dari 0 saat fitur off
+                        value: enabled ? v : 0.0,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 20,
+                        onChanged: (val) async {
+                          if (val > 0) {
+                            await MediaCapabilitiesService.setStereoWidening(true);
+                            await MediaCapabilitiesService
+                                .setStereoWideningStrength(val);
+                          } else {
+                            await MediaCapabilitiesService
+                                .setStereoWidening(false);
+                          }
+                        },
+                        showReset: enabled && v != 0.5,
+                        onReset: () => MediaCapabilitiesService
+                            .setStereoWideningStrength(0.5),
+                        expandable: true,
+                      );
+                    },
                   ),
                 ),
                 const SettingsDivider(),

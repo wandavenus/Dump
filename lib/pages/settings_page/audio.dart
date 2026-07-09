@@ -30,6 +30,7 @@ class _AudioSection extends StatelessWidget {
             divisions: 22,
             showReset: v != 1.0,
             onReset: () => AudioEffectsService.setSpeed(1.0),
+            expandable: true,
           ),
         ),
         const SettingsDivider(),
@@ -48,6 +49,7 @@ class _AudioSection extends StatelessWidget {
             divisions: 24,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setPitch(0),
+            expandable: true,
           ),
         ),
         const SettingsDivider(),
@@ -68,6 +70,7 @@ class _AudioSection extends StatelessWidget {
             divisions: 20,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setBassBoost(0),
+            expandable: true,
           ),
         ),
         const SettingsDivider(),
@@ -78,8 +81,47 @@ class _AudioSection extends StatelessWidget {
 
 // ── ReplayGain Section ─────────────────────────────────────────────────────
 
-class _ReplayGainSection extends StatelessWidget {
+class _ReplayGainSection extends StatefulWidget {
   const _ReplayGainSection();
+
+  @override
+  State<_ReplayGainSection> createState() => _ReplayGainSectionState();
+}
+
+class _ReplayGainSectionState extends State<_ReplayGainSection>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _ctrl.forward() : _ctrl.reverse();
+  }
+
+  void _showModePicker(BuildContext context, ReplayGainMode current) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ReplayGainModePicker(current: current),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,52 +131,117 @@ class _ReplayGainSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mode selector
-            SettingsActionRow(
-              title: 'Audio Normalize',
-              trailing: mode.label,
-              onTap: () => _showModePicker(context, mode),
+            // Header — selalu terlihat, bisa diketuk
+            InkWell(
+              onTap: _toggle,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Audio Normalize',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        mode.label,
+                        style: const TextStyle(
+                            color: Color(0xFF8E8E93), fontSize: 13),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 220),
+                      child: const Icon(Icons.keyboard_arrow_down,
+                          color: Colors.white38, size: 18),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            if (mode != ReplayGainMode.off)
-              Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 6),
-                child: Text(
-                  mode.description,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ),
 
-            // Preamp slider — only visible when RG is active
-            if (mode != ReplayGainMode.off) ...[
-              const SizedBox(height: 4),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.replayGainPreamp,
-                builder: (_, preamp, _) => SettingsSliderRow(
-                  title: 'Preamp',
-                  subtitle: preamp == 0
-                      ? '0 dB'
-                      : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
-                  value: preamp,
-                  min: -15,
-                  max: 15,
-                  onChanged: AudioEffectsService.setReplayGainPreamp,
-                  divisions: 30,
-                  showReset: preamp != 0,
-                  onReset: () => AudioEffectsService.setReplayGainPreamp(0),
+            // Konten collapsible
+            SizeTransition(
+              sizeFactor: _ctrl,
+              alignment: Alignment.topCenter,
+              child: FadeTransition(
+                opacity: _fade,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Mode picker row
+                    InkWell(
+                      onTap: () => _showModePicker(context, mode),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Mode',
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 15)),
+                                  const SizedBox(height: 2),
+                                  Text(mode.label,
+                                      style: const TextStyle(
+                                          color: Color(0xFF8E8E93),
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white38, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Deskripsi mode aktif
+                    if (mode != ReplayGainMode.off)
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(left: 16, bottom: 6),
+                        child: Text(
+                          mode.description,
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12),
+                        ),
+                      ),
+
+                    // Preamp slider — hanya saat mode aktif
+                    if (mode != ReplayGainMode.off) ...[
+                      const SizedBox(height: 4),
+                      ValueListenableBuilder<double>(
+                        valueListenable: AudioEffectsService.replayGainPreamp,
+                        builder: (_, preamp, _) => SettingsSliderRow(
+                          title: 'Preamp',
+                          subtitle: preamp == 0
+                              ? '0 dB'
+                              : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
+                          value: preamp,
+                          min: -15,
+                          max: 15,
+                          onChanged: AudioEffectsService.setReplayGainPreamp,
+                          divisions: 30,
+                          showReset: preamp != 0,
+                          onReset: () =>
+                              AudioEffectsService.setReplayGainPreamp(0),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                  ],
                 ),
               ),
-            ],
+            ),
           ],
         );
       },
-    );
-  }
-
-  void _showModePicker(BuildContext context, ReplayGainMode current) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ReplayGainModePicker(current: current),
     );
   }
 }
@@ -271,11 +378,42 @@ class _ModeOption extends StatelessWidget {
 
 // ─── Crossfade discrete picker ────────────────────────────────────────────────
 
-class _CrossfadePicker extends StatelessWidget {
+class _CrossfadePicker extends StatefulWidget {
   const _CrossfadePicker();
 
-  static const _steps = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
+  @override
+  State<_CrossfadePicker> createState() => _CrossfadePickerState();
+}
+
+class _CrossfadePickerState extends State<_CrossfadePicker>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  static const _steps  = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
   static const _labels = ['Off', '1s', '2s', '4s', '6s', '8s', '12s'];
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    _expanded ? _ctrl.forward() : _ctrl.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,62 +421,90 @@ class _CrossfadePicker extends StatelessWidget {
       valueListenable: AudioEffectsService.crossfadeDuration,
       builder: (_, current, _) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'Crossfade',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    current == 0
-                        ? 'Nonaktif'
-                        : '${current.toStringAsFixed(0)} detik',
-                    style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 13),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: List.generate(_steps.length, (i) {
-                  final active = current == _steps[i];
-                  final isLast = i == _steps.length - 1;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () =>
-                          AudioEffectsService.setCrossfade(_steps[i]),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: isLast
-                            ? EdgeInsets.zero
-                            : const EdgeInsets.only(right: 5),
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: active
-                              ? const Color(0xFFF92D48)
-                              : Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
+              // Header
+              InkWell(
+                onTap: _toggle,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  child: Row(
+                    children: [
+                      const Text('Crossfade',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 16)),
+                      const SizedBox(width: 10),
+                      Expanded(
                         child: Text(
-                          _labels[i],
-                          style: TextStyle(
-                            color: active ? Colors.white : Colors.white54,
-                            fontWeight: active
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            fontSize: 12,
-                          ),
+                          current == 0
+                              ? 'Nonaktif'
+                              : '${current.toStringAsFixed(0)} detik',
+                          style: const TextStyle(
+                              color: Color(0xFF8E8E93), fontSize: 13),
                         ),
                       ),
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 220),
+                        child: const Icon(Icons.keyboard_arrow_down,
+                            color: Colors.white38, size: 18),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Konten collapsible — tombol durasi
+              SizeTransition(
+                sizeFactor: _ctrl,
+                alignment: Alignment.topCenter,
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: List.generate(_steps.length, (i) {
+                        final active = current == _steps[i];
+                        final isLast = i == _steps.length - 1;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () =>
+                                AudioEffectsService.setCrossfade(_steps[i]),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: isLast
+                                  ? EdgeInsets.zero
+                                  : const EdgeInsets.only(right: 5),
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? const Color(0xFFF92D48)
+                                    : Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                _labels[i],
+                                style: TextStyle(
+                                  color: active
+                                      ? Colors.white
+                                      : Colors.white54,
+                                  fontWeight: active
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
-                  );
-                }),
+                  ),
+                ),
               ),
             ],
           ),
