@@ -34,8 +34,10 @@ class _SpatialSection extends StatelessWidget {
                 }
               },
               divisions: 20,
-              showReset: enabled && strength != 1000,
-              onReset: () => AudioEffectsService.setSpatialStrength(1000),
+              showReset: enabled,
+              onReset: () async {
+                await AudioEffectsService.setSpatial(false);
+              },
               expandable: true,
             ),
           ),

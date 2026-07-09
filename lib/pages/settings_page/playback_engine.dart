@@ -88,9 +88,10 @@ class _PlaybackEngineSection extends StatelessWidget {
                                 .setStereoWidening(false);
                           }
                         },
-                        showReset: enabled && v != 0.5,
-                        onReset: () => MediaCapabilitiesService
-                            .setStereoWideningStrength(0.5),
+                        showReset: enabled,
+                        onReset: () async {
+                          await MediaCapabilitiesService.setStereoWidening(false);
+                        },
                         expandable: true,
                       );
                     },
