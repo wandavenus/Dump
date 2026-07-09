@@ -179,6 +179,35 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     );
   }
 
+  /// Judul + divider saja — scroll normal, tidak menumpuk.
+  Widget _titleHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LargePageTitle(title: _title),
+        const HeaderDivider(),
+      ],
+    );
+  }
+
+  /// Search bar + tombol Putar/Acak — dibungkus agar bisa menumpuk (pinned)
+  /// di bawah header, sama seperti perilaku search bar di halaman Cari.
+  Widget _stickyControls(List<LocalSong> songs) {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _StickyLibraryControlsDelegate(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _searchBar(),
+            _controlButtons(songs),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ─── Daftar Putar ──────────────────────────────────────────────────────────
 
   Widget _frequentSongs(List<LocalSong> songs) {
@@ -267,17 +296,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return CustomScrollView(
       controller: _scroll,
       slivers: [
-        // Header — judul + divider saja, tanpa search bar & tombol kontrol
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LargePageTitle(title: _title),
-              const HeaderDivider(),
-            ],
-          ),
-        ),
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
           sliver: SliverGrid(
@@ -316,54 +338,69 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           }).toList();
 
     final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
-    return ListView.separated(
+    return CustomScrollView(
       controller: _scroll,
-      padding: EdgeInsets.only(bottom: bottomClearance),
-      itemCount: filtered.length + 1,
-      separatorBuilder: (context, index) => index == 0
-          ? const SizedBox.shrink()
-          : const Divider(
-              height: 1,
-              thickness: 0.5,
-              color: Color(0xFF48484A),
-              indent: 87,
-              endIndent: 16,
+      slivers: [
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: bottomClearance),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final albumSongs = filtered[index];
+                final album = albumSongs.first;
+                final tile = ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  leading: SongArtwork(
+                    songId: album.id,
+                    size: 55,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  title: Text(
+                    album.album,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${album.artist} • ${albumSongs.length} lagu',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 13,
+                      ), 
+                  ),
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/album',
+                    arguments: {'album': album, 'songs': albumSongs},
+                  ),
+                );
+                if (index == filtered.length - 1) return tile;
+                return Column(
+                  children: [
+                    tile,
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 87,
+                      endIndent: 16,
+                    ),
+                  ],
+                );
+              },
+              childCount: filtered.length,
             ),
-      itemBuilder: (context, index) {
-        if (index == 0) return _listHeader(songs);
-        final albumSongs = filtered[index - 1];
-        final album = albumSongs.first;
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 2,
           ),
-          leading: SongArtwork(
-            songId: album.id,
-            size: 55,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          title: Text(
-            album.album,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            '${album.artist} • ${albumSongs.length} lagu',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 13,
-              ), 
-          ),
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/album',
-            arguments: {'album': album, 'songs': albumSongs},
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -505,5 +542,32 @@ class _PlaylistBannerCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Sticky header untuk search bar + tombol Putar/Acak ────────────────────
+// Sama seperti perilaku menumpuk di halaman Cari (_StickySearchBarDelegate).
+
+const double _kLibraryControlsHeight = 120;
+
+class _StickyLibraryControlsDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  _StickyLibraryControlsDelegate({required this.child});
+
+  @override
+  double get minExtent => _kLibraryControlsHeight;
+
+  @override
+  double get maxExtent => _kLibraryControlsHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(color: Colors.black, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyLibraryControlsDelegate oldDelegate) {
+    return oldDelegate.child != child;
   }
 }
