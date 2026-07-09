@@ -8,6 +8,17 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -38,7 +49,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         height: 250,
         child: Center(
           child: Text(
-            'No recently played songs',
+            'Tidak ada lagu yang diputar baru-baru ini',
             style: TextStyle(color: Colors.grey),
           ),
         ),

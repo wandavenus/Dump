@@ -1,5 +1,9 @@
 part of '../synced_lyrics_view.dart';
 
+// Batas gap antar baris sebelum dianggap instrumental (ms).
+// Gap lebih dari ini → kata terakhir tidak mengisi selambat jarak penuh.
+const int _kInstrumentalThresholdMs = 3500;
+
 extension _SyncedLyricsViewTimelineState on _SyncedLyricsViewState {
   // ── WordTimeline generation ───────────────────────────────────────────────
 
@@ -73,7 +77,16 @@ extension _SyncedLyricsViewTimelineState on _SyncedLyricsViewState {
   Duration _lineEndFor(int index) {
     final lineStart = widget.lyrics[index].timestamp;
     if (index + 1 < widget.lyrics.length) {
-      return widget.lyrics[index + 1].timestamp;
+      final nextStart = widget.lyrics[index + 1].timestamp;
+      final gapMs = (nextStart - lineStart).inMilliseconds;
+      // Kalau gap ke baris berikutnya melebihi threshold, kemungkinan ada
+      // bagian instrumental. Cap lineEnd agar kata terakhir tidak mengisi
+      // sangat lambat selama jeda musik.
+      if (gapMs > _kInstrumentalThresholdMs) {
+        return lineStart +
+            const Duration(milliseconds: _kInstrumentalThresholdMs);
+      }
+      return nextStart;
     }
     return lineStart +
         Duration(milliseconds: _computeLineDurationMs(index).round());

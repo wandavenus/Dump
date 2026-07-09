@@ -73,9 +73,9 @@ double _c2r = 123 / 255.0, _c2g = 135 / 255.0, _c2b = 148 / 255.0;
     final c0 = colors[0];
     final c1 = colors[1];
     final c2 = colors[2];
-    _c0r = c0.red   / 255.0;  _c0g = c0.green / 255.0;  _c0b = c0.blue / 255.0;
-    _c1r = c1.red   / 255.0;  _c1g = c1.green / 255.0;  _c1b = c1.blue / 255.0;
-    _c2r = c2.red   / 255.0;  _c2g = c2.green / 255.0;  _c2b = c2.blue / 255.0;
+    _c0r = c0.r;  _c0g = c0.g;  _c0b = c0.b;
+    _c1r = c1.r;  _c1g = c1.g;  _c1b = c1.b;
+    _c2r = c2.r;  _c2g = c2.g;  _c2b = c2.b;
 
     // Restart the crossfade from 0.
     _blend = 0.0;

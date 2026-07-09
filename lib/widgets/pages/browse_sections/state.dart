@@ -10,6 +10,17 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -45,6 +56,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -54,8 +66,8 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           BrowseBannerCarousel(songs: _bannerSongs),
           _BrowseSection(title: 'We Recommend', songs: _recommend),
           _BrowseSection(title: 'New Music', songs: _newMusic),
-          const BrowseCategoryStrip(),
           _BrowseSection(title: 'Daily Top 100', songs: _daily),
+          SizedBox(height: bottomClearance),
         ],
       ),
     );

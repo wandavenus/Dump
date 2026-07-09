@@ -26,6 +26,23 @@ class PlayerContent extends StatefulWidget {
 
   @override
   State<PlayerContent> createState() => _PlayerContentState();
+
+  /// Forwards a vertical drag delta into whichever overlay (lyrics/queue) is
+  /// currently active, from outside PlayerContent's own widget tree — used by
+  /// the extra gesture-inset hit area in player_sheet/state.dart.
+  static void forwardExternalDrag(double deltaY) =>
+      _PlayerContentState.forwardExternalDrag(deltaY);
+
+  /// Forwards the drag-release velocity for the same external gesture-inset
+  /// hit area, so it can hand off into a natural fling too.
+  static void forwardExternalDragEnd(double velocity) =>
+      _PlayerContentState.forwardExternalDragEnd(velocity);
+
+  /// Marks the start of a drag forwarded from the same external gesture-inset
+  /// hit area, so the expand/collapse gating in lyrics_overlay.dart treats it
+  /// as a genuine user gesture — see [LyricsDragHandle.isExternalDragActive].
+  static void forwardExternalDragStart() =>
+      _PlayerContentState.forwardExternalDragStart();
 }
 
 class _PlayerContentState extends State<PlayerContent> {
@@ -43,16 +60,121 @@ class _PlayerContentState extends State<PlayerContent> {
 
   final _lyricsScrollController = ScrollController();
   final _queueScrollController = ScrollController();
+  // Pixel-based relative scroller for the lyrics list. Unlike
+  // [_lyricsScrollController] (which SyncedLyricsView's
+  // ScrollablePositionedList never actually attaches to), this is the real
+  // scroll mechanism exposed by scrollable_positioned_list, so it's what
+  // must be used to forward external drags into the lyrics list.
+  final _lyricsOffsetController = ScrollOffsetController();
+  // Forwards raw drag deltas directly into the lyrics list's live
+  // ScrollPosition via jumpTo — see LyricsDragHandle for why this replaces
+  // _lyricsOffsetController.animateScroll for external drag forwarding.
+  final _lyricsDragHandle = LyricsDragHandle();
+
+  // Bridges drags started outside this widget's own bounds (e.g. the extra
+  // hit area covering the system gesture inset in player_sheet/state.dart,
+  // which sits outside the SafeArea and therefore can't reach this State
+  // directly) into the same forwarding logic used internally.
+  static _PlayerContentState? _current;
+
+  static void forwardExternalDragStart() {
+    _current?._forwardVerticalDragStart(
+      showLyrics: _current!.widget.showLyrics,
+    );
+  }
+
+  static void forwardExternalDrag(double deltaY) {
+    _current?._forwardVerticalDrag(
+      showLyrics: _current!.widget.showLyrics,
+      showQueue: _current!.widget.showQueue,
+      deltaY: deltaY,
+    );
+  }
+
+  static void forwardExternalDragEnd(double velocity) {
+    _current?._forwardVerticalDragEnd(
+      showLyrics: _current!.widget.showLyrics,
+      showQueue: _current!.widget.showQueue,
+      velocity: velocity,
+    );
+  }
+
+  // Marks a forwarded drag as "genuinely user-initiated" for as long as it
+  // lasts, so lyrics_overlay.dart's expand/collapse gating (which otherwise
+  // only trusts ScrollUpdateNotification.dragDetails != null, true only for
+  // drags directly on the Scrollable) also reacts when the user drags from
+  // one of the bottom hit-box areas instead of the list itself.
+  void _forwardVerticalDragStart({required bool showLyrics}) {
+    if (showLyrics) _lyricsDragHandle.isExternalDragActive = true;
+  }
+
+  void _forwardVerticalDrag({
+    required bool showLyrics,
+    required bool showQueue,
+    required double deltaY,
+  }) {
+    if (showLyrics) {
+      // Forwarded directly to the live ScrollPosition via jumpTo — see
+      // LyricsDragHandle for why this replaces
+      // _lyricsOffsetController.animateScroll (which always drives an
+      // animation, even with Duration.zero, producing a jerky/rigid feel).
+      _lyricsDragHandle.scrollByDelta(deltaY);
+      return;
+    }
+    if (!showQueue) return;
+    final ctrl = _queueScrollController;
+    if (!ctrl.hasClients) return;
+    ctrl.jumpTo(
+      (ctrl.offset - deltaY).clamp(0.0, ctrl.position.maxScrollExtent),
+    );
+  }
+
+  // Releases the active list (lyrics or queue) into a natural ballistic
+  // fling once a drag forwarded from one of the bottom hit-box areas ends —
+  // otherwise a forwarded drag (driven by jumpTo, which has no built-in
+  // momentum) stops dead the instant the finger lifts, unlike scrolling the
+  // list directly.
+  void _forwardVerticalDragEnd({
+    required bool showLyrics,
+    required bool showQueue,
+    required double velocity,
+  }) {
+    if (showLyrics) {
+      // Swipe-down on the controls area while in full-view collapses back to
+      // half-view immediately, without waiting for the list offset to drop
+      // below 50. Threshold 200 filters out tiny accidental movements.
+      if (_lyricsExpand > 0 && velocity > 200) {
+        setState(() => _lyricsExpand = 0.0);
+        _lyricsDragHandle.isExternalDragActive = false;
+        return;
+      }
+      _lyricsDragHandle.flingByVelocity(velocity);
+      _lyricsDragHandle.isExternalDragActive = false;
+      return;
+    }
+    if (!showQueue) return;
+    final ctrl = _queueScrollController;
+    if (!ctrl.hasClients) return;
+    final position = ctrl.position;
+    if (position is ScrollPositionWithSingleContext) {
+      // Same sign convention as _jumpByDelta/_forwardVerticalDrag: the
+      // forwarded velocity is in on-screen finger space, goBallistic wants
+      // scroll-offset space, hence the negation.
+      position.goBallistic(-velocity);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _current = this;
     _fetchLyricsIfNeeded();
     _restartMarquee();
   }
 
   @override
   void dispose() {
+    if (_current == this) _current = null;
     _marqueeTimer?.cancel();
     _lyricsScrollController.dispose();
     _queueScrollController.dispose();
@@ -99,7 +221,7 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   Widget build(BuildContext context) {
     final progress = PlayerSheetController.progress.value;
-    final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery.sizeOf(context).width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
     final showLyrics = widget.showLyrics;
     final showQueue = widget.showQueue;
@@ -208,17 +330,23 @@ class _PlayerContentState extends State<PlayerContent> {
                             height: controlsHeight + 10,
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
+                              onVerticalDragStart: (_) {
+                                _forwardVerticalDragStart(
+                                  showLyrics: showLyrics,
+                                );
+                              },
                               onVerticalDragUpdate: (d) {
-                                final ctrl =
-                                    showLyrics
-                                        ? _lyricsScrollController
-                                        : _queueScrollController;
-                                if (!ctrl.hasClients) return;
-                                ctrl.jumpTo(
-                                  (ctrl.offset - d.delta.dy).clamp(
-                                    0.0,
-                                    ctrl.position.maxScrollExtent,
-                                  ),
+                                _forwardVerticalDrag(
+                                  showLyrics: showLyrics,
+                                  showQueue: showQueue,
+                                  deltaY: d.delta.dy,
+                                );
+                              },
+                              onVerticalDragEnd: (d) {
+                                _forwardVerticalDragEnd(
+                                  showLyrics: showLyrics,
+                                  showQueue: showQueue,
+                                  velocity: d.primaryVelocity ?? 0,
                                 );
                               },
                             ),
@@ -360,20 +488,32 @@ class _PlayerContentState extends State<PlayerContent> {
                                         largeCoverSize,
                                         progress,
                                       )!,
-                              clipBehavior: Clip.antiAlias,
+                              clipBehavior: Clip.hardEdge,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(
                                   showOverlay ? 3 : lerpDouble(3, 3, progress)!,
                                 ),
                                 color: Colors.black,
+                                // Hairline stroke on the visible bounding box —
+                                // must live here (not inside SongArtwork) since
+                                // the inner image is cropped by FittedBox/cover
+                                // and would clip a border drawn on its own edge.
+                                border: Border.all(
+                                  color: kArtworkHairlineColor,
+                                  width: kArtworkHairlineWidth,
+                                  // Inset alignment — stays crisp instead of
+                                  // blurring outward as the cover scales
+                                  // from mini (70) to full (largeCoverSize).
+                                  strokeAlign: BorderSide.strokeAlignInside,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(
                                       alpha: 0.0 + (0.10 * progress),
                                     ),
-                                    blurRadius: 0.0 + (5 * progress),
-                                    spreadRadius: 0.0 + (0.2 * progress),
-                                    offset: Offset(0, 0 + (3 * progress)),
+                                    blurRadius: 0.0 + (1 * progress),
+                                    spreadRadius: 0.0 + (0.1 * progress),
+                                    offset: Offset(0, 0 + (2 * progress)),
                                   ),
                                 ],
                               ),
@@ -388,6 +528,10 @@ class _PlayerContentState extends State<PlayerContent> {
                                       songId: widget.song.id,
                                       size: largeCoverSize,
                                       borderRadius: BorderRadius.zero,
+                                      // Hairline already drawn on the outer
+                                      // AnimatedContainer above — avoids a
+                                      // doubled/mismatched stroke here.
+                                      showBorder: false,
                                     ),
                                   ),
                                 ),
@@ -405,19 +549,29 @@ class _PlayerContentState extends State<PlayerContent> {
               // GestureDetector forwards vertical drags from controls area to list.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onVerticalDragStart:
+                    (showLyrics || showQueue)
+                        ? (_) {
+                          _forwardVerticalDragStart(showLyrics: showLyrics);
+                        }
+                        : null,
                 onVerticalDragUpdate:
                     (showLyrics || showQueue)
                         ? (d) {
-                          final ctrl =
-                              showLyrics
-                                  ? _lyricsScrollController
-                                  : _queueScrollController;
-                          if (!ctrl.hasClients) return;
-                          ctrl.jumpTo(
-                            (ctrl.offset - d.delta.dy).clamp(
-                              0.0,
-                              ctrl.position.maxScrollExtent,
-                            ),
+                          _forwardVerticalDrag(
+                            showLyrics: showLyrics,
+                            showQueue: showQueue,
+                            deltaY: d.delta.dy,
+                          );
+                        }
+                        : null,
+                onVerticalDragEnd:
+                    (showLyrics || showQueue)
+                        ? (d) {
+                          _forwardVerticalDragEnd(
+                            showLyrics: showLyrics,
+                            showQueue: showQueue,
+                            velocity: d.primaryVelocity ?? 0,
                           );
                         }
                         : null,
@@ -528,6 +682,8 @@ class _PlayerContentState extends State<PlayerContent> {
         return _LyricsOverlayBody(
           result: result,
           scrollController: _lyricsScrollController,
+          offsetController: _lyricsOffsetController,
+          dragHandle: _lyricsDragHandle,
           isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;

@@ -38,6 +38,9 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+    // Files that must never be cached so the browser always picks up new builds
+  const NO_CACHE_FILES = ['index.html', 'flutter_service_worker.js', 'flutter_bootstrap.js', 'manifest.json', 'main.dart.js'];
+
   const tryFile = (fp) => {
     fs.stat(fp, (err, stat) => {
       if (!err && stat.isDirectory()) {
@@ -50,7 +53,14 @@ const server = http.createServer((req, res) => {
       }
       const ext = path.extname(fp).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': contentType });
+      const basename = path.basename(fp);
+      const cacheControl = NO_CACHE_FILES.includes(basename)
+        ? 'no-cache, no-store, must-revalidate'
+        : 'public, max-age=31536000, immutable';
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+      });
       fs.createReadStream(fp).pipe(res);
     });
   };

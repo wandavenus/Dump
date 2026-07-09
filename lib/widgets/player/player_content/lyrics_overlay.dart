@@ -5,12 +5,16 @@ part of '../player_content.dart';
 class _LyricsOverlayBody extends StatelessWidget {
   final LyricsResult result;
   final ScrollController scrollController;
+  final ScrollOffsetController offsetController;
+  final LyricsDragHandle dragHandle;
   final ValueChanged<bool> onExpandChanged;
   final bool isVisible;
 
   const _LyricsOverlayBody({
     required this.result,
     required this.scrollController,
+    required this.offsetController,
+    required this.dragHandle,
     required this.onExpandChanged,
     this.isVisible = true,
   });
@@ -19,39 +23,84 @@ class _LyricsOverlayBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        NotificationListener<UserScrollNotification>(
+        // Swipe-down-to-collapse: a fast downward drag released anywhere on
+        // the lyrics list (any line, any scroll position) collapses back to
+        // half-view mode while in full mode. Purely additive — wraps the
+        // existing offset-based listener below without altering it; only
+        // fires for genuine user drags (ScrollEndNotification.dragDetails is
+        // null for programmatic scrolls like jumpTo/animateScroll), and
+        // onExpandChanged(false) is already a no-op when not expanded.
+        NotificationListener<ScrollEndNotification>(
           onNotification: (notification) {
-            final offset = notification.metrics.pixels;
-
-            if (offset > 150) {
-              onExpandChanged(true);
-            } else if (offset < 50) {
+            final velocity = notification.dragDetails?.primaryVelocity ?? 0;
+            // In Flutter, primaryVelocity > 0 = finger moving down (swipe-down).
+            // Fast swipe-down anywhere on the list:
+            if (velocity > 300) {
               onExpandChanged(false);
             }
-
+            // Slow swipe-down at the bottom of the list (nothing left to
+            // scroll past): collapse to half-view with any positive velocity.
+            // Mutually exclusive with the fast-swipe branch above to guarantee
+            // onExpandChanged fires at most once per notification.
+            else if (velocity > 0 && notification.metrics.extentAfter < 10) {
+              onExpandChanged(false);
+            }
             return false;
           },
-          child: ShaderMask(
-            shaderCallback: (Rect rect) {
-              return const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.white,
-                  Colors.white,
-                  Colors.transparent,
-                ],
-                stops: [0.0, 0.35, 0.65, 1.0],
-              ).createShader(rect);
+          // ScrollUpdateNotification (not UserScrollNotification) so this also
+          // fires for drags forwarded from outside the list itself — e.g. the
+          // bottom-controls / gesture-inset drag relays in content.dart and
+          // player_sheet/state.dart, which scroll the list programmatically
+          // via ScrollOffsetController rather than a direct user drag on it.
+          child: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) {
+              final offset = notification.metrics.pixels;
+
+              // Only a genuine user swipe-up may expand to full mode and
+              // hide the bottom controls — automatic/programmatic scrolls
+              // (e.g. auto-following the current lyric line as the song
+              // plays) must never trigger that hide. A real user drag shows
+              // up either as dragDetails != null (finger directly on the
+              // list) or dragHandle.isExternalDragActive (finger on one of
+              // the bottom hit-box areas, which forwards via jumpTo and so
+              // never carries dragDetails) — so either area feels identical.
+              // Collapsing back to half-view (revealing the controls again)
+              // stays unrestricted, as before.
+              final isGenuineUserDrag =
+                  notification.dragDetails != null ||
+                  dragHandle.isExternalDragActive;
+              if (offset > 150 && isGenuineUserDrag) {
+                onExpandChanged(true);
+              } else if (offset < 50) {
+                onExpandChanged(false);
+              }
+
+              return false;
             },
-            blendMode: BlendMode.dstIn,
-            child: SyncedLyricsView(
-              lyrics: result.lines,
-              padding: const EdgeInsets.fromLTRB(24, 130, 48, 130),
-              controller: scrollController,
-              isVisible: isVisible,
-              rawLrc: result.rawLrc,
+            child: ShaderMask(
+              shaderCallback: (Rect rect) {
+                return const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.white,
+                    Colors.white,
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.35, 0.65, 1.0],
+                ).createShader(rect);
+              },
+              blendMode: BlendMode.dstIn,
+              child: SyncedLyricsView(
+                lyrics: result.lines,
+                padding: const EdgeInsets.fromLTRB(24, 130, 48, 125),
+                controller: scrollController,
+                offsetController: offsetController,
+                dragHandle: dragHandle,
+                isVisible: isVisible,
+                rawLrc: result.rawLrc,
+              ),
             ),
           ),
         ),

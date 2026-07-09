@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/models/playlist.dart';
@@ -6,28 +7,23 @@ import 'package:musicplayer/services/history_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/playlist_service.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
+import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
 
 class PlaylistPage extends StatefulWidget {
   final String name;
-  final IconData icon;
-  final Color iconColor;
   final SmartPlaylistType? smartType;
   final Playlist? userPlaylist;
 
   const PlaylistPage.smart({
     super.key,
     required this.name,
-    required this.icon,
-    required this.iconColor,
     required SmartPlaylistType type,
   }) : smartType = type,
        userPlaylist = null;
 
   PlaylistPage.user({super.key, required Playlist playlist})
     : name = playlist.name,
-      icon = Icons.queue_music,
-      iconColor = Colors.white,
       smartType = null,
       userPlaylist = playlist;
 
@@ -46,6 +42,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
     super.initState();
     _load();
     _scroll.addListener(_onScroll);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
   }
 
   void _onScroll() {
@@ -55,6 +56,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
@@ -184,7 +186,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: const Text('Hapus', style: TextStyle(color: Color(0xFFF92D48))),
               ),
             ],
           ),
@@ -223,22 +225,23 @@ class _PlaylistPageState extends State<PlaylistPage> {
           if (isUserPlaylist) ...[
             IconButton(
               icon: const Icon(
-                Icons.drive_file_rename_outline,
-                color: Colors.white,
+                CupertinoIcons.pencil,
+                color: Color(0xFFF92D48),
               ),
               onPressed: _rename,
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: const Icon(CupertinoIcons.trash, color: Color(0xFFF92D48)),
               onPressed: _delete,
             ),
           ],
+          const CommonActions(),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _songs.isEmpty
-          ? _EmptyState(icon: widget.icon, color: widget.iconColor)
+          ? const _EmptyState()
           : ListView.separated(
               controller: _scroll,
               padding: const EdgeInsets.only(bottom: 80),
@@ -364,23 +367,14 @@ class _PlayAllButton extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _EmptyState({required this.icon, required this.color});
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: color.withValues(alpha: 0.4)),
-          const SizedBox(height: 16),
-          const Text(
-            'Belum ada lagu',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
+    return const Center(
+      child: Text(
+        'Belum ada lagu',
+        style: TextStyle(color: Colors.grey, fontSize: 16),
       ),
     );
   }

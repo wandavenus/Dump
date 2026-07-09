@@ -74,8 +74,8 @@ class _FirstPageState extends State<FirstPage> {
         settings: settings,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, __, ___) => _tabRoots[tabIndex],
-        transitionsBuilder: (_, __, ___, child) => child,
+        pageBuilder: (_, _, _) => _tabRoots[tabIndex],
+        transitionsBuilder: (_, _, _, child) => child,
       );
     }
 
@@ -90,8 +90,6 @@ class _FirstPageState extends State<FirstPage> {
         page = const WebView(child: ArtistList());
       case '/musiclist':
         page = const WebView(child: MusicList());
-      case '/player':
-        page = const WebView(child: MusicPlayer());
       default:
         return null;
     }

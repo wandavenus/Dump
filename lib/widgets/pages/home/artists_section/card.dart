@@ -6,32 +6,46 @@ class _ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: () =>
           Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Container(
-        margin: const EdgeInsets.only(top: 20, left: 15, bottom: 20),
+        margin: const EdgeInsets.only(left: kCardMarginLeft, right: 10),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipPath(
-              clipper: const ShapeBorderClipper(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+            const SizedBox(height: 10),
+            // SongArtwork owns its own clip + hairline border directly —
+            // no outer ClipRRect needed (avoids a radius mismatch that
+            // would otherwise clip the border's rounded corners).
+            SongArtwork(
+              songId: artist.coverSongId,
+              size: 170,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            const SizedBox(height: 2.5),
+            SizedBox(
+              width: 165,
+              child: Text(
+                artist.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 15,
+                  color: Colors.white,
                 ),
               ),
-              child: SongArtwork(
-                songId: artist.coverSongId,
-                size: 150,
-                borderRadius: BorderRadius.zero,
-              ),
             ),
-            const SizedBox(height: 5),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(artist.name, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 5),
-              ],
+            Text(
+              '${artist.songs.length} lagu',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.normal,
+                fontSize: 12,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),

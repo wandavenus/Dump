@@ -7,30 +7,81 @@ class AlbumHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      child: Column(
+    final metaParts = <String>[
+      if (album.genre != null && album.genre!.isNotEmpty) album.genre!,
+      if (album.year != null) album.year.toString(),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SongArtwork(
-            songId: album.id,
-            size: 300,
-            borderRadius: BorderRadius.circular(15),
+          // Artwork — centered, ~220px
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SongArtwork(
+              songId: album.id,
+              size: 220,
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Album title
           Text(
             album.album,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
+          const SizedBox(height: 4),
+
+          // Artist name
           Text(
-            album.artist,
-            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.normal, color: Colors.red),
+            album.albumArtist ?? album.artist,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFFF92D48),
+            ),
           ),
-          const Text(
-            'Local • Lossless',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+          const SizedBox(height: 4),
+
+          // Meta: Genre • Year • 🔊 Lossless
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (metaParts.isNotEmpty) ...[
+                Text(
+                  metaParts.join(' • '),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF8E8E93),
+                  ),
+                ),
+                const Text(
+                  ' • ',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                ),
+              ],
+              const SizedBox(width: 3),
+              const Text(
+                'Lossless',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+              ),
+            ],
           ),
         ],
+        ),
       ),
     );
   }

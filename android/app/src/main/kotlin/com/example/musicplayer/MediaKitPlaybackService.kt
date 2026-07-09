@@ -110,7 +110,10 @@ class MediaKitPlaybackService : MediaSessionService() {
 
         // Build the session. Attach the app's launch intent so tapping the
         // notification opens the Flutter UI.
+        // Explicit unique ID prevents "Session ID must be unique" crash when
+        // both services are alive briefly during an engine switch.
         val sessionBuilder = MediaSession.Builder(this, statePlayer)
+            .setId("mediakit_playback_session")
         packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
             sessionBuilder.setSessionActivity(
                 android.app.PendingIntent.getActivity(

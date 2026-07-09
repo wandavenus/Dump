@@ -48,7 +48,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
   }
 
   double get _dragProgress {
-    final h = MediaQuery.of(context).size.height;
+    final h = MediaQuery.sizeOf(context).height;
     return (_dragDy / (h * 0.35)).clamp(0.0, 1.0).toDouble();
   }
 
@@ -57,7 +57,7 @@ class _PlayerSheetState extends State<PlayerSheet> {
     return ValueListenableBuilder<double>(
       valueListenable: PlayerSheetController.progress,
       builder: (context, sheetProgress, _) {
-        final screenHeight = MediaQuery.of(context).size.height;
+        final screenHeight = MediaQuery.sizeOf(context).height;
         final hiddenOffset = screenHeight * (1 - sheetProgress);
         final dragProgress = _dragProgress;
         final blurSigma = sheetProgress * 22.0;
@@ -118,8 +118,8 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Color.fromARGB(80, 0, 0, 0),
-                                  Color.fromARGB(180, 0, 0, 0),
+                                  Color.fromARGB(0, 0, 0, 0),
+                                  Color.fromARGB(0, 0, 0, 0),
                                 ],
                               ),
                             ),
@@ -148,6 +148,34 @@ class _PlayerSheetState extends State<PlayerSheet> {
                                     ),
                             ),
                           ),
+                          // Extends the lyrics/queue swipe-to-scroll gesture
+                          // into the system gesture-nav inset below the
+                          // SafeArea, without moving any visible content
+                          // (which stays exactly where it was before this
+                          // gesture-extension feature was added).
+                          if (song != null && (_showLyrics || _showQueue))
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              height: MediaQuery.paddingOf(context).bottom,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onVerticalDragStart: (_) {
+                                  PlayerContent.forwardExternalDragStart();
+                                },
+                                onVerticalDragUpdate: (d) {
+                                  PlayerContent.forwardExternalDrag(
+                                    d.delta.dy,
+                                  );
+                                },
+                                onVerticalDragEnd: (d) {
+                                  PlayerContent.forwardExternalDragEnd(
+                                    d.primaryVelocity ?? 0,
+                                  );
+                                },
+                              ),
+                            ),
                         ],
                       ),
                     ),

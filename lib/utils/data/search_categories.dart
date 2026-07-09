@@ -65,9 +65,6 @@ final List searchCategories = [
       "image": "assets/images/search/electronic.webp",
       "title": "Electronic"
     },
-    {
-      "image": "assets/images/search/dance.webp",
-      "title": "Dance"
-    },
+    
    
    ];

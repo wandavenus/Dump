@@ -95,7 +95,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
               // respond to swipe-to-dismiss drags.
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.65,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.65,
                 ),
                 child: const _SleepTimerSheetBody(),
               ),

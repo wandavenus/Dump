@@ -1,16 +1,20 @@
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:palette_generator_plus/palette_generator_plus.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PaletteExtractor
 //
-// Thin async wrapper around palette_generator.
+// Thin async wrapper around palette_generator_plus.
 // Extracts [dominant, vibrant, muted] colours from artwork bytes, caches the
-// result by songId (LRU, 64 entries) so the extraction never runs twice for
+// result by songId (LRU, 256 entries) so the extraction never runs twice for
 // the same song.
+//
+// palette_generator_plus runs quantization in a background isolate by default
+// (runInIsolate: true), so the UI thread is never blocked by decode/quantize.
+// On web, where dart:isolate is unavailable, it transparently falls back to
+// the main thread with an identical result.
 //
 // Public API
 //   getSync(songId)         → List<Color>?        synchronous cache lookup
@@ -22,10 +26,10 @@ class PaletteExtractor {
 
   // Fallback palette when artwork is absent or extraction fails.
   static const List<Color> _kFallback = [
-  Color(0xFF2B313A),
-  Color(0xFF4E657D),
-  Color(0xFF7B8794),
-];
+    Color(0xFF2B313A),
+    Color(0xFF4E657D),
+    Color(0xFF7B8794),
+  ];
 
   static final _cache = _LruCache<int, List<Color>>(256);
 
@@ -33,17 +37,17 @@ class PaletteExtractor {
   // a UI-triggered call for the same songId (which happens routinely on a
   // track change — see AudioEngineManager prefetch racing animated_state's
   // own _loadPalette) would each independently run the full CPU-bound
-  // decode + quantization pipeline, doubling UI-isolate blocking time right
-  // when it matters most.
+  // decode + quantization pipeline, doubling processing time right when it
+  // matters most.
   static final Map<int, Future<List<Color>>> _pending = {};
 
-  // Artwork is decoded and quantized synchronously on the UI isolate by the
-  // palette_generator package (no internal downscaling, no isolate/compute
-  // offload). Native artwork cache stores WebP up to 2000x2000px, so without
-  // capping the decode size here, extraction can iterate millions of pixels
-  // per call. Quantization only needs a coarse color histogram, so a small
-  // decode target drastically cuts UI-isolate blocking time with no visible
-  // quality loss in the resulting palette.
+  // Artwork is downscaled before handing off to the quantizer. Native artwork
+  // cache stores WebP up to 1000×1000 px, so without capping the decode size
+  // here, extraction iterates millions of pixels per call. Quantization only
+  // needs a coarse colour histogram, so a small decode target drastically cuts
+  // processing time with no visible quality loss in the resulting palette.
+  // 112 px is chosen as the sweet spot: large enough to retain colour regions
+  // that matter, small enough to keep histogram buckets clean at 16 colours.
   static const int _quantizeTargetSize = 112;
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -67,12 +71,13 @@ class PaletteExtractor {
   }
 
   static Future<List<Color>> _extract(int songId, Uint8List artwork) async {
-    List<Color> colors;
     try {
-      // maximumColorCount = 24 gives a good spread without excess computation.
-      // ResizeImage caps the decoded pixel buffer so quantization runs over a
-      // small, bounded number of pixels regardless of the source artwork's
-      // native resolution.
+      // maximumColorCount = 16: sweet spot for a 112×112 px buffer.
+      // More buckets on a histogram this small introduces noise from WebP
+      // compression artefacts and edge-blur pixels rather than real colours.
+      //
+      // runInIsolate: true (explicit, matches the default) — keeps the entire
+      // decode + quantization pipeline off the UI thread.
       final generator = await PaletteGenerator.fromImageProvider(
         ResizeImage(
           MemoryImage(artwork),
@@ -80,21 +85,46 @@ class PaletteExtractor {
           height: _quantizeTargetSize,
         ),
         maximumColorCount: 24,
+        // filters: [] — intentionally empty.
+        // The default avoidRedBlackWhitePaletteFilter strips near-red,
+        // near-black, and near-white colours from the candidate pool, which
+        // makes sense for UI text-colour selection but hurts a generative
+        // fluid shader: vivid reds, deep blacks, and bright whites are all
+        // valid and desirable inputs for domain-warping colour blobs.
+        // Removing the filter gives the shader the full colour space of the
+        // artwork rather than a sanitised subset.
+        filters: const [],
+        runInIsolate: true,
       );
 
       final dominant = generator.dominantColor?.color ?? _kFallback[0];
-      final vibrant  = generator.vibrantColor?.color  ?? _kFallback[1];
-      final muted    = generator.mutedColor?.color    ?? _kFallback[2];
 
-      colors = [dominant, vibrant, muted];
+      // Fallback chain: vibrant → lightVibrant → fallback.
+      // lightVibrant preferred over darkVibrant as secondary because the
+      // fluid shader (domain warping) needs high chroma/saturation input —
+      // darkVibrant tends to be too dim to drive vivid colour blobs.
+      final vibrant = generator.vibrantColor?.color
+                   ?? generator.lightVibrantColor?.color
+                   ?? _kFallback[1];
+
+      // Fallback chain: muted → darkMuted → fallback.
+      final muted = generator.mutedColor?.color
+                 ?? generator.darkMutedColor?.color
+                 ?? _kFallback[2];
+
+      final colors = [dominant, vibrant, muted];
+      _cache.put(songId, colors);
+      return colors;
     } catch (_) {
-      colors = _kFallback;
+      _cache.put(songId, _kFallback);
+      return _kFallback;
+    } finally {
+      // Guaranteed cleanup regardless of success, exception, or any future
+      // refactor that changes the catch clause — prevents songId from being
+      // permanently stuck in _pending and blocking all future extractions.
+      // ignore: unawaited_futures
+      _pending.remove(songId); // Map.remove() returns the value — not awaited intentionally
     }
-
-    _cache.put(songId, colors);
-    // ignore: unawaited_futures
-    _pending.remove(songId);
-    return colors;
   }
 }
 
@@ -105,8 +135,8 @@ class PaletteExtractor {
 class _LruCache<K, V> {
   _LruCache(this._maxSize);
 
-  final int                _maxSize;
-  final _map = LinkedHashMap<K, V>();
+  final int _maxSize;
+  final _map = <K, V>{};
 
   V? get(K key) {
     final value = _map.remove(key);

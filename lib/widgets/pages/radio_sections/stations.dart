@@ -6,13 +6,9 @@ part of '../radio_sections.dart';
 
 class _SmartCardData {
   final String name;
-  final IconData icon;
-  final Color color;
   final SmartPlaylistType type;
   const _SmartCardData({
     required this.name,
-    required this.icon,
-    required this.color,
     required this.type,
   });
 }
@@ -21,20 +17,14 @@ class _SmartCardData {
 final _smartCards = [
   const _SmartCardData(
     name: 'Favorit',
-    icon: Icons.favorite,
-    color: Colors.red,
     type: SmartPlaylistType.favorites,
   ),
   const _SmartCardData(
     name: 'Diputar Terakhir',
-    icon: Icons.history,
-    color: Colors.blue,
     type: SmartPlaylistType.recentlyPlayed,
   ),
   const _SmartCardData(
     name: 'Paling Sering',
-    icon: Icons.trending_up,
-    color: Colors.orange,
     type: SmartPlaylistType.mostPlayed,
   ),
 ];
@@ -83,6 +73,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           _count = ids.length;
           _artworkIds = ids.take(4).toList();
         });
+        ArtworkRepository.instance.prefetch(_artworkIds);
       }
     } catch (_) {}
   }
@@ -94,8 +85,6 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
       ZoomFadeRoute(
         page: PlaylistPage.smart(
           name: data.name,
-          icon: data.icon,
-          iconColor: data.color,
           type: data.type,
         ),
       ),
@@ -107,8 +96,6 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     return PlaylistCard(
       name: _smartCards[widget.index].name,
       subtitle: _count == 0 ? 'Belum ada lagu' : '$_count lagu',
-      emptyIcon: _smartCards[widget.index].icon,
-      emptyIconColor: _smartCards[widget.index].color,
       artworkIds: _artworkIds,
       onTap: _open,
     );
@@ -138,6 +125,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void initState() {
     super.initState();
     _artworkIds = widget.playlist.songIds.take(4).toList();
+    ArtworkRepository.instance.prefetch(_artworkIds);
   }
 
   void _open() {
@@ -155,7 +143,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
       context: context,
       backgroundColor: const Color(0xFF1C1C1E),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       builder: (ctx) => SwipeToDismissSheet(
         child: SafeArea(
@@ -173,10 +161,10 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
                 title: const Text(
                   'Hapus Playlist',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: Color(0xFFF92D48)),
                 ),
                 onTap: () async {
                   Navigator.pop(ctx);
@@ -198,8 +186,6 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
     return PlaylistCard(
       name: widget.playlist.name,
       subtitle: count == 0 ? 'Belum ada lagu' : '$count lagu',
-      emptyIcon: Icons.queue_music,
-      emptyIconColor: Colors.white,
       artworkIds: _artworkIds,
       onTap: _open,
       onLongPress: _onLongPress,
@@ -284,7 +270,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 16, kPageLeftPadding, 4),
           child: Row(
             children: [
               const Text(

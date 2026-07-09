@@ -13,7 +13,7 @@ class SettingsSectionHeader extends StatelessWidget {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: Color(0xFF8E8E93),
+          color: Color(0xFFF92D48),
           letterSpacing: 0.5,
         ),
       ),

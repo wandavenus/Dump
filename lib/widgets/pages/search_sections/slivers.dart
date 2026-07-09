@@ -1,9 +1,7 @@
 part of '../search_sections.dart';
 
 class SearchSlivers extends StatefulWidget {
-  const SearchSlivers({super.key, required this.scrollOffset});
-
-  final double scrollOffset;
+  const SearchSlivers({super.key});
 
   @override
   State<SearchSlivers> createState() => _SearchSliversState();

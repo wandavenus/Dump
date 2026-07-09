@@ -12,6 +12,15 @@ class EqualizerPage extends StatelessWidget {
       appBar: FadingTitleAppBar(
         title: 'Equalizer',
         scrollOffset: 100,
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Icon(
+            CupertinoIcons.back,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
         actions: [
           ValueListenableBuilder<bool>(
             valueListenable: AudioEffectsService.equalizerEnabled,
@@ -35,7 +44,6 @@ class EqualizerPage extends StatelessWidget {
               _EqPresetChips(),
               _EqBandSliderSection(),
               _SectionDivider(),
-              _ReverbSection(),
               SizedBox(height: 40),
             ],
           ),

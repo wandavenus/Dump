@@ -6,6 +6,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
   Widget _buildLyricsView(BuildContext context) {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
+        liveScrollContext = n.context ?? liveScrollContext;
         if (n is UserScrollNotification) {
           if (n.direction != ScrollDirection.idle) {
             _userIsManualScrolling = true;
@@ -21,8 +22,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         }
         return false;
       },
-      child: AnimatedBuilder(
-        animation: _settingsListenable,
+      child: ListenableBuilder(
+        listenable: _settingsListenable,
         builder: (context, _) {
           final double fs = LyricsSettings.fontSize.value;
           final Color active = LyricsSettings.resolvedActiveColor;
@@ -32,6 +33,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
 
           return ScrollablePositionedList.builder(
             itemScrollController: _itemScrollController,
+            scrollOffsetController: widget.offsetController,
             padding: widget.padding.resolve(TextDirection.ltr),
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {

@@ -61,6 +61,18 @@ class MainActivity : FlutterActivity() {
     // restart without a second MediaStore round-trip.
     @Volatile private var lastSongRefs: List<MetadataPrescanner.SongRef> = emptyList()
 
+    // ── Delete song activity-result plumbing ────────────────────────────────
+    // Android 11+ needs a system dialog (createDeleteRequest) that returns via
+    // onActivityResult. We park the MethodChannel result here and resolve it
+    // when the user dismisses the dialog.
+    private var pendingDeleteResult: MethodChannel.Result? = null
+    private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
+
+    // ── Open-file intent plumbing ────────────────────────────────────────────
+    // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
+    @Volatile private var pendingOpenFileUri: String? = null
+    private var openFileChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
@@ -70,10 +82,71 @@ class MainActivity : FlutterActivity() {
         // queue instead of spawning an extra ad-hoc thread during startup.
         submitBackground(metadataExecutor) { metadataCacheDb.pruneOld() }
 
+        // Capture URI from the intent that cold-started the app.
+        pendingOpenFileUri = extractAudioUri(intent)
+
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
         setupMediaKitPlaybackChannels(flutterEngine)
+        setupOpenFileChannel(flutterEngine)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val uri = extractAudioUri(intent) ?: return
+        // Always write to pendingOpenFileUri so getInitialUri() can drain it.
+        // Also invoke the Dart handler if it is already registered (best-effort
+        // for warm starts); Dart will call getInitialUri() on resume as a safety
+        // net if the invoke arrives before the handler is ready.
+        pendingOpenFileUri = uri
+        openFileChannel?.let { ch ->
+            runOnUiThread { ch.invokeMethod("openUri", uri) }
+        }
+    }
+
+    // Known audio file extensions for file:// URIs that omit a MIME type.
+    private val AUDIO_EXTENSIONS = setOf(
+        "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "aiff",
+        "aif", "wma", "alac", "ape", "dsf", "dff", "mka", "webm"
+    )
+
+    /** Returns a URI string if the intent is an audio ACTION_VIEW, else null. */
+    private fun extractAudioUri(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val uri: Uri = intent.data ?: return null
+        val scheme = uri.scheme ?: ""
+        val mimeType = intent.type ?: contentResolver.getType(uri) ?: ""
+
+        return when {
+            // Explicit audio MIME — always accept.
+            mimeType.startsWith("audio/") -> uri.toString()
+            // No MIME from content resolver; reject non-audio content:// URIs
+            // because we can't safely determine their type.
+            scheme == "content" -> null
+            // file:// URI: accept only known audio extensions.
+            scheme == "file" || scheme.isEmpty() -> {
+                val ext = uri.lastPathSegment?.substringAfterLast('.')
+                    ?.lowercase() ?: ""
+                if (ext in AUDIO_EXTENSIONS) uri.toString() else null
+            }
+            else -> null
+        }
+    }
+
+    private fun setupOpenFileChannel(flutterEngine: FlutterEngine) {
+        val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "musicplayer/open_file")
+        openFileChannel = ch
+        ch.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInitialUri" -> {
+                    result.success(pendingOpenFileUri)
+                    pendingOpenFileUri = null
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
 
@@ -469,10 +542,105 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    // ── Hapus lagu dari perangkat ───────────────────────────
+                    // Android 11+ (API 30+): createDeleteRequest → dialog sistem
+                    //   → hasil dikembalikan lewat onActivityResult.
+                    // Android 10  (API 29):  coba delete langsung; tangkap
+                    //   RecoverableSecurityException jika file bukan milik app.
+                    // Android < 10 (API < 29): delete file + ContentResolver.
+                    "deleteSong" -> {
+                        val songId = call.argument<Int>("songId")
+                        if (songId == null) {
+                            result.error("invalid_args", "songId required", null)
+                        } else {
+                            val contentUri = android.content.ContentUris.withAppendedId(
+                                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                songId.toLong(),
+                            )
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                // Android 11+: sistem menampilkan dialog konfirmasi.
+                                try {
+                                    val pi = MediaStore.createDeleteRequest(
+                                        contentResolver, listOf(contentUri),
+                                    )
+                                    pendingDeleteResult = result
+                                    startIntentSenderForResult(
+                                        pi.intentSender,
+                                        DELETE_REQUEST_CODE,
+                                        null, 0, 0, 0,
+                                    )
+                                } catch (e: Exception) {
+                                    result.error("delete_error", e.message, null)
+                                }
+                            } else {
+                                // Android < 11: coba hapus langsung di background.
+                                submitBackground(
+                                    metadataExecutor,
+                                    onRejected = {
+                                        postToFlutter {
+                                            result.error("metadata_busy", "Metadata queue is busy", null)
+                                        }
+                                    },
+                                ) {
+                                    val deleted = try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                            // Android 10: scoped storage — file milik app lain
+                                            // bisa lempar RecoverableSecurityException.
+                                            try {
+                                                contentResolver.delete(contentUri, null, null) > 0
+                                            } catch (e: android.app.RecoverableSecurityException) {
+                                                false
+                                            }
+                                        } else {
+                                            // Android < 10: hapus file fisik dulu, lalu update DB.
+                                            val path = getPathFromUri(contentUri)
+                                            val fileOk = if (path != null) File(path).delete() else false
+                                            val rows = try {
+                                                contentResolver.delete(contentUri, null, null)
+                                            } catch (_: Exception) { 0 }
+                                            fileOk || rows > 0
+                                        }
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                    postToFlutter { result.success(deleted) }
+                                }
+                            }
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }
     }
+
+    // ── Activity result — untuk deleteSong di Android 11+ ───────────────────
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == DELETE_REQUEST_CODE) {
+            val deleted = resultCode == android.app.Activity.RESULT_OK
+            pendingDeleteResult?.success(deleted)
+            pendingDeleteResult = null
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    // ── Helper: ambil path file dari content URI ─────────────────────────────
+    private fun getPathFromUri(uri: Uri): String? {
+        return try {
+            contentResolver.query(
+                uri,
+                arrayOf(MediaStore.Audio.Media.DATA),
+                null, null, null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA))
+                } else null
+            }
+        } catch (_: Exception) { null }
+    }
+
 
     // ── Audio effects channel ──────────────────────────────────────────────────
 
@@ -488,8 +656,7 @@ class MainActivity : FlutterActivity() {
                     "attachEffects" -> {
                         result.success(mapOf(
                             "virtualizerSupported" to true,
-                            "bassBoostSupported"   to true,
-                            "reverbSupported"      to true
+                            "bassBoostSupported"   to true
                         ))
                     }
                     "setSpatialEnabled" -> {
@@ -508,11 +675,6 @@ class MainActivity : FlutterActivity() {
                             mutableMapOf<String, Any?>("enabled" to (strength > 0))), result)
                         service.handle(MethodCall("setBassBoostStrength",
                             mutableMapOf<String, Any?>("strength" to strength)), result)
-                    }
-                    "setReverb" -> {
-                        val preset = call.argument<Int>("preset") ?: 0
-                        service.handle(MethodCall("setReverbPreset",
-                            mutableMapOf<String, Any?>("preset" to preset)), result)
                     }
                     "setAudioOutputMode" -> result.success(null)
                     else               -> result.notImplemented()

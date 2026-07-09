@@ -11,40 +11,34 @@ class _SpatialSection extends StatelessWidget {
         const SettingsSectionHeader('SPATIAL AUDIO'),
         const SizedBox(height: 6),
 
-        // Toggle
+        // Accordion — slider muncul saat diketuk; fitur aktif saat slider digeser
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.spatialAudio,
-          builder: (_, v, _) => SettingsToggleRow(
-            title: 'Spatial Audio',
-            subtitle: AudioEngine.virtualizerSupported
-                ? 'Virtualizer 3D surround (Android AudioEffect)'
-                : 'Tidak didukung perangkat ini',
-            value: v,
-            onChanged: AudioEffectsService.setSpatial,
-          ),
-        ),
-        const SettingsDivider(),
-
-        // Strength slider
-        ValueListenableBuilder<bool>(
-          valueListenable: AudioEffectsService.spatialAudio,
-          builder: (_, enabled, _) =>
-              ValueListenableBuilder<int>(
+          builder: (_, enabled, _) => ValueListenableBuilder<int>(
             valueListenable: AudioEffectsService.spatialStrength,
             builder: (_, strength, _) => SettingsSliderRow(
-              title: 'Kekuatan Spatial',
+              title: 'Spatial Audio',
               subtitle: enabled
                   ? '${(strength / 10).round()}%'
-                  : 'Aktifkan Spatial Audio terlebih dahulu',
-              value: strength.toDouble(),
+                  : 'Nonaktif',
+              // Slider dimulai dari 0 saat fitur off
+              value: enabled ? strength.toDouble() : 0.0,
               min: 0,
               max: 1000,
-              onChanged: enabled
-                  ? (v) => AudioEffectsService.setSpatialStrength(v.round())
-                  : (_) async {},
+              onChanged: (v) async {
+                if (v > 0) {
+                  await AudioEffectsService.setSpatial(true);
+                  await AudioEffectsService.setSpatialStrength(v.round());
+                } else {
+                  await AudioEffectsService.setSpatial(false);
+                }
+              },
               divisions: 20,
-              showReset: enabled && strength != 1000,
-              onReset: () => AudioEffectsService.setSpatialStrength(1000),
+              showReset: enabled,
+              onReset: () async {
+                await AudioEffectsService.setSpatial(false);
+              },
+              expandable: true,
             ),
           ),
         ),

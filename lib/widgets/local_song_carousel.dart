@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
+import '../utils/constants.dart';
 import 'local_song_card.dart';
 
 /// Carousel horizontal lagu-lagu lokal — pengganti SongCarousel berbasis Map + network image.
@@ -21,7 +22,7 @@ class LocalSongCarousel extends StatelessWidget {
       height: 250,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
         itemCount: songs.length,
         itemBuilder: (context, index) => LocalSongCard(
           song: songs[index],

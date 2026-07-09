@@ -11,7 +11,6 @@ import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';
 import 'package:musicplayer/pages/artist_page.dart';
 import 'package:musicplayer/pages/music_list.dart';
-import 'package:musicplayer/pages/music_player.dart';
 import 'package:musicplayer/themes/glass_navbar.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';

@@ -2,7 +2,7 @@ part of '../audio_engine.dart';
 
 /// Thin settings facade — no longer owns any player references.
 ///
-/// All DSP (EQ, loudness, bass, virtualizer, reverb, speed, pitch, crossfade)
+/// All DSP (EQ, loudness, bass, virtualizer, speed, pitch, crossfade)
 /// is handled natively by `Media3PlaybackService.kt` or by the active
 /// [AbstractAudioEngine] implementation. AudioEngine now:
 ///   • Stores device-capability flags for UI (effect support booleans)
@@ -17,7 +17,6 @@ class AudioEngine {
   // ── Effect-support flags (queried from active engine, exposed to UI) ────────
   static bool _virtualizerSupported = false;
   static bool _bassBoostSupported   = false;
-  static bool _reverbSupported      = false;
 
   static bool _initialized = false;
   static int _lastSessionId = -1;
@@ -29,7 +28,6 @@ class AudioEngine {
 
   static bool get virtualizerSupported => _virtualizerSupported;
   static bool get bassBoostSupported   => _bassBoostSupported;
-  static bool get reverbSupported      => _reverbSupported;
 
   // ── Initialization ─────────────────────────────────────────────────────────
 
@@ -54,11 +52,10 @@ class AudioEngine {
       if (result == null) return;
       _virtualizerSupported = result['virtualizerSupported'] as bool? ?? false;
       _bassBoostSupported   = result['bassBoostSupported']   as bool? ?? false;
-      _reverbSupported      = result['reverbSupported']      as bool? ?? false;
       LogService.log(
         'AudioEngine',
         'Effect support — virt=$_virtualizerSupported, '
-        'bass=$_bassBoostSupported, reverb=$_reverbSupported',
+        'bass=$_bassBoostSupported',
       );
     } catch (e) {
       LogService.warn('AudioEngine', 'queryEffectSupport: $e');
@@ -100,7 +97,6 @@ class AudioEngine {
   static Future<void> dispose() async {
     _virtualizerSupported = false;
     _bassBoostSupported   = false;
-    _reverbSupported      = false;
     _initialized          = false;
     _lastSessionId        = -1;
     LogService.log('AudioEngine', 'Disposed');

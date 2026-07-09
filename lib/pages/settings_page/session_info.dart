@@ -17,8 +17,6 @@ class _AudioSessionInfo extends StatelessWidget {
               AudioEngine.virtualizerSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
           _InfoLine('BassBoost',
               AudioEngine.bassBoostSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
-          _InfoLine('PresetReverb',
-              AudioEngine.reverbSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
         ],
       ),
     );

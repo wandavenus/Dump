@@ -4,7 +4,6 @@ import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
-import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
 import android.os.Build
 import android.os.Handler
@@ -13,7 +12,7 @@ import com.example.musicplayer.events.NativeLogger
 
 /**
  * Manages Android audio effects lifecycle (EQ, LoudnessEnhancer, BassBoost,
- * Virtualizer, PresetReverb).
+ * Virtualizer).
  *
  * Improvements for Android 11 / MIUI 12:
  *
@@ -46,7 +45,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     private var loudness:    LoudnessEnhancer?   = null
     private var bassBoost:   BassBoost?          = null
     private var virtualizer: Virtualizer?        = null
-    private var reverb:      PresetReverb?       = null
 
     private var lastAttachedSessionId = AudioEffect.ERROR_BAD_VALUE
 
@@ -58,13 +56,11 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     var bassBoostStrength:    Short   = 0;      private set
     var virtualizerEnabled:   Boolean = false;  private set
     var virtualizerStrength:  Short   = 1000;   private set
-    var reverbPreset:         Short   = 0;      private set
     val bandGains = mutableMapOf<Short, Short>()
 
     // ── Capability flags ──────────────────────────────────────────────────────
     var bassBoostSupported:   Boolean = false;  private set
     var virtualizerSupported: Boolean = false;  private set
-    var reverbSupported:      Boolean = false;  private set
 
     // ── Session attachment ────────────────────────────────────────────────────
 
@@ -173,30 +169,13 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             }
         }
 
-        // ── PresetReverb ──────────────────────────────────────────────────────
-        reverbSupported = false
-        if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_PRESET_REVERB)) {
-            CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb($sessionId) START")
-            try {
-                reverb = PresetReverb(0, sessionId).also { rv ->
-                    rv.preset  = toAndroidReverbPreset(reverbPreset)
-                    rv.enabled = reverbPreset > 0
-                    reverbSupported = true
-                }
-                CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb ATTACHED session=$sessionId")
-            } catch (e: Exception) {
-                log("warn", "PresetReverb init failed (a${attempt+1}): ${e.message}")
-                CrossfadeTimelineLogger.stamp("attachEffects: PresetReverb FAILED: ${e.message}")
-            }
-        }
-
         if (anyOk) {
             lastAttachedSessionId = sessionId
             log("info", "attachEffects OK session=$sessionId a${attempt+1} " +
-                "bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported")
+                "bass=$bassBoostSupported virt=$virtualizerSupported")
             CrossfadeTimelineLogger.stamp(
                 "attachEffects: ALL DONE OK session=$sessionId" +
-                " bass=$bassBoostSupported virt=$virtualizerSupported reverb=$reverbSupported")
+                " bass=$bassBoostSupported virt=$virtualizerSupported")
             return
         }
 
@@ -219,12 +198,10 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         try { loudness?.release()    } catch (_: Exception) {}
         try { bassBoost?.release()   } catch (_: Exception) {}
         try { virtualizer?.release() } catch (_: Exception) {}
-        try { reverb?.release()      } catch (_: Exception) {}
         equalizer   = null
         loudness    = null
         bassBoost   = null
         virtualizer = null
-        reverb      = null
         // Do NOT reset lastAttachedSessionId here — it guards attachEffects retries.
         // It is reset in the guard at the top of attachEffects when a new session arrives.
     }
@@ -298,16 +275,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         try { if (virtualizerEnabled) virtualizer?.setStrength(strength) } catch (_: Exception) {}
     }
 
-    fun setReverbPreset(preset: Short) {
-        reverbPreset = preset
-        try {
-            reverb?.run {
-                this.preset  = toAndroidReverbPreset(preset)
-                this.enabled = preset > 0
-            }
-        } catch (_: Exception) {}
-    }
-
     // ── Queries ───────────────────────────────────────────────────────────────
 
     /** RC-04 fix: returns safe defaults when EQ is not attached. */
@@ -332,7 +299,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     fun effectSupportMap() = mapOf(
         "virtualizerSupported" to virtualizerSupported,
         "bassBoostSupported"   to bassBoostSupported,
-        "reverbSupported"      to reverbSupported,
         "equalizerAttached"    to (equalizer != null),
         "loudnessAttached"     to (loudness  != null),
     )
@@ -347,16 +313,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         // Used as fallback when the EQ is not yet attached to an audio session.
         "frequencies" to listOf(60, 230, 910, 3600, 14000)
     )
-
-    private fun toAndroidReverbPreset(preset: Short): Short = when (preset.toInt()) {
-        1    -> PresetReverb.PRESET_SMALLROOM
-        2    -> PresetReverb.PRESET_MEDIUMROOM
-        3    -> PresetReverb.PRESET_LARGEROOM
-        4    -> PresetReverb.PRESET_MEDIUMHALL
-        5    -> PresetReverb.PRESET_LARGEHALL
-        6    -> PresetReverb.PRESET_PLATE
-        else -> PresetReverb.PRESET_NONE
-    }
 
     /**
      * Checks whether an effect type is available on this device.

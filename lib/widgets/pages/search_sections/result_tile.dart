@@ -16,7 +16,6 @@ class _SearchResultTile extends StatelessWidget {
     return InkWell(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
-        PlayerPanelController.instance.open();
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -25,7 +24,7 @@ class _SearchResultTile extends StatelessWidget {
             SongArtwork(
               songId: song.id,
               size: 48,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(3),
             ),
             const SizedBox(width: 12),
             Expanded(

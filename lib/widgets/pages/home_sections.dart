@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
+import '../../utils/constants.dart';
+import '../../services/artwork_repository.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
+import '../../services/palette_extractor.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';
@@ -22,18 +27,23 @@ class HomePageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SingleChildScrollView(
-      physics: ClampingScrollPhysics(),
+    // Ruang kosong di bawah section terakhir agar tidak tertutup mini player.
+    // Mini player: 64.5 px + system bottom inset (gesture nav bar).
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LargePageTitle(title: 'Beranda', align: false),
-          HeaderDivider(),
-          _LocalAlbumsSection(),
-          SectionTitle(title: 'Recently Played', routeName: '/musiclist'),
-          _RecentlyPlayedSection(),
-          SectionTitle(title: 'Favourite Artists', routeName: '/artistlist'),
-          _LocalArtistsSection(),
+          const LargePageTitle(title: 'Beranda', align: false),
+          const HeaderDivider(),
+          const _LocalAlbumsSection(),
+          const SectionTitle(title: 'Baru Dimainkan', routeName: '/musiclist'),
+          const _RecentlyPlayedSection(),
+          const SectionTitle(title: 'Artis Favorit', routeName: '/artistlist'),
+          const _LocalArtistsSection(),
+          SizedBox(height: bottomClearance),
         ],
       ),
     );

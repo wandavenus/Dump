@@ -8,6 +8,17 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -26,11 +37,19 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     }
   }
 
+  // Caption di atas tiap kartu, meniru gaya "Listen Again" / "More from
+  // [Artist]" pada referensi: kartu pertama = ajakan dengarkan lagi,
+  // kartu selanjutnya = rekomendasi dari artis album tersebut.
+  String _captionFor(int index) {
+    if (index == 0) return 'Dengarkan Lagi';
+    return 'Lainnya dari ${_albums[index].artist}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
-        height: 371,
+        height: 368,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -40,20 +59,22 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(left: 16, top: 9),
+          padding: EdgeInsets.only(left: kPageLeftPadding, top: 9),
           child: Text(
             'Top Picks For You',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         SizedBox(
-          height: 371,
+          height: 368,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
             itemCount: _albums.length,
-            itemBuilder: (context, index) =>
-                _AlbumCard(album: _albums[index]),
+            itemBuilder: (context, index) => _AlbumCard(
+              album: _albums[index],
+              caption: _captionFor(index),
+            ),
           ),
         ),
       ],

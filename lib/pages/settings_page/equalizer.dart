@@ -6,7 +6,6 @@ part of '../settings_page.dart';
 // EqualizerPage berisi:
 //   • Preset chips EQ (Flat, Rock, Pop, Jazz, Classical, dll.)
 //   • Vertical band sliders — jumlah band & frekuensi dari android.media.audiofx.Equalizer
-//   • Reverb section — android.media.audiofx.PresetReverb (7 preset diskrit)
 
 class _EqualizerSection extends StatelessWidget {
   const _EqualizerSection();

@@ -19,11 +19,10 @@ class LocalSongCard extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
-        PlayerPanelController.instance.open();
       },
       onLongPress: () => _showContextMenu(context),
       child: Container(
-        margin: const EdgeInsets.only(right: 10, left: 6),
+        margin: const EdgeInsets.only(left: kCardMarginLeft, right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -64,13 +63,11 @@ class LocalSongCard extends StatelessWidget {
   }
 
   void _showContextMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
-      builder: (_) => _SongContextMenu(song: song, playlist: playlist, index: index),
+    showSongContextMenu(
+      context,
+      song: song,
+      playlist: playlist,
+      index: index,
     );
   }
 }

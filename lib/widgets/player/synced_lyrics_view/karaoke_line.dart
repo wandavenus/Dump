@@ -1,6 +1,10 @@
 part of '../synced_lyrics_view.dart';
 
-class _UnifiedKaraokeLine extends StatelessWidget {
+// ── Opsi B: StatefulWidget agar painter tidak dibuang saat AnimatedBuilder
+//    rebuild — cache layout (_basePainter, _wordRects) tetap hidup selama
+//    props yang mempengaruhi layout tidak berubah. ───────────────────────────
+
+class _UnifiedKaraokeLine extends StatefulWidget {
   final String text;
   final List<_TimelineWord> timeline;
   final _KaraokeLineController controller;
@@ -25,24 +29,73 @@ class _UnifiedKaraokeLine extends StatelessWidget {
   });
 
   @override
+  State<_UnifiedKaraokeLine> createState() => _UnifiedKaraokeLineState();
+}
+
+class _UnifiedKaraokeLineState extends State<_UnifiedKaraokeLine> {
+  late _KaraokeLinePainter _painter;
+
+  @override
+  void initState() {
+    super.initState();
+    _painter = _buildPainter();
+  }
+
+  @override
+  void didUpdateWidget(_UnifiedKaraokeLine old) {
+    super.didUpdateWidget(old);
+
+    // Props yang membutuhkan layout ulang penuh (text metrics berubah)
+    final bool needsRelayout =
+        old.text != widget.text ||
+        old.timeline != widget.timeline ||
+        old.fontSize != widget.fontSize ||
+        old.textAlign != widget.textAlign ||
+        old.textScaleFactor != widget.textScaleFactor ||
+        old.textDirection != widget.textDirection;
+
+    // Props yang hanya mempengaruhi warna (geometry tidak berubah)
+    final bool colorChanged =
+        old.activeColor != widget.activeColor ||
+        old.dimColor != widget.dimColor;
+
+    if (needsRelayout) {
+      // Rebuild penuh — _cacheWordPixels akan jalan kembali
+      _painter = _buildPainter();
+    } else if (colorChanged) {
+      // Hanya warna berubah — wariskan word rects ke painter baru sehingga
+      // getBoxesForSelection tidak perlu dipanggil lagi.
+      final next = _buildPainter();
+      next.inheritLayoutCache(_painter);
+      _painter = next;
+    }
+    // Jika tidak ada yang berubah, _painter yang sama dipakai lagi —
+    // repaint tetap jalan lewat repaint: controller (60fps ticker).
+  }
+
+  _KaraokeLinePainter _buildPainter() {
+    return _KaraokeLinePainter(
+      text: widget.text,
+      timeline: widget.timeline,
+      controller: widget.controller,
+      activeColor: widget.activeColor,
+      dimColor: widget.dimColor,
+      fontSize: widget.fontSize,
+      textAlign: widget.textAlign,
+      textScaleFactor: widget.textScaleFactor,
+      textDirection: widget.textDirection,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _KaraokeLinePainter(
-        text: text,
-        timeline: timeline,
-        controller: controller,
-        activeColor: activeColor,
-        dimColor: dimColor,
-        fontSize: fontSize,
-        textAlign: textAlign,
-        textScaleFactor: textScaleFactor,
-        textDirection: textDirection,
-      ),
+      painter: _painter,
       child: Text(
-        text,
-        textAlign: textAlign,
+        widget.text,
+        textAlign: widget.textAlign,
         style: TextStyle(
-          fontSize: fontSize,
+          fontSize: widget.fontSize,
           height: 1.4,
           fontWeight: FontWeight.bold,
           color: Colors.transparent,

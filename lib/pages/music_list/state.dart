@@ -10,6 +10,14 @@ class _MusicListState extends State<MusicList> {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
     _scroll.addListener(_onScroll);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (!mounted) return;
+    setState(() {
+      _songsFuture = MediaStoreService.getSongs();
+    });
   }
 
   void _onScroll() {
@@ -26,6 +34,7 @@ class _MusicListState extends State<MusicList> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
@@ -37,7 +46,7 @@ class _MusicListState extends State<MusicList> {
       appBar: FadingTitleAppBar(
         title: 'Unduhan',
         scrollOffset: _offset,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
@@ -70,10 +79,12 @@ class _MusicListState extends State<MusicList> {
             );
           }
 
+          final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
           return RefreshIndicator(
             onRefresh: _refreshSongs,
             child: ListView.separated(
               controller: _scroll,
+              padding: EdgeInsets.only(bottom: bottomClearance),
               itemCount: songs.length + 1,
               separatorBuilder: (context, index) => index == 0
                   ? const SizedBox.shrink()
@@ -89,7 +100,7 @@ class _MusicListState extends State<MusicList> {
                   return const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LargePageTitle(title: 'Unduhan'),
+                      LargePageTitle(title: 'Baru Dimainkan'),
                       HeaderDivider(),
                     ],
                   );
@@ -107,8 +118,13 @@ class _MusicListState extends State<MusicList> {
                       playlist: songs,
                       index: index - 1,
                     );
-                    PlayerPanelController.instance.open();
                   },
+                  onLongPress: () => showSongContextMenu(
+                    context,
+                    song: song,
+                    playlist: songs,
+                    index: index - 1,
+                  ),
                   leading: Hero(
                     tag: PlayerHeroTags.artwork(song),
                     child: SongArtwork(songId: song.id, size: 55),
@@ -128,6 +144,7 @@ class _MusicListState extends State<MusicList> {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xFF8E8E93)),
                   ),
                 );
               },

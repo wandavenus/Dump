@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
-
+import 'package:musicplayer/themes/theme_controller.dart';
+import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/search_sections.dart';
 
 class SearchPage extends StatefulWidget {
@@ -31,7 +32,13 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   bool _handleScroll(ScrollNotification notification) {
-    setState(() => _scrollOffset = notification.metrics.pixels);
+    if (notification is ScrollUpdateNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final nextOffset = notification.metrics.pixels;
+      if ((nextOffset - _scrollOffset).abs() >= 1.0) {
+        setState(() => _scrollOffset = nextOffset);
+      }
+    }
     return false;
   }
 
@@ -44,14 +51,31 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PrimaryScrollController(
-        controller: _scroll,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScroll,
-          child: SearchSlivers(scrollOffset: _scrollOffset),
-        ),
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        final topPad = isGlass
+            ? MediaQuery.paddingOf(context).top + kToolbarHeight
+            : 0.0;
+
+        return Scaffold(
+          extendBodyBehindAppBar: isGlass,
+          appBar: FadingTitleAppBar(
+            title: 'Cari',
+            scrollOffset: _scrollOffset,
+          ),
+          body: PrimaryScrollController(
+            controller: _scroll,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScroll,
+              child: Padding(
+                padding: EdgeInsets.only(top: topPad),
+                child: const SearchSlivers(),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

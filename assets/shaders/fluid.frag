@@ -31,23 +31,38 @@ void main() {
   vec2 uv = FlutterFragCoord().xy / uSize;
   float t = uTime;
 
-  // ── Domain warp ────────────────────────────────────────────────────────────
-  // Four overlapping waves bend the UV grid.  Different frequencies and phase
-  // offsets prevent repetitive diagonal patterns.
-  float wX = sin(uv.y * 3.14 + t * 0.318) * 0.15
-           + cos(uv.y * 1.57 - t * 0.186) * 0.08;
-  float wY = cos(uv.x * 2.72 + t * 0.246) * 0.12
-           + sin(uv.x * 1.20 - t * 0.402) * 0.07;
+      // ── Domain warp (Softened for seamless blending) ─────────────────────────
+  // Kita gedeein range blur-nya (sin * 0.25) biar warnanya keseret lebih jauh,
+  // dan kecilin frekuensi-nya (y * 2.0) biar kerasa lebih adem.
+  
+  float wX1 = sin(uv.y * 2.0 + uv.x * 1.0 + t * 0.180) * 0.25; // Lebih lebar
+  float wY1 = cos(uv.x * 2.2 + uv.y * 1.2 + t * 0.145) * 0.22; // Lebih lebar
 
-  vec2 uvd = uv + vec2(wX, wY);   // warped UV
+  // Layer 2 kita bikin super subtle aja buat hancurin pola garis
+  float wX2 = cos((uv.x + wX1) * 3.0 - t * 0.212) * 0.05; // Lebih halus
+  float wY2 = sin((uv.y + wY1) * 2.8 + t * 0.145) * 0.04; // Lebih halus
 
-  // ── Scalar colour fields ───────────────────────────────────────────────────
-  // Each field produces a smooth value in [0, 1].  Using both x and y of the
-  // warped UV plus an independent time rate ensures the three fields evolve
-  // at different speeds and never lock into the same phase.
-  float f0 = sin(uvd.x * 2.10 + uvd.y * 1.84 + t * 0.222) * 0.5 + 0.5;
-  float f1 = cos(uvd.x * 1.73 - uvd.y * 2.30 - t * 0.156) * 0.5 + 0.5;
-  float f2 = sin(uvd.x * 1.50 + uvd.y * 1.20 + t * 0.264) * 0.5 + 0.5;
+  vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
+
+
+      // ── Scalar colour fields (Seamless Glow) ──────────────────────────────────
+  // Rahasia biar ga kayak ORB:
+  // 1. Kurangin pengali jarak (`dist1 * 1.5`), biar "lingkaran"-nya gede banget (nge-glow).
+  // 2. Ganti `* 0.5 + 0.5` jadi range yang lebih sempit (misal `* 0.35 + 0.4`) 
+  //    biar kontras antar warnanya ga terlalu ekstrim (ga ada bates tajem).
+
+  // Pusat 1: Glow gede banget
+  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
+  float f0 = sin(dist1 * 1.5 - t * 0.15) * 0.35 + 0.4; // Halus range-nya
+
+  // Pusat 2: Interferensi tipis-tipis aja
+  float f1 = sin(uvd.x * 1.8 + t * 0.08) * cos(uvd.y * 2.0 - t * 0.11) * 0.30 + 0.35;
+
+  // Pusat 3: Glow kedua buat ngeramein blend
+  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
+  float f2 = cos(dist2 * 1.8 + t * 0.2) * 0.35 + 0.4;
+
+
 
   // ── Palette blend ──────────────────────────────────────────────────────────
   // Layered mix() calls fold all three colours together.  The weights (0.55,
@@ -65,9 +80,9 @@ void main() {
   // Hash function maps pixel position + time to a pseudo-random value in [0,1].
   // Multiplying uTime by a large prime shifts the hash pattern every frame so
   // the grain is always animated (no static texture repeating across frames).
-  vec2  grainUV = FlutterFragCoord().xy + uTime * 82.2;
+  vec2 grainUV = FlutterFragCoord().xy + mod(uTime, 1.0) * 82.2;
   float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
-  col = mix(col, vec3(grain), 0.01);
+  col = mix(col, vec3(grain), 0.02);
 
   fragColor = vec4(col, 1.0);
 }

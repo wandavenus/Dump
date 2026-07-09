@@ -18,17 +18,52 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Watch & Rebuild Web"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node server.js"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Watch & Rebuild Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && node watch-rebuild.js"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Flutter Analyze"
+mode = "sequential"
+author = 61865488
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter analyze"
+
+[[workflows.workflow]]
+name = "Rebuild Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && node rebuild-web.js"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 5000
@@ -37,4 +72,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
-build = ["bash", "-c", "flutter build web --release --base-href /"]
+build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/flutter/bin:$PATH\" && flutter build web --release --base-href /"]

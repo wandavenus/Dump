@@ -141,6 +141,13 @@ class Media3PlaybackService : MediaSessionService() {
         const val ACTION_SKIP_PREV  = PlaybackNotificationManager.ACTION_SKIP_PREV
         const val ACTION_STOP       = PlaybackNotificationManager.ACTION_STOP
         const val PREFS_NAME        = QueueSync.PREFS_NAME
+        /**
+         * Sent by NowPlayingOverlayActivity when the user opens an audio file
+         * from a file manager or another app. Triggers immediate native playback
+         * without requiring the Flutter UI to be ready.
+         */
+        const val ACTION_PLAY_URI = "com.example.musicplayer.ACTION_PLAY_URI"
+        const val EXTRA_URI       = "uri"
 
         @Volatile var instance: Media3PlaybackService? = null
     }
@@ -216,6 +223,10 @@ class Media3PlaybackService : MediaSessionService() {
         )
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
+            // Explicit unique ID prevents "Session ID must be unique" crash when
+            // Media3PlaybackService and MediaKitPlaybackService are both alive briefly
+            // during an engine switch (both would otherwise default to ID="").
+            .setId("media3_playback_session")
             // Use FallbackBitmapLoader so MediaSessionLegacyStub (Bluetooth / lock screen)
             // can load album art even for songs whose embedded artwork has not been indexed
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
@@ -576,10 +587,98 @@ class Media3PlaybackService : MediaSessionService() {
         // Intentionally empty — PlaybackNotificationManager owns the notification.
     }
 
+        // 1. Taruh variabel penanda ini di bagian atas class Service lu (di luar fungsi)
+    private var isPreviewMode = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        handleNotificationAction(intent?.action)
+        
+        // 2. Cek apakah ini panggilan dari overlay preview
+        isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
+
+        if (intent?.action == ACTION_PLAY_URI) {
+            val uriStr = intent.getStringExtra(EXTRA_URI)
+            if (!uriStr.isNullOrBlank() &&
+                (uriStr.startsWith("file://") || uriStr.startsWith("content://") ||
+                 !uriStr.contains("://"))) {
+                handlePlayUri(uriStr)
+            }
+        } else {
+            handleNotificationAction(intent?.action)
+        }
         return START_STICKY
+    }
+
+
+    /**
+     * Plays a URI opened from a file manager / external app.
+     * Calls ensureMediaForeground() immediately (before any I/O) to satisfy
+     * Android's 5-second foreground-service deadline, then reads metadata on a
+     * background thread and triggers playback on the main thread.
+     */
+        private fun handlePlayUri(uriStr: String) {
+        // Cuma tampilin notifikasi kalau BUKAN dalam mode preview
+        if (!isPreviewMode) {
+            notificationManager.ensureMediaForeground()
+        }
+        
+        Thread {
+            val songMap = buildSongMapFromUri(uriStr)
+            handler.post {
+                try {
+                    crossfadeController.cancel(resetVolume = true)
+                    preloadManager.releaseStandbyPlayer()
+                    queueManager.setQueue(listOf(songMap), 0)
+                    transportCommands.playNative()
+                    NativeLogger.emit("info", "Media3",
+                        "ACTION_PLAY_URI → '${songMap["title"]}'")
+                } catch (e: Exception) {
+                    NativeLogger.emit("error", "Media3", "handlePlayUri failed: $e")
+                }
+            }
+        }.start()
+    }
+
+
+    /** Reads title / artist / album / duration via MediaMetadataRetriever. */
+    private fun buildSongMapFromUri(uriStr: String): Map<String, Any?> {
+        var title     = uriStr.substringAfterLast('/').let {
+            if (it.contains('?')) it.substringBefore('?') else it
+        }.let { if (it.contains('.')) it.substringBeforeLast('.') else it }
+            .ifBlank { "Unknown Title" }
+        var artist    = "Unknown Artist"
+        var album     = "Unknown Album"
+        var durationMs = 0L
+        try {
+            val r = android.media.MediaMetadataRetriever()
+            if (uriStr.startsWith("content://")) {
+                r.setDataSource(applicationContext, android.net.Uri.parse(uriStr))
+            } else {
+                val path = if (uriStr.startsWith("file://"))
+                    android.net.Uri.parse(uriStr).path ?: uriStr else uriStr
+                r.setDataSource(path)
+            }
+            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                ?.takeIf { it.isNotBlank() }?.let { title = it }
+            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                ?.takeIf { it.isNotBlank() }?.let { artist = it }
+            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                ?.takeIf { it.isNotBlank() }?.let { album = it }
+            r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()?.let { durationMs = it }
+            r.release()
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "Media3", "buildSongMapFromUri metadata read failed: $e")
+        }
+        return mapOf(
+            "id"       to 0,
+            "title"    to title,
+            "artist"   to artist,
+            "album"    to album,
+            "albumId"  to 0,
+            "path"     to uriStr,
+            "duration" to durationMs,
+        )
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -805,7 +904,16 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Player listener (glue between ExoPlayer events and feature modules) ───
 
     private fun attachPlayerListener(p: ExoPlayer) {
-        detachPlayerListener(p)
+        // De-dupe listeners only — intentionally does NOT call detachPlayerListener()
+        // here. detachPlayerListener() also removes the StereoWideningAudioProcessor
+        // from StereoWidthManager (via playerProcessors), which leaves processors=0
+        // and makes stereo widening silently inoperative for the lifetime of the
+        // service. Processor cleanup belongs only in the true release path:
+        // the detachListener callback passed to CrossfadeController (line 312) and
+        // onDestroy. Listener de-duplication is kept here to prevent double-attach.
+        playerListeners.remove(p)?.let { p.removeListener(it) }
+        analyticsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
+        statsListeners.remove(p)?.let { p.removeAnalyticsListener(it) }
 
         // Item 6: PlaybackStatsListener — accumulates per-session metrics for
         // getPlaybackStats(). keepHistory=false: we only need the running totals

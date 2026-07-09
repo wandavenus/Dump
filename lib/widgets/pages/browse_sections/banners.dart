@@ -17,12 +17,13 @@ class BrowseBannerCarousel extends StatelessWidget {
       height: 350,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: kListLeftPadding),
         itemCount: songs.length,
         itemBuilder: (context, index) {
           final song = songs[index];
           return Container(
             width: 370,
-            margin: const EdgeInsets.symmetric(horizontal: 6),
+            margin: const EdgeInsets.only(left: kCardMarginLeft, right: kCardMarginLeft),
             child: Center(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,26 +46,30 @@ class BrowseBannerCarousel extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 0.5), 
                   Text(
                     song.album,
                     style: const TextStyle(
-                      fontSize: 19,
+                      fontSize: 18,
                       fontWeight: FontWeight.normal,
                       color: Colors.grey,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 5),
-                  ClipPath(
-                    clipper: ShapeBorderClipper(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
+                  const SizedBox(height: 6),
+                  ArtworkHairlineBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ClipPath(
+                      clipper: ShapeBorderClipper(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    child: _BannerArtwork(
-                      songId: song.id,
-                      width: 1080 / 3,
-                      height: 720 / 3,
+                      child: _BannerArtwork(
+                        songId: song.id,
+                        width: 1080 / 3,
+                        height: 720 / 3,
+                      ),
                     ),
                   ),
                 ],

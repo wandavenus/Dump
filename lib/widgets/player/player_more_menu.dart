@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../../pages/settings/sleep_timer_page.dart';
 import '../../services/audio_playback_state.dart';
@@ -7,184 +8,346 @@ import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import 'player_song_info_sheet.dart';
 
-class PlayerMoreMenu extends StatelessWidget {
+// ─── PlayerMoreMenu ────────────────────────────────────────────────────────────
+//
+// Custom overlay menu yang TIDAK menutup otomatis saat item ditekan.
+// Hanya menutup jika:
+//   • user tap di luar menu (barrier)
+//   • aksi navigasi (Song Info / Sleep Timer) dipanggil
+//
+// Implementasi: OverlayEntry + GlobalKey untuk posisi; StatefulWidget agar
+// state overlay bisa dikontrol manual.
+
+class PlayerMoreMenu extends StatefulWidget {
   final LocalSong song;
 
   const PlayerMoreMenu({super.key, required this.song});
 
   @override
+  State<PlayerMoreMenu> createState() => _PlayerMoreMenuState();
+}
+
+class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
+  final _key = GlobalKey();
+  OverlayEntry? _entry;
+
+  void _open() {
+    if (_entry != null) return;
+
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final pos    = box.localToGlobal(Offset.zero);
+    final size   = box.size;
+    const menuW  = 220.0;
+    final left   = (pos.dx + size.width - menuW).clamp(8.0, double.infinity);
+    final top    = pos.dy + size.height + 8;
+
+    _entry = OverlayEntry(builder: (_) => _MoreMenuOverlay(
+      left:   left,
+      top:    top,
+      width:  menuW,
+      song:   widget.song,
+      onClose: _close,
+      onNavigate: _closeAndNavigate,
+    ));
+
+    Overlay.of(context, rootOverlay: true).insert(_entry!);
+  }
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  void _closeAndNavigate(VoidCallback nav) {
+    _close();
+    nav();
+  }
+
+  @override
+  void dispose() {
+    _close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color.fromARGB(90, 100, 100, 100),
-      ),
-      child: PopupMenuButton<_PlayerMoreAction>(
-        padding: EdgeInsets.zero,
-        icon: const Icon(
+    return GestureDetector(
+      key: _key,
+      onTap: _open,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color.fromARGB(90, 100, 100, 100),
+        ),
+        child: const Icon(
           Icons.more_vert_rounded,
           color: Colors.white,
           size: 20,
         ),
-        color: const Color(0xFF242426),
-        elevation: 12,
-        offset: const Offset(0, 42),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onSelected: (action) {
-          switch (action) {
-            case _PlayerMoreAction.shuffle:
-              AudioService.toggleShuffle();
-            case _PlayerMoreAction.loop:
-              AudioService.cycleLoopMode();
-            case _PlayerMoreAction.songInfo:
-              _showSongInfo(context);
-            case _PlayerMoreAction.sleepTimer:
-              showSleepTimerSheet(context);
-          }
-        },
-        itemBuilder: (context) {
-          final state = AudioService.playbackState.value;
-          return [
-            _toggleItem(
-              value: _PlayerMoreAction.shuffle,
-              icon: Icons.shuffle_rounded,
-              label: state.shuffleEnabled ? 'Shuffle On' : 'Shuffle Off',
-              active: state.shuffleEnabled,
-            ),
-            _toggleItem(
-              value: _PlayerMoreAction.loop,
-              icon: _loopIcon(state.loopMode),
-              label: 'Loop ${_loopLabel(state.loopMode)}',
-              active: state.loopMode != LoopMode.off,
-            ),
-            const PopupMenuDivider(height: 4),
-            const PopupMenuItem<_PlayerMoreAction>(
-              value: _PlayerMoreAction.songInfo,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    color: Colors.white70,
-                    size: 20,
+      ),
+    );
+  }
+}
+
+// ─── Overlay widget ────────────────────────────────────────────────────────────
+
+class _MoreMenuOverlay extends StatefulWidget {
+  final double left;
+  final double top;
+  final double width;
+  final LocalSong song;
+  final VoidCallback onClose;
+  final void Function(VoidCallback nav) onNavigate;
+
+  const _MoreMenuOverlay({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.song,
+    required this.onClose,
+    required this.onNavigate,
+  });
+
+  @override
+  State<_MoreMenuOverlay> createState() => _MoreMenuOverlayState();
+}
+
+class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
+  // Rebuild saat state audio berubah
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    AudioService.playbackState.addListener(_refresh);
+    SleepTimerService.isActive.addListener(_refresh);
+    SleepTimerService.remaining.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    AudioService.playbackState.removeListener(_refresh);
+    SleepTimerService.isActive.removeListener(_refresh);
+    SleepTimerService.remaining.removeListener(_refresh);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state   = AudioService.playbackState.value;
+    final active  = SleepTimerService.isActive.value;
+    final remaining = SleepTimerService.remaining.value;
+
+    String? sleepLabel;
+    if (active) {
+      if (remaining == null) {
+        sleepLabel = 'Akhir lagu';
+      } else {
+        final m = remaining.inMinutes;
+        final s = (remaining.inSeconds % 60).toString().padLeft(2, '0');
+        sleepLabel = '${m}m ${s}s';
+      }
+    }
+
+    return Stack(
+      children: [
+        // Barrier — tap di luar tutup menu
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: widget.onClose,
+            child: const SizedBox.expand(),
+          ),
+        ),
+
+        // Menu box
+        Positioned(
+          left:  widget.left,
+          top:   widget.top,
+          width: widget.width,
+          child: Material(
+            color: Colors.transparent,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color:        const Color(0xFF242426),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color:         Colors.black.withValues(alpha: 0.5),
+                    blurRadius:    20,
+                    offset:        const Offset(0, 6),
                   ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Song Info',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Shuffle
+                  _MenuItem(
+                    icon:   CupertinoIcons.shuffle,
+                    label:  state.shuffleEnabled ? 'Shuffle On' : 'Shuffle Off',
+                    active: state.shuffleEnabled,
+                    onTap:  AudioService.toggleShuffle,
+                  ),
+                  _Divider(),
+
+                  // Loop
+                  _MenuItem(
+                    icon:   _loopIcon(state.loopMode),
+                    label:  'Loop ${_loopLabel(state.loopMode)}',
+                    active: state.loopMode != LoopMode.off,
+                    onTap:  AudioService.cycleLoopMode,
+                  ),
+                  _Divider(),
+
+                  // Song Info — menutup menu lalu navigasi
+                  _MenuItem(
+                    icon:  CupertinoIcons.info,
+                    label: 'Song Info',
+                    onTap: () => widget.onNavigate(
+                      () => showModalBottomSheet<void>(
+                        context:          context,
+                        isScrollControlled: true,
+                        useSafeArea:      true,
+                        backgroundColor:  Colors.transparent,
+                        builder: (_) => PlayerSongInfoSheet(song: widget.song),
+                      ),
+                    ),
+                  ),
+                  _Divider(),
+
+                  // Sleep Timer — menutup menu lalu navigasi
+                  _SleepTimerItem(
+                    active:      active,
+                    sleepLabel:  sleepLabel,
+                    onTap: () => widget.onNavigate(
+                      () => showSleepTimerSheet(context),
                     ),
                   ),
                 ],
               ),
             ),
-            const PopupMenuDivider(height: 4),
-            _sleepTimerItem(),
-          ];
-        },
-      ),
-    );
-  }
-
-  PopupMenuItem<_PlayerMoreAction> _sleepTimerItem() {
-    final active    = SleepTimerService.isActive.value;
-    final remaining = SleepTimerService.remaining.value;
-
-    String? statusLabel;
-    if (active) {
-      if (remaining == null) {
-        statusLabel = 'Akhir lagu';
-      } else {
-        final m = remaining.inMinutes;
-        final s = (remaining.inSeconds % 60).toString().padLeft(2, '0');
-        statusLabel = '${m}m ${s}s';
-      }
-    }
-
-    return PopupMenuItem<_PlayerMoreAction>(
-      value: _PlayerMoreAction.sleepTimer,
-      child: Row(
-        children: [
-          Icon(
-            Icons.bedtime_rounded,
-            color: active ? const Color(0xFFF92D48) : Colors.white70,
-            size: 20,
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Sleep Timer',
-                style: TextStyle(
-                  color: active ? const Color(0xFFF92D48) : Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (statusLabel != null)
-                Text(
-                  statusLabel,
-                  style: const TextStyle(
-                    color: Color(0xFF8E8E93),
-                    fontSize: 12,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static PopupMenuItem<_PlayerMoreAction> _toggleItem({
-    required _PlayerMoreAction value,
-    required IconData icon,
-    required String label,
-    required bool active,
-  }) {
-    return PopupMenuItem<_PlayerMoreAction>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: active ? const Color(0xFFF92D48) : Colors.white70,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              color: active ? const Color(0xFFF92D48) : Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   static IconData _loopIcon(LoopMode mode) =>
-      mode == LoopMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded;
+      mode == LoopMode.one ? CupertinoIcons.repeat_1 : CupertinoIcons.repeat;
 
   static String _loopLabel(LoopMode mode) => switch (mode) {
     LoopMode.off => 'Off',
     LoopMode.all => 'All',
     LoopMode.one => 'One',
   };
+}
 
-  void _showSongInfo(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PlayerSongInfoSheet(song: song),
+// ─── Item widgets ──────────────────────────────────────────────────────────────
+
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final bool     active;
+  final VoidCallback onTap;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? const Color(0xFFF92D48) : Colors.white;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, color: active ? const Color(0xFFF92D48) : Colors.white70, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color:      color,
+                fontWeight: FontWeight.w600,
+                fontSize:   15,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-enum _PlayerMoreAction { shuffle, loop, songInfo, sleepTimer }
+class _SleepTimerItem extends StatelessWidget {
+  final bool    active;
+  final String? sleepLabel;
+  final VoidCallback onTap;
+
+  const _SleepTimerItem({
+    required this.active,
+    required this.sleepLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(
+              CupertinoIcons.time,
+              color: active ? const Color(0xFFF92D48) : Colors.white70,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Sleep Timer',
+                  style: TextStyle(
+                    color:      active ? const Color(0xFFF92D48) : Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize:   15,
+                  ),
+                ),
+                if (sleepLabel != null)
+                  Text(
+                    sleepLabel!,
+                    style: const TextStyle(
+                      color:    Color(0xFF8E8E93),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) =>
+      Container(height: 0.5, color: Colors.white.withValues(alpha: 0.1));
+}

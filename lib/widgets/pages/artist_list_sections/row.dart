@@ -7,39 +7,55 @@ class ArtistListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final songCount = artist.songs.length;
+    final subtitle = '$songCount ${songCount == 1 ? 'lagu' : 'lagu'}';
+
+    return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
-      child: Container(
-        padding: const EdgeInsets.only(top: 10, left: 5, right: 5),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    
-                    
-                    SongArtwork(
-                      songId: artist.coverSongId,
-                      size: 70,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(artist.name, style: const TextStyle(fontSize: 22)),
-                  ],
-                ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 18),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Artwork kotak penuh lebar, rounded corners
+          AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SongArtwork(
+                songId: artist.coverSongId,
+                size: 300,
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            const Divider(
-              color: Color(0xFF48484A),
-              thickness: 0.5,
-              indent: 125,
-              endIndent: 0,
+          ),
+          const SizedBox(height: 6),
+
+          // Nama artis — putih, bold
+          Text(
+            artist.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,  
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 1),
+
+          // Subtitle — abu-abu
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,  
+            style: const TextStyle(
+              color: Color(0xFF8E8E93),
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

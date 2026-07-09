@@ -23,6 +23,14 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     _songsFuture = MediaStoreService.getSongs();
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (!mounted) return;
+    setState(() {
+      _songsFuture = MediaStoreService.getSongs();
+    });
   }
 
   void _onScroll() {
@@ -37,6 +45,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   @override
   void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _searchController.removeListener(_onSearch);
@@ -66,7 +75,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       appBar: FadingTitleAppBar(
         title: _title,
         scrollOffset: _offset,
-        actions: const [],
+        actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
@@ -109,8 +118,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
         child: Row(
           children: [
             const SizedBox(width: 10),
-            const Icon(Icons.search, color: Color(0xFF8E8E93), size: 18),
-            const SizedBox(width: 6),
+            
             Expanded(
               child: TextField(
                 controller: _searchController,
@@ -230,22 +238,62 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   // ─── Daftar Putar ──────────────────────────────────────────────────────────
 
-  FutureBuilder<Map<String, dynamic>> _frequentSongs(List<LocalSong> songs) {
+  Widget _frequentSongs(List<LocalSong> songs) {
     return FutureBuilder<Map<String, dynamic>>(
       future: HistoryService.getPlayCounts(),
       builder: (context, snapshot) {
         final counts = snapshot.data ?? const <String, dynamic>{};
-        final sorted = List<LocalSong>.from(songs)..sort(
-          (a, b) => ((counts[b.id.toString()] ?? 0) as num).compareTo(
-            (counts[a.id.toString()] ?? 0) as num,
-          ),
-        );
-        return _songListView(
-          sorted,
-          subtitleBuilder: (song) {
-            final count = (counts[song.id.toString()] ?? 0) as num;
-            return '${song.artist} • Diputar ${count.toInt()}x';
-          },
+        final sorted = List<LocalSong>.from(songs)
+          ..sort(
+            (a, b) => ((counts[b.id.toString()] ?? 0) as num).compareTo(
+              (counts[a.id.toString()] ?? 0) as num,
+            ),
+          );
+
+        final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+
+        return CustomScrollView(
+          controller: _scroll,
+          slivers: [
+            // Header — judul + divider saja, tanpa search & kontrol
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LargePageTitle(title: _title),
+                  const HeaderDivider(),
+                ],
+              ),
+            ),
+
+            // Banner list
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final song = sorted[index];
+                    final songIndex = songs.indexOf(song);
+                    final count =
+                        (counts[song.id.toString()] ?? 0) as num;
+                    return _PlaylistBannerCard(
+                      song: song,
+                      playCount: count.toInt(),
+                      onTap: () => _playAt(songs, songIndex),
+                      onLongPress: () => showSongContextMenu(
+                        context,
+                        song: song,
+                        playlist: songs,
+                        index: songIndex,
+                      ),
+                    );
+                  },
+                  childCount: sorted.length,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -253,8 +301,58 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   // ─── Artis ─────────────────────────────────────────────────────────────────
 
-  Widget _artistSongs(List<LocalSong> songs) =>
-      _songListView(songs, subtitleBuilder: (song) => song.artist);
+  Widget _artistSongs(List<LocalSong> songs) {
+    // Kelompokkan lagu per artis
+    final artistMap = <String, List<LocalSong>>{};
+    for (final song in songs) {
+      artistMap.putIfAbsent(song.artist, () => []).add(song);
+    }
+    final artists = artistMap.entries
+        .map((e) => ArtistInfo(name: e.key, songs: e.value))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Filter berdasarkan pencarian
+    final filtered = _filter.isEmpty
+        ? artists
+        : artists
+            .where((a) => a.name.toLowerCase().contains(_filter))
+            .toList();
+
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+
+    return CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        // Header — judul + divider saja, tanpa search bar & tombol kontrol
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LargePageTitle(title: _title),
+              const HeaderDivider(),
+            ],
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.78,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => ArtistListRow(artist: filtered[index]),
+              childCount: filtered.length,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   // ─── Album ─────────────────────────────────────────────────────────────────
 
@@ -274,8 +372,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 album.artist.toLowerCase().contains(_filter);
           }).toList();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return ListView.separated(
       controller: _scroll,
+      padding: EdgeInsets.only(bottom: bottomClearance),
       itemCount: filtered.length + 1,
       separatorBuilder: (context, index) => index == 0
           ? const SizedBox.shrink()
@@ -309,6 +409,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             '${album.artist} • ${albumSongs.length} lagu',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ), 
           ),
           onTap: () => Navigator.pushNamed(
             context,
@@ -333,8 +437,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
+    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
     return ListView.separated(
       controller: _scroll,
+      padding: EdgeInsets.only(bottom: bottomClearance),
       itemCount: filtered.length + 1,
       separatorBuilder: (context, index) => index == 0
           ? const SizedBox.shrink()
@@ -343,11 +449,12 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               thickness: 0.5,
               color: Color(0xFF48484A),
               indent: 87,
-              endIndent: 16,
+              endIndent: 17,
             ),
       itemBuilder: (context, index) {
         if (index == 0) return _listHeader(songs);
         final song = filtered[index - 1];
+        final songIndex = songs.indexOf(song);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -363,75 +470,102 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             song.artist,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ), 
           ),
-          onTap: () => _playAt(songs, songs.indexOf(song)),
+          onTap: () => _playAt(songs, songIndex),
+          onLongPress: () => showSongContextMenu(
+            context,
+            song: song,
+            playlist: songs,
+            index: songIndex,
+          ),
         );
       },
     );
   }
 
-  // ─── Generic song list (Daftar Putar, Artis) ───────────────────────────────
-
-  Widget _songListView(
-    List<LocalSong> songs, {
-    String Function(LocalSong song)? subtitleBuilder,
-  }) {
-    final filtered = _filter.isEmpty
-        ? songs
-        : songs
-            .where(
-              (s) =>
-                  s.title.toLowerCase().contains(_filter) ||
-                  s.artist.toLowerCase().contains(_filter),
-            )
-            .toList();
-
-    return ListView.separated(
-      controller: _scroll,
-      itemCount: filtered.length + 1,
-      separatorBuilder: (context, index) => index == 0
-          ? const SizedBox.shrink()
-          : const Divider(
-              height: 1,
-              thickness: 0.5,
-              color: Color(0xFF48484A),
-              indent: 87,
-              endIndent: 16,
-            ),
-      itemBuilder: (context, index) {
-        if (index == 0) return _listHeader(songs);
-        final song = filtered[index - 1];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 2,
-          ),
-          leading: SongArtwork(songId: song.id, size: 55),
-          title: Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            subtitleBuilder?.call(song) ?? song.artist,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          onTap: () => _playAt(songs, songs.indexOf(song)),
-        );
-      },
-    );
-  }
 
   // ─── Playback helpers ──────────────────────────────────────────────────────
 
   Future<void> _playAt(List<LocalSong> songs, int index) async {
     await AudioService.playSongAt(playlist: songs, index: index);
-    PlayerPanelController.instance.open();
   }
 
   Future<void> _playShuffled(List<LocalSong> songs) async {
     final shuffled = List<LocalSong>.from(songs)..shuffle();
     await _playAt(shuffled, 0);
+  }
+}
+
+// ─── Banner card untuk Daftar Putar ────────────────────────────────────────
+
+class _PlaylistBannerCard extends StatelessWidget {
+  const _PlaylistBannerCard({
+    required this.song,
+    required this.playCount,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final LocalSong song;
+  final int playCount;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Artwork banner — full width, persegi panjang landscape
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: SongArtwork(
+                songId: song.id,
+                size: 600,
+                borderRadius: BorderRadius.circular(10),
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Judul lagu
+            Text(
+              song.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 2),
+
+            // Artis • jumlah putar
+            Text(
+              playCount > 0
+                  ? '${song.artist} • Diputar ${playCount}x'
+                  : song.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

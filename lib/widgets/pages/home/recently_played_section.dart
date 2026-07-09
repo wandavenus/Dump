@@ -15,6 +15,17 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -26,7 +37,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           .where(songMap.containsKey)
           .map((id) => songMap[id]!)
           .toList();
-      if (mounted) setState(() { _songs = recent; _isLoading = false; });
+      if (mounted) {
+        setState(() { _songs = recent; _isLoading = false; });
+        unawaited(
+          ArtworkRepository.instance.prefetch(recent.map((s) => s.id).toList()),
+        );
+      }
     } catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }

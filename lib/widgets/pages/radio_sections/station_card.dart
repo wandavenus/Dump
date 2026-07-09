@@ -5,8 +5,6 @@ part of '../radio_sections.dart';
 class PlaylistCard extends StatelessWidget {
   final String name;
   final String subtitle;
-  final IconData emptyIcon;
-  final Color emptyIconColor;
   final List<int> artworkIds;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -15,8 +13,6 @@ class PlaylistCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.subtitle,
-    required this.emptyIcon,
-    required this.emptyIconColor,
     required this.artworkIds,
     required this.onTap,
     this.onLongPress,
@@ -28,76 +24,62 @@ class PlaylistCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: kPageLeftPadding, vertical: 6),
         height: 200,
-        child: ClipRRect(
+        child: ArtworkHairlineBorder(
           borderRadius: BorderRadius.circular(14),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _ArtworkGrid(
-                songIds: artworkIds,
-                emptyIcon: emptyIcon,
-                emptyIconColor: emptyIconColor,
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.5),
-                    ],
-                    stops: const [0.25, 1.0],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _ArtworkGrid(songIds: artworkIds),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.5),
+                      ],
+                      stops: const [0.25, 1.0],
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 12, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 12, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.play_circle_filled,
-                        color: Colors.white,
-                        size: 48,
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -109,28 +91,13 @@ class PlaylistCard extends StatelessWidget {
 
 class _ArtworkGrid extends StatelessWidget {
   final List<int> songIds;
-  final IconData emptyIcon;
-  final Color emptyIconColor;
 
-  const _ArtworkGrid({
-    required this.songIds,
-    required this.emptyIcon,
-    required this.emptyIconColor,
-  });
+  const _ArtworkGrid({required this.songIds});
 
   @override
   Widget build(BuildContext context) {
     if (songIds.isEmpty) {
-      return ColoredBox(
-        color: const Color(0xFF1C1C1E),
-        child: Center(
-          child: Icon(
-            emptyIcon,
-            size: 64,
-            color: emptyIconColor.withValues(alpha: 0.3),
-          ),
-        ),
-      );
+      return const ColoredBox(color: Color(0xFF1C1C1E));
     }
 
     final ids = songIds.take(4).toList();

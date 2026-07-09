@@ -8,6 +8,17 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
   void initState() {
     super.initState();
     _load();
+    MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  void _onRescan() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    MediaStoreService.rescanNotifier.removeListener(_onRescan);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -49,6 +60,7 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       height: 250,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(10),
         itemCount: _artists.length,
         itemBuilder: (context, index) =>
             _ArtistCard(artist: _artists[index]),

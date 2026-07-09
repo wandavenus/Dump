@@ -2,7 +2,7 @@ part of '../audio_effects_service.dart';
 
 /// Central DSP settings controller — UI + state only.
 ///
-/// All audio processing (EQ, bass, reverb, spatial, speed, pitch, crossfade,
+/// All audio processing (EQ, bass, spatial, speed, pitch, crossfade,
 /// loudness, ReplayGain) runs natively inside `Media3PlaybackService.kt`.
 /// This class manages:
 ///   • [ValueNotifier]s for each setting (UI binds to these)
@@ -11,12 +11,12 @@ part of '../audio_effects_service.dart';
 ///
 /// No layer in this file may reference [Media3PlaybackBridge] directly.
 /// All engine calls go through [AudioEngineManager].
+
 class AudioEffectsService {
   AudioEffectsService._();
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<bool> audioNormalize = ValueNotifier(false);
   static final ValueNotifier<ReplayGainMode> replayGainMode =
       ValueNotifier(ReplayGainMode.off);
   static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
@@ -25,7 +25,6 @@ class AudioEffectsService {
   static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
   static final ValueNotifier<int> spatialStrength = ValueNotifier(1000);
   static final ValueNotifier<int> bassBoost = ValueNotifier(0);
-  static final ValueNotifier<int> reverbPreset = ValueNotifier(0);
   static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
   static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
   static final ValueNotifier<int> roomPreset = ValueNotifier(0);
@@ -36,73 +35,52 @@ class AudioEffectsService {
 
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
-  // ── Reverb preset labels ───────────────────────────────────────────────────
-
-  static const List<String> reverbPresetNames = [
-    'Off',
-    'Small Room',
-    'Medium Room',
-    'Large Room',
-    'Medium Hall',
-    'Large Hall',
-    'Plate',
-  ];
-
   // ── Room acoustic presets ──────────────────────────────────────────────────
-  // {name, reverb (0-6), eq gains [60Hz,230Hz,910Hz,3.6k,14k], description}
+  // {name, eq gains [60Hz,230Hz,910Hz,3.6k,14k], description}
 
   static const List<Map<String, dynamic>> roomPresets = [
     {
       'name': 'Flat',
-      'reverb': 0,
       'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
       'desc': 'Tanpa efek ruangan',
     },
     {
       'name': 'Studio',
-      'reverb': 0,
       'gains': [2.0, 1.0, 0.0, -1.0, 1.0],
       'desc': 'Rekaman studio profesional',
     },
     {
       'name': 'Live Stage',
-      'reverb': 3,
       'gains': [3.0, 0.0, 2.0, 1.0, 2.0],
       'desc': 'Panggung pertunjukan langsung',
     },
     {
       'name': 'Concert Hall',
-      'reverb': 5,
       'gains': [4.0, 1.0, -1.0, 2.0, 4.0],
       'desc': 'Aula konser klasik',
     },
     {
       'name': 'Cathedral',
-      'reverb': 6,
       'gains': [3.0, 0.0, -2.0, 0.0, 5.0],
       'desc': 'Gema katedral besar',
     },
     {
       'name': 'Club',
-      'reverb': 2,
       'gains': [6.0, 3.0, 1.0, 0.0, -1.0],
       'desc': 'Club malam dengan bass kuat',
     },
     {
       'name': 'Outdoor',
-      'reverb': 1,
       'gains': [1.0, 0.0, 0.0, 2.0, 3.0],
       'desc': 'Ruang terbuka di luar ruangan',
     },
     {
       'name': 'Car',
-      'reverb': 1,
       'gains': [4.0, 2.0, 1.0, -1.0, 0.0],
       'desc': 'Interior kabin mobil',
     },
     {
       'name': 'Bathroom',
-      'reverb': 2,
       'gains': [0.0, 1.0, 3.0, 2.0, 1.0],
       'desc': 'Ruang kecil dengan dinding keras',
     },
@@ -113,13 +91,11 @@ class AudioEffectsService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    audioNormalize.value   = prefs.getBool('normalize')       ?? false;
     crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
     pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
     spatialAudio.value     = prefs.getBool('spatial')         ?? false;
     spatialStrength.value  = prefs.getInt('spatialStr')       ?? 1000;
     bassBoost.value        = prefs.getInt('bassBoost')        ?? 0;
-    reverbPreset.value     = prefs.getInt('reverb')           ?? 0;
     playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
     equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
     roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
@@ -133,7 +109,7 @@ class AudioEffectsService {
 
     // Registrasi applyAll sebagai post-switch callback di AudioEngineManager.
     // Setiap kali engine diganti, AudioEngineManager akan memanggil applyAll()
-    // agar pengaturan DSP (speed, pitch, EQ, bass, reverb, dll.) dikirim ulang
+    // agar pengaturan DSP (speed, pitch, EQ, bass, dll.) dikirim ulang
     // ke engine baru. Pola callback dipakai untuk menghindari circular import.
     AudioEngineManager.registerPostSwitchCallback(applyAll);
 
@@ -158,38 +134,15 @@ class AudioEffectsService {
     unawaited(AudioEngineManager.setVirtualizerStrength(spatialStrength.value));
     unawaited(AudioEngineManager.setVirtualizerEnabled(spatialAudio.value));
 
-    // Reverb
-    unawaited(AudioEngineManager.setReverbPreset(reverbPreset.value));
-
     // Equalizer
     unawaited(AudioEngineManager.setEqualizerEnabled(equalizerEnabled.value));
     if (equalizerEnabled.value) _sendRoomPresetEq(roomPreset.value);
-
-    // Loudness normalize (when ReplayGain is off)
-    if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(AudioEngineManager.setLoudnessEnabled(audioNormalize.value));
-      if (!audioNormalize.value) {
-        unawaited(AudioEngineManager.setLoudnessTargetGain(0));
-      }
-    }
 
     // Crossfade
     unawaited(AudioEngineManager.setCrossfadeDuration(crossfadeDuration.value));
   }
 
-  // ── Normalize ─────────────────────────────────────────────────────────────
-
-  static Future<void> setNormalize(bool value) async {
-    audioNormalize.value = value;
-    await _saveBool('normalize', value);
-    if (replayGainMode.value == ReplayGainMode.off) {
-      unawaited(AudioEngineManager.setLoudnessEnabled(value));
-      if (!value) unawaited(AudioEngineManager.setLoudnessTargetGain(0));
-    }
-    LogService.log('AudioEffects', 'Normalize: $value');
-  }
-
-  // ── ReplayGain ────────────────────────────────────────────────────────────
+  // ── ReplayGain (Audio Normalize) ───────────────────────────────────────────
 
   static Future<void> setReplayGainMode(ReplayGainMode mode) async {
     replayGainMode.value = mode;
@@ -245,8 +198,6 @@ class AudioEffectsService {
     await _saveInt('roomPreset', i);
 
     final preset = roomPresets[i];
-    final rev = preset['reverb'] as int;
-    await setReverb(rev);
     if (equalizerEnabled.value) _sendRoomPresetEq(i);
 
     LogService.log('AudioEffects', 'Room preset: ${preset['name']}');
@@ -362,16 +313,6 @@ class AudioEffectsService {
     unawaited(AudioEngineManager.setBassBoost(v));
     unawaited(AudioEngineManager.setBassBoostEnabled(v > 0));
     LogService.log('AudioEffects', 'BassBoost: $v');
-  }
-
-  // ── Reverb ────────────────────────────────────────────────────────────────
-
-  static Future<void> setReverb(int preset) async {
-    final v = preset.clamp(0, reverbPresetNames.length - 1).toInt();
-    reverbPreset.value = v;
-    await _saveInt('reverb', v);
-    unawaited(AudioEngineManager.setReverbPreset(v));
-    LogService.log('AudioEffects', 'Reverb: ${reverbPresetNames[v]}');
   }
 
   // ── Spatial Audio ─────────────────────────────────────────────────────────

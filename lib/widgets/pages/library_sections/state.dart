@@ -36,7 +36,7 @@ class _LibraryContentState extends State<LibraryContent> {
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) newIndex--;
+      // onReorderItem sudah menyesuaikan newIndex, tidak perlu -1
       final item = _items.removeAt(oldIndex);
       _items.insert(newIndex, item);
     });
@@ -47,6 +47,7 @@ class _LibraryContentState extends State<LibraryContent> {
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
 
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return SingleChildScrollView(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -59,6 +60,7 @@ class _LibraryContentState extends State<LibraryContent> {
             const Divider(color: Color(0xFF48484A), thickness: 0.5, height: 0),
             const SizedBox(height: 9),
             _editMode ? _buildReorderable() : _buildStaticList(),
+            SizedBox(height: bottomClearance),
           ],
         ),
       ),
@@ -98,7 +100,7 @@ class _LibraryContentState extends State<LibraryContent> {
               child: child,
             ),
           ),
-      onReorder: _onReorder,
+      onReorderItem: _onReorder,
       children:
           _items
               .map(

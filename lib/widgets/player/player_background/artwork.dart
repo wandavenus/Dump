@@ -42,6 +42,7 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
   late final AnimationController _controller;
 
   // Shader state — null until the async asset load finishes.
+  // ignore: unused_field — held to prevent GC from destroying the shader.
   ui.FragmentProgram? _program;
   _ShaderPainter?     _painter;
 

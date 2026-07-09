@@ -52,8 +52,9 @@ class _PlaybackEngineSection extends StatelessWidget {
                 ValueListenableBuilder<bool>(
                   valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
                   builder: (_, v, _) => SettingsToggleRow(
-                    title: 'Gapless',
-                    subtitle: 'Potong keheningan antar lagu secara otomatis',
+                    title: 'Lewati Keheningan',
+                    subtitle:
+                        'Potong bagian senyap di dalam lagu (intro/outro)',
                     value: v,
                     onChanged: MediaCapabilitiesService.setSkipSilence,
                   ),
@@ -61,39 +62,39 @@ class _PlaybackEngineSection extends StatelessWidget {
                 const SettingsDivider(),
 
                 // ── Stereo Widening ──────────────────────────────────────────
+                // Accordion — fitur aktif saat slider digeser, bukan saat expand
                 ValueListenableBuilder<bool>(
                   valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-                  builder: (_, enabled, _) => Column(
-                    children: [
-                      SettingsToggleRow(
+                  builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                    valueListenable:
+                        MediaCapabilitiesService.stereoWideningStrength,
+                    builder: (_, v, _) {
+                      final pct = (v * 100).round();
+                      return SettingsSliderRow(
                         title: 'Pelebaran Stereo',
-                        subtitle:
-                            'ChannelMixingAudioProcessor — memperlebar medan stereo',
-                        value: enabled,
-                        onChanged: MediaCapabilitiesService.setStereoWidening,
-                      ),
-                      if (enabled)
-                        ValueListenableBuilder<double>(
-                          valueListenable:
-                              MediaCapabilitiesService.stereoWideningStrength,
-                          builder: (_, v, _) {
-                            final pct = (v * 100).round();
-                            return SettingsSliderRow(
-                              title: 'Lebar Stereo',
-                              subtitle: '$pct%',
-                              value: v,
-                              min: 0.0,
-                              max: 1.0,
-                              divisions: 20,
-                              onChanged:
-                                  MediaCapabilitiesService.setStereoWideningStrength,
-                              showReset: v != 0.5,
-                              onReset: () => MediaCapabilitiesService
-                                  .setStereoWideningStrength(0.5),
-                            );
-                          },
-                        ),
-                    ],
+                        subtitle: enabled ? '$pct%' : 'Nonaktif',
+                        // Slider dimulai dari 0 saat fitur off
+                        value: enabled ? v : 0.0,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 20,
+                        onChanged: (val) async {
+                          if (val > 0) {
+                            await MediaCapabilitiesService.setStereoWidening(true);
+                            await MediaCapabilitiesService
+                                .setStereoWideningStrength(val);
+                          } else {
+                            await MediaCapabilitiesService
+                                .setStereoWidening(false);
+                          }
+                        },
+                        showReset: enabled,
+                        onReset: () async {
+                          await MediaCapabilitiesService.setStereoWidening(false);
+                        },
+                        expandable: true,
+                      );
+                    },
                   ),
                 ),
                 const SettingsDivider(),
@@ -162,7 +163,7 @@ class _EngineSelector extends StatelessWidget {
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 1.5,
-                            color: Color(0xFFFC3C44),
+                            color: Color(0xFFF92D48),
                           ),
                         ),
                         SizedBox(width: 10),
@@ -335,7 +336,7 @@ class _EngineSwitchConfirmSheet extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Efek audio (EQ, Bass Boost, Reverb) tidak aktif di engine ini.',
+                        'Efek audio (EQ, Bass Boost) tidak aktif di engine ini.',
                         style: TextStyle(color: Colors.orange, fontSize: 11),
                       ),
                     ),
@@ -378,7 +379,7 @@ class _EngineSwitchConfirmSheet extends StatelessWidget {
                       child: Container(
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFC3C44),
+                          color: const Color(0xFFF92D48),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,

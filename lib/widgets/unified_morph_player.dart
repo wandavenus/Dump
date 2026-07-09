@@ -42,6 +42,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   double _animStartVal = 0.0;
   double _animTarget = 0.0;
 
+  // ── Entry animation — slide-up when mini player first appears ──────────────
+  late final AnimationController _entryAnim;
+  LocalSong? _lastSong;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -54,15 +58,30 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     )..addListener(_onReleaseAnimTick);
+    _entryAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
+    AudioService.playbackState.addListener(_onSongAppeared);
   }
 
   @override
   void dispose() {
     _overlayAnim.dispose();
     _releaseAnim.dispose();
+    _entryAnim.dispose();
+    AudioService.playbackState.removeListener(_onSongAppeared);
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
+  }
+
+  void _onSongAppeared() {
+    final current = AudioService.playbackState.value.currentSong;
+    if (_lastSong == null && current != null) {
+      _entryAnim.forward(from: 0.0);
+    }
+    _lastSong = current;
   }
 
   void _onReleaseAnimTick() {
@@ -173,7 +192,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       }
     } else {
       if (_showLyrics || _showQueue) return;
-      final sh = MediaQuery.of(context).size.height;
+      final sh = MediaQuery.sizeOf(context).height;
       final delta = -d.delta.dy / (sh * 0.55);
       PlayerSheetController.setProgress(
         (PlayerSheetController.progress.value + delta).clamp(0.0, 1.0),
@@ -209,15 +228,25 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AudioPlaybackState>(
-      valueListenable: AudioService.playbackState,
-      builder: (context, state, _) {
-        final song = state.currentSong;
-        if (song == null) return const SizedBox.shrink();
-        return ValueListenableBuilder<double>(
-          valueListenable: PlayerSheetController.progress,
-          builder: (context, progress, _) {
-            return _buildMorph(context, song, state, progress);
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeController.glassTheme,
+      builder: (context, isGlass, _) {
+        return AnimatedBuilder(
+          animation: _entryAnim,
+          builder: (context, _) {
+            return ValueListenableBuilder<AudioPlaybackState>(
+              valueListenable: AudioService.playbackState,
+              builder: (context, state, _) {
+                final song = state.currentSong;
+                if (song == null) return const SizedBox.shrink();
+                return ValueListenableBuilder<double>(
+                  valueListenable: PlayerSheetController.progress,
+                  builder: (context, progress, _) {
+                    return _buildMorph(context, song, state, progress, isGlass);
+                  },
+                );
+              },
+            );
           },
         );
       },
@@ -229,6 +258,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     LocalSong song,
     AudioPlaybackState state,
     double progress,
+    bool isGlass,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -238,13 +268,34 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     const miniH = 64.5;
     const miniHorizMargin = 0.0;
-    const navBarH = 55.1;
+    // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
+    // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
+    // lower — offset navBarH down by the same amount so mini player stays flush.
+    final navBarH = isGlass ? 53.8 : 55.1;
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
 
-    final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)!;
+    // ── Entry slide-up animation ─────────────────────────────────────────────
+    // Mini player starts fully hidden below the screen's bottom edge (i.e.
+    // entirely behind/inside the bottom nav bar, not just at bottom:0 which
+    // would still let its top edge peek above the bar) and slides straight up
+    // to its resting spot above the nav bar — no fade, pure slide.
+    final easedEntry = Curves.easeOutCubic.transform(_entryAnim.value);
+    final baseBottom = navBarH + safeBottom + miniBottomGap;
+    final entrySlide = (baseBottom + miniH) * (1.0 - easedEntry);
+
+    final bottom = lerpDouble(navBarH + safeBottom + miniBottomGap, 0.0, t)! - entrySlide;
+
+    // Reveal boundary: while collapsed (t == 0, i.e. not expanding into the
+    // full player), clip away anything at/below the nav bar's top edge so the
+    // mini player can only ever be visible above that line — this is what
+    // makes it look like it emerges from behind/inside the bar as it slides
+    // up, instead of momentarily poking out below the bar's top edge. Fully
+    // relaxes to full-screen the moment the user starts expanding the sheet,
+    // so it never interferes with the full-player view.
+    final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
     // Border radius: linear so corners snap crisply at 0
@@ -278,12 +329,17 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
     final artRadius = lerpDouble(4.0, 12.0, t)!;
 
-    return Positioned(
-      bottom: bottom,
-      left: horizMargin,
-      right: horizMargin,
-      height: height,
-      child: GestureDetector(
+    return Positioned.fill(
+      child: ClipRect(
+        clipper: _BottomRevealClipper(clipVisibleHeight),
+        child: Stack(
+          children: [
+            Positioned(
+              bottom: bottom,
+              left: horizMargin,
+              right: horizMargin,
+              height: height,
+              child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanStart: _onPanStart,
         onPanUpdate: _onPanUpdate,
@@ -397,7 +453,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
     const smallLeft = 32.0;
     const smallSize = 55.0;
-    const smallRadius = 8.0;
+    const smallRadius = 3.0;
     final smallTop = safeTop + 36.5;
 
     // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
@@ -427,27 +483,42 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       top:    finalTop,
       width:  finalSize,
       height: finalSize,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(finalRadius),
-          boxShadow: [
-            BoxShadow(
-              color:      Colors.black.withValues(alpha: shadowAlpha),
-              blurRadius: shadowBlur,
-              offset:     Offset(0, shadowOff),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 300),
+        curve:    Curves.easeOutCubic,
+        scale:    targetScale,
+        child: Container(
+          // Shadow in background so it renders behind the artwork.
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(finalRadius),
+            boxShadow: [
+              BoxShadow(
+                color:      Colors.black.withValues(alpha: shadowAlpha),
+                blurRadius: shadowBlur,
+                offset:     Offset(0, shadowOff),
+              ),
+            ],
+          ),
+          // Hairline border in foreground so it paints ON TOP of the artwork
+          // and covers any antialiasing gaps left by ClipRRect at the corners.
+          // This matches the approach used in ArtworkHairlineBorder.
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(finalRadius),
+            border: Border.all(
+              color: kArtworkHairlineColor,
+              width: kArtworkHairlineWidth,
+              strokeAlign: BorderSide.strokeAlignInside,
             ),
-          ],
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 300),
-          curve:    Curves.easeOutCubic,
-          scale:    targetScale,
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(finalRadius),
             child: SongArtwork(
               songId:       song.id,
               size:         artSize,
               borderRadius: BorderRadius.zero,
+              // Hairline already drawn on the outer Container above —
+              // avoids a doubled/mismatched stroke here.
+              showBorder:   false,
             ),
           ),
         ),
@@ -479,7 +550,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           ),
         ),
       ),
-    );
+            ), // closes inner Positioned
+          ],
+        ), // closes inner Stack
+      ), // closes ClipRect
+    ); // closes Positioned.fill
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
@@ -573,4 +648,19 @@ Transform.translate(
       ],
     );
   }
+}
+
+// ── Reveal clipper used by the mini-player entry animation ───────────────────
+// Clips away everything at/below a given height so the mini player appears to
+// rise from behind/inside the bottom nav bar instead of sliding on top of it.
+class _BottomRevealClipper extends CustomClipper<Rect> {
+  final double visibleHeight;
+  const _BottomRevealClipper(this.visibleHeight);
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, visibleHeight);
+
+  @override
+  bool shouldReclip(covariant _BottomRevealClipper oldClipper) =>
+      oldClipper.visibleHeight != visibleHeight;
 }

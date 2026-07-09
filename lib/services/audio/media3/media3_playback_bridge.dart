@@ -342,11 +342,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setVirtualizerStrength(int strength) =>
       _invoke<void>('setVirtualizerStrength', {'strength': strength});
 
-  // ── Reverb ────────────────────────────────────────────────────────────────
-
-  static Future<void> setReverbPreset(int preset) =>
-      _invoke<void>('setReverbPreset', {'preset': preset});
-
   // ── Skip silence (Item 1) ─────────────────────────────────────────────────
 
   static Future<void> setSkipSilence(bool enabled) =>

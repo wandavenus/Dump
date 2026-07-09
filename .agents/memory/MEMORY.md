@@ -1,3 +1,4 @@
+- [Flutter 3.44.4 manual install](flutter-manual-install.md) — Nix hanya sediakan 3.32.0; 3.44.4 diinstall manual ke /home/runner/flutter/; PATH di semua workflow harus prefix; kalau hilang jalankan setup-flutter.sh.
 - [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
 - [MediaKit Android service](mediakit-android-service.md) — MediaKitPlaybackService architecture: mirror service (no audio), SimpleBasePlayer state player, transport command flow, metadata push, channel names.
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
@@ -33,3 +34,5 @@
 - [MediaKit engine dispose pattern](mediakit-engine-dispose-pattern.md) — urutan shutdown wajib + alasan; null _player sebelum await pertama untuk menutup async race; stopListening sebelum stopService; semua lokasi guard _disposed.
 - [MediaKit shuffle index-space mismatch](mediakit-shuffle-index-space.md) — mpv native playlist order ≠ Dart `_queue` order when shuffled; any index crossing that boundary (both directions) must resolve via URI, never trusted as-is.
 - [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.
+- [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
+- [Lyrics full-view control hiding](lyrics-fullview-control-hiding.md) — bottom controls hide only on genuine user swipe-up (ScrollUpdateNotification.dragDetails != null), never on programmatic/auto-follow scrolls.

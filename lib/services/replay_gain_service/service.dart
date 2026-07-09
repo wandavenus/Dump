@@ -19,6 +19,13 @@ class ReplayGainService {
   // In-memory cache (cleared on hot-restart).
   static final Map<int, LoudnessData> _cache = {};
 
+  // Deduplicates concurrent resolve() calls for the same song — e.g. rapid
+  // track skips or the UI + playback path both resolving loudness for the
+  // same song before either finishes. The second caller just awaits the
+  // first's in-flight future instead of issuing its own SharedPrefs read +
+  // native tag round-trip.
+  static final Map<int, Future<LoudnessData>> _inFlight = {};
+
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /// Returns the best available [LoudnessData] for [song].
@@ -32,14 +39,28 @@ class ReplayGainService {
     final cached = _cache[song.id];
     if (cached != null) return cached;
 
-    // 2. SharedPrefs cache
+    // 2. In-flight dedup
+    final existing = _inFlight[song.id];
+    if (existing != null) return existing;
+
+    final future = _resolveUncached(song);
+    _inFlight[song.id] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlight.remove(song.id); // ignore: unawaited_futures
+    }
+  }
+
+  static Future<LoudnessData> _resolveUncached(LocalSong song) async {
+    // SharedPrefs cache
     final fromPrefs = await _loadFromPrefs(song.id);
     if (fromPrefs != null) {
       _cache[song.id] = fromPrefs;
       return fromPrefs;
     }
 
-    // 3. Native tag read
+    // Native tag read
     final data = await _readTagsNative(song.path, song.id);
     _cache[song.id] = data;
     await _saveToPrefs(song.id, data);

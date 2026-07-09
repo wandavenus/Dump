@@ -42,7 +42,7 @@ class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
                 child: SizeTransition(
                   sizeFactor: animation,
                   axis: Axis.vertical,
-                  axisAlignment: -1.0,
+                  alignment: const Alignment(0, -1.0),
                   child: child,
                 ),
               ),
@@ -128,8 +128,8 @@ class _UpNextCardContent extends StatelessWidget {
             song.artist,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.55),
+            style: const TextStyle(
+              color: Color(0xFF8E8E93),
               fontSize: 12,
             ),
           ),
