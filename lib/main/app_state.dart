@@ -62,6 +62,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.3,
                               decoration: TextDecoration.none,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
                             ),
                           ),
                         ),
