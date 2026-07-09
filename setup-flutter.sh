@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup-flutter.sh
-# Install Flutter 3.44.4 ke /home/runner/flutter/ kalau belum ada.
+# Install Flutter 3.44.5 ke /home/runner/flutter/ kalau belum ada.
 # Jalankan: bash setup-flutter.sh
 
 set -e
