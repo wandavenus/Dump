@@ -57,6 +57,18 @@ class _DebugSection extends StatelessWidget {
         ),
         const SettingsDivider(),
 
+        // Watermark toggle
+        ValueListenableBuilder<bool>(
+          valueListenable: WatermarkService.visible,
+          builder: (_, visible, _) => SettingsToggleRow(
+            title: 'Watermark',
+            subtitle: 'Tampilkan watermark di tengah atas layar',
+            value: visible,
+            onChanged: WatermarkService.setVisible,
+          ),
+        ),
+        const SettingsDivider(),
+
         // Exit debug
         SettingsActionRow(
           title: 'Keluar Mode Debug',

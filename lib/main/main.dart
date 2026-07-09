@@ -28,6 +28,7 @@ Future<void> main() async {
       LogService.init(),
       LyricsSettings.init(),
       UpNextSettings.init(),
+      WatermarkService.init(),
     ]);
     NativeLogBridge.init();
 

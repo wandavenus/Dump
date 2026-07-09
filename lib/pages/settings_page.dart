@@ -11,6 +11,7 @@ import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/services/media_capabilities_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
+import 'package:musicplayer/services/watermark_service.dart';
 import 'package:musicplayer/services/audio/mediakit/mediakit_settings_service.dart';
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';

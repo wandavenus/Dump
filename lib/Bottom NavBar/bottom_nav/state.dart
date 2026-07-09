@@ -188,6 +188,43 @@ class _FirstPageState extends State<FirstPage> {
                   ),
                   // Unified morph player: handles both mini and full-player.
                   const UnifiedMorphPlayer(),
+                  // Watermark — selalu di atas semua layer, non-interactive.
+                  ValueListenableBuilder<bool>(
+                    valueListenable: WatermarkService.visible,
+                    builder: (_, show, _) {
+                      if (!show) return const SizedBox.shrink();
+                      return Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: SafeArea(
+                            bottom: false,
+                            child: Center(
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'IG : Wndavenznchole',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             );

@@ -14,7 +14,7 @@ class _VersionTileState extends State<_VersionTile> {
       _tapCount++;
     }
 
-    if (_tapCount >= 3) {
+    if (_tapCount >= 5) {
       _tapCount = 0;
       _firstTap = null;
       if (!_DebugState.enabled.value) {
