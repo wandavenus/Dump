@@ -55,7 +55,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         child: Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            'IG : Wndavenznchole',
+                            WatermarkService.text,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.85),
                               fontSize: 11,
