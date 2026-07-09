@@ -27,7 +27,7 @@ class _ActionButton extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Color(0xFFF92D48),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
