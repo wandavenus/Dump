@@ -62,7 +62,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.musicplayer"
-        minSdk 29
+        minSdk 28
         targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
