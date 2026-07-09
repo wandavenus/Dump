@@ -23,8 +23,12 @@ class PlayShuffleButtons extends StatelessWidget {
             icon: CupertinoIcons.shuffle,
             label: 'Acak',
             onTap: () async {
-              final shuffled = List<LocalSong>.from(songs)..shuffle();
-              await AudioService.playSongAt(playlist: shuffled, index: 0);
+              if (songs.isEmpty) return;
+              if (!AudioService.shuffleEnabled) {
+                await AudioService.toggleShuffle();
+              }
+              final randomIndex = Random().nextInt(songs.length);
+              await AudioService.playSongAt(playlist: songs, index: randomIndex);
             },
           ),
         ],
