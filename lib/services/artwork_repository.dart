@@ -45,10 +45,59 @@ class ArtworkRepository {
     return _cacheDirPath ??= (await getApplicationCacheDirectory()).path;
   }
 
+  /// Resolves and caches the cache-directory path up front. Call once during
+  /// app startup (awaited, before [runApp]) so [getProviderSync] can do a
+  /// synchronous disk check on the very first frame of every widget — this
+  /// is what lets previously-cached artwork render immediately on cold start
+  /// (app killed / removed from recents) instead of a placeholder flash while
+  /// the async lookup resolves.
+  Future<void> warmUp() => _resolvedCacheDir();
+
   /// Expected disk path for a song's artwork (without checking existence).
   Future<String> diskPath(int songId) async {
     final base = await _resolvedCacheDir();
     return '$base/artwork/$songId.webp';
+  }
+
+  /// Synchronous best-effort lookup: returns a [FileImage] immediately if the
+  /// artwork is already known (memory cache) or already on disk, without any
+  /// `await` — so callers can populate their first frame with zero flash.
+  ///
+  /// Requires [warmUp] to have completed first; returns null otherwise (falls
+  /// back to the async path, e.g. this is the very first extraction ever).
+  ImageProvider? getProviderSync(int songId, {int? targetSizePx}) {
+    if (songId <= 0) return null;
+
+    final memorized = _paths[songId];
+    if (memorized != null) {
+      _touchMemory(songId, memorized);
+      return _wrapProvider(songId, memorized, targetSizePx);
+    }
+
+    final base = _cacheDirPath;
+    if (base == null) return null; // warmUp() hasn't resolved yet.
+
+    final expected = '$base/artwork/$songId.webp';
+    final file = File(expected);
+    final stat = file.statSync();
+    if (stat.type == FileSystemEntityType.notFound || stat.size <= 0) {
+      return null;
+    }
+
+    _addToMemory(songId, expected);
+    return _wrapProvider(songId, expected, targetSizePx);
+  }
+
+  ImageProvider _wrapProvider(int songId, String path, int? targetSizePx) {
+    final img = _providers.remove(songId) ?? FileImage(File(path));
+    _providers[songId] = img;
+    while (_providers.length > _maxEntries) {
+      _providers.remove(_providers.keys.first);
+    }
+    if (targetSizePx != null && targetSizePx > 0) {
+      return ResizeImage(img, width: targetSizePx, height: targetSizePx);
+    }
+    return img;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -95,19 +144,7 @@ class ArtworkRepository {
     final path = await getPath(songId);
     if (path == null) return null;
 
-    // Reuse existing FileImage to avoid allocating duplicate objects.
-    final img = _providers.remove(songId) ?? FileImage(File(path));
-    _providers[songId] = img;
-
-    // Trim provider cache in sync with path cache.
-    while (_providers.length > _maxEntries) {
-      _providers.remove(_providers.keys.first);
-    }
-
-    if (targetSizePx != null && targetSizePx > 0) {
-      return ResizeImage(img, width: targetSizePx, height: targetSizePx);
-    }
-    return img;
+    return _wrapProvider(songId, path, targetSizePx);
   }
 
   /// Returns raw bytes for [songId]'s artwork, reading from the cached WebP

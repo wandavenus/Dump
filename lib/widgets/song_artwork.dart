@@ -88,6 +88,16 @@ class _SongArtworkState extends State<SongArtwork> {
   @override
   void initState() {
     super.initState();
+    // Synchronous first-frame check: if this artwork is already on disk
+    // (cached from a previous session), render it immediately instead of
+    // showing a placeholder while the async lookup resolves. This is what
+    // makes cover art appear instantly after the app is killed/reopened.
+    final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+    final targetPx = (widget.size * dpr).round();
+    _provider = ArtworkRepository.instance.getProviderSync(
+      widget.songId,
+      targetSizePx: widget.size >= 250 ? null : targetPx,
+    );
     _load(widget.songId);
   }
 
