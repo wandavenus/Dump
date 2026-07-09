@@ -164,21 +164,6 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return PlayShuffleButtons(songs: songs);
   }
 
-  // ─── Shared list header (LargePageTitle + divider + search + controls) ─────
-
-  Widget _listHeader(List<LocalSong> songs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LargePageTitle(title: _title),
-        const HeaderDivider(),
-        _searchBar(),
-        _controlButtons(songs),
-      ],
-    );
-  }
-
   /// Judul + divider saja — scroll normal, tidak menumpuk.
   Widget _titleHeader() {
     return Column(
@@ -418,52 +403,67 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             .toList();
 
     final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
-    return ListView.separated(
+    return CustomScrollView(
       controller: _scroll,
-      padding: EdgeInsets.only(bottom: bottomClearance),
-      itemCount: filtered.length + 1,
-      separatorBuilder: (context, index) => index == 0
-          ? const SizedBox.shrink()
-          : const Divider(
-              height: 1,
-              thickness: 0.5,
-              color: Color(0xFF48484A),
-              indent: 87,
-              endIndent: 17,
+      slivers: [
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: bottomClearance),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final song = filtered[index];
+                final songIndex = songs.indexOf(song);
+                final tile = ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  leading: SongArtwork(songId: song.id, size: 55),
+                  title: Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 13,
+                      ), 
+                  ),
+                  onTap: () => _playAt(songs, songIndex),
+                  onLongPress: () => showSongContextMenu(
+                    context,
+                    song: song,
+                    playlist: songs,
+                    index: songIndex,
+                  ),
+                );
+                if (index == filtered.length - 1) return tile;
+                return Column(
+                  children: [
+                    tile,
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 87,
+                      endIndent: 17,
+                    ),
+                  ],
+                );
+              },
+              childCount: filtered.length,
             ),
-      itemBuilder: (context, index) {
-        if (index == 0) return _listHeader(songs);
-        final song = filtered[index - 1];
-        final songIndex = songs.indexOf(song);
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 2,
           ),
-          leading: SongArtwork(songId: song.id, size: 55),
-          title: Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            song.artist,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 13,
-              ), 
-          ),
-          onTap: () => _playAt(songs, songIndex),
-          onLongPress: () => showSongContextMenu(
-            context,
-            song: song,
-            playlist: songs,
-            index: songIndex,
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
