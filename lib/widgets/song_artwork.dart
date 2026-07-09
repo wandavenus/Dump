@@ -174,7 +174,6 @@ class _SongArtworkState extends State<SongArtwork> {
         borderRadius: widget.borderRadius,
         color: Colors.grey.shade900,
       ),
-      child: const Icon(Icons.music_note),
     );
     if (!widget.showBorder) return placeholder;
     return ArtworkHairlineBorder(
