@@ -23,7 +23,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.musicplayer"
+    namespace "dev.wndavenz.music"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -61,7 +61,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.musicplayer"
+        applicationId "dev.wndavenz.music"
         minSdk 28
         targetSdk 36
         versionCode flutterVersionCode.toInteger()
