@@ -89,12 +89,17 @@ class ArtworkRepository {
 
   final target = (size * dpr).round();
 
-  // Jangan decode artwork kecil terlalu kecil.
+  // Jangan decode artwork kecil / song list terlalu kecil.
   if (size < 80) {
   return target < 320 ? 320 : target;
 }
 
-  return target;
+ // Recently Played / Artist.
+  if (size >= 170 && size < 250) {
+    target = (target * 1.25).round();
+  } 
+    
+    return target;
 }
 
   Future<String> _resolvedCacheDir() async {
