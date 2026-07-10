@@ -1,5 +1,6 @@
 - [Flutter 3.44.4 manual install](flutter-manual-install.md) — Nix hanya sediakan 3.32.0; 3.44.4 diinstall manual ke /home/runner/flutter/; PATH di semua workflow harus prefix; kalau hilang jalankan setup-flutter.sh.
 - [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
+- [Artwork cache storage location](artwork-cache-storage.md) — cache di filesDir/supportDir bukan cacheDir; getProviderSync pakai _diskCachedIds pre-scan, bukan statSync per call; _paths hanya diisi setelah async validation.
 - [MediaKit Android service](mediakit-android-service.md) — MediaKitPlaybackService architecture: mirror service (no audio), SimpleBasePlayer state player, transport command flow, metadata push, channel names.
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.

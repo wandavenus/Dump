@@ -11,11 +11,15 @@ import 'media_store_service.dart';
 ///
 /// Layer 1 — Memory:  [LinkedHashMap] of up to [_maxEntries] (songId → file path).
 ///                    Evicts the LRU entry when full.
-/// Layer 2 — Disk:    `{cacheDir}/artwork/{songId}.webp` written by the native
-///                    [ArtworkCacheManager].  A Dart-side existence check skips
+/// Layer 2 — Disk:    `{supportDir}/artwork/{songId}.webp` written by the native
+///                    [ArtworkCacheManager].  A Dart-side pre-scanned ID set skips
 ///                    the MethodChannel entirely on subsequent app launches.
 /// Layer 3 — Native:  [MediaStoreService.getArtworkPath] → MethodChannel →
 ///                    native extraction + WebP encode + atomic save.
+///
+/// Disk storage uses [getApplicationSupportDirectory] (not the system cache dir)
+/// so files persist across app restarts and are never cleared by MIUI/Android's
+/// storage-free mechanisms.
 ///
 /// All async methods are safe to call concurrently: in-flight deduplication
 /// prevents double-extraction of the same song.
@@ -36,22 +40,52 @@ class ArtworkRepository {
   // Deduplicate concurrent requests for the same songId.
   final Map<int, Future<String?>> _inFlight = {};
 
-  // ── Cache directory ────────────────────────────────────────────────────────
+  // ── Disk cache directory + pre-scanned ID set ──────────────────────────────
 
   // Cached once; null until first call to [_resolvedCacheDir].
   String? _cacheDirPath;
 
+  // Song IDs that are known to have a WebP file on disk, populated during
+  // [warmUp] by scanning the artwork directory once.  Used by [getProviderSync]
+  // to skip per-call File.statSync() — a Set.contains() O(1) lookup instead.
+  //
+  // This set can have stale entries if the native LRU eviction removes a file
+  // mid-session; in that case FileImage will fail to load and the widget falls
+  // back to its async path automatically, which is an acceptable trade-off for
+  // the elimination of hundreds of statSync() calls on every scroll.
+  final Set<int> _diskCachedIds = {};
+
   Future<String> _resolvedCacheDir() async {
-    return _cacheDirPath ??= (await getApplicationCacheDirectory()).path;
+    if (_cacheDirPath != null) return _cacheDirPath!;
+    // Use app support directory — unlike the system cache dir this is never
+    // cleared by MIUI or Android's automatic storage-free mechanisms.
+    final base = (await getApplicationSupportDirectory()).path;
+    _cacheDirPath = base;
+    return base;
   }
 
-  /// Resolves and caches the cache-directory path up front. Call once during
-  /// app startup (awaited, before [runApp]) so [getProviderSync] can do a
-  /// synchronous disk check on the very first frame of every widget — this
-  /// is what lets previously-cached artwork render immediately on cold start
-  /// (app killed / removed from recents) instead of a placeholder flash while
-  /// the async lookup resolves.
-  Future<void> warmUp() => _resolvedCacheDir();
+  /// Resolves the support-directory path and pre-scans the artwork sub-directory
+  /// to populate [_diskCachedIds].  Call once during app startup (awaited, before
+  /// [runApp]) so [getProviderSync] can return immediately on the very first frame
+  /// without any File I/O — this is what eliminates the placeholder flash on cold
+  /// start (app killed / removed from recents).
+  Future<void> warmUp() async {
+    final base = await _resolvedCacheDir();
+    final artworkDir = Directory('$base/artwork');
+    if (!artworkDir.existsSync()) return;
+
+    try {
+      await for (final entity in artworkDir.list()) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        if (!name.endsWith('.webp')) continue;
+        final id = int.tryParse(name.substring(0, name.length - 5));
+        if (id != null && id > 0) _diskCachedIds.add(id);
+      }
+    } catch (_) {
+      // Non-fatal: if scan fails, getProviderSync falls back to async lookup.
+    }
+  }
 
   /// Expected disk path for a song's artwork (without checking existence).
   Future<String> diskPath(int songId) async {
@@ -77,14 +111,21 @@ class ArtworkRepository {
     final base = _cacheDirPath;
     if (base == null) return null; // warmUp() hasn't resolved yet.
 
-    final expected = '$base/artwork/$songId.webp';
-    final file = File(expected);
-    final stat = file.statSync();
-    if (stat.type == FileSystemEntityType.notFound || stat.size <= 0) {
-      return null;
-    }
+    // Use the pre-scanned set for an O(1) lookup — no File.statSync() per call.
+    if (!_diskCachedIds.contains(songId)) return null;
 
-    _addToMemory(songId, expected);
+    // Return the FileImage directly WITHOUT adding to _paths.
+    //
+    // _paths only holds async-validated entries (confirmed by disk stat or native
+    // extraction in _resolvePath).  If we added here and native LRU later deleted
+    // the file, a subsequent getPath() call would short-circuit on _paths and
+    // return the stale path, skipping re-extraction.  By keeping _paths clean,
+    // getPath() will run _resolvePath() → properly verify/re-extract, then add
+    // to _paths with a confirmed path.
+    //
+    // _providers IS still used so we don't re-allocate FileImage objects on every
+    // synchronous call for the same song.
+    final expected = '$base/artwork/$songId.webp';
     return _wrapProvider(songId, expected, targetSizePx);
   }
 
@@ -252,6 +293,7 @@ class ArtworkRepository {
     final file = File(expected);
     final stat = await file.stat(); // ignore: avoid_slow_async_io
     if (stat.type != FileSystemEntityType.notFound && stat.size > 0) {
+      _diskCachedIds.add(songId);
       _addToMemory(songId, expected);
       return expected;
     }
@@ -259,6 +301,7 @@ class ArtworkRepository {
     // Layer 3: native extraction via MethodChannel.
     final nativePath = await MediaStoreService.getArtworkPath(songId);
     if (nativePath != null) {
+      _diskCachedIds.add(songId);
       _addToMemory(songId, nativePath);
     }
     return nativePath;

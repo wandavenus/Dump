@@ -14,7 +14,10 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Persistent WebP artwork cache stored in `{cacheDir}/artwork/{songId}.webp`.
+ * Persistent WebP artwork cache stored in `{filesDir}/artwork/{songId}.webp`.
+ *
+ * Stored in [Context.filesDir] (app support directory) rather than [Context.cacheDir]
+ * so files are never cleared by MIUI or Android's automatic storage-free mechanisms.
  *
  * Design goals:
  *  - Zero MediaStore I/O on subsequent app launches (cache hit returns path immediately).
@@ -36,9 +39,10 @@ class ArtworkCacheManager(private val context: Context) {
         private const val MAX_ARTWORK_SIZE = 1000
     }
 
-    // Lazily create the cache directory on first access.
+    // Lazily create the persistent cache directory on first access.
+    // Uses filesDir (app support directory) so files survive MIUI/system cleanup.
     private val cacheDir: File by lazy {
-    File(context.cacheDir, CACHE_SUBDIR).also { dir ->
+    File(context.filesDir, CACHE_SUBDIR).also { dir ->
         dir.mkdirs()
 
         dir.listFiles { file ->
