@@ -46,16 +46,19 @@ class LocalSongCard extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              song.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
+            SizedBox(
+  width: 165,
+  child: Text(
+    song.artist,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(
+      fontWeight: FontWeight.normal,
+      fontSize: 12,
+      color: Colors.grey,
+    ),
+  ),
+),
           ],
         ),
       ),
