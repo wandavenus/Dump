@@ -102,6 +102,13 @@ class ArtworkRepository {
   return target;
 }
 
+Future<String> _resolvedCacheDir() async {
+  if (_cacheDirPath != null) return _cacheDirPath!;
+  final base = (await getApplicationSupportDirectory()).path;
+  _cacheDirPath = base;
+  return base;
+}
+  
   /// Resolves the support-directory path and pre-scans the artwork sub-directory
   /// to populate [_diskCachedIds].  Call once during app startup (awaited, before
   /// [runApp]) so [getProviderSync] can return immediately on the very first frame
