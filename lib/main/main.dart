@@ -81,13 +81,35 @@ Future<void> main() async {
       final dpr     = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
       final smallPx = (170 * dpr).round();
 
+      // Only the initial Home viewport is awaited.  This keeps startup bounded
+      // while guaranteeing visible covers are already decoded before runApp().
+      final visibleRecentIds = recentIds.take(8).toList(growable: false);
+      final visibleGridIds = [
+        ...albumCoverIds.take(4),
+        ...artistCoverIds.take(4),
+      ];
+
       // Recently-played carousel: size=250 → no ResizeImage → FileImage key.
-      ArtworkRepository.instance.prewarmImageCache(recentIds);
+      await ArtworkRepository.instance.prewarmImageCache(visibleRecentIds);
       // Album + artist covers: size=170 → ResizeImage at device pixel size.
-      ArtworkRepository.instance.prewarmImageCache(
-        [...albumCoverIds, ...artistCoverIds],
+      await ArtworkRepository.instance.prewarmImageCache(
+        visibleGridIds,
         targetSizePx: smallPx,
       );
+
+      // Keep adjacent off-screen artwork warm without delaying the first frame.
+      unawaited(ArtworkRepository.instance.prewarmImageCache(
+        recentIds.skip(8).take(8).toList(growable: false),
+        timeout: const Duration(milliseconds: 2000),
+      ));
+      unawaited(ArtworkRepository.instance.prewarmImageCache(
+        [
+          ...albumCoverIds.skip(4).take(8),
+          ...artistCoverIds.skip(4).take(8),
+        ],
+        targetSizePx: smallPx,
+        timeout: const Duration(milliseconds: 2000),
+      ));
     }
 
     NativeLogBridge.init();

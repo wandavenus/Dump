@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
@@ -230,21 +231,50 @@ class ArtworkRepository {
   /// logic from [SongArtwork._load].
   ///
   /// Only warms IDs that are known to have artwork on disk (_diskCachedIds) so
-  /// there are no wasted MethodChannel calls.  Fire-and-forget: returns
-  /// immediately; decoding runs in the background via the image codec pipeline.
+  /// there are no wasted MethodChannel calls.
   ///
   /// Safe to call from [main] after [warmUp] has completed — [ImageCache] is
   /// available as soon as [WidgetsFlutterBinding.ensureInitialized] is called.
-  void prewarmImageCache(List<int> songIds, {int? targetSizePx}) {
+  Future<void> prewarmImageCache(
+    List<int> songIds, {
+    int? targetSizePx,
+    Duration timeout = const Duration(milliseconds: 900),
+  }) async {
     if (_cacheDirPath == null) return; // warmUp() hasn't resolved yet.
+
+    final seen = <int>{};
+    final warmups = <Future<void>>[];
     for (final id in songIds) {
+      if (!seen.add(id)) continue;
       final provider = getProviderSync(id, targetSizePx: targetSizePx);
       if (provider == null) continue;
-      // Resolve into Flutter's shared ImageCache (fire and forget).
-      // This starts the async disk read + WebP decode immediately so
-      // the decoded bitmap is ready (or nearly ready) by the first frame.
-      provider.resolve(ImageConfiguration.empty);
+
+      warmups.add(_decodeIntoImageCache(provider).timeout(
+        timeout,
+        onTimeout: () {},
+      ));
     }
+
+    if (warmups.isEmpty) return;
+    await Future.wait(warmups);
+  }
+
+  Future<void> _decodeIntoImageCache(ImageProvider provider) {
+    final completer = Completer<void>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+    stream.addListener(listener);
+    return completer.future;
   }
 
   // ── Background prefetch (cache warm-up) ────────────────────────────────────
