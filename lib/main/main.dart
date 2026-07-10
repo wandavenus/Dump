@@ -94,22 +94,41 @@ Future<void> main() async {
         final visibleAlbumIds = albumCoverIds.take(4).toList(growable: false);
         final visibleArtistIds = artistCoverIds.take(4).toList(growable: false);
 
-        // Recently Played (170) — priority path for the first screen after a
-        // system-kill / removed-from-recents cold start.
-        await ArtworkRepository.instance.prewarmImageCache(
-          visibleRecentIds,
-          targetSizePx: smallPx,
-          timeout: const Duration(milliseconds: 2000),
-        );
-
-        // Album (250)
-        await ArtworkRepository.instance.prewarmImageCache(visibleAlbumIds);
-
-        // Artist (170)
-        await ArtworkRepository.instance.prewarmImageCache(
-          visibleArtistIds,
-          targetSizePx: smallPx,
-        );
+        // Recently Played / Album / Artist — all three are above-the-fold on
+        // the very first frame, so they share one consistent timeout policy
+        // and run CONCURRENTLY (not sequentially) so the worst case is one
+        // batch's timeout, not the sum of three.
+        //
+        // The cap is 3 s, up from the old 900 ms (2 s for Recently Played):
+        // right after a MIUI system-kill, storage I/O can be heavily
+        // contended by other apps also cold-starting, so a decode that
+        // normally takes <100 ms can occasionally take well over 900 ms-2 s.
+        // When the timeout fires early, main() proceeds to runApp() with
+        // that image NOT yet in ImageCache — SongArtwork then falls back to
+        // its async _load() path and the user sees exactly the inconsistent
+        // "sometimes zero-delay, sometimes reload" flicker this guards
+        // against. The decode itself never blocks the UI thread (it's the
+        // disk-read/webp-decode await), so a longer cap only ever costs time
+        // on genuinely slow cold boots, never on the common warm/fast path —
+        // and running the three batches concurrently keeps that worst case
+        // bounded to ~3 s total instead of ~3 s per section.
+        const priorityPrewarmTimeout = Duration(milliseconds: 3000);
+        await Future.wait([
+          ArtworkRepository.instance.prewarmImageCache(
+            visibleRecentIds,
+            targetSizePx: smallPx,
+            timeout: priorityPrewarmTimeout,
+          ),
+          ArtworkRepository.instance.prewarmImageCache(
+            visibleAlbumIds,
+            timeout: priorityPrewarmTimeout,
+          ),
+          ArtworkRepository.instance.prewarmImageCache(
+            visibleArtistIds,
+            targetSizePx: smallPx,
+            timeout: priorityPrewarmTimeout,
+          ),
+        ]);
 
         // Off-screen
         unawaited(

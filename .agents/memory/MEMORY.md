@@ -37,3 +37,4 @@
 - [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.
 - [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
 - [Lyrics full-view control hiding](lyrics-fullview-control-hiding.md) — bottom controls hide only on genuine user swipe-up (ScrollUpdateNotification.dragDetails != null), never on programmatic/auto-follow scrolls.
+- [Artwork prewarm timeout race](artwork-prewarm-timeout-race.md) — home artwork (Recently/Album/Artist) prewarm timeout can fire before decode on cold start under I/O contention → visible flicker; fixed with shared 3s timeout + concurrent Future.wait.
