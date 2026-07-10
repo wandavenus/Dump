@@ -17,7 +17,7 @@ class BrowseBannerCarousel extends StatelessWidget {
       height: 350,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: 14),
+        padding: const EdgeInsets.only(left: 18),
         itemCount: songs.length,
         itemBuilder: (context, index) {
           final song = songs[index];
