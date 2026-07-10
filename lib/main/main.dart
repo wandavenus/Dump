@@ -79,32 +79,34 @@ Future<void> main() async {
       }
 
       final dpr = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-final artistPx = (170 * dpr).round();
+final smallPx = (170 * dpr).round();
 
 final visibleRecentIds = recentIds.take(8).toList(growable: false);
 final visibleAlbumIds = albumCoverIds.take(4).toList(growable: false);
 final visibleArtistIds = artistCoverIds.take(4).toList(growable: false);
 
-// Recently Played (size 250 -> FileImage)
+// Recently Played (170)
 await ArtworkRepository.instance.prewarmImageCache(
   visibleRecentIds,
+  targetSizePx: smallPx,
 );
 
-// Album cards (size 250 -> FileImage)
+// Album (250)
 await ArtworkRepository.instance.prewarmImageCache(
   visibleAlbumIds,
 );
 
-// Artist cards (size 170 -> ResizeImage)
+// Artist (170)
 await ArtworkRepository.instance.prewarmImageCache(
   visibleArtistIds,
-  targetSizePx: artistPx,
+  targetSizePx: smallPx,
 );
 
-// Off-screen warm-up
+// Off-screen
 unawaited(
   ArtworkRepository.instance.prewarmImageCache(
     recentIds.skip(8).take(8).toList(growable: false),
+    targetSizePx: smallPx,
     timeout: const Duration(milliseconds: 2000),
   ),
 );
@@ -119,7 +121,7 @@ unawaited(
 unawaited(
   ArtworkRepository.instance.prewarmImageCache(
     artistCoverIds.skip(4).take(8).toList(growable: false),
-    targetSizePx: artistPx,
+    targetSizePx: smallPx,
     timeout: const Duration(milliseconds: 2000),
   ),
 );
