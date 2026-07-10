@@ -78,16 +78,53 @@ Future<void> main() async {
         if (seenArtist.add(s.artist)) artistCoverIds.add(s.id);
       }
 
-      final dpr     = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-      final smallPx = (170 * dpr).round();
+      final dpr = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+final smallPx = (170 * dpr).round();
 
-      // Recently-played carousel: size=250 → no ResizeImage → FileImage key.
-      ArtworkRepository.instance.prewarmImageCache(recentIds);
-      // Album + artist covers: size=170 → ResizeImage at device pixel size.
-      ArtworkRepository.instance.prewarmImageCache(
-        [...albumCoverIds, ...artistCoverIds],
-        targetSizePx: smallPx,
-      );
+final visibleRecentIds = recentIds.take(8).toList(growable: false);
+final visibleAlbumIds = albumCoverIds.take(4).toList(growable: false);
+final visibleArtistIds = artistCoverIds.take(4).toList(growable: false);
+
+// Recently Played (170)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleRecentIds,
+  targetSizePx: smallPx,
+);
+
+// Album (250)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleAlbumIds,
+);
+
+// Artist (170)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleArtistIds,
+  targetSizePx: smallPx,
+);
+
+// Off-screen
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    recentIds.skip(8).take(8).toList(growable: false),
+    targetSizePx: smallPx,
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
+
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    albumCoverIds.skip(4).take(8).toList(growable: false),
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
+
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    artistCoverIds.skip(4).take(8).toList(growable: false),
+    targetSizePx: smallPx,
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
     }
 
     NativeLogBridge.init();
