@@ -84,10 +84,18 @@ class ArtworkRepository {
   /// Pass [size] >= 250 through unchanged by the caller (full-res path) —
   /// this helper is only for the ResizeImage (<250) branch.
   int resolveTargetPx(double size) {
-    final dpr = _cachedDpr ??=
-        SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-    return (size * dpr).round();
-  }
+  final dpr = _cachedDpr ??=
+      SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+
+  final target = (size * dpr).round();
+
+  // Jangan decode artwork kecil terlalu kecil.
+  if (size < 80) {
+  return target < 320 ? 320 : target;
+}
+
+  return target;
+}
 
   Future<String> _resolvedCacheDir() async {
     if (_cacheDirPath != null) return _cacheDirPath!;
