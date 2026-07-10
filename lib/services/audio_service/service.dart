@@ -593,23 +593,30 @@ class AudioService {
 
       _playlist     = List<LocalSong>.unmodifiable(songs);
       _currentIndex = index;
-      final song    = songs[index];
+      final song = songs[index];
 
-      _setState(playbackState.value.copyWith(
-        currentSong:           song,
-        currentIndex:          index,
-        currentPlaylist:       _playlist,
-        isPlaying:             isPlaying,
-        processingState:       _parseProcessingState(stateStr),
-        duration: durationMs > 0
-            ? Duration(milliseconds: durationMs)
-            : song.duration,
-        position:              Duration(milliseconds: positionMs),
-        shuffleEnabled:        shuffleOn,
-        loopMode:              _loopModeFromString(repeatStr),
-        sleepTimerActive:      timerActive,
-        sleepTimerRemainingMs: timerMs,
-      ));
+final miniPx = ArtworkRepository.instance.resolveTargetPx(46.3);
+
+await ArtworkRepository.instance.prewarmImageCache(
+  [song.id],
+  targetSizePx: miniPx,
+);
+
+_setState(playbackState.value.copyWith(
+  currentSong:           song,
+  currentIndex:          index,
+  currentPlaylist:       _playlist,
+  isPlaying:             isPlaying,
+  processingState:       _parseProcessingState(stateStr),
+  duration: durationMs > 0
+      ? Duration(milliseconds: durationMs)
+      : song.duration,
+  position:              Duration(milliseconds: duration(milliseconds: positionMs),
+  shuffleEnabled:        shuffleOn,
+  loopMode:              _loopModeFromString(repeatStr),
+  sleepTimerActive:      timerActive,
+  sleepTimerRemainingMs: timerMs,
+));
 
       LogService.log(
         'AudioService',
