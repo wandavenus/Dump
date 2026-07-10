@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/painting.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'media_store_service.dart';
@@ -55,6 +56,38 @@ class ArtworkRepository {
   // back to its async path automatically, which is an acceptable trade-off for
   // the elimination of hundreds of statSync() calls on every scroll.
   final Set<int> _diskCachedIds = {};
+
+  // ── Shared device-pixel-ratio snapshot ────────────────────────────────────
+  //
+  // Both main.dart's cold-start prewarmImageCache() and SongArtwork's own
+  // getProviderSync()/getProvider() calls independently compute a
+  // `(size * devicePixelRatio).round()` target width/height for ResizeImage.
+  // If they ever read a DIFFERENT devicePixelRatio (e.g. because the platform
+  // hasn't finished reporting real display metrics the very first time it's
+  // read in main(), before the first view is attached), the two computed
+  // ResizeImage instances have different width/height, which is a different
+  // ImageCache key — so the prewarmed image is a cache MISS for the widget
+  // that actually renders it. That silently reproduces the exact "sometimes
+  // zero-delay, sometimes reload" artwork flicker on cold start, only for
+  // resized (small) artwork, never for full-res (>=250px) artwork such as
+  // the Album cards — which matches field reports where Recently Played /
+  // Artists flicker but Albums never do.
+  //
+  // Fix: resolve devicePixelRatio ONCE and cache it here, so every caller
+  // (main.dart prewarm + every SongArtwork instance for the rest of the
+  // process lifetime) uses the exact same value and therefore the exact same
+  // ResizeImage cache key.
+  double? _cachedDpr;
+
+  /// Returns the target pixel size for [size] logical pixels, using a
+  /// devicePixelRatio resolved once and reused for the lifetime of the app.
+  /// Pass [size] >= 250 through unchanged by the caller (full-res path) —
+  /// this helper is only for the ResizeImage (<250) branch.
+  int resolveTargetPx(double size) {
+    final dpr = _cachedDpr ??=
+        SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+    return (size * dpr).round();
+  }
 
   Future<String> _resolvedCacheDir() async {
     if (_cacheDirPath != null) return _cacheDirPath!;

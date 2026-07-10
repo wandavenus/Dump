@@ -113,8 +113,7 @@ class _SongArtworkState extends State<SongArtwork> {
     // (cached from a previous session), render it immediately instead of
     // showing a placeholder while the async lookup resolves. This is what
     // makes cover art appear instantly after the app is killed/reopened.
-    final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-    final targetPx = (widget.size * dpr).round();
+    final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
     _provider = ArtworkRepository.instance.getProviderSync(
       widget.songId,
       targetSizePx: widget.size >= 250 ? null : targetPx,
@@ -153,8 +152,7 @@ class _SongArtworkState extends State<SongArtwork> {
         final targetId = _requestedId;
 
         // Read pixel ratio before the await (safe on the UI isolate).
-        final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-        final targetPx = (widget.size * dpr).round();
+        final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
 
         final provider = await ArtworkRepository.instance.getProvider(
           targetId,

@@ -79,13 +79,11 @@ Future<void> main() async {
           if (seenArtist.add(s.artist)) artistCoverIds.add(s.id);
         }
 
-        final dpr = WidgetsBinding
-            .instance
-            .platformDispatcher
-            .views
-            .first
-            .devicePixelRatio;
-        final smallPx = (170 * dpr).round();
+        // Resolved via ArtworkRepository so this and every SongArtwork
+        // instance's later devicePixelRatio read are guaranteed identical —
+        // see resolveTargetPx() doc for why a mismatch here silently causes
+        // the "sometimes zero-delay, sometimes reload" flicker.
+        final smallPx = ArtworkRepository.instance.resolveTargetPx(170);
 
         // Only the first few Recently Played cards are visible on the first
         // frame.  Keep this awaited batch small so MIUI cold-start disk I/O
