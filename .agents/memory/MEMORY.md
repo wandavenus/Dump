@@ -38,3 +38,4 @@
 - [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
 - [Lyrics full-view control hiding](lyrics-fullview-control-hiding.md) — bottom controls hide only on genuine user swipe-up (ScrollUpdateNotification.dragDetails != null), never on programmatic/auto-follow scrolls.
 - [Artwork prewarm timeout race](artwork-prewarm-timeout-race.md) — home artwork (Recently/Album/Artist) prewarm timeout can fire before decode on cold start under I/O contention → visible flicker; fixed with shared 3s timeout + concurrent Future.wait.
+- [Lyrics providers review](lyrics-providers-review.md) — Musixmatch removed (dead, no token source); Apple Music lyrics need a real subscriber account token, not free/anonymous like LRCLIB.

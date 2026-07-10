@@ -14,7 +14,6 @@ import 'providers/kugou_provider.dart';
 import 'providers/kuwo_provider.dart';
 import 'providers/local_file_provider.dart';
 import 'providers/lrclib_provider.dart';
-import 'providers/musixmatch_provider.dart';
 import 'providers/netease_provider.dart';
 import 'providers/qq_music_provider.dart';
 
@@ -53,7 +52,6 @@ class LyricsFetchManager {
     KugouProvider(),
     KuwoProvider(),
     QQMusicProvider(),
-    const MusixmatchProvider(), // requires userToken — graceful skip if absent
   ];
 
   static String Function() _configuredFolderGetter = () => '';
