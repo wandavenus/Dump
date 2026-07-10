@@ -61,7 +61,7 @@ Future<void> main() async {
       //   widget.size < 250   →  (size * dpr).round()  (ResizeImage)
       //
       // Home sections that render on frame 1:
-      //   • Recently-played carousel → size 250 → full-res (targetSizePx: null)
+      //   • Recently-played carousel → size 170 → ResizeImage
       //   • Album cards              → size 250 → full-res (targetSizePx: null)
       //   • Artist cards             → size 170 → ResizeImage
       {
@@ -87,12 +87,20 @@ Future<void> main() async {
             .devicePixelRatio;
         final smallPx = (170 * dpr).round();
 
-        final visibleRecentIds = recentIds.take(8).toList(growable: false);
+        // Only the first few Recently Played cards are visible on the first
+        // frame.  Keep this awaited batch small so MIUI cold-start disk I/O
+        // does not race eight decodes at once and time out before runApp().
+        final visibleRecentIds = recentIds.take(4).toList(growable: false);
         final visibleAlbumIds = albumCoverIds.take(4).toList(growable: false);
         final visibleArtistIds = artistCoverIds.take(4).toList(growable: false);
 
-        // Recently Played (250)
-        await ArtworkRepository.instance.prewarmImageCache(visibleRecentIds);
+        // Recently Played (170) — priority path for the first screen after a
+        // system-kill / removed-from-recents cold start.
+        await ArtworkRepository.instance.prewarmImageCache(
+          visibleRecentIds,
+          targetSizePx: smallPx,
+          timeout: const Duration(milliseconds: 2000),
+        );
 
         // Album (250)
         await ArtworkRepository.instance.prewarmImageCache(visibleAlbumIds);
@@ -106,7 +114,8 @@ Future<void> main() async {
         // Off-screen
         unawaited(
           ArtworkRepository.instance.prewarmImageCache(
-            recentIds.skip(8).take(8).toList(growable: false),
+            recentIds.skip(4).take(12).toList(growable: false),
+            targetSizePx: smallPx,
             timeout: const Duration(milliseconds: 2000),
           ),
         );

@@ -8,14 +8,10 @@ import 'local_song_card.dart';
 /// Tinggi tetap 250 agar layout halaman tidak berubah.
 class LocalSongCarousel extends StatelessWidget {
   final List<LocalSong> songs;
-  final double artworkSize;
-  final double height;
 
   const LocalSongCarousel({
     super.key,
     required this.songs,
-    this.artworkSize = 170,
-    this.height = 250,
   });
 
   @override
@@ -23,7 +19,7 @@ class LocalSongCarousel extends StatelessWidget {
     if (songs.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: height,
+      height: 250,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
@@ -32,7 +28,6 @@ class LocalSongCarousel extends StatelessWidget {
           song: songs[index],
           playlist: songs,
           index: index,
-          artworkSize: artworkSize,
         ),
       ),
     );
