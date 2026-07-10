@@ -28,3 +28,20 @@ lyrics specifically require account-level auth Apple doesn't expose publicly.
 **How to apply:** don't attempt an "Apple Music lyrics provider" without the
 user explicitly supplying their own Apple Music account token — treat it as
 credential-gated, same category as Musixmatch, not as a free anonymous API.
+
+## Apple Music lyrics via lyrics.paxsenix.org proxy (added)
+Found a working free/anonymous path after all: `lyrics.paxsenix.org` is a
+public proxy that already holds its own Apple Music auth server-side and
+exposes `GET /apple-music/lyrics?id={appleMusicTrackId}` with no key needed.
+The trackId itself comes from the official free iTunes Search API
+(`itunes.apple.com/search?term=...&entity=song`), also keyless. Implemented
+as `AppleMusicProvider` (search iTunes → get trackId → call paxsenix →
+convert "Syllable" JSON to inline `<mm:ss.xxx>` Enhanced-LRC text → parse
+with existing `LrcParser`).
+
+**Why:** this is a third-party proxy, not an Apple-sanctioned API — it can
+go down or change shape without notice, same risk class as the other
+unofficial providers (NetEase/Kugou/Kuwo/QQ).
+**How to apply:** if lyrics.paxsenix.org lyrics start failing broadly, check
+whether the proxy is still alive / response shape changed before assuming
+a bug in `AppleMusicProvider`.

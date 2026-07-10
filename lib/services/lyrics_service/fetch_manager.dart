@@ -9,6 +9,7 @@ import 'cancellation.dart';
 import 'provider.dart';
 import 'quality.dart';
 import 'rate_limiter.dart';
+import 'providers/apple_music_provider.dart';
 import 'providers/embedded_provider.dart';
 import 'providers/kugou_provider.dart';
 import 'providers/kuwo_provider.dart';
@@ -48,6 +49,7 @@ class LyricsFetchManager {
 
   final List<LyricsProvider> _onlineProviders = [
     LrclibProvider(),
+    AppleMusicProvider(),
     NeteaseProvider(),
     KugouProvider(),
     KuwoProvider(),
