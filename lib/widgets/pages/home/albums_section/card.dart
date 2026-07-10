@@ -46,7 +46,7 @@ class _AlbumCardState extends State<_AlbumCard> {
   @override
   Widget build(BuildContext context) {
     final album = widget.album;
-    return InkWell(
+    return GestureDetector(
       onTap: () => Navigator.pushNamed(
         context,
         '/album',
