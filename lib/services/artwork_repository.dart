@@ -218,6 +218,35 @@ class ArtworkRepository {
   }
 }
 
+  // ── Flutter ImageCache pre-warm ────────────────────────────────────────────
+
+  /// Resolves [songIds] into Flutter's [ImageCache] before the first frame,
+  /// so cover art appears instantly with zero decode latency on cold start.
+  ///
+  /// Pass [targetSizePx] matching what [SongArtwork] will request for those
+  /// IDs (null = full-res [FileImage]; non-null = [ResizeImage] at that size).
+  /// Using the wrong size creates a different cache key and produces a miss,
+  /// so callers must mirror the `widget.size >= 250 ? null : (size*dpr).round()`
+  /// logic from [SongArtwork._load].
+  ///
+  /// Only warms IDs that are known to have artwork on disk (_diskCachedIds) so
+  /// there are no wasted MethodChannel calls.  Fire-and-forget: returns
+  /// immediately; decoding runs in the background via the image codec pipeline.
+  ///
+  /// Safe to call from [main] after [warmUp] has completed — [ImageCache] is
+  /// available as soon as [WidgetsFlutterBinding.ensureInitialized] is called.
+  void prewarmImageCache(List<int> songIds, {int? targetSizePx}) {
+    if (_cacheDirPath == null) return; // warmUp() hasn't resolved yet.
+    for (final id in songIds) {
+      final provider = getProviderSync(id, targetSizePx: targetSizePx);
+      if (provider == null) continue;
+      // Resolve into Flutter's shared ImageCache (fire and forget).
+      // This starts the async disk read + WebP decode immediately so
+      // the decoded bitmap is ready (or nearly ready) by the first frame.
+      provider.resolve(ImageConfiguration.empty);
+    }
+  }
+
   // ── Background prefetch (cache warm-up) ────────────────────────────────────
 
   // Guards against overlapping prefetch batches stepping on each other.

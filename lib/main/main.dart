@@ -48,6 +48,48 @@ Future<void> main() async {
       // spinner) on the first frame — same rationale as MediaStoreService.warmUp.
       HistoryService.warmUp(),
     ]);
+
+    // ── Pre-warm Flutter's ImageCache for home-screen artwork ───────────────
+    // After all warmUps above, _diskCachedIds and song/history caches are
+    // ready. We kick off async disk reads + WebP decodes HERE — before
+    // runApp() — so the decoded bitmaps are ready (or nearly ready) by the
+    // time the first frame is composed.
+    //
+    // Sizes must mirror SongArtwork's targetSizePx logic:
+    //   widget.size >= 250  →  null  (full-res FileImage, no ResizeImage)
+    //   widget.size < 250   →  (size * dpr).round()  (ResizeImage)
+    //
+    // Home sections that render on frame 1:
+    //   • Recently-played carousel → size 250 → full-res (targetSizePx: null)
+    //   • Album cards              → size 170 → ResizeImage
+    //   • Artist cards             → size 170 → ResizeImage
+    {
+      final recentIds   = HistoryService.cachedRecentIds ?? const [];
+      final cachedSongs = MediaStoreService.cachedSongs  ?? const [];
+
+      // Derive album- and artist-cover IDs the same way the home sections do:
+      // first song encountered per albumId / artist name.
+      final albumCoverIds  = <int>[];
+      final artistCoverIds = <int>[];
+      final seenAlbum      = <int>{};
+      final seenArtist     = <String>{};
+      for (final s in cachedSongs) {
+        if (seenAlbum.add(s.albumId))  albumCoverIds.add(s.id);
+        if (seenArtist.add(s.artist)) artistCoverIds.add(s.id);
+      }
+
+      final dpr     = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+      final smallPx = (170 * dpr).round();
+
+      // Recently-played carousel: size=250 → no ResizeImage → FileImage key.
+      ArtworkRepository.instance.prewarmImageCache(recentIds);
+      // Album + artist covers: size=170 → ResizeImage at device pixel size.
+      ArtworkRepository.instance.prewarmImageCache(
+        [...albumCoverIds, ...artistCoverIds],
+        targetSizePx: smallPx,
+      );
+    }
+
     NativeLogBridge.init();
 
     // ── Global error hooks (dipasang setelah LogService siap) ───────────────
