@@ -57,7 +57,9 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         );
       }
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
     }
   }
 
