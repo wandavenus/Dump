@@ -611,7 +611,7 @@ _setState(playbackState.value.copyWith(
   duration: durationMs > 0
       ? Duration(milliseconds: durationMs)
       : song.duration,
-  position:              Duration(milliseconds: duration(milliseconds: positionMs),
+  position:              Duration(milliseconds: positionMs),
   shuffleEnabled:        shuffleOn,
   loopMode:              _loopModeFromString(repeatStr),
   sleepTimerActive:      timerActive,
