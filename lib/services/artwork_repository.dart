@@ -87,29 +87,20 @@ class ArtworkRepository {
   final dpr = _cachedDpr ??=
       SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
 
-  final target = (size * dpr).round();
+  var target = (size * dpr).round();
 
   // Jangan decode artwork kecil / song list terlalu kecil.
   if (size < 80) {
-  return target < 320 ? 320 : target;
-}
-
- // Recently Played / Artist.
-  if (size >= 170 && size < 250) {
-    target = (target * 1.25).round();
-  } 
-    
-    return target;
-}
-
-  Future<String> _resolvedCacheDir() async {
-    if (_cacheDirPath != null) return _cacheDirPath!;
-    // Use app support directory — unlike the system cache dir this is never
-    // cleared by MIUI or Android's automatic storage-free mechanisms.
-    final base = (await getApplicationSupportDirectory()).path;
-    _cacheDirPath = base;
-    return base;
+    return target < 320 ? 320 : target;
   }
+
+  // Recently Played / Artist.
+  if (size >= 170 && size < 250) {
+    target = (target * 1.5).round();
+  }
+
+  return target;
+}
 
   /// Resolves the support-directory path and pre-scans the artwork sub-directory
   /// to populate [_diskCachedIds].  Call once during app startup (awaited, before
