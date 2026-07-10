@@ -91,12 +91,12 @@ class ArtworkRepository {
 
   // Jangan decode artwork kecil / song list terlalu kecil.
   if (size < 80) {
-    return target < 320 ? 320 : target;
+    return target < 460 ? 460 : target;
   }
 
   // Recently Played / Artist.
   if (size >= 170 && size < 250) {
-    target = (target * 1.5).round();
+    target = (target * 1.75).round();
   }
 
   return target;
