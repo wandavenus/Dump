@@ -78,38 +78,51 @@ Future<void> main() async {
         if (seenArtist.add(s.artist)) artistCoverIds.add(s.id);
       }
 
-      final dpr     = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-      final smallPx = (170 * dpr).round();
+      final dpr = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+final artistPx = (170 * dpr).round();
 
-      // Only the initial Home viewport is awaited.  This keeps startup bounded
-      // while guaranteeing visible covers are already decoded before runApp().
-      final visibleRecentIds = recentIds.take(8).toList(growable: false);
-      final visibleGridIds = [
-        ...albumCoverIds.take(4),
-        ...artistCoverIds.take(4),
-      ];
+final visibleRecentIds = recentIds.take(8).toList(growable: false);
+final visibleAlbumIds = albumCoverIds.take(4).toList(growable: false);
+final visibleArtistIds = artistCoverIds.take(4).toList(growable: false);
 
-      // Recently-played carousel: size=250 → no ResizeImage → FileImage key.
-      await ArtworkRepository.instance.prewarmImageCache(visibleRecentIds);
-      // Album + artist covers: size=170 → ResizeImage at device pixel size.
-      await ArtworkRepository.instance.prewarmImageCache(
-        visibleGridIds,
-        targetSizePx: smallPx,
-      );
+// Recently Played (size 250 -> FileImage)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleRecentIds,
+);
 
-      // Keep adjacent off-screen artwork warm without delaying the first frame.
-      unawaited(ArtworkRepository.instance.prewarmImageCache(
-        recentIds.skip(8).take(8).toList(growable: false),
-        timeout: const Duration(milliseconds: 2000),
-      ));
-      unawaited(ArtworkRepository.instance.prewarmImageCache(
-        [
-          ...albumCoverIds.skip(4).take(8),
-          ...artistCoverIds.skip(4).take(8),
-        ],
-        targetSizePx: smallPx,
-        timeout: const Duration(milliseconds: 2000),
-      ));
+// Album cards (size 250 -> FileImage)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleAlbumIds,
+);
+
+// Artist cards (size 170 -> ResizeImage)
+await ArtworkRepository.instance.prewarmImageCache(
+  visibleArtistIds,
+  targetSizePx: artistPx,
+);
+
+// Off-screen warm-up
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    recentIds.skip(8).take(8).toList(growable: false),
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
+
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    albumCoverIds.skip(4).take(8).toList(growable: false),
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
+
+unawaited(
+  ArtworkRepository.instance.prewarmImageCache(
+    artistCoverIds.skip(4).take(8).toList(growable: false),
+    targetSizePx: artistPx,
+    timeout: const Duration(milliseconds: 2000),
+  ),
+);
     }
 
     NativeLogBridge.init();
