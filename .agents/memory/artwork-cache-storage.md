@@ -19,11 +19,18 @@ description: Where artwork WebP files are stored and how the pre-scan ID set wor
 - `getProviderSync()` uses `_diskCachedIds.contains(songId)` (O(1)) instead of `File.statSync()` per call.
 - `_resolvePath()` (async) adds to `_diskCachedIds` after confirming a file on disk or after native extraction.
 
-## Critical invariant: `_paths` only holds async-validated entries
-`getProviderSync()` must NOT call `_addToMemory()` for the `_diskCachedIds` branch.
-It only calls `_wrapProvider()` directly (which still uses `_providers` cache for FileImage reuse).
+## `getProviderSync()` DOES call `_addToMemory()` for pre-scanned songs
+The `_diskCachedIds` branch in `getProviderSync()` calls `_addToMemory(songId, expected)`.
 
-**Why:** `_paths` is trusted by `getPath()` — a hit short-circuits all disk/native checks. If `getProviderSync()` added stale pre-scan entries into `_paths`, native LRU eviction post-warmup would leave `getPath()` returning deleted paths forever. Keeping `_paths` clean means the first async `getPath()` call will properly verify/re-extract and then correctly populate `_paths`.
+**Why:** Keeping `_paths` empty would force every `getPath()` async call to go through `_resolvePath()` → async `file.stat()` even for songs already confirmed by the warmup scan. That always triggers `setState()` in `_SongArtworkState._load()`, causing a visual flicker.  The warmup pre-scan is an equivalent confirmation to the old per-call `statSync()`, so adding to `_paths` here is correct.
+
+## `_SongArtworkState._load()` skips `setState` when provider is unchanged
+```dart
+if (provider != _provider) {
+  setState(() => _provider = provider);
+}
+```
+`ImageProvider.==` is value-based (FileImage: path+scale; ResizeImage: inner+dimensions), so equal-content providers from sync and async paths compare as equal and no rebuild fires.
 
 ## Migration note
 On first launch after this change, old artwork in `cacheDir/artwork/` is abandoned (not deleted). The native layer re-extracts all artwork into `filesDir/artwork/` on demand — one-time cost, no data loss.

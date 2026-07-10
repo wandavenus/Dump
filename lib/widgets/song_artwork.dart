@@ -142,8 +142,15 @@ class _SongArtworkState extends State<SongArtwork> {
       if (!mounted) break;
 
       if (_requestedId == targetId) {
-        // Still the right song — apply and stop.
-        setState(() => _provider = provider);
+        // Only rebuild if the provider actually changed.  When getProviderSync
+        // already set _provider to the same FileImage (warm-start cache hit),
+        // this avoids an unnecessary setState → widget rebuild → visual flicker.
+        // ImageProvider.== is value-based (FileImage compares path+scale;
+        // ResizeImage compares inner provider + dimensions), so the check is
+        // reliable for equal-content providers even if they are different objects.
+        if (provider != _provider) {
+          setState(() => _provider = provider);
+        }
         break;
       }
       // _requestedId changed while we were awaiting — loop for the new ID.

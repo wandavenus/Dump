@@ -108462,9 +108462,8 @@ return A.f(k.ve(i,o>=250?null:l),$async$ta)
 case 6:j=c
 if(p.c==null){s=5
 break}o=p.e
-if(o===i){new A.aOa(p,j).$0()
-p.c.cI()
-s=5
+if(o===i){if(!J.e(j,p.d)){new A.aOa(p,j).$0()
+p.c.cI()}s=5
 break}case 4:i=o
 s=3
 break

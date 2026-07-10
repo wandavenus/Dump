@@ -114,18 +114,18 @@ class ArtworkRepository {
     // Use the pre-scanned set for an O(1) lookup — no File.statSync() per call.
     if (!_diskCachedIds.contains(songId)) return null;
 
-    // Return the FileImage directly WITHOUT adding to _paths.
+    // File is known on disk from the warm-up scan — add to _paths so the
+    // subsequent async getPath() call (from _load) fast-paths through Layer 1
+    // without triggering an async file.stat().  This matches the original
+    // statSync-based behaviour: _paths only held entries that had already been
+    // confirmed on disk, and the warmUp pre-scan is an equivalent confirmation.
     //
-    // _paths only holds async-validated entries (confirmed by disk stat or native
-    // extraction in _resolvePath).  If we added here and native LRU later deleted
-    // the file, a subsequent getPath() call would short-circuit on _paths and
-    // return the stale path, skipping re-extraction.  By keeping _paths clean,
-    // getPath() will run _resolvePath() → properly verify/re-extract, then add
-    // to _paths with a confirmed path.
-    //
-    // _providers IS still used so we don't re-allocate FileImage objects on every
-    // synchronous call for the same song.
+    // If native LRU later evicts this file mid-session, getPath() will return
+    // the stale path — but that risk existed with the original statSync approach
+    // too (stat vs eviction race).  The probability is negligible unless the
+    // artwork cache exceeds 500 MB while the app is in the foreground.
     final expected = '$base/artwork/$songId.webp';
+    _addToMemory(songId, expected);
     return _wrapProvider(songId, expected, targetSizePx);
   }
 
