@@ -7,6 +7,15 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
   @override
   void initState() {
     super.initState();
+    // Synchronous first-frame init: build the artist list immediately from
+    // the warm-up caches (songs + artist play counts) so the first build()
+    // renders content instead of a spinner.
+    final cachedSongs = MediaStoreService.cachedSongs;
+    final cachedCounts = HistoryService.cachedArtistCounts;
+    if (cachedSongs != null) {
+      _artists = _buildArtists(cachedSongs, cachedCounts ?? {});
+      _isLoading = false;
+    }
     _load();
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
@@ -21,25 +30,29 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
     super.dispose();
   }
 
+  List<_ArtistGroup> _buildArtists(
+    List<LocalSong> songs,
+    Map<String, dynamic> playCounts,
+  ) {
+    final artistMap = <String, List<LocalSong>>{};
+    for (final song in songs) {
+      artistMap.putIfAbsent(song.artist, () => []).add(song);
+    }
+    return artistMap.entries
+        .map((e) => _ArtistGroup(name: e.key, songs: e.value))
+        .toList()
+      ..sort((a, b) {
+        final ca = (playCounts[a.name] as num?)?.toInt() ?? 0;
+        final cb = (playCounts[b.name] as num?)?.toInt() ?? 0;
+        return cb != ca ? cb.compareTo(ca) : a.name.compareTo(b.name);
+      });
+  }
+
   Future<void> _load() async {
     try {
       final songs = await MediaStoreService.getSongs();
       final playCounts = await HistoryService.getArtistPlayCounts();
-
-      final artistMap = <String, List<LocalSong>>{};
-      for (final song in songs) {
-        artistMap.putIfAbsent(song.artist, () => []).add(song);
-      }
-
-      final artists = artistMap.entries
-          .map((e) => _ArtistGroup(name: e.key, songs: e.value))
-          .toList()
-        ..sort((a, b) {
-          final ca = (playCounts[a.name] as num?)?.toInt() ?? 0;
-          final cb = (playCounts[b.name] as num?)?.toInt() ?? 0;
-          return cb != ca ? cb.compareTo(ca) : a.name.compareTo(b.name);
-        });
-
+      final artists = _buildArtists(songs, playCounts);
       if (mounted) setState(() { _artists = artists; _isLoading = false; });
     } catch (_) {
       if (mounted) setState(() { _isLoading = false; });

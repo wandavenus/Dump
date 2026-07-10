@@ -43,6 +43,10 @@ Future<void> main() async {
       // immediately instead of a spinner while MediaStore re-enumerates.
       // A live MediaStore query still runs right after, in the background.
       MediaStoreService.warmUp(),
+      // Hydrates recently-played IDs and artist play counts from
+      // SharedPreferences so the home sections can render instantly (no
+      // spinner) on the first frame — same rationale as MediaStoreService.warmUp.
+      HistoryService.warmUp(),
     ]);
     NativeLogBridge.init();
 

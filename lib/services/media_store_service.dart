@@ -19,6 +19,11 @@ class MediaStoreService {
 
   static List<LocalSong>? _songsCache;
 
+  /// Synchronous read of the warm-up cache. Non-null after [warmUp] completes
+  /// (i.e. from the very first [runApp] frame on a cold start). UI widgets can
+  /// read this in [State.initState] to render without a loading spinner.
+  static List<LocalSong>? get cachedSongs => _songsCache;
+
   // Whether a live MediaStore query has completed this process lifetime.
   // Starts false so the very first [getSongs] call after a cold start —
   // even one served instantly from the persisted list below — still kicks

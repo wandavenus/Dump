@@ -12,6 +12,7 @@ import 'package:musicplayer/services/palette_extractor.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';
+import 'package:musicplayer/services/history_service.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/services/sleep_timer_service.dart';
 import 'package:musicplayer/services/media_capabilities_service.dart';
