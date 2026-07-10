@@ -256,6 +256,7 @@ class _PlayerContentState extends State<PlayerContent> {
                       children: [
                         // ── Song info — fades out when any overlay is active ──────
                         Positioned(
+                          key: const ValueKey('songInfo'),
                           bottom: 59,
                           left: _playerHorizontalPadding,
                           right: _playerHorizontalPadding,
@@ -281,6 +282,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                         // ── Lyrics area — fades in in lyrics mode ─────────────────
                         AnimatedPositioned(
+                          key: const ValueKey('lyricsArea'),
                           duration: const Duration(milliseconds: 250),
                           curve: Curves.easeOut,
                           top: overlayTop,
@@ -300,6 +302,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                         // ── Queue area — fades in in queue mode ───────────────────
                         Positioned(
+                          key: const ValueKey('queueArea'),
                           top: overlayTop,
                           left: 15.7,
                           right: 15.7,
@@ -324,6 +327,7 @@ class _PlayerContentState extends State<PlayerContent> {
                         // stack bottom. Forwards vertical drags to the active list.
                         if (showLyrics || showQueue)
                           Positioned(
+                            key: const ValueKey('scrollRelay'),
                             left: 0,
                             right: 0,
                             bottom: 0,
@@ -354,6 +358,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                         // ── Appearance button — visible only in lyrics mode ───────
                         Positioned(
+                          key: const ValueKey('appearanceButton'),
                           top: 10,
                           right: 27,
                           child: AnimatedOpacity(
@@ -369,6 +374,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                         // ── Mini song header — shown next to small artwork ─────────
                         Positioned(
+                          key: const ValueKey('miniSongHeader'),
                           top: 4,
                           left: 16 + _smallCoverSize + 25,
 
@@ -455,6 +461,7 @@ class _PlayerContentState extends State<PlayerContent> {
 
                         // ── Album cover — AnimatedPositioned + AnimatedContainer ───
                         AnimatedPositioned(
+                          key: const ValueKey('albumCover'),
                           duration: _animDuration,
                           curve: _animCurve,
                           top:
