@@ -6,12 +6,14 @@ class LocalSongCard extends StatelessWidget {
   final LocalSong song;
   final List<LocalSong> playlist;
   final int index;
+  final double artworkSize;
 
   const LocalSongCard({
     super.key,
     required this.song,
     required this.playlist,
     required this.index,
+    this.artworkSize = 170,
   });
 
   @override
@@ -29,12 +31,12 @@ class LocalSongCard extends StatelessWidget {
             const SizedBox(height: 10),
             SongArtwork(
               songId: song.id,
-              size: 170,
+              size: artworkSize,
               borderRadius: BorderRadius.circular(10),
             ),
             const SizedBox(height: 2.5),
             SizedBox(
-              width: 165,
+              width: artworkSize - 5,
               child: Text(
                 song.title,
                 maxLines: 1,
@@ -63,11 +65,6 @@ class LocalSongCard extends StatelessWidget {
   }
 
   void _showContextMenu(BuildContext context) {
-    showSongContextMenu(
-      context,
-      song: song,
-      playlist: playlist,
-      index: index,
-    );
+    showSongContextMenu(context, song: song, playlist: playlist, index: index);
   }
 }

@@ -8,6 +8,9 @@ class _RecentlyPlayedSection extends StatefulWidget {
 }
 
 class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
+  static const double _artworkSize = 250;
+  static const double _sectionHeight = 330;
+
   List<LocalSong> _songs = [];
   bool _isLoading = true;
 
@@ -18,7 +21,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
     // played ID cache are ready (populated by warmUp calls in main()), build
     // the list immediately so the first build() renders content, not a spinner.
     final cachedSongs = MediaStoreService.cachedSongs;
-    final cachedIds   = HistoryService.cachedRecentIds;
+    final cachedIds = HistoryService.cachedRecentIds;
     if (cachedSongs != null && cachedIds != null) {
       _songs = _buildRecent(cachedSongs, cachedIds);
       _isLoading = false;
@@ -51,13 +54,20 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       final allSongs = await MediaStoreService.getSongs();
       final recent = _buildRecent(allSongs, recentIds);
       if (mounted) {
-        setState(() { _songs = recent; _isLoading = false; });
+        setState(() {
+          _songs = recent;
+          _isLoading = false;
+        });
         unawaited(
           ArtworkRepository.instance.prefetch(recent.map((s) => s.id).toList()),
         );
       }
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -65,13 +75,13 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
-        height: 250,
+        height: _sectionHeight,
         child: Center(child: CircularProgressIndicator()),
       );
     }
     if (_songs.isEmpty) {
       return const SizedBox(
-        height: 250,
+        height: _sectionHeight,
         child: Center(
           child: Text(
             'No recently played songs',
@@ -80,6 +90,10 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         ),
       );
     }
-    return LocalSongCarousel(songs: _songs);
+    return LocalSongCarousel(
+      songs: _songs,
+      artworkSize: _artworkSize,
+      height: _sectionHeight,
+    );
   }
 }
