@@ -24,13 +24,15 @@ The `_diskCachedIds` branch in `getProviderSync()` calls `_addToMemory(songId, e
 
 **Why:** Keeping `_paths` empty would force every `getPath()` async call to go through `_resolvePath()` → async `file.stat()` even for songs already confirmed by the warmup scan. That always triggers `setState()` in `_SongArtworkState._load()`, causing a visual flicker.  The warmup pre-scan is an equivalent confirmation to the old per-call `statSync()`, so adding to `_paths` here is correct.
 
-## `_SongArtworkState._load()` skips `setState` when provider is unchanged
-```dart
-if (provider != _provider) {
-  setState(() => _provider = provider);
-}
-```
-`ImageProvider.==` is value-based (FileImage: path+scale; ResizeImage: inner+dimensions), so equal-content providers from sync and async paths compare as equal and no rebuild fires.
+## `ResizeImage` does NOT override `==` — causes reload flicker
+`ResizeImage` inherits `Object.==` (identity). Two `ResizeImage` instances with identical params always compare as `!=`. So `provider != _provider` in `_load()` was always `true` for small artwork (targetSizePx != null), causing `setState` even when artwork was already correct from `getProviderSync()`.
+
+**Fix:** top-level `_providersEqual()` in `song_artwork.dart` handles equality explicitly:
+- `FileImage`: delegate to its own `==` (compares path+scale) ✓
+- `ResizeImage`: compare `width + height + recursive inner provider` manually
+- `_load()` uses `_providersEqual()` instead of `!=` operator
+
+**Also fixed:** `_loading` now reset in `try/finally` so an exception in `getProvider()` never permanently suppresses future loads.
 
 ## Migration note
 On first launch after this change, old artwork in `cacheDir/artwork/` is abandoned (not deleted). The native layer re-extracts all artwork into `filesDir/artwork/` on demand — one-time cost, no data loss.
