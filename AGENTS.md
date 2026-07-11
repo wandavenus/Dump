@@ -2,7 +2,7 @@
 
 Before making changes:
 
-1. Install Flutter 3.44.4
+1. Install Flutter 3.44.5
 2. Install Android SDK 30
 2. Run flutter pub get.
 3. Run flutter analyze.

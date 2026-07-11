@@ -34,7 +34,7 @@ Kalau SDK hilang (environment reset), jalankan:
 ```
 bash setup-flutter.sh
 ```
-Script ini otomatis download dan install Flutter 3.44.4 ke `/home/runner/flutter/`.
+Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter/`.
 
 ## Project structure
 
