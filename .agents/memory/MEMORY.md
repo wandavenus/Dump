@@ -1,3 +1,4 @@
+- [Phase 8 ReplayGain Engine](dsp-phase8.md) — NativeReplayGain DSP slot 1; _applyReplayGain rewired from LoudnessEnhancer→native DSP; clippingProtection VN added; duplicate ReplayGainMode enum removed from playback_manager.
 - [Phase 7 Crossfeed](dsp-phase7.md) — frequency-dependent crossfeed at slot 3 (between compressor and limiter); pipeline now 6 slots; stereo_matrix.h reusable framework; zero latency.
 - [Phase 6 Dynamics Processing](dsp-phase6.md) — compressor/limiter/soft_clipper fully wired; pipeline now has 5 slots; total latency = 63 frames (limiter look-ahead); tests updated accordingly.
 - [Phase 4 DSP Core](dsp-phase4.md) — new processor = new .c file + register_internal(); atomic float trick; analysis_options exclude native_audio_runtime/test/**.

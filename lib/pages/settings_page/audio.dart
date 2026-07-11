@@ -213,7 +213,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                         ),
                       ),
 
-                    // Preamp slider — hanya saat mode aktif
+                    // Preamp slider + clipping protection — hanya saat mode aktif
                     if (mode != ReplayGainMode.off) ...[
                       const SizedBox(height: 4),
                       ValueListenableBuilder<double>(
@@ -231,6 +231,15 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                           showReset: preamp != 0,
                           onReset: () =>
                               AudioEffectsService.setReplayGainPreamp(0),
+                        ),
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: AudioEffectsService.clippingProtection,
+                        builder: (_, clip, _) => SettingsToggleRow(
+                          title: 'Clipping Protection',
+                          subtitle: 'Cegah distorsi saat gain melebihi 0 dBFS',
+                          value: clip,
+                          onChanged: AudioEffectsService.setClippingProtection,
                         ),
                       ),
                     ],

@@ -163,6 +163,7 @@ class AudioService {
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
+    AudioEffectsService.clippingProtection.addListener(_onReplayGainSettingChanged);
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
   }
@@ -546,7 +547,8 @@ class AudioService {
   static Future<void> _applyReplayGain(LocalSong song, {LocalSong? prevSong}) async {
     final mode = AudioEffectsService.replayGainMode.value;
     if (mode == ReplayGainMode.off) {
-      DeviceDsp.applyNormalize(enabled: false);
+      // Bypass the native DSP slot — audio passes through unmodified.
+      PlaybackManager.setNativeReplayGainBypass(true);
       return;
     }
     final data = await LoudnessSourceResolver.resolve(
@@ -555,12 +557,33 @@ class AudioService {
       previousSong: prevSong ?? _previousSong,
     );
     if (!data.hasData) {
-      DeviceDsp.applyNormalize(enabled: false);
+      // No metadata found — bypass so audio is not silently attenuated.
+      PlaybackManager.setNativeReplayGainBypass(true);
+      LogService.verbose('AudioService', 'No ReplayGain metadata for "${song.title}" — bypass');
       return;
     }
-    final preamp = AudioEffectsService.replayGainPreamp.value;
-    final gainDb = data.safeGain(preamp: preamp);
-    DeviceDsp.applyNormalize(enabled: true, targetGainMb: gainDb * 100.0);
+
+    final preamp  = AudioEffectsService.replayGainPreamp.value;
+    final useClip = AudioEffectsService.clippingProtection.value;
+    // Pass raw gain + preamp to native so the C layer handles dB→linear
+    // conversion and optional clipping protection in one atomic step.
+    // Clamped to [−24, +24] dB in the C processor — no Dart-side clamping needed.
+    final gainDb     = data.gainDb + preamp;
+    final peakLinear = data.peakLinear ?? 0.0;
+
+    PlaybackManager.setNativeReplayGain(
+      gainDb: gainDb,
+      peakLinear: peakLinear,
+      useClippingProtection: useClip,
+    );
+    PlaybackManager.setNativeReplayGainBypass(false);
+
+    LogService.verbose(
+      'AudioService',
+      'ReplayGain "${song.title}": ${gainDb.toStringAsFixed(2)} dB '
+      '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
+      'clip=$useClip, src=${data.source.label})',
+    );
   }
 
   // ── State sync (app resume) ───────────────────────────────────────────────

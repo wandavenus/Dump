@@ -20,6 +20,11 @@ class AudioEffectsService {
   static final ValueNotifier<ReplayGainMode> replayGainMode =
       ValueNotifier(ReplayGainMode.off);
   static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
+
+  /// Clipping protection — caps effective ReplayGain so that
+  /// `gain_linear × peak_linear ≤ 1.0`, preventing digital clipping.
+  /// Uses peak metadata when available; no-op when peak is absent.
+  static final ValueNotifier<bool> clippingProtection = ValueNotifier(true);
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
   static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
@@ -105,7 +110,8 @@ class AudioEffectsService {
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
     replayGainMode.value =
         ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
-    replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
+    replayGainPreamp.value    = prefs.getDouble('replayGainPreamp') ?? 0.0;
+    clippingProtection.value  = prefs.getBool('rgClipProtect')      ?? true;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -149,6 +155,13 @@ class AudioEffectsService {
     replayGainPreamp.value = v;
     await _saveDouble('replayGainPreamp', v);
     LogService.log('AudioEffects', 'ReplayGain preamp: $v dB');
+  }
+
+  static Future<void> setClippingProtection(bool enabled) async {
+    clippingProtection.value = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('rgClipProtect', enabled);
+    LogService.log('AudioEffects', 'Clipping protection: $enabled');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
