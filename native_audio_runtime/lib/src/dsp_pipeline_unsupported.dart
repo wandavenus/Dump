@@ -117,3 +117,57 @@ class NativeParametricEq {
 
   int get bandCount => 0;
 }
+
+// ── NativeCompressor stub ─────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeCompressor]. All methods are no-ops.
+class NativeCompressor {
+  NativeCompressor._();
+  static final NativeCompressor instance = NativeCompressor._();
+
+  int setParams({
+    required double thresholdDb,
+    required double ratio,
+    required double attackMs,
+    required double releaseMs,
+    required double kneeDb,
+    required double makeupGainDb,
+    double sampleRate = 48000.0,
+  }) =>
+      NativeRuntimeStatus.unsupportedPlatform.index;
+
+  void setBypass(bool bypass) {}
+  bool get bypass => false;
+}
+
+// ── NativeLimiter stub ────────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeLimiter]. All methods are no-ops.
+class NativeLimiter {
+  NativeLimiter._();
+  static final NativeLimiter instance = NativeLimiter._();
+
+  int setParams({
+    required double thresholdDb,
+    required double releaseMs,
+    double sampleRate = 48000.0,
+  }) =>
+      NativeRuntimeStatus.unsupportedPlatform.index;
+
+  void setBypass(bool bypass) {}
+  bool get bypass => false;
+  int get lookaheadFrames => 0;
+}
+
+// ── NativeSoftClipper stub ────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeSoftClipper]. All methods are no-ops.
+class NativeSoftClipper {
+  NativeSoftClipper._();
+  static final NativeSoftClipper instance = NativeSoftClipper._();
+
+  void setThresholdDb(double thresholdDb) {}
+  double get thresholdDb => -0.5;
+  void setBypass(bool bypass) {}
+  bool get bypass => false;
+}

@@ -197,6 +197,33 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (peq)', peqStatus);
     }
 
+    // Phase 6: Compressor (slot 2)
+    final compStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_comp_processor_register_internal());
+    if (compStatus != NativeRuntimeStatus.ok &&
+        compStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (comp)', compStatus);
+    }
+
+    // Phase 6: Limiter (slot 3)
+    final limiterStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_limiter_processor_register_internal());
+    if (limiterStatus != NativeRuntimeStatus.ok &&
+        limiterStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (limiter)', limiterStatus);
+    }
+
+    // Phase 6: Soft Clipper (slot 4)
+    final softClipperStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_soft_clipper_processor_register_internal());
+    if (softClipperStatus != NativeRuntimeStatus.ok &&
+        softClipperStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (soft_clipper)', softClipperStatus);
+    }
+
     _initialized = true;
   }
 
@@ -358,4 +385,108 @@ class NativeParametricEq {
 
   /// Number of bands currently configured (0 until the first [setBand] call).
   int get bandCount => bindings.nar_peq_band_count();
+}
+
+// ── NativeCompressor ──────────────────────────────────────────────────────────
+
+/// Dart facade over the native Compressor processor (`src/comp_processor.h`).
+///
+/// Feed-forward soft-knee dynamic range compressor sitting at pipeline slot 2
+/// (after dsp.peq, before dsp.limiter).
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller.
+/// **Threading**: all setters are thread-safe (acquire/release dirty protocol).
+class NativeCompressor {
+  NativeCompressor._();
+  static final NativeCompressor instance = NativeCompressor._();
+
+  /// Configure all compressor parameters in one call.
+  ///
+  /// [thresholdDb]  : Level above which compression starts. Default: −20 dBFS.
+  /// [ratio]        : Compression ratio N:1. Default: 4.0. 1.0 = no compression.
+  /// [attackMs]     : Envelope rise time in ms. Default: 10.0.
+  /// [releaseMs]    : Envelope fall time in ms. Default: 100.0.
+  /// [kneeDb]       : Soft-knee half-width in dB. Default: 6.0. 0 = hard knee.
+  /// [makeupGainDb] : Post-compression gain. Default: 0.0 dBFS.
+  /// [sampleRate]   : Current playback sample rate. 0 → 48000 Hz fallback.
+  int setParams({
+    required double thresholdDb,
+    required double ratio,
+    required double attackMs,
+    required double releaseMs,
+    required double kneeDb,
+    required double makeupGainDb,
+    double sampleRate = 48000.0,
+  }) =>
+      bindings.nar_comp_set_params(
+          thresholdDb, ratio, attackMs, releaseMs, kneeDb, makeupGainDb, sampleRate);
+
+  /// Enable (`false`) or bypass (`true`) the compressor.
+  void setBypass(bool bypass) => bindings.nar_comp_set_bypass(bypass ? 1 : 0);
+
+  /// `true` if the compressor bypass is active.
+  bool get bypass => bindings.nar_comp_get_bypass() != 0;
+}
+
+// ── NativeLimiter ─────────────────────────────────────────────────────────────
+
+/// Dart facade over the native Limiter processor (`src/limiter_processor.h`).
+///
+/// Brickwall look-ahead limiter at pipeline slot 3.
+/// Prevents any output sample from exceeding [thresholdDb].
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller.
+class NativeLimiter {
+  NativeLimiter._();
+  static final NativeLimiter instance = NativeLimiter._();
+
+  /// Configure limiter parameters.
+  ///
+  /// [thresholdDb] : Ceiling in dBFS. Default: −1.0. Must be < 0.
+  /// [releaseMs]   : Gain recovery time in ms. Default: 50.0.
+  /// [sampleRate]  : Current playback sample rate. 0 → 48000 Hz fallback.
+  int setParams({
+    required double thresholdDb,
+    required double releaseMs,
+    double sampleRate = 48000.0,
+  }) =>
+      bindings.nar_limiter_set_params(thresholdDb, releaseMs, sampleRate);
+
+  /// Enable (`false`) or bypass (`true`) the limiter.
+  void setBypass(bool bypass) => bindings.nar_limiter_set_bypass(bypass ? 1 : 0);
+
+  /// `true` if the limiter bypass is active.
+  bool get bypass => bindings.nar_limiter_get_bypass() != 0;
+
+  /// Look-ahead delay in frames (63 at compile time = ~1.3 ms at 48 kHz).
+  int get lookaheadFrames => bindings.nar_limiter_lookahead_frames();
+}
+
+// ── NativeSoftClipper ─────────────────────────────────────────────────────────
+
+/// Dart facade over the native Soft Clipper processor
+/// (`src/soft_clipper_processor.h`).
+///
+/// Tanh waveshaper at pipeline slot 4 (last in the dynamics chain).
+/// Samples below [thresholdDb] pass through unchanged; samples above are
+/// smoothly limited asymptotically toward 0 dBFS.
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller.
+class NativeSoftClipper {
+  NativeSoftClipper._();
+  static final NativeSoftClipper instance = NativeSoftClipper._();
+
+  /// Set the soft-clip threshold in dBFS. Default: −0.5 dBFS.
+  void setThresholdDb(double thresholdDb) =>
+      bindings.nar_soft_clipper_set_threshold_db(thresholdDb);
+
+  /// Current soft-clip threshold in dBFS.
+  double get thresholdDb => bindings.nar_soft_clipper_get_threshold_db();
+
+  /// Enable (`false`) or bypass (`true`) the soft clipper.
+  void setBypass(bool bypass) =>
+      bindings.nar_soft_clipper_set_bypass(bypass ? 1 : 0);
+
+  /// `true` if the soft clipper bypass is active.
+  bool get bypass => bindings.nar_soft_clipper_get_bypass() != 0;
 }

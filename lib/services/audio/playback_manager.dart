@@ -437,6 +437,115 @@ class PlaybackManager {
     _initialized = false;
   }
 
+  // ── Native DSP: Dynamics Processing (Phase 6) ────────────────────────────
+  //
+  // Signal chain (Phase 6): dsp.gain → dsp.peq → dsp.compressor → dsp.limiter
+  //                         → dsp.soft_clipper → AudioTrack
+  //
+  // All methods delegate to the singleton facades in native_audio_runtime.
+  // The UI must never import these facades directly — always use PlaybackManager.
+  //
+  // Sample rate: pass the current value from audioFormatStream to all
+  // setParams() calls. If the sample rate changes between tracks, re-apply
+  // parameters with the new rate to keep time constants accurate.
+
+  // ── Compressor ──────────────────────────────────────────────────────────
+
+  /// Whether the native compressor is available (pipeline initialized).
+  static bool get nativeCompressorAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Configure all compressor parameters. Safe to call during playback.
+  ///
+  /// [thresholdDb]  : Default −20 dBFS. Range (−96, 0).
+  /// [ratio]        : Default 4.0. Range [1.001, 100]. 1.0 = no compression.
+  /// [attackMs]     : Default 10.0 ms. Range [0.1, 500].
+  /// [releaseMs]    : Default 100.0 ms. Range [1, 2000].
+  /// [kneeDb]       : Default 6.0 dB. Range [0, 24]. 0 = hard knee.
+  /// [makeupGainDb] : Default 0.0 dBFS. Range [−24, 24].
+  /// [sampleRate]   : Current playback sample rate. 0 → 48000 Hz fallback.
+  static int setNativeCompressorParams({
+    double thresholdDb  = -20.0,
+    double ratio        =   4.0,
+    double attackMs     =  10.0,
+    double releaseMs    = 100.0,
+    double kneeDb       =   6.0,
+    double makeupGainDb =   0.0,
+    double sampleRate   = 48000.0,
+  }) =>
+      NativeCompressor.instance.setParams(
+        thresholdDb:  thresholdDb,
+        ratio:        ratio,
+        attackMs:     attackMs,
+        releaseMs:    releaseMs,
+        kneeDb:       kneeDb,
+        makeupGainDb: makeupGainDb,
+        sampleRate:   sampleRate,
+      );
+
+  /// Enable (`false`) or bypass (`true`) the compressor.
+  static void setNativeCompressorBypass(bool bypass) =>
+      NativeCompressor.instance.setBypass(bypass);
+
+  /// Whether the compressor bypass is currently active.
+  static bool get nativeCompressorBypass => NativeCompressor.instance.bypass;
+
+  // ── Limiter ─────────────────────────────────────────────────────────────
+
+  /// Whether the native limiter is available (pipeline initialized).
+  static bool get nativeLimiterAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Configure the limiter. Safe to call during playback.
+  ///
+  /// [thresholdDb] : Ceiling in dBFS. Default −1.0. Must be < 0.
+  /// [releaseMs]   : Gain recovery time in ms. Default 50.0. Range [1, 1000].
+  /// [sampleRate]  : Current playback sample rate. 0 → 48000 Hz fallback.
+  static int setNativeLimiterParams({
+    double thresholdDb = -1.0,
+    double releaseMs   = 50.0,
+    double sampleRate  = 48000.0,
+  }) =>
+      NativeLimiter.instance.setParams(
+        thresholdDb: thresholdDb,
+        releaseMs:   releaseMs,
+        sampleRate:  sampleRate,
+      );
+
+  /// Enable (`false`) or bypass (`true`) the limiter.
+  static void setNativeLimiterBypass(bool bypass) =>
+      NativeLimiter.instance.setBypass(bypass);
+
+  /// Whether the limiter bypass is currently active.
+  static bool get nativeLimiterBypass => NativeLimiter.instance.bypass;
+
+  /// Look-ahead frames the limiter uses (63 = ~1.3 ms at 48 kHz).
+  static int get nativeLimiterLookaheadFrames =>
+      NativeLimiter.instance.lookaheadFrames;
+
+  // ── Soft Clipper ────────────────────────────────────────────────────────
+
+  /// Whether the native soft clipper is available (pipeline initialized).
+  static bool get nativeSoftClipperAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Set the soft-clip threshold in dBFS. Default: −0.5 dBFS.
+  /// Samples below the threshold pass through unchanged; samples above are
+  /// shaped toward 0 dBFS via a tanh curve. Range: [−12, −0.001).
+  static void setNativeSoftClipperThresholdDb(double thresholdDb) =>
+      NativeSoftClipper.instance.setThresholdDb(thresholdDb);
+
+  /// Current soft-clip threshold in dBFS.
+  static double get nativeSoftClipperThresholdDb =>
+      NativeSoftClipper.instance.thresholdDb;
+
+  /// Enable (`false`) or bypass (`true`) the soft clipper.
+  static void setNativeSoftClipperBypass(bool bypass) =>
+      NativeSoftClipper.instance.setBypass(bypass);
+
+  /// Whether the soft clipper bypass is currently active.
+  static bool get nativeSoftClipperBypass => NativeSoftClipper.instance.bypass;
+
   // ── Private helpers ───────────────────────────────────────────────────────
 
   static Future<void> _prefetchArtwork(int index) async {

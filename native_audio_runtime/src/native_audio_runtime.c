@@ -32,7 +32,7 @@ typedef enum {
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
 
-static const char* const kVersion = "0.1.0-phase5";
+static const char* const kVersion = "0.1.0-phase6";
 
 // ── Capability table ─────────────────────────────────────────────────────────
 //
@@ -50,9 +50,11 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.gain",              1},  // Phase 4:   gain processor
     {"dsp.media3_integration",1},  // Phase 4.5: NativeDspAudioProcessor in ExoPlayer chain
     {"dsp.equalizer",         1},  // Phase 5:   parametric EQ (biquad, 32-band)
+    {"dsp.compressor",        1},  // Phase 6:   feed-forward soft-knee compressor
+    {"dsp.limiter",           1},  // Phase 6:   look-ahead brickwall limiter
+    {"dsp.soft_clipper",      1},  // Phase 6:   tanh soft clipper
     {"dsp.bass_boost",        0},
     {"dsp.virtualizer",       0},
-    {"dsp.compressor",        0},
     {"dsp.resampler",         0},
     {"decoder.flac_hires",    0},
     {"decoder.dsd",           0},

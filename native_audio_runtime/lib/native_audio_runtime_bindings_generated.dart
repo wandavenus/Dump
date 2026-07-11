@@ -223,3 +223,79 @@ external int nar_peq_max_bands();
 /// Number of bands currently configured (0 until first nar_peq_set_band call).
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_peq_band_count();
+
+// ── comp_processor.h ──────────────────────────────────────────────────────────
+// Phase 6: Feed-forward soft-knee compressor.
+
+/// Register the compressor processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_comp_processor_register_internal();
+
+/// Configure all compressor parameters in one call.
+/// Floats are truncated from Dart double → C float by the FFI layer.
+@ffi.Native<
+    ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float,
+        ffi.Float, ffi.Float, ffi.Float, ffi.Float)>()
+external int nar_comp_set_params(
+    double thresholdDb,
+    double ratio,
+    double attackMs,
+    double releaseMs,
+    double kneeDb,
+    double makeupGainDb,
+    double sampleRate);
+
+/// Enable (0) or bypass (1) the compressor.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_comp_set_bypass(int bypass);
+
+/// Returns 1 if the compressor is bypassed, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_comp_get_bypass();
+
+// ── limiter_processor.h ───────────────────────────────────────────────────────
+// Phase 6: Look-ahead brickwall limiter.
+
+/// Register the limiter processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_limiter_processor_register_internal();
+
+/// Configure limiter parameters (threshold, release, sample rate).
+@ffi.Native<ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float)>()
+external int nar_limiter_set_params(
+    double thresholdDb, double releaseMs, double sampleRate);
+
+/// Enable (0) or bypass (1) the limiter.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_limiter_set_bypass(int bypass);
+
+/// Returns 1 if the limiter is bypassed, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_limiter_get_bypass();
+
+/// Look-ahead delay in frames (NAR_LIMITER_LOOKAHEAD_FRAMES − 1 = 63).
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_limiter_lookahead_frames();
+
+// ── soft_clipper_processor.h ──────────────────────────────────────────────────
+// Phase 6: Hyperbolic-tangent soft clipper.
+
+/// Register the soft clipper processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_soft_clipper_processor_register_internal();
+
+/// Set the soft-clip threshold in dBFS. Default: −0.5 dBFS.
+@ffi.Native<ffi.Void Function(ffi.Float)>()
+external void nar_soft_clipper_set_threshold_db(double thresholdDb);
+
+/// Returns the current soft-clip threshold in dBFS.
+@ffi.Native<ffi.Float Function()>()
+external double nar_soft_clipper_get_threshold_db();
+
+/// Enable (0) or bypass (1) the soft clipper.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_soft_clipper_set_bypass(int bypass);
+
+/// Returns 1 if the soft clipper is bypassed, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_soft_clipper_get_bypass();

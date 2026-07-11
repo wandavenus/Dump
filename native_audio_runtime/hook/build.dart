@@ -18,8 +18,11 @@ void main(List<String> args) async {
         'src/audio_buffer.c',      // NarAudioBuffer — interleaved PCM buffer
         'src/dsp_pipeline.c',      // DSP processing chain
         'src/gain_processor.c',    // Gain processor (Phase 4: pipeline validator)
-        'src/biquad_filter.c',     // Biquad coefficient computation (Phase 5)
-        'src/peq_processor.c',     // Parametric EQ processor (Phase 5)
+        'src/biquad_filter.c',          // Biquad coefficient computation (Phase 5)
+        'src/peq_processor.c',          // Parametric EQ processor (Phase 5)
+        'src/comp_processor.c',         // Compressor processor (Phase 6)
+        'src/limiter_processor.c',      // Look-ahead limiter processor (Phase 6)
+        'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
       ],
     );
     await cbuilder.run(
