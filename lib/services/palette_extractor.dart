@@ -164,7 +164,7 @@ class PaletteExtractor {
           width: _quantizeTargetSize,
           height: _quantizeTargetSize,
         ),
-        maximumColorCount: 16,
+        maximumColorCount: 24,
         // filters: [] — intentionally empty.
         // The default avoidRedBlackWhitePaletteFilter strips near-red,
         // near-black, and near-white colours from the candidate pool, which
