@@ -3,100 +3,106 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../artwork_repository.dart';
 import '../palette_extractor.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
-import 'engine_abstraction.dart';
-import 'engines/media3_engine.dart';
-import 'engines/media_kit_engine.dart';
+import 'media3/media3_playback_bridge.dart';
 
-/// Central manager untuk Hybrid Audio Engine.
+// ─── Equalizer parameter type ─────────────────────────────────────────────────
+//
+// Retained here (previously in engine_abstraction.dart) for AudioEngine and
+// UI compatibility.  Only Media3 / ExoPlayer is supported.
+
+class EngineEqualizerParameters {
+  final double minDecibels;
+  final double maxDecibels;
+  final int bandCount;
+
+  const EngineEqualizerParameters({
+    required this.minDecibels,
+    required this.maxDecibels,
+    required this.bandCount,
+  });
+}
+
+// ─── AudioEngineManager ───────────────────────────────────────────────────────
+
+/// Central playback facade — single-engine (Media3 / ExoPlayer).
 ///
-/// Hanya SATU engine yang aktif pada satu waktu.
-/// Seluruh layer di atas (AudioService, AudioEffectsService,
-/// MediaCapabilitiesService, UI) hanya berkomunikasi dengan
-/// [AudioEngineManager] — tidak langsung ke [Media3PlaybackBridge]
-/// maupun media_kit [Player].
+/// All UI and service layers communicate through [AudioEngineManager].
+/// Internally delegates directly to [Media3PlaybackBridge].
 ///
-/// Perpindahan engine via [switchEngine]:
-///   1. Simpan state (queue, index, posisi, shuffle, repeat).
-///   2. Pause engine lama.
-///   3. Dispose engine lama sepenuhnya (stop native service untuk Media3).
-///   4. Inisialisasi engine baru.
-///   5. Restore state.
-///   6. Resume playback jika sebelumnya sedang play.
+/// Architecture:
+///   Flutter UI
+///     ↓
+///   AudioService          (business-logic facade)
+///     ↓
+///   AudioEngineManager    (this class — stream routing + artwork prefetch)
+///     ↓
+///   Media3PlaybackBridge  (sole MethodChannel / EventChannel edge)
+///     ↓
+///   Media3PlaybackService.kt → ExoPlayer
+///
+/// Extension points for future native modules (C++ DSP, FFmpeg decoder) are
+/// intended to be added as slots in [Media3PlaybackBridge] or as separate
+/// Dart ↔ Native bridges — keeping business logic decoupled from transport.
+///
+/// Stream format contracts (unchanged):
+/// [playbackStateStream] → Map: 'playing' bool, 'processingState' String
+/// [currentTrackStream]  → Map?: 'index' int, 'id' int, 'nextTrackIndex' int
+/// [queueStream]         → List of LocalSong.toMap()
+/// [sleepTimerStream]    → Map: 'active' bool, 'endOfSong' bool, 'remainingMs' int
 class AudioEngineManager {
   AudioEngineManager._();
 
-  // ── Singleton state ───────────────────────────────────────────────────────
+  static bool _initialized = false;
 
-  static AbstractAudioEngine? _engine;
-  static PlaybackEngineType   _engineType = PlaybackEngineType.media3;
-  static bool                 _initialized = false;
-
-  static final ValueNotifier<PlaybackEngineType> activeEngineType =
-      ValueNotifier(PlaybackEngineType.media3);
-
-  static final ValueNotifier<bool> isSwitching = ValueNotifier(false);
-
-  /// Callback yang dipanggil setelah setiap engine switch selesai
-  /// (setelah state di-restore). Diregistrasi oleh AudioEffectsService
-  /// untuk me-re-apply pengaturan DSP ke engine baru.
-  ///
-  /// Pola callback dipakai (bukan import langsung) untuk menghindari
-  /// circular dependency: AudioEffectsService → AudioEngineManager.
-  static VoidCallback? _postSwitchCallback;
-
-  /// Registrasi callback yang dipanggil setelah setiap engine switch.
-  /// Dipanggil sekali oleh AudioEffectsService.init().
-  static void registerPostSwitchCallback(VoidCallback callback) {
-    _postSwitchCallback = callback;
-  }
-
-  // ── Forwarding StreamControllers ──────────────────────────────────────────
-  // Semua consumer (AudioService, MediaCapabilitiesService, dll.) subscribe
-  // ke stream-stream ini — bukan langsung ke engine. Saat engine diganti,
-  // _subscribeToEngine() menghubungkan source baru ke controller yang sama.
-
-  static final _playbackStateCtrl   = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _positionCtrl        = StreamController<Duration>.broadcast();
-  static final _durationCtrl        = StreamController<Duration>.broadcast();
-  static final _currentTrackCtrl    = StreamController<Map<dynamic, dynamic>?>.broadcast();
-  static final _queueCtrl           = StreamController<List<dynamic>>.broadcast();
-  static final _bufferingCtrl       = StreamController<bool>.broadcast();
-  static final _shuffleCtrl         = StreamController<bool>.broadcast();
-  static final _repeatCtrl          = StreamController<String>.broadcast();
-  static final _sleepTimerCtrl      = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _audioSessionCtrl    = StreamController<int>.broadcast();
-  static final _audioFormatCtrl     = StreamController<Map<dynamic, dynamic>>.broadcast();
-  static final _skipSilenceCtrl     = StreamController<bool>.broadcast();
-  static final _stereoWideningCtrl  = StreamController<Map<dynamic, dynamic>>.broadcast();
-
-  static final List<StreamSubscription<dynamic>> _engineSubs = [];
+  // ── Artwork prefetch state ─────────────────────────────────────────────────
   static List<LocalSong> _currentQueue = const [];
   static int _lastPrefetchedIndex = -1;
   static final Set<int> _prefetchingSongs = <int>{};
   static int _activePrefetches = 0;
   static const int _maxConcurrentPrefetches = 2;
 
-  // ── Public streams ────────────────────────────────────────────────────────
+  // ── Forwarding stream controllers (currentTrack / queue intercepted) ───────
+  //
+  // These two streams are intercepted to maintain the local queue mirror
+  // (_currentQueue) used for artwork prefetching.  All other streams are
+  // exposed as direct pass-throughs from [Media3PlaybackBridge].
+  static final _currentTrackCtrl =
+      StreamController<Map<dynamic, dynamic>?>.broadcast();
+  static final _queueCtrl = StreamController<List<dynamic>>.broadcast();
 
-  static Stream<Map<dynamic, dynamic>>  get playbackStateStream  => _playbackStateCtrl.stream;
-  static Stream<Duration>               get positionStream       => _positionCtrl.stream;
-  static Stream<Duration>               get durationStream       => _durationCtrl.stream;
-  static Stream<Map<dynamic, dynamic>?> get currentTrackStream   => _currentTrackCtrl.stream;
-  static Stream<List<dynamic>>          get queueStream          => _queueCtrl.stream;
-  static Stream<bool>                   get bufferingStateStream => _bufferingCtrl.stream;
-  static Stream<bool>                   get shuffleModeStream    => _shuffleCtrl.stream;
-  static Stream<String>                 get repeatModeStream     => _repeatCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get sleepTimerStream     => _sleepTimerCtrl.stream;
-  static Stream<int>                    get audioSessionIdStream => _audioSessionCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get audioFormatStream    => _audioFormatCtrl.stream;
-  static Stream<bool>                   get skipSilenceStream    => _skipSilenceCtrl.stream;
-  static Stream<Map<dynamic, dynamic>>  get stereoWideningStream => _stereoWideningCtrl.stream;
+  static final List<StreamSubscription<dynamic>> _subs = [];
+
+  // ── Public streams ─────────────────────────────────────────────────────────
+
+  static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
+      Media3PlaybackBridge.playbackStateStream;
+  static Stream<Duration> get positionStream =>
+      Media3PlaybackBridge.positionStream;
+  static Stream<Duration> get durationStream =>
+      Media3PlaybackBridge.durationStream;
+  static Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
+      _currentTrackCtrl.stream;
+  static Stream<List<dynamic>> get queueStream => _queueCtrl.stream;
+  static Stream<bool> get bufferingStateStream =>
+      Media3PlaybackBridge.bufferingStateStream;
+  static Stream<bool> get shuffleModeStream =>
+      Media3PlaybackBridge.shuffleModeStream;
+  static Stream<String> get repeatModeStream =>
+      Media3PlaybackBridge.repeatModeStream;
+  static Stream<Map<dynamic, dynamic>> get sleepTimerStream =>
+      Media3PlaybackBridge.sleepTimerStream;
+  static Stream<int> get audioSessionIdStream =>
+      Media3PlaybackBridge.audioSessionIdStream;
+  static Stream<Map<dynamic, dynamic>> get audioFormatStream =>
+      Media3PlaybackBridge.audioFormatStream;
+  static Stream<bool> get skipSilenceStream =>
+      Media3PlaybackBridge.skipSilenceStream;
+  static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
+      Media3PlaybackBridge.stereoWideningStream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -104,321 +110,203 @@ class AudioEngineManager {
     if (_initialized) return;
     _initialized = true;
 
-    if (!kIsWeb) {
-      MediaKit.ensureInitialized();
-    }
+    // Subscribe to currentTrack: forward events and trigger artwork prefetch.
+    _subs.add(
+      Media3PlaybackBridge.currentTrackStream.listen((event) {
+        _currentTrackCtrl.add(event);
 
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('playback_engine') ?? 'media3';
-    _engineType = PlaybackEngineType.fromPrefKey(saved);
-    activeEngineType.value = _engineType;
+        final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
+        if (currentIndex < 0) return;
+        if (_lastPrefetchedIndex == currentIndex) return;
+        _lastPrefetchedIndex = currentIndex;
 
-    _engine = _createEngine(_engineType);
-    await _engine!.initialize();
-    _subscribeToEngine(_engine!);
+        for (var i = -1; i <= 3; i++) {
+          unawaited(_prefetchArtwork(currentIndex + i));
+        }
+      }),
+    );
+
+    // Subscribe to queue: forward events, mirror queue, seed artwork prefetch.
+    _subs.add(
+      Media3PlaybackBridge.queueStream.listen((queue) {
+        _queueCtrl.add(queue);
+
+        _currentQueue = queue
+            .whereType<Map>()
+            .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
+            .toList();
+
+        for (var i = 0; i < _currentQueue.length && i < 3; i++) {
+          unawaited(_prefetchArtwork(i));
+        }
+      }),
+    );
 
     LogService.log(
       'AudioEngineManager',
-      'Initialized — engine: ${_engineType.displayName}',
+      'Initialized — Media3PlaybackBridge (single engine)',
     );
   }
 
-  // ── Engine switching ──────────────────────────────────────────────────────
-
-  /// Beralih ke [newType]. Semua state dipreservasi secara atomik.
-  static Future<void> switchEngine(PlaybackEngineType newType) async {
-    if (_engineType == newType) return;
-    if (isSwitching.value) return;
-
-    // Set flag SEBELUM await pertama untuk mencegah concurrent switch.
-    isSwitching.value = true;
-    LogService.log(
-      'AudioEngineManager',
-      'Beralih: ${_engineType.displayName} → ${newType.displayName}',
-    );
-
-    try {
-      // 1. Simpan state saat ini
-      final snapshot    = await _engine?.getPlaybackSnapshot();
-      final queue       = _extractQueue(snapshot);
-      final index       = (snapshot?['currentIndex']  as num?)?.toInt() ?? 0;
-      final positionMs  = (snapshot?['positionMs']     as num?)?.toInt() ?? 0;
-      final wasPlaying  = snapshot?['isPlaying']        as bool? ?? false;
-      final shuffle     = snapshot?['shuffleEnabled']   as bool? ?? false;
-      final repeatMode  = snapshot?['repeatMode']       as String? ?? 'off';
-
-      // 2. Pause engine lama
-      try { await _engine?.pause(); } catch (_) {}
-
-      // 3. Simpan preferensi
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('playback_engine', newType.prefKey);
-
-      // 4. Dispose engine lama (Media3Engine.dispose() menghentikan Android service)
-      _cancelEngineSubscriptions();
-      try {
-        await _engine?.dispose();
-      } catch (e) {
-        LogService.warn('AudioEngineManager', 'Dispose engine lama: $e');
-      }
-      _engine = null;
-
-      // 5. Inisialisasi engine baru
-      _engineType            = newType;
-      activeEngineType.value = newType;
-      _engine                = _createEngine(newType);
-      await _engine!.initialize();
-      _subscribeToEngine(_engine!);
-
-      // 6. Restore state
-      if (queue.isNotEmpty) {
-        await _engine!.setQueue(queue, index.clamp(0, queue.length - 1));
-        await _engine!.setShuffleMode(shuffle);
-        await _engine!.setRepeatMode(repeatMode);
-
-        if (positionMs > 0) {
-          await _engine!.seek(Duration(milliseconds: positionMs));
-        }
-
-        if (wasPlaying) await _engine!.play();
-      }
-
-      // 7. Re-apply semua pengaturan DSP (speed, pitch, EQ, bass, dll.)
-      // ke engine baru. Pengaturan ini tidak tersimpan di engine — hanya di
-      // AudioEffectsService — sehingga harus dikirim ulang setelah setiap switch.
-      // Dipanggil di luar blok queue agar selalu berjalan, bahkan saat queue kosong.
-      _postSwitchCallback?.call();
-
-      LogService.log(
-        'AudioEngineManager',
-        'Perpindahan selesai → ${newType.displayName}',
-      );
-    } catch (e, st) {
-      LogService.error(
-        'AudioEngineManager',
-        'switchEngine gagal: $e',
-        stackTrace: st.toString(),
-      );
-    } finally {
-      isSwitching.value = false;
-    }
+  // ── Post-switch callback (no-op — retained for call-site compatibility) ───
+  //
+  // Previously used to re-apply DSP settings after an engine switch.
+  // Engine switching is removed; this is a harmless no-op stub retained so
+  // AudioEffectsService.init() compiles without modification.
+  // ignore: avoid_unused_parameters
+  static void registerPostSwitchCallback(VoidCallback callback) {
+    // No-op: single-engine architecture has no engine switching.
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
-  static Future<void> play()           => _engine?.play()         ?? Future.value();
-  static Future<void> pause()          => _engine?.pause()        ?? Future.value();
-  static Future<void> stop()           => _engine?.stop()         ?? Future.value();
-  static Future<void> seek(Duration p) => _engine?.seek(p)        ?? Future.value();
-  static Future<void> skipNext()       => _engine?.skipNext()     ?? Future.value();
-  static Future<void> skipPrevious()   => _engine?.skipPrevious() ?? Future.value();
-  static Future<void> setTrack(int i)  => _engine?.setTrack(i)    ?? Future.value();
+  static Future<void> play()           => Media3PlaybackBridge.play();
+  static Future<void> pause()          => Media3PlaybackBridge.pause();
+  static Future<void> stop()           => Media3PlaybackBridge.stop();
+  static Future<void> seek(Duration p) => Media3PlaybackBridge.seek(p);
+  static Future<void> skipNext()       => Media3PlaybackBridge.skipNext();
+  static Future<void> skipPrevious()   => Media3PlaybackBridge.skipPrevious();
+  static Future<void> setTrack(int i)  => Media3PlaybackBridge.setTrack(i);
 
   // ── Mode ──────────────────────────────────────────────────────────────────
 
-  static Future<void> setRepeatMode(String m)  =>
-      _engine?.setRepeatMode(m)  ?? Future.value();
-  static Future<void> setShuffleMode(bool e)   =>
-      _engine?.setShuffleMode(e) ?? Future.value();
+  static Future<void> setRepeatMode(String m) =>
+      Media3PlaybackBridge.setRepeatMode(m);
+  static Future<void> setShuffleMode(bool e) =>
+      Media3PlaybackBridge.setShuffleMode(e);
 
   // ── Playback parameters ───────────────────────────────────────────────────
 
-  static Future<void> setVolume(double v) =>
-      _engine?.setVolume(v) ?? Future.value();
-  static Future<void> setSpeed(double v)  =>
-      _engine?.setSpeed(v)  ?? Future.value();
-  static Future<void> setPitch(double v)  =>
-      _engine?.setPitch(v)  ?? Future.value();
+  static Future<void> setVolume(double v) => Media3PlaybackBridge.setVolume(v);
+  static Future<void> setSpeed(double v)  => Media3PlaybackBridge.setSpeed(v);
+  static Future<void> setPitch(double v)  => Media3PlaybackBridge.setPitch(v);
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
   static Future<void> setQueue(List<LocalSong> q, int i) =>
-      _engine?.setQueue(q, i)       ?? Future.value();
-  static Future<void> insertNext(LocalSong s)    =>
-      _engine?.insertNext(s)         ?? Future.value();
+      Media3PlaybackBridge.setQueue(q, i);
+  static Future<void> insertNext(LocalSong s) =>
+      Media3PlaybackBridge.insertNext(s);
   static Future<void> appendToQueue(LocalSong s) =>
-      _engine?.appendToQueue(s)      ?? Future.value();
-  static Future<void> removeFromQueue(int i)     =>
-      _engine?.removeFromQueue(i)    ?? Future.value();
+      Media3PlaybackBridge.appendToQueue(s);
+  static Future<void> removeFromQueue(int i) =>
+      Media3PlaybackBridge.removeFromQueue(i);
   static Future<void> reorderQueue(int o, int n) =>
-      _engine?.reorderQueue(o, n)    ?? Future.value();
+      Media3PlaybackBridge.reorderQueue(o, n);
 
   // ── DSP effects ───────────────────────────────────────────────────────────
 
   static Future<void> setBassBoost(int strength) =>
-      _engine?.setBassBoost(strength)           ?? Future.value();
+      Media3PlaybackBridge.setBassBoostStrength(strength);
   static Future<void> setBassBoostEnabled(bool e) =>
-      _engine?.setBassBoostEnabled(e)           ?? Future.value();
+      Media3PlaybackBridge.setBassBoostEnabled(e);
   static Future<void> setVirtualizerEnabled(bool e) =>
-      _engine?.setVirtualizerEnabled(e)         ?? Future.value();
+      Media3PlaybackBridge.setVirtualizerEnabled(e);
   static Future<void> setVirtualizerStrength(int s) =>
-      _engine?.setVirtualizerStrength(s)        ?? Future.value();
+      Media3PlaybackBridge.setVirtualizerStrength(s);
   static Future<void> setEqualizerEnabled(bool e) =>
-      _engine?.setEqualizerEnabled(e)           ?? Future.value();
+      Media3PlaybackBridge.setEqualizerEnabled(e);
   static Future<void> setEqualizerBandGain(int b, double g) =>
-      _engine?.setEqualizerBandGain(b, g)       ?? Future.value();
+      Media3PlaybackBridge.setEqualizerBandGain(b, g);
   static Future<void> setLoudnessEnabled(bool e) =>
-      _engine?.setLoudnessEnabled(e)            ?? Future.value();
+      Media3PlaybackBridge.setLoudnessEnabled(e);
   static Future<void> setLoudnessTargetGain(double g) =>
-      _engine?.setLoudnessTargetGain(g)         ?? Future.value();
+      Media3PlaybackBridge.setLoudnessTargetGain(g);
   static Future<void> setCrossfadeDuration(double s) =>
-      _engine?.setCrossfadeDuration(s)          ?? Future.value();
+      Media3PlaybackBridge.setCrossfadeDuration(s);
 
-  static Future<EngineEqualizerParameters?> getEqualizerParameters() =>
-      _engine?.getEqualizerParameters() ?? Future.value(null);
+  static Future<EngineEqualizerParameters?> getEqualizerParameters() async {
+    try {
+      final raw = await Media3PlaybackBridge.getEqualizerParameters();
+      return EngineEqualizerParameters(
+        minDecibels: raw.minDecibels,
+        maxDecibels: raw.maxDecibels,
+        bandCount: raw.bands.length,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Future<Map<String, dynamic>?> getEffectSupport() =>
-      _engine?.getEffectSupport() ?? Future.value(null);
+      Media3PlaybackBridge.getEffectSupport();
 
-  // ── Capabilities ─────────────────────────────────────────────────────────
+  // ── Capabilities ──────────────────────────────────────────────────────────
 
   static Future<void> setSkipSilence(bool e) =>
-      _engine?.setSkipSilence(e) ?? Future.value();
+      Media3PlaybackBridge.setSkipSilence(e);
 
   static Future<void> setStereoWidening({
     required bool enabled,
     required double strength,
   }) =>
-      _engine?.setStereoWidening(enabled: enabled, strength: strength) ??
-      Future.value();
+      Media3PlaybackBridge.setStereoWidening(
+        enabled: enabled,
+        strength: strength,
+      );
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
-      _engine?.getPlaybackStats() ?? Future.value(null);
+      Media3PlaybackBridge.getPlaybackStats();
 
-  // ── Audio format ─────────────────────────────────────────────────────────
+  // ── Audio format ──────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getAudioFormat() =>
-      _engine?.getAudioFormat() ?? Future.value(null);
+      Media3PlaybackBridge.getAudioFormat();
 
   // ── Sleep timer ───────────────────────────────────────────────────────────
 
   static Future<void> setSleepTimer(int ms) =>
-      _engine?.setSleepTimer(ms)        ?? Future.value();
+      Media3PlaybackBridge.setSleepTimer(ms);
   static Future<void> setSleepTimerEndOfSong() =>
-      _engine?.setSleepTimerEndOfSong() ?? Future.value();
+      Media3PlaybackBridge.setSleepTimerEndOfSong();
   static Future<void> cancelSleepTimer() =>
-      _engine?.cancelSleepTimer()       ?? Future.value();
+      Media3PlaybackBridge.cancelSleepTimer();
 
   // ── State snapshot ────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getPlaybackSnapshot() =>
-      _engine?.getPlaybackSnapshot() ?? Future.value(null);
-
-  // ── Engine info ───────────────────────────────────────────────────────────
-
-  static PlaybackEngineType get engineType    => _engineType;
-  static bool get isMedia3Active   => _engineType == PlaybackEngineType.media3;
-  static bool get isMediaKitActive => _engineType == PlaybackEngineType.mediaKit;
+      Media3PlaybackBridge.getPlaybackSnapshot();
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
-  static AbstractAudioEngine _createEngine(PlaybackEngineType type) =>
-      switch (type) {
-        PlaybackEngineType.media3   => Media3Engine(),
-        PlaybackEngineType.mediaKit => MediaKitEngine(),
-      };
-
-  static void _subscribeToEngine(AbstractAudioEngine engine) {
-    _cancelEngineSubscriptions();
-    _engineSubs.addAll([
-      engine.playbackStateStream.listen(_playbackStateCtrl.add),
-      engine.positionStream.listen(_positionCtrl.add),
-      engine.durationStream.listen(_durationCtrl.add),
-      engine.currentTrackStream.listen((event) {
-  _currentTrackCtrl.add(event);
-
-  final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
-  if (currentIndex < 0) return;
-
-  if (_lastPrefetchedIndex == currentIndex) return;
-  _lastPrefetchedIndex = currentIndex;
-
-  for (var i = -1; i <= 3; i++) {
-  unawaited(_prefetchArtwork(currentIndex + i));
-}
-}),
-      engine.queueStream.listen((queue) {
-  _queueCtrl.add(queue);
-
-  _currentQueue = queue
-      .whereType<Map>()
-      .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
-      .toList();
-
-  for (var i = 0; i < _currentQueue.length && i < 3; i++) {
-    unawaited(_prefetchArtwork(i));
-  }
-}),
-      engine.bufferingStateStream.listen(_bufferingCtrl.add),
-      engine.shuffleModeStream.listen(_shuffleCtrl.add),
-      engine.repeatModeStream.listen(_repeatCtrl.add),
-      engine.sleepTimerStream.listen(_sleepTimerCtrl.add),
-      engine.audioSessionIdStream.listen(_audioSessionCtrl.add),
-      engine.audioFormatStream.listen(_audioFormatCtrl.add),
-      engine.skipSilenceStream.listen(_skipSilenceCtrl.add),
-      engine.stereoWideningStream.listen(_stereoWideningCtrl.add),
-    ]);
-  }
-
-  static void _cancelEngineSubscriptions() {
-    for (final s in _engineSubs) {
-      s.cancel();
-    }
-    _engineSubs.clear();
-  }
-
- static Future<void> _prefetchArtwork(int index) async {
-  try {
-    if (index < 0 || index >= _currentQueue.length) return;
-
-    final song = _currentQueue[index];
-
-    if (!_prefetchingSongs.add(song.id)) {
-      return;
-    }
-
-    if (_activePrefetches >= _maxConcurrentPrefetches) {
-  _prefetchingSongs.remove(song.id);
-  return;
-   }
-
-_activePrefetches++;
-
-    if (PaletteExtractor.getSync(song.id) != null) {
-      return;
-    }
-
-    final bytes = await ArtworkRepository.instance.getBytes(song.id);
-    if (bytes == null) return;
-
-    if (PaletteExtractor.getSync(song.id) != null) {
-      return;
-    }
-
-    await PaletteExtractor.get(song.id, bytes);
-  } catch (_) {
-    // Ignore prefetch failures.
-  } finally {
-    if (index >= 0 && index < _currentQueue.length) {
-      _prefetchingSongs.remove(_currentQueue[index].id);
-
-if (_activePrefetches > 0) {
-  _activePrefetches--;
-}
-    }
-  }
-}
-  
-  static List<LocalSong> _extractQueue(Map<String, dynamic>? snapshot) {
+  static Future<void> _prefetchArtwork(int index) async {
     try {
-      final raw = snapshot?['queue'];
-      if (raw == null || raw is! List) return [];
-      return raw
-          .whereType<Map>()
-          .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
-          .toList();
+      if (index < 0 || index >= _currentQueue.length) return;
+
+      final song = _currentQueue[index];
+
+      if (!_prefetchingSongs.add(song.id)) {
+        return;
+      }
+
+      if (_activePrefetches >= _maxConcurrentPrefetches) {
+        _prefetchingSongs.remove(song.id);
+        return;
+      }
+
+      _activePrefetches++;
+
+      if (PaletteExtractor.getSync(song.id) != null) {
+        return;
+      }
+
+      final bytes = await ArtworkRepository.instance.getBytes(song.id);
+      if (bytes == null) return;
+
+      if (PaletteExtractor.getSync(song.id) != null) {
+        return;
+      }
+
+      await PaletteExtractor.get(song.id, bytes);
     } catch (_) {
-      return [];
+      // Ignore prefetch failures.
+    } finally {
+      if (index >= 0 && index < _currentQueue.length) {
+        _prefetchingSongs.remove(_currentQueue[index].id);
+        if (_activePrefetches > 0) {
+          _activePrefetches--;
+        }
+      }
     }
   }
 }

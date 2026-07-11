@@ -2,20 +2,25 @@ part of '../audio_service.dart';
 
 /// Main facade for all audio playback operations.
 ///
-/// Architecture (hybrid engine):
-///   Flutter UI → AudioService → AudioEngineManager
-///                              → AbstractAudioEngine
-///                                ├── Media3Engine → Media3PlaybackBridge
-///                                │                → Media3PlaybackService.kt → ExoPlayer
-///                                └── MediaKitEngine → media_kit Player
+/// Architecture:
+///   Flutter UI
+///     ↓
+///   AudioService              (this class — business-logic facade)
+///     ↓
+///   AudioEngineManager        (stream routing + artwork prefetch)
+///     ↓
+///   Media3PlaybackBridge      (sole MethodChannel / EventChannel edge)
+///     ↓
+///   Media3PlaybackService.kt  → ExoPlayer
 ///
 /// Native (Media3) owns: queue, shuffle order, repeat mode, sleep timer,
 ///                       crossfade, all audio effects, and persistence.
 /// Flutter owns: AudioPlaybackState (mirror built from engine streams)
 ///               and the raw LocalSong model objects.
 ///
-/// All state flows engine → AudioEngineManager → Dart via forwarding streams.
-/// Dart never computes shuffle/repeat/next-index independently.
+/// All state flows native → Media3PlaybackBridge → AudioEngineManager → Dart
+/// via forwarding streams.  Dart never computes shuffle/repeat/next-index
+/// independently.
 class AudioService {
   AudioService._();
 
@@ -159,7 +164,7 @@ class AudioService {
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
 
-    LogService.log('AudioService', 'Initialized — engine: ${AudioEngineManager.engineType.displayName}');
+    LogService.log('AudioService', 'Initialized — engine: Native Media3');
   }
 
   static void _onReplayGainSettingChanged() {
