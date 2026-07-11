@@ -253,6 +253,36 @@ external void nar_comp_set_bypass(int bypass);
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_comp_get_bypass();
 
+// ── crossfeed_processor.h ─────────────────────────────────────────────────────
+// Phase 7: Frequency-dependent headphone crossfeed.
+
+/// Register the crossfeed processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_crossfeed_processor_register_internal();
+
+/// Configure all crossfeed parameters in one call.
+/// [amount]: blend [0,1]. [cutoffHz]: LP cutoff [100,2000] Hz.
+/// [hfCompDb]: HF shelf gain [0,12] dB. [hfCompHz]: shelf corner [1000,16000] Hz.
+/// [width]: stereo width [0,2]. [sampleRate]: playback rate (0 → 48000).
+@ffi.Native<
+    ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float,
+        ffi.Float, ffi.Float, ffi.Float)>()
+external int nar_crossfeed_set_params(
+    double amount,
+    double cutoffHz,
+    double hfCompDb,
+    double hfCompHz,
+    double width,
+    double sampleRate);
+
+/// Enable (0) or bypass (1) the crossfeed processor.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_crossfeed_set_bypass(int bypass);
+
+/// Returns 1 if the crossfeed is bypassed, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_crossfeed_get_bypass();
+
 // ── limiter_processor.h ───────────────────────────────────────────────────────
 // Phase 6: Look-ahead brickwall limiter.
 

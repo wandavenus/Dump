@@ -21,6 +21,7 @@ void main(List<String> args) async {
         'src/biquad_filter.c',          // Biquad coefficient computation (Phase 5)
         'src/peq_processor.c',          // Parametric EQ processor (Phase 5)
         'src/comp_processor.c',         // Compressor processor (Phase 6)
+        'src/crossfeed_processor.c',    // Crossfeed processor (Phase 7)
         'src/limiter_processor.c',      // Look-ahead limiter processor (Phase 6)
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
       ],

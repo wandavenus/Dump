@@ -206,7 +206,16 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (comp)', compStatus);
     }
 
-    // Phase 6: Limiter (slot 3)
+    // Phase 7: Crossfeed (slot 3, between compressor and limiter)
+    final crossfeedStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_crossfeed_processor_register_internal());
+    if (crossfeedStatus != NativeRuntimeStatus.ok &&
+        crossfeedStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (crossfeed)', crossfeedStatus);
+    }
+
+    // Phase 6: Limiter (slot 4)
     final limiterStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_limiter_processor_register_internal());
     if (limiterStatus != NativeRuntimeStatus.ok &&
@@ -215,7 +224,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (limiter)', limiterStatus);
     }
 
-    // Phase 6: Soft Clipper (slot 4)
+    // Phase 6: Soft Clipper (slot 5)
     final softClipperStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_soft_clipper_processor_register_internal());
     if (softClipperStatus != NativeRuntimeStatus.ok &&
@@ -462,12 +471,61 @@ class NativeLimiter {
   int get lookaheadFrames => bindings.nar_limiter_lookahead_frames();
 }
 
+// ── NativeCrossfeed ───────────────────────────────────────────────────────────
+
+/// Dart facade over the native Crossfeed processor
+/// (`src/crossfeed_processor.h`).
+///
+/// Frequency-dependent headphone crossfeed at pipeline slot 3
+/// (after dsp.compressor, before dsp.limiter).
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller.
+/// **Threading**: [setParams] and [setBypass] are thread-safe
+/// (acquire/release dirty protocol for params; atomic store for bypass).
+class NativeCrossfeed {
+  NativeCrossfeed._();
+  static final NativeCrossfeed instance = NativeCrossfeed._();
+
+  /// Configure all crossfeed parameters in one call.
+  ///
+  /// [amount]    : Crossfeed blend strength [0, 1]. Default: 0.3.
+  ///               0 = no crossfeed (transparent); 1 = maximum blend.
+  /// [cutoffHz]  : Lowpass cutoff for the cross-channel path [100, 2000] Hz.
+  ///               Default: 700 Hz — typical crossover between directional and
+  ///               non-directional frequency content.
+  /// [hfCompDb]  : High-shelf gain for HF compensation [0, 12] dB. Default: 3.0.
+  ///               Compensates for the slight HF loss introduced by crossfeed.
+  /// [hfCompHz]  : High-shelf corner frequency [1000, 16000] Hz. Default: 4000.
+  /// [width]     : Stereo width multiplier after mixing [0, 2]. Default: 1.0.
+  ///               1.0 = natural post-crossfeed image; < 1 = narrower.
+  /// [sampleRate]: Current playback sample rate. 0 → 48000 Hz fallback.
+  ///
+  /// Returns the native status code (0 = OK).
+  int setParams({
+    double amount = 0.3,
+    double cutoffHz = 700.0,
+    double hfCompDb = 3.0,
+    double hfCompHz = 4000.0,
+    double width = 1.0,
+    double sampleRate = 48000.0,
+  }) =>
+      bindings.nar_crossfeed_set_params(
+          amount, cutoffHz, hfCompDb, hfCompHz, width, sampleRate);
+
+  /// Enable (`false`) or bypass (`true`) the crossfeed processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_crossfeed_set_bypass(bypass ? 1 : 0);
+
+  /// `true` if the crossfeed bypass is active.
+  bool get bypass => bindings.nar_crossfeed_get_bypass() != 0;
+}
+
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────
 
 /// Dart facade over the native Soft Clipper processor
 /// (`src/soft_clipper_processor.h`).
 ///
-/// Tanh waveshaper at pipeline slot 4 (last in the dynamics chain).
+/// Tanh waveshaper at pipeline slot 5 (last in the dynamics chain).
 /// Samples below [thresholdDb] pass through unchanged; samples above are
 /// smoothly limited asymptotically toward 0 dBFS.
 ///

@@ -546,6 +546,62 @@ class PlaybackManager {
   /// Whether the soft clipper bypass is currently active.
   static bool get nativeSoftClipperBypass => NativeSoftClipper.instance.bypass;
 
+  // ── Native DSP: Crossfeed / Stereo Processing (Phase 7) ──────────────────
+  //
+  // Signal chain (Phase 7): dsp.gain → dsp.peq → dsp.compressor →
+  //                          dsp.crossfeed → dsp.limiter → dsp.soft_clipper
+  //
+  // Crossfeed improves headphone listening by blending a lowpass-filtered
+  // version of each channel into the opposite channel, reducing the unnatural
+  // channel isolation of headphones and reproducing the acoustic coupling of
+  // speakers. Only the L and R channels are affected; mono/surround channels
+  // pass through unchanged.
+  //
+  // All methods delegate directly to [NativeCrossfeed.instance]. The UI must
+  // not import that class — use only these PlaybackManager statics.
+
+  /// Whether the crossfeed processor is available on this device.
+  /// `true` on Android (native FFI active); `false` on web/unsupported.
+  static bool get nativeCrossfeedAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Configure all crossfeed parameters in one call.
+  ///
+  /// Parameters are pre-computed on the calling thread (biquad coefficient
+  /// computation via sinf/cosf) and adopted lock-free by the audio thread on
+  /// its next render cycle — no audible interruption.
+  ///
+  /// [amount]    : Crossfeed blend [0, 1]. Default 0.3. 0 = off.
+  /// [cutoffHz]  : LP cutoff for cross path [100, 2000] Hz. Default 700.
+  /// [hfCompDb]  : HF shelf gain [0, 12] dB. Default 3.0.
+  /// [hfCompHz]  : HF shelf corner [1000, 16000] Hz. Default 4000.
+  /// [width]     : Stereo width after mixing [0, 2]. Default 1.0.
+  /// [sampleRate]: Current playback sample rate. 0 → 48000 Hz fallback.
+  static int setNativeCrossfeedParams({
+    double amount = 0.3,
+    double cutoffHz = 700.0,
+    double hfCompDb = 3.0,
+    double hfCompHz = 4000.0,
+    double width = 1.0,
+    double sampleRate = 48000.0,
+  }) =>
+      NativeCrossfeed.instance.setParams(
+        amount: amount,
+        cutoffHz: cutoffHz,
+        hfCompDb: hfCompDb,
+        hfCompHz: hfCompHz,
+        width: width,
+        sampleRate: sampleRate,
+      );
+
+  /// Enable (`false`) or bypass (`true`) the crossfeed processor.
+  /// Thread-safe — may be called while audio is rendering.
+  static void setNativeCrossfeedBypass(bool bypass) =>
+      NativeCrossfeed.instance.setBypass(bypass);
+
+  /// Whether the crossfeed bypass is currently active.
+  static bool get nativeCrossfeedBypass => NativeCrossfeed.instance.bypass;
+
   // ── Private helpers ───────────────────────────────────────────────────────
 
   static Future<void> _prefetchArtwork(int index) async {

@@ -159,6 +159,27 @@ class NativeLimiter {
   int get lookaheadFrames => 0;
 }
 
+// ── NativeCrossfeed stub ──────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeCrossfeed]. All methods are no-ops.
+class NativeCrossfeed {
+  NativeCrossfeed._();
+  static final NativeCrossfeed instance = NativeCrossfeed._();
+
+  int setParams({
+    double amount = 0.3,
+    double cutoffHz = 700.0,
+    double hfCompDb = 3.0,
+    double hfCompHz = 4000.0,
+    double width = 1.0,
+    double sampleRate = 48000.0,
+  }) =>
+      NativeRuntimeStatus.unsupportedPlatform.index;
+
+  void setBypass(bool bypass) {}
+  bool get bypass => false;
+}
+
 // ── NativeSoftClipper stub ────────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeSoftClipper]. All methods are no-ops.

@@ -1,3 +1,4 @@
+- [Phase 7 Crossfeed](dsp-phase7.md) — frequency-dependent crossfeed at slot 3 (between compressor and limiter); pipeline now 6 slots; stereo_matrix.h reusable framework; zero latency.
 - [Phase 6 Dynamics Processing](dsp-phase6.md) — compressor/limiter/soft_clipper fully wired; pipeline now has 5 slots; total latency = 63 frames (limiter look-ahead); tests updated accordingly.
 - [Phase 4 DSP Core](dsp-phase4.md) — new processor = new .c file + register_internal(); atomic float trick; analysis_options exclude native_audio_runtime/test/**.
 - [Phase 5 Parametric EQ](peq-phase5.md) — dsp.peq is slot 1 (after dsp.gain); dirty-flag acquire/release for thread-safe param updates; coeff computation (sinf/cosf) on control thread only; Dart API via PlaybackManager only.

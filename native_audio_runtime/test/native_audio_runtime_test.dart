@@ -66,6 +66,8 @@ void main() {
       'dsp.compressor',
       'dsp.limiter',
       'dsp.soft_clipper',
+      // Phase 7
+      'dsp.crossfeed',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere((c) => c.key == key,
@@ -139,18 +141,21 @@ void main() {
     expect(NativeDspPipeline.instance.isInitialized, isTrue);
   });
 
-  test('pipeline registers all 5 processors (Phase 4–6) in order', () async {
+  test('pipeline registers all 6 processors (Phase 4–7) in order', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
     // Phase 4: gain, Phase 5: peq, Phase 6: compressor + limiter + soft_clipper
-    expect(NativeDspPipeline.instance.processorCount, equals(5));
+    // Phase 7: crossfeed (slot 3, between compressor and limiter)
+    expect(NativeDspPipeline.instance.processorCount, equals(6));
     expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
     expect(NativeDspPipeline.instance.processorIdAt(1), equals('dsp.peq'));
     expect(NativeDspPipeline.instance.processorIdAt(2),
         equals('dsp.compressor'));
-    expect(NativeDspPipeline.instance.processorIdAt(3), equals('dsp.limiter'));
-    expect(NativeDspPipeline.instance.processorIdAt(4),
+    expect(NativeDspPipeline.instance.processorIdAt(3),
+        equals('dsp.crossfeed'));
+    expect(NativeDspPipeline.instance.processorIdAt(4), equals('dsp.limiter'));
+    expect(NativeDspPipeline.instance.processorIdAt(5),
         equals('dsp.soft_clipper'));
   });
 
@@ -850,6 +855,292 @@ void main() {
       buf.destroy();
     }
   });
+
+  // ── NativeCrossfeed tests (Phase 7) ──────────────────────────────────────
+
+  test('crossfeed: default bypass is off', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    expect(NativeCrossfeed.instance.bypass, isFalse);
+  });
+
+  test('crossfeed: bypass round-trips correctly', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    NativeCrossfeed.instance.setBypass(true);
+    expect(NativeCrossfeed.instance.bypass, isTrue);
+
+    NativeCrossfeed.instance.setBypass(false);
+    expect(NativeCrossfeed.instance.bypass, isFalse);
+  });
+
+  test('crossfeed: setParams returns NATIVE_RUNTIME_OK (0)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    final status = NativeCrossfeed.instance.setParams(
+      amount: 0.3,
+      cutoffHz: 700.0,
+      hfCompDb: 3.0,
+      hfCompHz: 4000.0,
+      width: 1.0,
+      sampleRate: 48000.0,
+    );
+    expect(status, equals(0)); // NATIVE_RUNTIME_OK
+  });
+
+  test('crossfeed: bypass passes stereo audio unchanged', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    // Isolate the crossfeed processor
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.compressor', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.limiter', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeCrossfeed.instance.setBypass(true);
+
+    final buf = NativeAudioBuffer.create(
+        capacityFrames: 16, channelCount: 2, sampleRate: 48000);
+    expect(buf, isNotNull);
+    buf!;
+
+    try {
+      for (var i = 0; i < buf.data.length; i++) {
+        buf.data[i] = (i % 2 == 0) ? 0.6 : 0.2; // L=0.6, R=0.2
+      }
+      // Copy expected values before processing
+      final expected = List<double>.from(buf.data);
+
+      NativeDspPipeline.instance.processBuffer(buf);
+
+      for (var i = 0; i < buf.data.length; i++) {
+        expect(buf.data[i], closeTo(expected[i], 1e-6),
+            reason: 'crossfeed bypass must leave all samples untouched');
+      }
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  test('crossfeed: mono signal passes through unchanged', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    // Isolate the crossfeed
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.compressor', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.limiter', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeCrossfeed.instance.setBypass(false);
+
+    // Mono buffer — crossfeed must be a no-op for channels < 2
+    final buf = NativeAudioBuffer.create(
+        capacityFrames: 16, channelCount: 1, sampleRate: 48000);
+    expect(buf, isNotNull);
+    buf!;
+
+    try {
+      for (var i = 0; i < buf.data.length; i++) {
+        buf.data[i] = 0.7;
+      }
+      NativeDspPipeline.instance.processBuffer(buf);
+      for (var i = 0; i < buf.data.length; i++) {
+        expect(buf.data[i], closeTo(0.7, 1e-6),
+            reason: 'mono signal must pass through crossfeed unchanged');
+      }
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  test('crossfeed: blends channels (L and R outputs differ from hard-panned input)',
+      () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    // Isolate the crossfeed
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.compressor', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.limiter', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeCrossfeed.instance.setBypass(false);
+
+    // Maximum crossfeed with a low cutoff to see strong blending.
+    // Input: hard-panned — L=0.8, R=0.0.
+    // After crossfeed: R_out must receive some of L's energy (> 0).
+    // L_out must be reduced (< 0.8) due to normalization.
+    NativeCrossfeed.instance.setParams(
+      amount: 0.8,       // strong crossfeed
+      cutoffHz: 2000.0,  // high cutoff → more blending
+      hfCompDb: 0.0,     // no HF compensation (isolate blending effect)
+      hfCompHz: 4000.0,
+      width: 1.0,
+      sampleRate: 48000.0,
+    );
+
+    // Use a large buffer so the LP filter fully settles.
+    final buf = NativeAudioBuffer.create(
+        capacityFrames: 256, channelCount: 2, sampleRate: 48000);
+    expect(buf, isNotNull);
+    buf!;
+
+    try {
+      // Hard-panned: L = 0.8, R = 0.0
+      for (var f = 0; f < 256; f++) {
+        buf.data[f * 2 + 0] = 0.8; // L
+        buf.data[f * 2 + 1] = 0.0; // R
+      }
+
+      NativeDspPipeline.instance.processBuffer(buf);
+
+      // After filter settles (second half of buffer), check blending:
+      final midL = buf.data[(128 * 2) + 0]; // L output
+      final midR = buf.data[(128 * 2) + 1]; // R output
+
+      // R output must have received energy from L's filtered cross-path
+      expect(midR, greaterThan(0.001),
+          reason: 'crossfeed must blend L energy into R channel');
+      // L output must be normalized (less than input 0.8)
+      expect(midL, lessThan(0.8),
+          reason: 'crossfeed normalization must reduce L output below input');
+      // Both channels must be positive
+      expect(midL, greaterThan(0.0));
+      expect(midR, greaterThan(0.0));
+      // R output must be less than L output (L is still dominant)
+      expect(midR, lessThan(midL),
+          reason: 'L channel must remain dominant after crossfeed');
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  test('crossfeed: amount=0 produces identity (no blending)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    // Isolate the crossfeed
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.compressor', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.limiter', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeCrossfeed.instance.setBypass(false);
+
+    // amount=0: norm = 1/(1+0) = 1; cross = 0×norm = 0; HF comp off
+    // → direct_L×1 + 0 = direct_L = HFshelf_identity(L) = L (for hfCompDb=0)
+    // → width=1.0 → identity matrix
+    // Result: L_out = L_in, R_out = R_in (identity)
+    NativeCrossfeed.instance.setParams(
+      amount: 0.0,
+      cutoffHz: 700.0,
+      hfCompDb: 0.0,  // no HF comp → identity biquad
+      hfCompHz: 4000.0,
+      width: 1.0,
+      sampleRate: 48000.0,
+    );
+
+    final buf = NativeAudioBuffer.create(
+        capacityFrames: 32, channelCount: 2, sampleRate: 48000);
+    expect(buf, isNotNull);
+    buf!;
+
+    try {
+      for (var f = 0; f < 32; f++) {
+        buf.data[f * 2 + 0] = 0.6;
+        buf.data[f * 2 + 1] = 0.3;
+      }
+
+      NativeDspPipeline.instance.processBuffer(buf);
+
+      // After filter settles, steady-state output must match input.
+      for (var f = 16; f < 32; f++) {
+        expect(buf.data[f * 2 + 0], closeTo(0.6, 1e-5),
+            reason: 'amount=0 must not change L');
+        expect(buf.data[f * 2 + 1], closeTo(0.3, 1e-5),
+            reason: 'amount=0 must not change R');
+      }
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  test('crossfeed: width=0 collapses to mono (L_out == R_out)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    // Isolate the crossfeed
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.compressor', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.limiter', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
+    NativeDspPipeline.instance
+        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeCrossfeed.instance.setBypass(false);
+
+    // width=0 → width matrix is mono matrix (L_out = R_out = mid)
+    NativeCrossfeed.instance.setParams(
+      amount: 0.3,
+      cutoffHz: 700.0,
+      hfCompDb: 0.0,
+      hfCompHz: 4000.0,
+      width: 0.0,   // full mono
+      sampleRate: 48000.0,
+    );
+
+    final buf = NativeAudioBuffer.create(
+        capacityFrames: 128, channelCount: 2, sampleRate: 48000);
+    expect(buf, isNotNull);
+    buf!;
+
+    try {
+      // Asymmetric input
+      for (var f = 0; f < 128; f++) {
+        buf.data[f * 2 + 0] = 0.7;
+        buf.data[f * 2 + 1] = 0.3;
+      }
+
+      NativeDspPipeline.instance.processBuffer(buf);
+
+      // After filter settles, L_out must equal R_out (mono)
+      for (var f = 64; f < 128; f++) {
+        expect(buf.data[f * 2 + 0], closeTo(buf.data[f * 2 + 1], 1e-5),
+            reason: 'width=0 must produce identical L and R (mono)');
+      }
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  // ── NativeSoftClipper (Phase 6) — symmetry test (kept below crossfeed) ───
 
   test('soft clipper: negative samples are shaped symmetrically', () async {
     await NativeAudioRuntime.instance.initialize();
