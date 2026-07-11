@@ -7,6 +7,10 @@ import '../palette_extractor.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
 import 'media3/media3_playback_bridge.dart';
+import '../native/bridges/native_dsp_bridge.dart';
+import '../native/bridges/ffmpeg_decoder_bridge.dart';
+import '../native/contracts/native_module.dart';
+import '../native/native_module_registry.dart';
 
 // ─── Equalizer parameter type ─────────────────────────────────────────────────
 
