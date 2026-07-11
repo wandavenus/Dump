@@ -32,7 +32,7 @@ typedef enum {
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
 
-static const char* const kVersion = "0.1.0-phase7";
+static const char* const kVersion = "0.1.0-phase8";
 
 // ── Capability table ─────────────────────────────────────────────────────────
 //
@@ -54,6 +54,7 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.crossfeed",         1},  // Phase 7:   frequency-dependent headphone crossfeed
     {"dsp.limiter",           1},  // Phase 6:   look-ahead brickwall limiter
     {"dsp.soft_clipper",      1},  // Phase 6:   tanh soft clipper
+    {"dsp.replaygain",        1},  // Phase 8:   metadata-driven ReplayGain gain stage
     {"dsp.bass_boost",        0},
     {"dsp.virtualizer",       0},
     {"dsp.resampler",         0},

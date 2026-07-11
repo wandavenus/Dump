@@ -18,6 +18,7 @@ void main(List<String> args) async {
         'src/audio_buffer.c',      // NarAudioBuffer — interleaved PCM buffer
         'src/dsp_pipeline.c',      // DSP processing chain
         'src/gain_processor.c',    // Gain processor (Phase 4: pipeline validator)
+        'src/replaygain_processor.c',   // ReplayGain processor (Phase 8: metadata gain)
         'src/biquad_filter.c',          // Biquad coefficient computation (Phase 5)
         'src/peq_processor.c',          // Parametric EQ processor (Phase 5)
         'src/comp_processor.c',         // Compressor processor (Phase 6)

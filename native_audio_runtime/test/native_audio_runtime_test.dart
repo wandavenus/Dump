@@ -68,6 +68,8 @@ void main() {
       'dsp.soft_clipper',
       // Phase 7
       'dsp.crossfeed',
+      // Phase 8
+      'dsp.replaygain',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere((c) => c.key == key,
@@ -141,21 +143,23 @@ void main() {
     expect(NativeDspPipeline.instance.isInitialized, isTrue);
   });
 
-  test('pipeline registers all 6 processors (Phase 4–7) in order', () async {
+  test('pipeline registers all 7 processors (Phase 4–8) in order', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
-    // Phase 4: gain, Phase 5: peq, Phase 6: compressor + limiter + soft_clipper
-    // Phase 7: crossfeed (slot 3, between compressor and limiter)
-    expect(NativeDspPipeline.instance.processorCount, equals(6));
+    // [0]gain → [1]replaygain → [2]peq → [3]compressor →
+    // [4]crossfeed → [5]limiter → [6]soft_clipper
+    expect(NativeDspPipeline.instance.processorCount, equals(7));
     expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
-    expect(NativeDspPipeline.instance.processorIdAt(1), equals('dsp.peq'));
-    expect(NativeDspPipeline.instance.processorIdAt(2),
-        equals('dsp.compressor'));
+    expect(NativeDspPipeline.instance.processorIdAt(1),
+        equals('dsp.replaygain'));
+    expect(NativeDspPipeline.instance.processorIdAt(2), equals('dsp.peq'));
     expect(NativeDspPipeline.instance.processorIdAt(3),
+        equals('dsp.compressor'));
+    expect(NativeDspPipeline.instance.processorIdAt(4),
         equals('dsp.crossfeed'));
-    expect(NativeDspPipeline.instance.processorIdAt(4), equals('dsp.limiter'));
-    expect(NativeDspPipeline.instance.processorIdAt(5),
+    expect(NativeDspPipeline.instance.processorIdAt(5), equals('dsp.limiter'));
+    expect(NativeDspPipeline.instance.processorIdAt(6),
         equals('dsp.soft_clipper'));
   });
 

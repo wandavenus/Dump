@@ -188,7 +188,17 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (gain)', gainStatus);
     }
 
-    // Phase 5: register the Parametric EQ processor (slot 1, after gain).
+    // Phase 8: ReplayGain (slot 1, between gain and peq).
+    // Starts bypassed — PlaybackManager engages it after resolving metadata.
+    final replayGainStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_replaygain_processor_register_internal());
+    if (replayGainStatus != NativeRuntimeStatus.ok &&
+        replayGainStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (replaygain)', replayGainStatus);
+    }
+
+    // Phase 5: register the Parametric EQ processor (slot 2, after replaygain).
     final peqStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_peq_processor_register_internal());
     if (peqStatus != NativeRuntimeStatus.ok &&
@@ -518,6 +528,58 @@ class NativeCrossfeed {
 
   /// `true` if the crossfeed bypass is active.
   bool get bypass => bindings.nar_crossfeed_get_bypass() != 0;
+}
+
+// ── NativeReplayGain ──────────────────────────────────────────────────────────
+
+/// Dart facade over the native ReplayGain processor
+/// (`src/replaygain_processor.h`).
+///
+/// Metadata-driven transparent gain stage at pipeline slot 1 (between
+/// dsp.gain and dsp.peq). Starts bypassed — [PlaybackManager] engages it
+/// after resolving REPLAYGAIN_TRACK_GAIN / REPLAYGAIN_ALBUM_GAIN (or R128 /
+/// iTunNORM equivalents) via [ReplayGainService.resolveBoth].
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller — do not
+/// import this class directly from UI or service code.
+///
+/// **Threading**: [setGain] and [setBypass] are thread-safe (lock-free atomics;
+/// no blocking on the audio thread). The effective linear gain is pre-computed
+/// on the calling thread (powf + clipping protection); the audio thread only
+/// does an atomic load + scalar multiply loop.
+class NativeReplayGain {
+  NativeReplayGain._();
+  static final NativeReplayGain instance = NativeReplayGain._();
+
+  /// Set the gain applied by the ReplayGain processor.
+  ///
+  /// The effective linear gain is computed here on the control thread
+  /// (dB → linear conversion + optional clipping protection) and stored
+  /// atomically — the audio thread picks up the new value on its next
+  /// render cycle without blocking.
+  ///
+  /// [gainDb]                : gain in dBFS from metadata (e.g. −6.0 = 6 dB
+  ///                           attenuation). Clamped to [−24, +24] dB.
+  /// [peakLinear]            : track/album peak in linear scale. Pass 0.0
+  ///                           if peak data is unavailable.
+  /// [useClippingProtection] : if `true`, caps effective gain so that
+  ///                           `gain_linear × peak_linear ≤ 1.0`.
+  ///
+  /// Returns the native status code (0 = OK).
+  int setGain({
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) =>
+      bindings.nar_replaygain_set_gain(
+          gainDb, peakLinear, useClippingProtection ? 1 : 0);
+
+  /// Enable (`false`) or bypass (`true`) the ReplayGain processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_replaygain_set_bypass(bypass ? 1 : 0);
+
+  /// `true` if the ReplayGain processor is currently bypassed.
+  bool get bypass => bindings.nar_replaygain_get_bypass() != 0;
 }
 
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────

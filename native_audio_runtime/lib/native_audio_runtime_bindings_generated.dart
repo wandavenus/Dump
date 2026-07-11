@@ -253,6 +253,30 @@ external void nar_comp_set_bypass(int bypass);
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_comp_get_bypass();
 
+// ── replaygain_processor.h ────────────────────────────────────────────────────
+// Phase 8: Metadata-driven ReplayGain transparent gain stage (pipeline slot 1).
+
+/// Register the ReplayGain processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_replaygain_processor_register_internal();
+
+/// Set the ReplayGain gain.
+/// [gainDb]: gain in dBFS from metadata (clamped to [-24, +24]).
+/// [peakLinear]: track/album peak in linear scale; 0.0 if unknown.
+/// [useClippingProtection]: 1 = cap gain so peak never exceeds 0 dBFS.
+/// Effective gain is pre-computed and stored atomically. Returns 0 (OK).
+@ffi.Native<ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Int32)>()
+external int nar_replaygain_set_gain(
+    double gainDb, double peakLinear, int useClippingProtection);
+
+/// Enable (0) or bypass (1) the ReplayGain processor.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_replaygain_set_bypass(int bypass);
+
+/// Returns 1 if the ReplayGain processor is bypassed, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_replaygain_get_bypass();
+
 // ── crossfeed_processor.h ─────────────────────────────────────────────────────
 // Phase 7: Frequency-dependent headphone crossfeed.
 

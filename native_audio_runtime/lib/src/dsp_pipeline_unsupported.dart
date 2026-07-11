@@ -84,6 +84,25 @@ class NativeDspPipeline {
   bool get gainBypass => false;
 }
 
+// ── NativeReplayGain stub ─────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeReplayGain]. All methods are no-ops.
+/// [bypass] is always `true` — the processor is permanently bypassed on web.
+class NativeReplayGain {
+  NativeReplayGain._();
+  static final NativeReplayGain instance = NativeReplayGain._();
+
+  int setGain({
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) =>
+      NativeRuntimeStatus.unsupportedPlatform.index;
+
+  void setBypass(bool bypass) {}
+  bool get bypass => true;
+}
+
 // ── NativeParametricEq stub ───────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeParametricEq].

@@ -7,6 +7,7 @@ import 'package:native_audio_runtime/native_audio_runtime.dart';
 import '../artwork_repository.dart';
 import '../palette_extractor.dart';
 import '../../models/local_song.dart';
+import '../../models/loudness_data.dart';
 import '../log_service.dart';
 import 'media3/media3_playback_bridge.dart';
 import '../native/bridges/native_dsp_bridge.dart';
@@ -26,6 +27,32 @@ class EqualizerParameters {
     required this.maxDecibels,
     required this.bandCount,
   });
+}
+
+// ─── ReplayGain mode ──────────────────────────────────────────────────────────
+
+/// Playback mode for the ReplayGain loudness normalization engine.
+///
+/// The mode determines which loudness metadata tag (track vs album) is applied
+/// when both are available. Tag reading is handled by [ReplayGainService];
+/// mode selection and gain application are coordinated by [PlaybackManager].
+enum ReplayGainMode {
+  /// ReplayGain disabled — audio plays at its unmodified recorded level.
+  disabled,
+
+  /// Apply REPLAYGAIN_TRACK_GAIN (or R128 / iTunNORM equivalent).
+  /// Best for shuffle playback where consecutive tracks may come from
+  /// different albums.
+  track,
+
+  /// Apply REPLAYGAIN_ALBUM_GAIN for coherent album-level loudness.
+  /// Falls back to track gain if album data is unavailable for a track.
+  album,
+
+  /// Automatic: prefer album gain when available; fall back to track gain.
+  /// Best general-purpose choice — uses album context when it exists,
+  /// track context otherwise.
+  auto,
 }
 
 // ─── PlaybackManager ─────────────────────────────────────────────────────────
