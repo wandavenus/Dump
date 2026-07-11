@@ -44,7 +44,7 @@ class _MusicListState extends State<MusicList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: FadingTitleAppBar(
-        title: 'Unduhan',
+        title: 'Recently Played',
         scrollOffset: _offset,
         actions: const [CommonActions()],
       ),
@@ -63,7 +63,7 @@ class _MusicListState extends State<MusicList> {
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
-                  LargePageTitle(title: 'Unduhan'),
+                  LargePageTitle(title: 'Recently Played'),
                   HeaderDivider(),
                   SizedBox(height: 160),
                   Icon(Icons.music_note, size: 56, color: Colors.white38),
@@ -100,7 +100,7 @@ class _MusicListState extends State<MusicList> {
                   return const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LargePageTitle(title: 'Baru Dimainkan'),
+                      LargePageTitle(title: 'Recently Played'),
                       HeaderDivider(),
                     ],
                   );
