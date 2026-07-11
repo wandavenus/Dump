@@ -560,6 +560,48 @@ class PlaybackManager {
   /// `true` when the native ReplayGain processor is bypassed (gain not applied).
   static bool get nativeReplayGainBypassed => NativeReplayGain.instance.bypass;
 
+  // ── Loudness Normalization (Phase 8.5) ────────────────────────────────────
+
+  /// Whether the native Loudness Normalization DSP processor is available.
+  static bool get nativeLoudnessNormAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Set the target output loudness in LUFS.
+  ///
+  /// Typical values: −23.0 (EBU R128 broadcast), −16.0 (podcast), −14.0
+  /// (streaming). Clamped to [−36, −6] by the C layer.
+  /// Takes effect on the next 85 ms measurement boundary (UPDATE_FRAMES).
+  static void setNativeLoudnessNormTargetLufs(double lufs) =>
+      NativeLoudnessNorm.instance.setTargetLufs(lufs);
+
+  /// Bypass (`true`) or engage (`false`) the Loudness Normalization processor.
+  /// Thread-safe atomic store.
+  static void setNativeLoudnessNormBypass(bool bypass) =>
+      NativeLoudnessNorm.instance.setBypass(bypass);
+
+  /// `true` when the Loudness Normalization processor is bypassed.
+  static bool get nativeLoudnessNormBypassed =>
+      NativeLoudnessNorm.instance.bypass;
+
+  /// Update the K-weighting coefficients for a new sample rate.
+  /// Call when ExoPlayer reports a sample-rate change between tracks.
+  static void setNativeLoudnessSampleRate(int sampleRate) =>
+      NativeLoudnessNorm.instance.setSampleRate(sampleRate);
+
+  /// Current short-term LUFS reading from the analyzer.
+  /// Returns −99.0 before the first 85 ms window completes or when bypassed.
+  static double get nativeLoudnessMeasuredLufs =>
+      NativeLoudnessNorm.instance.measuredLufs;
+
+  /// Current smooth gain applied to the audio stream, in dBFS.
+  /// Positive = boost, negative = attenuation. 0.0 when bypassed.
+  static double get nativeLoudnessAppliedGainDb =>
+      NativeLoudnessNorm.instance.appliedGainDb;
+
+  /// Reset the loudness analyzer and smooth gain back to unity.
+  /// Must be called on every track change so each track is measured fresh.
+  static void resetNativeLoudnessNorm() => NativeLoudnessNorm.instance.reset();
+
   // ── Soft Clipper ────────────────────────────────────────────────────────
 
   /// Whether the native soft clipper is available (pipeline initialized).

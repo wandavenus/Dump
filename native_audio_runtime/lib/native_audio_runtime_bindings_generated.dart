@@ -277,6 +277,43 @@ external void nar_replaygain_set_bypass(int bypass);
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_replaygain_get_bypass();
 
+// ── loudness_processor.h ──────────────────────────────────────────────────────
+// Phase 8.5: EBU R128 real-time loudness normalization (pipeline slot 2).
+
+/// Register the Loudness Normalization processor. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_loudness_processor_register_internal();
+
+/// Set the target output loudness in LUFS. Clamped to [−36, −6]. Default: −23.
+@ffi.Native<ffi.Void Function(ffi.Float)>()
+external void nar_loudness_set_target_lufs(double targetLufs);
+
+/// Enable (0) or bypass (1) the Loudness Normalization processor.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_loudness_set_bypass(int bypass);
+
+/// Returns 1 if the processor is currently bypassed, 0 if active.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_loudness_get_bypass();
+
+/// Update the playback sample rate and recompute K-weighting coefficients.
+/// Call on track transitions when the sample rate changes.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_loudness_set_sample_rate(int sampleRate);
+
+/// Current short-term LUFS measurement. −99.0 before first update or when bypassed.
+@ffi.Native<ffi.Float Function()>()
+external double nar_loudness_get_measured_lufs();
+
+/// Current smooth gain applied to the stream in dBFS. 0.0 when bypassed.
+@ffi.Native<ffi.Float Function()>()
+external double nar_loudness_get_applied_gain_db();
+
+/// Reset analyzer state (filter history, power accumulator, smooth gain).
+/// Call on every track change so the new track is measured fresh.
+@ffi.Native<ffi.Void Function()>()
+external void nar_loudness_reset();
+
 // ── crossfeed_processor.h ─────────────────────────────────────────────────────
 // Phase 7: Frequency-dependent headphone crossfeed.
 

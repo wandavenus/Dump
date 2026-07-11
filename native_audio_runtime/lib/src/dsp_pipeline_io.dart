@@ -198,7 +198,17 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (replaygain)', replayGainStatus);
     }
 
-    // Phase 5: register the Parametric EQ processor (slot 2, after replaygain).
+    // Phase 8.5: Loudness Normalization (slot 2, between replaygain and peq).
+    // Starts bypassed — PlaybackManager engages it when user enables the feature.
+    final loudnessStatus = NativeRuntimeStatus.fromCode(
+        bindings.nar_loudness_processor_register_internal());
+    if (loudnessStatus != NativeRuntimeStatus.ok &&
+        loudnessStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+          'NativeDspPipeline.initialize (loudness)', loudnessStatus);
+    }
+
+    // Phase 5: register the Parametric EQ processor (slot 3, after loudness).
     final peqStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_peq_processor_register_internal());
     if (peqStatus != NativeRuntimeStatus.ok &&
@@ -207,7 +217,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (peq)', peqStatus);
     }
 
-    // Phase 6: Compressor (slot 2)
+    // Phase 6: Compressor (slot 4)
     final compStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_comp_processor_register_internal());
     if (compStatus != NativeRuntimeStatus.ok &&
@@ -216,7 +226,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (comp)', compStatus);
     }
 
-    // Phase 7: Crossfeed (slot 3, between compressor and limiter)
+    // Phase 7: Crossfeed (slot 5, between compressor and limiter)
     final crossfeedStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_crossfeed_processor_register_internal());
     if (crossfeedStatus != NativeRuntimeStatus.ok &&
@@ -225,7 +235,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (crossfeed)', crossfeedStatus);
     }
 
-    // Phase 6: Limiter (slot 4)
+    // Phase 6: Limiter (slot 6)
     final limiterStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_limiter_processor_register_internal());
     if (limiterStatus != NativeRuntimeStatus.ok &&
@@ -234,7 +244,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (limiter)', limiterStatus);
     }
 
-    // Phase 6: Soft Clipper (slot 5)
+    // Phase 6: Soft Clipper (slot 7)
     final softClipperStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_soft_clipper_processor_register_internal());
     if (softClipperStatus != NativeRuntimeStatus.ok &&
@@ -582,12 +592,56 @@ class NativeReplayGain {
   bool get bypass => bindings.nar_replaygain_get_bypass() != 0;
 }
 
+// ── NativeLoudnessNorm ────────────────────────────────────────────────────────
+
+/// Dart facade over the native Loudness Normalization processor
+/// (`src/loudness_processor.h`).
+///
+/// EBU R128 / ITU-R BS.1770-4 real-time perceptual loudness measurement with
+/// smooth gain control at pipeline slot 2 (between ReplayGain and PEQ).
+///
+/// **This is NOT a compressor.** The 3 s smoothing time constant ensures that
+/// gain changes are imperceptibly gradual — no pumping, no clicks.
+///
+/// **Architecture**: [PlaybackManager] is the only sanctioned caller.
+class NativeLoudnessNorm {
+  NativeLoudnessNorm._();
+  static final NativeLoudnessNorm instance = NativeLoudnessNorm._();
+
+  /// Set the target output loudness in LUFS.
+  /// Typical: −23.0 (EBU R128), −16.0 (podcast), −14.0 (streaming).
+  /// Clamped to [−36, −6] by the C layer.
+  void setTargetLufs(double lufs) =>
+      bindings.nar_loudness_set_target_lufs(lufs);
+
+  /// Enable (`false`) or bypass (`true`) the processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_loudness_set_bypass(bypass ? 1 : 0);
+
+  /// `true` when the processor is bypassed (audio unchanged).
+  bool get bypass => bindings.nar_loudness_get_bypass() != 0;
+
+  /// Update the playback sample rate and recompute K-weighting coefficients.
+  /// Call when ExoPlayer reports a sample-rate change between tracks.
+  void setSampleRate(int sampleRate) =>
+      bindings.nar_loudness_set_sample_rate(sampleRate);
+
+  /// Current short-term LUFS reading. −99.0 before first measurement.
+  double get measuredLufs => bindings.nar_loudness_get_measured_lufs();
+
+  /// Current smooth gain applied to the stream in dBFS. 0.0 when bypassed.
+  double get appliedGainDb => bindings.nar_loudness_get_applied_gain_db();
+
+  /// Reset analyzer state. Call on every track change.
+  void reset() => bindings.nar_loudness_reset();
+}
+
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────
 
 /// Dart facade over the native Soft Clipper processor
 /// (`src/soft_clipper_processor.h`).
 ///
-/// Tanh waveshaper at pipeline slot 5 (last in the dynamics chain).
+/// Tanh waveshaper at pipeline slot 7 (last in the dynamics chain).
 /// Samples below [thresholdDb] pass through unchanged; samples above are
 /// smoothly limited asymptotically toward 0 dBFS.
 ///

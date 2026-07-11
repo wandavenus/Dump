@@ -165,6 +165,12 @@ class AudioService {
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.clippingProtection.addListener(_onReplayGainSettingChanged);
 
+    // Loudness Normalization (Phase 8.5) — sync initial state to native layer.
+    PlaybackManager.setNativeLoudnessNormBypass(
+        !AudioEffectsService.loudnessNormEnabled.value);
+    PlaybackManager.setNativeLoudnessNormTargetLufs(
+        AudioEffectsService.loudnessNormTarget.value);
+
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
   }
 
@@ -308,6 +314,11 @@ class AudioService {
     // a redundant Dart-side retry unnecessary and wasteful (8-10 MethodChannel
     // calls per track that would all be no-ops on the native side).
     AudioEffectsService.applyAll();
+    // Reset loudness analyzer on each track change so the new track is
+    // measured fresh (prevents stale gain from the previous song carrying over).
+    if (AudioEffectsService.loudnessNormEnabled.value) {
+      PlaybackManager.resetNativeLoudnessNorm();
+    }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
     _applyReplayGain(song, prevSong: prevSong).catchError((Object e) {

@@ -84,6 +84,23 @@ class NativeDspPipeline {
   bool get gainBypass => false;
 }
 
+// ── NativeLoudnessNorm stub ───────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeLoudnessNorm]. All methods are no-ops.
+/// [bypass] is always `true` — the processor is permanently bypassed on web.
+class NativeLoudnessNorm {
+  NativeLoudnessNorm._();
+  static final NativeLoudnessNorm instance = NativeLoudnessNorm._();
+
+  void setTargetLufs(double lufs) {}
+  void setBypass(bool bypass) {}
+  bool get bypass => true;
+  void setSampleRate(int sampleRate) {}
+  double get measuredLufs => -99.0;
+  double get appliedGainDb => 0.0;
+  void reset() {}
+}
+
 // ── NativeReplayGain stub ─────────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeReplayGain]. All methods are no-ops.

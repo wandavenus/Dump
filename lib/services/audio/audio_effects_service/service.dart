@@ -25,6 +25,16 @@ class AudioEffectsService {
   /// `gain_linear × peak_linear ≤ 1.0`, preventing digital clipping.
   /// Uses peak metadata when available; no-op when peak is absent.
   static final ValueNotifier<bool> clippingProtection = ValueNotifier(true);
+
+  // ── Loudness Normalization (Phase 8.5) ─────────────────────────────────────
+
+  /// Whether real-time EBU R128 loudness normalization is enabled.
+  static final ValueNotifier<bool> loudnessNormEnabled = ValueNotifier(false);
+
+  /// Target loudness level in LUFS for the normalization engine.
+  /// Typical: −23.0 (EBU R128 broadcast), −16.0 (podcast), −14.0 (streaming).
+  static final ValueNotifier<double> loudnessNormTarget = ValueNotifier(-23.0);
+
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
   static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
@@ -112,6 +122,8 @@ class AudioEffectsService {
         ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
     replayGainPreamp.value    = prefs.getDouble('replayGainPreamp') ?? 0.0;
     clippingProtection.value  = prefs.getBool('rgClipProtect')      ?? true;
+    loudnessNormEnabled.value = prefs.getBool('lnEnabled')          ?? false;
+    loudnessNormTarget.value  = prefs.getDouble('lnTarget')         ?? -23.0;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -162,6 +174,24 @@ class AudioEffectsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('rgClipProtect', enabled);
     LogService.log('AudioEffects', 'Clipping protection: $enabled');
+  }
+
+  // ── Loudness Normalization (Phase 8.5) ─────────────────────────────────────
+
+  static Future<void> setLoudnessNormEnabled(bool enabled) async {
+    loudnessNormEnabled.value = enabled;
+    await _saveBool('lnEnabled', enabled);
+    PlaybackManager.setNativeLoudnessNormBypass(!enabled);
+    if (!enabled) PlaybackManager.resetNativeLoudnessNorm();
+    LogService.log('AudioEffects', 'Loudness Norm: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  static Future<void> setLoudnessNormTarget(double lufs) async {
+    final v = lufs.clamp(-36.0, -6.0);
+    loudnessNormTarget.value = v;
+    await _saveDouble('lnTarget', v);
+    PlaybackManager.setNativeLoudnessNormTargetLufs(v);
+    LogService.log('AudioEffects', 'Loudness target: ${v.toStringAsFixed(1)} LUFS');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
