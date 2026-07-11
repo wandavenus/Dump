@@ -39,9 +39,10 @@ Script ini otomatis download dan install Flutter 3.44.4 ke `/home/runner/flutter
 
 - `lib/` — Dart/Flutter source (pages, services, models, widgets, themes)
 - `android/` — Native Kotlin code (Media3 playback service, audio effects, etc.)
+- `native_audio_runtime/` — Local Dart FFI package (native runtime foundation for future DSP/FFmpeg; see its `NATIVE_RUNTIME.md`). No DSP/FFmpeg logic yet.
 - `assets/` — Fonts, images
 - `build/web/` — Pre-compiled web output (served by server.js)
-- `pubspec.yaml` — Flutter dependencies
+- `pubspec.yaml` — Flutter dependencies (depends on `native_audio_runtime` via local path)
 
 ## User preferences
 

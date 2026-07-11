@@ -23,6 +23,9 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
   palette_generator_plus: ^1.0.0
 
+  native_audio_runtime:
+    path: native_audio_runtime
+
   leak_tracker: '>=11.0.1 <12.0.0'
 
 dev_dependencies:

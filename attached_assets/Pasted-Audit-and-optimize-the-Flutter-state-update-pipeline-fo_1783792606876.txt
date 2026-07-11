@@ -1,0 +1,74 @@
+Audit and optimize the Flutter state update pipeline for performance WITHOUT changing any user-visible behavior, playback logic, or public APIs.
+
+Focus ONLY on:
+
+- lib/services/audio_playback_state.dart
+- lib/services/audio_service/service.dart
+
+Goals:
+
+1. Implement proper value equality for AudioPlaybackState.
+   - Override operator ==.
+   - Override hashCode.
+   - Compare every immutable field correctly.
+   - Preserve immutability.
+   - Do not remove copyWith().
+   - Do not change any public fields.
+
+2. Optimize AudioService state updates.
+   - Avoid creating new AudioPlaybackState instances when incoming values are identical.
+   - Add cheap early-return guards before calling copyWith() for high-frequency updates such as:
+     - position
+     - duration
+     - playback state
+     - playback speed
+     - repeat mode
+     - shuffle mode
+     - sleep timer
+   - Skip _setState() whenever nothing actually changed.
+
+3. Preserve architecture.
+   - Native Media3 remains the single source of truth.
+   - PlaybackManager remains the only bridge.
+   - Do not change EventChannel behavior.
+   - Do not change queue synchronization.
+   - Do not change ReplayGain logic.
+   - Do not change DSP behavior.
+   - Do not change artwork behavior.
+   - Do not change notification behavior.
+
+4. Keep allocations minimal.
+   - Avoid unnecessary copyWith() calls.
+   - Avoid unnecessary AudioPlaybackState allocations.
+   - Avoid unnecessary ValueNotifier notifications.
+
+5. Do NOT introduce:
+   - Equatable package
+   - Freezed
+   - built_value
+   - code generators
+   - new dependencies
+
+6. Maintain compatibility with Flutter stable.
+
+7. Preserve every existing feature exactly:
+   - gapless playback
+   - crossfade
+   - shuffle
+   - repeat
+   - queue sync
+   - sleep timer
+   - lyrics synchronization
+   - history
+   - replay gain
+   - artwork prewarm
+   - audio effects
+   - Android Media3 integration
+
+8. After optimization:
+   - verify there is no behavioral regression
+   - ensure all listeners still receive updates whenever values actually change
+   - ensure high-frequency position updates remain smooth
+   - ensure no stale UI state can occur
+
+Only perform optimizations that measurably reduce unnecessary rebuilds, allocations, and ValueNotifier notifications. Do not refactor unrelated code. Do not change formatting unless required.

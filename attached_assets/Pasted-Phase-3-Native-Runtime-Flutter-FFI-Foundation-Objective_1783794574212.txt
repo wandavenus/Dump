@@ -1,0 +1,233 @@
+Phase 3 — Native Runtime (Flutter FFI Foundation)
+
+Objective
+
+Implement the production-ready native runtime foundation using Flutter's modern FFI architecture.
+
+This phase is NOT about implementing DSP.
+
+This phase is NOT about integrating FFmpeg.
+
+This phase is only to establish the communication layer between Flutter and future native modules.
+
+Media3 remains the one and only playback engine.
+
+---
+
+Follow Official Flutter Architecture
+
+Use Flutter's recommended native integration approach:
+
+- dart:ffi
+- package:ffi
+- package:ffigen (where appropriate)
+- package_ffi build hook architecture
+
+Do NOT design a JNI-first architecture.
+
+JNI should only be introduced later if the native runtime needs access to Android-specific APIs that cannot be accessed directly through FFI.
+
+---
+
+Target Architecture
+
+Flutter UI
+
+↓
+
+AudioService
+
+↓
+
+PlaybackManager
+
+├── Media3PlaybackBridge
+
+├── NativeDspBridge
+
+└── FfmpegDecoderBridge
+
+↓
+
+dart:ffi
+
+↓
+
+Native Runtime (C/C++)
+
+Future modules:
+
+- DSP
+- FFmpeg
+- FFT
+- ReplayGain
+- Loudness Analyzer
+- Audio Visualizer
+- Resampler
+
+---
+
+1. Native Runtime
+
+Create a reusable native runtime.
+
+Responsibilities:
+
+- initialize
+- dispose
+- runtime version
+- runtime capabilities
+- module registration
+- lifecycle management
+
+No DSP.
+
+No FFmpeg.
+
+No audio processing.
+
+---
+
+2. NativeDspBridge
+
+Replace the stub with a real FFI bridge.
+
+Implement:
+
+- initialize()
+- dispose()
+- isAvailable()
+- getVersion()
+- getCapabilities()
+
+Do not implement DSP algorithms.
+
+---
+
+3. FfmpegDecoderBridge
+
+Replace the stub with a real FFI bridge.
+
+Implement:
+
+- initialize()
+- dispose()
+- isAvailable()
+- getVersion()
+- getCapabilities()
+
+Do not bundle FFmpeg.
+
+Do not implement decoding.
+
+---
+
+4. Dynamic Library Loading
+
+Implement production-ready native library loading.
+
+Follow Flutter FFI best practices.
+
+Avoid platform-specific hacks whenever possible.
+
+---
+
+5. Native Module Registry
+
+NativeModuleRegistry should manage all future native modules.
+
+PlaybackManager remains the only public entry point.
+
+Future modules must register themselves without requiring PlaybackManager modifications.
+
+---
+
+6. Kotlin Responsibilities
+
+Keep Kotlin responsible only for Android-specific functionality.
+
+Examples:
+
+- Media3
+- ExoPlayer
+- MediaSession
+- Notification
+- Bluetooth
+- Android Auto
+- Audio Focus
+- Android framework APIs
+
+DSP and FFmpeg must NOT be routed through Kotlin.
+
+---
+
+7. Future Native Modules
+
+Prepare extension points for:
+
+- DSP
+- FFmpeg
+- FFT
+- ReplayGain
+- Audio Analyzer
+- Loudness
+- Parametric EQ
+- Compressor
+- Limiter
+- Crossfeed
+- Resampler
+
+No implementations yet.
+
+Only architecture.
+
+---
+
+8. Documentation
+
+Document:
+
+- Flutter → FFI → Native Runtime flow
+- Bridge responsibilities
+- Module lifecycle
+- Extension mechanism
+- Native module ownership
+- Future DSP integration
+- Future FFmpeg integration
+
+---
+
+Validation
+
+Verify:
+
+- flutter analyze passes
+- project builds successfully
+- Playback behavior unchanged
+- Media3 behavior unchanged
+- Native runtime initializes
+- Native runtime disposes
+- FFI bridge loads correctly
+- No analyzer warnings
+- No playback regressions
+
+If Android native compilation cannot be verified in the current environment:
+
+- Continue the implementation.
+- Do not replace it with mock implementations.
+- Clearly document every assumption that could not be validated.
+
+---
+
+Deliverables
+
+1. Native runtime implementation.
+2. FFI bridge implementation.
+3. Native library loading implementation.
+4. Updated NativeModuleRegistry.
+5. Updated PlaybackManager integration.
+6. Updated architecture diagram.
+7. Files added.
+8. Files modified.
+9. Assumptions made due to unavailable native toolchain.
+10. Remaining work before Phase 4 (DSP Core).

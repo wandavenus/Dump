@@ -110,9 +110,12 @@ class PlaybackManager {
     if (_initialized) return;
     _initialized = true;
 
-    // Register future native modules (stubs — Media3 remains the only
-    // active engine). Registration happens once, here, so PlaybackManager
-    // stays the single owner of native module lifecycle.
+    // Register future native modules (Phase 3: backed by the real, shared
+    // `native_audio_runtime` FFI library — Media3 remains the only active
+    // playback engine; no DSP/FFmpeg processing exists yet). Registration
+    // happens once, here, so PlaybackManager stays the single owner of
+    // native module lifecycle. See lib/services/native/NATIVE_BRIDGES.md
+    // and native_audio_runtime/NATIVE_RUNTIME.md.
     NativeModuleRegistry.register(NativeDspBridge.instance);
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
     await NativeModuleRegistry.initializeAll();
@@ -264,7 +267,7 @@ class PlaybackManager {
   static Future<Map<String, dynamic>?> getPlaybackSnapshot() =>
       Media3PlaybackBridge.getPlaybackSnapshot();
 
-  // ── Native module access (stubs — future C++ DSP / FFmpeg) ─────────────────
+  // ── Native module access (FFI runtime — no DSP / FFmpeg logic yet) ─────────
   //
   // UI and services must never import `lib/services/native/bridges/` directly;
   // this is the single sanctioned entry point per NATIVE_BRIDGES.md.
@@ -273,8 +276,9 @@ class PlaybackManager {
   static List<NativeModule> get nativeModules => NativeModuleRegistry.all;
 
   /// Aggregate capability report across all registered native modules.
-  /// Currently all entries report `supported: false` — no native code exists
-  /// yet (Phase 2.5: foundation only).
+  /// Currently all entries report `supported: false` — the shared native
+  /// runtime is real and initializes, but no DSP/FFmpeg module has been
+  /// implemented yet (Phase 3: architecture only).
   static Future<Map<String, List<NativeCapability>>>
       queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
 

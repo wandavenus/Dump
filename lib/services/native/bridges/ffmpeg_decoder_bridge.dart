@@ -1,7 +1,9 @@
+import 'package:native_audio_runtime/native_audio_runtime.dart';
+
 import '../contracts/native_module.dart';
 import '../models/native_module_status.dart';
 
-/// Stub bridge for a future FFmpeg-backed decoder module.
+/// FFI bridge for a future FFmpeg-backed decoder module.
 ///
 /// ## Intended future responsibilities
 ///
@@ -12,46 +14,51 @@ import '../models/native_module_status.dart';
 ///   - Allow registration of format-specific decoder factories that
 ///     ExoPlayer's `RenderersFactory` can delegate to.
 ///
-/// ## Current state (Phase 2.5)
+/// ## Current state (Phase 3)
 ///
-/// This is a **pure stub** — FFmpeg is not bundled.
-/// No native binaries, no JNI code, no `mobile_ffmpeg` or
-/// `ffmpeg_kit_flutter` dependency exists.
-/// Compile-time clean; all methods are safe no-ops.
+/// FFmpeg is still not bundled — no native binaries, no `ffmpeg_kit_flutter`
+/// dependency. What changed from Phase 2.5: this bridge now talks to the
+/// real shared native runtime (`package:native_audio_runtime`) for lifecycle
+/// and capability reporting, instead of being a pure Dart stub. All decoder
+/// capabilities remain `supported: false` until FFmpeg is actually linked.
+/// See `NATIVE_RUNTIME.md` for the architecture and unverified assumptions
+/// (no Android NDK available in this environment to cross-compile against).
 ///
 /// ## Integration plan (future)
 ///
-/// 1. Add FFmpeg dependency (e.g. `ffmpeg_kit_flutter_audio` or a custom
-///    build via `android/app/src/main/cpp/ffmpeg/`).
-/// 2. Expose MethodChannel `musicplayer/ffmpeg_decoder` in MainActivity.kt.
-/// 3. Replace stub bodies with channel / FFI calls.
-/// 4. Wire `canDecodeFormat()` into `MediaStoreService` format probing.
-/// 5. Register FFmpeg-backed renderers in `Media3PlaybackService.kt`
-///    `RenderersFactory`.
+/// 1. Add FFmpeg dependency (e.g. `ffmpeg_kit_flutter_audio`) OR a custom
+///    CMake build of FFmpeg wired into `native_audio_runtime`'s build hook.
+/// 2. Extend `NativeAudioRuntime` with decoder-specific FFI calls.
+/// 3. Wire `canDecodeFormat()` into `MediaStoreService` format probing.
+/// 4. Register FFmpeg-backed renderers in `Media3PlaybackService.kt`
+///    `RenderersFactory` — Kotlin stays Android-framework-only; FFmpeg
+///    itself is never routed through Kotlin per NATIVE_RUNTIME.md.
 ///
 /// ## Extension points
 ///
 /// ```
 /// // Runtime format probe (future)
-/// Future<bool> canDecodeFormat(String mimeType) → channel call
+/// Future<bool> canDecodeFormat(String mimeType) → FFI call
 ///
 /// // Decoder factory registration (future)
-/// Future<void> registerDecoderFactory(String mimeType, ...) → channel call
+/// Future<void> registerDecoderFactory(String mimeType, ...) → FFI call
 ///
 /// // ReplayGain / loudness scan via FFmpeg (future)
-/// Future<LoudnessData> scanLoudness(String filePath) → channel call
+/// Future<LoudnessData> scanLoudness(String filePath) → FFI call
 /// ```
 class FfmpegDecoderBridge implements NativeModule {
   FfmpegDecoderBridge._();
 
   static final FfmpegDecoderBridge instance = FfmpegDecoderBridge._();
 
+  static const String _moduleId = 'ffmpeg_decoder';
+
   NativeModuleStatus _status = NativeModuleStatus.uninitialized;
 
   // ── NativeModule contract ─────────────────────────────────────────────────
 
   @override
-  String get moduleId => 'ffmpeg_decoder';
+  String get moduleId => _moduleId;
 
   @override
   String get displayName => 'FFmpeg Decoder';
@@ -63,35 +70,56 @@ class FfmpegDecoderBridge implements NativeModule {
   Future<void> initialize() async {
     if (_status != NativeModuleStatus.uninitialized) return;
 
-    // TODO(phase-ffmpeg): Open MethodChannel 'musicplayer/ffmpeg_decoder'.
-    // TODO(phase-ffmpeg): Query FFmpeg version string from native side.
-    // TODO(phase-ffmpeg): Build supported-format map from codec registry.
+    try {
+      // Shared singleton — idempotent even if NativeDspBridge already
+      // initialized it first (registration order comes from PlaybackManager).
+      await NativeAudioRuntime.instance.initialize();
 
-    // Stub: FFmpeg is not bundled yet.
-    _status = NativeModuleStatus.unavailable;
+      if (!NativeAudioRuntime.instance.isAvailable) {
+        _status = NativeModuleStatus.unavailable;
+        return;
+      }
+
+      final regStatus =
+          NativeAudioRuntime.instance.registerModule(_moduleId);
+      switch (regStatus) {
+        case NativeRuntimeStatus.ok:
+        case NativeRuntimeStatus.duplicateModule:
+          _status = NativeModuleStatus.available;
+        default:
+          _status = NativeModuleStatus.unavailable;
+      }
+    } catch (_) {
+      _status = NativeModuleStatus.error;
+    }
   }
 
   @override
   Future<void> dispose() async {
     if (_status == NativeModuleStatus.disposed) return;
 
-    // TODO(phase-ffmpeg): Release native FFmpeg context.
-
+    // Shared runtime lifecycle owned collectively — see NativeDspBridge for
+    // why this does not call NativeAudioRuntime.instance.dispose() itself.
     _status = NativeModuleStatus.disposed;
   }
 
   @override
   Future<List<NativeCapability>> queryCapabilities() async {
-    // Stub — format support unknown until FFmpeg is actually linked.
-    return const [
-      NativeCapability(key: 'decoder.flac_hires', supported: false),
-      NativeCapability(key: 'decoder.dsd',        supported: false),
-      NativeCapability(key: 'decoder.ape',         supported: false),
-      NativeCapability(key: 'decoder.wavpack',     supported: false),
-      NativeCapability(key: 'decoder.opus',        supported: false),
-      NativeCapability(key: 'scan.replaygain',     supported: false),
-      NativeCapability(key: 'scan.loudness_ebur128',supported: false),
-    ];
+    if (!isAvailable) {
+      return const [
+        NativeCapability(key: 'decoder.flac_hires', supported: false),
+        NativeCapability(key: 'decoder.dsd', supported: false),
+        NativeCapability(key: 'decoder.ape', supported: false),
+        NativeCapability(key: 'decoder.wavpack', supported: false),
+        NativeCapability(key: 'decoder.opus', supported: false),
+        NativeCapability(key: 'scan.replaygain', supported: false),
+        NativeCapability(key: 'scan.loudness_ebur128', supported: false),
+      ];
+    }
+
+    return NativeAudioRuntime.instance.capabilities
+        .map((c) => NativeCapability(key: c.key, supported: c.supported))
+        .toList();
   }
 
   // ── Extension points (future decoder API surface) ─────────────────────────
@@ -99,19 +127,19 @@ class FfmpegDecoderBridge implements NativeModule {
   /// Future: check if FFmpeg can decode a given MIME type on this device.
   /// Returns `false` until FFmpeg is integrated.
   Future<bool> canDecodeFormat(String mimeType) async {
-    // TODO(phase-ffmpeg): channel.invokeMethod('canDecodeFormat', {'mime': mimeType});
+    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
     return false;
   }
 
   /// Future: register a decoder factory for a specific MIME type so that
   /// Media3 `RenderersFactory` can pick it up.
   Future<void> registerDecoderFactory(String mimeType) async {
-    // TODO(phase-ffmpeg): channel.invokeMethod('registerDecoderFactory', {'mime': mimeType});
+    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
   }
 
   /// Future: full-file loudness scan (EBU R128 / ReplayGain via FFmpeg).
   Future<Map<String, dynamic>?> scanLoudness(String filePath) async {
-    // TODO(phase-ffmpeg): channel.invokeMethod('scanLoudness', {'path': filePath});
+    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
     return null;
   }
 }
