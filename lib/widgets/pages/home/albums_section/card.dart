@@ -13,7 +13,7 @@ class _AlbumCardState extends State<_AlbumCard> {
   // Dimensi diukur presisi dari referensi desain (kartu "Top Picks" style):
   // rasio lebar:tinggi-artwork:tinggi-info ≈ 250 : 258 : 68.
   static const double _cardWidth = 250;
-  static const double _artworkHeight = 259;
+  static const double _artworkHeight = 260;
   static const double _infoHeight = 68;
   static const double _cornerRadius = 10;
 
@@ -46,7 +46,7 @@ class _AlbumCardState extends State<_AlbumCard> {
   @override
   Widget build(BuildContext context) {
     final album = widget.album;
-    return InkWell(
+    return GestureDetector(
       onTap: () => Navigator.pushNamed(
         context,
         '/album',

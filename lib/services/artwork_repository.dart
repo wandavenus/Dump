@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/painting.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'media_store_service.dart';
@@ -11,11 +13,15 @@ import 'media_store_service.dart';
 ///
 /// Layer 1 — Memory:  [LinkedHashMap] of up to [_maxEntries] (songId → file path).
 ///                    Evicts the LRU entry when full.
-/// Layer 2 — Disk:    `{cacheDir}/artwork/{songId}.webp` written by the native
-///                    [ArtworkCacheManager].  A Dart-side existence check skips
+/// Layer 2 — Disk:    `{supportDir}/artwork/{songId}.webp` written by the native
+///                    [ArtworkCacheManager].  A Dart-side pre-scanned ID set skips
 ///                    the MethodChannel entirely on subsequent app launches.
 /// Layer 3 — Native:  [MediaStoreService.getArtworkPath] → MethodChannel →
 ///                    native extraction + WebP encode + atomic save.
+///
+/// Disk storage uses [getApplicationSupportDirectory] (not the system cache dir)
+/// so files persist across app restarts and are never cleared by MIUI/Android's
+/// storage-free mechanisms.
 ///
 /// All async methods are safe to call concurrently: in-flight deduplication
 /// prevents double-extraction of the same song.
@@ -36,19 +42,148 @@ class ArtworkRepository {
   // Deduplicate concurrent requests for the same songId.
   final Map<int, Future<String?>> _inFlight = {};
 
-  // ── Cache directory ────────────────────────────────────────────────────────
+  // ── Disk cache directory + pre-scanned ID set ──────────────────────────────
 
   // Cached once; null until first call to [_resolvedCacheDir].
   String? _cacheDirPath;
 
-  Future<String> _resolvedCacheDir() async {
-    return _cacheDirPath ??= (await getApplicationCacheDirectory()).path;
+  // Song IDs that are known to have a WebP file on disk, populated during
+  // [warmUp] by scanning the artwork directory once.  Used by [getProviderSync]
+  // to skip per-call File.statSync() — a Set.contains() O(1) lookup instead.
+  //
+  // This set can have stale entries if the native LRU eviction removes a file
+  // mid-session; in that case FileImage will fail to load and the widget falls
+  // back to its async path automatically, which is an acceptable trade-off for
+  // the elimination of hundreds of statSync() calls on every scroll.
+  final Set<int> _diskCachedIds = {};
+
+  // ── Shared device-pixel-ratio snapshot ────────────────────────────────────
+  //
+  // Both main.dart's cold-start prewarmImageCache() and SongArtwork's own
+  // getProviderSync()/getProvider() calls independently compute a
+  // `(size * devicePixelRatio).round()` target width/height for ResizeImage.
+  // If they ever read a DIFFERENT devicePixelRatio (e.g. because the platform
+  // hasn't finished reporting real display metrics the very first time it's
+  // read in main(), before the first view is attached), the two computed
+  // ResizeImage instances have different width/height, which is a different
+  // ImageCache key — so the prewarmed image is a cache MISS for the widget
+  // that actually renders it. That silently reproduces the exact "sometimes
+  // zero-delay, sometimes reload" artwork flicker on cold start, only for
+  // resized (small) artwork, never for full-res (>=250px) artwork such as
+  // the Album cards — which matches field reports where Recently Played /
+  // Artists flicker but Albums never do.
+  //
+  // Fix: resolve devicePixelRatio ONCE and cache it here, so every caller
+  // (main.dart prewarm + every SongArtwork instance for the rest of the
+  // process lifetime) uses the exact same value and therefore the exact same
+  // ResizeImage cache key.
+  double? _cachedDpr;
+
+  /// Returns the target pixel size for [size] logical pixels, using a
+  /// devicePixelRatio resolved once and reused for the lifetime of the app.
+  /// Pass [size] >= 250 through unchanged by the caller (full-res path) —
+  /// this helper is only for the ResizeImage (<250) branch.
+  int resolveTargetPx(double size) {
+  final dpr = _cachedDpr ??=
+      SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+
+  var target = (size * dpr).round();
+
+  // Jangan decode artwork kecil / song list terlalu kecil.
+  if (size < 80) {
+    return target < 460 ? 460 : target;
+  }
+
+  // Recently Played / Artist.
+  if (size >= 170 && size < 250) {
+    target = (target * 1.75).round();
+  }
+
+  return target;
+}
+
+Future<String> _resolvedCacheDir() async {
+  if (_cacheDirPath != null) return _cacheDirPath!;
+  final base = (await getApplicationSupportDirectory()).path;
+  _cacheDirPath = base;
+  return base;
+}
+  
+  /// Resolves the support-directory path and pre-scans the artwork sub-directory
+  /// to populate [_diskCachedIds].  Call once during app startup (awaited, before
+  /// [runApp]) so [getProviderSync] can return immediately on the very first frame
+  /// without any File I/O — this is what eliminates the placeholder flash on cold
+  /// start (app killed / removed from recents).
+  Future<void> warmUp() async {
+    final base = await _resolvedCacheDir();
+    final artworkDir = Directory('$base/artwork');
+    if (!artworkDir.existsSync()) return;
+
+    try {
+      await for (final entity in artworkDir.list()) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        if (!name.endsWith('.webp')) continue;
+        final id = int.tryParse(name.substring(0, name.length - 5));
+        if (id != null && id > 0) _diskCachedIds.add(id);
+      }
+    } catch (_) {
+      // Non-fatal: if scan fails, getProviderSync falls back to async lookup.
+    }
   }
 
   /// Expected disk path for a song's artwork (without checking existence).
   Future<String> diskPath(int songId) async {
     final base = await _resolvedCacheDir();
     return '$base/artwork/$songId.webp';
+  }
+
+  /// Synchronous best-effort lookup: returns a [FileImage] immediately if the
+  /// artwork is already known (memory cache) or already on disk, without any
+  /// `await` — so callers can populate their first frame with zero flash.
+  ///
+  /// Requires [warmUp] to have completed first; returns null otherwise (falls
+  /// back to the async path, e.g. this is the very first extraction ever).
+  ImageProvider? getProviderSync(int songId, {int? targetSizePx}) {
+    if (songId <= 0) return null;
+
+    final memorized = _paths[songId];
+    if (memorized != null) {
+      _touchMemory(songId, memorized);
+      return _wrapProvider(songId, memorized, targetSizePx);
+    }
+
+    final base = _cacheDirPath;
+    if (base == null) return null; // warmUp() hasn't resolved yet.
+
+    // Use the pre-scanned set for an O(1) lookup — no File.statSync() per call.
+    if (!_diskCachedIds.contains(songId)) return null;
+
+    // File is known on disk from the warm-up scan — add to _paths so the
+    // subsequent async getPath() call (from _load) fast-paths through Layer 1
+    // without triggering an async file.stat().  This matches the original
+    // statSync-based behaviour: _paths only held entries that had already been
+    // confirmed on disk, and the warmUp pre-scan is an equivalent confirmation.
+    //
+    // If native LRU later evicts this file mid-session, getPath() will return
+    // the stale path — but that risk existed with the original statSync approach
+    // too (stat vs eviction race).  The probability is negligible unless the
+    // artwork cache exceeds 500 MB while the app is in the foreground.
+    final expected = '$base/artwork/$songId.webp';
+    _addToMemory(songId, expected);
+    return _wrapProvider(songId, expected, targetSizePx);
+  }
+
+  ImageProvider _wrapProvider(int songId, String path, int? targetSizePx) {
+    final img = _providers.remove(songId) ?? FileImage(File(path));
+    _providers[songId] = img;
+    while (_providers.length > _maxEntries) {
+      _providers.remove(_providers.keys.first);
+    }
+    if (targetSizePx != null && targetSizePx > 0) {
+      return ResizeImage(img, width: targetSizePx, height: targetSizePx);
+    }
+    return img;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -95,19 +230,7 @@ class ArtworkRepository {
     final path = await getPath(songId);
     if (path == null) return null;
 
-    // Reuse existing FileImage to avoid allocating duplicate objects.
-    final img = _providers.remove(songId) ?? FileImage(File(path));
-    _providers[songId] = img;
-
-    // Trim provider cache in sync with path cache.
-    while (_providers.length > _maxEntries) {
-      _providers.remove(_providers.keys.first);
-    }
-
-    if (targetSizePx != null && targetSizePx > 0) {
-      return ResizeImage(img, width: targetSizePx, height: targetSizePx);
-    }
-    return img;
+    return _wrapProvider(songId, path, targetSizePx);
   }
 
   /// Returns raw bytes for [songId]'s artwork, reading from the cached WebP
@@ -139,6 +262,64 @@ class ArtworkRepository {
     return null;
   }
 }
+
+  // ── Flutter ImageCache pre-warm ────────────────────────────────────────────
+
+  /// Resolves [songIds] into Flutter's [ImageCache] before the first frame,
+  /// so cover art appears instantly with zero decode latency on cold start.
+  ///
+  /// Pass [targetSizePx] matching what [SongArtwork] will request for those
+  /// IDs (null = full-res [FileImage]; non-null = [ResizeImage] at that size).
+  /// Using the wrong size creates a different cache key and produces a miss,
+  /// so callers must mirror the `widget.size >= 250 ? null : (size*dpr).round()`
+  /// logic from [SongArtwork._load].
+  ///
+  /// Only warms IDs that are known to have artwork on disk (_diskCachedIds) so
+  /// there are no wasted MethodChannel calls.
+  ///
+  /// Safe to call from [main] after [warmUp] has completed — [ImageCache] is
+  /// available as soon as [WidgetsFlutterBinding.ensureInitialized] is called.
+  Future<void> prewarmImageCache(
+    List<int> songIds, {
+    int? targetSizePx,
+    Duration timeout = const Duration(milliseconds: 900),
+  }) async {
+    if (_cacheDirPath == null) return; // warmUp() hasn't resolved yet.
+
+    final seen = <int>{};
+    final warmups = <Future<void>>[];
+    for (final id in songIds) {
+      if (!seen.add(id)) continue;
+      final provider = getProviderSync(id, targetSizePx: targetSizePx);
+      if (provider == null) continue;
+
+      warmups.add(_decodeIntoImageCache(provider).timeout(
+        timeout,
+        onTimeout: () {},
+      ));
+    }
+
+    if (warmups.isEmpty) return;
+    await Future.wait(warmups);
+  }
+
+  Future<void> _decodeIntoImageCache(ImageProvider provider) {
+    final completer = Completer<void>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+    stream.addListener(listener);
+    return completer.future;
+  }
 
   // ── Background prefetch (cache warm-up) ────────────────────────────────────
 
@@ -215,6 +396,7 @@ class ArtworkRepository {
     final file = File(expected);
     final stat = await file.stat(); // ignore: avoid_slow_async_io
     if (stat.type != FileSystemEntityType.notFound && stat.size > 0) {
+      _diskCachedIds.add(songId);
       _addToMemory(songId, expected);
       return expected;
     }
@@ -222,6 +404,7 @@ class ArtworkRepository {
     // Layer 3: native extraction via MethodChannel.
     final nativePath = await MediaStoreService.getArtworkPath(songId);
     if (nativePath != null) {
+      _diskCachedIds.add(songId);
       _addToMemory(songId, nativePath);
     }
     return nativePath;

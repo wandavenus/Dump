@@ -1,6 +1,11 @@
 ---
 name: flutter-musicplayer
-description: Panduan arsitektur, konvensi, dan pola pengembangan untuk proyek Flutter music player ini. Gunakan skill ini setiap kali mengerjakan fitur baru, debugging, atau refactor di repo ini — mencakup native bridge, audio engine, lirik, tema, dan konvensi koding.
+description: >-
+  Panduan arsitektur, konvensi, dan pola pengembangan untuk proyek Flutter music
+  player ini. Gunakan skill ini setiap kali mengerjakan fitur baru, debugging,
+  atau refactor di repo ini — mencakup native bridge, audio engine, lirik, tema,
+  dan konvensi koding.
+enabled: false
 ---
 
 # Flutter Music Player — Project Skill

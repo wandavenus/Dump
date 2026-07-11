@@ -9,12 +9,12 @@ import 'cancellation.dart';
 import 'provider.dart';
 import 'quality.dart';
 import 'rate_limiter.dart';
+import 'providers/apple_music_provider.dart';
 import 'providers/embedded_provider.dart';
 import 'providers/kugou_provider.dart';
 import 'providers/kuwo_provider.dart';
 import 'providers/local_file_provider.dart';
 import 'providers/lrclib_provider.dart';
-import 'providers/musixmatch_provider.dart';
 import 'providers/netease_provider.dart';
 import 'providers/qq_music_provider.dart';
 
@@ -49,11 +49,11 @@ class LyricsFetchManager {
 
   final List<LyricsProvider> _onlineProviders = [
     LrclibProvider(),
+    AppleMusicProvider(),
     NeteaseProvider(),
     KugouProvider(),
     KuwoProvider(),
     QQMusicProvider(),
-    const MusixmatchProvider(), // requires userToken — graceful skip if absent
   ];
 
   static String Function() _configuredFolderGetter = () => '';

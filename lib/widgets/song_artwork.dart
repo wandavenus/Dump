@@ -75,6 +75,27 @@ class SongArtwork extends StatefulWidget {
   State<SongArtwork> createState() => _SongArtworkState();
 }
 
+/// Deep equality for [ImageProvider] that handles [ResizeImage] wrapping a
+/// [FileImage].  Flutter's built-in [FileImage.==] compares path + scale, but
+/// [ResizeImage] does NOT override [==] — two instances with identical
+/// parameters compare as unequal by object identity.  We need value-equality
+/// here so the "skip setState if provider didn't change" guard in [_load] works
+/// correctly for both small (ResizeImage) and full-size (FileImage) artwork.
+bool _providersEqual(ImageProvider? a, ImageProvider? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  if (a.runtimeType != b.runtimeType) return false;
+  // FileImage already has a correct value-equality operator.
+  if (a is FileImage) return a == b;
+  // ResizeImage: compare target dimensions + the inner provider recursively.
+  if (a is ResizeImage && b is ResizeImage) {
+    return a.width == b.width &&
+        a.height == b.height &&
+        _providersEqual(a.imageProvider, b.imageProvider);
+  }
+  return false;
+}
+
 class _SongArtworkState extends State<SongArtwork> {
   ImageProvider? _provider;
 
@@ -88,6 +109,15 @@ class _SongArtworkState extends State<SongArtwork> {
   @override
   void initState() {
     super.initState();
+    // Synchronous first-frame check: if this artwork is already on disk
+    // (cached from a previous session), render it immediately instead of
+    // showing a placeholder while the async lookup resolves. This is what
+    // makes cover art appear instantly after the app is killed/reopened.
+    final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
+    _provider = ArtworkRepository.instance.getProviderSync(
+      widget.songId,
+      targetSizePx: widget.size >= 250 ? null : targetPx,
+    );
     _load(widget.songId);
   }
 
@@ -117,28 +147,40 @@ class _SongArtworkState extends State<SongArtwork> {
 
     _loading = true;
     // Loop so a changed _requestedId is always served (covers fast scrolling).
-    while (mounted) {
-      final targetId = _requestedId;
+    try {
+      while (mounted) {
+        final targetId = _requestedId;
 
-      // Read pixel ratio before the await (safe on the UI isolate).
-      final dpr      = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-      final targetPx = (widget.size * dpr).round();
+        // Read pixel ratio before the await (safe on the UI isolate).
+        final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
 
-      final provider = await ArtworkRepository.instance.getProvider(
-      targetId,
-      targetSizePx: widget.size >= 250 ? null : targetPx,
-      );
+        final provider = await ArtworkRepository.instance.getProvider(
+          targetId,
+          targetSizePx: widget.size >= 250 ? null : targetPx,
+        );
 
-      if (!mounted) break;
+        if (!mounted) break;
 
-      if (_requestedId == targetId) {
-        // Still the right song — apply and stop.
-        setState(() => _provider = provider);
-        break;
+        if (_requestedId == targetId) {
+          // Only rebuild if the provider actually changed.  getProviderSync may
+          // have already set _provider to an equivalent provider — avoid an
+          // unnecessary setState → widget rebuild → visual flicker.
+          //
+          // NOTE: FileImage has correct value equality (compares path + scale),
+          // but ResizeImage does NOT override == and falls back to object
+          // identity.  _providersEqual() handles both cases explicitly.
+          if (!_providersEqual(provider, _provider)) {
+            setState(() => _provider = provider);
+          }
+          break;
+        }
+        // _requestedId changed while we were awaiting — loop for the new ID.
       }
-      // _requestedId changed while we were awaiting — loop for the new ID.
+    } finally {
+      // Always reset, even if getProvider() throws, so future loads are not
+      // permanently suppressed by a stuck _loading flag.
+      _loading = false;
     }
-    _loading = false;
   }
 
   @override
@@ -174,7 +216,6 @@ class _SongArtworkState extends State<SongArtwork> {
         borderRadius: widget.borderRadius,
         color: Colors.grey.shade900,
       ),
-      child: const Icon(Icons.music_note),
     );
     if (!widget.showBorder) return placeholder;
     return ArtworkHairlineBorder(

@@ -17,7 +17,7 @@ class BrowseBannerCarousel extends StatelessWidget {
       height: 350,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: kListLeftPadding),
+        padding: const EdgeInsets.only(left: 6),
         itemCount: songs.length,
         itemBuilder: (context, index) {
           final song = songs[index];
@@ -129,9 +129,6 @@ class _BannerArtworkState extends State<_BannerArtwork> {
         width: widget.width,
         height: widget.height,
         color: const Color(0xFF1C1C1E),
-        child: const Center(
-          child: Icon(Icons.music_note, color: Colors.white24, size: 48),
-        ),
       );
     }
     return Image(

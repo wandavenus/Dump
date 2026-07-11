@@ -9,52 +9,87 @@ class HistoryService {
   static const _playCountKey = 'play_count';
   static const _artistPlayCountKey = 'artist_play_count';
 
+  // ── Startup warm-up cache ──────────────────────────────────────────────────
+  // Populated once by [warmUp] (called alongside ArtworkRepository.warmUp and
+  // MediaStoreService.warmUp in main()). UI widgets read the sync getters in
+  // State.initState so the first frame renders content instead of a spinner.
+  //
+  // Write-through strategy: [trackPlay] updates these in-memory values after
+  // every successful write, so the caches are always fresh and never nulled
+  // mid-session. [getRecentlyPlayedIds] / [getArtistPlayCounts] also refresh
+  // the cache on every fetch, keeping it in sync with SharedPreferences.
+
+  static List<int>? _cachedRecentIds;
+  static Map<String, dynamic>? _cachedArtistCounts;
+
+  /// Synchronous snapshot of recently-played song IDs. Non-null after [warmUp].
+  static List<int>? get cachedRecentIds => _cachedRecentIds;
+
+  /// Synchronous snapshot of artist play counts. Non-null after [warmUp].
+  static Map<String, dynamic>? get cachedArtistCounts => _cachedArtistCounts;
+
+  /// Loads recently-played IDs and artist play counts from SharedPreferences
+  /// into memory. Call once during app startup (alongside the other warm-ups)
+  /// before [runApp] so the sync getters are ready for the first frame.
+  static Future<void> warmUp() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _cachedRecentIds = (prefs.getStringList(_recentKey) ?? [])
+          .map(int.parse)
+          .toList(growable: false);
+      _cachedArtistCounts = Map<String, dynamic>.from(
+        jsonDecode(prefs.getString(_artistPlayCountKey) ?? '{}'),
+      );
+    } catch (_) {
+      // Best-effort — failed warm-up just means the first frame falls back
+      // to the async path (same behaviour as before this optimisation).
+    }
+  }
+
   static Future<void> trackPlay(LocalSong song) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // ── Recently played ──────────────────────────────────────────────────────
     final recent = prefs.getStringList(_recentKey) ?? [];
     recent.remove(song.id.toString());
     recent.insert(0, song.id.toString());
-
-    if (recent.length > 20) {
-      recent.removeRange(20, recent.length);
-    }
-
+    if (recent.length > 20) recent.removeRange(20, recent.length);
     await prefs.setStringList(_recentKey, recent);
 
+    // Write-through: keep in-memory cache in sync so sync getters remain valid.
+    _cachedRecentIds = recent.map(int.parse).toList(growable: false);
+
+    // ── Song play count ──────────────────────────────────────────────────────
     final playCounts = Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_playCountKey) ?? '{}'),
     );
-
     playCounts[song.id.toString()] =
         (playCounts[song.id.toString()] ?? 0) + 1;
-
     await prefs.setString(_playCountKey, jsonEncode(playCounts));
 
+    // ── Artist play count ────────────────────────────────────────────────────
     final artistCounts = Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_artistPlayCountKey) ?? '{}'),
     );
+    artistCounts[song.artist] = (artistCounts[song.artist] ?? 0) + 1;
+    await prefs.setString(_artistPlayCountKey, jsonEncode(artistCounts));
 
-    artistCounts[song.artist] =
-        (artistCounts[song.artist] ?? 0) + 1;
-
-    await prefs.setString(
-      _artistPlayCountKey,
-      jsonEncode(artistCounts),
-    );
+    // Write-through: update artist count cache too.
+    _cachedArtistCounts = artistCounts;
   }
 
   static Future<List<int>> getRecentlyPlayedIds() async {
     final prefs = await SharedPreferences.getInstance();
-
-    return (prefs.getStringList(_recentKey) ?? [])
+    final ids = (prefs.getStringList(_recentKey) ?? [])
         .map(int.parse)
-        .toList();
+        .toList(growable: false);
+    // Keep in-memory cache current so sync getter stays valid after any caller.
+    _cachedRecentIds = ids;
+    return ids;
   }
 
   static Future<Map<String, dynamic>> getPlayCounts() async {
     final prefs = await SharedPreferences.getInstance();
-
     return Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_playCountKey) ?? '{}'),
     );
@@ -62,9 +97,11 @@ class HistoryService {
 
   static Future<Map<String, dynamic>> getArtistPlayCounts() async {
     final prefs = await SharedPreferences.getInstance();
-
-    return Map<String, dynamic>.from(
+    final counts = Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_artistPlayCountKey) ?? '{}'),
     );
+    // Keep in-memory cache current.
+    _cachedArtistCounts = counts;
+    return counts;
   }
 }

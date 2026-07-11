@@ -7,6 +7,14 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   @override
   void initState() {
     super.initState();
+    // Synchronous first-frame init: if MediaStoreService.warmUp() already
+    // populated the song cache, build the album list right now so the very
+    // first build() call renders content instead of a spinner.
+    final cached = MediaStoreService.cachedSongs;
+    if (cached != null) {
+      _albums = _buildAlbums(cached);
+      _isLoading = false;
+    }
     _load();
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
@@ -21,16 +29,20 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     super.dispose();
   }
 
+  List<_AlbumGroup> _buildAlbums(List<LocalSong> songs) {
+    final map = <int, List<LocalSong>>{};
+    for (final song in songs) {
+      map.putIfAbsent(song.albumId, () => []).add(song);
+    }
+    return map.entries
+        .map((e) => _AlbumGroup(albumId: e.key, songs: e.value))
+        .toList();
+  }
+
   Future<void> _load() async {
     try {
       final songs = await MediaStoreService.getSongs();
-      final map = <int, List<LocalSong>>{};
-      for (final song in songs) {
-        map.putIfAbsent(song.albumId, () => []).add(song);
-      }
-      final albums = map.entries
-          .map((e) => _AlbumGroup(albumId: e.key, songs: e.value))
-          .toList();
+      final albums = _buildAlbums(songs);
       if (mounted) setState(() { _albums = albums; _isLoading = false; });
     } catch (_) {
       if (mounted) setState(() { _isLoading = false; });

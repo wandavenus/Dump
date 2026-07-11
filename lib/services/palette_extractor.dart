@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:palette_generator_plus/palette_generator_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PaletteExtractor
@@ -32,6 +36,82 @@ class PaletteExtractor {
   ];
 
   static final _cache = _LruCache<int, List<Color>>(256);
+
+  // ── Disk persistence ────────────────────────────────────────────────────────
+  //
+  // Palettes are cheap to store (3 ARGB ints per song) but expensive to
+  // recompute (decode + quantize). Without persisting them, every palette
+  // that backs a visible background colour/shader (album cards, player
+  // background) is lost on app kill and must be recomputed from scratch on
+  // the next cold start — causing a visible flash from the fallback colour
+  // to the real one, even though the underlying artwork image itself renders
+  // instantly via ArtworkRepository's own disk cache. Persisting mirrors
+  // that same "instant on cold start" behaviour for colours.
+  static String? _cacheFilePath;
+  static bool _dirty = false;
+  static Timer? _saveDebounce;
+
+  /// Loads the persisted palette cache from disk. Call once during app
+  /// startup (awaited, before `runApp`), alongside `ArtworkRepository.warmUp`,
+  /// so `getSync` can serve previously-computed palettes on the very first
+  /// frame after the app is killed/reopened.
+  static Future<void> warmUp() async {
+    try {
+      final dir = await getApplicationCacheDirectory();
+      _cacheFilePath = '${dir.path}/artwork/palette_cache.json';
+      final file = File(_cacheFilePath!);
+      if (!file.existsSync()) return;
+
+      final raw = await file.readAsString();
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      for (final entry in decoded.entries) {
+        final songId = int.tryParse(entry.key);
+        final values = entry.value;
+        if (songId == null || values is! List || values.length != 3) continue;
+        final colors = values.map((v) => Color(v as int)).toList();
+        _cache.put(songId, colors);
+      }
+    } catch (_) {
+      // Corrupt or unreadable cache file — start fresh, never crash startup.
+    }
+  }
+
+  /// Debounced persistence: batches rapid-fire extractions (e.g. prefetching
+  /// an entire album grid) into a single disk write instead of one per song.
+  static void _schedulePersist() {
+    _dirty = true;
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 800), _persist);
+  }
+
+  static Future<void> _persist() async {
+    if (!_dirty) return;
+    final path = _cacheFilePath;
+    if (path == null) {
+      // warmUp() hasn't resolved yet (or failed) — keep _dirty set and retry
+      // shortly instead of silently dropping the pending write.
+      _saveDebounce = Timer(const Duration(milliseconds: 800), _persist);
+      return;
+    }
+    _dirty = false;
+
+    try {
+      final map = <String, List<int>>{};
+      for (final entry in _cache.entries) {
+        map[entry.key.toString()] =
+            entry.value.map((c) => c.toARGB32()).toList();
+      }
+      final file = File(path);
+      await file.parent.create(recursive: true);
+      // Write to a temp file then rename — atomic, avoids a half-written
+      // cache file if the app is killed mid-write.
+      final tmp = File('$path.tmp');
+      await tmp.writeAsString(jsonEncode(map));
+      await tmp.rename(path);
+    } catch (_) {
+      // Best-effort — a failed save just means palettes recompute next launch.
+    }
+  }
 
   // In-flight extraction dedup: without this, a concurrent prefetch call and
   // a UI-triggered call for the same songId (which happens routinely on a
@@ -114,6 +194,7 @@ class PaletteExtractor {
 
       final colors = [dominant, vibrant, muted];
       _cache.put(songId, colors);
+      _schedulePersist();
       return colors;
     } catch (_) {
       _cache.put(songId, _kFallback);
@@ -144,6 +225,8 @@ class _LruCache<K, V> {
     _map[key] = value; // re-insert as most-recently-used
     return value;
   }
+
+  Iterable<MapEntry<K, V>> get entries => _map.entries;
 
   void put(K key, V value) {
     _map.remove(key);

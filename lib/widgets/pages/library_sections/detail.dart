@@ -108,7 +108,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
@@ -158,81 +158,41 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     );
   }
 
-  // ─── Control buttons (Queue-sheet style) ───────────────────────────────────
+  // ─── Control buttons (shared Putar/Acak — same as Album/Artist Detail) ─────
 
   Widget _controlButtons(List<LocalSong> songs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
-      child: ValueListenableBuilder<AudioPlaybackState>(
-        valueListenable: AudioService.playbackState,
-        builder: (context, state, _) {
-          return Row(
-            children: [
-              Expanded(
-                child: _controlButton(
-                  icon: CupertinoIcons.shuffle,
-                  active: state.shuffleEnabled,
-                  onTap: () => _playShuffled(songs),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _controlButton(
-                  icon: state.loopMode == LoopMode.one
-                      ? CupertinoIcons.repeat_1
-                      : CupertinoIcons.repeat,
-                  active: state.loopMode != LoopMode.off,
-                  onTap: AudioService.cycleLoopMode,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: PlayShuffleButtons(songs: songs, topPadding: 12),
     );
   }
 
-  Widget _controlButton({
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    const activeColor = Color(0xFF8E8E93);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        height: 48,
-        decoration: BoxDecoration(
-          color: active
-              ? activeColor.withValues(alpha: 0.48)
-              : Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            size: 20,
-            color: active ? activeColor : Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Shared list header (LargePageTitle + divider + search + controls) ─────
-
-  Widget _listHeader(List<LocalSong> songs) {
+  /// Judul + divider saja — scroll normal, tidak menumpuk.
+  Widget _titleHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         LargePageTitle(title: _title),
         const HeaderDivider(),
-        _searchBar(),
-        _controlButtons(songs),
       ],
+    );
+  }
+
+  /// Search bar + tombol Putar/Acak — dibungkus agar bisa menumpuk (pinned)
+  /// di bawah header, sama seperti perilaku search bar di halaman Cari.
+  Widget _stickyControls(List<LocalSong> songs) {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _StickyLibraryControlsDelegate(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _searchBar(),
+            _controlButtons(songs),
+          ],
+        ),
+      ),
     );
   }
 
@@ -319,22 +279,15 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             .where((a) => a.name.toLowerCase().contains(_filter))
             .toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
 
     return CustomScrollView(
       controller: _scroll,
       slivers: [
-        // Header — judul + divider saja, tanpa search bar & tombol kontrol
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LargePageTitle(title: _title),
-              const HeaderDivider(),
-            ],
-          ),
-        ),
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
           sliver: SliverGrid(
@@ -372,55 +325,70 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 album.artist.toLowerCase().contains(_filter);
           }).toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
-    return ListView.separated(
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+    return CustomScrollView(
       controller: _scroll,
-      padding: EdgeInsets.only(bottom: bottomClearance),
-      itemCount: filtered.length + 1,
-      separatorBuilder: (context, index) => index == 0
-          ? const SizedBox.shrink()
-          : const Divider(
-              height: 1,
-              thickness: 0.5,
-              color: Color(0xFF48484A),
-              indent: 87,
-              endIndent: 16,
+      slivers: [
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: bottomClearance),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final albumSongs = filtered[index];
+                final album = albumSongs.first;
+                final tile = ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  leading: SongArtwork(
+                    songId: album.id,
+                    size: 55,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  title: Text(
+                    album.album,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${album.artist} • ${albumSongs.length} lagu',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 13,
+                      ), 
+                  ),
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/album',
+                    arguments: {'album': album, 'songs': albumSongs},
+                  ),
+                );
+                if (index == filtered.length - 1) return tile;
+                return Column(
+                  children: [
+                    tile,
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 87,
+                      endIndent: 16,
+                    ),
+                  ],
+                );
+              },
+              childCount: filtered.length,
             ),
-      itemBuilder: (context, index) {
-        if (index == 0) return _listHeader(songs);
-        final albumSongs = filtered[index - 1];
-        final album = albumSongs.first;
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 2,
           ),
-          leading: SongArtwork(
-            songId: album.id,
-            size: 55,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          title: Text(
-            album.album,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            '${album.artist} • ${albumSongs.length} lagu',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 13,
-              ), 
-          ),
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/album',
-            arguments: {'album': album, 'songs': albumSongs},
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -437,53 +405,68 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
-    return ListView.separated(
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+    return CustomScrollView(
       controller: _scroll,
-      padding: EdgeInsets.only(bottom: bottomClearance),
-      itemCount: filtered.length + 1,
-      separatorBuilder: (context, index) => index == 0
-          ? const SizedBox.shrink()
-          : const Divider(
-              height: 1,
-              thickness: 0.5,
-              color: Color(0xFF48484A),
-              indent: 87,
-              endIndent: 17,
+      slivers: [
+        // Header — judul + divider, scroll normal
+        SliverToBoxAdapter(child: _titleHeader()),
+        // Search bar + tombol Putar/Acak — menumpuk (pinned) di bawah header
+        _stickyControls(songs),
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: bottomClearance),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final song = filtered[index];
+                final songIndex = songs.indexOf(song);
+                final tile = ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  leading: SongArtwork(songId: song.id, size: 55),
+                  title: Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF8E8E93),
+                        fontSize: 13,
+                      ), 
+                  ),
+                  onTap: () => _playAt(songs, songIndex),
+                  onLongPress: () => showSongContextMenu(
+                    context,
+                    song: song,
+                    playlist: songs,
+                    index: songIndex,
+                  ),
+                );
+                if (index == filtered.length - 1) return tile;
+                return Column(
+                  children: [
+                    tile,
+                    const Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: Color(0xFF48484A),
+                      indent: 87,
+                      endIndent: 17,
+                    ),
+                  ],
+                );
+              },
+              childCount: filtered.length,
             ),
-      itemBuilder: (context, index) {
-        if (index == 0) return _listHeader(songs);
-        final song = filtered[index - 1];
-        final songIndex = songs.indexOf(song);
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 2,
           ),
-          leading: SongArtwork(songId: song.id, size: 55),
-          title: Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            song.artist,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 13,
-              ), 
-          ),
-          onTap: () => _playAt(songs, songIndex),
-          onLongPress: () => showSongContextMenu(
-            context,
-            song: song,
-            playlist: songs,
-            index: songIndex,
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -492,11 +475,6 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   Future<void> _playAt(List<LocalSong> songs, int index) async {
     await AudioService.playSongAt(playlist: songs, index: index);
-  }
-
-  Future<void> _playShuffled(List<LocalSong> songs) async {
-    final shuffled = List<LocalSong>.from(songs)..shuffle();
-    await _playAt(shuffled, 0);
   }
 }
 
@@ -567,5 +545,32 @@ class _PlaylistBannerCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Sticky header untuk search bar + tombol Putar/Acak ────────────────────
+// Sama seperti perilaku menumpuk di halaman Cari (_StickySearchBarDelegate).
+
+const double _kLibraryControlsHeight = 140;
+
+class _StickyLibraryControlsDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  _StickyLibraryControlsDelegate({required this.child});
+
+  @override
+  double get minExtent => _kLibraryControlsHeight;
+
+  @override
+  double get maxExtent => _kLibraryControlsHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(color: Colors.black, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyLibraryControlsDelegate oldDelegate) {
+    return oldDelegate.child != child;
   }
 }

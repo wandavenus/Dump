@@ -1,5 +1,6 @@
 - [Flutter 3.44.4 manual install](flutter-manual-install.md) — Nix hanya sediakan 3.32.0; 3.44.4 diinstall manual ke /home/runner/flutter/; PATH di semua workflow harus prefix; kalau hilang jalankan setup-flutter.sh.
 - [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
+- [Artwork cache storage location](artwork-cache-storage.md) — cache di filesDir/supportDir bukan cacheDir; getProviderSync pakai _diskCachedIds pre-scan, bukan statSync per call; _paths hanya diisi setelah async validation.
 - [MediaKit Android service](mediakit-android-service.md) — MediaKitPlaybackService architecture: mirror service (no audio), SimpleBasePlayer state player, transport command flow, metadata push, channel names.
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
@@ -36,3 +37,5 @@
 - [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.
 - [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
 - [Lyrics full-view control hiding](lyrics-fullview-control-hiding.md) — bottom controls hide only on genuine user swipe-up (ScrollUpdateNotification.dragDetails != null), never on programmatic/auto-follow scrolls.
+- [Artwork prewarm timeout race](artwork-prewarm-timeout-race.md) — home artwork (Recently/Album/Artist) prewarm timeout can fire before decode on cold start under I/O contention → visible flicker; fixed with shared 3s timeout + concurrent Future.wait.
+- [Lyrics providers review](lyrics-providers-review.md) — Musixmatch removed (dead, no token source); Apple Music lyrics need a real subscriber account token, not free/anonymous like LRCLIB.
