@@ -13,7 +13,8 @@ enum NativeRuntimeStatus {
   unsupportedPlatform,
   duplicateModule,
   moduleLimitReached,
-  invalidArgument;
+  invalidArgument,
+  allocationFailed;
 
   /// Decode the raw `int32_t` status code returned by native calls.
   static NativeRuntimeStatus fromCode(int code) {

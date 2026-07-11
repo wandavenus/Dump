@@ -50,6 +50,7 @@ typedef enum {
   NATIVE_RUNTIME_ERROR_DUPLICATE_MODULE = 4,
   NATIVE_RUNTIME_ERROR_MODULE_LIMIT_REACHED = 5,
   NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT = 6,
+  NATIVE_RUNTIME_ERROR_ALLOCATION_FAILED = 7,
 } NativeRuntimeStatus;
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────

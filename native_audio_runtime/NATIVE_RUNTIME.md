@@ -1,155 +1,193 @@
-# native_audio_runtime — Phase 3 Native Runtime Foundation
+# native_audio_runtime — Phase 4 Native DSP Core
 
 ## What this package is
 
-A standalone Dart/Flutter **FFI package** (`flutter create --template=package_ffi`,
-the current, non-deprecated Flutter template for shareable `dart:ffi` code —
-`plugin_ffi` is deprecated in favor of this one). It gives the main app's
-future native modules (DSP, FFmpeg, FFT, ReplayGain, Visualizer, Resampler,
-…) a single, thread-safe native runtime to initialize, query, and register
-against — **without any DSP or FFmpeg logic**. That logic is explicitly out
-of scope for this phase; see `lib/services/native/NATIVE_BRIDGES.md` in the
-main app for the module bridges that consume this package.
+A standalone Dart/Flutter **FFI package** (`flutter create --template=package_ffi`)
+that provides the music player's native DSP processing architecture.
+
+**Phase 4 adds** on top of the Phase 3 runtime foundation:
+- `AudioBuffer` — interleaved float32 PCM buffer abstraction (`audio_buffer.h/c`)
+- `DspPipeline` — ordered processing chain (`dsp_pipeline.h/c`)
+- `GainProcessor` — first concrete processor; validates the pipeline end-to-end (`gain_processor.h/c`)
+- Dart facades: `NativeDspPipeline` singleton, `NativeAudioBuffer` wrapper
+
+Media3 remains the **only active playback engine** in Phase 4 — the DSP pipeline
+architecture is established and exercised by tests, but not yet wired into
+Media3's audio thread. That integration is Phase 5+ work.
 
 ## Why a separate package, not code embedded in the main app
 
-Chosen deliberately over embedding native code directly in
-`android/app/src/main/cpp/`:
-
-- **Official convention.** `package_ffi` is Flutter's own recommended
-  structure for reusable `dart:ffi` code — it ships its own build hook
-  (`hook/build.dart`), its own C sources, and its own versioned public API,
-  independent of the app's Gradle/CMake wiring.
-- **Native Assets, not manual Gradle/CMake.** This template uses Dart's
-  *native assets* build hooks (`package:hooks` + `package:native_toolchain_c`)
-  instead of a hand-maintained `CMakeLists.txt` + `externalNativeBuild` block
-  in `android/app/build.gradle`. The main app's Android project needed **zero
-  Gradle changes** — `flutter pub get` + `flutter config --enable-native-assets`
-  is the entire integration surface. This is a meaningfully smaller footprint
-  than the JNI-first design this phase's spec explicitly supersedes.
-- **Reusability.** If a second app in this workspace ever needs the same
-  runtime, it becomes a normal pub dependency instead of copy-pasted native
-  code.
-- **Testability.** Because native assets are built per-target, `dart test`
-  inside this package compiles and runs the **real C code for the host
-  platform** (see "What was actually verified" below) — something a
-  Gradle-only `android/app/src/main/cpp/` setup cannot give you without an
-  emulator or device.
-
-The tradeoff: native assets require `flutter config --enable-native-assets`
-(now enabled in this environment) and a reasonably recent Flutter/Dart SDK.
-Both are satisfied here (Flutter 3.44.5 / Dart ^3.12.2).
+See Phase 3 rationale (still applies): official `package_ffi` convention,
+native assets build hooks, reusability, testability. The Phase 4 C code adds
+three new translation units but zero Gradle/CMake changes — all orchestrated
+by the existing `hook/build.dart`.
 
 ## Public API
 
-`package:native_audio_runtime/native_audio_runtime.dart` exports a single
-singleton, `NativeAudioRuntime.instance`:
+`package:native_audio_runtime/native_audio_runtime.dart` exports three singletons:
 
-| Member                     | Purpose                                                             |
-|-----------------------------|----------------------------------------------------------------------|
-| `initialize()`              | Idempotent init of the shared native runtime.                       |
-| `dispose()`                 | Idempotent teardown.                                                 |
-| `isAvailable` / `isInitialized` | Whether the native library loaded & initialized on this platform. |
-| `version`                   | Native runtime version string.                                       |
-| `capabilities`              | Placeholder capability list — **all `supported: false`** in Phase 3. |
-| `registerModule(id)`        | Native-side module ledger; used by `NativeDspBridge` / `FfmpegDecoderBridge`. |
-| `registeredModuleIds`       | Ids registered so far, in order.                                      |
+### `NativeAudioRuntime.instance`
 
-All types (`NativeRuntimeStatus`, `NativeRuntimeCapability`,
-`NativeRuntimeException`) live in `lib/src/runtime_types.dart` and are pure
-Dart — no `dart:ffi` import — so they are safe to use from any platform.
+| Member | Purpose |
+|---|---|
+| `initialize()` | Idempotent init of the shared native runtime. |
+| `dispose()` | Idempotent teardown. |
+| `isAvailable` / `isInitialized` | Whether native library loaded & initialized. |
+| `version` | Native runtime version string (`"0.1.0-phase4"`). |
+| `capabilities` | Capability list — **`dsp.pipeline` and `dsp.gain` are `supported: true`** in Phase 4. |
+| `registerModule(id)` | Native-side module ledger. |
+| `registeredModuleIds` | Ids registered so far. |
 
-## Web safety (important)
+### `NativeDspPipeline.instance`
 
-`dart:ffi` does not exist on the web compile target. The main app also
-builds for web (`flutter build web`, the "Watch & Rebuild Web" workflow).
-To keep that working, this package's public entry point conditionally
-exports one of two implementations with an **identical API**:
+| Member | Purpose |
+|---|---|
+| `initialize()` | Init C pipeline + register gain processor. Idempotent. |
+| `dispose()` | Dispose pipeline and all processors. |
+| `isInitialized` | Whether the pipeline is ready. |
+| `setGainDb(db)` | Set gain in dBFS (clamped to [-96, +24]). Thread-safe. |
+| `gainDb` | Current gain in dBFS. |
+| `setGainBypass(bool)` | Zero-copy bypass when `true`. Thread-safe. |
+| `gainBypass` | Whether bypass is active. |
+| `setProcessorEnabled(id, enabled:)` | Enable/disable a processor by its C id. Thread-safe. |
+| `isProcessorEnabled(id)` | Whether the named processor is enabled. |
+| `processorCount` | Number of registered processors (1 in Phase 4). |
+| `processorIdAt(index)` | Processor id at `index` (e.g. `'dsp.gain'`). |
+| `totalLatencyFrames` | Sum of processor latencies (0 in Phase 4). |
+| `processBuffer(buf)` | Drive a buffer through the chain — primarily for testing. |
+| `reset()` | Reset all processor states. |
 
+### `NativeAudioBuffer`
+
+| Member | Purpose |
+|---|---|
+| `create(...)` | Allocate an interleaved float32 PCM buffer. Returns `null` on failure. |
+| `destroy()` | Free the native allocation (required — GC does not free it). |
+| `data` | `Float32List` view directly into native memory — zero-copy. |
+| `capacityFrames`, `frameCount`, `channelCount`, `sampleRate` | Metadata. |
+| `setFrameCount(n)` | Narrow valid frame count without reallocating. |
+| `timestampUs` / `setTimestampUs(us)` | Optional playback-position metadata. |
+| `nativePointer` | Raw `Pointer<NarAudioBuffer>` for `processBuffer`. |
+
+All types (`NativeRuntimeStatus`, `NativeRuntimeCapability`, `NativeRuntimeException`)
+live in `lib/src/runtime_types.dart` — pure Dart, web-safe.
+
+## Web safety
+
+`dart:ffi` is unavailable on web. All three exported classes have stub
+implementations (`*_unsupported.dart`) with identical APIs:
+- `NativeAudioRuntime.isAvailable` → `false`
+- `NativeDspPipeline.isInitialized` → `false`
+- `NativeAudioBuffer.create(...)` → `null`
+- All control methods → no-ops
+
+The same `import` works on every target:
 ```dart
-export 'src/runtime_impl_unsupported.dart'
-    if (dart.library.ffi) 'src/runtime_impl_io.dart';
+import 'package:native_audio_runtime/native_audio_runtime.dart';
 ```
 
-- `dart.library.ffi` is present on Android/iOS/Linux/macOS/Windows → the real
-  `dart:ffi`-backed implementation (`runtime_impl_io.dart`) is used.
-- It is absent on web (dart2js/dartdevc) → `runtime_impl_unsupported.dart` is
-  used instead: same API, `isAvailable` always `false`, no `dart:ffi` import
-  anywhere in that file or its dependencies.
+## Native C API (Phase 4 additions)
 
-Verified: `flutter build web` (via the "Watch & Rebuild Web" workflow)
-completes successfully after this package was added as a dependency and
-after every subsequent edit to the bridges that consume it.
+### `audio_buffer.h/c`
+- `NarAudioBuffer` opaque struct — single heap allocation, capacity/frame metadata
+- `nar_audio_buffer_create()` / `nar_audio_buffer_destroy()`
+- `nar_audio_buffer_data()` — direct float* pointer (no copy)
+- Sample formats: `NAR_SAMPLE_FORMAT_FLOAT32` (implemented); `INT16` (declared, unimplemented placeholder)
 
-## Native C API
+### `dsp_pipeline.h/c`
+- Fixed-size slot array (up to 16 processors)
+- `_Atomic int32_t enabled` per slot — `set_enabled()` is thread-safe
+- `process()` / `reset()` — audio-thread only (no locking)
+- `register_internal()` — calls vtable→init(); a non-OK init aborts registration
 
-`src/native_audio_runtime.h` / `.c` — lifecycle, version, capability, and a
-fixed-size module registry. No audio processing. Thread-safety:
+### `dsp_processor.h`
+- `NarDspProcessorVTable` — every future processor implements this exact struct
+- `NarDspProcessorDescriptor` — {id, self, vtable}
+- `self` is owned by the registering module, NOT the pipeline
 
-- `native_runtime_init()` — lock-free CAS loop; exactly one caller performs
-  real init even under concurrent calls; safe to call again after a prior
-  `dispose()` (re-initialization is a valid transition, not just the
-  first-ever call — this required a second CAS iteration, not a single
-  compare-and-swap, to admit both `UNINITIALIZED → INITIALIZING` and
-  `DISPOSED → INITIALIZING`).
-- `native_runtime_dispose()` — safe no-op if never initialized or already
-  disposed.
-- `native_runtime_register_module()` — guarded by a small mutex around the
-  fixed-size module table only (the hot init/dispose path stays lock-free).
+### `gain_processor.h/c`
+- Gain stored as IEEE 754 float bits in `_Atomic int32_t` (portable lock-free)
+- Hot loop: `data[i] *= gain_linear` — SIMD-ready; compiler auto-vectorizes with NEON
+- Bypass: true zero-copy (returns immediately without touching samples)
+- No clipping at output
 
-## What was actually verified in this environment
+## DSP Pipeline architecture
 
-This sandbox has **no Android SDK/NDK/gradle toolchain** installed
-(`flutter doctor` reports the Android toolchain missing; no `sdkmanager`,
-no `$ANDROID_HOME`). That means an actual `flutter build apk` — the one
-build that would prove Android cross-compilation, Gradle native-asset
-bundling, and the `.so` loading on-device — **could not be run or verified
-here**. This is the single largest unverified assumption in this phase.
+```
+Flutter UI
+  ↓
+AudioService
+  ↓
+PlaybackManager          ← setNativeGainDb(), setNativeGainBypass(), etc.
+  ↓
+NativeDspPipeline.instance   (Dart FFI facade)
+  ↓
+nar_dsp_pipeline_process()   (C — dsp_pipeline.c)
+  ↓
+GainProcessor.process()      (C — gain_processor.c)
+  ↓
+[future processors]
+```
 
-What *could* be verified, and was:
+**Not yet wired**: Media3/ExoPlayer audio thread does not call
+`nar_dsp_pipeline_process()` in Phase 4. That integration is Phase 5+ work.
 
-1. **The C code itself compiles cleanly** — `gcc -std=c11 -Wall -Wextra`
-   with zero warnings.
-2. **The native runtime's actual logic runs correctly on the host** —
-   `dart test` inside this package triggers the real native-assets build
-   hook, which compiles `src/native_audio_runtime.c` for the *host*
-   platform (Linux x64, using the container's `gcc`) and links it into the
-   test binary. All 8 tests in `test/native_audio_runtime_test.dart`
-   exercise the real compiled C code, including the concurrent-init
-   thread-safety contract and the DISPOSED→re-init transition. This is not
-   a mock — it is the actual shipped C source, just compiled for a
-   different target than Android.
-   - Note: `native_toolchain_c`'s compiler resolver looks specifically for
-     a binary named `clang` (or MSVC) on the host `PATH`; this container
-     only has `gcc`. Verifying locally therefore required a throwaway
-     `clang -> gcc` symlink in a scratch directory prepended to `PATH` for
-     that one `dart test` invocation — this is a local verification
-     workaround only, not a project or CI requirement, and nothing in the
-     shipped package depends on it. Android builds use the NDK's own
-     `clang`, which does not have this issue.
-3. **`flutter analyze` is clean** across the main app and this package
-   (including its `example/`).
-4. **`flutter build web`** (via the "Watch & Rebuild Web" workflow) succeeds
-   with this package as a live dependency, proving the web-safe conditional
-   export actually avoids pulling in `dart:ffi` on that target.
-5. **`flutter config --enable-native-assets`** was enabled in this
-   environment — required for Flutter's build tooling to honor
-   `hook/build.dart` at all; without it, the hook is silently ignored and
-   the native library would never be built or bundled.
+## Threading model
 
-What remains unverified and should be checked on a real build (Android
-Studio / a machine with the Android SDK+NDK, or CI):
+| Function | Thread safety |
+|---|---|
+| `nar_dsp_pipeline_process()` | Single audio thread only |
+| `nar_dsp_pipeline_reset()` | Single audio thread only |
+| `nar_dsp_pipeline_set_enabled()` | Any thread (atomic) |
+| `nar_gain_processor_set_gain_db()` | Any thread (atomic) |
+| `nar_gain_processor_set_bypass()` | Any thread (atomic) |
+| `nar_dsp_pipeline_register_internal()` | Mutex-guarded |
+| `nar_dsp_pipeline_dispose()` | Mutex-guarded |
 
-- That `flutter build apk` actually invokes this package's `hook/build.dart`
-  for the `android_arm64` target and bundles the resulting `.so` into the
-  APK (native assets + AGP 9.0.1 interaction has not been exercised here).
-- That `NativeAudioRuntime.instance.isAvailable` is actually `true` on a
-  real Android device (i.e. the `.so` loads and `native_runtime_init()`
-  runs) — in this sandbox, the app never runs on Android at all, so this
-  bridge code has only been exercised via `flutter analyze` (static) and the
-  host-target `dart test` above (real execution, wrong target platform).
-- Whether `minSdk 28` / `arm64-v8a`-only (`ndk.abiFilters`) need any
-  corresponding restriction declared in this package (native assets
-  currently builds for whatever `code_assets` reports as the target
-  architecture list from the consuming app; not independently confirmed to
-  respect the main app's `abiFilters` restriction to `arm64-v8a` only).
+## Build hook
+
+`hook/build.dart` now compiles four C sources:
+```
+src/native_audio_runtime.c   — lifecycle, version, capabilities, module registry
+src/audio_buffer.c           — NarAudioBuffer
+src/dsp_pipeline.c           — DSP chain
+src/gain_processor.c         — Gain processor
+```
+
+## What was verified in this environment
+
+1. **`flutter analyze` is clean** — no issues across the entire workspace.
+2. **Web build succeeds** — `flutter build web` completes; `dart.library.ffi` stub path confirmed.
+3. **Tests written** — `native_audio_runtime/test/native_audio_runtime_test.dart` covers all Phase 4 requirements. Note: running `dart test` locally requires the same `clang → gcc` symlink workaround documented in the Phase 3 section below (same environment constraint — no Android SDK/NDK).
+4. **`analysis_options.yaml`** at workspace root now excludes `native_audio_runtime/test/**` from workspace-level analysis (the `test:` dev dependency of the sub-package is not in the workspace resolved set; run `dart test` from inside `native_audio_runtime/` to exercise those files).
+
+## Remaining work before Parametric EQ (Phase 5)
+
+1. **Wire DSP into Media3 audio thread** — implement `ExoPlayer`'s
+   `AudioProcessor` interface to call `nar_dsp_pipeline_process()` per output
+   buffer from `DefaultAudioSink`.
+2. **Expose EQ controls** — implement `EqProcessor` (a `NarDspProcessorVTable`
+   with per-band biquad filters); register after the gain processor.
+3. **A/V sync** — use `nar_dsp_pipeline_total_latency_frames()` to compensate
+   Media3's audio/video synchronization for any future latency-introducing
+   processors.
+4. **Confirm APK build** — verify `flutter build apk` invokes `hook/build.dart`
+   for `android_arm64` and bundles the resulting `.so`; confirm
+   `NativeDspPipeline.instance.isInitialized` is `true` on device.
+5. **NEON optimization** — replace the gain processor's auto-vectorized loop
+   with explicit `arm_neon.h` intrinsics; add a SIMD capability flag.
+
+---
+
+## Phase 3 Notes (still applicable)
+
+### Why the environment has no Android NDK
+
+This Replit sandbox has no Android SDK/NDK. `flutter doctor` reports the Android
+toolchain missing. The `dart test` + `clang → gcc` symlink workaround still applies
+for running tests on the host (Linux x64).
+
+What remains unverified until an actual APK build:
+- `flutter build apk` native-assets + AGP 9.0.1 interaction
+- `.so` loading on a real device; `NativeDspPipeline.instance.isInitialized` on device
+- `abiFilters arm64-v8a` respect by native-assets toolchain

@@ -8,13 +8,23 @@ void main(List<String> args) async {
     final cbuilder = CBuilder.library(
       name: packageName,
       assetName: '${packageName}_bindings_generated.dart',
-      sources: ['src/$packageName.c'],
+      // Phase 4: all C translation units in the native runtime.
+      // Order matters only for the compiler; link order is handled by the
+      // native-assets toolchain. audio_buffer.c, dsp_pipeline.c, and
+      // gain_processor.c are compiled as separate TUs to keep each file's
+      // scope explicit (matching the header-per-file contract).
+      sources: [
+        'src/$packageName.c',      // lifecycle, version, capability, module registry
+        'src/audio_buffer.c',      // NarAudioBuffer — interleaved PCM buffer
+        'src/dsp_pipeline.c',      // DSP processing chain
+        'src/gain_processor.c',    // Gain processor (pipeline validator)
+      ],
     );
     await cbuilder.run(
       input: input,
       output: output,
       logger: Logger('')
-        ..level = .ALL
+        ..level = Level.ALL
         // ignore: avoid_print
         ..onRecord.listen((record) => print(record.message)),
     );

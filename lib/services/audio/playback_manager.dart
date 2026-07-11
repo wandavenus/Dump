@@ -2,6 +2,8 @@
 
 import 'dart:async';
 
+import 'package:native_audio_runtime/native_audio_runtime.dart';
+
 import '../artwork_repository.dart';
 import '../palette_extractor.dart';
 import '../../models/local_song.dart';
@@ -110,15 +112,31 @@ class PlaybackManager {
     if (_initialized) return;
     _initialized = true;
 
-    // Register future native modules (Phase 3: backed by the real, shared
-    // `native_audio_runtime` FFI library — Media3 remains the only active
-    // playback engine; no DSP/FFmpeg processing exists yet). Registration
-    // happens once, here, so PlaybackManager stays the single owner of
-    // native module lifecycle. See lib/services/native/NATIVE_BRIDGES.md
-    // and native_audio_runtime/NATIVE_RUNTIME.md.
+    // Register native modules (FFI runtime bridges — Media3 remains the only
+    // active playback engine). Registration happens once, here, so
+    // PlaybackManager stays the single owner of native module lifecycle.
+    // See lib/services/native/NATIVE_BRIDGES.md and NATIVE_RUNTIME.md.
     NativeModuleRegistry.register(NativeDspBridge.instance);
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
     await NativeModuleRegistry.initializeAll();
+
+    // Initialize the Phase 4 native DSP pipeline (C-side: dsp_pipeline.c +
+    // gain_processor.c). Not yet wired to Media3's audio thread — pipeline
+    // architecture is established here; future phases will route PCM through
+    // it. A failure is logged but does not prevent Media3 playback.
+    try {
+      await NativeDspPipeline.instance.initialize();
+      LogService.log(
+        'PlaybackManager',
+        'Native DSP pipeline initialized'
+        ' (${NativeDspPipeline.instance.processorCount} processor(s))',
+      );
+    } catch (e) {
+      LogService.log(
+        'PlaybackManager',
+        'Native DSP pipeline unavailable (non-fatal): $e',
+      );
+    }
 
     // Subscribe to currentTrack: forward events and trigger artwork prefetch.
     _subs.add(
@@ -267,27 +285,75 @@ class PlaybackManager {
   static Future<Map<String, dynamic>?> getPlaybackSnapshot() =>
       Media3PlaybackBridge.getPlaybackSnapshot();
 
-  // ── Native module access (FFI runtime — no DSP / FFmpeg logic yet) ─────────
+  // ── Native module access (FFI runtime) ───────────────────────────────────
   //
-  // UI and services must never import `lib/services/native/bridges/` directly;
-  // this is the single sanctioned entry point per NATIVE_BRIDGES.md.
+  // UI and services must never import `lib/services/native/bridges/` or
+  // `package:native_audio_runtime` directly — this is the single sanctioned
+  // entry point per NATIVE_BRIDGES.md.
 
   /// Snapshot of every registered native module (id, name, availability).
   static List<NativeModule> get nativeModules => NativeModuleRegistry.all;
 
   /// Aggregate capability report across all registered native modules.
-  /// Currently all entries report `supported: false` — the shared native
-  /// runtime is real and initializes, but no DSP/FFmpeg module has been
-  /// implemented yet (Phase 3: architecture only).
   static Future<Map<String, List<NativeCapability>>>
       queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
 
-  /// Release native module resources. Safe to call even if never initialized.
+  // ── Native DSP pipeline (Phase 4) ─────────────────────────────────────────
+  //
+  // The C-side DSP pipeline (dsp_pipeline.c + gain_processor.c) is
+  // architecture-only in Phase 4: the pipeline and gain processor are fully
+  // implemented but not yet wired into Media3's audio thread. Controls here
+  // let future UI / audio-engine code configure the pipeline without
+  // importing native_audio_runtime directly.
+
+  /// Whether the native DSP pipeline initialized successfully on this device.
+  static bool get nativeDspAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Set the gain processor's target gain in dBFS (clamped to [-96, +24]).
+  /// Thread-safe — safe to call from any isolate.
+  static void setNativeGainDb(double gainDb) =>
+      NativeDspPipeline.instance.setGainDb(gainDb);
+
+  /// Current native gain in dBFS.
+  static double get nativeGainDb => NativeDspPipeline.instance.gainDb;
+
+  /// Enable (`true`) or disable (`false`) the gain processor's zero-copy
+  /// bypass mode. When bypassed, audio passes through unmodified.
+  static void setNativeGainBypass(bool bypass) =>
+      NativeDspPipeline.instance.setGainBypass(bypass);
+
+  /// Whether the native gain processor is currently bypassed.
+  static bool get nativeGainBypass => NativeDspPipeline.instance.gainBypass;
+
+  /// Enable or disable a specific native DSP processor by its C id
+  /// (e.g. `'dsp.gain'`). Thread-safe.
+  static void setNativeDspProcessorEnabled(String id,
+          {required bool enabled}) =>
+      NativeDspPipeline.instance.setProcessorEnabled(id, enabled: enabled);
+
+  /// Whether the named native DSP processor is currently enabled.
+  static bool isNativeDspProcessorEnabled(String id) =>
+      NativeDspPipeline.instance.isProcessorEnabled(id);
+
+  /// Number of native DSP processors registered in the pipeline.
+  static int get nativeDspProcessorCount =>
+      NativeDspPipeline.instance.processorCount;
+
+  /// Ids of every registered native DSP processor, in processing order.
+  static List<String> get nativeDspProcessorIds => [
+        for (var i = 0; i < NativeDspPipeline.instance.processorCount; i++)
+          NativeDspPipeline.instance.processorIdAt(i) ?? '',
+      ];
+
+  /// Release native module and DSP pipeline resources. Safe to call even
+  /// if never initialized.
   static Future<void> dispose() async {
     for (final sub in _subs) {
       await sub.cancel();
     }
     _subs.clear();
+    await NativeDspPipeline.instance.dispose();
     await NativeModuleRegistry.disposeAll();
     _initialized = false;
   }

@@ -1,18 +1,19 @@
-/// Phase 3 native runtime foundation.
+/// Phase 4 native runtime — DSP pipeline architecture.
 ///
-/// Public API: [NativeAudioRuntime] is a singleton facade over the native
-/// runtime library (see `src/native_audio_runtime.h`/`.c`). It reports
-/// lifecycle state, a static version string, and a placeholder capability
-/// list — no DSP or FFmpeg processing exists yet (see `NATIVE_RUNTIME.md`).
+/// Public API:
+/// - [NativeAudioRuntime] — singleton facade: lifecycle, version, capabilities.
+/// - [NativeDspPipeline] — singleton DSP pipeline facade: gain, enable/disable.
+/// - [NativeAudioBuffer] — interleaved float32 PCM buffer (primarily for tests).
 ///
-/// Platform note: the real implementation requires `dart:ffi`, which is not
-/// available when compiling for web. This file conditionally exports the
-/// FFI-backed implementation on every platform that has `dart:ffi`
-/// (Android, iOS, Linux, macOS, Windows) and a pure-Dart stub — always
-/// reporting `isAvailable == false` — on web, so the SAME import works
-/// unconditionally from app code on every target this project builds for.
+/// Platform note: the real implementations require `dart:ffi`, unavailable on
+/// web. This file conditionally exports FFI-backed implementations on every
+/// platform that has `dart:ffi` (Android, iOS, Linux, macOS, Windows) and
+/// pure-Dart stubs on web, so the SAME import works unconditionally from app
+/// code on every target this project builds for.
 library;
 
 export 'src/runtime_types.dart';
 export 'src/runtime_impl_unsupported.dart'
     if (dart.library.ffi) 'src/runtime_impl_io.dart';
+export 'src/dsp_pipeline_unsupported.dart'
+    if (dart.library.ffi) 'src/dsp_pipeline_io.dart';

@@ -1,8 +1,8 @@
 name: native_audio_runtime
 description: >-
-  Phase 3 native runtime foundation for the music player: a thin dart:ffi
-  bridge to a C lifecycle/version/capability/module-registry library.
-  No DSP or FFmpeg processing — architecture only.
+  Phase 4 native DSP core for the music player: dart:ffi bridge to a C
+  DSP pipeline (dsp_pipeline.c), gain processor (gain_processor.c), and
+  PCM buffer abstraction (audio_buffer.c) on top of the Phase 3 runtime.
 version: 0.1.0
 publish_to: 'none'
 

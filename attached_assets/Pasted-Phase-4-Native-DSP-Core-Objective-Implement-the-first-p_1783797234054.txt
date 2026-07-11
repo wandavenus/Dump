@@ -1,0 +1,203 @@
+Phase 4 — Native DSP Core
+
+Objective
+
+Implement the first production-ready DSP pipeline inside the native runtime.
+
+This phase establishes the DSP processing architecture.
+
+Do NOT implement advanced DSP algorithms yet.
+
+Do NOT integrate FFmpeg yet.
+
+Media3 remains the only playback engine.
+
+---
+
+Target Architecture
+
+Flutter UI
+
+↓
+
+AudioService
+
+↓
+
+PlaybackManager
+
+↓
+
+Media3PlaybackBridge
+
+↓
+
+Media3 / ExoPlayer
+
+↓
+
+Native Audio Runtime
+
+↓
+
+DSP Pipeline
+
+↓
+
+Audio Output
+
+---
+
+1. Create DSP Core
+
+Implement the DSP framework.
+
+Responsibilities:
+
+- processing pipeline
+- processor registration
+- processor ordering
+- enable / disable processors
+- runtime lifecycle
+- thread safety
+
+No advanced processing yet.
+
+---
+
+2. Create AudioBuffer
+
+Create a reusable PCM buffer abstraction.
+
+Requirements:
+
+- interleaved PCM
+- float support
+- future int16 support
+- sample rate metadata
+- channel count metadata
+- frame count
+- timestamp support
+
+Design it for future DSP expansion.
+
+---
+
+3. Create DSP Processor Interface
+
+Create a generic processor contract.
+
+Example responsibilities:
+
+- initialize
+- process
+- reset
+- dispose
+- latency
+- enabled state
+
+Every future DSP processor must implement this interface.
+
+---
+
+4. Implement First Processor
+
+Implement only one processor.
+
+Gain Processor.
+
+Responsibilities:
+
+- apply gain
+- bypass mode
+- zero-copy when disabled
+- no clipping
+
+This processor is only for validating the pipeline.
+
+---
+
+5. DSP Pipeline
+
+Create the processing chain.
+
+Pipeline should support:
+
+Processor A
+
+↓
+
+Processor B
+
+↓
+
+Processor C
+
+Future processors should be insertable without redesign.
+
+---
+
+6. PlaybackManager Integration
+
+Expose DSP controls through PlaybackManager.
+
+Do not expose native runtime directly.
+
+Future UI should communicate only with PlaybackManager.
+
+---
+
+7. Performance
+
+Optimize for:
+
+- zero unnecessary allocations
+- reusable buffers
+- cache-friendly layout
+- SIMD-ready design
+- future NEON optimization
+
+Do not prematurely optimize algorithms.
+
+Focus on architecture.
+
+---
+
+8. Documentation
+
+Document:
+
+- DSP pipeline
+- processor lifecycle
+- AudioBuffer ownership
+- threading model
+- processor registration
+
+---
+
+Validation
+
+Verify:
+
+- flutter analyze passes
+- native runtime tests pass
+- playback behavior unchanged
+- gain processor initializes
+- gain processor processes PCM correctly
+- processor enable / disable works
+- no analyzer warnings
+
+---
+
+Deliverables
+
+1. DSP Core implementation.
+2. AudioBuffer implementation.
+3. DSP Processor interface.
+4. Gain Processor.
+5. DSP Pipeline.
+6. Updated PlaybackManager integration.
+7. Updated architecture diagram.
+8. Files added.
+9. Files modified.
+10. Remaining work before Parametric EQ.

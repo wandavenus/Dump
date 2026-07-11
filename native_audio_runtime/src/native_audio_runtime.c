@@ -32,26 +32,30 @@ typedef enum {
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
 
-static const char* const kVersion = "0.1.0-phase3";
+static const char* const kVersion = "0.1.0-phase4";
 
-// ── Placeholder capability table ────────────────────────────────────────────
+// ── Capability table ─────────────────────────────────────────────────────────
 //
-// All entries report `supported = 0` — no native module has been implemented
-// yet. Real modules (Phase 4+) update their own reporting; this table only
-// proves the query mechanism end-to-end.
+// Phase 4: dsp.pipeline and dsp.gain are now supported (the DSP processing
+// architecture is implemented and the gain processor validates the chain).
+// All other entries remain placeholders (supported = 0) until those modules
+// are implemented.
 typedef struct {
   const char* key;
+  int32_t     supported;  // 1 = available, 0 = placeholder
 } NarCapabilityEntry;
 
 static const NarCapabilityEntry kCapabilities[] = {
-    {"dsp.equalizer"},
-    {"dsp.bass_boost"},
-    {"dsp.virtualizer"},
-    {"dsp.compressor"},
-    {"dsp.resampler"},
-    {"decoder.flac_hires"},
-    {"decoder.dsd"},
-    {"scan.loudness_ebur128"},
+    {"dsp.pipeline",        1},  // Phase 4: pipeline architecture implemented
+    {"dsp.gain",            1},  // Phase 4: gain processor implemented
+    {"dsp.equalizer",       0},
+    {"dsp.bass_boost",      0},
+    {"dsp.virtualizer",     0},
+    {"dsp.compressor",      0},
+    {"dsp.resampler",       0},
+    {"decoder.flac_hires",  0},
+    {"decoder.dsd",         0},
+    {"scan.loudness_ebur128", 0},
 };
 static const int32_t kCapabilityCount =
     (int32_t)(sizeof(kCapabilities) / sizeof(kCapabilities[0]));
@@ -160,8 +164,7 @@ FFI_PLUGIN_EXPORT const char* native_runtime_capability_key(int32_t index) {
 
 FFI_PLUGIN_EXPORT int32_t native_runtime_capability_supported(int32_t index) {
   if (index < 0 || index >= kCapabilityCount) return 0;
-  // Phase 3: every capability is a declared placeholder only.
-  return 0;
+  return kCapabilities[index].supported;
 }
 
 // ── Module registry ──────────────────────────────────────────────────────────
