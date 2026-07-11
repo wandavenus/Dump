@@ -22,6 +22,16 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// Phase 9 — FFmpeg decoder extension (optional, opt-in).
+// Set `ffmpegDecoderEnabled=true` in local.properties only after vendoring
+// the module at android/decoder-ffmpeg/ (see settings.gradle and
+// docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md). Both guards — the flag AND the
+// module actually being included by settings.gradle — must be true, so a
+// stale flag left in local.properties can never break a build that doesn't
+// have the module vendored.
+def ffmpegDecoderEnabled = localProperties.getProperty('ffmpegDecoderEnabled', 'false').toBoolean() &&
+        findProject(':decoder-ffmpeg') != null
+
 android {
     namespace "dev.wndavenz.music"
     compileSdk 36
@@ -117,6 +127,17 @@ dependencies {
     implementation 'androidx.media3:media3-ui:1.10.1'
     implementation 'androidx.media3:media3-extractor:1.10.1'
     implementation 'androidx.media3:media3-container:1.10.1'
+
+    // Phase 9 — see the ffmpegDecoderEnabled guard above. When this is not
+    // included, DefaultRenderersFactory's EXTENSION_RENDERER_MODE_ON simply
+    // finds no androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer class on the
+    // classpath and skips it — Media3's built-in decoders keep working exactly
+    // as they do today. No other code in this project depends on this
+    // dependency actually being present (FfmpegCapabilityProbe.kt uses
+    // reflection precisely so it never needs this to compile).
+    if (ffmpegDecoderEnabled) {
+        implementation project(':decoder-ffmpeg')
+    }
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'

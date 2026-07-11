@@ -43,3 +43,4 @@
 - [Artwork prewarm timeout race](artwork-prewarm-timeout-race.md) — home artwork (Recently/Album/Artist) prewarm timeout can fire before decode on cold start under I/O contention → visible flicker; fixed with shared 3s timeout + concurrent Future.wait.
 - [Lyrics providers review](lyrics-providers-review.md) — Musixmatch removed (dead, no token source); Apple Music lyrics need a real subscriber account token, not free/anonymous like LRCLIB.
 - [native_audio_runtime FFI package](native-audio-runtime-ffi-package.md) — package_ffi template + native-assets hooks; dart.library.ffi web-stub trick; native_toolchain_c wants literal `clang` on PATH; no Android NDK here.
+- [FFmpeg decoder integration (Phase 9)](ffmpeg-decoder-phase9.md) — official Media3 FFmpeg extension via reflection + guarded optional Gradle module; RenderersFactory self-registers extensions, no manual wiring; APE/WavPack/TAK deferred (needs custom Extractor).

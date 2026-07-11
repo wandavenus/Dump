@@ -7,14 +7,24 @@ pluggable native modules.  It establishes the pattern that all future C++-backed
 features (DSP, FFmpeg, FFT analyser, etc.) must follow, without changing any
 existing playback code.
 
-**Phase 3 update:** `NativeDspBridge` and `FfmpegDecoderBridge` now talk to a
-real, shared native runtime via `dart:ffi` — the standalone
-`native_audio_runtime` package (see its own `NATIVE_RUNTIME.md` for the full
-architecture, native C API, thread-safety design, and — importantly — which
-parts of this could and could not be verified in this environment, since no
-Android SDK/NDK is installed here). Kotlin stays scoped to Android-framework
-concerns only (Media3, notifications, Bluetooth, etc.) per this phase's
-explicit design; DSP/FFmpeg are never routed through Kotlin/JNI.
+**Phase 3 update:** `NativeDspBridge` talks to a real, shared native runtime
+via `dart:ffi` — the standalone `native_audio_runtime` package (see its own
+`NATIVE_RUNTIME.md` for the full architecture, native C API, thread-safety
+design, and — importantly — which parts of this could and could not be
+verified in this environment, since no Android SDK/NDK is installed here).
+Kotlin stays scoped to Android-framework concerns only (Media3, notifications,
+Bluetooth, etc.) for DSP; DSP is never routed through Kotlin/JNI.
+
+**Phase 9 update:** `FfmpegDecoderBridge` no longer uses `native_audio_runtime`
+FFI at all. Decoding for formats Media3 can demux but can't decode natively
+(ALAC, DTS, TrueHD, Vorbis/Opus edge cases) is handled entirely by Google's own
+official `androidx.media3:media3-decoder-ffmpeg` extension, running inside
+`Media3PlaybackService.kt`'s ExoPlayer instance. `FfmpegDecoderBridge` is now a
+Kotlin/JNI bridge (its own small MethodChannel + EventChannel pair) rather than
+an FFI bridge — see `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` for the full
+design and why `ffmpeg_kit_flutter` (retired Jan/Apr 2025) was rejected.
+`native_audio_runtime` remains exclusively the DSP runtime; it was not
+touched by this phase.
 
 ---
 
@@ -27,8 +37,8 @@ lib/services/native/
 ├── models/
 │   └── native_module_status.dart   NativeModuleStatus enum
 ├── bridges/
-│   ├── native_dsp_bridge.dart      NativeDspBridge  — C++ DSP stub
-│   └── ffmpeg_decoder_bridge.dart  FfmpegDecoderBridge — FFmpeg stub
+│   ├── native_dsp_bridge.dart      NativeDspBridge  — C++ DSP stub (FFI)
+│   └── ffmpeg_decoder_bridge.dart  FfmpegDecoderBridge — Media3 FFmpeg extension (Kotlin/JNI, own channel pair)
 ├── native_module_registry.dart     Central module registry
 └── NATIVE_BRIDGES.md               This file
 ```
@@ -46,8 +56,8 @@ AudioService
     ▼
 PlaybackManager  ◄─── single entry point for ALL native access
     ├── Media3PlaybackBridge   (active — ExoPlayer)
-    ├── NativeDspBridge        (stub — future C++ DSP)
-    └── FfmpegDecoderBridge    (stub — future FFmpeg)
+    ├── NativeDspBridge        (stub — future C++ DSP, FFI)
+    └── FfmpegDecoderBridge    (active — Media3 FFmpeg extension, Kotlin/JNI)
            │
            ▼
     NativeModuleRegistry  (lifecycle manager)
@@ -72,10 +82,19 @@ All native access goes through `PlaybackManager`.
 - **Status:** Runtime available (real init/version/capability round-trip) — no DSP algorithm implemented yet
 
 ### FfmpegDecoderBridge
-- `dart:ffi` via `package:native_audio_runtime` (shared runtime singleton)
-- Decodes formats ExoPlayer cannot handle natively (DSD, APE, high-res FLAC, WavPack)
-- Also owns loudness scanning (EBU R128 via `ffmpeg -af loudnorm`)
-- **Status:** Runtime available (real init/version/capability round-trip) — FFmpeg itself not bundled yet
+- Own MethodChannel `musicplayer/ffmpeg_decoder` (capability query) + EventChannel
+  `musicplayer/ffmpeg_decoder_events` (per-track decoder selection diagnostics)
+- Decoding itself happens inside ExoPlayer via the official
+  `androidx.media3:media3-decoder-ffmpeg` extension — Dart never touches raw
+  audio; this bridge only reports status
+- Covers (Phase 9 scope): ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus edge cases —
+  formats Media3 can demux but has no on-device MediaCodec decoder for
+- Out of scope: APE, WavPack, TAK, Monkey's Audio (no Media3 container
+  `Extractor` exists for these at all — separate, larger follow-up)
+- **Status:** Architecture + real code complete; native `.so` not vendored in
+  this environment (no Android NDK) — `isAvailable` is `false` until someone
+  completes the build in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` and sets
+  `ffmpegDecoderEnabled=true`
 
 ---
 
@@ -87,21 +106,23 @@ PlaybackManager.initialize()   [called once, from main.dart]
            ├─ NativeDspBridge.initialize()        → NativeAudioRuntime.instance.initialize()
            │                                          (idempotent — shared singleton)
            │                                        → registerModule('native_dsp')
-           └─ FfmpegDecoderBridge.initialize()    → NativeAudioRuntime.instance.initialize()
-                                                       (2nd call → ALREADY_INITIALIZED, treated as ok)
-                                                     → registerModule('ffmpeg_decoder')
+           └─ FfmpegDecoderBridge.initialize()    → MethodChannel('musicplayer/ffmpeg_decoder')
+                                                       .invokeMethod('queryStatus')
+                                                     → subscribes to the ffmpeg_decoder_events
+                                                       EventChannel for the lifetime of the app
 
 PlaybackManager.dispose()      [implemented — not yet wired to an app-lifecycle hook]
     └─ NativeModuleRegistry.disposeAll()
-           ├─ FfmpegDecoderBridge.dispose()   → marks module disposed (runtime itself untouched)
+           ├─ FfmpegDecoderBridge.dispose()   → cancels its event subscription
            └─ NativeDspBridge.dispose()       → marks module disposed (runtime itself untouched)
 ```
 
-Note: neither bridge calls `NativeAudioRuntime.instance.dispose()` — the
-runtime is a shared singleton and either bridge disposing it would break the
-other while it's still registered. It's disposed once, if ever, by whichever
-higher-level shutdown path is added later (not currently wired to an
-app-lifecycle hook, matching `PlaybackManager.dispose()`'s own status).
+Note: `NativeDspBridge` never calls `NativeAudioRuntime.instance.dispose()` —
+it is the sole remaining user of the shared FFI runtime singleton as of
+Phase 9 (`FfmpegDecoderBridge` no longer touches it at all), but the runtime
+is still disposed only by a higher-level shutdown path if one is added later
+(not currently wired to an app-lifecycle hook, matching
+`PlaybackManager.dispose()`'s own status).
 
 `PlaybackManager.nativeModules` and `PlaybackManager.queryNativeCapabilities()` expose
 read-only access to the registry for debug UIs — the only sanctioned way to inspect
@@ -124,7 +145,7 @@ Planned future modules:
 | Module ID           | Class                  | Purpose                         |
 |---------------------|------------------------|---------------------------------|
 | `native_dsp`        | NativeDspBridge        | C++ parametric DSP              |
-| `ffmpeg_decoder`    | FfmpegDecoderBridge    | Extended format decoding        |
+| `ffmpeg_decoder`    | FfmpegDecoderBridge    | Extended format decoding (ALAC/DTS/TrueHD/Vorbis/Opus) |
 | `fft_analyser`      | (future)               | Real-time spectrum data         |
 | `audio_visualizer`  | (future)               | Waveform / VU meter             |
 | `loudness_analyser` | (future)               | EBU R128 offline scan           |
@@ -154,26 +175,29 @@ When ready to implement real DSP (Phase 4+):
 
 ---
 
-## FFmpeg Integration Strategy
+## FFmpeg Decoder Integration (Phase 9 — implemented)
 
-When ready to implement `FfmpegDecoderBridge`:
+Full design, rejected alternatives (`ffmpeg_kit_flutter*` — retired Jan/Apr
+2025), the reflection-based capability probe, Gradle wiring, and the human
+runbook for vendoring the actual `.so` on a machine with an Android NDK all
+live in **`docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`**. Summary:
 
-1. **Dependency options (choose one)**
-   - `ffmpeg_kit_flutter_audio` (pub.dev) — fastest, adds ~15 MB to APK.
-   - Custom build of FFmpeg wired into `native_audio_runtime/hook/build.dart`
-     (native assets) — smallest, most control, keeps FFmpeg out of Kotlin.
-
-2. **Decoder registration**
-   - In `Media3PlaybackService.kt`, override `buildRenderersFactory()`.
-   - Inject an `FfmpegAudioRenderer` for formats not covered by MediaCodec.
-   - `FfmpegDecoderBridge.canDecodeFormat()` gates the registration at runtime.
-
-3. **Loudness scanning**
-   - `FfmpegDecoderBridge.scanLoudness(filePath)` calls FFmpeg EBU R128 filter.
-   - Results feed into `ReplayGainService` / `MetadataCacheDb`.
-   - Replaces current ExoPlayer `MetadataRetriever`-based scan for formats it misses.
-
-4. **Dart side**
-   - Replace stub bodies in `FfmpegDecoderBridge`.
-   - Wire `canDecodeFormat()` into `MediaStoreService` format probing if needed.
-   - No changes to `PlaybackManager` public API.
+- Media3's own `androidx.media3:media3-decoder-ffmpeg` extension
+  (`FfmpegAudioRenderer`) is used — never `ffmpeg_kit_flutter` or a custom
+  CMake build. `DefaultRenderersFactory`'s `EXTENSION_RENDERER_MODE_ON` +
+  `setEnableDecoderFallback(true)` (already present in
+  `Media3PlaybackService.kt` from an earlier phase) makes ExoPlayer try
+  built-in decoders first and fall back to the extension automatically —
+  **no `RenderersFactory` code changes were needed for this phase.**
+- The module isn't on Maven Central; it's vendored as an optional local
+  Gradle module (`android/decoder-ffmpeg/`, guarded in `settings.gradle` +
+  `build.gradle` behind `ffmpegDecoderEnabled` in `local.properties`) so a
+  build with the module absent still succeeds.
+- `FfmpegCapabilityProbe.kt` looks up `FfmpegLibrary` by reflection, so
+  `Media3PlaybackService.kt` compiles whether or not the module is present.
+- PCM from `FfmpegAudioRenderer` flows through the exact same
+  `NativeDspAudioProcessor` chain as any built-in decoder — DSP pipeline
+  unchanged.
+- Scope: ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus only. APE/WavPack/TAK/Monkey's
+  Audio need a custom `Extractor` (no container demuxer exists for them in
+  Media3) and are a separate, larger follow-up — not attempted here.

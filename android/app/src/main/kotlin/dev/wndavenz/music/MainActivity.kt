@@ -32,6 +32,7 @@ class MainActivity : FlutterActivity() {
     private val mediaStoreChannel     = "musicplayer/media_store"
     private val audioEffectsChannel   = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
+    private val ffmpegDecoderChannel  = "musicplayer/ffmpeg_decoder"
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
@@ -88,6 +89,7 @@ class MainActivity : FlutterActivity() {
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
+        setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
     }
 
@@ -245,6 +247,39 @@ class MainActivity : FlutterActivity() {
 
         EventChannel(messenger, "musicplayer/native_logs")
             .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
+    }
+
+    // ── FFmpeg decoder channel (Phase 9) ────────────────────────────────────
+    //
+    // Dedicated channel pair, owned exclusively by `FfmpegDecoderBridge` on the
+    // Dart side (see lib/services/native/bridges/ffmpeg_decoder_bridge.dart).
+    // `PlaybackManager` never talks to this channel directly — it goes through
+    // that bridge, matching every other NativeModule in this codebase.
+    //
+    // - MethodChannel "queryStatus": one-shot capability probe, called once at
+    //   startup by FfmpegDecoderBridge.initialize().
+    // - EventChannel: per-track decoder selection info, emitted from
+    //   Media3PlaybackService's AnalyticsListener (onAudioDecoderInitialized).
+    private fun setupFfmpegDecoderChannel(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        MethodChannel(messenger, ffmpegDecoderChannel).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "queryStatus" -> {
+                    val status = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.queryStatus()
+                    result.success(mapOf(
+                        "available"       to status.available,
+                        "moduleLinked"    to status.moduleLinked,
+                        "version"         to status.version,
+                        "supportedCodecs" to status.supportedCodecs,
+                    ))
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        EventChannel(messenger, "musicplayer/ffmpeg_decoder_events")
+            .setStreamHandler(Media3PlaybackService.Events.handler("ffmpegDecoderInfo"))
     }
 
     // ── MediaStore channel ─────────────────────────────────────────────────────

@@ -107,6 +107,11 @@ class Media3PlaybackService : MediaSessionService() {
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
 
+    // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
+    // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
+    // without needing to query the player synchronously off the analytics thread.
+    private val lastAudioMimeType    = IdentityHashMap<ExoPlayer, String>()
+
     // ── Item 1: skip silence — persisted so new standby players inherit state ─
     private var skipSilenceEnabled = false
 
@@ -1240,6 +1245,7 @@ class Media3PlaybackService : MediaSessionService() {
                 val reuseStr  = decoderReuseEvaluation?.let {
                     "reuse=${it.result} discardReasons=${it.discardReasons}"
                 } ?: "reuseEval=null"
+                format.sampleMimeType?.let { lastAudioMimeType[p] = it }
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioInputFormatChanged: isActive=$active" +
                     "  mime=${format.sampleMimeType}" +
@@ -1276,6 +1282,26 @@ class Media3PlaybackService : MediaSessionService() {
                     "  decoder=$decoderName init=${initializationDurationMs}ms" +
                     "  thread=${Thread.currentThread().name}",
                 )
+
+                // Phase 9 — FFmpeg decoder diagnostics. Consumed exclusively by
+                // FfmpegDecoderBridge on the Dart side (musicplayer/ffmpeg_decoder_events).
+                // Only the active player's selection is reported; the standby/prewarm
+                // player's decoder init is an implementation detail, not a user-visible
+                // "now playing" decoder switch.
+                if (active) {
+                    val mimeType = lastAudioMimeType[p]
+                    val isFfmpeg = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe
+                        .isFfmpegDecoderName(decoderName)
+                    val reason = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe
+                        .describeSelection(decoderName, mimeType)
+                    EventEmitter.emit("ffmpegDecoderInfo", mapOf(
+                        "decoderName"              to decoderName,
+                        "mimeType"                 to mimeType,
+                        "isFfmpegDecoder"          to isFfmpeg,
+                        "initializationDurationMs" to initializationDurationMs,
+                        "reason"                   to reason,
+                    ))
+                }
             }
 
             /**
@@ -1398,6 +1424,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
+        // Phase 9: drop the cached MIME type for this player.
+        lastAudioMimeType.remove(p)
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────

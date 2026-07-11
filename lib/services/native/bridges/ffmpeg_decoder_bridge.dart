@@ -1,51 +1,140 @@
-import 'package:native_audio_runtime/native_audio_runtime.dart';
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 
 import '../contracts/native_module.dart';
 import '../models/native_module_status.dart';
 
-/// FFI bridge for a future FFmpeg-backed decoder module.
+/// Capability snapshot reported by the native FFmpeg decoder module.
 ///
-/// ## Intended future responsibilities
+/// [available] reflects `FfmpegLibrary.isAvailable()` on the Kotlin side,
+/// which is only true when the `media3-decoder-ffmpeg` module was vendored
+/// AND its native `.so` loaded successfully at runtime. [moduleLinked]
+/// distinguishes "class not found" (module not vendored at all) from
+/// "class found but native lib failed to load" — useful for diagnostics,
+/// but callers almost always just want [available].
+class FfmpegDecoderCapabilities {
+  final bool available;
+  final bool moduleLinked;
+  final String? version;
+
+  /// Human-readable codec names (e.g. `'ALAC'`, `'DTS'`) the bundled FFmpeg
+  /// build actually supports, as probed live via `FfmpegLibrary.supportsFormat`.
+  /// Empty when [available] is false.
+  final List<String> supportedCodecs;
+
+  const FfmpegDecoderCapabilities({
+    required this.available,
+    required this.moduleLinked,
+    required this.version,
+    required this.supportedCodecs,
+  });
+
+  static const unavailable = FfmpegDecoderCapabilities(
+    available: false,
+    moduleLinked: false,
+    version: null,
+    supportedCodecs: [],
+  );
+
+  factory FfmpegDecoderCapabilities.fromMap(Map<dynamic, dynamic> map) {
+    return FfmpegDecoderCapabilities(
+      available: map['available'] as bool? ?? false,
+      moduleLinked: map['moduleLinked'] as bool? ?? false,
+      version: map['version'] as String?,
+      supportedCodecs: (map['supportedCodecs'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+
+  @override
+  String toString() => 'FfmpegDecoderCapabilities(available=$available, '
+      'moduleLinked=$moduleLinked, version=$version, codecs=$supportedCodecs)';
+}
+
+/// Per-track decoder selection diagnostics, emitted every time ExoPlayer
+/// initializes an audio decoder for the currently active player.
+class FfmpegDecoderInfo {
+  /// Raw decoder name as reported by ExoPlayer, e.g. `'OMX.google.raw.decoder'`
+  /// or `'ffmpeg6.0-alac'`.
+  final String decoderName;
+
+  /// Sample MIME type being decoded, e.g. `'audio/alac'`. May be null if the
+  /// input format event hadn't fired yet when the decoder initialized.
+  final String? mimeType;
+
+  /// True when [decoderName] identifies the bundled FFmpeg software decoder
+  /// rather than an on-device MediaCodec.
+  final bool isFfmpegDecoder;
+
+  /// How long decoder initialization took, in milliseconds.
+  final int initializationDurationMs;
+
+  /// Human-readable explanation of why this decoder was selected — surfaced
+  /// in debug UIs so a fallback to FFmpeg is never a silent, unexplained event.
+  final String reason;
+
+  const FfmpegDecoderInfo({
+    required this.decoderName,
+    required this.mimeType,
+    required this.isFfmpegDecoder,
+    required this.initializationDurationMs,
+    required this.reason,
+  });
+
+  factory FfmpegDecoderInfo.fromMap(Map<dynamic, dynamic> map) {
+    return FfmpegDecoderInfo(
+      decoderName: map['decoderName'] as String? ?? 'unknown',
+      mimeType: map['mimeType'] as String?,
+      isFfmpegDecoder: map['isFfmpegDecoder'] as bool? ?? false,
+      initializationDurationMs: (map['initializationDurationMs'] as num?)?.toInt() ?? 0,
+      reason: map['reason'] as String? ?? '',
+    );
+  }
+
+  @override
+  String toString() => 'FfmpegDecoderInfo($decoderName, mime=$mimeType, '
+      'isFfmpeg=$isFfmpegDecoder, ${initializationDurationMs}ms)';
+}
+
+/// Dedicated abstraction over the official Media3 FFmpeg decoder extension.
 ///
-/// When implemented, this bridge will:
-///   - Provide decoding for formats not natively supported by ExoPlayer
-///     (e.g. FLAC 32-bit, DSD, Opus in unusual containers, APE, WavPack).
-///   - Report per-format decoder availability at runtime.
-///   - Allow registration of format-specific decoder factories that
-///     ExoPlayer's `RenderersFactory` can delegate to.
+/// ## Phase 9 architecture
 ///
-/// ## Current state (Phase 3)
+/// Decoding itself never touches Dart or the `native_audio_runtime` FFI
+/// package — it runs entirely inside ExoPlayer via Google's own
+/// `androidx.media3:media3-decoder-ffmpeg` extension (`FfmpegAudioRenderer`),
+/// registered automatically by `DefaultRenderersFactory`'s
+/// `EXTENSION_RENDERER_MODE_ON` + `setEnableDecoderFallback(true)` (already
+/// configured in `Media3PlaybackService.kt`). PCM produced by that renderer
+/// flows through the exact same `NativeDspAudioProcessor` chain as PCM from
+/// any built-in decoder — the DSP pipeline (`native_audio_runtime`) requires
+/// no changes and is untouched by this module.
 ///
-/// FFmpeg is still not bundled — no native binaries, no `ffmpeg_kit_flutter`
-/// dependency. What changed from Phase 2.5: this bridge now talks to the
-/// real shared native runtime (`package:native_audio_runtime`) for lifecycle
-/// and capability reporting, instead of being a pure Dart stub. All decoder
-/// capabilities remain `supported: false` until FFmpeg is actually linked.
-/// See `NATIVE_RUNTIME.md` for the architecture and unverified assumptions
-/// (no Android NDK available in this environment to cross-compile against).
+/// This class exists so that **all** Dart-side code — `PlaybackManager`
+/// included — talks to a single, stable API for FFmpeg decoder status,
+/// regardless of how that status is actually sourced on the native side.
+/// Internally it owns a small dedicated MethodChannel/EventChannel pair
+/// (`musicplayer/ffmpeg_decoder`, `musicplayer/ffmpeg_decoder_events`) to
+/// query the Media3 FFmpeg extension via Kotlin reflection
+/// (`FfmpegCapabilityProbe.kt`) — nobody else should reach for those channels
+/// directly.
 ///
-/// ## Integration plan (future)
+/// ## Scope (Phase 9, "official path only")
 ///
-/// 1. Add FFmpeg dependency (e.g. `ffmpeg_kit_flutter_audio`) OR a custom
-///    CMake build of FFmpeg wired into `native_audio_runtime`'s build hook.
-/// 2. Extend `NativeAudioRuntime` with decoder-specific FFI calls.
-/// 3. Wire `canDecodeFormat()` into `MediaStoreService` format probing.
-/// 4. Register FFmpeg-backed renderers in `Media3PlaybackService.kt`
-///    `RenderersFactory` — Kotlin stays Android-framework-only; FFmpeg
-///    itself is never routed through Kotlin per NATIVE_RUNTIME.md.
+/// Covers formats Media3 can already demux but has no on-device MediaCodec
+/// decoder for: ALAC, DTS/DTS-HD, TrueHD, Vorbis, Opus edge cases. APE,
+/// WavPack, TAK, and Monkey's Audio are explicitly out of scope — Media3 has
+/// no container `Extractor` for them at all, which is a categorically bigger
+/// (and unproven) undertaking. Tracked as a separate follow-up.
 ///
-/// ## Extension points
+/// ## Build-time state
 ///
-/// ```
-/// // Runtime format probe (future)
-/// Future<bool> canDecodeFormat(String mimeType) → FFI call
-///
-/// // Decoder factory registration (future)
-/// Future<void> registerDecoderFactory(String mimeType, ...) → FFI call
-///
-/// // ReplayGain / loudness scan via FFmpeg (future)
-/// Future<LoudnessData> scanLoudness(String filePath) → FFI call
-/// ```
+/// The native `media3-decoder-ffmpeg` module is not vendored in this
+/// environment (no Android NDK available to build it) and is not on Maven
+/// Central. Until someone runs the build documented in
+/// `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` on a machine with the NDK and
+/// flips `ffmpegDecoderEnabled=true` in `local.properties`, [isAvailable]
+/// will always be `false` — that is the correct, fail-open answer, not a bug.
 class FfmpegDecoderBridge implements NativeModule {
   FfmpegDecoderBridge._();
 
@@ -53,7 +142,22 @@ class FfmpegDecoderBridge implements NativeModule {
 
   static const String _moduleId = 'ffmpeg_decoder';
 
+  static const MethodChannel _channel = MethodChannel('musicplayer/ffmpeg_decoder');
+  static const EventChannel _decoderInfoEvents = EventChannel('musicplayer/ffmpeg_decoder_events');
+
   NativeModuleStatus _status = NativeModuleStatus.uninitialized;
+  FfmpegDecoderCapabilities _capabilities = FfmpegDecoderCapabilities.unavailable;
+
+  StreamSubscription<dynamic>? _decoderInfoSub;
+  final _decoderInfoCtrl = StreamController<FfmpegDecoderInfo>.broadcast();
+
+  /// Per-track decoder selection diagnostics for the active player. Emits
+  /// even when [isAvailable] is false — the built-in-decoder case is a valid,
+  /// useful diagnostic event too (`isFfmpegDecoder == false`).
+  Stream<FfmpegDecoderInfo> get decoderInfoStream => _decoderInfoCtrl.stream;
+
+  /// Latest capability snapshot from startup detection. See [initialize].
+  FfmpegDecoderCapabilities get capabilities => _capabilities;
 
   // ── NativeModule contract ─────────────────────────────────────────────────
 
@@ -64,82 +168,79 @@ class FfmpegDecoderBridge implements NativeModule {
   String get displayName => 'FFmpeg Decoder';
 
   @override
-  bool get isAvailable => _status == NativeModuleStatus.available;
+  bool get isAvailable => _capabilities.available;
 
   @override
   Future<void> initialize() async {
     if (_status != NativeModuleStatus.uninitialized) return;
 
+    _decoderInfoSub = _decoderInfoEvents.receiveBroadcastStream().listen(
+      (event) {
+        if (event is Map) {
+          _decoderInfoCtrl.add(FfmpegDecoderInfo.fromMap(event));
+        }
+      },
+      onError: (_) {
+        // Native side never emits an error payload today; guard defensively
+        // so a future change there can't crash this bridge's subscription.
+      },
+    );
+
     try {
-      // Shared singleton — idempotent even if NativeDspBridge already
-      // initialized it first (registration order comes from PlaybackManager).
-      await NativeAudioRuntime.instance.initialize();
-
-      if (!NativeAudioRuntime.instance.isAvailable) {
-        _status = NativeModuleStatus.unavailable;
-        return;
-      }
-
-      final regStatus =
-          NativeAudioRuntime.instance.registerModule(_moduleId);
-      switch (regStatus) {
-        case NativeRuntimeStatus.ok:
-        case NativeRuntimeStatus.duplicateModule:
-          _status = NativeModuleStatus.available;
-        default:
-          _status = NativeModuleStatus.unavailable;
-      }
+      // Automatic capability detection at startup — availability, native
+      // library version if loaded, and which of the Phase 9 target codecs
+      // the bundled FFmpeg build actually supports.
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('queryStatus');
+      _capabilities = result != null
+          ? FfmpegDecoderCapabilities.fromMap(result)
+          : FfmpegDecoderCapabilities.unavailable;
+      _status = _capabilities.available
+          ? NativeModuleStatus.available
+          : NativeModuleStatus.unavailable;
     } catch (_) {
-      _status = NativeModuleStatus.error;
+      // Channel missing/failed (e.g. platform not Android) — fail open.
+      _capabilities = FfmpegDecoderCapabilities.unavailable;
+      _status = NativeModuleStatus.unavailable;
     }
   }
 
   @override
   Future<void> dispose() async {
     if (_status == NativeModuleStatus.disposed) return;
-
-    // Shared runtime lifecycle owned collectively — see NativeDspBridge for
-    // why this does not call NativeAudioRuntime.instance.dispose() itself.
+    await _decoderInfoSub?.cancel();
+    _decoderInfoSub = null;
     _status = NativeModuleStatus.disposed;
   }
 
   @override
   Future<List<NativeCapability>> queryCapabilities() async {
-    if (!isAvailable) {
-      return const [
-        NativeCapability(key: 'decoder.flac_hires', supported: false),
-        NativeCapability(key: 'decoder.dsd', supported: false),
-        NativeCapability(key: 'decoder.ape', supported: false),
-        NativeCapability(key: 'decoder.wavpack', supported: false),
-        NativeCapability(key: 'decoder.opus', supported: false),
-        NativeCapability(key: 'scan.replaygain', supported: false),
-        NativeCapability(key: 'scan.loudness_ebur128', supported: false),
-      ];
-    }
-
-    return NativeAudioRuntime.instance.capabilities
-        .map((c) => NativeCapability(key: c.key, supported: c.supported))
+    const targetCodecs = ['ALAC', 'DTS', 'DTS-HD', 'TrueHD', 'Vorbis', 'Opus'];
+    return targetCodecs
+        .map((codec) => NativeCapability(
+              key: 'decoder.${codec.toLowerCase().replaceAll('-', '_')}',
+              supported: _capabilities.supportedCodecs.contains(codec),
+              version: _capabilities.available ? _capabilities.version : null,
+            ))
         .toList();
   }
 
-  // ── Extension points (future decoder API surface) ─────────────────────────
+  // ── Public API ─────────────────────────────────────────────────────────────
 
-  /// Future: check if FFmpeg can decode a given MIME type on this device.
-  /// Returns `false` until FFmpeg is integrated.
-  Future<bool> canDecodeFormat(String mimeType) async {
-    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
-    return false;
+  /// Whether the bundled FFmpeg build reports support for [mimeType]
+  /// (e.g. `'audio/alac'`). Checks the codec name mapping used by
+  /// `FfmpegCapabilityProbe`; unknown MIME types always return false.
+  bool canDecodeFormat(String mimeType) {
+    if (!isAvailable) return false;
+    final codec = _mimeToCodecLabel[mimeType];
+    return codec != null && _capabilities.supportedCodecs.contains(codec);
   }
 
-  /// Future: register a decoder factory for a specific MIME type so that
-  /// Media3 `RenderersFactory` can pick it up.
-  Future<void> registerDecoderFactory(String mimeType) async {
-    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
-  }
-
-  /// Future: full-file loudness scan (EBU R128 / ReplayGain via FFmpeg).
-  Future<Map<String, dynamic>?> scanLoudness(String filePath) async {
-    // TODO(phase-ffmpeg): route through a dedicated FFI call once FFmpeg exists.
-    return null;
-  }
+  static const Map<String, String> _mimeToCodecLabel = {
+    'audio/alac': 'ALAC',
+    'audio/vnd.dts': 'DTS',
+    'audio/vnd.dts.hd': 'DTS-HD',
+    'audio/true-hd': 'TrueHD',
+    'audio/vorbis': 'Vorbis',
+    'audio/opus': 'Opus',
+  };
 }

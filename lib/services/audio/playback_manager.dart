@@ -301,6 +301,26 @@ class PlaybackManager {
   static Future<Map<String, List<NativeCapability>>>
       queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
 
+  // ── FFmpeg decoder (Phase 9) ──────────────────────────────────────────────
+  //
+  // The only sanctioned entry point for FFmpeg decoder status — see
+  // FfmpegDecoderBridge's doc comment for the full architecture. This is the
+  // one exception to "native access goes through PlaybackManager only" that
+  // still holds: PlaybackManager talks to FfmpegDecoderBridge, never directly
+  // to the ffmpeg_decoder MethodChannel/EventChannel.
+
+  /// Capability snapshot detected at startup: whether the bundled FFmpeg
+  /// build is available, its version, and which Phase 9 target codecs
+  /// (ALAC/DTS/TrueHD/Vorbis/Opus) it actually supports.
+  static FfmpegDecoderCapabilities get ffmpegDecoderCapabilities =>
+      FfmpegDecoderBridge.instance.capabilities;
+
+  /// Per-track decoder selection diagnostics for the active player — fires
+  /// for every decoder init, whether it landed on a built-in MediaCodec or
+  /// the FFmpeg fallback, each with a human-readable [FfmpegDecoderInfo.reason].
+  static Stream<FfmpegDecoderInfo> get ffmpegDecoderInfoStream =>
+      FfmpegDecoderBridge.instance.decoderInfoStream;
+
   // ── Native DSP pipeline (Phase 4) ─────────────────────────────────────────
   //
   // The C-side DSP pipeline (dsp_pipeline.c + gain_processor.c) is
