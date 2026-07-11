@@ -279,7 +279,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             .where((a) => a.name.toLowerCase().contains(_filter))
             .toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
 
     return CustomScrollView(
       controller: _scroll,
@@ -325,7 +325,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 album.artist.toLowerCase().contains(_filter);
           }).toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return CustomScrollView(
       controller: _scroll,
       slivers: [
@@ -405,7 +405,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             )
             .toList();
 
-    final bottomClearance = MediaQuery.of(context).padding.bottom + 64.5;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return CustomScrollView(
       controller: _scroll,
       slivers: [
