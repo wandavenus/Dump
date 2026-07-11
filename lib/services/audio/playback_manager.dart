@@ -120,10 +120,13 @@ class PlaybackManager {
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
     await NativeModuleRegistry.initializeAll();
 
-    // Initialize the Phase 4 native DSP pipeline (C-side: dsp_pipeline.c +
-    // gain_processor.c). Not yet wired to Media3's audio thread — pipeline
-    // architecture is established here; future phases will route PCM through
-    // it. A failure is logged but does not prevent Media3 playback.
+    // Initialize the Phase 4.5 native DSP pipeline (C-side: dsp_pipeline.c +
+    // gain_processor.c). Wired into Media3's audio thread via
+    // NativeDspAudioProcessor (first slot in DefaultAudioProcessorChain in
+    // Media3PlaybackService.createConfiguredPlayer). A failure is non-fatal —
+    // NativeDspAudioProcessor passes audio unchanged when the pipeline has not
+    // yet been initialized (fail-open: nar_dsp_pipeline_process_raw returns
+    // NATIVE_RUNTIME_ERROR_NOT_INITIALIZED without touching the buffer).
     try {
       await NativeDspPipeline.instance.initialize();
       LogService.log(

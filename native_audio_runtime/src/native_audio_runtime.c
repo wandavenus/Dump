@@ -32,7 +32,7 @@ typedef enum {
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
 
-static const char* const kVersion = "0.1.0-phase4";
+static const char* const kVersion = "0.1.0-phase4.5";
 
 // ── Capability table ─────────────────────────────────────────────────────────
 //
@@ -46,16 +46,17 @@ typedef struct {
 } NarCapabilityEntry;
 
 static const NarCapabilityEntry kCapabilities[] = {
-    {"dsp.pipeline",        1},  // Phase 4: pipeline architecture implemented
-    {"dsp.gain",            1},  // Phase 4: gain processor implemented
-    {"dsp.equalizer",       0},
-    {"dsp.bass_boost",      0},
-    {"dsp.virtualizer",     0},
-    {"dsp.compressor",      0},
-    {"dsp.resampler",       0},
-    {"decoder.flac_hires",  0},
-    {"decoder.dsd",         0},
-    {"scan.loudness_ebur128", 0},
+    {"dsp.pipeline",          1},  // Phase 4: pipeline architecture implemented
+    {"dsp.gain",              1},  // Phase 4: gain processor implemented
+    {"dsp.media3_integration",1},  // Phase 4.5: NativeDspAudioProcessor wired into ExoPlayer chain
+    {"dsp.equalizer",         0},
+    {"dsp.bass_boost",        0},
+    {"dsp.virtualizer",       0},
+    {"dsp.compressor",        0},
+    {"dsp.resampler",         0},
+    {"decoder.flac_hires",    0},
+    {"decoder.dsd",           0},
+    {"scan.loudness_ebur128",  0},
 };
 static const int32_t kCapabilityCount =
     (int32_t)(sizeof(kCapabilities) / sizeof(kCapabilities[0]));
