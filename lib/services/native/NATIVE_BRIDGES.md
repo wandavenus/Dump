@@ -73,16 +73,20 @@ All native access goes through `PlaybackManager`.
 ## NativeModule Lifecycle
 
 ```
-PlaybackManager.initialize()
+PlaybackManager.initialize()   [called once, from main.dart]
     └─ NativeModuleRegistry.initializeAll()
            ├─ NativeDspBridge.initialize()        → unavailable (stub)
            └─ FfmpegDecoderBridge.initialize()    → unavailable (stub)
 
-PlaybackManager.dispose()  [future — not yet called]
+PlaybackManager.dispose()      [implemented — not yet wired to an app-lifecycle hook]
     └─ NativeModuleRegistry.disposeAll()
            ├─ FfmpegDecoderBridge.dispose()
            └─ NativeDspBridge.dispose()
 ```
+
+`PlaybackManager.nativeModules` and `PlaybackManager.queryNativeCapabilities()` expose
+read-only access to the registry for debug UIs — the only sanctioned way to inspect
+native module state from outside this directory.
 
 ---
 

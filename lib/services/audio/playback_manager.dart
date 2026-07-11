@@ -110,6 +110,13 @@ class PlaybackManager {
     if (_initialized) return;
     _initialized = true;
 
+    // Register future native modules (stubs — Media3 remains the only
+    // active engine). Registration happens once, here, so PlaybackManager
+    // stays the single owner of native module lifecycle.
+    NativeModuleRegistry.register(NativeDspBridge.instance);
+    NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
+    await NativeModuleRegistry.initializeAll();
+
     // Subscribe to currentTrack: forward events and trigger artwork prefetch.
     _subs.add(
       Media3PlaybackBridge.currentTrackStream.listen((event) {
@@ -256,6 +263,30 @@ class PlaybackManager {
 
   static Future<Map<String, dynamic>?> getPlaybackSnapshot() =>
       Media3PlaybackBridge.getPlaybackSnapshot();
+
+  // ── Native module access (stubs — future C++ DSP / FFmpeg) ─────────────────
+  //
+  // UI and services must never import `lib/services/native/bridges/` directly;
+  // this is the single sanctioned entry point per NATIVE_BRIDGES.md.
+
+  /// Snapshot of every registered native module (id, name, availability).
+  static List<NativeModule> get nativeModules => NativeModuleRegistry.all;
+
+  /// Aggregate capability report across all registered native modules.
+  /// Currently all entries report `supported: false` — no native code exists
+  /// yet (Phase 2.5: foundation only).
+  static Future<Map<String, List<NativeCapability>>>
+      queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
+
+  /// Release native module resources. Safe to call even if never initialized.
+  static Future<void> dispose() async {
+    for (final sub in _subs) {
+      await sub.cancel();
+    }
+    _subs.clear();
+    await NativeModuleRegistry.disposeAll();
+    _initialized = false;
+  }
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
