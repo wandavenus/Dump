@@ -176,3 +176,50 @@ external void nar_gain_processor_set_bypass(int bypass);
 /// Returns 1 if bypass active, 0 otherwise.
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_gain_processor_get_bypass();
+
+// ── peq_processor.h ───────────────────────────────────────────────────────────
+// Phase 5: Parametric Equalizer Processor.
+
+/// Register the PEQ processor with the DSP pipeline. Returns status code.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_peq_processor_register_internal();
+
+/// Configure a single EQ band (all parameters in one call).
+/// [filterType]: 0=Peak, 1=LowShelf, 2=HighShelf, 3=LowPass, 4=HighPass,
+///               5=BandPass, 6=Notch.
+/// [freqHz], [q], [gainDb], [sampleRate]: float; Dart double truncated by FFI.
+@ffi.Native<
+    ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Int32,
+        ffi.Float, ffi.Float, ffi.Float, ffi.Float)>()
+external int nar_peq_set_band(
+    int bandIndex,
+    int enabled,
+    int filterType,
+    double freqHz,
+    double q,
+    double gainDb,
+    double sampleRate);
+
+/// Enable (1) or disable (0) a single band without recomputing coefficients.
+@ffi.Native<ffi.Int32 Function(ffi.Int32, ffi.Int32)>()
+external int nar_peq_set_band_enabled(int bandIndex, int enabled);
+
+/// Returns 1 if the band is enabled, 0 if disabled, error code if out of range.
+@ffi.Native<ffi.Int32 Function(ffi.Int32)>()
+external int nar_peq_get_band_enabled(int bandIndex);
+
+/// Enable (bypass=1) or disable (bypass=0) the global PEQ bypass. Thread-safe.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_peq_set_bypass(int bypass);
+
+/// Returns 1 if global bypass is active, 0 otherwise.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_peq_get_bypass();
+
+/// Maximum configurable bands (compile-time constant = 32).
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_peq_max_bands();
+
+/// Number of bands currently configured (0 until first nar_peq_set_band call).
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_peq_band_count();

@@ -17,7 +17,9 @@ void main(List<String> args) async {
         'src/$packageName.c',      // lifecycle, version, capability, module registry
         'src/audio_buffer.c',      // NarAudioBuffer — interleaved PCM buffer
         'src/dsp_pipeline.c',      // DSP processing chain
-        'src/gain_processor.c',    // Gain processor (pipeline validator)
+        'src/gain_processor.c',    // Gain processor (Phase 4: pipeline validator)
+        'src/biquad_filter.c',     // Biquad coefficient computation (Phase 5)
+        'src/peq_processor.c',     // Parametric EQ processor (Phase 5)
       ],
     );
     await cbuilder.run(

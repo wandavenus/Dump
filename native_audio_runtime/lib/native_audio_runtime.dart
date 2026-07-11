@@ -1,9 +1,11 @@
-/// Phase 4 native runtime — DSP pipeline architecture.
+/// Native audio runtime — Phase 4/5 DSP pipeline.
 ///
 /// Public API:
-/// - [NativeAudioRuntime] — singleton facade: lifecycle, version, capabilities.
-/// - [NativeDspPipeline] — singleton DSP pipeline facade: gain, enable/disable.
-/// - [NativeAudioBuffer] — interleaved float32 PCM buffer (primarily for tests).
+/// - [NativeAudioRuntime]  — singleton facade: lifecycle, version, capabilities.
+/// - [NativeDspPipeline]   — pipeline facade: gain, enable/disable processors.
+/// - [NativeParametricEq]  — Phase 5: 32-band parametric EQ facade.
+/// - [PeqFilterType]       — Phase 5: filter topology enum for [NativeParametricEq].
+/// - [NativeAudioBuffer]   — interleaved float32 PCM buffer (primarily for tests).
 ///
 /// Platform note: the real implementations require `dart:ffi`, unavailable on
 /// web. This file conditionally exports FFI-backed implementations on every

@@ -1,0 +1,178 @@
+Phase 5 — Parametric Equalizer Engine
+
+Objective
+
+Implement a production-grade Parametric Equalizer (PEQ) inside the existing Native DSP Pipeline.
+
+The implementation must use the DSP pipeline introduced in Phase 4 and the Media3 integration completed in Phase 4.5.
+
+Do not implement FFmpeg.
+
+Do not modify the playback architecture.
+
+Media3 remains the only playback engine.
+
+---
+
+Architecture
+
+Flutter UI
+
+↓
+
+PlaybackManager
+
+↓
+
+Media3 AudioProcessorChain
+
+↓
+
+Native DSP Pipeline
+
+↓
+
+Parametric Equalizer
+
+↓
+
+Remaining AudioProcessors
+
+↓
+
+Audio Output
+
+---
+
+1. Create Biquad Filter
+
+Implement a reusable Biquad filter.
+
+Support:
+
+- Peak
+- Low Shelf
+- High Shelf
+- Low Pass
+- High Pass
+- Band Pass
+- Notch
+
+The implementation must be reusable by future DSP processors.
+
+---
+
+2. Parametric EQ Processor
+
+Create a dedicated Parametric EQ processor.
+
+The processor must integrate into the existing DSP pipeline.
+
+Do not replace the pipeline.
+
+---
+
+3. EQ Bands
+
+Support configurable bands.
+
+Each band contains:
+
+- enabled
+- filter type
+- frequency
+- Q value
+- gain (where applicable)
+
+The architecture must support future expansion without redesign.
+
+---
+
+4. Runtime Parameter Updates
+
+Changing EQ parameters must:
+
+- avoid restarting playback
+- avoid reallocations
+- avoid rebuilding the DSP pipeline
+
+Parameter updates should become active safely during playback.
+
+---
+
+5. Performance
+
+Optimize for:
+
+- SIMD-ready processing
+- cache-friendly memory layout
+- reusable coefficients
+- zero unnecessary allocations
+
+Recalculate filter coefficients only when parameters change.
+
+---
+
+6. Thread Safety
+
+Audio processing thread:
+
+- no locks
+- no heap allocation
+- deterministic execution
+
+Control thread:
+
+- safely update parameters
+- atomic parameter exchange where appropriate
+
+---
+
+7. PlaybackManager
+
+Expose Parametric EQ only through PlaybackManager.
+
+The UI must never communicate with the native runtime directly.
+
+---
+
+8. Documentation
+
+Document:
+
+- filter mathematics
+- coefficient generation
+- processor lifecycle
+- parameter update model
+- threading model
+
+---
+
+Validation
+
+Verify:
+
+- flutter analyze passes
+- native runtime tests pass
+- playback unchanged
+- Crossfade still works
+- Gapless still works
+- Queue still works
+- Parametric EQ affects real playback audio
+- Parameter changes work during playback
+- No audible glitches
+- No analyzer warnings
+
+---
+
+Deliverables
+
+1. Biquad filter implementation.
+2. Parametric EQ processor.
+3. PlaybackManager integration.
+4. Updated DSP pipeline documentation.
+5. Updated architecture diagram.
+6. Performance notes.
+7. Files added.
+8. Files modified.
+9. Remaining work before Dynamics Processing (Limiter / Compressor).
