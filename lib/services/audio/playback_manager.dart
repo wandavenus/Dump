@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import '../artwork_repository.dart';
 import '../palette_extractor.dart';
 import '../../models/local_song.dart';
@@ -10,51 +9,48 @@ import '../log_service.dart';
 import 'media3/media3_playback_bridge.dart';
 
 // ─── Equalizer parameter type ─────────────────────────────────────────────────
-//
-// Retained here (previously in engine_abstraction.dart) for AudioEngine and
-// UI compatibility.  Only Media3 / ExoPlayer is supported.
 
-class EngineEqualizerParameters {
+class EqualizerParameters {
   final double minDecibels;
   final double maxDecibels;
   final int bandCount;
 
-  const EngineEqualizerParameters({
+  const EqualizerParameters({
     required this.minDecibels,
     required this.maxDecibels,
     required this.bandCount,
   });
 }
 
-// ─── AudioEngineManager ───────────────────────────────────────────────────────
+// ─── PlaybackManager ─────────────────────────────────────────────────────────
 
-/// Central playback facade — single-engine (Media3 / ExoPlayer).
+/// Central playback facade — single engine (Media3 / ExoPlayer).
 ///
-/// All UI and service layers communicate through [AudioEngineManager].
+/// All UI and service layers communicate through [PlaybackManager].
 /// Internally delegates directly to [Media3PlaybackBridge].
 ///
 /// Architecture:
 ///   Flutter UI
 ///     ↓
-///   AudioService          (business-logic facade)
+///   AudioService       (business-logic facade)
 ///     ↓
-///   AudioEngineManager    (this class — stream routing + artwork prefetch)
+///   PlaybackManager    (this class — stream routing + artwork prefetch)
 ///     ↓
 ///   Media3PlaybackBridge  (sole MethodChannel / EventChannel edge)
 ///     ↓
 ///   Media3PlaybackService.kt → ExoPlayer
 ///
-/// Extension points for future native modules (C++ DSP, FFmpeg decoder) are
-/// intended to be added as slots in [Media3PlaybackBridge] or as separate
-/// Dart ↔ Native bridges — keeping business logic decoupled from transport.
+/// Extension points for future native modules (C++ DSP, FFmpeg decoder)
+/// are intended as additional slots in [Media3PlaybackBridge] or as
+/// separate Dart ↔ Native bridges, keeping business logic decoupled.
 ///
 /// Stream format contracts (unchanged):
 /// [playbackStateStream] → Map: 'playing' bool, 'processingState' String
 /// [currentTrackStream]  → Map?: 'index' int, 'id' int, 'nextTrackIndex' int
 /// [queueStream]         → List of LocalSong.toMap()
 /// [sleepTimerStream]    → Map: 'active' bool, 'endOfSong' bool, 'remainingMs' int
-class AudioEngineManager {
-  AudioEngineManager._();
+class PlaybackManager {
+  PlaybackManager._();
 
   static bool _initialized = false;
 
@@ -143,19 +139,9 @@ class AudioEngineManager {
     );
 
     LogService.log(
-      'AudioEngineManager',
+      'PlaybackManager',
       'Initialized — Media3PlaybackBridge (single engine)',
     );
-  }
-
-  // ── Post-switch callback (no-op — retained for call-site compatibility) ───
-  //
-  // Previously used to re-apply DSP settings after an engine switch.
-  // Engine switching is removed; this is a harmless no-op stub retained so
-  // AudioEffectsService.init() compiles without modification.
-  // ignore: avoid_unused_parameters
-  static void registerPostSwitchCallback(VoidCallback callback) {
-    // No-op: single-engine architecture has no engine switching.
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────
@@ -215,10 +201,10 @@ class AudioEngineManager {
   static Future<void> setCrossfadeDuration(double s) =>
       Media3PlaybackBridge.setCrossfadeDuration(s);
 
-  static Future<EngineEqualizerParameters?> getEqualizerParameters() async {
+  static Future<EqualizerParameters?> getEqualizerParameters() async {
     try {
       final raw = await Media3PlaybackBridge.getEqualizerParameters();
-      return EngineEqualizerParameters(
+      return EqualizerParameters(
         minDecibels: raw.minDecibels,
         maxDecibels: raw.maxDecibels,
         bandCount: raw.bands.length,

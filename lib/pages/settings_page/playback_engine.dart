@@ -2,8 +2,7 @@ part of '../settings_page.dart';
 
 // ─── Playback Engine Section ───────────────────────────────────────────────────
 //
-// Engine tunneling settings — always Media3 / ExoPlayer.
-// Engine switching and multi-engine architecture have been removed.
+// Engine tunneling settings — Native Media3 / ExoPlayer.
 
 class _PlaybackEngineSection extends StatelessWidget {
   const _PlaybackEngineSection();

@@ -4,7 +4,7 @@ import 'package:musicplayer/utils/zoom_fade_route.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';
 import 'package:musicplayer/models/replay_gain_mode.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
-import 'package:musicplayer/services/audio/audio_engine.dart';
+import 'package:musicplayer/services/audio/device_dsp.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/services/leak_tracker_service.dart';

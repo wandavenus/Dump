@@ -115,7 +115,7 @@ class PaletteExtractor {
 
   // In-flight extraction dedup: without this, a concurrent prefetch call and
   // a UI-triggered call for the same songId (which happens routinely on a
-  // track change — see AudioEngineManager prefetch racing animated_state's
+  // track change — see PlaybackManager prefetch racing animated_state's
   // own _loadPalette) would each independently run the full CPU-bound
   // decode + quantization pipeline, doubling processing time right when it
   // matters most.

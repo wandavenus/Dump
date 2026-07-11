@@ -60,7 +60,7 @@ class _AudioSection extends StatelessWidget {
             title: 'Bass Boost',
             subtitle: v == 0
                 ? 'Nonaktif'
-                : AudioEngine.bassBoostSupported
+                : DeviceDsp.bassBoostSupported
                     ? '${(v / 10).round()}%'
                     : 'Tidak didukung perangkat ini',
             value: v.toDouble(),

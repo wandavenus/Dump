@@ -191,11 +191,11 @@ Future<void> main() async {
         OpenFileService.registerHandler();
       }
 
-      // Order matters: AudioEngineManager harus diinisialisasi pertama
-      // (memuat pilihan engine dan menginisialisasi engine yang dipilih).
-      // AudioEngine (facade efek) harus siap sebelum AudioEffectsService.
-      await AudioEngineManager.initialize();
-      await AudioEngine.initialize();
+      // Order matters: PlaybackManager harus diinisialisasi pertama
+      // agar EventChannel stream siap sebelum AudioEffectsService.
+      // DeviceDsp (DSP capability helper) diinisialisasi setelahnya.
+      await PlaybackManager.initialize();
+      await DeviceDsp.initialize();
       await AudioEffectsService.init();
       LyricsService.init();
       await MediaCapabilitiesService.initialize();
