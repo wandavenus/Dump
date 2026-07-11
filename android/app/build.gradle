@@ -72,7 +72,7 @@ android {
 
     defaultConfig {
         applicationId "dev.wndavenz.music"
-        minSdk 28
+        minSdk 29
         targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -106,8 +106,8 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled false
+            shrinkResources false
             crunchPngs true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
