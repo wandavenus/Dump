@@ -36,10 +36,22 @@ extern "C" {
 // a second call while already initialised returns NATIVE_RUNTIME_OK.
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_init(void);
 
+// Returns 1 if the pipeline has been initialised, 0 otherwise.
+// Safe to call at any time from any thread (atomic load).
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_is_initialized(void);
+
 // Process `buffer` through every ENABLED processor in registration order.
 // Returns NATIVE_RUNTIME_OK on success. Returns the first non-OK code from
 // a failing processor and stops the chain there. buffer must not be NULL.
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process(NarAudioBuffer* buffer);
+
+// Process a raw interleaved float32 PCM buffer in-place. No heap allocation.
+// `data` points to frame_count × channel_count floats. This is the JNI entry
+// point called by NativeDspAudioProcessor.kt on ExoPlayer's audio thread —
+// must not lock or allocate. Returns NATIVE_RUNTIME_ERROR_NOT_INITIALIZED if
+// the pipeline has not been initialised yet (audio passes unchanged — fail-open).
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
+    float* data, int32_t frame_count, int32_t channel_count, int32_t sample_rate);
 
 // Reset all registered processors (clear filter history, envelope followers,
 // etc.) without re-initialising. Calls reset() on each processor, enabled

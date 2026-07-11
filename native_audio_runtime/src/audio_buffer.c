@@ -1,20 +1,14 @@
 // AudioBuffer implementation — see audio_buffer.h for the contract.
+//
+// The full NarAudioBuffer struct layout lives in audio_buffer_internal.h so
+// that other intra-package TUs (dsp_pipeline.c) can stack-allocate view buffers
+// without heap allocation. External callers must use the opaque API only.
 
-#include "audio_buffer.h"
+#include "audio_buffer_internal.h"  // includes audio_buffer.h + full struct
 
 #include <stdlib.h>
 
 #include "native_audio_runtime_internal.h"
-
-struct NarAudioBuffer {
-  float* data;  // heap-allocated: capacity_frames * channel_count floats
-  int32_t capacity_frames;
-  int32_t frame_count;  // valid frames, <= capacity_frames
-  int32_t channel_count;
-  int32_t sample_rate;
-  int32_t format;  // NarSampleFormat
-  int64_t timestamp_us;
-};
 
 FFI_PLUGIN_EXPORT NarAudioBuffer* nar_audio_buffer_create(
     int32_t capacity_frames,

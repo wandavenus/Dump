@@ -117,6 +117,10 @@ external void nar_audio_buffer_set_timestamp_us(
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_dsp_pipeline_init();
 
+/// Returns 1 if the pipeline is initialised, 0 otherwise. Atomic load — safe from any thread.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_dsp_pipeline_is_initialized();
+
 /// Process `buffer` through all enabled processors in order.
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<NarAudioBuffer>)>()
 external int nar_dsp_pipeline_process(ffi.Pointer<NarAudioBuffer> buffer);

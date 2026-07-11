@@ -54,6 +54,9 @@ class NativeDspPipeline {
 
   bool get isInitialized => false;
 
+  /// Always false on unsupported platforms (no native library).
+  bool get isInitializedNative => false;
+
   Future<void> initialize() async {}
 
   Future<void> dispose() async {}

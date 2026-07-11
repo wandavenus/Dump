@@ -155,8 +155,14 @@ class NativeDspPipeline {
 
   bool _initialized = false;
 
-  /// Whether [initialize] has completed successfully.
+  /// Whether [initialize] has completed successfully (Dart-tracked).
   bool get isInitialized => _initialized;
+
+  /// Whether the C DSP pipeline is initialized, queried directly from native
+  /// state. Normally mirrors [isInitialized]; useful for diagnostics and for
+  /// verifying that the Dart and C lifecycle are in sync.
+  bool get isInitializedNative =>
+      bindings.nar_dsp_pipeline_is_initialized() != 0;
 
   /// Initialize the C DSP pipeline and register the built-in gain processor.
   /// Idempotent — safe to call more than once (e.g. after a hot restart).

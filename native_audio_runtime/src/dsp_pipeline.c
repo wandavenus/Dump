@@ -1,11 +1,19 @@
-// DSP Pipeline implementation — Phase 4.
+// DSP Pipeline implementation — Phase 4 / Phase 4.5.
 // See dsp_pipeline.h for the full contract.
+//
+// Phase 4.5 additions:
+//   nar_dsp_pipeline_is_initialized() — atomic read of _initialized.
+//   nar_dsp_pipeline_process_raw()    — stack-allocated NarAudioBuffer view so
+//                                       JNI can call the pipeline without heap
+//                                       allocation. Requires audio_buffer_internal.h
+//                                       for the full struct layout.
 
 #include "dsp_pipeline.h"
 
 #include <stdatomic.h>
 #include <string.h>
 
+#include "audio_buffer_internal.h"      // full NarAudioBuffer layout for process_raw()
 #include "native_audio_runtime_internal.h"
 
 #if defined(__ANDROID__)
@@ -218,4 +226,42 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_processor_count(void) {
 FFI_PLUGIN_EXPORT const char* nar_dsp_pipeline_processor_id_at(int32_t index) {
   if (index < 0 || index >= atomic_load(&_count)) return NULL;
   return _slots[index].id;
+}
+
+// ── Phase 4.5 additions ───────────────────────────────────────────────────────
+
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_is_initialized(void) {
+  return atomic_load(&_initialized);
+}
+
+// Process a raw interleaved float32 buffer in-place without any heap allocation.
+// Constructs a stack-local NarAudioBuffer VIEW (no owned data) and routes it
+// through the existing process() call. The view is zero-copy: `data` is the
+// same pointer ExoPlayer passes us via JNI GetDirectBufferAddress().
+//
+// Called from NativeDspAudioProcessor.kt on ExoPlayer's audio rendering thread.
+// Thread safety is identical to nar_dsp_pipeline_process(): no locks, no alloc.
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
+    float* data, int32_t frame_count, int32_t channel_count, int32_t sample_rate) {
+  if (!atomic_load(&_initialized)) {
+    // Pipeline not yet initialised by Dart — fail-open (audio passes unchanged).
+    return NATIVE_RUNTIME_ERROR_NOT_INITIALIZED;
+  }
+  if (data == NULL || frame_count <= 0 || channel_count <= 0) {
+    return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
+
+  // Stack-allocate a view NarAudioBuffer. audio_buffer_internal.h gives us the
+  // full struct layout; we do NOT call nar_audio_buffer_create() (heap) here.
+  // IMPORTANT: nar_audio_buffer_destroy() must NEVER be called on this struct.
+  struct NarAudioBuffer view;
+  view.data             = data;
+  view.capacity_frames  = frame_count;
+  view.frame_count      = frame_count;
+  view.channel_count    = channel_count;
+  view.sample_rate      = sample_rate;
+  view.format           = NAR_SAMPLE_FORMAT_FLOAT32;
+  view.timestamp_us     = 0;
+
+  return nar_dsp_pipeline_process(&view);
 }
