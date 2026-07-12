@@ -344,30 +344,80 @@ class PlaybackManager {
   static bool get nativeDspAvailable =>
       NativeDspPipeline.instance.isInitialized;
 
-  /// Set the gain processor's target gain in dBFS (clamped to [-96, +24]).
-  /// Thread-safe — safe to call from any isolate.
-  static void setNativeGainDb(double gainDb) =>
-      NativeDspPipeline.instance.setGainDb(gainDb);
+  // ── Fail-open guard ───────────────────────────────────────────────────────
+  //
+  // Every native DSP call below (ReplayGain, Loudness Normalization, Gain,
+  // PEQ, Compressor, Limiter, Crossfeed, Soft Clipper) MUST pass through
+  // [_dspGuard] before touching `bindings.nar_*` / the `Native*` facades.
+  //
+  // Rationale: the native runtime can fail to load for reasons entirely
+  // outside app logic (missing device support, a native build/link defect,
+  // web/unsupported platform). When that happens [NativeDspPipeline.isInitialized]
+  // is `false` and EVERY `bindings.nar_*` call becomes unsafe to make — some
+  // native toolchains throw on first symbol resolution rather than failing
+  // silently. Native DSP is always optional; Media3 playback must never be
+  // blocked, delayed, or aborted by a native DSP failure. This is the single
+  // centralized choke point for that contract — do not call the `Native*`
+  // facades or `bindings.nar_*` from anywhere else in the app (see
+  // NATIVE_BRIDGES.md).
+  static bool _dspUnavailableWarned = false;
 
-  /// Current native gain in dBFS.
-  static double get nativeGainDb => NativeDspPipeline.instance.gainDb;
+  /// Returns `true` when it is safe to call into the native DSP pipeline.
+  /// Returns `false` (and logs a single, non-spammy warning) when the
+  /// pipeline never initialized — callers must skip the native call and
+  /// return a safe default instead of touching `bindings.nar_*`.
+  static bool _dspGuard(String callSite) {
+    if (NativeDspPipeline.instance.isInitialized) return true;
+    if (!_dspUnavailableWarned) {
+      _dspUnavailableWarned = true;
+      LogService.log(
+        'PlaybackManager',
+        'Native DSP pipeline unavailable — DSP calls are no-ops from here on '
+        '(fail-open). First skipped call: $callSite',
+        level: LogLevel.warning,
+      );
+    }
+    return false;
+  }
+
+  /// Set the gain processor's target gain in dBFS (clamped to [-96, +24]).
+  /// Thread-safe — safe to call from any isolate. No-op when the native DSP
+  /// pipeline is unavailable.
+  static void setNativeGainDb(double gainDb) {
+    if (!_dspGuard('setNativeGainDb')) return;
+    NativeDspPipeline.instance.setGainDb(gainDb);
+  }
+
+  /// Current native gain in dBFS. `0.0` (unity) when the pipeline is
+  /// unavailable.
+  static double get nativeGainDb =>
+      _dspGuard('nativeGainDb') ? NativeDspPipeline.instance.gainDb : 0.0;
 
   /// Enable (`true`) or disable (`false`) the gain processor's zero-copy
-  /// bypass mode. When bypassed, audio passes through unmodified.
-  static void setNativeGainBypass(bool bypass) =>
-      NativeDspPipeline.instance.setGainBypass(bypass);
+  /// bypass mode. When bypassed, audio passes through unmodified. No-op when
+  /// the native DSP pipeline is unavailable.
+  static void setNativeGainBypass(bool bypass) {
+    if (!_dspGuard('setNativeGainBypass')) return;
+    NativeDspPipeline.instance.setGainBypass(bypass);
+  }
 
-  /// Whether the native gain processor is currently bypassed.
-  static bool get nativeGainBypass => NativeDspPipeline.instance.gainBypass;
+  /// Whether the native gain processor is currently bypassed. `true`
+  /// (effectively bypassed) when the pipeline is unavailable.
+  static bool get nativeGainBypass => !_dspGuard('nativeGainBypass') ||
+      NativeDspPipeline.instance.gainBypass;
 
   /// Enable or disable a specific native DSP processor by its C id
-  /// (e.g. `'dsp.gain'`). Thread-safe.
+  /// (e.g. `'dsp.gain'`). Thread-safe. No-op when the pipeline is unavailable.
   static void setNativeDspProcessorEnabled(String id,
-          {required bool enabled}) =>
-      NativeDspPipeline.instance.setProcessorEnabled(id, enabled: enabled);
+      {required bool enabled}) {
+    if (!_dspGuard('setNativeDspProcessorEnabled($id)')) return;
+    NativeDspPipeline.instance.setProcessorEnabled(id, enabled: enabled);
+  }
 
-  /// Whether the named native DSP processor is currently enabled.
+  /// Whether the named native DSP processor is currently enabled. `false`
+  /// when the pipeline is unavailable.
   static bool isNativeDspProcessorEnabled(String id) =>
+      _dspGuard('isNativeDspProcessorEnabled($id)') &&
       NativeDspPipeline.instance.isProcessorEnabled(id);
 
   /// Number of native DSP processors registered in the pipeline.
@@ -397,13 +447,16 @@ class PlaybackManager {
   static bool get nativePeqAvailable =>
       NativeDspPipeline.instance.isInitialized;
 
-  /// Maximum number of configurable EQ bands (currently 32).
+  /// Maximum number of configurable EQ bands (currently 32). `0` when the
+  /// pipeline is unavailable.
   static int get nativePeqMaxBands =>
-      NativeParametricEq.instance.maxBands;
+      _dspGuard('nativePeqMaxBands') ? NativeParametricEq.instance.maxBands : 0;
 
-  /// Number of bands that have been configured via [setNativePeqBand].
-  static int get nativePeqBandCount =>
-      NativeParametricEq.instance.bandCount;
+  /// Number of bands that have been configured via [setNativePeqBand]. `0`
+  /// when the pipeline is unavailable.
+  static int get nativePeqBandCount => _dspGuard('nativePeqBandCount')
+      ? NativeParametricEq.instance.bandCount
+      : 0;
 
   /// Configure a single EQ band. Coefficients are computed on the calling
   /// thread (control thread) and queued for atomic adoption by the audio
@@ -418,7 +471,9 @@ class PlaybackManager {
   /// [sampleRate] : Current playback sample rate from [audioFormatStream].
   ///               Pass 0 or omit to fall back to 48 000 Hz.
   ///
-  /// Returns the native status code (0 = OK, negative = error).
+  /// Returns the native status code (0 = OK, negative = error). Returns
+  /// [NativeRuntimeStatus.notInitialized]'s index when the pipeline is
+  /// unavailable, without touching native bindings.
   static int setNativePeqBand({
     required int bandIndex,
     required bool enabled,
@@ -427,34 +482,49 @@ class PlaybackManager {
     required double q,
     required double gainDb,
     double sampleRate = 48000.0,
-  }) =>
-      NativeParametricEq.instance.setBand(
-        bandIndex: bandIndex,
-        enabled: enabled,
-        type: type,
-        freqHz: freqHz,
-        q: q,
-        gainDb: gainDb,
-        sampleRate: sampleRate,
-      );
+  }) {
+    if (!_dspGuard('setNativePeqBand')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeParametricEq.instance.setBand(
+      bandIndex: bandIndex,
+      enabled: enabled,
+      type: type,
+      freqHz: freqHz,
+      q: q,
+      gainDb: gainDb,
+      sampleRate: sampleRate,
+    );
+  }
 
   /// Enable or disable a single EQ band without recomputing coefficients.
   /// Useful for quick A/B comparison of individual bands.
-  static int setNativePeqBandEnabled(int bandIndex, {required bool enabled}) =>
-      NativeParametricEq.instance.setBandEnabled(bandIndex, enabled: enabled);
+  static int setNativePeqBandEnabled(int bandIndex, {required bool enabled}) {
+    if (!_dspGuard('setNativePeqBandEnabled')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeParametricEq.instance
+        .setBandEnabled(bandIndex, enabled: enabled);
+  }
 
-  /// Whether the band at [bandIndex] is currently enabled.
+  /// Whether the band at [bandIndex] is currently enabled. `false` when the
+  /// pipeline is unavailable.
   static bool isNativePeqBandEnabled(int bandIndex) =>
+      _dspGuard('isNativePeqBandEnabled') &&
       NativeParametricEq.instance.isBandEnabled(bandIndex);
 
   /// Enable (`true`) or disable (`false`) the global PEQ bypass.
   /// When bypassed, the PEQ processor is skipped entirely (zero-copy).
-  /// Thread-safe.
-  static void setNativePeqBypass(bool bypass) =>
-      NativeParametricEq.instance.setBypass(bypass);
+  /// Thread-safe. No-op when the pipeline is unavailable.
+  static void setNativePeqBypass(bool bypass) {
+    if (!_dspGuard('setNativePeqBypass')) return;
+    NativeParametricEq.instance.setBypass(bypass);
+  }
 
-  /// Whether the global PEQ bypass is currently active.
-  static bool get nativePeqBypass => NativeParametricEq.instance.bypass;
+  /// Whether the global PEQ bypass is currently active. `true` (effectively
+  /// bypassed) when the pipeline is unavailable.
+  static bool get nativePeqBypass =>
+      !_dspGuard('nativePeqBypass') || NativeParametricEq.instance.bypass;
 
   /// Release native module and DSP pipeline resources. Safe to call even
   /// if never initialized.
@@ -503,23 +573,32 @@ class PlaybackManager {
     double kneeDb       =   6.0,
     double makeupGainDb =   0.0,
     double sampleRate   = 48000.0,
-  }) =>
-      NativeCompressor.instance.setParams(
-        thresholdDb:  thresholdDb,
-        ratio:        ratio,
-        attackMs:     attackMs,
-        releaseMs:    releaseMs,
-        kneeDb:       kneeDb,
-        makeupGainDb: makeupGainDb,
-        sampleRate:   sampleRate,
-      );
+  }) {
+    if (!_dspGuard('setNativeCompressorParams')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeCompressor.instance.setParams(
+      thresholdDb:  thresholdDb,
+      ratio:        ratio,
+      attackMs:     attackMs,
+      releaseMs:    releaseMs,
+      kneeDb:       kneeDb,
+      makeupGainDb: makeupGainDb,
+      sampleRate:   sampleRate,
+    );
+  }
 
-  /// Enable (`false`) or bypass (`true`) the compressor.
-  static void setNativeCompressorBypass(bool bypass) =>
-      NativeCompressor.instance.setBypass(bypass);
+  /// Enable (`false`) or bypass (`true`) the compressor. No-op when the
+  /// pipeline is unavailable.
+  static void setNativeCompressorBypass(bool bypass) {
+    if (!_dspGuard('setNativeCompressorBypass')) return;
+    NativeCompressor.instance.setBypass(bypass);
+  }
 
-  /// Whether the compressor bypass is currently active.
-  static bool get nativeCompressorBypass => NativeCompressor.instance.bypass;
+  /// Whether the compressor bypass is currently active. `true` (effectively
+  /// bypassed) when the pipeline is unavailable.
+  static bool get nativeCompressorBypass =>
+      !_dspGuard('nativeCompressorBypass') || NativeCompressor.instance.bypass;
 
   // ── Limiter ─────────────────────────────────────────────────────────────
 
@@ -536,23 +615,36 @@ class PlaybackManager {
     double thresholdDb = -1.0,
     double releaseMs   = 50.0,
     double sampleRate  = 48000.0,
-  }) =>
-      NativeLimiter.instance.setParams(
-        thresholdDb: thresholdDb,
-        releaseMs:   releaseMs,
-        sampleRate:  sampleRate,
-      );
+  }) {
+    if (!_dspGuard('setNativeLimiterParams')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeLimiter.instance.setParams(
+      thresholdDb: thresholdDb,
+      releaseMs:   releaseMs,
+      sampleRate:  sampleRate,
+    );
+  }
 
-  /// Enable (`false`) or bypass (`true`) the limiter.
-  static void setNativeLimiterBypass(bool bypass) =>
-      NativeLimiter.instance.setBypass(bypass);
+  /// Enable (`false`) or bypass (`true`) the limiter. No-op when the
+  /// pipeline is unavailable.
+  static void setNativeLimiterBypass(bool bypass) {
+    if (!_dspGuard('setNativeLimiterBypass')) return;
+    NativeLimiter.instance.setBypass(bypass);
+  }
 
-  /// Whether the limiter bypass is currently active.
-  static bool get nativeLimiterBypass => NativeLimiter.instance.bypass;
+  /// Whether the limiter bypass is currently active. `true` (effectively
+  /// bypassed) when the pipeline is unavailable.
+  static bool get nativeLimiterBypass =>
+      !_dspGuard('nativeLimiterBypass') || NativeLimiter.instance.bypass;
 
-  /// Look-ahead frames the limiter uses (63 = ~1.3 ms at 48 kHz).
-  static int get nativeLimiterLookaheadFrames =>
-      NativeLimiter.instance.lookaheadFrames;
+  /// Look-ahead frames the limiter uses (63 = ~1.3 ms at 48 kHz). `0` when
+  /// the pipeline is unavailable.
+  static int get nativeLimiterLookaheadFrames => _dspGuard(
+        'nativeLimiterLookaheadFrames',
+      )
+      ? NativeLimiter.instance.lookaheadFrames
+      : 0;
 
   // ── ReplayGain (Phase 8) ──────────────────────────────────────────────────
 
@@ -572,24 +664,41 @@ class PlaybackManager {
   ///
   /// Thread-safe — effective linear gain stored atomically; audio thread picks
   /// it up on its next render cycle without blocking.
+  ///
+  /// This is a **fail-open** call: when the native DSP pipeline never
+  /// initialized (missing device support, native build issue, unsupported
+  /// platform), this returns [NativeRuntimeStatus.notInitialized]'s index
+  /// immediately without touching `bindings.nar_*` — it never throws, so it
+  /// can never block playback. See [_dspGuard].
   static int setNativeReplayGain({
     required double gainDb,
     double peakLinear = 0.0,
     bool useClippingProtection = true,
-  }) =>
-      NativeReplayGain.instance.setGain(
-        gainDb: gainDb,
-        peakLinear: peakLinear,
-        useClippingProtection: useClippingProtection,
-      );
+  }) {
+    if (!_dspGuard('setNativeReplayGain')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeReplayGain.instance.setGain(
+      gainDb: gainDb,
+      peakLinear: peakLinear,
+      useClippingProtection: useClippingProtection,
+    );
+  }
 
   /// Bypass (`true`) or engage (`false`) the native ReplayGain DSP processor.
-  /// Thread-safe atomic store.
-  static void setNativeReplayGainBypass(bool bypass) =>
-      NativeReplayGain.instance.setBypass(bypass);
+  /// Thread-safe atomic store. No-op (never throws) when the pipeline is
+  /// unavailable.
+  static void setNativeReplayGainBypass(bool bypass) {
+    if (!_dspGuard('setNativeReplayGainBypass')) return;
+    NativeReplayGain.instance.setBypass(bypass);
+  }
 
-  /// `true` when the native ReplayGain processor is bypassed (gain not applied).
-  static bool get nativeReplayGainBypassed => NativeReplayGain.instance.bypass;
+  /// `true` when the native ReplayGain processor is bypassed (gain not
+  /// applied). Also `true` (effectively bypassed) when the pipeline is
+  /// unavailable.
+  static bool get nativeReplayGainBypassed =>
+      !_dspGuard('nativeReplayGainBypassed') ||
+      NativeReplayGain.instance.bypass;
 
   // ── Loudness Normalization (Phase 8.5) ────────────────────────────────────
 
@@ -602,36 +711,56 @@ class PlaybackManager {
   /// Typical values: −23.0 (EBU R128 broadcast), −16.0 (podcast), −14.0
   /// (streaming). Clamped to [−36, −6] by the C layer.
   /// Takes effect on the next 85 ms measurement boundary (UPDATE_FRAMES).
-  static void setNativeLoudnessNormTargetLufs(double lufs) =>
-      NativeLoudnessNorm.instance.setTargetLufs(lufs);
+  /// No-op when the pipeline is unavailable.
+  static void setNativeLoudnessNormTargetLufs(double lufs) {
+    if (!_dspGuard('setNativeLoudnessNormTargetLufs')) return;
+    NativeLoudnessNorm.instance.setTargetLufs(lufs);
+  }
 
   /// Bypass (`true`) or engage (`false`) the Loudness Normalization processor.
-  /// Thread-safe atomic store.
-  static void setNativeLoudnessNormBypass(bool bypass) =>
-      NativeLoudnessNorm.instance.setBypass(bypass);
+  /// Thread-safe atomic store. No-op when the pipeline is unavailable.
+  static void setNativeLoudnessNormBypass(bool bypass) {
+    if (!_dspGuard('setNativeLoudnessNormBypass')) return;
+    NativeLoudnessNorm.instance.setBypass(bypass);
+  }
 
-  /// `true` when the Loudness Normalization processor is bypassed.
+  /// `true` when the Loudness Normalization processor is bypassed. Also
+  /// `true` (effectively bypassed) when the pipeline is unavailable.
   static bool get nativeLoudnessNormBypassed =>
+      !_dspGuard('nativeLoudnessNormBypassed') ||
       NativeLoudnessNorm.instance.bypass;
 
   /// Update the K-weighting coefficients for a new sample rate.
-  /// Call when ExoPlayer reports a sample-rate change between tracks.
-  static void setNativeLoudnessSampleRate(int sampleRate) =>
-      NativeLoudnessNorm.instance.setSampleRate(sampleRate);
+  /// Call when ExoPlayer reports a sample-rate change between tracks. No-op
+  /// when the pipeline is unavailable.
+  static void setNativeLoudnessSampleRate(int sampleRate) {
+    if (!_dspGuard('setNativeLoudnessSampleRate')) return;
+    NativeLoudnessNorm.instance.setSampleRate(sampleRate);
+  }
 
   /// Current short-term LUFS reading from the analyzer.
-  /// Returns −99.0 before the first 85 ms window completes or when bypassed.
+  /// Returns −99.0 before the first 85 ms window completes, when bypassed,
+  /// or when the pipeline is unavailable.
   static double get nativeLoudnessMeasuredLufs =>
-      NativeLoudnessNorm.instance.measuredLufs;
+      _dspGuard('nativeLoudnessMeasuredLufs')
+          ? NativeLoudnessNorm.instance.measuredLufs
+          : -99.0;
 
   /// Current smooth gain applied to the audio stream, in dBFS.
-  /// Positive = boost, negative = attenuation. 0.0 when bypassed.
+  /// Positive = boost, negative = attenuation. 0.0 when bypassed or when the
+  /// pipeline is unavailable.
   static double get nativeLoudnessAppliedGainDb =>
-      NativeLoudnessNorm.instance.appliedGainDb;
+      _dspGuard('nativeLoudnessAppliedGainDb')
+          ? NativeLoudnessNorm.instance.appliedGainDb
+          : 0.0;
 
   /// Reset the loudness analyzer and smooth gain back to unity.
   /// Must be called on every track change so each track is measured fresh.
-  static void resetNativeLoudnessNorm() => NativeLoudnessNorm.instance.reset();
+  /// No-op when the pipeline is unavailable.
+  static void resetNativeLoudnessNorm() {
+    if (!_dspGuard('resetNativeLoudnessNorm')) return;
+    NativeLoudnessNorm.instance.reset();
+  }
 
   // ── Soft Clipper ────────────────────────────────────────────────────────
 
@@ -642,19 +771,30 @@ class PlaybackManager {
   /// Set the soft-clip threshold in dBFS. Default: −0.5 dBFS.
   /// Samples below the threshold pass through unchanged; samples above are
   /// shaped toward 0 dBFS via a tanh curve. Range: [−12, −0.001).
-  static void setNativeSoftClipperThresholdDb(double thresholdDb) =>
-      NativeSoftClipper.instance.setThresholdDb(thresholdDb);
+  static void setNativeSoftClipperThresholdDb(double thresholdDb) {
+    if (!_dspGuard('setNativeSoftClipperThresholdDb')) return;
+    NativeSoftClipper.instance.setThresholdDb(thresholdDb);
+  }
 
-  /// Current soft-clip threshold in dBFS.
+  /// Current soft-clip threshold in dBFS. `0.0` when the pipeline is
+  /// unavailable.
   static double get nativeSoftClipperThresholdDb =>
-      NativeSoftClipper.instance.thresholdDb;
+      _dspGuard('nativeSoftClipperThresholdDb')
+          ? NativeSoftClipper.instance.thresholdDb
+          : 0.0;
 
-  /// Enable (`false`) or bypass (`true`) the soft clipper.
-  static void setNativeSoftClipperBypass(bool bypass) =>
-      NativeSoftClipper.instance.setBypass(bypass);
+  /// Enable (`false`) or bypass (`true`) the soft clipper. No-op when the
+  /// pipeline is unavailable.
+  static void setNativeSoftClipperBypass(bool bypass) {
+    if (!_dspGuard('setNativeSoftClipperBypass')) return;
+    NativeSoftClipper.instance.setBypass(bypass);
+  }
 
-  /// Whether the soft clipper bypass is currently active.
-  static bool get nativeSoftClipperBypass => NativeSoftClipper.instance.bypass;
+  /// Whether the soft clipper bypass is currently active. `true`
+  /// (effectively bypassed) when the pipeline is unavailable.
+  static bool get nativeSoftClipperBypass =>
+      !_dspGuard('nativeSoftClipperBypass') ||
+      NativeSoftClipper.instance.bypass;
 
   // ── Native DSP: Crossfeed / Stereo Processing (Phase 7) ──────────────────
   //
@@ -694,23 +834,32 @@ class PlaybackManager {
     double hfCompHz = 4000.0,
     double width = 1.0,
     double sampleRate = 48000.0,
-  }) =>
-      NativeCrossfeed.instance.setParams(
-        amount: amount,
-        cutoffHz: cutoffHz,
-        hfCompDb: hfCompDb,
-        hfCompHz: hfCompHz,
-        width: width,
-        sampleRate: sampleRate,
-      );
+  }) {
+    if (!_dspGuard('setNativeCrossfeedParams')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeCrossfeed.instance.setParams(
+      amount: amount,
+      cutoffHz: cutoffHz,
+      hfCompDb: hfCompDb,
+      hfCompHz: hfCompHz,
+      width: width,
+      sampleRate: sampleRate,
+    );
+  }
 
   /// Enable (`false`) or bypass (`true`) the crossfeed processor.
-  /// Thread-safe — may be called while audio is rendering.
-  static void setNativeCrossfeedBypass(bool bypass) =>
-      NativeCrossfeed.instance.setBypass(bypass);
+  /// Thread-safe — may be called while audio is rendering. No-op when the
+  /// pipeline is unavailable.
+  static void setNativeCrossfeedBypass(bool bypass) {
+    if (!_dspGuard('setNativeCrossfeedBypass')) return;
+    NativeCrossfeed.instance.setBypass(bypass);
+  }
 
-  /// Whether the crossfeed bypass is currently active.
-  static bool get nativeCrossfeedBypass => NativeCrossfeed.instance.bypass;
+  /// Whether the crossfeed bypass is currently active. `true` (effectively
+  /// bypassed) when the pipeline is unavailable.
+  static bool get nativeCrossfeedBypass =>
+      !_dspGuard('nativeCrossfeedBypass') || NativeCrossfeed.instance.bypass;
 
   // ── Private helpers ───────────────────────────────────────────────────────
 

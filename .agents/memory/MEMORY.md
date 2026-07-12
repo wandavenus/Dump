@@ -47,3 +47,4 @@
 - [Native MethodChannel startup blocking](native-methodchannel-startup-blocking.md) — awaited platform-channel calls in the init chain must be backgrounded + timed out, or a stalled native reply black-screens the whole app.
 - [getSongs() timeout hang](getsongs-timeout-hang.md) — MediaStoreService.getSongs() is awaited directly by every Home section; an unguarded MethodChannel call there can spin all of Home forever on a fresh install with no persisted cache.
 - [Web preview blank screen](web-preview-blank-screen.md) — BootTrace.step rethrows; any web-unsafe warm-up step in main()'s Future.wait aborts runApp() silently, blanking the web preview.
+- [Native DSP fail-open architecture](native-dsp-fail-open.md) — missing `-llog` link + missing loudness_processor.c in build.dart sources broke DSP init; PlaybackManager must fail-open on every native DSP call.
