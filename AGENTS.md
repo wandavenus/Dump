@@ -8,4 +8,6 @@ Before making changes:
 3. Run flutter analyze.
 5. Run flutter test.
 6. Run any test according to what is being done
+
+7. 
 If Flutter SDK is unavailable, explicitly state that validation could not be performed.
