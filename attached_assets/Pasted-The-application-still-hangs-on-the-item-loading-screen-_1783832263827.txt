@@ -1,0 +1,88 @@
+The application still hangs on the item/loading screen.
+
+At this point, stop trying to guess the root cause.
+
+Instead, instrument the startup sequence with temporary debug logging and identify the exact blocking point.
+
+Requirements:
+
+1. Add ENTER and EXIT logs to every major initialization step.
+
+Examples:
+
+main()
+runApp()
+MainActivity.onCreate()
+AudioService.initialize()
+PlaybackManager.initialize()
+Media3PlaybackBridge.initialize()
+NativeModuleRegistry.initialize()
+NativeDspBridge.initialize()
+FfmpegDecoderBridge.initialize()
+MediaStoreService.initialize()
+MediaStoreService.loadSongs()
+ArtworkCache initialization
+HomePage.initState()
+HomePage.build()
+
+2. Every async function should log:
+
+ENTER <function>
+
+EXIT <function> (<elapsed_ms> ms)
+
+3. Every await should have logs before and after.
+
+Example:
+
+BEFORE await PlaybackManager.initialize()
+
+AFTER await PlaybackManager.initialize()
+
+4. Instrument every Future.wait(), Completer, Stream.first, EventChannel subscription, and MethodChannel invocation.
+
+5. Detect any Future that never completes.
+
+6. Detect swallowed exceptions.
+
+Search for:
+
+catch (e) {}
+catch (_) {}
+catch (...) {}
+
+Print every caught exception and stack trace.
+
+7. Detect deadlocks caused by:
+
+- Completer not completed
+- Stream waiting forever
+- EventChannel waiting for first event
+- MethodChannel invokeMethod not returning
+- Mutex/synchronization
+- Initialization order dependency
+
+8. If HomePage is waiting for non-critical services, make those services initialize lazily in the background.
+
+The Home screen must only wait for the minimum required initialization.
+
+9. After adding the logs, determine:
+
+- The last log printed.
+- The next expected log that never appears.
+- The exact file.
+- The exact function.
+- The exact line responsible.
+
+Do not randomly modify code.
+
+Use the logs to identify the blocking point first.
+
+Deliver:
+
+- Root cause
+- Startup timeline
+- Last successful initialization step
+- Blocking function
+- File and line number
+- Proposed fix

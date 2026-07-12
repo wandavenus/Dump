@@ -28,6 +28,7 @@ import dev.wndavenz.music.crossfade.PreloadManager
 import dev.wndavenz.music.effects.AudioEffectsManager
 import dev.wndavenz.music.events.EventEmitter
 import dev.wndavenz.music.events.NativeLogger
+import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.notification.PlaybackNotificationManager
 import dev.wndavenz.music.queue.QueueManager
 import dev.wndavenz.music.queue.QueueSync
@@ -48,6 +49,7 @@ import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
+import dev.wndavenz.music.effects.NativeDspAudioProcessor
 import dev.wndavenz.music.effects.StereoWideningAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -105,6 +107,11 @@ class Media3PlaybackService : MediaSessionService() {
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
+
+    // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
+    // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
+    // without needing to query the player synchronously off the analytics thread.
+    private val lastAudioMimeType    = IdentityHashMap<ExoPlayer, String>()
 
     // ── Item 1: skip silence — persisted so new standby players inherit state ─
     private var skipSilenceEnabled = false
@@ -570,6 +577,12 @@ class Media3PlaybackService : MediaSessionService() {
             "onCreate: ExoPlayer ready (Android SDK ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
         )
         transportState.emitAll()
+
+        // Cold-start race fix: everything above (player, session, managers,
+        // transportCommands, queue restore) is fully wired at this point — only
+        // now is it safe for Dart to push settings that reach into effectsManager /
+        // queueManager / crossfadeController. See ServiceReadyGate doc comment.
+        ServiceReadyGate.markReady()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -692,6 +705,9 @@ class Media3PlaybackService : MediaSessionService() {
         // first (the "release" MethodChannel path) or when the system kills the
         // service without a prior prepareShutdown() (system-kill path).
         shutdownCoordinator.performTeardown()
+        // The next onCreate() must go through the same wiring before it's safe
+        // for Dart to push settings again — see ServiceReadyGate doc comment.
+        ServiceReadyGate.reset()
         // Null out service-level fields that the coordinator cannot clear
         // because it holds lambdas, not direct field references.
         audioCapReceiver = null
@@ -799,29 +815,48 @@ class Media3PlaybackService : MediaSessionService() {
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
+        // Phase 4.5: one NativeDspAudioProcessor per ExoPlayer instance, mirroring
+        // the StereoWideningAudioProcessor pattern. BaseAudioProcessor is stateful
+        // so instances must not be shared. All instances call into the same global
+        // C pipeline state (gain/bypass/enable apply uniformly to both the primary
+        // and secondary crossfade players — this is the intended behaviour).
+        //
+        // NativeDspAudioProcessor is active only for ENCODING_PCM_FLOAT (float32).
+        // setEnableAudioFloatOutput(true) below ensures the decoder pipeline emits
+        // float PCM when the hardware supports it. For 16-bit PCM the processor
+        // returns AudioFormat.NOT_SET and ExoPlayer skips it entirely (transparent).
+        //
+        // If libnative_audio_runtime.so is absent or the Dart-side pipeline has not
+        // yet been initialised, audio passes through unmodified (fail-open).
+        val nativeDspProc = NativeDspAudioProcessor()
+
         // Item 8: each player gets its own StereoWideningAudioProcessor so
         // stereo widening can be applied/updated atomically during crossfade.
         val channelMixingProc: StereoWideningAudioProcessor =
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
             else StereoWideningAudioProcessor()
 
-        // Custom DefaultRenderersFactory that injects channelMixingProc into the
-        // DefaultAudioSink's processor chain so stereo widening runs before
-        // SonicAudioProcessor (which handles skip-silence and speed/pitch).
+        // Custom DefaultRenderersFactory that injects the Phase 4.5 processor chain:
+        //   NativeDspAudioProcessor → StereoWideningAudioProcessor
+        //                           → SilenceSkipping → Sonic → AudioTrack
+        //
+        // NativeDspAudioProcessor runs first: PCM is routed through the native DSP
+        // pipeline (C: dsp_pipeline.c + gain_processor.c) in-place via JNI
+        // GetDirectBufferAddress() — zero further copy after the initial bulk-copy
+        // required by BaseAudioProcessor's contract.
         //
         // Item 2: setEnableDecoderFallback(true) — on MIUI 12, hardware audio
         // decoders (OMX.qcom.audio.*) occasionally crash on FLAC or long files.
         // With fallback enabled, ExoPlayer silently retries with the software
         // decoder (FFmpeg extension) instead of surfacing an error to the user.
         //
-        // Item 8 (continued): buildAudioSink() is the officially supported
-        // extension point in DefaultRenderersFactory for injecting custom
-        // AudioProcessors into the pipeline.
+        // buildAudioSink() is the officially supported extension point in
+        // DefaultRenderersFactory for injecting custom AudioProcessors.
         //
-        // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in Media3 1.10.1.
-        // It accepts a vararg of user AudioProcessors to insert BEFORE its own
-        // SilenceSkippingAudioProcessor (for skip-silence) and SonicAudioProcessor (speed/pitch).
-        // All three features — stereo widening, skip-silence, and playback speed — are preserved.
+        // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in
+        // Media3 1.10.1. It accepts a vararg of user AudioProcessors to insert BEFORE
+        // its own SilenceSkippingAudioProcessor and SonicAudioProcessor. All features
+        // — native DSP, stereo widening, skip-silence, and playback speed — are preserved.
         val renderersFactory = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
                 context: Context,
@@ -830,8 +865,8 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                // channelMixingProc runs first, then SilenceSkipping, then Sonic.
-                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(channelMixingProc))
+                // Phase 4.5 chain order: NativeDsp → StereoWiden → SilenceSkip → Sonic.
+                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc))
                 .build()
         }
             .setEnableAudioFloatOutput(true)
@@ -1220,6 +1255,7 @@ class Media3PlaybackService : MediaSessionService() {
                 val reuseStr  = decoderReuseEvaluation?.let {
                     "reuse=${it.result} discardReasons=${it.discardReasons}"
                 } ?: "reuseEval=null"
+                format.sampleMimeType?.let { lastAudioMimeType[p] = it }
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioInputFormatChanged: isActive=$active" +
                     "  mime=${format.sampleMimeType}" +
@@ -1256,6 +1292,26 @@ class Media3PlaybackService : MediaSessionService() {
                     "  decoder=$decoderName init=${initializationDurationMs}ms" +
                     "  thread=${Thread.currentThread().name}",
                 )
+
+                // Phase 9 — FFmpeg decoder diagnostics. Consumed exclusively by
+                // FfmpegDecoderBridge on the Dart side (musicplayer/ffmpeg_decoder_events).
+                // Only the active player's selection is reported; the standby/prewarm
+                // player's decoder init is an implementation detail, not a user-visible
+                // "now playing" decoder switch.
+                if (active) {
+                    val mimeType = lastAudioMimeType[p]
+                    val isFfmpeg = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe
+                        .isFfmpegDecoderName(decoderName)
+                    val reason = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe
+                        .describeSelection(decoderName, mimeType)
+                    EventEmitter.emit("ffmpegDecoderInfo", mapOf(
+                        "decoderName"              to decoderName,
+                        "mimeType"                 to mimeType,
+                        "isFfmpegDecoder"          to isFfmpeg,
+                        "initializationDurationMs" to initializationDurationMs,
+                        "reason"                   to reason,
+                    ))
+                }
             }
 
             /**
@@ -1378,6 +1434,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
+        // Phase 9: drop the cached MIME type for this player.
+        lastAudioMimeType.remove(p)
     }
 
     // ── Queue persistence ─────────────────────────────────────────────────────

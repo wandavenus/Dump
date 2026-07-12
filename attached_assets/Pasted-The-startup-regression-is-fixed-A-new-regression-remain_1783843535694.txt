@@ -1,0 +1,156 @@
+The startup regression is fixed.
+
+A new regression remains.
+
+Current behavior:
+
+- App boots successfully.
+- Home screen loads correctly.
+- Native DSP runtime correctly falls back to unavailable.
+- However, after a fresh launch, pressing Play the first time does NOT start playback.
+- Pressing Play a second time immediately works.
+
+This is now the highest-priority issue.
+
+Do a complete root-cause analysis.
+
+Do NOT implement random fixes.
+
+Trace the exact execution path from the first Play button press until Media3PlaybackBridge.play().
+
+Audit the following in order:
+
+1. AudioService.playSongAt()
+2. _applyReplayGain()
+3. PlaybackManager.setNativeReplayGain()
+4. NativeReplayGain
+5. NativeDspPipeline
+6. Media3PlaybackBridge.play()
+7. Every await inside playSongAt()
+8. Every exception path inside playSongAt()
+9. Every early return inside playSongAt()
+10. Every catch block that can abort playback.
+
+The current logs show:
+
+playSongAt failed:
+Couldn't resolve native function
+nar_replaygain_set_bypass
+
+caused by
+
+dlopen failed:
+cannot locate symbol "__android_log_print"
+
+This native runtime failure is already expected and should be treated as NON-FATAL.
+
+ReplayGain must follow the exact same fail-open architecture that was already implemented for Loudness Normalization.
+
+Requirements:
+
+1. ReplayGain must NEVER call bindings.* directly unless the native DSP runtime is confirmed available.
+
+2. Add a runtime availability guard before every ReplayGain native call.
+
+3. If the native runtime is unavailable:
+
+- skip ReplayGain
+- log once
+- continue playback immediately
+
+4. No exception from ReplayGain may ever escape into playSongAt().
+
+5. playSongAt() must ALWAYS continue to Media3PlaybackBridge.play(), even if ALL native DSP modules are unavailable.
+
+6. Audit every other native DSP module as well:
+
+- ReplayGain
+- Loudness Normalization
+- Parametric EQ
+- Gain
+- Compressor
+- Crossfeed
+- Limiter
+- Soft Clipper
+- FFmpeg bridge
+
+Verify every one of them follows the same fail-open architecture.
+
+No bindings.* call should ever occur without first verifying the native runtime is initialized.
+
+7. Search the entire project for every direct invocation of:
+
+bindings.nar_
+
+or
+
+NativeAudioRuntime.instance
+
+or
+
+NativeDspPipeline.instance
+
+Identify every call site that can execute before native runtime availability has been confirmed.
+
+Replace those with the centralized PlaybackManager availability checks where appropriate.
+
+8. Audit AudioService.initialize(), syncFromNative(), playSongAt(), restoreQueue(), and every startup/playback path to ensure native DSP failures can never prevent playback.
+
+9. While auditing, also investigate the repeated startup log:
+
+PlatformException(not_ready, Media3 service is starting)
+
+Determine why Dart is issuing commands before the Media3 service reports ready.
+
+Ensure callers either:
+
+- wait correctly for service readiness, or
+- gracefully retry without surfacing exceptions.
+
+10. Finally investigate the native runtime loading failure itself.
+
+The logs still show:
+
+dlopen failed:
+cannot locate symbol "__android_log_print"
+
+Audit the native build configuration.
+
+Determine why libnative_audio_runtime.so is not linked correctly against Android's liblog.
+
+Inspect:
+
+- hook/build.dart
+- native_audio_runtime build configuration
+- native-assets linker configuration
+
+If any C source includes:
+
+#include <android/log.h>
+
+or calls:
+
+__android_log_print()
+
+verify the generated shared library links against Android's "log" library.
+
+This issue should be fixed at the build level, not hidden with Dart workarounds.
+
+Deliver:
+
+- Root cause of the first-play regression
+- Root cause of the repeated not_ready exceptions
+- Root cause of the __android_log_print linker failure
+- Exact files modified
+- Exact code paths audited
+- Why playback now succeeds on the first press
+- Why startup and playback remain fail-open when native DSP is unavailable
+
+Target behavior:
+
+- Home always loads.
+- First Play always starts playback.
+- Native DSP is optional.
+- Native runtime failures never block playback.
+- Media3 remains fully functional even when every native DSP feature is unavailable.
+- flutter analyze must remain "No issues found".

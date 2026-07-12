@@ -1,0 +1,177 @@
+Refactor Audio Architecture: Remove media_kit, Standardize on Media3
+
+Objective
+
+Completely remove media_kit from the project and migrate the audio architecture to a Media3-first design that is prepared for future native C++ DSP and FFmpeg integration.
+
+The end goal is:
+
+Flutter UI
+→ Playback Service
+→ Media3
+→ Native C++ DSP (future)
+→ FFmpeg Decoder (future, fallback for unsupported formats)
+
+Media3 must become the only playback engine in the project.
+
+---
+
+Phase 1 — Remove media_kit Completely
+
+Perform a full project-wide audit.
+
+Remove every component related to media_kit, including but not limited to:
+
+- media_kit dependencies
+- media_kit native libraries
+- MediaKitEngine
+- MediaKit implementations
+- MediaKit services
+- MediaKit initialization
+- MediaKit controllers
+- MediaKit wrappers
+- MediaKit utilities
+- MediaKit adapters
+- MediaKit imports
+- MediaKit configuration
+- MediaKit platform code
+- MediaKit tests
+- MediaKit documentation
+- MediaKit comments
+
+Search the entire repository to ensure nothing referencing media_kit remains.
+
+---
+
+Phase 2 — Remove Multi-Engine Architecture
+
+The project no longer supports multiple playback engines.
+
+Remove everything related to engine switching, including:
+
+- AbstractAudioEngine (if only used for engine switching)
+- AudioEngineManager
+- EngineSelector
+- EnginePreference
+- EngineFactory
+- Engine switching logic
+- Engine selection UI
+- Engine persistence
+- Engine-specific configuration
+
+There must be no remaining concept of multiple playback engines.
+
+---
+
+Phase 3 — Simplify the Architecture
+
+Refactor the playback stack into a Media3-first architecture.
+
+Desired direction:
+
+Flutter UI
+
+↓
+
+PlaybackService
+
+↓
+
+Media3PlaybackBridge
+
+↓
+
+Media3
+
+The UI must never communicate directly with Media3.
+
+Business logic should remain separated from playback implementation.
+
+---
+
+Phase 4 — Prepare for Future Native Modules
+
+Do NOT implement C++ or FFmpeg yet.
+
+Instead, redesign the architecture so future integration is straightforward.
+
+Prepare clean extension points for:
+
+- Native C++ DSP
+- FFmpeg Decoder
+- Native audio processing
+- Future DSP modules
+- Future decoder modules
+
+Avoid tightly coupling Media3 with future native components.
+
+---
+
+Phase 5 — Remove Dead Code
+
+After the refactor:
+
+- remove unused files
+- remove unused classes
+- remove unused interfaces
+- remove unused services
+- remove unused imports
+- remove obsolete comments
+- remove obsolete documentation
+
+Run a full cleanup.
+
+No dead code should remain.
+
+---
+
+Phase 6 — Dependency Cleanup
+
+Remove every unused dependency related to media_kit.
+
+Update:
+
+- pubspec.yaml
+- Gradle configuration
+- Android native configuration
+- generated files (if necessary)
+
+Ensure dependency graph is clean.
+
+---
+
+Phase 7 — Verification
+
+Verify that:
+
+- playback still works
+- queue still works
+- MediaSession still works
+- notification still works
+- Bluetooth controls still work
+- Android Auto integration (if present) still works
+- crossfade still works
+- gapless playback still works
+- preload still works
+- artwork loading still works
+- audio focus still works
+
+No regressions should be introduced.
+
+---
+
+Requirements
+
+- Preserve all existing Media3 functionality.
+- Preserve current playback behavior.
+- Preserve public APIs whenever possible.
+- Refactor cleanly instead of applying temporary fixes.
+- Minimize unnecessary architectural complexity.
+- Produce maintainable, modular code.
+
+Finally, provide:
+
+1. A list of every removed file.
+2. A list of every modified file.
+3. A summary of the new architecture.
+4. Any remaining technical debt or recommended follow-up improvements.

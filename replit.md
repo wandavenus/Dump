@@ -5,7 +5,8 @@ A feature-rich Flutter music player, primarily targeting Android 10+ with a web 
 ## Stack
 
 - **Framework:** Flutter / Dart
-- **Android backend:** Media3 (ExoPlayer) + Media-Kit, native Kotlin services
+- **Android backend:** Media3 (ExoPlayer), native Kotlin services
+- **Native DSP (Phase 4):** C DSP pipeline (`dsp_pipeline.c`), gain processor (`gain_processor.c`), PCM buffer (`audio_buffer.c`) in `native_audio_runtime/` package — architecture established, not yet wired to Media3 audio thread
 - **Key features:** Crossfade, lyrics (multi-provider), ReplayGain, sleep timer, queue persistence, themes
 
 ## How to run
@@ -33,15 +34,16 @@ Kalau SDK hilang (environment reset), jalankan:
 ```
 bash setup-flutter.sh
 ```
-Script ini otomatis download dan install Flutter 3.44.4 ke `/home/runner/flutter/`.
+Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter/`.
 
 ## Project structure
 
 - `lib/` — Dart/Flutter source (pages, services, models, widgets, themes)
 - `android/` — Native Kotlin code (Media3 playback service, audio effects, etc.)
+- `native_audio_runtime/` — Local Dart FFI package (native runtime foundation for future DSP/FFmpeg; see its `NATIVE_RUNTIME.md`). No DSP/FFmpeg logic yet.
 - `assets/` — Fonts, images
 - `build/web/` — Pre-compiled web output (served by server.js)
-- `pubspec.yaml` — Flutter dependencies
+- `pubspec.yaml` — Flutter dependencies (depends on `native_audio_runtime` via local path)
 
 ## User preferences
 

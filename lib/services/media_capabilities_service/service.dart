@@ -8,12 +8,12 @@ part of '../media_capabilities_service.dart';
 /// This class:
 ///   • Owns [ValueNotifier]s for each setting (UI binds to these).
 ///   • Persists every setting to [SharedPreferences] under the 'mcap_' prefix.
-///   • Forwards changes to the active engine via [AudioEngineManager].
+///   • Forwards changes to the active engine via [PlaybackManager].
 ///   • Mirrors the native skip-silence and stereo-widening state streams so
 ///     the UI stays in sync with changes confirmed by the active engine.
 ///
 /// No layer in this file may reference Media3PlaybackBridge directly.
-/// All engine calls go through [AudioEngineManager].
+/// All engine calls go through [PlaybackManager].
 ///
 /// Lifecycle: call [initialize()] once in [main()] after [AudioEffectsService].
 class MediaCapabilitiesService {
@@ -58,7 +58,7 @@ class MediaCapabilitiesService {
     // stays correct even when the native engine overrides the value
     // (e.g. future ExoPlayer version resets silence-skip on seek).
     _skipSilenceSub?.cancel();
-    _skipSilenceSub = AudioEngineManager.skipSilenceStream.listen((v) {
+    _skipSilenceSub = PlaybackManager.skipSilenceStream.listen((v) {
       if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
     });
 
@@ -67,7 +67,7 @@ class MediaCapabilitiesService {
     // Ensures `strength` is always the value the engine is actually using,
     // not just what was requested.
     _stereoWideningSub?.cancel();
-    _stereoWideningSub = AudioEngineManager.stereoWideningStream.listen((map) {
+    _stereoWideningSub = PlaybackManager.stereoWideningStream.listen((map) {
       final enabled  = map['enabled']  as bool?   ?? false;
       final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
       if (stereoWideningEnabled.value  != enabled)  stereoWideningEnabled.value  = enabled;
@@ -81,9 +81,16 @@ class MediaCapabilitiesService {
         'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
   }
 
+  // Cold-start race fix — same root cause as AudioEffectsService.applyAll():
+  // `Media3PlaybackService` doesn't exist until the user's first "play" /
+  // "setQueue" call, so pushing settings unconditionally at Dart startup
+  // races `onCreate()` and can hit `PlatformException(not_ready)`. Waiting
+  // for the real readiness signal (instead of retrying/ignoring the failure)
+  // means these calls run once the service has actually finished wiring.
   static Future<void> _applyAll() async {
-    unawaited(AudioEngineManager.setSkipSilence(skipSilenceEnabled.value));
-    unawaited(AudioEngineManager.setStereoWidening(
+    await PlaybackManager.waitForServiceReady();
+    unawaited(PlaybackManager.setSkipSilence(skipSilenceEnabled.value));
+    unawaited(PlaybackManager.setStereoWidening(
       enabled:  stereoWideningEnabled.value,
       strength: stereoWideningStrength.value,
     ));
@@ -96,7 +103,7 @@ class MediaCapabilitiesService {
     skipSilenceEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}skipSilence', value);
-    unawaited(AudioEngineManager.setSkipSilence(value));
+    unawaited(PlaybackManager.setSkipSilence(value));
     LogService.log('MediaCap', 'skipSilence: $value');
   }
 
@@ -106,7 +113,7 @@ class MediaCapabilitiesService {
     stereoWideningEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}stereoEnabled', value);
-    unawaited(AudioEngineManager.setStereoWidening(
+    unawaited(PlaybackManager.setStereoWidening(
       enabled:  value,
       strength: stereoWideningStrength.value,
     ));
@@ -120,7 +127,7 @@ class MediaCapabilitiesService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('${_kPrefix}stereoStrength', v);
     if (stereoWideningEnabled.value) {
-      unawaited(AudioEngineManager.setStereoWidening(
+      unawaited(PlaybackManager.setStereoWidening(
         enabled:  true,
         strength: v,
       ));
@@ -141,7 +148,7 @@ class MediaCapabilitiesService {
   ///   `totalRebufferCount`   — number of rebuffer events (local files → 0).
   ///   `totalErrorCount`      — number of playback errors during this session.
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
-      AudioEngineManager.getPlaybackStats();
+      PlaybackManager.getPlaybackStats();
 
   // ── Dispose ───────────────────────────────────────────────────────────────
 

@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import dev.wndavenz.music.metadata.MetadataPrescanner
@@ -32,6 +33,7 @@ class MainActivity : FlutterActivity() {
     private val mediaStoreChannel     = "musicplayer/media_store"
     private val audioEffectsChannel   = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
+    private val ffmpegDecoderChannel  = "musicplayer/ffmpeg_decoder"
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
@@ -88,7 +90,7 @@ class MainActivity : FlutterActivity() {
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
-        setupMediaKitPlaybackChannels(flutterEngine)
+        setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
     }
 
@@ -193,45 +195,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // ── MediaKit playback channels ────────────────────────────────────────────
-
-    @OptIn(UnstableApi::class)
-    private fun setupMediaKitPlaybackChannels(flutterEngine: FlutterEngine) {
-        val messenger = flutterEngine.dartExecutor.binaryMessenger
-
-        // MethodChannel: Dart → Native commands (start service, metadata, state)
-        MethodChannel(messenger, "musicplayer/mediakit_service").setMethodCallHandler { call, result ->
-            // "startService" explicitly starts the service; other commands that
-            // need the service will auto-start it and return not_ready for retry.
-            if (call.method == "startService") {
-                if (MediaKitPlaybackService.instance == null) {
-                    // Plain startService — no 5-second startForeground() obligation.
-                    // The service will call startForeground() itself only when
-                    // updatePlaybackState(isPlaying=true) arrives from Dart.
-                    startService(Intent(this, MediaKitPlaybackService::class.java))
-                }
-                result.success(null)
-                return@setMethodCallHandler
-            }
-
-            val needsService = call.method in setOf(
-                "updateMetadata", "updatePlaybackState", "release"
-            )
-            if (MediaKitPlaybackService.instance == null && needsService) {
-                startService(Intent(this, MediaKitPlaybackService::class.java))
-                result.error("not_ready", "MediaKit service is starting", null)
-                return@setMethodCallHandler
-            }
-
-            MediaKitPlaybackService.instance?.handle(call, result)
-                ?: result.error("not_ready", "MediaKit service not available", null)
-        }
-
-        // EventChannel: Native → Dart transport commands
-        EventChannel(messenger, "musicplayer/mediakit_transport")
-            .setStreamHandler(MediaKitEventEmitter.transportHandler())
-    }
-
     // ── Media3 playback channels ───────────────────────────────────────────────
 
     @OptIn(UnstableApi::class)
@@ -285,6 +248,46 @@ class MainActivity : FlutterActivity() {
 
         EventChannel(messenger, "musicplayer/native_logs")
             .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
+
+        // Cold-start race fix: Dart awaits this before its first push into
+        // media3PlaybackChannel (see ServiceReadyGate doc comment). Replays
+        // "ready" immediately to a listener attaching after onCreate() already
+        // finished (service alive from a previous launch in this process).
+        EventChannel(messenger, "musicplayer/media3_serviceReady")
+            .setStreamHandler(ServiceReadyGate.handler())
+    }
+
+    // ── FFmpeg decoder channel (Phase 9) ────────────────────────────────────
+    //
+    // Dedicated channel pair, owned exclusively by `FfmpegDecoderBridge` on the
+    // Dart side (see lib/services/native/bridges/ffmpeg_decoder_bridge.dart).
+    // `PlaybackManager` never talks to this channel directly — it goes through
+    // that bridge, matching every other NativeModule in this codebase.
+    //
+    // - MethodChannel "queryStatus": one-shot capability probe, called once at
+    //   startup by FfmpegDecoderBridge.initialize().
+    // - EventChannel: per-track decoder selection info, emitted from
+    //   Media3PlaybackService's AnalyticsListener (onAudioDecoderInitialized).
+    private fun setupFfmpegDecoderChannel(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        MethodChannel(messenger, ffmpegDecoderChannel).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "queryStatus" -> {
+                    val status = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.queryStatus()
+                    result.success(mapOf(
+                        "available"       to status.available,
+                        "moduleLinked"    to status.moduleLinked,
+                        "version"         to status.version,
+                        "supportedCodecs" to status.supportedCodecs,
+                    ))
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        EventChannel(messenger, "musicplayer/ffmpeg_decoder_events")
+            .setStreamHandler(Media3PlaybackService.Events.handler("ffmpegDecoderInfo"))
     }
 
     // ── MediaStore channel ─────────────────────────────────────────────────────

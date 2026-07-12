@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/painting.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:path_provider/path_provider.dart';
@@ -115,11 +116,18 @@ Future<String> _resolvedCacheDir() async {
   /// without any File I/O — this is what eliminates the placeholder flash on cold
   /// start (app killed / removed from recents).
   Future<void> warmUp() async {
-    final base = await _resolvedCacheDir();
-    final artworkDir = Directory('$base/artwork');
-    if (!artworkDir.existsSync()) return;
+    // `path_provider` (and `dart:io.Directory`) have no implementation on the
+    // web preview build — this cache is disk-backed and Android/desktop-only.
+    // Skip entirely there so a MissingPluginException never aborts the
+    // startup `Future.wait` (BootTrace.step rethrows, which would otherwise
+    // stop `main()` from ever reaching `runApp()`).
+    if (kIsWeb) return;
 
     try {
+      final base = await _resolvedCacheDir();
+      final artworkDir = Directory('$base/artwork');
+      if (!artworkDir.existsSync()) return;
+
       await for (final entity in artworkDir.list()) {
         if (entity is! File) continue;
         final name = entity.uri.pathSegments.last;

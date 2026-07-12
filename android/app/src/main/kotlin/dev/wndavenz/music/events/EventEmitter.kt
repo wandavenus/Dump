@@ -38,6 +38,52 @@ object EventEmitter {
 }
 
 /**
+ * Cold-start readiness gate for [dev.wndavenz.music.Media3PlaybackService].
+ *
+ * Root cause this exists to fix: on a fresh install the service does not exist
+ * yet (it is only created on-demand by "play"/"setQueue" — see the
+ * `needsService` comment in MainActivity — anything else must not force a
+ * start, or a queueless cold start hits the startForeground() deadline crash).
+ * Meanwhile several Dart init steps (e.g. AudioEffectsService.init() pushing
+ * persisted bass boost / virtualizer / EQ / crossfade settings) fire their
+ * first MethodChannel call into `musicplayer/media3_playback` unconditionally
+ * at Dart startup. If that races ahead of `Media3PlaybackService.onCreate()`
+ * finishing, `instance` is still null and the call fails with
+ * `PlatformException(not_ready)` — exactly once, only when the service has
+ * never been created before (a fresh install's first launch); every later
+ * launch finds the service (or its persisted queue restore) already warm.
+ *
+ * [markReady] is called once, at the very end of `onCreate()`. [onListen]
+ * replays readiness immediately to a listener that subscribes after that
+ * point (e.g. Dart re-attaching on a later app launch while the service
+ * process is still alive) instead of only firing for listeners already
+ * attached at the moment `markReady()` runs.
+ */
+object ServiceReadyGate {
+    @Volatile private var ready = false
+    private var sink: EventChannel.EventSink? = null
+
+    fun handler(): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
+        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+            sink = events
+            if (ready) events?.success(true)
+        }
+        override fun onCancel(arguments: Any?) { sink = null }
+    }
+
+    /** Called once, at the end of [dev.wndavenz.music.Media3PlaybackService.onCreate]. */
+    fun markReady() {
+        ready = true
+        sink?.success(true)
+    }
+
+    /** Reset when the service is torn down, so the next onCreate() must mark ready again. */
+    fun reset() {
+        ready = false
+    }
+}
+
+/**
  * Native log stream forwarded to Flutter for in-app debug display.
  * Replaces the original nested `object NativeLogs` inside Media3PlaybackService.
  * MainActivity still accesses this via Media3PlaybackService.NativeLogs (companion alias).

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'audio/audio_engine_manager.dart';
+import 'audio/playback_manager.dart';
 import 'log_service.dart';
 
 enum SleepTimerMode { duration, endOfSong }
@@ -34,7 +34,7 @@ class SleepTimerService {
 
   static void initialize() {
     _sub?.cancel();
-    _sub = AudioEngineManager.sleepTimerStream.listen((map) {
+    _sub = PlaybackManager.sleepTimerStream.listen((map) {
       final active      = map['active']      as bool? ?? false;
       final endOfSong   = map['endOfSong']   as bool? ?? false;
       final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
@@ -60,7 +60,7 @@ class SleepTimerService {
     _mode           = SleepTimerMode.duration;
     isActive.value  = true;
     remaining.value = duration;
-    unawaited(AudioEngineManager.setSleepTimer(duration.inMilliseconds));
+    unawaited(PlaybackManager.setSleepTimer(duration.inMilliseconds));
     LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min');
   }
 
@@ -70,7 +70,7 @@ class SleepTimerService {
     _mode           = SleepTimerMode.endOfSong;
     isActive.value  = true;
     remaining.value = null;
-    unawaited(AudioEngineManager.setSleepTimerEndOfSong());
+    unawaited(PlaybackManager.setSleepTimerEndOfSong());
     LogService.log('SleepTimer', 'End-of-song mode');
   }
 
@@ -80,7 +80,7 @@ class SleepTimerService {
     _mode           = null;
     isActive.value  = false;
     remaining.value = null;
-    unawaited(AudioEngineManager.cancelSleepTimer());
+    unawaited(PlaybackManager.cancelSleepTimer());
     LogService.log('SleepTimer', 'Cancelled');
   }
 

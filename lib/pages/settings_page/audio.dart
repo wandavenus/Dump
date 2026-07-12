@@ -15,6 +15,10 @@ class _AudioSection extends StatelessWidget {
         const _ReplayGainSection(),
         const SettingsDivider(),
 
+        // ── Loudness Normalization ───────────────────────────────────────────
+        const _LoudnessNormSection(),
+        const SettingsDivider(),
+
         const _CrossfadePicker(),
         const SettingsDivider(),
 
@@ -60,7 +64,7 @@ class _AudioSection extends StatelessWidget {
             title: 'Bass Boost',
             subtitle: v == 0
                 ? 'Nonaktif'
-                : AudioEngine.bassBoostSupported
+                : DeviceDsp.bassBoostSupported
                     ? '${(v / 10).round()}%'
                     : 'Tidak didukung perangkat ini',
             value: v.toDouble(),
@@ -213,7 +217,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                         ),
                       ),
 
-                    // Preamp slider — hanya saat mode aktif
+                    // Preamp slider + clipping protection — hanya saat mode aktif
                     if (mode != ReplayGainMode.off) ...[
                       const SizedBox(height: 4),
                       ValueListenableBuilder<double>(
@@ -231,6 +235,15 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                           showReset: preamp != 0,
                           onReset: () =>
                               AudioEffectsService.setReplayGainPreamp(0),
+                        ),
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: AudioEffectsService.clippingProtection,
+                        builder: (_, clip, _) => SettingsToggleRow(
+                          title: 'Clipping Protection',
+                          subtitle: 'Cegah distorsi saat gain melebihi 0 dBFS',
+                          value: clip,
+                          onChanged: AudioEffectsService.setClippingProtection,
                         ),
                       ),
                     ],
@@ -371,6 +384,95 @@ class _ModeOption extends StatelessWidget {
       onTap: () {
         AudioEffectsService.setReplayGainMode(mode);
         Navigator.pop(context);
+      },
+    );
+  }
+}
+
+// ─── Loudness Normalization section ───────────────────────────────────────────
+
+class _LoudnessNormSection extends StatelessWidget {
+  const _LoudnessNormSection();
+
+  static const _lufsTargets = <double>[-14.0, -16.0, -18.0, -23.0];
+  static const _lufsLabels  = ['-14 LUFS', '-16 LUFS', '-18 LUFS', '-23 LUFS'];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: AudioEffectsService.loudnessNormEnabled,
+      builder: (context, enabled, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SettingsToggleRow(
+              title: 'Loudness Normalization',
+              subtitle: enabled
+                  ? 'Menyamakan kenyaringan secara real-time (EBU R128)'
+                  : 'Normalisasi kenyaringan saat diputar',
+              value: enabled,
+              onChanged: AudioEffectsService.setLoudnessNormEnabled,
+            ),
+            if (enabled) ...[
+              const SizedBox(height: 2),
+              ValueListenableBuilder<double>(
+                valueListenable: AudioEffectsService.loudnessNormTarget,
+                builder: (context, target, _) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Target: ${target.toStringAsFixed(1)} LUFS',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: List.generate(_lufsTargets.length, (i) {
+                              final selected =
+                                  (target - _lufsTargets[i]).abs() < 0.1;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(_lufsLabels[i]),
+                                  selected: selected,
+                                  onSelected: (_) {
+                                    AudioEffectsService.setLoudnessNormTarget(
+                                        _lufsTargets[i]);
+                                  },
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Streaming −14, Podcast −16, Broadcast −23',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withAlpha(160),
+                              ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        );
       },
     );
   }

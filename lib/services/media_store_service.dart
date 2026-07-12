@@ -168,8 +168,20 @@ class MediaStoreService {
     }
 
     try {
-      final List<dynamic>? songs =
-          await _channel.invokeListMethod('getSongs');
+      // Every Home section (_RecentlyPlayedSectionState, _LocalAlbumsSectionState,
+      // artists_section, MusicList, ...) awaits this call directly and gates its
+      // own _isLoading/FutureBuilder spinner on it. A MethodChannel round-trip
+      // has no guaranteed response — if the native side ever fails to reply
+      // (e.g. contended I/O during a very large first-time library scan on a
+      // real device), this await would hang forever with zero error signal,
+      // leaving every Home section (and MusicList) stuck on its loading
+      // indicator indefinitely instead of reaching an empty/error state.
+      // A generous but finite timeout guarantees this call always terminates,
+      // matching the fail-open convention already used for the FFmpeg probe
+      // and artwork prewarm elsewhere in the startup path.
+      final List<dynamic>? songs = await _channel
+          .invokeListMethod('getSongs')
+          .timeout(const Duration(seconds: 20));
 
       final parsedSongs = (songs ?? const <dynamic>[])
           .map((song) =>
@@ -182,6 +194,10 @@ class MediaStoreService {
       _lastFailedReconcile = null;
       unawaited(_persist(parsedSongs));
       return parsedSongs;
+    } on TimeoutException catch (_) {
+      LogService.error('MediaStore', 'getSongs timed out waiting for native response');
+      _lastFailedReconcile = DateTime.now();
+      return const <LocalSong>[];
     } on PlatformException catch (error, stackTrace) {
       LogService.error('MediaStore', 'Failed to load songs: $error', stackTrace: stackTrace.toString());
       _lastFailedReconcile = DateTime.now();

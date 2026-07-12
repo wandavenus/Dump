@@ -1,0 +1,195 @@
+Phase 6 — Dynamics Processing Engine
+
+Objective
+
+Implement the Dynamics Processing stage inside the existing Native DSP Pipeline.
+
+The DSP architecture, Media3 integration, and Parametric EQ are already complete.
+
+This phase adds production-quality dynamics processing.
+
+Do NOT implement FFmpeg.
+
+Do NOT modify the playback architecture.
+
+Media3 remains the playback engine.
+
+---
+
+Architecture
+
+Media3
+
+↓
+
+Gain
+
+↓
+
+Parametric EQ
+
+↓
+
+Compressor
+
+↓
+
+Limiter
+
+↓
+
+Soft Clipper
+
+↓
+
+Remaining Media3 AudioProcessors
+
+↓
+
+Audio Output
+
+---
+
+1. Dynamics Framework
+
+Create reusable dynamics processing infrastructure.
+
+Future processors should share common components where appropriate.
+
+Examples:
+
+- envelope detector
+- attack / release smoothing
+- gain computer
+- knee computation
+
+Avoid duplicated implementations.
+
+---
+
+2. Compressor Processor
+
+Implement a production-quality compressor.
+
+Support:
+
+- Threshold
+- Ratio
+- Attack
+- Release
+- Knee
+- Makeup Gain
+- Bypass
+- Enable / Disable
+
+Parameters must update safely during playback.
+
+---
+
+3. Limiter Processor
+
+Implement a brickwall limiter.
+
+Support:
+
+- Threshold
+- Look-ahead architecture if appropriate
+- Fast attack
+- Controlled release
+- Bypass
+
+Prevent audible clipping while minimizing artifacts.
+
+---
+
+4. Soft Clipper
+
+Implement a lightweight soft clipper.
+
+Purpose:
+
+- prevent digital clipping
+- improve overload behavior
+- operate after the limiter
+
+Keep implementation efficient.
+
+---
+
+5. Thread Safety
+
+Audio thread:
+
+- no locks
+- no heap allocation
+- deterministic execution
+
+Control thread:
+
+- lock-free parameter updates
+- atomic state changes where appropriate
+
+---
+
+6. Performance
+
+Optimize for:
+
+- SIMD-ready processing
+- reusable state
+- cache-friendly memory layout
+- zero unnecessary allocations
+
+---
+
+7. PlaybackManager
+
+Expose all dynamics controls through PlaybackManager.
+
+The UI must never communicate directly with the native runtime.
+
+---
+
+8. Documentation
+
+Document:
+
+- compressor algorithm
+- limiter algorithm
+- soft clipper design
+- parameter update model
+- threading model
+- processing order
+- performance considerations
+
+---
+
+Validation
+
+Verify:
+
+- flutter analyze passes
+- native runtime tests pass
+- playback unchanged
+- Crossfade still works
+- Gapless still works
+- Queue still works
+- Compressor affects real playback audio
+- Limiter prevents clipping
+- Soft clipper behaves correctly
+- No audible glitches
+- No analyzer warnings
+
+---
+
+Deliverables
+
+1. Compressor processor.
+2. Limiter processor.
+3. Soft clipper processor.
+4. PlaybackManager integration.
+5. Updated DSP pipeline documentation.
+6. Updated architecture diagram.
+7. Files added.
+8. Files modified.
+9. Remaining work before Crossfeed & ReplayGain.

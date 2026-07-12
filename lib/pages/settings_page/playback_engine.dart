@@ -1,6 +1,8 @@
 part of '../settings_page.dart';
 
 // ─── Playback Engine Section ───────────────────────────────────────────────────
+//
+// Engine tunneling settings — Native Media3 / ExoPlayer.
 
 class _PlaybackEngineSection extends StatelessWidget {
   const _PlaybackEngineSection();
@@ -10,103 +12,60 @@ class _PlaybackEngineSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Engine Selector ──────────────────────────────────────────────────
-        const SettingsSectionHeader('Engine Pemutaran'),
+        const SettingsSectionHeader('Engine Tunneling'),
         const SizedBox(height: 6),
-        const _EngineSelector(),
+
+        // ── Skip Silence ───────────────────────────────────────────────────
+        ValueListenableBuilder<bool>(
+          valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
+          builder: (_, v, _) => SettingsToggleRow(
+            title: 'Lewati Keheningan',
+            subtitle: 'Potong bagian senyap di dalam lagu (intro/outro)',
+            value: v,
+            onChanged: MediaCapabilitiesService.setSkipSilence,
+          ),
+        ),
         const SettingsDivider(),
 
-        // ── Info banner (MediaKit) / Engine Tunneling (Media3) ───────────────
-        ValueListenableBuilder<PlaybackEngineType>(
-          valueListenable: AudioEngineManager.activeEngineType,
-          builder: (_, engine, _) {
-            if (engine != PlaybackEngineType.media3) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline,
-                        color: Color(0xFF8E8E93), size: 15),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Fitur Audio, Spatial Audio, dan Equalizer disembunyikan. '
-                        'Beralih ke Native Media3 untuk mengakses semua efek dan pengaturan audio.',
-                        style: TextStyle(
-                            color: Color(0xFF636366), fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
+        // ── Stereo Widening ────────────────────────────────────────────────
+        ValueListenableBuilder<bool>(
+          valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
+          builder: (_, enabled, _) => ValueListenableBuilder<double>(
+            valueListenable: MediaCapabilitiesService.stereoWideningStrength,
+            builder: (_, v, _) {
+              final pct = (v * 100).round();
+              return SettingsSliderRow(
+                title: 'Pelebaran Stereo',
+                subtitle: enabled ? '$pct%' : 'Nonaktif',
+                value: enabled ? v : 0.0,
+                min: 0.0,
+                max: 1.0,
+                divisions: 20,
+                onChanged: (val) async {
+                  if (val > 0) {
+                    await MediaCapabilitiesService.setStereoWidening(true);
+                    await MediaCapabilitiesService
+                        .setStereoWideningStrength(val);
+                  } else {
+                    await MediaCapabilitiesService.setStereoWidening(false);
+                  }
+                },
+                showReset: enabled,
+                onReset: () async {
+                  await MediaCapabilitiesService.setStereoWidening(false);
+                },
+                expandable: true,
               );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                const SettingsSectionHeader('Engine Tunneling'),
-                const SizedBox(height: 6),
-
-                // ── Skip Silence ─────────────────────────────────────────────
-                ValueListenableBuilder<bool>(
-                  valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
-                  builder: (_, v, _) => SettingsToggleRow(
-                    title: 'Lewati Keheningan',
-                    subtitle:
-                        'Potong bagian senyap di dalam lagu (intro/outro)',
-                    value: v,
-                    onChanged: MediaCapabilitiesService.setSkipSilence,
-                  ),
-                ),
-                const SettingsDivider(),
-
-                // ── Stereo Widening ──────────────────────────────────────────
-                // Accordion — fitur aktif saat slider digeser, bukan saat expand
-                ValueListenableBuilder<bool>(
-                  valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-                  builder: (_, enabled, _) => ValueListenableBuilder<double>(
-                    valueListenable:
-                        MediaCapabilitiesService.stereoWideningStrength,
-                    builder: (_, v, _) {
-                      final pct = (v * 100).round();
-                      return SettingsSliderRow(
-                        title: 'Pelebaran Stereo',
-                        subtitle: enabled ? '$pct%' : 'Nonaktif',
-                        // Slider dimulai dari 0 saat fitur off
-                        value: enabled ? v : 0.0,
-                        min: 0.0,
-                        max: 1.0,
-                        divisions: 20,
-                        onChanged: (val) async {
-                          if (val > 0) {
-                            await MediaCapabilitiesService.setStereoWidening(true);
-                            await MediaCapabilitiesService
-                                .setStereoWideningStrength(val);
-                          } else {
-                            await MediaCapabilitiesService
-                                .setStereoWidening(false);
-                          }
-                        },
-                        showReset: enabled,
-                        onReset: () async {
-                          await MediaCapabilitiesService.setStereoWidening(false);
-                        },
-                        expandable: true,
-                      );
-                    },
-                  ),
-                ),
-                const SettingsDivider(),
-
-              ],
-            );
-          },
+            },
+          ),
         ),
+        const SettingsDivider(),
       ],
     );
   }
 }
+
+// ─── Playback Stats utility ────────────────────────────────────────────────────
 
 void _showStatsSheet(BuildContext context) {
   MediaCapabilitiesService.getPlaybackStats().then((stats) {
@@ -117,291 +76,6 @@ void _showStatsSheet(BuildContext context) {
       builder: (_) => _PlaybackStatsSheet(stats: stats),
     );
   });
-}
-
-// ─── Engine Selector Widget ────────────────────────────────────────────────────
-
-class _EngineSelector extends StatelessWidget {
-  const _EngineSelector();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<PlaybackEngineType>(
-      valueListenable: AudioEngineManager.activeEngineType,
-      builder: (_, active, _) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: AudioEngineManager.isSwitching,
-          builder: (_, switching, _) {
-            return Column(
-              children: [
-                ...PlaybackEngineType.values.map((type) {
-                  final isActive = type == active;
-                  final isLast = type == PlaybackEngineType.values.last;
-                  return Column(
-                    children: [
-                      _EngineOption(
-                        type: type,
-                        isSelected: isActive,
-                        isSwitching: switching,
-                        onTap: switching || isActive
-                            ? null
-                            : () => _switchEngine(context, type),
-                      ),
-                      if (!isLast) const SettingsDivider(),
-                    ],
-                  );
-                }),
-                if (switching) ...[
-                  const SettingsDivider(),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 11),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: Color(0xFFF92D48),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Berpindah engine…',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _switchEngine(BuildContext context, PlaybackEngineType target) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EngineSwitchConfirmSheet(target: target),
-    );
-  }
-}
-
-class _EngineOption extends StatelessWidget {
-  const _EngineOption({
-    required this.type,
-    required this.isSelected,
-    required this.isSwitching,
-    required this.onTap,
-  });
-
-  final PlaybackEngineType type;
-  final bool isSelected;
-  final bool isSwitching;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = switch (type) {
-      PlaybackEngineType.media3 =>
-        'DSP, crossfade, efek native',
-      PlaybackEngineType.mediaKit =>
-        'Cross-platform, pitch/EQ terbatas',
-    };
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    type.displayName,
-                    style: TextStyle(
-                      color: isSelected
-                          ? const Color(0xFFF92D48)
-                          : Colors.white,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF8E8E93),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              const Text(
-                'Aktif',
-                style: TextStyle(
-                  color: Color(0xFFF92D48),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Konfirmasi Perpindahan Engine ────────────────────────────────────────────
-
-class _EngineSwitchConfirmSheet extends StatelessWidget {
-  const _EngineSwitchConfirmSheet({required this.target});
-  final PlaybackEngineType target;
-
-  @override
-  Widget build(BuildContext context) {
-    return SwipeToDismissSheet(
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Beralih ke ${target.displayName}?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Queue, posisi, shuffle, dan repeat akan disimpan dan di-restore. '
-                'Perpindahan membutuhkan beberapa detik.',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
-              ),
-            ),
-            if (target == PlaybackEngineType.mediaKit) ...[
-              const SizedBox(height: 12),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
-                    width: 0.8,
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Efek audio (EQ, Bass Boost) tidak aktif di engine ini.',
-                        style: TextStyle(color: Colors.orange, fontSize: 11),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Batal',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        AudioEngineManager.switchEngine(target);
-                      },
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF92D48),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Beralih',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Playback Stats Bottom Sheet ──────────────────────────────────────────────
@@ -447,16 +121,13 @@ class _PlaybackStatsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: ValueListenableBuilder<PlaybackEngineType>(
-                  valueListenable: AudioEngineManager.activeEngineType,
-                  builder: (_, type, _) => Text(
-                    'Engine aktif: ${type.displayName}',
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-                  ),
+                child: Text(
+                  'Engine: Native Media3',
+                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
                 ),
               ),
             ),
@@ -472,22 +143,26 @@ class _PlaybackStatsSheet extends StatelessWidget {
             else ...[
               _StatRow(
                 label: 'Waktu Putar',
-                value: _fmtMs((stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
+                value: _fmtMs(
+                    (stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.play_circle_outline_rounded,
               ),
               _StatRow(
                 label: 'Waktu Buffering',
-                value: _fmtMs((stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
+                value: _fmtMs(
+                    (stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.hourglass_bottom_rounded,
               ),
               _StatRow(
                 label: 'Rebuffer',
-                value: '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+                value:
+                    '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
                 icon: Icons.cached_rounded,
               ),
               _StatRow(
                 label: 'Error',
-                value: '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+                value:
+                    '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
                 icon: Icons.error_outline_rounded,
               ),
             ],

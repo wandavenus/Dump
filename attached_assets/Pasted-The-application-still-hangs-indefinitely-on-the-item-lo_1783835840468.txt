@@ -1,0 +1,80 @@
+The application still hangs indefinitely on the item/loading screen and never reaches the Home screen.
+
+Do not add temporary logging.
+
+Instead, perform a complete static code audit of the current codebase and identify the regression by reasoning through the startup flow.
+
+Treat this as a debugging task, not an implementation task.
+
+Requirements:
+
+1. Reconstruct the complete startup sequence from:
+   - main()
+   - runApp()
+   - MainActivity
+   - AudioService
+   - PlaybackManager
+   - Media3PlaybackBridge
+   - NativeModuleRegistry
+   - Native bridges
+   - MediaStore loading
+   - HomePage initialization
+
+2. Trace every initialization dependency.
+
+Determine which components are mandatory before Home can appear and which are not.
+
+3. Look for:
+
+- Future that can never complete
+- Circular initialization dependencies
+- Await chains that can block forever
+- Future.wait() waiting on optional services
+- Completer that may never complete
+- EventChannel waiting for first event
+- MethodChannel call that has no guaranteed response
+- Lazy singleton deadlocks
+- Static initialization order issues
+- State notifier waiting on unavailable data
+- Service initialization ordering mistakes
+
+4. Compare the current startup flow against the last known working architecture.
+
+Identify exactly what changed that could prevent HomePage from becoming visible.
+
+5. Review every change introduced from Phase 4 onward, not only Phase 9.
+
+The regression may have been introduced earlier and only exposed later.
+
+6. Search specifically for code that causes HomePage to wait for:
+
+- Audio initialization
+- DSP initialization
+- FFmpeg capability detection
+- Native runtime initialization
+- MediaStore scan
+- Artwork cache
+- PlaybackManager initialization
+
+Determine whether any of those waits are unnecessary.
+
+7. If any non-critical initialization blocks UI startup, redesign it to initialize lazily after Home is visible.
+
+8. Produce a root-cause analysis.
+
+Do not speculate.
+
+Identify:
+
+- exact file
+- exact function
+- exact line(s)
+- why execution cannot continue
+- why Home never appears
+- safest fix
+
+Only modify code after identifying the exact blocking point.
+
+Do not use trial-and-error.
+Do not randomly move awaits.
+Do not add logging unless absolutely necessary because static analysis cannot determine the root cause.

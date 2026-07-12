@@ -1,0 +1,21 @@
+# NOTE: `dart run ffigen` requires libclang, which is not available in every
+# build environment (including the one this package was authored in — see
+# NATIVE_RUNTIME.md "Assumptions" section). `lib/native_audio_runtime_bindings_generated.dart`
+# is hand-maintained to mirror this header exactly until ffigen can be run.
+# Run `dart run ffigen --config ffigen.yaml` to regenerate once available,
+# then diff against the hand-written version before trusting it blindly.
+name: NativeAudioRuntimeBindings
+description: |
+  Bindings for `src/native_audio_runtime.h`.
+
+  Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
+output: 'lib/native_audio_runtime_bindings_generated.dart'
+headers:
+  entry-points:
+    - 'src/native_audio_runtime.h'
+  include-directives:
+    - 'src/native_audio_runtime.h'
+ffi-native:
+comments:
+  style: any
+  length: full
