@@ -164,6 +164,23 @@ class AudioService {
       );
     }
 
+    // ── Audio format → sync sample rate to Loudness Normalization DSP ────────
+    // loudness_processor.c initialises its K-weighting biquad filters for
+    // 48 kHz.  Without this subscriber, playing a 44.1 kHz file would keep
+    // the wrong coefficients, producing inaccurate LUFS readings and therefore
+    // a wrong normalisation gain.  audioFormatStream fires on every track
+    // change when ExoPlayer's renderer configures a new AudioTrack.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _staticSubs.add(
+        PlaybackManager.audioFormatStream.listen((event) {
+          final sr = (event['sampleRate'] as num?)?.toInt() ?? 0;
+          if (sr > 0 && PlaybackManager.nativeLoudnessNormAvailable) {
+            PlaybackManager.setNativeLoudnessSampleRate(sr);
+          }
+        }),
+      );
+    }
+
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
     AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
@@ -595,6 +612,33 @@ class AudioService {
         PlaybackManager.setNativeReplayGainBypass(true);
         return;
       }
+
+      // If native loudness normalisation is active it serves as the dynamic
+      // gain authority.  Applying both would cause the EBU R128 loop to
+      // continuously re-normalise an already ReplayGain-adjusted signal,
+      // producing an unstable, oscillating gain.  In this case, only the
+      // user's ReplayGain preamp offset (if non-zero) is forwarded so the
+      // normaliser sees the user's intentional level preference.
+      if (AudioEffectsService.loudnessNormEnabled.value) {
+        final preamp = AudioEffectsService.replayGainPreamp.value;
+        if (preamp != 0.0) {
+          PlaybackManager.setNativeReplayGain(
+            gainDb: preamp,
+            peakLinear: 0.0,
+            useClippingProtection: false,
+          );
+          PlaybackManager.setNativeReplayGainBypass(false);
+        } else {
+          PlaybackManager.setNativeReplayGainBypass(true);
+        }
+        LogService.verbose(
+          'AudioService',
+          'ReplayGain deferred to Loudness Norm'
+          ' (preamp: ${preamp.toStringAsFixed(1)} dB)',
+        );
+        return;
+      }
+
       final data = await LoudnessSourceResolver.resolve(
         song:         song,
         mode:         mode,

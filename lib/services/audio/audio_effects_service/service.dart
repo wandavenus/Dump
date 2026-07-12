@@ -199,7 +199,21 @@ class AudioEffectsService {
     loudnessNormEnabled.value = enabled;
     await _saveBool('lnEnabled', enabled);
     PlaybackManager.setNativeLoudnessNormBypass(!enabled);
-    if (!enabled) PlaybackManager.resetNativeLoudnessNorm();
+    if (!enabled) {
+      PlaybackManager.resetNativeLoudnessNorm();
+    } else {
+      // Mutual exclusion: system LoudnessEnhancer (AudioFlinger layer) and
+      // native EBU R128 normalization (ExoPlayer audio processor layer) both
+      // apply gain in the same signal path, in series.  Having both active
+      // simultaneously causes double-boosting and potential clipping.
+      // Disable the system LoudnessEnhancer when native normalization is on.
+      unawaited(PlaybackManager.setLoudnessEnabled(false));
+      unawaited(PlaybackManager.setLoudnessTargetGain(0.0));
+      LogService.log(
+        'AudioEffects',
+        'System LoudnessEnhancer disabled — native Loudness Norm is now active',
+      );
+    }
     LogService.log('AudioEffects', 'Loudness Norm: ${enabled ? 'ON' : 'OFF'}');
   }
 

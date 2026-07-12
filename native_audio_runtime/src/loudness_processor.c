@@ -50,8 +50,18 @@
 #define MAX_GAIN_DB          6.0f
 // Maximum cut    (dB, linear ≈ 0.25×)
 #define MIN_GAIN_DB        (-12.0f)
-// Gain smoothing time constant (seconds). 3 s is intentionally slow.
-#define SMOOTHING_TAU_SEC    3.0f
+// Release time constant (seconds) — gain INCREASE (quiet→loud transition).
+// Intentionally slow to prevent audible pumping on fades and dynamic music.
+#define RELEASE_TAU_SEC      3.0f
+// Attack time constant (seconds) — gain REDUCTION (loud→quiet transition).
+// Fast attack prevents momentary overloads before the smoother reacts.
+// Standard practice: fast attack (~200-500 ms), slow release (2-5 s).
+#define ATTACK_TAU_SEC       0.3f
+// EBU R128 relative gate threshold (LU). Gain update is skipped when the
+// current measurement block is more than this many LU below the running
+// loudness estimate — prevents silence / quiet passages from biasing the
+// normalizer into excessive boosting.
+#define GATE_REL_LU          10.0f
 // Maximum supported channels
 #define MAX_CHANNELS         8
 
@@ -78,8 +88,10 @@ static int32_t  _frame_count;  // frames accumulated since last LUFS update
 // Smooth gain (linear). Audio thread only — no atomic needed.
 static float _gain_smooth;
 
-// Per-frame smoothing coefficient (precomputed from sample rate + tau).
-static float _alpha;
+// Per-frame smoothing coefficients (precomputed from sample rate).
+// Asymmetric attack/release: fast for gain reduction, slow for gain increase.
+static float _alpha_attack;   // fast — gain reduction  (~0.3 s)
+static float _alpha_release;  // slow — gain increase   (~3.0 s)
 
 // ── Atomics for cross-thread communication ────────────────────────────────────
 
@@ -98,8 +110,10 @@ static void _compute_kw_coeffs(float sr) {
     // Stage 2: RLB filter — high-pass at 38.135 Hz, Q=0.5003
     nar_biquad_compute(NAR_BIQUAD_HIGH_PASS,   38.135f, 0.5003f,  0.0f,   sr, &_kw2);
     // Smoothing coefficient: 1 frame step along a 3 s RC time constant
-    _alpha = 1.0f - expf(-1.0f / (sr * SMOOTHING_TAU_SEC));
-    LN_LOG("coeffs updated: sr=%.0f alpha=%.2e", (double)sr, (double)_alpha);
+    _alpha_attack  = 1.0f - expf(-1.0f / (sr * ATTACK_TAU_SEC));
+    _alpha_release = 1.0f - expf(-1.0f / (sr * RELEASE_TAU_SEC));
+    LN_LOG("coeffs updated: sr=%.0f alpha_att=%.2e alpha_rel=%.2e",
+           (double)sr, (double)_alpha_attack, (double)_alpha_release);
 }
 
 // ── Internal reset (no atomic changes — caller owns bypass state) ─────────────
@@ -169,11 +183,21 @@ static int32_t _ln_process(void* self, NarAudioBuffer* buffer) {
             const float mean_sq = (float)(_power_acc / _frame_count);
             const float lufs    = LUFS_OFFSET + 10.0f * log10f(mean_sq + POWER_FLOOR);
 
+            // Load running estimate BEFORE storing new value — used for relative gate.
+            const float running_lufs = _bits_to_float(atomic_load(&_measured_lufs_bits));
             atomic_store(&_measured_lufs_bits, _float_to_bits(lufs));
 
-            // Apply absolute gate: ignore very quiet / silent sections so
-            // we don't chase noise and cause pumping artefacts.
-            if (lufs > GATE_ABS_LUFS) {
+            // Absolute gate (EBU R128): ignore blocks below -70 LUFS (silence/noise).
+            // Relative gate (EBU R128 approximation): also skip blocks that are more
+            // than GATE_REL_LU below the running estimate — prevents quiet passages
+            // and inter-song silence from biasing the normalizer into excessive boosting.
+            // rel_ok is always true when the running estimate itself is below absolute
+            // gate (first measurement or after reset), so the very first block always
+            // primes the gain target.
+            const int32_t abs_ok = (lufs > GATE_ABS_LUFS);
+            const int32_t rel_ok = (running_lufs <= GATE_ABS_LUFS) ||
+                                    (lufs >= running_lufs - GATE_REL_LU);
+            if (abs_ok && rel_ok) {
                 float gain_db = target_lufs - lufs;
                 // Clamp: limit boost to MAX_GAIN_DB, limit cut to MIN_GAIN_DB.
                 if (gain_db > MAX_GAIN_DB)  gain_db = MAX_GAIN_DB;
@@ -189,8 +213,12 @@ static int32_t _ln_process(void* self, NarAudioBuffer* buffer) {
             _frame_count = 0;
         }
 
-        // 3. Smooth gain interpolation (per frame — gradual, no clicks).
-        //    _alpha ≈ 6.9e-6 at 48 kHz for tau=3 s → ~63 % reach in 3 s.
+        // 3. Smooth gain interpolation — asymmetric attack/release.
+        //    Attack  (gain_target < _gain_smooth): fast alpha ≈ 2.3e-4 at 48 kHz
+        //            → ~63 % convergence in 0.3 s, prevents momentary overloads.
+        //    Release (gain_target > _gain_smooth): slow alpha ≈ 6.9e-6 at 48 kHz
+        //            → ~63 % convergence in 3 s, prevents audible pumping.
+        const float _alpha = (gain_target < _gain_smooth) ? _alpha_attack : _alpha_release;
         _gain_smooth += _alpha * (gain_target - _gain_smooth);
 
         // 4. Apply smooth gain to all channels.

@@ -1,4 +1,5 @@
 - [Phase 8.5 Loudness Normalization](dsp-phase8-5.md) — EBU R128 IIR real-time normalizer at slot 2; slots renumbered (peq=3…soft_clipper=7); 3s smoothing tau; absolute gate −70 LUFS; NativeLoudnessNorm facade.
+- [Loudness quality fixes](loudness-quality-fixes.md) — sample rate propagation to DSP; asymmetric attack/release tau; relative gate; ReplayGain/LN mutual exclusion; system LE disabled when native norm is on.
 - [Phase 8 ReplayGain Engine](dsp-phase8.md) — NativeReplayGain DSP slot 1; _applyReplayGain rewired from LoudnessEnhancer→native DSP; clippingProtection VN added; duplicate ReplayGainMode enum removed from playback_manager.
 - [Phase 7 Crossfeed](dsp-phase7.md) — frequency-dependent crossfeed at slot 3 (between compressor and limiter); pipeline now 6 slots; stereo_matrix.h reusable framework; zero latency.
 - [Phase 6 Dynamics Processing](dsp-phase6.md) — compressor/limiter/soft_clipper fully wired; pipeline now has 5 slots; total latency = 63 frames (limiter look-ahead); tests updated accordingly.
