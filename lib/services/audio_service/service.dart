@@ -170,10 +170,29 @@ class AudioService {
     AudioEffectsService.clippingProtection.addListener(_onReplayGainSettingChanged);
 
     // Loudness Normalization (Phase 8.5) — sync initial state to native layer.
-    PlaybackManager.setNativeLoudnessNormBypass(
-        !AudioEffectsService.loudnessNormEnabled.value);
-    PlaybackManager.setNativeLoudnessNormTargetLufs(
-        AudioEffectsService.loudnessNormTarget.value);
+    //
+    // Fail-open, matching PlaybackManager.initialize()'s handling of
+    // NativeDspPipeline.instance.initialize(): only touch bindings.* once the
+    // native DSP runtime has actually finished initializing successfully, and
+    // never let a native-runtime failure here (e.g. a dlopen failure) escape
+    // this synchronous, unguarded call site and abort AudioService.initialize()
+    // before runApp() — that would silently prevent Home from ever rendering.
+    if (PlaybackManager.nativeLoudnessNormAvailable) {
+      try {
+        PlaybackManager.setNativeLoudnessNormBypass(
+            !AudioEffectsService.loudnessNormEnabled.value);
+        PlaybackManager.setNativeLoudnessNormTargetLufs(
+            AudioEffectsService.loudnessNormTarget.value);
+      } catch (e, st) {
+        LogService.error('AudioService',
+            'Loudness Normalization sync failed despite native runtime reporting available: $e',
+            stackTrace: st.toString());
+      }
+    } else {
+      LogService.log('AudioService',
+          'Loudness Normalization skipped — native DSP runtime unavailable '
+          '(loudnessNormEnabled will have no effect until the native runtime loads)');
+    }
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
     BootTrace.log('EXIT  AudioService.initialize()');
