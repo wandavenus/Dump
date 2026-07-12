@@ -52,6 +52,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# FFmpeg JNI native library — built from source via android/build-ffmpeg-jni.sh,
-# not committed to the repo (binary artifact).
-/android/app/src/main/jniLibs/arm64-v8a/libffmpegJNI.so
+# FFmpeg decoder local module — built from source via android/build-ffmpeg-jni.sh,
+# not committed (contains binary .so artifact).
+/android/decoder-ffmpeg/

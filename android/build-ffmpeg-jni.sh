@@ -1,48 +1,73 @@
 #!/usr/bin/env bash
 # build-ffmpeg-jni.sh
 #
-# Builds libffmpegJNI.so for arm64-v8a from the official androidx/media source,
-# configured for ALAC decoding only (minimal .so size).
+# Builds the Media3 FFmpeg decoder extension as a local Gradle module at
+# android/decoder-ffmpeg/ so the app can play ALAC (and other FFmpeg-backed
+# formats) without relying on the platform MediaCodec decoder.
 #
-# Prerequisites:
-#   - Android NDK r25c or newer (download from https://developer.android.com/ndk/downloads)
-#   - git, curl, tar, make, yasm (or nasm)
+# Why this script exists
+# ──────────────────────
+# androidx.media3:media3-decoder-ffmpeg is NOT published on any public Maven
+# repository. The AAR (Java/Kotlin wrapper + native libffmpegJNI.so) must be
+# built from the androidx/media source tree using Android NDK.
+#
+# Prerequisites
+# ─────────────
+#   - Android NDK r25c or newer
+#     Download: https://developer.android.com/ndk/downloads
+#   - Java 17+ (same JDK used for the main project)
+#   - git, curl, tar, make, yasm or nasm
 #   - Linux or macOS host
 #
-# Usage:
+# Usage
+# ─────
 #   bash android/build-ffmpeg-jni.sh /path/to/android-ndk-r25c
 #
-# Output:
-#   android/app/src/main/jniLibs/arm64-v8a/libffmpegJNI.so
+#   Or set ANDROID_NDK_HOME and run without args:
+#   export ANDROID_NDK_HOME=/path/to/ndk
+#   bash android/build-ffmpeg-jni.sh
 #
-# After the .so is in place, rebuild the APK:
+# Output
+# ──────
+#   android/decoder-ffmpeg/          ← Gradle sub-module (gitignored)
+#     build.gradle
+#     libs/
+#       media3-decoder-ffmpeg-release.aar  ← AAR with libffmpegJNI.so inside
+#
+# After the script completes, rebuild the APK:
 #   flutter build apk --release
+#
+# To verify FFmpeg is active, check the debug log for:
+#   Ffmpeg: available=true supported=ALAC
 
 set -euo pipefail
 
 MEDIA3_TAG="1.10.1"
 TARGET_ABI="arm64-v8a"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUTPUT_DIR="$SCRIPT_DIR/app/src/main/jniLibs/arm64-v8a"
-TMP_DIR="${TMPDIR:-/tmp}/media3-ffmpeg-build"
+OUTPUT_MODULE="$SCRIPT_DIR/decoder-ffmpeg"
+TMP_DIR="${TMPDIR:-/tmp}/media3-ffmpeg-build-$MEDIA3_TAG"
 REPO_DIR="$TMP_DIR/media3"
 
 # ── 0. Resolve NDK path ───────────────────────────────────────────────────────
 NDK_PATH="${1:-${ANDROID_NDK_HOME:-${ANDROID_NDK:-}}}"
 if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
     echo "ERROR: Android NDK not found."
-    echo "Usage: bash build-ffmpeg-jni.sh /path/to/android-ndk-r25c"
-    echo "       (or set ANDROID_NDK_HOME env var)"
+    echo ""
+    echo "Usage:  bash android/build-ffmpeg-jni.sh /path/to/android-ndk-r25c"
+    echo "        (or set ANDROID_NDK_HOME env var)"
+    echo ""
+    echo "Download NDK: https://developer.android.com/ndk/downloads"
     exit 1
 fi
 echo "✓ NDK: $NDK_PATH"
 
-# ── 1. Clone androidx/media @ 1.10.1 ─────────────────────────────────────────
+# ── 1. Clone androidx/media @ 1.10.1 (shallow) ───────────────────────────────
 mkdir -p "$TMP_DIR"
 if [ -d "$REPO_DIR/.git" ]; then
     echo "✓ Repository already cloned at $REPO_DIR"
 else
-    echo "[1/5] Cloning androidx/media @ $MEDIA3_TAG (shallow)..."
+    echo "[1/5] Cloning androidx/media @ $MEDIA3_TAG ..."
     git clone --depth 1 \
         --branch "$MEDIA3_TAG" \
         https://github.com/androidx/media.git \
@@ -51,20 +76,14 @@ fi
 
 JNI_DIR="$REPO_DIR/libraries/decoder_ffmpeg/src/main/jni"
 if [ ! -d "$JNI_DIR" ]; then
-    echo "ERROR: JNI directory not found: $JNI_DIR"
-    echo "The Media3 repo layout may have changed; inspect the repo manually."
+    echo "ERROR: JNI directory not found at $JNI_DIR"
+    echo "The Media3 repo layout may have changed. Inspect the repo manually."
     exit 1
 fi
-cd "$JNI_DIR"
 
-# ── 2. Build FFmpeg for arm64-v8a, ALAC-only ─────────────────────────────────
-echo "[2/5] Building FFmpeg (arm64-v8a, ALAC only)..."
-# build_ffmpeg.sh signature: <ndk-path> <host-platform> <abi> [--enable-<codec>...]
-# Host auto-detected if not passed; ABI names accepted: arm64, arm, x86, x86_64
-# We disable everything and then selectively enable only what ALAC needs:
-#   decoder: alac
-#   demuxer:  mov (covers .m4a / .mp4 containers), caf
-#   parser:   alac
+# ── 2. Build FFmpeg native libs (arm64, ALAC-only) ───────────────────────────
+echo "[2/5] Building FFmpeg static libs (ALAC only, $TARGET_ABI) ..."
+cd "$JNI_DIR"
 bash build_ffmpeg.sh "$NDK_PATH" arm64 \
     --disable-everything \
     --enable-decoder=alac \
@@ -73,10 +92,8 @@ bash build_ffmpeg.sh "$NDK_PATH" arm64 \
     --enable-parser=alac \
     --enable-protocol=file
 
-echo "[2/5] FFmpeg static libs built."
-
-# ── 3. ndk-build to produce libffmpegJNI.so ───────────────────────────────────
-echo "[3/5] Running ndk-build for $TARGET_ABI..."
+# ── 3. ndk-build → libffmpegJNI.so ───────────────────────────────────────────
+echo "[3/5] ndk-build for $TARGET_ABI ..."
 "$NDK_PATH/ndk-build" \
     NDK="$NDK_PATH" \
     APP_BUILD_SCRIPT="$JNI_DIR/Android.mk" \
@@ -90,22 +107,60 @@ echo "[3/5] Running ndk-build for $TARGET_ABI..."
 
 SO_SRC="$TMP_DIR/libs/$TARGET_ABI/libffmpegJNI.so"
 if [ ! -f "$SO_SRC" ]; then
-    echo "ERROR: ndk-build finished but libffmpegJNI.so not found at $SO_SRC"
+    echo "ERROR: libffmpegJNI.so not found at $SO_SRC after ndk-build"
     exit 1
 fi
-echo "[3/5] libffmpegJNI.so built: $(du -h "$SO_SRC" | cut -f1)"
+echo "✓ libffmpegJNI.so: $(du -h "$SO_SRC" | cut -f1)"
 
-# ── 4. Copy to jniLibs ────────────────────────────────────────────────────────
-echo "[4/5] Copying to $OUTPUT_DIR/..."
-mkdir -p "$OUTPUT_DIR"
-cp "$SO_SRC" "$OUTPUT_DIR/libffmpegJNI.so"
+# ── 4. Build the AAR via Gradle ───────────────────────────────────────────────
+echo "[4/5] Building Media3 FFmpeg decoder AAR via Gradle ..."
+cd "$REPO_DIR"
 
-# ── 5. Done ───────────────────────────────────────────────────────────────────
+# Copy the .so into the jniLibs location the Gradle module expects
+SO_DEST="$REPO_DIR/libraries/decoder_ffmpeg/src/main/jniLibs/$TARGET_ABI/libffmpegJNI.so"
+mkdir -p "$(dirname "$SO_DEST")"
+cp "$SO_SRC" "$SO_DEST"
+
+# Build the release AAR for the decoder_ffmpeg module only
+./gradlew \
+    :libraries:decoder_ffmpeg:assembleRelease \
+    -PandroidNdkVersion="$(basename "$NDK_PATH")" \
+    --no-daemon
+
+AAR_SRC="$REPO_DIR/libraries/decoder_ffmpeg/build/outputs/aar/decoder_ffmpeg-release.aar"
+if [ ! -f "$AAR_SRC" ]; then
+    # Some versions use a different output name; try to find it
+    AAR_SRC="$(find "$REPO_DIR/libraries/decoder_ffmpeg/build/outputs/aar" -name '*release*.aar' 2>/dev/null | head -1)"
+fi
+if [ -z "$AAR_SRC" ] || [ ! -f "$AAR_SRC" ]; then
+    echo "ERROR: release AAR not found after Gradle build."
+    echo "Check output of 'assembleRelease' above for errors."
+    exit 1
+fi
+echo "✓ AAR: $(du -h "$AAR_SRC" | cut -f1)"
+
+# ── 5. Assemble the local Gradle module ───────────────────────────────────────
+echo "[5/5] Writing android/decoder-ffmpeg/ local module ..."
+mkdir -p "$OUTPUT_MODULE/libs"
+cp "$AAR_SRC" "$OUTPUT_MODULE/libs/media3-decoder-ffmpeg-release.aar"
+
+# Minimal build.gradle for the wrapper module
+cat > "$OUTPUT_MODULE/build.gradle" << 'GRADLE'
+// android/decoder-ffmpeg/build.gradle
+//
+// Thin wrapper that exposes the locally-built media3-decoder-ffmpeg AAR
+// (with libffmpegJNI.so embedded) as a Gradle project dependency.
+// Generated by android/build-ffmpeg-jni.sh — do not edit manually.
+configurations.maybeCreate("default")
+artifacts.add("default", file("libs/media3-decoder-ffmpeg-release.aar"))
+GRADLE
+
 echo ""
-echo "✓ Done! Output: $OUTPUT_DIR/libffmpegJNI.so"
-echo "  Size: $(du -h "$OUTPUT_DIR/libffmpegJNI.so" | cut -f1)"
+echo "✓ Done!  android/decoder-ffmpeg/ is ready."
+echo "  AAR size: $(du -h "$OUTPUT_MODULE/libs/media3-decoder-ffmpeg-release.aar" | cut -f1)"
 echo ""
 echo "Next steps:"
-echo "  1. flutter build apk --release"
-echo "  2. Install on device and check the debug log for:"
-echo "     Ffmpeg: available=true supported=ALAC"
+echo "  flutter build apk --release"
+echo ""
+echo "Verify in the debug log:"
+echo "  Ffmpeg: available=true supported=ALAC"

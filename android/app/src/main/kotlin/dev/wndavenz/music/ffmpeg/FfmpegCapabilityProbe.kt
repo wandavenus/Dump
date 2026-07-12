@@ -7,20 +7,18 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * ## Why reflection
  *
- * `androidx.media3:media3-decoder-ffmpeg` is linked as a Maven dependency and
- * its AAR class (`FfmpegLibrary`) is always on the classpath. However, the
- * native runtime (`libffmpegJNI.so`) must be built separately from the
- * androidx/media source tree using `android/build-ffmpeg-jni.sh` and placed at
- * `android/app/src/main/jniLibs/arm64-v8a/libffmpegJNI.so`. Until the .so is
- * present in the APK, `FfmpegLibrary.isAvailable()` returns false because
- * `System.loadLibrary("ffmpegJNI")` fails — this probe collapses both "class
- * missing" and "native lib missing" into `available = false` so callers always
- * get a single yes/no answer.
+ * `androidx.media3:media3-decoder-ffmpeg` is **not** on any public Maven
+ * repository. The AAR (including the native `libffmpegJNI.so`) must be built
+ * from the androidx/media source tree using `android/build-ffmpeg-jni.sh`
+ * (requires Android NDK) and dropped as a local Gradle module at
+ * `android/decoder-ffmpeg/`. Until that module is present, the class is not on
+ * the classpath at all and this probe returns `available = false`.
  *
- * Reflection is kept (instead of a direct import) so that a build without the
- * .so still compiles and runs cleanly: the probe returns `available=false` and
- * ExoPlayer falls back to the platform MediaCodec ALAC decoder automatically
- * with zero code changes needed.
+ * Reflection is kept so that this file compiles and runs cleanly whether or not
+ * the module is present: `Class.forName` returning null and `isAvailable()`
+ * returning false both collapse to `available = false` — callers get a single
+ * yes/no answer and ExoPlayer falls back to the platform MediaCodec ALAC
+ * decoder automatically with zero code changes needed.
  *
  * ## What "available" means
  *
