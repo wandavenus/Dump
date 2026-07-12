@@ -122,6 +122,10 @@ FFI_PLUGIN_EXPORT void nar_gain_processor_set_gain_db(float gain_db) {
   atomic_store(&_gain_db_bits, _float_to_bits(_clamp_gain(gain_db)));
 }
 
+FFI_PLUGIN_EXPORT void nar_gain_set_db(float gain_db) {
+  nar_gain_processor_set_gain_db(gain_db);
+}
+
 FFI_PLUGIN_EXPORT float nar_gain_processor_get_gain_db(void) {
   return _bits_to_float(atomic_load(&_gain_db_bits));
 }

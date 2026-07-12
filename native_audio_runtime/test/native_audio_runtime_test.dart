@@ -48,8 +48,7 @@ void main() {
     expect(NativeAudioRuntime.instance.version, isNot('unknown'));
   });
 
-  test(
-      'capabilities include Phase 4–6 processors as supported; '
+  test('capabilities include Phase 4–6 processors as supported; '
       'future placeholders remain unsupported', () async {
     await NativeAudioRuntime.instance.initialize();
     final caps = NativeAudioRuntime.instance.capabilities;
@@ -72,8 +71,10 @@ void main() {
       'dsp.replaygain',
     ];
     for (final key in supportedKeys) {
-      final cap = caps.firstWhere((c) => c.key == key,
-          orElse: () => throw TestFailure('capability $key not found'));
+      final cap = caps.firstWhere(
+        (c) => c.key == key,
+        orElse: () => throw TestFailure('capability $key not found'),
+      );
       expect(cap.supported, isTrue, reason: '$key must be supported');
     }
 
@@ -87,8 +88,10 @@ void main() {
       'scan.loudness_ebur128',
     ];
     for (final key in unsupportedKeys) {
-      final cap = caps.firstWhere((c) => c.key == key,
-          orElse: () => NativeCapability(key: key, supported: false));
+      final cap = caps.firstWhere(
+        (c) => c.key == key,
+        orElse: () => NativeRuntimeCapability(key: key, supported: false),
+      );
       expect(cap.supported, isFalse, reason: '$key must remain unsupported');
     }
   });
@@ -109,19 +112,22 @@ void main() {
 
   test('registerModule before initialize reports notInitialized', () async {
     await NativeAudioRuntime.instance.dispose();
-    final status =
-        NativeAudioRuntime.instance.registerModule('too_early_module');
+    final status = NativeAudioRuntime.instance.registerModule(
+      'too_early_module',
+    );
     expect(status, NativeRuntimeStatus.notInitialized);
   });
 
-  test('concurrent initialize calls are safe (thread-safety contract)',
-      () async {
-    final futures = <Future<void>>[
-      for (var i = 0; i < 8; i++) NativeAudioRuntime.instance.initialize(),
-    ];
-    await Future.wait(futures);
-    expect(NativeAudioRuntime.instance.isAvailable, isTrue);
-  });
+  test(
+    'concurrent initialize calls are safe (thread-safety contract)',
+    () async {
+      final futures = <Future<void>>[
+        for (var i = 0; i < 8; i++) NativeAudioRuntime.instance.initialize(),
+      ];
+      await Future.wait(futures);
+      expect(NativeAudioRuntime.instance.isAvailable, isTrue);
+    },
+  );
 
   test('dispose is safe without a prior initialize', () async {
     await NativeAudioRuntime.instance.dispose();
@@ -139,28 +145,38 @@ void main() {
   test('DSP pipeline initialization is idempotent', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
-    await NativeDspPipeline.instance.initialize(); // second call — must not throw
+    await NativeDspPipeline.instance
+        .initialize(); // second call — must not throw
     expect(NativeDspPipeline.instance.isInitialized, isTrue);
   });
 
-  test('pipeline registers all 7 processors (Phase 4–8) in order', () async {
+  test('pipeline registers all 8 processors (Phase 4–8.5) in order', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
-    // [0]gain → [1]replaygain → [2]peq → [3]compressor →
-    // [4]crossfeed → [5]limiter → [6]soft_clipper
-    expect(NativeDspPipeline.instance.processorCount, equals(7));
+    // [0]gain → [1]replaygain → [2]loudness → [3]peq → [4]compressor →
+    // [5]crossfeed → [6]limiter → [7]soft_clipper
+    expect(NativeDspPipeline.instance.processorCount, equals(8));
     expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
-    expect(NativeDspPipeline.instance.processorIdAt(1),
-        equals('dsp.replaygain'));
-    expect(NativeDspPipeline.instance.processorIdAt(2), equals('dsp.peq'));
-    expect(NativeDspPipeline.instance.processorIdAt(3),
-        equals('dsp.compressor'));
-    expect(NativeDspPipeline.instance.processorIdAt(4),
-        equals('dsp.crossfeed'));
-    expect(NativeDspPipeline.instance.processorIdAt(5), equals('dsp.limiter'));
-    expect(NativeDspPipeline.instance.processorIdAt(6),
-        equals('dsp.soft_clipper'));
+    expect(
+      NativeDspPipeline.instance.processorIdAt(1),
+      equals('dsp.replaygain'),
+    );
+    expect(NativeDspPipeline.instance.processorIdAt(2), equals('dsp.loudness'));
+    expect(NativeDspPipeline.instance.processorIdAt(3), equals('dsp.peq'));
+    expect(
+      NativeDspPipeline.instance.processorIdAt(4),
+      equals('dsp.compressor'),
+    );
+    expect(
+      NativeDspPipeline.instance.processorIdAt(5),
+      equals('dsp.crossfeed'),
+    );
+    expect(NativeDspPipeline.instance.processorIdAt(6), equals('dsp.limiter'));
+    expect(
+      NativeDspPipeline.instance.processorIdAt(7),
+      equals('dsp.soft_clipper'),
+    );
   });
 
   test('gain processor defaults to 0 dBFS and bypass off', () async {
@@ -188,12 +204,17 @@ void main() {
     // Unity gain (0 dBFS) + all other processors bypassed so only gain matters.
     NativeDspPipeline.instance.setGainDb(0.0);
     NativeDspPipeline.instance.setGainBypass(false);
+    NativeLoudnessNorm.instance.setBypass(true);
+    NativeCrossfeed.instance.setBypass(true);
     NativeCompressor.instance.setBypass(true);
     NativeLimiter.instance.setBypass(true);
     NativeSoftClipper.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 4, channelCount: 2, sampleRate: 44100);
+      capacityFrames: 4,
+      channelCount: 2,
+      sampleRate: 44100,
+    );
     expect(buf, isNotNull, reason: 'buffer allocation must succeed');
     buf!;
 
@@ -207,8 +228,11 @@ void main() {
       expect(result, equals(0)); // NATIVE_RUNTIME_OK
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.5, 1e-5),
-            reason: 'unity gain must not change samples');
+        expect(
+          buf.data[i],
+          closeTo(0.5, 1e-5),
+          reason: 'unity gain must not change samples',
+        );
       }
     } finally {
       buf.destroy();
@@ -224,12 +248,17 @@ void main() {
     NativeDspPipeline.instance.setGainDb(gainDb);
     NativeDspPipeline.instance.setGainBypass(false);
     // Bypass all other processors so only gain is active.
+    NativeLoudnessNorm.instance.setBypass(true);
+    NativeCrossfeed.instance.setBypass(true);
     NativeCompressor.instance.setBypass(true);
     NativeLimiter.instance.setBypass(true);
     NativeSoftClipper.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 8, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 8,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -242,8 +271,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(expectedLinear, 1e-4),
-            reason: '+6 dBFS on 1.0 must yield ~1.9953');
+        expect(
+          buf.data[i],
+          closeTo(expectedLinear, 1e-4),
+          reason: '+6 dBFS on 1.0 must yield ~1.9953',
+        );
       }
     } finally {
       buf.destroy();
@@ -254,14 +286,21 @@ void main() {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
-    NativeDspPipeline.instance.setGainDb(20.0); // high gain — would change samples
+    NativeDspPipeline.instance.setGainDb(
+      20.0,
+    ); // high gain — would change samples
     NativeDspPipeline.instance.setGainBypass(true); // but bypass on
+    NativeLoudnessNorm.instance.setBypass(true);
+    NativeCrossfeed.instance.setBypass(true);
     NativeCompressor.instance.setBypass(true);
     NativeLimiter.instance.setBypass(true);
     NativeSoftClipper.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 4, channelCount: 2, sampleRate: 44100);
+      capacityFrames: 4,
+      channelCount: 2,
+      sampleRate: 44100,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -274,8 +313,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.7, 1e-6),
-            reason: 'bypass must leave samples untouched');
+        expect(
+          buf.data[i],
+          closeTo(0.7, 1e-6),
+          reason: 'bypass must leave samples untouched',
+        );
       }
     } finally {
       buf.destroy();
@@ -286,18 +328,25 @@ void main() {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
-    NativeDspPipeline.instance.setGainDb(20.0); // would change samples if applied
+    NativeDspPipeline.instance.setGainDb(
+      20.0,
+    ); // would change samples if applied
     NativeDspPipeline.instance.setGainBypass(false);
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
     expect(NativeDspPipeline.instance.isProcessorEnabled('dsp.gain'), isFalse);
 
     // Bypass dynamics so they don't interfere with the gain isolation test.
+    NativeLoudnessNorm.instance.setBypass(true);
+    NativeCrossfeed.instance.setBypass(true);
     NativeCompressor.instance.setBypass(true);
     NativeLimiter.instance.setBypass(true);
     NativeSoftClipper.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 4, channelCount: 1, sampleRate: 44100);
+      capacityFrames: 4,
+      channelCount: 1,
+      sampleRate: 44100,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -310,8 +359,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.3, 1e-6),
-            reason: 'disabled processor must not touch samples');
+        expect(
+          buf.data[i],
+          closeTo(0.3, 1e-6),
+          reason: 'disabled processor must not touch samples',
+        );
       }
 
       // Re-enable and verify gain is applied.
@@ -321,8 +373,11 @@ void main() {
 
       final expectedLinear = math.pow(10.0, 20.0 / 20.0); // 10×
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.3 * expectedLinear, 1e-4),
-            reason: 're-enabled processor must apply gain');
+        expect(
+          buf.data[i],
+          closeTo(0.3 * expectedLinear, 1e-4),
+          reason: 're-enabled processor must apply gain',
+        );
       }
     } finally {
       buf.destroy();
@@ -335,19 +390,25 @@ void main() {
     expect(() => NativeDspPipeline.instance.reset(), returnsNormally);
   });
 
-  test('pipeline total latency equals limiter look-ahead (63 frames)', () async {
-    // Phase 6: the limiter introduces NAR_LIMITER_LOOKAHEAD_FRAMES − 1 = 63
-    // frames of algorithmic latency. All other processors are zero-latency.
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
-    expect(NativeDspPipeline.instance.totalLatencyFrames, equals(63));
-  });
+  test(
+    'pipeline total latency equals limiter look-ahead (63 frames)',
+    () async {
+      // Phase 6: the limiter introduces NAR_LIMITER_LOOKAHEAD_FRAMES − 1 = 63
+      // frames of algorithmic latency. All other processors are zero-latency.
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      expect(NativeDspPipeline.instance.totalLatencyFrames, equals(63));
+    },
+  );
 
   test('NativeAudioBuffer metadata is correct', () async {
     await NativeAudioRuntime.instance.initialize();
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 2, sampleRate: 48000);
+      capacityFrames: 16,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -369,7 +430,10 @@ void main() {
     await NativeAudioRuntime.instance.initialize();
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 4, channelCount: 1, sampleRate: 44100);
+      capacityFrames: 4,
+      channelCount: 1,
+      sampleRate: 44100,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -385,12 +449,18 @@ void main() {
     await NativeAudioRuntime.instance.initialize();
     expect(
       NativeAudioBuffer.create(
-          capacityFrames: -1, channelCount: 2, sampleRate: 44100),
+        capacityFrames: -1,
+        channelCount: 2,
+        sampleRate: 44100,
+      ),
       isNull,
     );
     expect(
       NativeAudioBuffer.create(
-          capacityFrames: 16, channelCount: 0, sampleRate: 44100),
+        capacityFrames: 16,
+        channelCount: 0,
+        sampleRate: 44100,
+      ),
       isNull,
     );
   });
@@ -426,17 +496,46 @@ void main() {
 
     // Isolate: only run the compressor
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: true,
+    );
     NativeCompressor.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 2, sampleRate: 48000);
+      capacityFrames: 16,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -448,8 +547,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.8, 1e-6),
-            reason: 'compressor bypass must leave samples untouched');
+        expect(
+          buf.data[i],
+          closeTo(0.8, 1e-6),
+          reason: 'compressor bypass must leave samples untouched',
+        );
       }
     } finally {
       buf.destroy();
@@ -462,13 +564,39 @@ void main() {
 
     // Isolate: only run the compressor
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: true,
+    );
     NativeCompressor.instance.setBypass(false);
 
     // High-ratio compressor with low threshold and instant attack (0 ms).
@@ -485,7 +613,10 @@ void main() {
     );
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 128, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 128,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -501,8 +632,11 @@ void main() {
       // Exact value depends on envelope timing, so just verify reduction.
       // We check the last frame (envelope fully engaged after 128 frames).
       final lastSample = buf.data[buf.data.length - 1];
-      expect(lastSample, lessThan(0.8),
-          reason: 'compressor must reduce gain above threshold');
+      expect(
+        lastSample,
+        lessThan(0.8),
+        reason: 'compressor must reduce gain above threshold',
+      );
       // Must still be positive (gain only ever attenuates)
       expect(lastSample, greaterThan(0.0));
     } finally {
@@ -516,13 +650,39 @@ void main() {
 
     // Isolate compressor
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: true,
+    );
     NativeCompressor.instance.setBypass(false);
 
     // Threshold far above signal: −3 dBFS threshold, signal at 0.01 (−40 dBFS)
@@ -537,7 +697,10 @@ void main() {
     );
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 32, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 32,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -549,8 +712,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.01, 1e-5),
-            reason: 'signal below threshold must not be compressed');
+        expect(
+          buf.data[i],
+          closeTo(0.01, 1e-5),
+          reason: 'signal below threshold must not be compressed',
+        );
       }
     } finally {
       buf.destroy();
@@ -599,42 +765,79 @@ void main() {
     expect(NativeLimiter.instance.lookaheadFrames, equals(63));
   });
 
-  test('limiter: bypass passes audio unchanged (look-ahead delay not active)',
-      () async {
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
+  test(
+    'limiter: bypass passes audio unchanged (look-ahead delay not active)',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
 
-    // Isolate: only the limiter
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: true);
-    NativeLimiter.instance.setBypass(true);
+      // Isolate: only the limiter
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.gain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.replaygain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.loudness',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.compressor',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.soft_clipper',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.replaygain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.loudness',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.crossfeed',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.limiter',
+        enabled: true,
+      );
+      NativeLimiter.instance.setBypass(true);
 
-    final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 2, sampleRate: 48000);
-    expect(buf, isNotNull);
-    buf!;
+      final buf = NativeAudioBuffer.create(
+        capacityFrames: 16,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(buf, isNotNull);
+      buf!;
 
-    try {
-      for (var i = 0; i < buf.data.length; i++) {
-        buf.data[i] = 0.9;
+      try {
+        for (var i = 0; i < buf.data.length; i++) {
+          buf.data[i] = 0.9;
+        }
+
+        NativeDspPipeline.instance.processBuffer(buf);
+
+        for (var i = 0; i < buf.data.length; i++) {
+          expect(
+            buf.data[i],
+            closeTo(0.9, 1e-6),
+            reason: 'limiter bypass must leave samples untouched',
+          );
+        }
+      } finally {
+        buf.destroy();
       }
-
-      NativeDspPipeline.instance.processBuffer(buf);
-
-      for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.9, 1e-6),
-            reason: 'limiter bypass must leave samples untouched');
-      }
-    } finally {
-      buf.destroy();
-    }
-  });
+    },
+  );
 
   test('limiter: prevents output from exceeding threshold (brickwall)', () async {
     await NativeAudioRuntime.instance.initialize();
@@ -642,13 +845,27 @@ void main() {
 
     // Isolate the limiter
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: true,
+    );
     NativeLimiter.instance.setBypass(false);
 
     // Threshold: −6 dBFS ≈ 0.5012 linear
@@ -663,7 +880,10 @@ void main() {
     // After the 63-frame look-ahead primes, the output MUST NOT exceed the threshold.
     final bufSize = 256;
     final buf = NativeAudioBuffer.create(
-        capacityFrames: bufSize, channelCount: 1, sampleRate: 48000);
+      capacityFrames: bufSize,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -679,10 +899,17 @@ void main() {
       // After the look-ahead primes (frame 63 onward), the gain should be
       // fully engaged. Check the second half of the buffer (frames 128–255).
       for (var i = bufSize ~/ 2; i < buf.data.length; i++) {
-        expect(buf.data[i], lessThanOrEqualTo(thresholdLinear + 1e-5),
-            reason: 'limiter must enforce brickwall ceiling at ${thresholdLinear.toStringAsFixed(4)}');
-        expect(buf.data[i], greaterThanOrEqualTo(0.0),
-            reason: 'limiter must not produce negative output for positive input');
+        expect(
+          buf.data[i],
+          lessThanOrEqualTo(thresholdLinear + 1e-5),
+          reason:
+              'limiter must enforce brickwall ceiling at ${thresholdLinear.toStringAsFixed(4)}',
+        );
+        expect(
+          buf.data[i],
+          greaterThanOrEqualTo(0.0),
+          reason: 'limiter must not produce negative output for positive input',
+        );
       }
     } finally {
       buf.destroy();
@@ -736,91 +963,153 @@ void main() {
     expect(NativeSoftClipper.instance.thresholdDb, closeTo(-12.0, 0.001));
   });
 
-  test('soft clipper: signals below threshold pass through unchanged', () async {
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
+  test(
+    'soft clipper: signals below threshold pass through unchanged',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
 
-    // Isolate the soft clipper
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: true);
-    NativeSoftClipper.instance.setBypass(false);
+      // Isolate the soft clipper
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.gain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.replaygain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.loudness',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.compressor',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.crossfeed',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.crossfeed',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.limiter',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.soft_clipper',
+        enabled: true,
+      );
+      NativeSoftClipper.instance.setBypass(false);
 
-    // Threshold: −6 dBFS ≈ 0.5012. Signal at 0.3 — well below threshold.
-    NativeSoftClipper.instance.setThresholdDb(-6.0);
+      // Threshold: −6 dBFS ≈ 0.5012. Signal at 0.3 — well below threshold.
+      NativeSoftClipper.instance.setThresholdDb(-6.0);
 
-    final buf = NativeAudioBuffer.create(
-        capacityFrames: 32, channelCount: 2, sampleRate: 48000);
-    expect(buf, isNotNull);
-    buf!;
+      final buf = NativeAudioBuffer.create(
+        capacityFrames: 32,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(buf, isNotNull);
+      buf!;
 
-    try {
-      for (var i = 0; i < buf.data.length; i++) {
-        buf.data[i] = 0.3; // below −6 dBFS threshold
+      try {
+        for (var i = 0; i < buf.data.length; i++) {
+          buf.data[i] = 0.3; // below −6 dBFS threshold
+        }
+
+        NativeDspPipeline.instance.processBuffer(buf);
+
+        for (var i = 0; i < buf.data.length; i++) {
+          expect(
+            buf.data[i],
+            closeTo(0.3, 1e-6),
+            reason: 'signal below threshold must pass through unmodified',
+          );
+        }
+      } finally {
+        buf.destroy();
       }
+    },
+  );
 
-      NativeDspPipeline.instance.processBuffer(buf);
+  test(
+    'soft clipper: shapes samples above threshold and stays below 0 dBFS',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
 
-      for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.3, 1e-6),
-            reason: 'signal below threshold must pass through unmodified');
+      // Isolate the soft clipper
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.gain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.replaygain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.loudness',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.compressor',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.limiter',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.soft_clipper',
+        enabled: true,
+      );
+      NativeSoftClipper.instance.setBypass(false);
+
+      // Default threshold (−0.5 dBFS ≈ 0.944 linear).
+      NativeSoftClipper.instance.setThresholdDb(-0.5);
+
+      final buf = NativeAudioBuffer.create(
+        capacityFrames: 16,
+        channelCount: 1,
+        sampleRate: 48000,
+      );
+      expect(buf, isNotNull);
+      buf!;
+
+      try {
+        // Input: 1.5 (well above 0 dBFS) — would hard-clip without treatment.
+        for (var i = 0; i < buf.data.length; i++) {
+          buf.data[i] = 1.5;
+        }
+
+        NativeDspPipeline.instance.processBuffer(buf);
+
+        for (var i = 0; i < buf.data.length; i++) {
+          // Output must be shaped down (below input)
+          expect(
+            buf.data[i],
+            lessThan(1.5),
+            reason: 'samples above threshold must be shaped down',
+          );
+          // Output must not exceed 1.0 (0 dBFS ceiling)
+          expect(
+            buf.data[i],
+            lessThanOrEqualTo(1.0 + 1e-5),
+            reason: 'soft clipper must not allow output above 0 dBFS',
+          );
+          // Output must remain positive (sign-preserving)
+          expect(buf.data[i], greaterThan(0.0));
+        }
+      } finally {
+        buf.destroy();
       }
-    } finally {
-      buf.destroy();
-    }
-  });
-
-  test('soft clipper: shapes samples above threshold and stays below 0 dBFS',
-      () async {
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
-
-    // Isolate the soft clipper
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: true);
-    NativeSoftClipper.instance.setBypass(false);
-
-    // Default threshold (−0.5 dBFS ≈ 0.944 linear).
-    NativeSoftClipper.instance.setThresholdDb(-0.5);
-
-    final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 1, sampleRate: 48000);
-    expect(buf, isNotNull);
-    buf!;
-
-    try {
-      // Input: 1.5 (well above 0 dBFS) — would hard-clip without treatment.
-      for (var i = 0; i < buf.data.length; i++) {
-        buf.data[i] = 1.5;
-      }
-
-      NativeDspPipeline.instance.processBuffer(buf);
-
-      for (var i = 0; i < buf.data.length; i++) {
-        // Output must be shaped down (below input)
-        expect(buf.data[i], lessThan(1.5),
-            reason: 'samples above threshold must be shaped down');
-        // Output must not exceed 1.0 (0 dBFS ceiling)
-        expect(buf.data[i], lessThanOrEqualTo(1.0 + 1e-5),
-            reason: 'soft clipper must not allow output above 0 dBFS');
-        // Output must remain positive (sign-preserving)
-        expect(buf.data[i], greaterThan(0.0));
-      }
-    } finally {
-      buf.destroy();
-    }
-  });
+    },
+  );
 
   test('soft clipper: bypass passes overdriven signal unchanged', () async {
     await NativeAudioRuntime.instance.initialize();
@@ -828,19 +1117,36 @@ void main() {
 
     // Isolate the soft clipper
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: true,
+    );
     NativeSoftClipper.instance.setBypass(true);
 
     NativeSoftClipper.instance.setThresholdDb(-0.5);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 8, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 8,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -852,8 +1158,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(1.5, 1e-6),
-            reason: 'soft clipper bypass must not modify samples');
+        expect(
+          buf.data[i],
+          closeTo(1.5, 1e-6),
+          reason: 'soft clipper bypass must not modify samples',
+        );
       }
     } finally {
       buf.destroy();
@@ -900,19 +1209,38 @@ void main() {
 
     // Isolate the crossfeed processor
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: true,
+    );
     NativeCrossfeed.instance.setBypass(true);
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 2, sampleRate: 48000);
+      capacityFrames: 16,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -926,8 +1254,11 @@ void main() {
       NativeDspPipeline.instance.processBuffer(buf);
 
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(expected[i], 1e-6),
-            reason: 'crossfeed bypass must leave all samples untouched');
+        expect(
+          buf.data[i],
+          closeTo(expected[i], 1e-6),
+          reason: 'crossfeed bypass must leave all samples untouched',
+        );
       }
     } finally {
       buf.destroy();
@@ -940,20 +1271,39 @@ void main() {
 
     // Isolate the crossfeed
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: true,
+    );
     NativeCrossfeed.instance.setBypass(false);
 
     // Mono buffer — crossfeed must be a no-op for channels < 2
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 16, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 16,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -963,80 +1313,116 @@ void main() {
       }
       NativeDspPipeline.instance.processBuffer(buf);
       for (var i = 0; i < buf.data.length; i++) {
-        expect(buf.data[i], closeTo(0.7, 1e-6),
-            reason: 'mono signal must pass through crossfeed unchanged');
+        expect(
+          buf.data[i],
+          closeTo(0.7, 1e-6),
+          reason: 'mono signal must pass through crossfeed unchanged',
+        );
       }
     } finally {
       buf.destroy();
     }
   });
 
-  test('crossfeed: blends channels (L and R outputs differ from hard-panned input)',
-      () async {
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
+  test(
+    'crossfeed: blends channels (L and R outputs differ from hard-panned input)',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
 
-    // Isolate the crossfeed
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.crossfeed', enabled: true);
-    NativeCrossfeed.instance.setBypass(false);
+      // Isolate the crossfeed
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.gain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.replaygain',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.loudness',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.compressor',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.limiter',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.soft_clipper',
+        enabled: false,
+      );
+      NativeDspPipeline.instance.setProcessorEnabled(
+        'dsp.crossfeed',
+        enabled: true,
+      );
+      NativeCrossfeed.instance.setBypass(false);
 
-    // Maximum crossfeed with a low cutoff to see strong blending.
-    // Input: hard-panned — L=0.8, R=0.0.
-    // After crossfeed: R_out must receive some of L's energy (> 0).
-    // L_out must be reduced (< 0.8) due to normalization.
-    NativeCrossfeed.instance.setParams(
-      amount: 0.8,       // strong crossfeed
-      cutoffHz: 2000.0,  // high cutoff → more blending
-      hfCompDb: 0.0,     // no HF compensation (isolate blending effect)
-      hfCompHz: 4000.0,
-      width: 1.0,
-      sampleRate: 48000.0,
-    );
+      // Maximum crossfeed with a low cutoff to see strong blending.
+      // Input: hard-panned — L=0.8, R=0.0.
+      // After crossfeed: R_out must receive some of L's energy (> 0).
+      // L_out must be reduced (< 0.8) due to normalization.
+      NativeCrossfeed.instance.setParams(
+        amount: 0.8, // strong crossfeed
+        cutoffHz: 2000.0, // high cutoff → more blending
+        hfCompDb: 0.0, // no HF compensation (isolate blending effect)
+        hfCompHz: 4000.0,
+        width: 1.0,
+        sampleRate: 48000.0,
+      );
 
-    // Use a large buffer so the LP filter fully settles.
-    final buf = NativeAudioBuffer.create(
-        capacityFrames: 256, channelCount: 2, sampleRate: 48000);
-    expect(buf, isNotNull);
-    buf!;
+      // Use a large buffer so the LP filter fully settles.
+      final buf = NativeAudioBuffer.create(
+        capacityFrames: 256,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(buf, isNotNull);
+      buf!;
 
-    try {
-      // Hard-panned: L = 0.8, R = 0.0
-      for (var f = 0; f < 256; f++) {
-        buf.data[f * 2 + 0] = 0.8; // L
-        buf.data[f * 2 + 1] = 0.0; // R
+      try {
+        // Hard-panned: L = 0.8, R = 0.0
+        for (var f = 0; f < 256; f++) {
+          buf.data[f * 2 + 0] = 0.8; // L
+          buf.data[f * 2 + 1] = 0.0; // R
+        }
+
+        NativeDspPipeline.instance.processBuffer(buf);
+
+        // After filter settles (second half of buffer), check blending:
+        final midL = buf.data[(128 * 2) + 0]; // L output
+        final midR = buf.data[(128 * 2) + 1]; // R output
+
+        // R output must have received energy from L's filtered cross-path
+        expect(
+          midR,
+          greaterThan(0.001),
+          reason: 'crossfeed must blend L energy into R channel',
+        );
+        // L output must be normalized (less than input 0.8)
+        expect(
+          midL,
+          lessThan(0.8),
+          reason: 'crossfeed normalization must reduce L output below input',
+        );
+        // Both channels must be positive
+        expect(midL, greaterThan(0.0));
+        expect(midR, greaterThan(0.0));
+        // R output must be less than L output (L is still dominant)
+        expect(
+          midR,
+          lessThan(midL),
+          reason: 'L channel must remain dominant after crossfeed',
+        );
+      } finally {
+        buf.destroy();
       }
-
-      NativeDspPipeline.instance.processBuffer(buf);
-
-      // After filter settles (second half of buffer), check blending:
-      final midL = buf.data[(128 * 2) + 0]; // L output
-      final midR = buf.data[(128 * 2) + 1]; // R output
-
-      // R output must have received energy from L's filtered cross-path
-      expect(midR, greaterThan(0.001),
-          reason: 'crossfeed must blend L energy into R channel');
-      // L output must be normalized (less than input 0.8)
-      expect(midL, lessThan(0.8),
-          reason: 'crossfeed normalization must reduce L output below input');
-      // Both channels must be positive
-      expect(midL, greaterThan(0.0));
-      expect(midR, greaterThan(0.0));
-      // R output must be less than L output (L is still dominant)
-      expect(midR, lessThan(midL),
-          reason: 'L channel must remain dominant after crossfeed');
-    } finally {
-      buf.destroy();
-    }
-  });
+    },
+  );
 
   test('crossfeed: amount=0 produces identity (no blending)', () async {
     await NativeAudioRuntime.instance.initialize();
@@ -1044,15 +1430,31 @@ void main() {
 
     // Isolate the crossfeed
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: true,
+    );
     NativeCrossfeed.instance.setBypass(false);
 
     // amount=0: norm = 1/(1+0) = 1; cross = 0×norm = 0; HF comp off
@@ -1062,14 +1464,17 @@ void main() {
     NativeCrossfeed.instance.setParams(
       amount: 0.0,
       cutoffHz: 700.0,
-      hfCompDb: 0.0,  // no HF comp → identity biquad
+      hfCompDb: 0.0, // no HF comp → identity biquad
       hfCompHz: 4000.0,
       width: 1.0,
       sampleRate: 48000.0,
     );
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 32, channelCount: 2, sampleRate: 48000);
+      capacityFrames: 32,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -1083,10 +1488,16 @@ void main() {
 
       // After filter settles, steady-state output must match input.
       for (var f = 16; f < 32; f++) {
-        expect(buf.data[f * 2 + 0], closeTo(0.6, 1e-5),
-            reason: 'amount=0 must not change L');
-        expect(buf.data[f * 2 + 1], closeTo(0.3, 1e-5),
-            reason: 'amount=0 must not change R');
+        expect(
+          buf.data[f * 2 + 0],
+          closeTo(0.6, 1e-5),
+          reason: 'amount=0 must not change L',
+        );
+        expect(
+          buf.data[f * 2 + 1],
+          closeTo(0.3, 1e-5),
+          reason: 'amount=0 must not change R',
+        );
       }
     } finally {
       buf.destroy();
@@ -1099,15 +1510,31 @@ void main() {
 
     // Isolate the crossfeed
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.crossfeed', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: true,
+    );
     NativeCrossfeed.instance.setBypass(false);
 
     // width=0 → width matrix is mono matrix (L_out = R_out = mid)
@@ -1116,12 +1543,15 @@ void main() {
       cutoffHz: 700.0,
       hfCompDb: 0.0,
       hfCompHz: 4000.0,
-      width: 0.0,   // full mono
+      width: 0.0, // full mono
       sampleRate: 48000.0,
     );
 
     final buf = NativeAudioBuffer.create(
-        capacityFrames: 128, channelCount: 2, sampleRate: 48000);
+      capacityFrames: 128,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
     expect(buf, isNotNull);
     buf!;
 
@@ -1136,8 +1566,11 @@ void main() {
 
       // After filter settles, L_out must equal R_out (mono)
       for (var f = 64; f < 128; f++) {
-        expect(buf.data[f * 2 + 0], closeTo(buf.data[f * 2 + 1], 1e-5),
-            reason: 'width=0 must produce identical L and R (mono)');
+        expect(
+          buf.data[f * 2 + 0],
+          closeTo(buf.data[f * 2 + 1], 1e-5),
+          reason: 'width=0 must produce identical L and R (mono)',
+        );
       }
     } finally {
       buf.destroy();
@@ -1152,20 +1585,40 @@ void main() {
 
     // Isolate the soft clipper
     NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: false,
+    );
     NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.compressor', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.limiter', enabled: false);
-    NativeDspPipeline.instance
-        .setProcessorEnabled('dsp.soft_clipper', enabled: true);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: true,
+    );
     NativeSoftClipper.instance.setBypass(false);
     NativeSoftClipper.instance.setThresholdDb(-0.5);
 
     final bufPos = NativeAudioBuffer.create(
-        capacityFrames: 8, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 8,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     final bufNeg = NativeAudioBuffer.create(
-        capacityFrames: 8, channelCount: 1, sampleRate: 48000);
+      capacityFrames: 8,
+      channelCount: 1,
+      sampleRate: 48000,
+    );
     expect(bufPos, isNotNull);
     expect(bufNeg, isNotNull);
     bufPos!;
@@ -1183,13 +1636,22 @@ void main() {
       NativeDspPipeline.instance.processBuffer(bufNeg);
 
       for (var i = 0; i < bufPos.data.length; i++) {
-        expect(bufPos.data[i], greaterThan(0),
-            reason: 'positive input must produce positive output');
-        expect(bufNeg.data[i], lessThan(0),
-            reason: 'negative input must produce negative output');
+        expect(
+          bufPos.data[i],
+          greaterThan(0),
+          reason: 'positive input must produce positive output',
+        );
+        expect(
+          bufNeg.data[i],
+          lessThan(0),
+          reason: 'negative input must produce negative output',
+        );
         // Symmetry: |y(+x)| == |y(-x)|
-        expect(bufPos.data[i], closeTo(-bufNeg.data[i], 1e-5),
-            reason: 'soft clipper must be sign-symmetric');
+        expect(
+          bufPos.data[i],
+          closeTo(-bufNeg.data[i], 1e-5),
+          reason: 'soft clipper must be sign-symmetric',
+        );
       }
     } finally {
       bufPos.destroy();
