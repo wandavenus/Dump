@@ -36,7 +36,7 @@ import org.mockito.kotlin.whenever
  *   E. maybeCrossfadeOut() guard conditions (early returns)
  *   F. beginCrossfade() state mutations (via maybeCrossfadeOut trigger)
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class CrossfadeControllerTest {
 
     private lateinit var mockHandler:        Handler

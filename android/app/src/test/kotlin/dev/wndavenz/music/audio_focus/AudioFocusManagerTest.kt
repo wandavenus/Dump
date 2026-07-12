@@ -30,7 +30,7 @@ import org.mockito.kotlin.whenever
  *   D. abandon() — state reset
  *   E. Focus-change listener — gain, loss, duck, transient
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class AudioFocusManagerTest {
 
     private lateinit var mockAudioManager: AudioManager
@@ -216,12 +216,12 @@ class AudioFocusManagerTest {
         makeManager().abandon()  // no-op: safe when no focus held
     }
 
-    @Test fun `D03 abandon calls AudioManager abandonAudioFocus (deprecated path)`() {
+    @Test fun `D03 abandon without held focus skips AudioManager call`() {
         val mgr = makeManager()
         mgr.abandon()
 
         @Suppress("DEPRECATION")
-        org.mockito.kotlin.verify(mockAudioManager)
+        org.mockito.kotlin.verify(mockAudioManager, org.mockito.kotlin.never())
             .abandonAudioFocus(org.mockito.kotlin.any())
     }
 
