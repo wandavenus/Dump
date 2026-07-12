@@ -186,11 +186,39 @@ class FfmpegDecoderBridge implements NativeModule {
       },
     );
 
+    // Fail-open default: until the native probe below resolves (or times
+    // out), this module reports "unavailable" rather than leaving callers
+    // in an indeterminate state. This also lets `initialize()` return
+    // immediately — see the comment on `_probeCapabilities()` for why the
+    // probe itself must never be awaited inline here.
+    _capabilities = FfmpegDecoderCapabilities.unavailable;
+    _status = NativeModuleStatus.unavailable;
+
+    // Startup-safety fix: `PlaybackManager.initialize()` is awaited directly
+    // in `main()` before `runApp()`, and `NativeModuleRegistry.initializeAll()`
+    // awaits each module's `initialize()` in sequence with no timeout. This
+    // module's native probe is a genuine MethodChannel round-trip (unlike
+    // NativeDspBridge's local FFI call), so if the native reply is ever
+    // delayed, dropped, or never sent, `await _channel.invokeMethod(...)`
+    // would hang forever — and with it, the entire app start (black screen,
+    // no crash, since `runApp()` is never reached). Capability probing must
+    // never be able to block Home from rendering, so it now runs in the
+    // background with a hard timeout instead of being awaited here.
+    unawaited(_probeCapabilities());
+  }
+
+  /// Runs the native `queryStatus` round-trip in the background and updates
+  /// [_capabilities]/[_status] whenever it resolves (or times out). Must
+  /// never be awaited from [initialize] — see the comment there.
+  Future<void> _probeCapabilities() async {
     try {
-      // Automatic capability detection at startup — availability, native
-      // library version if loaded, and which of the Phase 9 target codecs
-      // the bundled FFmpeg build actually supports.
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('queryStatus');
+      // Automatic capability detection — availability, native library
+      // version if loaded, and which of the Phase 9 target codecs the
+      // bundled FFmpeg build actually supports. Hard timeout guarantees this
+      // always settles even if the native side never replies.
+      final result = await _channel
+          .invokeMethod<Map<dynamic, dynamic>>('queryStatus')
+          .timeout(const Duration(seconds: 3));
       _capabilities = result != null
           ? FfmpegDecoderCapabilities.fromMap(result)
           : FfmpegDecoderCapabilities.unavailable;
@@ -198,7 +226,8 @@ class FfmpegDecoderBridge implements NativeModule {
           ? NativeModuleStatus.available
           : NativeModuleStatus.unavailable;
     } catch (_) {
-      // Channel missing/failed (e.g. platform not Android) — fail open.
+      // Channel missing/failed/timed out (e.g. platform not Android, or the
+      // native reply never arrived) — fail open, already the default above.
       _capabilities = FfmpegDecoderCapabilities.unavailable;
       _status = NativeModuleStatus.unavailable;
     }

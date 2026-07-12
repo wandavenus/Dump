@@ -44,3 +44,4 @@
 - [Lyrics providers review](lyrics-providers-review.md) — Musixmatch removed (dead, no token source); Apple Music lyrics need a real subscriber account token, not free/anonymous like LRCLIB.
 - [native_audio_runtime FFI package](native-audio-runtime-ffi-package.md) — package_ffi template + native-assets hooks; dart.library.ffi web-stub trick; native_toolchain_c wants literal `clang` on PATH; no Android NDK here.
 - [FFmpeg decoder integration (Phase 9)](ffmpeg-decoder-phase9.md) — official Media3 FFmpeg extension via reflection + guarded optional Gradle module; RenderersFactory self-registers extensions, no manual wiring; APE/WavPack/TAK deferred (needs custom Extractor).
+- [Native MethodChannel startup blocking](native-methodchannel-startup-blocking.md) — awaited platform-channel calls in the init chain must be backgrounded + timed out, or a stalled native reply black-screens the whole app.
