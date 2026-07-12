@@ -4,6 +4,7 @@
 // FFmpeg, no audio processing — see native_audio_runtime.h for the contract.
 
 #include "native_audio_runtime.h"
+#include "native_audio_runtime_internal.h"
 
 #include <stdatomic.h>
 #include <string.h>
@@ -95,7 +96,13 @@ static void nar_lock(void) { pthread_mutex_lock(&_module_lock); }
 static void nar_unlock(void) { pthread_mutex_unlock(&_module_lock); }
 #endif
 
-static void nar_set_status(int32_t status) {
+// Defined here to match the extern declaration in
+// native_audio_runtime_internal.h — every other translation unit in this
+// library links against this exact symbol name. It must NOT be `static`;
+// doing so silently drops it from the shared library's dynamic symbol
+// table, leaving every other .c file's call to `nar_runtime_set_last_status`
+// unresolved at dlopen() time (matches the header's "defined once" contract).
+void nar_runtime_set_last_status(int32_t status) {
   atomic_store(&_last_status, status);
 }
 
@@ -109,7 +116,7 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_init(void) {
   for (;;) {
     NarState current = atomic_load(&_state);
     if (current == NAR_STATE_INITIALIZED || current == NAR_STATE_INITIALIZING) {
-      nar_set_status(NATIVE_RUNTIME_ERROR_ALREADY_INITIALIZED);
+      nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_ALREADY_INITIALIZED);
       return NATIVE_RUNTIME_ERROR_ALREADY_INITIALIZED;
     }
     // current is UNINITIALIZED or DISPOSED — try to claim it.
@@ -125,7 +132,7 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_init(void) {
 
   atomic_store(&_state, NAR_STATE_INITIALIZED);
   NAR_LOG("native_runtime_init: ok (version=%s)", kVersion);
-  nar_set_status(NATIVE_RUNTIME_OK);
+  nar_runtime_set_last_status(NATIVE_RUNTIME_OK);
   return NATIVE_RUNTIME_OK;
 }
 
@@ -134,7 +141,7 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_dispose(void) {
   if (prev != NAR_STATE_INITIALIZED) {
     // Disposing when never initialized (or already disposed) is a safe
     // no-op per the header contract, but still report what happened.
-    nar_set_status(NATIVE_RUNTIME_OK);
+    nar_runtime_set_last_status(NATIVE_RUNTIME_OK);
     return NATIVE_RUNTIME_OK;
   }
 
@@ -144,7 +151,7 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_dispose(void) {
   nar_unlock();
 
   NAR_LOG("native_runtime_dispose: ok");
-  nar_set_status(NATIVE_RUNTIME_OK);
+  nar_runtime_set_last_status(NATIVE_RUNTIME_OK);
   return NATIVE_RUNTIME_OK;
 }
 
@@ -176,11 +183,11 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_capability_supported(int32_t index) {
 
 FFI_PLUGIN_EXPORT int32_t native_runtime_register_module(const char* module_id) {
   if (atomic_load(&_state) != NAR_STATE_INITIALIZED) {
-    nar_set_status(NATIVE_RUNTIME_ERROR_NOT_INITIALIZED);
+    nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_NOT_INITIALIZED);
     return NATIVE_RUNTIME_ERROR_NOT_INITIALIZED;
   }
   if (module_id == NULL || module_id[0] == '\0') {
-    nar_set_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
+    nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
 
@@ -207,7 +214,7 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_register_module(const char* module_id) 
   }
   nar_unlock();
 
-  nar_set_status(result);
+  nar_runtime_set_last_status(result);
   return result;
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../../../models/local_song.dart';
+import '../../../utils/safe_num.dart';
 
 // ── Equalizer types ────────────────────────────────────────────────────────────
 // Defined here rather than in the legacy media3_audio_player.dart so that the
@@ -96,16 +97,20 @@ class Media3PlaybackBridge {
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
 
+// A bad tick here (e.g. a native-side ratio computed with a zero
+// denominator) must never crash the whole position/duration pipeline —
+// `toIntOrElse` falls back to 0 ms instead of throwing "Infinity or NaN
+// toInt" out of this stream's map callback.
 static final Stream<Duration> positionStream = _positionEvents
     .receiveBroadcastStream()
     .where((e) => e is num)
-    .map((e) => Duration(milliseconds: (e as num).toInt()))
+    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
     .asBroadcastStream();
 
 static final Stream<Duration> durationStream = _durationEvents
     .receiveBroadcastStream()
     .where((e) => e is num)
-    .map((e) => Duration(milliseconds: (e as num).toInt()))
+    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
     .asBroadcastStream();
 
 static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
@@ -130,7 +135,7 @@ static final Stream<bool> bufferingStateStream = _bufferingStateEvents
 static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
     .receiveBroadcastStream()
     .where((e) => e is num)
-    .map((e) => (e as num).toInt())
+    .map((e) => (e as num).toIntOrElse(-1))
     .asBroadcastStream();
 
 static final Stream<bool> shuffleModeStream = _shuffleModeEvents

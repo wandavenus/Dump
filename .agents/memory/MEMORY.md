@@ -48,3 +48,4 @@
 - [getSongs() timeout hang](getsongs-timeout-hang.md) — MediaStoreService.getSongs() is awaited directly by every Home section; an unguarded MethodChannel call there can spin all of Home forever on a fresh install with no persisted cache.
 - [Web preview blank screen](web-preview-blank-screen.md) — BootTrace.step rethrows; any web-unsafe warm-up step in main()'s Future.wait aborts runApp() silently, blanking the web preview.
 - [Native DSP fail-open architecture](native-dsp-fail-open.md) — missing `-llog` link + missing loudness_processor.c in build.dart sources broke DSP init; PlaybackManager must fail-open on every native DSP call.
+- [Native runtime symbol name mismatch](native-runtime-symbol-name-mismatch.md) — dlopen "cannot locate symbol" when a .c file skips its own internal header and defines a differently-named static fn instead of the extern one; also: Dart clamp() is NaN/Infinity-safe, bare toInt() on stream doubles is not.

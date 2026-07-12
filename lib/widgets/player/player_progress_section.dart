@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/audio_service.dart';
 import '../../services/audio/audio_effects_service.dart';
+import '../../utils/safe_num.dart';
 
 // ─── PlayerProgressSection ────────────────────────────────────────────────────
 //
@@ -131,7 +132,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
         final displayValue = _isDragging ? _dragValue : liveValue;
 
         final displayPosition = _isDragging
-            ? Duration(seconds: _dragValue.toInt())
+            ? Duration(seconds: _dragValue.toIntOrElse(0))
             : position;
 
         return Column(
