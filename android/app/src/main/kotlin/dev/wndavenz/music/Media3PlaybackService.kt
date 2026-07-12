@@ -28,6 +28,7 @@ import dev.wndavenz.music.crossfade.PreloadManager
 import dev.wndavenz.music.effects.AudioEffectsManager
 import dev.wndavenz.music.events.EventEmitter
 import dev.wndavenz.music.events.NativeLogger
+import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.notification.PlaybackNotificationManager
 import dev.wndavenz.music.queue.QueueManager
 import dev.wndavenz.music.queue.QueueSync
@@ -576,6 +577,12 @@ class Media3PlaybackService : MediaSessionService() {
             "onCreate: ExoPlayer ready (Android SDK ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
         )
         transportState.emitAll()
+
+        // Cold-start race fix: everything above (player, session, managers,
+        // transportCommands, queue restore) is fully wired at this point — only
+        // now is it safe for Dart to push settings that reach into effectsManager /
+        // queueManager / crossfadeController. See ServiceReadyGate doc comment.
+        ServiceReadyGate.markReady()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -698,6 +705,9 @@ class Media3PlaybackService : MediaSessionService() {
         // first (the "release" MethodChannel path) or when the system kills the
         // service without a prior prepareShutdown() (system-kill path).
         shutdownCoordinator.performTeardown()
+        // The next onCreate() must go through the same wiring before it's safe
+        // for Dart to push settings again — see ServiceReadyGate doc comment.
+        ServiceReadyGate.reset()
         // Null out service-level fields that the coordinator cannot clear
         // because it holds lambdas, not direct field references.
         audioCapReceiver = null

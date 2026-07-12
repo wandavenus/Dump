@@ -133,6 +133,23 @@ class AudioEffectsService {
 
   static void applyAll() {
     if (kIsWeb) return;
+    unawaited(_pushEngineSettingsWhenReady());
+  }
+
+  // Cold-start race fix: on a fresh install `Media3PlaybackService` does not
+  // exist yet — it is only created on-demand by the user's first "play" /
+  // "setQueue" call (see MainActivity's `needsService` allowlist; anything
+  // else must not force-start it, or a queueless cold start hits the
+  // startForeground() deadline crash). `applyAll()` used to push every
+  // setting immediately and unconditionally at Dart startup, so on a fresh
+  // install this was the very first call into `musicplayer/media3_playback`
+  // — racing `Media3PlaybackService.onCreate()` and hitting
+  // `PlatformException(not_ready)` once `_invoke`'s retry/backoff window
+  // (~3 s) ran out. Waiting for the real readiness signal here — instead of
+  // retrying/ignoring the failure — means these calls simply run once the
+  // service has actually finished wiring, however long that takes.
+  static Future<void> _pushEngineSettingsWhenReady() async {
+    await PlaybackManager.waitForServiceReady();
 
     // Speed & pitch
     _sendSpeed(playbackSpeed.value);

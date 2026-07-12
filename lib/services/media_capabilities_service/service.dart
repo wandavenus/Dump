@@ -81,7 +81,14 @@ class MediaCapabilitiesService {
         'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
   }
 
+  // Cold-start race fix — same root cause as AudioEffectsService.applyAll():
+  // `Media3PlaybackService` doesn't exist until the user's first "play" /
+  // "setQueue" call, so pushing settings unconditionally at Dart startup
+  // races `onCreate()` and can hit `PlatformException(not_ready)`. Waiting
+  // for the real readiness signal (instead of retrying/ignoring the failure)
+  // means these calls run once the service has actually finished wiring.
   static Future<void> _applyAll() async {
+    await PlaybackManager.waitForServiceReady();
     unawaited(PlaybackManager.setSkipSilence(skipSilenceEnabled.value));
     unawaited(PlaybackManager.setStereoWidening(
       enabled:  stereoWideningEnabled.value,

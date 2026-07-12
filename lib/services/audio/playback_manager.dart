@@ -247,6 +247,19 @@ class PlaybackManager {
   static Future<void> setCrossfadeDuration(double s) =>
       Media3PlaybackBridge.setCrossfadeDuration(s);
 
+  /// Cold-start race fix — see `ServiceReadyGate` (native) and
+  /// `Media3PlaybackBridge.serviceReadyStream` (bridge).
+  ///
+  /// Resolves once `Media3PlaybackService.onCreate()` has fully finished
+  /// wiring (player, session, managers, TransportCommands, queue restore).
+  /// On a fresh install the service does not exist until the user's first
+  /// "play"/"setQueue" call creates it — anything that must configure the
+  /// engine before that (persisted bass boost / virtualizer / EQ / crossfade
+  /// / skip-silence / stereo-widening settings) should await this first
+  /// instead of firing immediately and racing `instance` being null.
+  static Future<void> waitForServiceReady() =>
+      Media3PlaybackBridge.serviceReadyStream.first;
+
   static Future<EqualizerParameters?> getEqualizerParameters() async {
     try {
       final raw = await Media3PlaybackBridge.getEqualizerParameters();

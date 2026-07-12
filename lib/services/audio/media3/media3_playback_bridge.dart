@@ -62,6 +62,10 @@ class Media3PlaybackBridge {
   static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
   static const EventChannel _skipSilenceEvents      = EventChannel('musicplayer/media3_skipSilence');
   static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
+  // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
+  // Media3PlaybackService.onCreate() has fully finished wiring; replays
+  // immediately to a listener that subscribes after that already happened.
+  static const EventChannel _serviceReadyEvents     = EventChannel('musicplayer/media3_serviceReady');
 
   // Keep deprecated public refs for callers that use them directly.
   static const EventChannel playbackStateEvents   = _playbackStateEvents;
@@ -195,6 +199,19 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
+
+  /// Cold-start race fix (see ServiceReadyGate.kt / MainActivity.kt).
+  /// Emits `true` once — either immediately (service already finished
+  /// `onCreate()` from an earlier launch in this process) or whenever the
+  /// currently-starting service finishes wiring. Callers that need to push
+  /// settings into the native engine before any transport command has run
+  /// (e.g. persisted bass boost / EQ / skip-silence at startup) should await
+  /// this instead of firing immediately and relying on `not_ready` retries.
+  static final Stream<bool> serviceReadyStream = _serviceReadyEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>()
+      .asBroadcastStream();
 
   // ── Internal invoke with retry ─────────────────────────────────────────────
   //

@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import dev.wndavenz.music.metadata.MetadataPrescanner
@@ -247,6 +248,13 @@ class MainActivity : FlutterActivity() {
 
         EventChannel(messenger, "musicplayer/native_logs")
             .setStreamHandler(Media3PlaybackService.NativeLogs.handler())
+
+        // Cold-start race fix: Dart awaits this before its first push into
+        // media3PlaybackChannel (see ServiceReadyGate doc comment). Replays
+        // "ready" immediately to a listener attaching after onCreate() already
+        // finished (service alive from a previous launch in this process).
+        EventChannel(messenger, "musicplayer/media3_serviceReady")
+            .setStreamHandler(ServiceReadyGate.handler())
     }
 
     // ── FFmpeg decoder channel (Phase 9) ────────────────────────────────────
