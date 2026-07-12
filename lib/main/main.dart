@@ -41,8 +41,8 @@ Future<void> main() async {
         // synchronous disk check (getProviderSync) works from the very first
         // frame — cached cover art then never flashes a placeholder on cold
         // start (app killed / removed from recents).
-        BootTrace.step('ArtworkRepository.warmUp',
-            () => ArtworkRepository.instance.warmUp()),
+        BootTrace.step(
+            'ArtworkRepository.warmUp', ArtworkRepository.instance.warmUp),
         // Persisted palette colours (album card backgrounds, player background
         // shader) so they render instantly on cold start too, matching the
         // artwork image's own instant-render behaviour above.
