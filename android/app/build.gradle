@@ -23,12 +23,13 @@ if (flutterVersionName == null) {
 }
 
 // Phase 9 — FFmpeg decoder extension.
-// The official Media3 FFmpeg decoder extension is not published as a normal
-// Maven artifact, so the built extension module must be vendored at
-// android/decoder-ffmpeg. If it is present, always link it. Gating this behind
-// a local.properties flag made ALAC builds silently ship without the extension
-// and left ExoPlayer on platform MediaCodec renderers only.
-def ffmpegDecoderEnabled = findProject(':decoder-ffmpeg') != null
+// androidx.media3:media3-decoder-ffmpeg is available on Google Maven and is
+// always linked. The native runtime (libffmpegJNI.so) must be built separately
+// from Media3 source using android/build-ffmpeg-jni.sh and placed in
+// android/app/src/main/jniLibs/arm64-v8a/. Without the .so the AAR class
+// (FfmpegLibrary) is on the classpath but isAvailable() returns false at
+// runtime — FfmpegCapabilityProbe handles this gracefully and ExoPlayer falls
+// back to the platform MediaCodec ALAC decoder automatically.
 
 android {
     namespace "dev.wndavenz.music"
@@ -79,7 +80,10 @@ android {
             abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
 
-        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", ffmpegDecoderEnabled.toString()
+        // The AAR class (FfmpegLibrary) is always on the classpath via Maven.
+        // Whether the native libffmpegJNI.so is present is a runtime concern
+        // reported by FfmpegCapabilityProbe.queryStatus().available.
+        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
     }
 
     packaging {
@@ -128,12 +132,12 @@ dependencies {
     implementation 'androidx.media3:media3-extractor:1.10.1'
     implementation 'androidx.media3:media3-container:1.10.1'
 
-    // Phase 9 — see the ffmpegDecoderEnabled guard above. ALAC playback requires
-    // this project dependency to be present so DefaultRenderersFactory can
-    // instantiate FfmpegAudioRenderer and load libffmpegJNI.so from the APK.
-    if (ffmpegDecoderEnabled) {
-        implementation project(':decoder-ffmpeg')
-    }
+    // Phase 9 — FFmpeg decoder extension for ALAC (and other formats unsupported
+    // by platform MediaCodec). The AAR is published on Google Maven and always
+    // included. The native libffmpegJNI.so must be built separately; see
+    // android/build-ffmpeg-jni.sh. Without the .so the extension is gracefully
+    // skipped by FfmpegCapabilityProbe and ExoPlayer falls back to MediaCodec.
+    implementation 'androidx.media3:media3-decoder-ffmpeg:1.10.1'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'

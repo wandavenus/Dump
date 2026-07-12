@@ -44,14 +44,8 @@ plugins {
 
 include ":app"
 
-// Phase 9 — FFmpeg decoder extension (vendored locally).
-//
-// `androidx.media3:media3-decoder-ffmpeg` is not published to Maven Central;
-// it must be built from source against a real Android NDK and dropped in at
-// `android/decoder-ffmpeg/`. When present, the app module links it
-// unconditionally so ALAC never falls back to a silent platform decoder path
-// because of a forgotten local.properties flag.
-if (file("decoder-ffmpeg").exists()) {
-    include ":decoder-ffmpeg"
-    project(":decoder-ffmpeg").projectDir = file("decoder-ffmpeg")
-}
+// Phase 9 — androidx.media3:media3-decoder-ffmpeg is pulled directly from
+// Google Maven in app/build.gradle. No local :decoder-ffmpeg sub-module is
+// needed. The native libffmpegJNI.so is built separately via
+// android/build-ffmpeg-jni.sh and placed in
+// android/app/src/main/jniLibs/arm64-v8a/.

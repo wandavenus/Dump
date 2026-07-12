@@ -7,23 +7,20 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * ## Why reflection
  *
- * `androidx.media3:media3-decoder-ffmpeg` is **not** on Maven Central — it must
- * be vendored as a local Gradle module built against a real Android NDK (see
- * `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` for the build runbook). This
- * sandbox has no NDK, so the module is not physically present here, and may
- * not be present on every build machine that checks out this repo either.
+ * `androidx.media3:media3-decoder-ffmpeg` is linked as a Maven dependency and
+ * its AAR class (`FfmpegLibrary`) is always on the classpath. However, the
+ * native runtime (`libffmpegJNI.so`) must be built separately from the
+ * androidx/media source tree using `android/build-ffmpeg-jni.sh` and placed at
+ * `android/app/src/main/jniLibs/arm64-v8a/libffmpegJNI.so`. Until the .so is
+ * present in the APK, `FfmpegLibrary.isAvailable()` returns false because
+ * `System.loadLibrary("ffmpegJNI")` fails — this probe collapses both "class
+ * missing" and "native lib missing" into `available = false` so callers always
+ * get a single yes/no answer.
  *
- * To keep `Media3PlaybackService.kt` compiling and the app fully functional
- * with or without the module, this probe never imports
- * `androidx.media3.decoder.ffmpeg.FfmpegLibrary` directly. It looks the class
- * up by fully-qualified name at runtime and calls its static methods via
- * reflection, exactly like the existing Hi-Res Audio / MIUI-broadcast probes
- * elsewhere in this codebase handle optional OEM APIs.
- *
- * This also means: the moment the module is vendored and
- * `ffmpegDecoderEnabled=true` is set in `local.properties`, this probe starts
- * reporting real data with **zero code changes** — the reflective lookup
- * simply stops failing.
+ * Reflection is kept (instead of a direct import) so that a build without the
+ * .so still compiles and runs cleanly: the probe returns `available=false` and
+ * ExoPlayer falls back to the platform MediaCodec ALAC decoder automatically
+ * with zero code changes needed.
  *
  * ## What "available" means
  *
