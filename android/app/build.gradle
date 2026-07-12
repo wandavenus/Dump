@@ -22,15 +22,13 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// Phase 9 — FFmpeg decoder extension (optional, opt-in).
-// Set `ffmpegDecoderEnabled=true` in local.properties only after vendoring
-// the module at android/decoder-ffmpeg/ (see settings.gradle and
-// docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md). Both guards — the flag AND the
-// module actually being included by settings.gradle — must be true, so a
-// stale flag left in local.properties can never break a build that doesn't
-// have the module vendored.
-def ffmpegDecoderEnabled = localProperties.getProperty('ffmpegDecoderEnabled', 'false').toBoolean() &&
-        findProject(':decoder-ffmpeg') != null
+// Phase 9 — FFmpeg decoder extension.
+// The official Media3 FFmpeg decoder extension is not published as a normal
+// Maven artifact, so the built extension module must be vendored at
+// android/decoder-ffmpeg. If it is present, always link it. Gating this behind
+// a local.properties flag made ALAC builds silently ship without the extension
+// and left ExoPlayer on platform MediaCodec renderers only.
+def ffmpegDecoderEnabled = findProject(':decoder-ffmpeg') != null
 
 android {
     namespace "dev.wndavenz.music"
@@ -80,6 +78,8 @@ android {
         ndk {
             abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
+
+        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", ffmpegDecoderEnabled.toString()
     }
 
     packaging {
@@ -128,13 +128,9 @@ dependencies {
     implementation 'androidx.media3:media3-extractor:1.10.1'
     implementation 'androidx.media3:media3-container:1.10.1'
 
-    // Phase 9 — see the ffmpegDecoderEnabled guard above. When this is not
-    // included, DefaultRenderersFactory's EXTENSION_RENDERER_MODE_ON simply
-    // finds no androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer class on the
-    // classpath and skips it — Media3's built-in decoders keep working exactly
-    // as they do today. No other code in this project depends on this
-    // dependency actually being present (FfmpegCapabilityProbe.kt uses
-    // reflection precisely so it never needs this to compile).
+    // Phase 9 — see the ffmpegDecoderEnabled guard above. ALAC playback requires
+    // this project dependency to be present so DefaultRenderersFactory can
+    // instantiate FfmpegAudioRenderer and load libffmpegJNI.so from the APK.
     if (ffmpegDecoderEnabled) {
         implementation project(':decoder-ffmpeg')
     }
