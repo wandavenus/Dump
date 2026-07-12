@@ -45,3 +45,5 @@
 - [native_audio_runtime FFI package](native-audio-runtime-ffi-package.md) — package_ffi template + native-assets hooks; dart.library.ffi web-stub trick; native_toolchain_c wants literal `clang` on PATH; no Android NDK here.
 - [FFmpeg decoder integration (Phase 9)](ffmpeg-decoder-phase9.md) — official Media3 FFmpeg extension via reflection + guarded optional Gradle module; RenderersFactory self-registers extensions, no manual wiring; APE/WavPack/TAK deferred (needs custom Extractor).
 - [Native MethodChannel startup blocking](native-methodchannel-startup-blocking.md) — awaited platform-channel calls in the init chain must be backgrounded + timed out, or a stalled native reply black-screens the whole app.
+- [getSongs() timeout hang](getsongs-timeout-hang.md) — MediaStoreService.getSongs() is awaited directly by every Home section; an unguarded MethodChannel call there can spin all of Home forever on a fresh install with no persisted cache.
+- [Web preview blank screen](web-preview-blank-screen.md) — BootTrace.step rethrows; any web-unsafe warm-up step in main()'s Future.wait aborts runApp() silently, blanking the web preview.
