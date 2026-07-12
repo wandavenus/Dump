@@ -870,7 +870,12 @@ class Media3PlaybackService : MediaSessionService() {
                 .build()
         }
             .setEnableAudioFloatOutput(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            // ALAC must use the bundled FFmpeg software renderer when present.
+            // EXTENSION_RENDERER_MODE_PREFER places extension renderers before
+            // MediaCodec renderers, avoiding devices that advertise an ALAC
+            // platform decoder but output silence. Decoder fallback remains enabled
+            // so Media3 can still try lower-priority decoders if initialization fails.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             .setEnableDecoderFallback(true)  // Item 2
 
         // DefaultTrackSelector with explicit audio preferences.
@@ -926,6 +931,20 @@ class Media3PlaybackService : MediaSessionService() {
                     addAudioOffloadListener(offloadManager.makeOffloadListener())
                 }
             }
+
+        val ffmpegStatus = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.queryStatus()
+        NativeLogger.emit(
+            if (ffmpegStatus.available) "info" else "warn",
+            "Ffmpeg",
+            "Renderer config: extensionRendererMode=PREFER " +
+                "decoderFallback=true moduleLinked=${BuildConfig.MEDIA3_FFMPEG_DECODER_LINKED} " +
+                "classLinked=${ffmpegStatus.moduleLinked} available=${ffmpegStatus.available} " +
+                "version=${ffmpegStatus.version ?: "unknown"} " +
+                "supported=${ffmpegStatus.supportedCodecs.joinToString()} " +
+                "playerRenderers=${(0 until player.rendererCount).joinToString { idx ->
+                    "#${idx}:type=${player.getRendererType(idx)}"
+                }}",
+        )
 
         // Track the processor for this player so it can be removed from
         // StereoWidthManager when the player is released (via detachPlayerListener).
@@ -1263,8 +1282,9 @@ class Media3PlaybackService : MediaSessionService() {
                     "  $reuseStr", p)
                 NativeLogger.emit(
                     "info", "Media3",
-                    "AudioInputFormat changed isActive=$active" +
-                    "  mime=${format.sampleMimeType} ${format.sampleRate}Hz ${format.channelCount}ch" +
+                    "Selected renderer/input format: isActive=$active" +
+                    "  mime=${format.sampleMimeType} codec=${format.codecs ?: ""}" +
+                    "  ${format.sampleRate}Hz ${format.channelCount}ch" +
                     "  $reuseStr  thread=${Thread.currentThread().name}")
             }
 
@@ -1288,8 +1308,12 @@ class Media3PlaybackService : MediaSessionService() {
                     "  decoder=$decoderName initDuration=${initializationDurationMs}ms", p)
                 NativeLogger.emit(
                     "info", "Media3",
-                    "AudioDecoder INITIALIZED isActive=$active" +
-                    "  decoder=$decoderName init=${initializationDurationMs}ms" +
+                    "Selected decoder: isActive=$active" +
+                    "  decoder=$decoderName" +
+                    "  mime=${lastAudioMimeType[p] ?: "unknown"}" +
+                    "  codec=${if (dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.isFfmpegDecoderName(decoderName)) "FFmpeg software" else "MediaCodec/platform"}" +
+                    "  hardwareSoftware=${if (dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.isFfmpegDecoderName(decoderName)) "software" else "platform"}" +
+                    "  init=${initializationDurationMs}ms" +
                     "  thread=${Thread.currentThread().name}",
                 )
 
@@ -1310,6 +1334,8 @@ class Media3PlaybackService : MediaSessionService() {
                         "isFfmpegDecoder"          to isFfmpeg,
                         "initializationDurationMs" to initializationDurationMs,
                         "reason"                   to reason,
+                        "rendererMode"             to "PREFER",
+                        "hardwareSoftware"         to if (isFfmpeg) "software" else "platform",
                     ))
                 }
             }
@@ -1355,7 +1381,7 @@ class Media3PlaybackService : MediaSessionService() {
                     "  bufferSize=${audioTrackConfig.bufferSize}", p)
                 NativeLogger.emit(
                     "info", "Media3",
-                    "AudioTrack INITIALIZED isActive=$active" +
+                    "AudioTrack initialized / PCM sink ready: isActive=$active" +
                     "  encoding=${audioTrackConfig.encoding}" +
                     "  ${audioTrackConfig.sampleRate}Hz offload=${audioTrackConfig.offload}" +
                     "  thread=${Thread.currentThread().name}")

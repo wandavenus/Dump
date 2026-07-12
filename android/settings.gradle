@@ -44,17 +44,13 @@ plugins {
 
 include ":app"
 
-// Phase 9 — FFmpeg decoder extension (optional, vendored locally).
+// Phase 9 — FFmpeg decoder extension (vendored locally).
 //
 // `androidx.media3:media3-decoder-ffmpeg` is not published to Maven Central;
 // it must be built from source against a real Android NDK and dropped in at
-// `android/decoder-ffmpeg/` (a standard Gradle library module — see
-// `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` for the exact build steps).
-// This sandbox has no NDK, so the directory does not exist here. Guarding the
-// include on the directory's existence means `flutter build` / `gradle sync`
-// keep working with zero changes both here and on any machine that has not
-// vendored the module yet — the app simply runs without the FFmpeg fallback
-// decoder until someone completes that one-time native build.
+// `android/decoder-ffmpeg/`. When present, the app module links it
+// unconditionally so ALAC never falls back to a silent platform decoder path
+// because of a forgotten local.properties flag.
 if (file("decoder-ffmpeg").exists()) {
     include ":decoder-ffmpeg"
     project(":decoder-ffmpeg").projectDir = file("decoder-ffmpeg")
