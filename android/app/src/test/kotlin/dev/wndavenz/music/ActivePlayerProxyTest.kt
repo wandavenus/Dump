@@ -45,7 +45,7 @@ import org.mockito.kotlin.whenever
  *   H. Transport command lambda delegation
  *   I. seekTo() routing (INDEX_UNSET, same index, queue jump)
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class ActivePlayerProxyTest {
 
     private lateinit var p1: ExoPlayer

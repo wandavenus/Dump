@@ -25,7 +25,7 @@ import org.junit.Test
  *   G. System-kill path — performTeardown() without prior prepareShutdown()
  *   H. stop vs release semantic difference (verified via call counts)
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class ServiceShutdownCoordinatorTest {
 
     // ── Call-counter state ────────────────────────────────────────────────────
@@ -296,7 +296,7 @@ class ServiceShutdownCoordinatorTest {
     // F. Normal "release" flow — prepareShutdown() then performTeardown()
     // ═════════════════════════════════════════════════════════════════════════
 
-    @Test fun `F01 prepare then teardown: both phases run`() {
+    @Test fun `F01 prepare then teardown - both phases run`() {
         val c = makeCoordinator()
         c.prepareShutdown()
         c.performTeardown()
@@ -305,35 +305,35 @@ class ServiceShutdownCoordinatorTest {
         assertTrue(c.teardownPerformed)
     }
 
-    @Test fun `F02 prepare then teardown: primary player released exactly once`() {
+    @Test fun `F02 prepare then teardown - primary player released exactly once`() {
         val c = makeCoordinator()
         c.prepareShutdown()
         c.performTeardown()
         assertEquals(1, releasePrimaryPlayerCalls)
     }
 
-    @Test fun `F03 prepare then teardown: secondary player released exactly once`() {
+    @Test fun `F03 prepare then teardown - secondary player released exactly once`() {
         val c = makeCoordinator()
         c.prepareShutdown()
         c.performTeardown()
         assertEquals(1, releaseSecondaryPlayerCalls)
     }
 
-    @Test fun `F04 prepare then teardown: media session released exactly once`() {
+    @Test fun `F04 prepare then teardown - media session released exactly once`() {
         val c = makeCoordinator()
         c.prepareShutdown()
         c.performTeardown()
         assertEquals(1, releaseMediaSessionCalls)
     }
 
-    @Test fun `F05 prepare then teardown: effects released exactly once`() {
+    @Test fun `F05 prepare then teardown - effects released exactly once`() {
         val c = makeCoordinator()
         c.prepareShutdown()
         c.performTeardown()
         assertEquals(1, releaseEffectsCalls)
     }
 
-    @Test fun `F06 prepare then teardown: crossfade cancelled in both phases`() {
+    @Test fun `F06 prepare then teardown - crossfade cancelled in both phases`() {
         // CrossfadeController.cancel() is naturally idempotent — calling it in
         // both Phase 1 and Phase 2 is intentional (Phase 2 handles the system-kill
         // path where Phase 1 may not have run).
@@ -343,7 +343,7 @@ class ServiceShutdownCoordinatorTest {
         assertEquals(2, cancelCrossfadeCalls)
     }
 
-    @Test fun `F07 prepare then teardown: abandon audio focus called in both phases`() {
+    @Test fun `F07 prepare then teardown - abandon audio focus called in both phases`() {
         // AudioFocusManager.abandon() is idempotent — safe to call twice.
         val c = makeCoordinator()
         c.prepareShutdown()

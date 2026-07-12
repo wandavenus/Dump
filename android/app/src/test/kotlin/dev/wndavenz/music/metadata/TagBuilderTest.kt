@@ -32,7 +32,7 @@ import org.junit.Test
  *   G. Format regressions    — complete FLAC / OGG / OPUS / M4A scenarios
  *   H. build() / hasLoudness — AudioTags assembly and helper
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class TagBuilderTest {
 
     private lateinit var builder: TagBuilder
@@ -177,8 +177,9 @@ class TagBuilderTest {
         assertNull(builder.rgTrackGain)
     }
 
-    @Test fun `A18 TXXX with empty values list ignored`() {
-        builder.consume(txxxValues("REPLAYGAIN_TRACK_GAIN", emptyList()))
+    @Test fun `A18 TXXX constructor rejects empty values list before consume`() {
+        val result = runCatching { txxxValues("REPLAYGAIN_TRACK_GAIN", emptyList()) }
+        assertTrue(result.isFailure)
         assertNull(builder.rgTrackGain)
     }
 

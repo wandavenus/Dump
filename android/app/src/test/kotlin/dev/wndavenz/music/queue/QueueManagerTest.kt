@@ -22,7 +22,7 @@ import org.junit.Test
  *   G. Crossfade guard — list mutations still apply when isCrossfadeInProgress=true
  *   H. rebuildPlayerQueue — safe with null player
  */
-@OptIn(UnstableApi::class)
+@UnstableApi
 class QueueManagerTest {
 
     private var saveQueueCount = 0
@@ -185,7 +185,7 @@ class QueueManagerTest {
         assertEquals("D", mgr.queue[2]["title"])
     }
 
-    @Test fun `D02 removeFromQueue(index < active) decrements activeQueueIndex`() {
+    @Test fun `D02 removeFromQueue index before active decrements activeQueueIndex`() {
         val mgr = makeManager()
         mgr.setQueue(fiveItemQueue(), startIndex = 3)  // active = D at 3
         mgr.removeFromQueue(1)  // remove "B" (before active)
@@ -193,7 +193,7 @@ class QueueManagerTest {
         assertEquals("D", mgr.queue[mgr.activeQueueIndex]["title"])
     }
 
-    @Test fun `D03 removeFromQueue(index > active) does not change activeQueueIndex`() {
+    @Test fun `D03 removeFromQueue index after active does not change activeQueueIndex`() {
         val mgr = makeManager()
         mgr.setQueue(fiveItemQueue(), startIndex = 2)  // active = C at 2
         mgr.removeFromQueue(4)  // remove "E" (after active)
