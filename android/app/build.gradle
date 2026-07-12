@@ -22,14 +22,13 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// Phase 9 — FFmpeg decoder extension.
-// androidx.media3:media3-decoder-ffmpeg is NOT published on any public Maven
-// repository. The AAR + native libffmpegJNI.so must be built from
-// androidx/media source using android/build-ffmpeg-jni.sh (requires NDK), then
-// dropped as a local module at android/decoder-ffmpeg/. Without that module the
-// build proceeds normally and ExoPlayer falls back to the platform MediaCodec
-// ALAC decoder (supported on Android 10+ / minSdk 29).
-def ffmpegDecoderEnabled = findProject(':decoder-ffmpeg') != null
+// Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
+// androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
+// maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
+// Maven Central that includes prebuilt libffmpegJNI.so for all ABIs (including
+// arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
+// media3 deps so Gradle resolves everything to our pinned 1.10.1 versions.
+// License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
 
 android {
     namespace "dev.wndavenz.music"
@@ -80,7 +79,8 @@ android {
             abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
 
-        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", ffmpegDecoderEnabled.toString()
+        // Jellyfin AAR is always on the classpath via Maven Central.
+        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
     }
 
     packaging {
@@ -129,13 +129,13 @@ dependencies {
     implementation 'androidx.media3:media3-extractor:1.10.1'
     implementation 'androidx.media3:media3-container:1.10.1'
 
-    // Phase 9 — see the ffmpegDecoderEnabled guard above. The local module is
-    // present only after running android/build-ffmpeg-jni.sh which clones
-    // androidx/media 1.10.1, compiles libffmpegJNI.so (arm64-v8a) with NDK,
-    // and packages the result as android/decoder-ffmpeg/. Without it, ExoPlayer
-    // falls back to the platform MediaCodec ALAC decoder automatically.
-    if (ffmpegDecoderEnabled) {
-        implementation project(':decoder-ffmpeg')
+    // Phase 9 — Jellyfin prebuilt FFmpeg decoder (ALAC + other formats).
+    // Excludes Jellyfin's transitive media3 deps (1.9.0) so Gradle resolves
+    // everything to our pinned 1.10.1. The arm64-v8a .so is extracted
+    // automatically from the AAR; other ABIs are stripped by abiFilters above.
+    implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
+        exclude group: 'androidx.media3', module: 'media3-decoder'
+        exclude group: 'androidx.media3', module: 'media3-exoplayer'
     }
 
     testImplementation 'junit:junit:4.13.2'

@@ -7,18 +7,17 @@ import dev.wndavenz.music.events.NativeLogger
  *
  * ## Why reflection
  *
- * `androidx.media3:media3-decoder-ffmpeg` is **not** on any public Maven
- * repository. The AAR (including the native `libffmpegJNI.so`) must be built
- * from the androidx/media source tree using `android/build-ffmpeg-jni.sh`
- * (requires Android NDK) and dropped as a local Gradle module at
- * `android/decoder-ffmpeg/`. Until that module is present, the class is not on
- * the classpath at all and this probe returns `available = false`.
+ * The FFmpeg decoder AAR ships as `org.jellyfin.media3:media3-ffmpeg-decoder`
+ * on Maven Central — a community prebuilt maintained by the Jellyfin project
+ * that includes `libffmpegJNI.so` for all ABIs including arm64-v8a. It is a
+ * fork of `androidx.media3:media3-decoder-ffmpeg` (which is NOT on any public
+ * Maven repository) built from the same source, licensed GPL v3.
  *
- * Reflection is kept so that this file compiles and runs cleanly whether or not
- * the module is present: `Class.forName` returning null and `isAvailable()`
- * returning false both collapse to `available = false` — callers get a single
- * yes/no answer and ExoPlayer falls back to the platform MediaCodec ALAC
- * decoder automatically with zero code changes needed.
+ * Reflection is kept rather than a direct import so this file compiles and
+ * runs cleanly even if the dependency is ever removed: `Class.forName`
+ * returning null and `isAvailable()` returning false both collapse to
+ * `available = false` — callers get a single yes/no answer and ExoPlayer
+ * falls back to the platform MediaCodec ALAC decoder automatically.
  *
  * ## What "available" means
  *

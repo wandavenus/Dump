@@ -44,16 +44,6 @@ plugins {
 
 include ":app"
 
-// Phase 9 — FFmpeg decoder extension (vendored locally).
-//
-// androidx.media3:media3-decoder-ffmpeg is NOT on any public Maven repository.
-// It must be built from androidx/media source with Android NDK via
-// android/build-ffmpeg-jni.sh, which produces a local AAR at
-// android/decoder-ffmpeg/ (the AAR embeds libffmpegJNI.so for arm64-v8a).
-// When that directory is present, the module is linked unconditionally so
-// ALAC always uses the FFmpeg software decoder instead of the platform
-// MediaCodec path (which silently outputs silence on some devices).
-if (file("decoder-ffmpeg").exists()) {
-    include ":decoder-ffmpeg"
-    project(":decoder-ffmpeg").projectDir = file("decoder-ffmpeg")
-}
+// Phase 9 — FFmpeg decoder is now sourced from Jellyfin's prebuilt AAR on
+// Maven Central (org.jellyfin.media3:media3-ffmpeg-decoder). No local
+// :decoder-ffmpeg sub-module is needed. See app/build.gradle dependencies.
