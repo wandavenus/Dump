@@ -1,5 +1,6 @@
 import 'contracts/native_module.dart';
 import '../log_service.dart';
+import '../boot_trace.dart';
 
 /// Central registry for all [NativeModule] instances.
 ///
@@ -35,21 +36,31 @@ class NativeModuleRegistry {
 
   /// Initialize all registered modules in registration order.
   static Future<void> initializeAll() async {
+    BootTrace.log('ENTER NativeModuleRegistry.initializeAll() '
+        '(${_modules.length} module(s): ${_modules.map((m) => m.moduleId).join(', ')})');
     for (final m in _modules) {
+      BootTrace.log('BEFORE await ${m.moduleId}.initialize()');
+      final sw = Stopwatch()..start();
       try {
         await m.initialize();
+        BootTrace.log(
+            'AFTER  await ${m.moduleId}.initialize() (${sw.elapsedMilliseconds}ms)');
         LogService.log(
           'NativeModuleRegistry',
           '${m.displayName} (${m.moduleId}) — '
           '${m.isAvailable ? 'available' : 'unavailable (stub)'}',
         );
-      } catch (e) {
+      } catch (e, st) {
+        BootTrace.log(
+            'EXCEPTION in ${m.moduleId}.initialize() after '
+            '${sw.elapsedMilliseconds}ms: $e\n$st');
         LogService.log(
           'NativeModuleRegistry',
           '${m.displayName} init error: $e',
         );
       }
     }
+    BootTrace.log('EXIT  NativeModuleRegistry.initializeAll()');
   }
 
   /// Dispose all registered modules in reverse registration order.

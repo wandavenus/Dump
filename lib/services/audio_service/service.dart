@@ -79,7 +79,11 @@ class AudioService {
   // ── Initialization ────────────────────────────────────────────────────────
 
   static void initialize() {
-    if (_initialized) return;
+    BootTrace.log('ENTER AudioService.initialize()');
+    if (_initialized) {
+      BootTrace.log('EXIT  AudioService.initialize() — already initialized, no-op');
+      return;
+    }
     _initialized = true;
 
     // ── Engine playback state ─────────────────────────────────────────────
@@ -172,6 +176,7 @@ class AudioService {
         AudioEffectsService.loudnessNormTarget.value);
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
+    BootTrace.log('EXIT  AudioService.initialize()');
   }
 
   static void _onReplayGainSettingChanged() {
