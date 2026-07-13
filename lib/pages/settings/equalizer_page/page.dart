@@ -33,7 +33,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).maybePop(),
           child: const Icon(
-            CupertinoIcons.back,
+            CupertinoIcons.arrow_left,
             color: Color(0xFFF92D48),
             size: 28,
           ),
