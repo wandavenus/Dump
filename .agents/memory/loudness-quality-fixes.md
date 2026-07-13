@@ -29,3 +29,8 @@ description: Fixes for audio quality issues in the loudness normalization pipeli
 **Rule:** `AudioEffectsService.setLoudnessNormEnabled(true)` now calls `PlaybackManager.setLoudnessEnabled(false)` + `setLoudnessTargetGain(0.0)`.
 **Why:** System LoudnessEnhancer (AudioFlinger) and native EBU R128 (ExoPlayer audio processor) are in series. Both active = double gain boost + potential clipping.
 **Note:** Reverse interlock (system LE → disable native norm) not implemented — would require intercepting `DeviceDsp.applyNormalize()` which is called from the settings UI. Consider adding if double-active is still possible via Settings UI path.
+
+### 6. Batch ReplayGain library scan
+**Rule:** `ReplayGainService.scanLibrary(List<LocalSong>)` scans songs sequentially via `scanReplayGain` MethodChannel. Uses existing `ReplayGainScanner.kt` (MediaCodec + EBU R128). Progress tracked via `ReplayGainService.scanProgress` (ValueNotifier<BatchScanProgress>). UI lives in `_BatchScanSection` inside Settings → Audio → Audio Normalize (collapsible area).
+**Why:** Before this, users with untagged files had no way to pre-compute RG data for the whole library in one go. Only per-song on-demand scan existed.
+**How to apply:** The scan skips songs already in `_cache` with non-zero gainDb. 60ms inter-song yield to avoid thermal throttling on Snapdragon 730. `cancelScan()` sets `_cancelRequested=true`; current song always finishes. Adds `dart:async show unawaited` + `ReplayGainService` + `MediaStoreService` imports to `settings_page.dart`.

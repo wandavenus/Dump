@@ -270,4 +270,175 @@ class ReplayGainService {
       ]);
     } catch (_) {}
   }
+
+  // ── Batch library scan ────────────────────────────────────────────────────
+
+  static bool _cancelRequested = false;
+
+  /// Live progress state for a [scanLibrary] run.
+  /// Bind UI widgets to this notifier — it updates after every song.
+  static final ValueNotifier<BatchScanProgress> scanProgress =
+      ValueNotifier(const BatchScanProgress());
+
+  /// Requests cancellation of the active [scanLibrary] run.
+  /// The current song finishes before the loop stops.
+  static void cancelScan() => _cancelRequested = true;
+
+  /// Scan a single [song] via the native EBU R128 / MediaCodec scanner.
+  ///
+  /// On success the result is stored in MetadataCacheDb (by the native
+  /// handler) and in the Dart memory cache + SharedPreferences.
+  /// Returns `null` if the file cannot be decoded.
+  static Future<LoudnessData?> scanOneSong(LocalSong song) async {
+    if (kIsWeb || song.path.isEmpty) return null;
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'scanReplayGain',
+        {'path': song.path},
+      );
+      if (raw == null) return null;
+      final gainDb = (raw['trackGainDb'] as num?)?.toDouble();
+      final peak   = (raw['trackPeak']   as num?)?.toDouble();
+      if (gainDb == null) return null;
+      final data = LoudnessData(
+        gainDb:     gainDb,
+        peakLinear: (peak != null && peak > 0.0) ? peak : null,
+        source:     LoudnessSource.replayGainTrack,
+      );
+      _cache[song.id] = data;
+      await _saveToPrefs(song.id, data);
+      return data;
+    } on PlatformException catch (e) {
+      LogService.warn('ReplayGain',
+          'scanOneSong "${song.title}": ${e.code} – ${e.message}');
+      return null;
+    } catch (e) {
+      LogService.warn('ReplayGain', 'scanOneSong "${song.title}": $e');
+      return null;
+    }
+  }
+
+  /// Batch-scan [songs] sequentially with the native EBU R128 scanner.
+  ///
+  /// Songs already in the in-memory cache with a non-zero gain are skipped so
+  /// large, already-tagged libraries are not unnecessarily re-decoded.
+  /// Progress is reported via [scanProgress].  Call [cancelScan] to abort
+  /// mid-run; the current song always completes before the loop stops.
+  ///
+  /// Returns immediately (no-op) if a scan is already running.
+  static Future<void> scanLibrary(List<LocalSong> songs) async {
+    if (kIsWeb || songs.isEmpty) return;
+    if (scanProgress.value.running) return;
+
+    final toScan = songs
+        .where((s) {
+          final c = _cache[s.id];
+          return c == null || c.gainDb == 0.0;
+        })
+        .toList();
+
+    if (toScan.isEmpty) {
+      scanProgress.value = const BatchScanProgress(
+        currentTitle: 'Semua lagu sudah punya data Audio Normalize',
+      );
+      return;
+    }
+
+    _cancelRequested = false;
+    scanProgress.value = BatchScanProgress(total: toScan.length, running: true);
+
+    var failed = 0;
+    for (var i = 0; i < toScan.length; i++) {
+      if (_cancelRequested) {
+        scanProgress.value = scanProgress.value.copyWith(
+          done: i, running: false, cancelled: true,
+        );
+        LogService.log('ReplayGain', 'Scan dibatalkan pada $i/${toScan.length}');
+        return;
+      }
+
+      final song = toScan[i];
+      scanProgress.value = scanProgress.value.copyWith(
+        done: i, currentTitle: song.title,
+      );
+
+      // Retry once on scan_busy (native executor occupied by concurrent scan)
+      LoudnessData? result;
+      for (var attempt = 0; attempt < 2 && result == null; attempt++) {
+        if (attempt > 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+        }
+        result = await scanOneSong(song);
+      }
+      if (result == null) failed++;
+
+      // Brief yield between songs — reduces thermal pressure on mid-range
+      // devices (e.g. Snapdragon 730 on Xiaomi Mi 9T).
+      if (i < toScan.length - 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+      }
+    }
+
+    scanProgress.value = BatchScanProgress(
+      done:    toScan.length,
+      total:   toScan.length,
+      failed:  failed,
+      running: false,
+    );
+    LogService.log(
+      'ReplayGain',
+      'Batch scan selesai: ${toScan.length - failed} berhasil, $failed gagal',
+    );
+  }
+}
+
+// ── Batch scan progress snapshot ──────────────────────────────────────────────
+
+/// Immutable state for a [ReplayGainService.scanLibrary] run.
+class BatchScanProgress {
+  const BatchScanProgress({
+    this.done         = 0,
+    this.total        = 0,
+    this.failed       = 0,
+    this.running      = false,
+    this.cancelled    = false,
+    this.currentTitle = '',
+  });
+
+  /// Songs processed so far (successes + failures combined).
+  final int    done;
+  /// Total songs queued for this run.
+  final int    total;
+  /// Songs that failed to decode.
+  final int    failed;
+  /// Whether a scan is currently in progress.
+  final bool   running;
+  /// Whether the last scan ended due to user cancellation.
+  final bool   cancelled;
+  /// Title of the song currently being scanned (empty when idle).
+  final String currentTitle;
+
+  int  get succeeded => done - failed;
+
+  /// `true` when no scan has started yet since app launch.
+  bool get idle      => !running && total == 0;
+
+  /// `true` after a scan completes (with or without cancellation).
+  bool get finished  => !running && total > 0;
+
+  BatchScanProgress copyWith({
+    int?    done,
+    int?    total,
+    int?    failed,
+    bool?   running,
+    bool?   cancelled,
+    String? currentTitle,
+  }) => BatchScanProgress(
+    done:         done         ?? this.done,
+    total:        total        ?? this.total,
+    failed:       failed       ?? this.failed,
+    running:      running      ?? this.running,
+    cancelled:    cancelled    ?? this.cancelled,
+    currentTitle: currentTitle ?? this.currentTitle,
+  );
 }
