@@ -39,16 +39,12 @@ class _BitPerfectSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
               child: Text(
                 enabled
-                    ? 'Equalizer, Bass Boost, Spatial Audio, Compressor, '
-                        'Limiter, Soft Clipper, Crossfeed, ReplayGain, '
-                        'Loudness Normalization, Crossfade, Kecepatan Putar, '
-                        'dan Pitch Shift semuanya dipaksa nonaktif agar sinyal '
+                    ?   'Semua fitur DSP dipaksa nonaktif agar sinyal '
                         'sedekat mungkin dengan sumber asli. Kontrol-kontrol '
                         'tersebut dikunci selama mode ini aktif — pengaturan '
                         'sebelumnya akan dikembalikan saat dinonaktifkan.'
                     : 'Saat aktif, semua fitur yang mengubah sinyal audio di '
-                        'seluruh aplikasi akan dipaksa mati, bukan cuma di '
-                        'halaman Equalizer.',
+                        'seluruh aplikasi akan dipaksa Nonaktif.',
                 style: const TextStyle(color: Color(0xFF636366), fontSize: 12),
               ),
             ),
@@ -121,7 +117,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Semua efek dan pemrosesan audio di seluruh aplikasi akan '
-                  'dinonaktifkan paksa (bukan hanya di Equalizer). Pengaturan '
+                  'dinonaktifkan paksa. Pengaturan '
                   'yang sedang aktif akan disimpan dan dikembalikan otomatis '
                   'saat mode ini dimatikan lagi.',
                   style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
