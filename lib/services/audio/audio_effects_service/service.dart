@@ -36,14 +36,41 @@ class AudioEffectsService {
   static final ValueNotifier<double> loudnessNormTarget = ValueNotifier(-23.0);
 
   // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────
+  //
+  // Native pipeline defaults this processor to bypass=false (i.e. active)
+  // the moment it registers. We always explicitly push the bypass state on
+  // startup (see `_pushEngineSettingsWhenReady`) so the audible effect stays
+  // off until the user turns it on here, regardless of the native default.
 
-  /// Whether headphone crossfeed is enabled. Native default is ON (amount
-  /// 0.3) as soon as the DSP pipeline initializes, so this notifier starts
-  /// `true` to mirror that reality until prefs say otherwise.
-  static final ValueNotifier<bool> crossfeedEnabled = ValueNotifier(true);
+  static final ValueNotifier<bool> crossfeedEnabled = ValueNotifier(false);
 
-  /// Crossfeed blend strength [0, 1]. Default 0.3 (native default).
+  /// Crossfeed blend strength [0, 1]. Default 0.3 when enabled.
   static final ValueNotifier<double> crossfeedAmount = ValueNotifier(0.3);
+
+  // ── Compressor (Phase 6) ─────────────────────────────────────────────────────
+  //
+  // Native pipeline defaults this processor to bypass=false (threshold
+  // −20 dBFS, ratio 4:1) the moment it registers — same caveat as crossfeed.
+
+  static final ValueNotifier<bool> compressorEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> compressorThreshold = ValueNotifier(-20.0);
+  static final ValueNotifier<double> compressorRatio = ValueNotifier(4.0);
+
+  // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
+  //
+  // Native pipeline defaults this processor to bypass=false (ceiling
+  // −1 dBFS) the moment it registers — same caveat as crossfeed.
+
+  static final ValueNotifier<bool> limiterEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> limiterThreshold = ValueNotifier(-1.0);
+
+  // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
+  //
+  // Native pipeline defaults this processor to bypass=false (threshold
+  // −0.5 dBFS) the moment it registers — same caveat as crossfeed.
+
+  static final ValueNotifier<bool> softClipperEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> softClipperThreshold = ValueNotifier(-0.5);
 
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
@@ -134,8 +161,15 @@ class AudioEffectsService {
     clippingProtection.value  = prefs.getBool('rgClipProtect')      ?? true;
     loudnessNormEnabled.value = prefs.getBool('lnEnabled')          ?? false;
     loudnessNormTarget.value  = prefs.getDouble('lnTarget')         ?? -23.0;
-    crossfeedEnabled.value    = prefs.getBool('crossfeedEnabled')   ?? true;
+    crossfeedEnabled.value    = prefs.getBool('crossfeedEnabled')   ?? false;
     crossfeedAmount.value     = prefs.getDouble('crossfeedAmount')  ?? 0.3;
+    compressorEnabled.value   = prefs.getBool('compEnabled')        ?? false;
+    compressorThreshold.value = prefs.getDouble('compThreshold')    ?? -20.0;
+    compressorRatio.value     = prefs.getDouble('compRatio')        ?? 4.0;
+    limiterEnabled.value      = prefs.getBool('limEnabled')         ?? false;
+    limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? -1.0;
+    softClipperEnabled.value  = prefs.getBool('scEnabled')          ?? false;
+    softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? -0.5;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -182,10 +216,35 @@ class AudioEffectsService {
     // Crossfade
     unawaited(PlaybackManager.setCrossfadeDuration(crossfadeDuration.value));
 
-    // Crossfeed (Phase 7)
+    // Crossfeed (Phase 7) — native default is bypass=false (active) as soon
+    // as the processor registers, so we always push the explicit bypass
+    // state here regardless of whether the user has touched the setting.
     PlaybackManager.setNativeCrossfeedBypass(!crossfeedEnabled.value);
     if (crossfeedEnabled.value) {
       PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
+    }
+
+    // Compressor (Phase 6) — same always-on native default; always push.
+    PlaybackManager.setNativeCompressorBypass(!compressorEnabled.value);
+    if (compressorEnabled.value) {
+      PlaybackManager.setNativeCompressorParams(
+        thresholdDb: compressorThreshold.value,
+        ratio: compressorRatio.value,
+      );
+    }
+
+    // Limiter (Phase 6) — same always-on native default; always push.
+    PlaybackManager.setNativeLimiterBypass(!limiterEnabled.value);
+    if (limiterEnabled.value) {
+      PlaybackManager.setNativeLimiterParams(
+        thresholdDb: limiterThreshold.value,
+      );
+    }
+
+    // Soft Clipper (Phase 6) — same always-on native default; always push.
+    PlaybackManager.setNativeSoftClipperBypass(!softClipperEnabled.value);
+    if (softClipperEnabled.value) {
+      PlaybackManager.setNativeSoftClipperThresholdDb(softClipperThreshold.value);
     }
   }
 
@@ -263,6 +322,91 @@ class AudioEffectsService {
       PlaybackManager.setNativeCrossfeedParams(amount: v);
     }
     LogService.log('AudioEffects', 'Crossfeed amount: ${v.toStringAsFixed(2)}');
+  }
+
+  // ── Compressor (Phase 6) ─────────────────────────────────────────────────────
+
+  static Future<void> setCompressorEnabled(bool enabled) async {
+    compressorEnabled.value = enabled;
+    await _saveBool('compEnabled', enabled);
+    PlaybackManager.setNativeCompressorBypass(!enabled);
+    if (enabled) {
+      PlaybackManager.setNativeCompressorParams(
+        thresholdDb: compressorThreshold.value,
+        ratio: compressorRatio.value,
+      );
+    }
+    LogService.log('AudioEffects', 'Compressor: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  static Future<void> setCompressorThreshold(double db) async {
+    final v = db.clamp(-60.0, 0.0);
+    compressorThreshold.value = v;
+    await _saveDouble('compThreshold', v);
+    if (compressorEnabled.value) {
+      PlaybackManager.setNativeCompressorParams(
+        thresholdDb: v,
+        ratio: compressorRatio.value,
+      );
+    }
+    LogService.log('AudioEffects', 'Compressor threshold: $v dB');
+  }
+
+  static Future<void> setCompressorRatio(double ratio) async {
+    final v = ratio.clamp(1.0, 20.0);
+    compressorRatio.value = v;
+    await _saveDouble('compRatio', v);
+    if (compressorEnabled.value) {
+      PlaybackManager.setNativeCompressorParams(
+        thresholdDb: compressorThreshold.value,
+        ratio: v,
+      );
+    }
+    LogService.log('AudioEffects', 'Compressor ratio: ${v.toStringAsFixed(1)}:1');
+  }
+
+  // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
+
+  static Future<void> setLimiterEnabled(bool enabled) async {
+    limiterEnabled.value = enabled;
+    await _saveBool('limEnabled', enabled);
+    PlaybackManager.setNativeLimiterBypass(!enabled);
+    if (enabled) {
+      PlaybackManager.setNativeLimiterParams(thresholdDb: limiterThreshold.value);
+    }
+    LogService.log('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  static Future<void> setLimiterThreshold(double db) async {
+    final v = db.clamp(-24.0, -0.1);
+    limiterThreshold.value = v;
+    await _saveDouble('limThreshold', v);
+    if (limiterEnabled.value) {
+      PlaybackManager.setNativeLimiterParams(thresholdDb: v);
+    }
+    LogService.log('AudioEffects', 'Limiter threshold: $v dB');
+  }
+
+  // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
+
+  static Future<void> setSoftClipperEnabled(bool enabled) async {
+    softClipperEnabled.value = enabled;
+    await _saveBool('scEnabled', enabled);
+    PlaybackManager.setNativeSoftClipperBypass(!enabled);
+    if (enabled) {
+      PlaybackManager.setNativeSoftClipperThresholdDb(softClipperThreshold.value);
+    }
+    LogService.log('AudioEffects', 'Soft Clipper: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  static Future<void> setSoftClipperThreshold(double db) async {
+    final v = db.clamp(-12.0, -0.1);
+    softClipperThreshold.value = v;
+    await _saveDouble('scThreshold', v);
+    if (softClipperEnabled.value) {
+      PlaybackManager.setNativeSoftClipperThresholdDb(v);
+    }
+    LogService.log('AudioEffects', 'Soft Clipper threshold: $v dB');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
