@@ -56,3 +56,4 @@
 - [Bit-Perfect Mode design](bit-perfect-mode.md) — app-wide audio-bypass master switch: snapshot-to-prefs + force-off + UI lock pattern, lives in Settings root not inside Equalizer page.
 - [AAudio exclusive/MMAP runtime probe](aaudio-exclusive-probe.md) — dlopen-based runtime AAudio ABI probe (no NDK header/link needed); pattern for adding new native_audio_runtime diagnostics/modules.
 - [Bit-Perfect Mode dedicated player](bit-perfect-dedicated-player.md) — 3rd ExoPlayer with zero AudioProcessors/AudioEffects, switched via activePlayer var reassignment + activePlayerProxy.switchTo(), wired into existing toggle.
+- [Native ReplayGain (libebur128 + TagLib)](native-replaygain-libebur128-taglib.md) — JNI/CMake module replaces old Kotlin K-weighting scanner; real loudness math + permanent tag writes; M4A write unsupported by design.

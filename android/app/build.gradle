@@ -81,6 +81,27 @@ android {
 
         // Jellyfin AAR is always on the classpath via Maven Central.
         buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
+
+        // Native ReplayGain module (libebur128 + TagLib, fetched via CMake
+        // FetchContent — see src/main/cpp/CMakeLists.txt). No prebuilt .so
+        // shipped in-tree; the NDK toolchain compiles it from source on
+        // first build. Requires a real Android SDK/NDK + CMake install —
+        // this cannot be compiled inside the Replit sandbox, only in
+        // Android Studio or CI (see .github/workflows/android.yml).
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_static"
+                cppFlags "-std=c++17"
+                abiFilters "arm64-v8a"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
     }
 
     packaging {

@@ -15,6 +15,7 @@ import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import dev.wndavenz.music.metadata.MetadataPrescanner
+import dev.wndavenz.music.replaygain.ReplayGainBridge
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -37,6 +38,7 @@ class MainActivity : FlutterActivity() {
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
+    private lateinit var replayGainBridge: ReplayGainBridge
 
     // Snapdragon 730 / 6 GB RAM friendly pools: bounded queues avoid unbounded
     // thread creation and keep artwork/metadata scans from competing with audio
@@ -81,6 +83,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
         metadataCacheDb     = MetadataCacheDb.getInstance(this)
+        replayGainBridge    = ReplayGainBridge(metadataCacheDb)
 
         // Prune stale cache entries older than 90 days on a bounded background
         // queue instead of spawning an extra ad-hoc thread during startup.
@@ -457,12 +460,11 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
-                    // ── ReplayGain scan ─────────────────────────────────────
-                    // Scan uses native MediaCodec (no jaudiotagger).
-                    // Results are stored in MetadataCacheDb (not written to file).
-                    // This is reliable on Android 10+ / MIUI 11+ where scoped
-                    // storage prevents arbitrary audio-file tag writes.
-                    "scanReplayGain" -> {
+                    // ── ReplayGain scan (single track) ──────────────────────
+                    // Native EBU R128 analysis via libebur128 (JNI). "scanReplayGain"
+                    // is kept as an alias of "scanTrack" for backward compatibility
+                    // with the existing Dart batch-scan call sites.
+                    "scanReplayGain", "scanTrack" -> {
                         val path = call.argument<String>("path") ?: ""
                         submitBackground(
                             replayGainScanExecutor,
@@ -473,42 +475,92 @@ class MainActivity : FlutterActivity() {
                             },
                         ) {
                             try {
-                                val scanResult = dev.wndavenz.music.replay_gain
-                                    .ReplayGainScanner.scan(path) { _ -> }
-                                if (scanResult != null) {
-                                    val gainStr  = "%+.2f dB".format(scanResult.trackGainDb)
-                                    val peakStr  = "%.6f".format(scanResult.trackPeak.coerceAtMost(1.0))
-                                    val mtime    = MetadataCacheDb.mtime(path)
-                                    val existing = metadataCacheDb.getByPath(path, mtime)
-                                    metadataCacheDb.putByPath(path, mtime,
-                                        MetadataCacheDb.CachedEntry(
-                                            rgTrackGain = gainStr,
-                                            rgTrackPeak = peakStr,
-                                            rgAlbumGain = existing?.rgAlbumGain,
-                                            rgAlbumPeak = existing?.rgAlbumPeak,
-                                            r128Track   = existing?.r128Track,
-                                            r128Album   = existing?.r128Album,
-                                            iTunNorm    = existing?.iTunNorm,
-                                            lyrics      = existing?.lyrics,
-                                        )
-                                    )
-                                    postToFlutter {
-                                        result.success(mapOf(
-                                            "integratedLufs" to scanResult.integratedLufs,
-                                            "trackGainDb"    to scanResult.trackGainDb,
-                                            "trackPeak"      to scanResult.trackPeak,
-                                            "tagsWritten"    to true,
-                                        ))
-                                    }
-                                } else {
-                                    postToFlutter {
-                                        result.error("scan_failed",
-                                            "Could not decode audio", null)
+                                val map = replayGainBridge.scanTrack(path)
+                                postToFlutter {
+                                    if (map["success"] == true) {
+                                        result.success(map)
+                                    } else {
+                                        result.error("scan_failed", "Could not decode audio", null)
                                     }
                                 }
                             } catch (e: Exception) {
                                 postToFlutter {
                                     result.error("scan_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── ReplayGain scan (whole album) ───────────────────────
+                    // Computes per-track loudness AND the shared album gain
+                    // (EBU Tech 3341 album mode) across every path passed in.
+                    "scanAlbum" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val paths = (call.argument<List<String>>("paths")) ?: emptyList()
+                        submitBackground(
+                            replayGainScanExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("scan_busy", "ReplayGain scan queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val map = replayGainBridge.scanAlbum(paths)
+                                postToFlutter { result.success(map) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("scan_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── ReplayGain tag write ─────────────────────────────────
+                    // Writes measured gain/peak (from a prior scanTrack/scanAlbum
+                    // call) permanently into the file's own tags via TagLib:
+                    // REPLAYGAIN_*_GAIN/_PEAK (MP3/FLAC/Ogg Vorbis) or
+                    // R128_TRACK_GAIN/R128_ALBUM_GAIN (Ogg Opus). All other
+                    // metadata (art, lyrics, ISRC, etc.) is preserved untouched.
+                    "writeReplayGain" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val args = (call.arguments as? Map<String, Any?>) ?: emptyMap()
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val map = replayGainBridge.writeReplayGain(args)
+                                postToFlutter { result.success(map) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("write_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── ReplayGain tag removal ───────────────────────────────
+                    "removeReplayGain" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val map = replayGainBridge.removeReplayGain(path)
+                                postToFlutter { result.success(map) }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("remove_error", e.message, null)
                                 }
                             }
                         }

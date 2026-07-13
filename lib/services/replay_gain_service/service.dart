@@ -284,21 +284,29 @@ class ReplayGainService {
   /// The current song finishes before the loop stops.
   static void cancelScan() => _cancelRequested = true;
 
-  /// Scan a single [song] via the native EBU R128 / MediaCodec scanner.
+  /// Scan a single [song] via the native EBU R128 (libebur128) scanner.
   ///
   /// On success the result is stored in MetadataCacheDb (by the native
-  /// handler) and in the Dart memory cache + SharedPreferences.
+  /// handler) and in the Dart memory cache + SharedPreferences. If
+  /// [writeTags] is true, the measured gain/peak is also written
+  /// permanently into the file's own tags via TagLib (see
+  /// [ReplayGainService.writeReplayGain]) — off by default since most users
+  /// only want in-app normalization, not a permanent file modification.
   /// Returns `null` if the file cannot be decoded.
-  static Future<LoudnessData?> scanOneSong(LocalSong song) async {
+  static Future<LoudnessData?> scanOneSong(
+    LocalSong song, {
+    bool writeTags = false,
+  }) async {
     if (kIsWeb || song.path.isEmpty) return null;
     try {
       final raw = await _channel.invokeMapMethod<String, dynamic>(
-        'scanReplayGain',
+        'scanTrack',
         {'path': song.path},
       );
       if (raw == null) return null;
       final gainDb = (raw['trackGainDb'] as num?)?.toDouble();
       final peak   = (raw['trackPeak']   as num?)?.toDouble();
+      final integratedLufs = (raw['integratedLufs'] as num?)?.toDouble();
       if (gainDb == null) return null;
       final data = LoudnessData(
         gainDb:     gainDb,
@@ -307,6 +315,15 @@ class ReplayGainService {
       );
       _cache[song.id] = data;
       await _saveToPrefs(song.id, data);
+
+      if (writeTags && integratedLufs != null) {
+        await writeReplayGain(
+          song: song,
+          trackGainDb: gainDb,
+          trackPeak: peak ?? 0.0,
+          trackIntegratedLufs: integratedLufs,
+        );
+      }
       return data;
     } on PlatformException catch (e) {
       LogService.warn('ReplayGain',
@@ -330,7 +347,14 @@ class ReplayGainService {
   /// mid-run; the current pair of songs always finishes before stopping.
   ///
   /// Returns immediately (no-op) if a scan is already running.
-  static Future<void> scanLibrary(List<LocalSong> songs) async {
+  ///
+  /// If [writeTags] is true, every successfully-scanned song also gets its
+  /// measurement written permanently into the file's own tags (see
+  /// [scanOneSong]). Off by default.
+  static Future<void> scanLibrary(
+    List<LocalSong> songs, {
+    bool writeTags = false,
+  }) async {
     if (kIsWeb || songs.isEmpty) return;
     if (scanProgress.value.running) return;
 
@@ -375,7 +399,9 @@ class ReplayGainService {
       );
 
       // Fire both scans concurrently; scanOneSong never throws (catches all).
-      final results = await Future.wait(chunk.map(scanOneSong));
+      final results = await Future.wait(
+        chunk.map((s) => scanOneSong(s, writeTags: writeTags)),
+      );
 
       for (final r in results) {
         if (r == null) failed++;
@@ -403,6 +429,215 @@ class ReplayGainService {
       'Batch scan selesai: ${toScan.length - failed} berhasil, $failed gagal',
     );
   }
+
+  // ── Album scan (native EBU R128, libebur128) ───────────────────────────────
+
+  /// Scans every song in [songs] (expected to belong to one album) and
+  /// returns per-track loudness plus the shared album gain, computed via
+  /// libebur128's EBU Tech 3341 album-loudness algorithm on the native side
+  /// (not a naive average of independently-measured track LUFS values).
+  ///
+  /// Results are also written into the Dart memory cache + SharedPreferences
+  /// for each successfully-scanned track (as [LoudnessSource.replayGainAlbum]
+  /// so playback picks up the album gain immediately). Does NOT write tags
+  /// to the files — call [writeReplayGain] per track afterwards if the user
+  /// wants the measurement persisted to disk.
+  static Future<AlbumScanResult> scanAlbum(List<LocalSong> songs) async {
+    if (kIsWeb || songs.isEmpty) {
+      return const AlbumScanResult(
+        trackResults: {},
+        albumGainDb: 0.0,
+        albumPeak: null,
+        albumIntegratedLufs: null,
+        failedPaths: [],
+      );
+    }
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'scanAlbum',
+        {'paths': songs.map((s) => s.path).toList()},
+      );
+      if (raw == null) {
+        return AlbumScanResult(
+          trackResults: const {},
+          albumGainDb: 0.0,
+          albumPeak: null,
+          albumIntegratedLufs: null,
+          failedPaths: songs.map((s) => s.path).toList(),
+        );
+      }
+
+      final albumGainDb = (raw['albumGainDb'] as num?)?.toDouble() ?? 0.0;
+      final albumPeak = (raw['albumPeak'] as num?)?.toDouble();
+      final albumLufs = (raw['albumIntegratedLufs'] as num?)?.toDouble();
+      final tracksRaw = (raw['tracks'] as Map?)?.cast<String, dynamic>() ?? {};
+      final failedPaths = (raw['failedPaths'] as List?)?.cast<String>() ?? [];
+
+      final byPath = {for (final s in songs) s.path: s};
+      final trackResults = <int, TrackLoudnessResult>{};
+
+      for (final entry in tracksRaw.entries) {
+        final song = byPath[entry.key];
+        if (song == null) continue;
+        final t = (entry.value as Map).cast<String, dynamic>();
+        final trackGainDb = (t['trackGainDb'] as num?)?.toDouble() ?? 0.0;
+        final trackPeak = (t['trackPeak'] as num?)?.toDouble();
+        final integratedLufs = (t['integratedLufs'] as num?)?.toDouble();
+
+        final albumData = LoudnessData(
+          gainDb: albumGainDb,
+          peakLinear: albumPeak,
+          source: LoudnessSource.replayGainAlbum,
+        );
+        _cache[song.id] = albumData;
+        await _saveToPrefs(song.id, albumData);
+
+        trackResults[song.id] = TrackLoudnessResult(
+          song: song,
+          trackGainDb: trackGainDb,
+          trackPeak: trackPeak,
+          trackIntegratedLufs: integratedLufs,
+        );
+      }
+
+      return AlbumScanResult(
+        trackResults: trackResults,
+        albumGainDb: albumGainDb,
+        albumPeak: albumPeak,
+        albumIntegratedLufs: albumLufs,
+        failedPaths: failedPaths,
+      );
+    } on PlatformException catch (e) {
+      LogService.warn('ReplayGain', 'scanAlbum: ${e.code} – ${e.message}');
+      return AlbumScanResult(
+        trackResults: const {},
+        albumGainDb: 0.0,
+        albumPeak: null,
+        albumIntegratedLufs: null,
+        failedPaths: songs.map((s) => s.path).toList(),
+      );
+    }
+  }
+
+  // ── Permanent tag writing (TagLib, native) ─────────────────────────────────
+
+  /// Writes the measured loudness for [song] permanently into the file's own
+  /// tags (REPLAYGAIN_TRACK_GAIN/_PEAK, and for Ogg Opus also
+  /// R128_TRACK_GAIN) via the native TagLib-backed writer. Pass
+  /// [albumGainDb]/[albumPeak]/[albumIntegratedLufs] together (e.g. from
+  /// [scanAlbum]) to also write REPLAYGAIN_ALBUM_GAIN/_PEAK /
+  /// R128_ALBUM_GAIN in the same call.
+  ///
+  /// All other metadata (cover art, lyrics, ISRC, disc/track number,
+  /// comments, album artist, etc.) is preserved untouched — only the
+  /// loudness-related tag fields are added or replaced. Audio is never
+  /// re-encoded.
+  ///
+  /// Returns `true` on success. On failure, check [LogService] for the
+  /// native error code (e.g. unsupported format for M4A/AAC — writing is
+  /// only supported for MP3/FLAC/Ogg Vorbis/Ogg Opus; permission failure if
+  /// the file isn't writable).
+  static Future<bool> writeReplayGain({
+    required LocalSong song,
+    required double trackGainDb,
+    required double trackPeak,
+    required double trackIntegratedLufs,
+    double? albumGainDb,
+    double? albumPeak,
+    double? albumIntegratedLufs,
+  }) async {
+    if (kIsWeb || song.path.isEmpty) return false;
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'writeReplayGain',
+        {
+          'path': song.path,
+          'trackGainDb': trackGainDb,
+          'trackPeak': trackPeak,
+          'integratedLufs': trackIntegratedLufs,
+          'albumGainDb': ?albumGainDb,
+          'albumPeak': ?albumPeak,
+          'albumIntegratedLufs': ?albumIntegratedLufs,
+        },
+      );
+      final success = raw?['success'] == true;
+      if (!success) {
+        LogService.warn(
+          'ReplayGain',
+          'writeReplayGain "${song.title}" failed: ${raw?['error']}',
+        );
+      } else {
+        // Tags on disk changed -> invalidate so the next resolve() re-reads
+        // from the file instead of serving a pre-write cached value.
+        await invalidate(song.id);
+      }
+      return success;
+    } on PlatformException catch (e) {
+      LogService.warn(
+        'ReplayGain',
+        'writeReplayGain "${song.title}": ${e.code} – ${e.message}',
+      );
+      return false;
+    }
+  }
+
+  /// Removes REPLAYGAIN_*/R128_* tags from [song]'s file, leaving all other
+  /// metadata intact. Returns `true` on success.
+  static Future<bool> removeReplayGainTags(LocalSong song) async {
+    if (kIsWeb || song.path.isEmpty) return false;
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'removeReplayGain',
+        {'path': song.path},
+      );
+      final success = raw?['success'] == true;
+      if (success) await invalidate(song.id);
+      return success;
+    } on PlatformException catch (e) {
+      LogService.warn(
+        'ReplayGain',
+        'removeReplayGainTags "${song.title}": ${e.code} – ${e.message}',
+      );
+      return false;
+    }
+  }
+}
+
+// ── Album scan result types ────────────────────────────────────────────────────
+
+/// Per-track loudness measurement returned as part of an [AlbumScanResult].
+class TrackLoudnessResult {
+  const TrackLoudnessResult({
+    required this.song,
+    required this.trackGainDb,
+    required this.trackPeak,
+    required this.trackIntegratedLufs,
+  });
+
+  final LocalSong song;
+  final double trackGainDb;
+  final double? trackPeak;
+  final double? trackIntegratedLufs;
+}
+
+/// Result of a [ReplayGainService.scanAlbum] call.
+class AlbumScanResult {
+  const AlbumScanResult({
+    required this.trackResults,
+    required this.albumGainDb,
+    required this.albumPeak,
+    required this.albumIntegratedLufs,
+    required this.failedPaths,
+  });
+
+  /// Keyed by song id.
+  final Map<int, TrackLoudnessResult> trackResults;
+  final double albumGainDb;
+  final double? albumPeak;
+  final double? albumIntegratedLufs;
+  final List<String> failedPaths;
+
+  bool get hasData => trackResults.isNotEmpty;
 }
 
 // ── Batch scan progress snapshot ──────────────────────────────────────────────

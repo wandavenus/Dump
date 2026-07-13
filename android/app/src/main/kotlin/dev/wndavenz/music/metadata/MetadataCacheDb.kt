@@ -280,6 +280,22 @@ class MetadataCacheDb private constructor(context: Context)
         }
     }
 
+    /**
+     * Removes the entry for [path] (keyed by path, not song id). Call this
+     * after writing new tags to a file (e.g. via the native ReplayGain tag
+     * writer) so the next read re-parses the file instead of serving a
+     * stale mtime-keyed cache row — the write changes the file's mtime, but
+     * removing the old row outright is simpler than tracking the old mtime
+     * through the write call chain.
+     */
+    fun invalidateByPath(path: String) {
+        try {
+            writableDatabase.delete(TABLE, "$COL_PATH = ?", arrayOf(path))
+        } catch (e: Exception) {
+            Log.w(TAG, "invalidateByPath($path) failed: ${e.message}")
+        }
+    }
+
     /** Removes ALL cache entries older than [olderThanMs] milliseconds. */
     fun pruneOld(olderThanMs: Long = 90L * 24 * 60 * 60 * 1000) {
         try {
