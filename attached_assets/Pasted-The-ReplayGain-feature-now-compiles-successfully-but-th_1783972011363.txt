@@ -1,0 +1,116 @@
+The ReplayGain feature now compiles successfully, but there is a runtime hang.
+
+Observed behavior:
+
+1. User starts ReplayGain write.
+2. Android shows the MediaStore write permission dialog.
+3. User presses "Allow".
+4. The dialog disappears.
+5. ReplayGain progress freezes on the first song forever.
+6. No success, no failure, no further progress.
+
+This is NOT a compile problem anymore.
+
+Your task is to find the exact execution point where the pipeline stops.
+
+Do not guess.
+
+Do not refactor first.
+
+Do not rewrite the architecture.
+
+Instead, perform a complete runtime execution trace.
+
+Trace this exact call chain:
+
+Flutter
+↓
+
+MethodChannel
+
+↓
+
+MainActivity.writeReplayGain
+
+↓
+
+requestReplayGainWriteAccess()
+
+↓
+
+MediaStoreWriteGate.ensureWriteAccess()
+
+↓
+
+MediaStoreWriteGate.handleActivityResult()
+
+↓
+
+callback invocation
+
+↓
+
+ReplayGainBridge.writeReplayGain()
+
+↓
+
+ReplayGainService
+
+↓
+
+JNI
+
+↓
+
+nativeWriteReplayGainTags()
+
+↓
+
+TagLib
+
+↓
+
+return values back to Flutter
+
+At every step:
+
+- Add detailed debug logging.
+- Verify the function is entered.
+- Verify the function exits.
+- Log every return value.
+- Log every exception.
+- Log every thread name.
+- Log every callback invocation.
+- Log every executor dispatch.
+- Log before and after every potentially blocking operation.
+
+Specifically investigate:
+
+- Is handleActivityResult() actually invoked?
+- Does pendingCallback execute?
+- Does requestReplayGainWriteAccess() continue?
+- Does submitBackground() execute?
+- Does ReplayGainBridge.writeReplayGain() begin?
+- Does it return?
+- Does JNI begin?
+- Does JNI return?
+- Does nativeWriteReplayGainTags() begin?
+- Does it return?
+- Does TagLib save() return?
+- Does the MethodChannel result get completed?
+
+If the execution hangs:
+
+Determine the exact line where execution stops.
+
+Do not continue searching after that.
+
+Explain WHY it blocks.
+
+Then fix only that root cause.
+
+After the fix, remove any temporary debug logs that are no longer needed.
+
+Do not make speculative changes.
+
+Find the exact blocking point first, then implement the minimal correct fix.
