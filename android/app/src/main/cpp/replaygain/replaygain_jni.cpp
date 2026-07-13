@@ -27,11 +27,96 @@
 
 using replaygain::EburAnalyzer;
 using replaygain::LoudnessResult;
+using replaygain::RegionBackup;
 using replaygain::TagFormat;
+using replaygain::TagSnapshot;
 using replaygain::WriteRequest;
 using replaygain::WriteResult;
 
 namespace {
+
+// TagSnapshot <-> jobjectArray of 9 nullable jstrings, in this fixed order:
+// [track_gain, track_peak, album_gain, album_peak, r128_track, r128_album,
+//  title, artist, album]. Keep in sync with ReplayGainNative.kt's unpacking.
+constexpr int kSnapshotFieldCount = 9;
+
+jobjectArray PackSnapshot(JNIEnv* env, const TagSnapshot& snap) {
+    jclass string_class = env->FindClass("java/lang/String");
+    jobjectArray arr = env->NewObjectArray(kSnapshotFieldCount, string_class, nullptr);
+    if (arr == nullptr) return nullptr;
+    const std::optional<std::string>* fields[kSnapshotFieldCount] = {
+        &snap.track_gain, &snap.track_peak, &snap.album_gain, &snap.album_peak,
+        &snap.r128_track, &snap.r128_album, &snap.title,      &snap.artist,
+        &snap.album,
+    };
+    for (int i = 0; i < kSnapshotFieldCount; i++) {
+        if (fields[i]->has_value()) {
+            env->SetObjectArrayElement(arr, i, replaygain::StdToJString(env, **fields[i]));
+        }
+    }
+    return arr;
+}
+
+TagSnapshot UnpackSnapshot(JNIEnv* env, jobjectArray arr) {
+    TagSnapshot snap;
+    if (arr == nullptr || env->GetArrayLength(arr) < kSnapshotFieldCount) return snap;
+    std::optional<std::string>* fields[kSnapshotFieldCount] = {
+        &snap.track_gain, &snap.track_peak, &snap.album_gain, &snap.album_peak,
+        &snap.r128_track, &snap.r128_album, &snap.title,      &snap.artist,
+        &snap.album,
+    };
+    for (int i = 0; i < kSnapshotFieldCount; i++) {
+        auto* jstr = static_cast<jstring>(env->GetObjectArrayElement(arr, i));
+        if (jstr != nullptr) {
+            *fields[i] = replaygain::JStringToStd(env, jstr);
+            env->DeleteLocalRef(jstr);
+        }
+    }
+    return snap;
+}
+
+WriteRequest BuildWriteRequest(TagFormat format, jdouble track_gain_db,
+                                jdouble track_peak_linear, jboolean has_album,
+                                jdouble album_gain_db, jdouble album_peak_linear,
+                                jint r128_track_q7_8, jboolean has_r128_album,
+                                jint r128_album_q7_8) {
+    WriteRequest req;
+    req.format             = format;
+    req.track_gain_db       = track_gain_db;
+    req.track_peak_linear   = track_peak_linear;
+    req.has_album           = (has_album == JNI_TRUE);
+    req.album_gain_db       = album_gain_db;
+    req.album_peak_linear   = album_peak_linear;
+    req.r128_track_q7_8     = r128_track_q7_8;
+    req.has_r128_album      = (has_r128_album == JNI_TRUE);
+    req.r128_album_q7_8     = r128_album_q7_8;
+    return req;
+}
+
+// Result envelope for the fd-based write/remove calls: Object[3] =
+// [0] Integer resultCode, [1] String[9]? priorSnapshot, [2] byte[]? region.
+jobjectArray PackWriteEnvelope(JNIEnv* env, WriteResult result, const TagSnapshot& snap,
+                                const RegionBackup& region, bool include_payload) {
+    jclass object_class = env->FindClass("java/lang/Object");
+    jobjectArray envelope = env->NewObjectArray(3, object_class, nullptr);
+    if (envelope == nullptr) return nullptr;
+
+    jclass integer_class = env->FindClass("java/lang/Integer");
+    jmethodID ctor = env->GetMethodID(integer_class, "<init>", "(I)V");
+    jobject code_obj = env->NewObject(integer_class, ctor, static_cast<jint>(result));
+    env->SetObjectArrayElement(envelope, 0, code_obj);
+
+    if (include_payload) {
+        env->SetObjectArrayElement(envelope, 1, PackSnapshot(env, snap));
+        jbyteArray region_bytes = env->NewByteArray(static_cast<jsize>(region.bytes.size()));
+        if (region_bytes != nullptr && !region.bytes.empty()) {
+            env->SetByteArrayRegion(region_bytes, 0, static_cast<jsize>(region.bytes.size()),
+                                     reinterpret_cast<const jbyte*>(region.bytes.data()));
+        }
+        env->SetObjectArrayElement(envelope, 2, region_bytes);
+    }
+    return envelope;
+}
 
 // Registry mapping opaque handles back to EburAnalyzer* so we can validate
 // handles from Kotlin instead of trusting an arbitrary jlong cast blindly.
@@ -172,6 +257,81 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeRemoveReplayGainTags(
     JNIEnv* env, jobject /*thiz*/, jstring path) {
     const std::string p = replaygain::JStringToStd(env, path);
     const WriteResult result = replaygain::RemoveReplayGainTags(p);
+    return static_cast<jint>(result);
+}
+
+// ── Scoped-storage-safe fd-based tag writing ─────────────────────────────────
+// See tag_writer.h for the full write→close→reopen→verify→(restore) protocol
+// these entry points implement pieces of. `fd` is a raw file descriptor
+// Kotlin obtained via ParcelFileDescriptor.detachFd() — ownership passes to
+// native for this call; TagLib's FileStream closes it internally on
+// destruction (it wraps the fd with fdopen()/fclose()), so Kotlin must NOT
+// call ParcelFileDescriptor.close() on an fd it already detached and passed
+// here.
+
+JNIEXPORT jobjectArray JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeWriteReplayGainTagsFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jdouble track_gain_db,
+    jdouble track_peak_linear, jboolean has_album, jdouble album_gain_db,
+    jdouble album_peak_linear, jint r128_track_q7_8, jboolean has_r128_album,
+    jint r128_album_q7_8) {
+    const WriteRequest req = BuildWriteRequest(
+        static_cast<TagFormat>(format), track_gain_db, track_peak_linear, has_album,
+        album_gain_db, album_peak_linear, r128_track_q7_8, has_r128_album, r128_album_q7_8);
+    TagSnapshot prior;
+    RegionBackup region;
+    const WriteResult result =
+        replaygain::WriteReplayGainTagsFd(fd, req, &prior, &region);
+    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/result == WriteResult::kOk);
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeRemoveReplayGainTagsFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format) {
+    TagSnapshot prior;
+    RegionBackup region;
+    const WriteResult result = replaygain::RemoveReplayGainTagsFd(
+        fd, static_cast<TagFormat>(format), &prior, &region);
+    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/result == WriteResult::kOk);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeVerifyReplayGainTagsFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jdouble track_gain_db,
+    jdouble track_peak_linear, jboolean has_album, jdouble album_gain_db,
+    jdouble album_peak_linear, jint r128_track_q7_8, jboolean has_r128_album,
+    jint r128_album_q7_8, jobjectArray prior_snapshot) {
+    const WriteRequest req = BuildWriteRequest(
+        static_cast<TagFormat>(format), track_gain_db, track_peak_linear, has_album,
+        album_gain_db, album_peak_linear, r128_track_q7_8, has_r128_album, r128_album_q7_8);
+    const TagSnapshot prior = UnpackSnapshot(env, prior_snapshot);
+    const WriteResult result = replaygain::VerifyReplayGainTagsFd(fd, req, prior);
+    return static_cast<jint>(result);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeVerifyReplayGainRemovedFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jobjectArray prior_snapshot) {
+    const TagSnapshot prior = UnpackSnapshot(env, prior_snapshot);
+    const WriteResult result = replaygain::VerifyReplayGainRemovedFd(
+        fd, static_cast<TagFormat>(format), prior);
+    return static_cast<jint>(result);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeRestoreMetadataRegionFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jbyteArray region_bytes) {
+    RegionBackup backup;
+    if (region_bytes != nullptr) {
+        const jsize len = env->GetArrayLength(region_bytes);
+        backup.bytes.resize(static_cast<size_t>(len));
+        if (len > 0) {
+            env->GetByteArrayRegion(region_bytes, 0, len,
+                                     reinterpret_cast<jbyte*>(backup.bytes.data()));
+        }
+    }
+    const WriteResult result =
+        replaygain::RestoreMetadataRegionFd(fd, static_cast<TagFormat>(format), backup);
     return static_cast<jint>(result);
 }
 

@@ -73,6 +73,7 @@ add_library(replaygain_native SHARED
     replaygain/replaygain_jni.cpp
     replaygain/ebur128_analyzer.cpp
     replaygain/tag_writer.cpp
+    replaygain/metadata_region.cpp
 )
 
 target_include_directories(replaygain_native PRIVATE

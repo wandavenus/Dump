@@ -199,6 +199,119 @@ object ReplayGainService {
         return ReplayGainError.fromNative(code)
     }
 
+    // ── Scoped-storage-safe fd-based tag writing ────────────────────────────────
+    //
+    // These operate on a single already-open fd and do not know about
+    // MediaStore/permissions/reopening at all — see MediaStoreWriteGate for
+    // the permission dance and ReplayGainBridge for the
+    // write→close→reopen→verify→(restore) orchestration that ties this
+    // together. Kept separate so this class never needs a Context.
+
+    /** [fd] must come from `ParcelFileDescriptor.detachFd()` — see ReplayGainNative. */
+    fun writeReplayGainFd(
+        fd: Int,
+        format: TagFormat,
+        trackGainDb: Double,
+        trackPeakLinear: Double,
+        trackIntegratedLufs: Double,
+        albumGainDb: Double? = null,
+        albumPeakLinear: Double? = null,
+        albumIntegratedLufs: Double? = null,
+    ): FdWriteOutcome {
+        if (!nativeAvailable) return FdWriteOutcome(ReplayGainError.UNKNOWN, emptySnapshot(), null)
+        val r128Track = ReplayGainNative.nativeLufsToR128Q7x8(trackIntegratedLufs)
+        val hasR128Album = albumIntegratedLufs != null
+        val r128Album = albumIntegratedLufs?.let { ReplayGainNative.nativeLufsToR128Q7x8(it) } ?: 0
+
+        val raw = ReplayGainNative.nativeWriteReplayGainTagsFd(
+            fd,
+            format.nativeValue,
+            trackGainDb,
+            trackPeakLinear,
+            albumGainDb != null,
+            albumGainDb ?: 0.0,
+            albumPeakLinear ?: 0.0,
+            r128Track,
+            hasR128Album,
+            r128Album,
+        )
+        return unpackWriteEnvelope(raw)
+    }
+
+    /** [fd] must come from `ParcelFileDescriptor.detachFd()`. */
+    fun removeReplayGainFd(fd: Int, format: TagFormat): FdWriteOutcome {
+        if (!nativeAvailable) return FdWriteOutcome(ReplayGainError.UNKNOWN, emptySnapshot(), null)
+        val raw = ReplayGainNative.nativeRemoveReplayGainTagsFd(fd, format.nativeValue)
+        return unpackWriteEnvelope(raw)
+    }
+
+    /**
+     * Re-reads [fd] (a freshly (re)opened fd is fine — read-only access is
+     * enough) and confirms the values just written via [writeReplayGainFd]
+     * actually persisted, and that [prior]'s title/artist/album sentinel is
+     * unchanged. [fd] must come from `ParcelFileDescriptor.detachFd()`.
+     */
+    fun verifyWriteFd(
+        fd: Int,
+        format: TagFormat,
+        trackGainDb: Double,
+        trackPeakLinear: Double,
+        trackIntegratedLufs: Double,
+        albumGainDb: Double?,
+        albumPeakLinear: Double?,
+        albumIntegratedLufs: Double?,
+        prior: TagSnapshot,
+    ): ReplayGainError {
+        if (!nativeAvailable) return ReplayGainError.UNKNOWN
+        val r128Track = ReplayGainNative.nativeLufsToR128Q7x8(trackIntegratedLufs)
+        val hasR128Album = albumIntegratedLufs != null
+        val r128Album = albumIntegratedLufs?.let { ReplayGainNative.nativeLufsToR128Q7x8(it) } ?: 0
+        val code = ReplayGainNative.nativeVerifyReplayGainTagsFd(
+            fd,
+            format.nativeValue,
+            trackGainDb,
+            trackPeakLinear,
+            albumGainDb != null,
+            albumGainDb ?: 0.0,
+            albumPeakLinear ?: 0.0,
+            r128Track,
+            hasR128Album,
+            r128Album,
+            prior.toArray(),
+        )
+        return ReplayGainError.fromNative(code)
+    }
+
+    /** Re-reads [fd] and confirms [removeReplayGainFd]'s removal persisted. */
+    fun verifyRemovedFd(fd: Int, format: TagFormat, prior: TagSnapshot): ReplayGainError {
+        if (!nativeAvailable) return ReplayGainError.UNKNOWN
+        val code = ReplayGainNative.nativeVerifyReplayGainRemovedFd(fd, format.nativeValue, prior.toArray())
+        return ReplayGainError.fromNative(code)
+    }
+
+    /**
+     * Byte-exact rollback after a verification failure: [fd] must be open
+     * for writing (a fresh open after the write fd was closed is fine).
+     * Restores exactly the metadata region [region] backed up before the
+     * mutation — see RestoreMetadataRegionFd in tag_writer.h for why this
+     * is correct regardless of how the failed write resized the region.
+     */
+    fun restoreRegionFd(fd: Int, format: TagFormat, region: ByteArray): ReplayGainError {
+        if (!nativeAvailable) return ReplayGainError.UNKNOWN
+        val code = ReplayGainNative.nativeRestoreMetadataRegionFd(fd, format.nativeValue, region)
+        return ReplayGainError.fromNative(code)
+    }
+
+    private fun emptySnapshot(): TagSnapshot = TagSnapshot.fromArray(null)
+
+    private fun unpackWriteEnvelope(raw: Array<Any?>): FdWriteOutcome {
+        val code = (raw.getOrNull(0) as? Int) ?: ReplayGainError.UNKNOWN.ordinal
+        @Suppress("UNCHECKED_CAST")
+        val snapshotArr = raw.getOrNull(1) as? Array<String?>
+        val region = raw.getOrNull(2) as? ByteArray
+        return FdWriteOutcome(ReplayGainError.fromNative(code), TagSnapshot.fromArray(snapshotArr), region)
+    }
+
     private fun dbToLinear(db: Double): Double =
         if (db.isFinite()) Math.pow(10.0, db / 20.0) else 0.0
 }

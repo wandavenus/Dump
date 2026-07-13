@@ -95,6 +95,57 @@ object ReplayGainNative {
 
     /** Converts LUFS (relative to -23 LUFS reference) to Opus R128 Q7.8 fixed point. */
     external fun nativeLufsToR128Q7x8(integratedLufs: Double): Int
+
+    // ── Scoped-storage-safe fd-based tag writing ───────────────────────────────
+    // `fd` must come from ParcelFileDescriptor.detachFd() — ownership passes
+    // to native for the duration of the call; TagLib closes the underlying
+    // fd internally (fdopen/fclose), so callers must NOT also close a
+    // ParcelFileDescriptor they've detached and passed here.
+    //
+    // Each write/remove call returns Object[3] = [Int resultCode,
+    // String[9]? priorSnapshot, ByteArray? regionBackup] — see
+    // PackWriteEnvelope in replaygain_jni.cpp. Payload is only present when
+    // resultCode == ReplayGainError.NONE's native ordinal (0).
+
+    external fun nativeWriteReplayGainTagsFd(
+        fd: Int,
+        format: Int,
+        trackGainDb: Double,
+        trackPeakLinear: Double,
+        hasAlbum: Boolean,
+        albumGainDb: Double,
+        albumPeakLinear: Double,
+        r128TrackQ7x8: Int,
+        hasR128Album: Boolean,
+        r128AlbumQ7x8: Int,
+    ): Array<Any?>
+
+    external fun nativeRemoveReplayGainTagsFd(fd: Int, format: Int): Array<Any?>
+
+    /** Returns a [ReplayGainError] ordinal. */
+    external fun nativeVerifyReplayGainTagsFd(
+        fd: Int,
+        format: Int,
+        trackGainDb: Double,
+        trackPeakLinear: Double,
+        hasAlbum: Boolean,
+        albumGainDb: Double,
+        albumPeakLinear: Double,
+        r128TrackQ7x8: Int,
+        hasR128Album: Boolean,
+        r128AlbumQ7x8: Int,
+        priorSnapshot: Array<String?>,
+    ): Int
+
+    /** Returns a [ReplayGainError] ordinal. */
+    external fun nativeVerifyReplayGainRemovedFd(
+        fd: Int,
+        format: Int,
+        priorSnapshot: Array<String?>,
+    ): Int
+
+    /** Returns a [ReplayGainError] ordinal. */
+    external fun nativeRestoreMetadataRegionFd(fd: Int, format: Int, regionBytes: ByteArray): Int
 }
 
 /**

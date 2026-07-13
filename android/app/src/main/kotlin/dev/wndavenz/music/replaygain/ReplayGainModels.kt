@@ -15,7 +15,14 @@ enum class ReplayGainError {
     PERMISSION_FAILURE,
     FILE_NOT_FOUND,
     INVALID_ARGUMENT,
-    UNKNOWN;
+    UNKNOWN,
+    // Appended — never reorder the values above, they're mapped positionally
+    // from native `replaygain::WriteResult`/`ErrorCode` ordinals.
+    VERIFICATION_FAILED,
+    // Kotlin-only outcomes (no native ordinal — never passed to fromNative).
+    // WRITE_ACCESS_DENIED: the user declined (or the system denied) the
+    // MediaStore write-grant request for this file — see MediaStoreWriteGate.
+    WRITE_ACCESS_DENIED;
 
     companion object {
         fun fromNative(code: Int): ReplayGainError =
@@ -83,4 +90,49 @@ enum class TagFormat(val nativeValue: Int) {
 data class ScanProgress(
     val currentPath: String,
     val fraction: Float,  // 0.0..1.0
+)
+
+/**
+ * Kotlin mirror of `replaygain::TagSnapshot` (tag_writer.h) — a handful of
+ * tag *values* (not raw bytes) used only for the cheap post-write value
+ * comparison. Order matches `kSnapshotFieldCount`'s packing in
+ * replaygain_jni.cpp: [trackGain, trackPeak, albumGain, albumPeak,
+ * r128Track, r128Album, title, artist, album].
+ */
+data class TagSnapshot(
+    val trackGain: String?,
+    val trackPeak: String?,
+    val albumGain: String?,
+    val albumPeak: String?,
+    val r128Track: String?,
+    val r128Album: String?,
+    val title: String?,
+    val artist: String?,
+    val album: String?,
+) {
+    fun toArray(): Array<String?> =
+        arrayOf(trackGain, trackPeak, albumGain, albumPeak, r128Track, r128Album, title, artist, album)
+
+    companion object {
+        fun fromArray(arr: Array<String?>?): TagSnapshot {
+            val a = arr ?: arrayOfNulls(9)
+            return TagSnapshot(
+                trackGain = a.getOrNull(0), trackPeak = a.getOrNull(1),
+                albumGain = a.getOrNull(2), albumPeak = a.getOrNull(3),
+                r128Track = a.getOrNull(4), r128Album = a.getOrNull(5),
+                title = a.getOrNull(6), artist = a.getOrNull(7), album = a.getOrNull(8),
+            )
+        }
+    }
+}
+
+/**
+ * Result envelope for a native fd-based write/remove call — mirrors the
+ * `Object[3]` `[resultCode, priorSnapshot, regionBytes]` packed by
+ * `PackWriteEnvelope` in replaygain_jni.cpp.
+ */
+data class FdWriteOutcome(
+    val error: ReplayGainError,
+    val priorSnapshot: TagSnapshot,
+    val regionBackup: ByteArray?,
 )

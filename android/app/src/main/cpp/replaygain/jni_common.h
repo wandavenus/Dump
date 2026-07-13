@@ -25,6 +25,10 @@ enum class ErrorCode : int32_t {
     kFileNotFound       = 5,
     kInvalidArgument    = 6,
     kUnknown            = 7,
+    // Appended — never renumber the values above. Returned by the fd-based
+    // post-write verification step (see tag_writer.h) when a just-written
+    // value doesn't read back as expected, or other metadata changed.
+    kVerificationFailed = 8,
 };
 
 // Converts a jstring to a std::string. Returns empty string on null/OOM.

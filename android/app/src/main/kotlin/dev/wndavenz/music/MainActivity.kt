@@ -8,6 +8,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
@@ -74,6 +75,12 @@ class MainActivity : FlutterActivity() {
     private var pendingDeleteResult: MethodChannel.Result? = null
     private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
 
+    // Requests a MediaStore write grant (system dialog) before a ReplayGain
+    // tag write/removal touches a file the app doesn't already own — see
+    // MediaStoreWriteGate for the full API-level matrix. Its own pending
+    // callback is resolved from onActivityResult below.
+    private val replayGainWriteGate = MediaStoreWriteGate()
+
     // ── Open-file intent plumbing ────────────────────────────────────────────
     // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
     @Volatile private var pendingOpenFileUri: String? = null
@@ -83,7 +90,9 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
         metadataCacheDb     = MetadataCacheDb.getInstance(this)
-        replayGainBridge    = ReplayGainBridge(metadataCacheDb)
+        replayGainBridge    = ReplayGainBridge(metadataCacheDb) { songId ->
+            openReplayGainWriteFd(songId)
+        }
 
         // Prune stale cache entries older than 90 days on a bounded background
         // queue instead of spawning an extra ad-hoc thread during startup.
@@ -522,45 +531,73 @@ class MainActivity : FlutterActivity() {
                     // REPLAYGAIN_*_GAIN/_PEAK (MP3/FLAC/Ogg Vorbis) or
                     // R128_TRACK_GAIN/R128_ALBUM_GAIN (Ogg Opus). All other
                     // metadata (art, lyrics, ISRC, etc.) is preserved untouched.
+                    //
+                    // Scoped-storage safe: requires `songId` in `args` so a
+                    // MediaStore write grant can be requested first (a system
+                    // dialog on Android 10+, once per file the app doesn't
+                    // already own) before any native write is attempted.
                     "writeReplayGain" -> {
                         @Suppress("UNCHECKED_CAST")
                         val args = (call.arguments as? Map<String, Any?>) ?: emptyMap()
-                        submitBackground(
-                            metadataExecutor,
-                            onRejected = {
-                                postToFlutter {
-                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                        val songId = (args["songId"] as? Number)?.toInt()
+                        if (songId == null) {
+                            result.error("invalid_args", "songId required", null)
+                        } else {
+                            requestReplayGainWriteAccess(songId) { granted ->
+                                if (!granted) {
+                                    result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
+                                    return@requestReplayGainWriteAccess
                                 }
-                            },
-                        ) {
-                            try {
-                                val map = replayGainBridge.writeReplayGain(args)
-                                postToFlutter { result.success(map) }
-                            } catch (e: Exception) {
-                                postToFlutter {
-                                    result.error("write_error", e.message, null)
+                                submitBackground(
+                                    metadataExecutor,
+                                    onRejected = {
+                                        postToFlutter {
+                                            result.error("metadata_busy", "Metadata queue is busy", null)
+                                        }
+                                    },
+                                ) {
+                                    try {
+                                        val map = replayGainBridge.writeReplayGain(args)
+                                        postToFlutter { result.success(map) }
+                                    } catch (e: Exception) {
+                                        postToFlutter {
+                                            result.error("write_error", e.message, null)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
                     // ── ReplayGain tag removal ───────────────────────────────
+                    // Same scoped-storage-grant requirement as writeReplayGain.
                     "removeReplayGain" -> {
                         val path = call.argument<String>("path") ?: ""
-                        submitBackground(
-                            metadataExecutor,
-                            onRejected = {
-                                postToFlutter {
-                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                        val songId = call.argument<Int>("songId")
+                        if (songId == null) {
+                            result.error("invalid_args", "songId required", null)
+                        } else {
+                            requestReplayGainWriteAccess(songId) { granted ->
+                                if (!granted) {
+                                    result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
+                                    return@requestReplayGainWriteAccess
                                 }
-                            },
-                        ) {
-                            try {
-                                val map = replayGainBridge.removeReplayGain(path)
-                                postToFlutter { result.success(map) }
-                            } catch (e: Exception) {
-                                postToFlutter {
-                                    result.error("remove_error", e.message, null)
+                                submitBackground(
+                                    metadataExecutor,
+                                    onRejected = {
+                                        postToFlutter {
+                                            result.error("metadata_busy", "Metadata queue is busy", null)
+                                        }
+                                    },
+                                ) {
+                                    try {
+                                        val map = replayGainBridge.removeReplayGain(path, songId)
+                                        postToFlutter { result.success(map) }
+                                    } catch (e: Exception) {
+                                        postToFlutter {
+                                            result.error("remove_error", e.message, null)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -671,7 +708,8 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    // ── Activity result — untuk deleteSong di Android 11+ ───────────────────
+    // ── Activity result — untuk deleteSong di Android 11+ dan ReplayGain
+    //    write-grant requests ────────────────────────────────────────────────
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == DELETE_REQUEST_CODE) {
@@ -680,7 +718,43 @@ class MainActivity : FlutterActivity() {
             pendingDeleteResult = null
             return
         }
+        if (replayGainWriteGate.handleActivityResult(requestCode, resultCode)) return
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    // ── ReplayGain write-grant helpers ───────────────────────────────────────
+
+    /**
+     * Requests (if not already held) write access to the audio file
+     * identified by [songId], invoking [onResult] on the main thread with
+     * true once an actual write-fd open has succeeded, false on decline or
+     * failure. See [MediaStoreWriteGate] for the full API-level matrix.
+     */
+    private fun requestReplayGainWriteAccess(songId: Int, onResult: (Boolean) -> Unit) {
+        val contentUri = android.content.ContentUris.withAppendedId(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong(),
+        )
+        replayGainWriteGate.ensureWriteAccess(this, contentUri, onResult)
+    }
+
+    /**
+     * Opens a fresh read/write fd for [songId]'s underlying MediaStore
+     * entry. Used by [ReplayGainBridge] for every step of its
+     * write→close→reopen→verify→(restore) sequence — a distinct
+     * ParcelFileDescriptor is opened each time since the native side closes
+     * the fd it's given internally (TagLib::FileStream fdopen()s it and
+     * fclose()s it on destruction). Assumes [requestReplayGainWriteAccess]
+     * already succeeded for this songId in the current call chain.
+     */
+    private fun openReplayGainWriteFd(songId: Int): ParcelFileDescriptor? {
+        val contentUri = android.content.ContentUris.withAppendedId(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong(),
+        )
+        return try {
+            contentResolver.openFileDescriptor(contentUri, "rw")
+        } catch (e: Exception) {
+            null
+        }
     }
 
     // ── Helper: ambil path file dari content URI ─────────────────────────────

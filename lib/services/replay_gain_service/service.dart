@@ -536,7 +536,13 @@ class ReplayGainService {
   /// Returns `true` on success. On failure, check [LogService] for the
   /// native error code (e.g. unsupported format for M4A/AAC — writing is
   /// only supported for MP3/FLAC/Ogg Vorbis/Ogg Opus; permission failure if
-  /// the file isn't writable).
+  /// the file isn't writable; `WRITE_ACCESS_DENIED` if the user declined the
+  /// system write-access dialog; `VERIFICATION_FAILED` if the write couldn't
+  /// be confirmed to have persisted — in that case native already attempted
+  /// a byte-exact rollback of the original tag data before returning).
+  ///
+  /// Requires [song.id] to resolve a fresh MediaStore write grant on the
+  /// native side (Android 10+ scoped storage) — see `MediaStoreWriteGate`.
   static Future<bool> writeReplayGain({
     required LocalSong song,
     required double trackGainDb,
@@ -552,6 +558,7 @@ class ReplayGainService {
         'writeReplayGain',
         {
           'path': song.path,
+          'songId': song.id,
           'trackGainDb': trackGainDb,
           'trackPeak': trackPeak,
           'integratedLufs': trackIntegratedLufs,
@@ -583,15 +590,24 @@ class ReplayGainService {
 
   /// Removes REPLAYGAIN_*/R128_* tags from [song]'s file, leaving all other
   /// metadata intact. Returns `true` on success.
+  ///
+  /// Requires [song.id] — see [writeReplayGain] for why.
   static Future<bool> removeReplayGainTags(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) return false;
     try {
       final raw = await _channel.invokeMapMethod<String, dynamic>(
         'removeReplayGain',
-        {'path': song.path},
+        {'path': song.path, 'songId': song.id},
       );
       final success = raw?['success'] == true;
-      if (success) await invalidate(song.id);
+      if (!success) {
+        LogService.warn(
+          'ReplayGain',
+          'removeReplayGainTags "${song.title}" failed: ${raw?['error']}',
+        );
+      } else {
+        await invalidate(song.id);
+      }
       return success;
     } on PlatformException catch (e) {
       LogService.warn(
