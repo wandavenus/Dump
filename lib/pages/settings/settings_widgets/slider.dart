@@ -15,6 +15,11 @@ class SettingsSliderRow extends StatefulWidget {
   /// Subtitle tampil sebagai value-hint di header saat collapsed.
   final bool expandable;
 
+  /// Deskripsi singkat yang menjelaskan fungsi fitur ini ke user. Tampil di
+  /// bawah slider dengan style redup/italic. Opsional — kalau null, tidak
+  /// ada baris tambahan yang dirender.
+  final String? description;
+
   const SettingsSliderRow({
     super.key,
     required this.title,
@@ -27,6 +32,7 @@ class SettingsSliderRow extends StatefulWidget {
     this.showReset = false,
     this.onReset,
     this.expandable = false,
+    this.description,
   });
 
   @override
@@ -105,6 +111,18 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
             Text(widget.subtitle,
                 style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
             _buildSlider(),
+            if (widget.description != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                widget.description!,
+                style: const TextStyle(
+                  color: Color(0xFF6D6D72),
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -164,6 +182,19 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                       ),
                     ),
                   _buildSlider(),
+                  if (widget.description != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        widget.description!,
+                        style: const TextStyle(
+                          color: Color(0xFF6D6D72),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 4),
                 ],
               ),

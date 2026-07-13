@@ -104,6 +104,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 22,
             showReset: v != 1.0,
             onReset: () => AudioEffectsService.setSpeed(1.0),
+            description:
+                'Mengatur kecepatan pemutaran lagu. Nilai di bawah 1x memperlambat, di atas 1x mempercepat, tanpa mengubah pitch suara.',
           ),
         ),
         const _SectionDivider(),
@@ -123,6 +125,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setPitch(0),
+            description:
+                'Menaikkan atau menurunkan nada lagu dalam satuan semitone, tanpa mengubah kecepatan putar.',
           ),
         ),
         const _SectionDivider(),
@@ -144,6 +148,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 20,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setBassBoost(0),
+            description:
+                'Menguatkan frekuensi bass agar suara dentum/rendah terasa lebih tebal. Semakin besar persentase, semakin kuat efeknya.',
           ),
         ),
         const _SectionDivider(),
@@ -169,6 +175,8 @@ class _AdvancedAudioControls extends StatelessWidget {
                 divisions: 38,
                 showReset: ratio != 1.0,
                 onReset: () => AudioEffectsService.setCompressorRatio(1.0),
+                description:
+                    'Menekan perbedaan volume antara suara pelan dan keras. Rasio lebih tinggi = kompresi lebih agresif. 1:1 berarti nonaktif.',
               ),
               if (ratio > 1.0)
                 ValueListenableBuilder<double>(
@@ -184,6 +192,8 @@ class _AdvancedAudioControls extends StatelessWidget {
                     showReset: v != -20.0,
                     onReset: () =>
                         AudioEffectsService.setCompressorThreshold(-20.0),
+                    description:
+                        'Ambang batas volume tempat compressor mulai bekerja. Semakin rendah nilainya, semakin banyak bagian suara yang dikompres.',
                   ),
                 ),
             ],
@@ -207,6 +217,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 48,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setLimiterThreshold(0.0),
+            description:
+                'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.',
           ),
         ),
         const _SectionDivider(),
@@ -227,6 +239,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setSoftClipperThreshold(0.0),
+            description:
+                'Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.',
           ),
         ),
       ],
