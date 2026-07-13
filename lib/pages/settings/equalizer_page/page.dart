@@ -40,11 +40,16 @@ class _EqualizerPageState extends State<EqualizerPage> {
         ),
         actions: [
           ValueListenableBuilder<bool>(
-            valueListenable: AudioEffectsService.equalizerEnabled,
-            builder: (_, enabled, _) => CupertinoSwitch(
-              value: enabled,
-              onChanged: AudioEffectsService.setEqualizerEnabled,
-              activeTrackColor: const Color(0xFFF92D48),
+            valueListenable: AudioEffectsService.bitPerfectMode,
+            builder: (_, bitPerfect, _) => ValueListenableBuilder<bool>(
+              valueListenable: AudioEffectsService.equalizerEnabled,
+              builder: (_, enabled, _) => CupertinoSwitch(
+                value: enabled,
+                onChanged: bitPerfect
+                    ? null
+                    : AudioEffectsService.setEqualizerEnabled,
+                activeTrackColor: const Color(0xFFF92D48),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -60,16 +65,18 @@ class _EqualizerPageState extends State<EqualizerPage> {
                 : const ClampingScrollPhysics(),
             child: child,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              const _EqPresetChips(),
-              _EqBandSliderSection(activeTouches: _activeBandTouches),
-              const _SectionDivider(),
-              const _AdvancedAudioControls(),
-              const SizedBox(height: 40),
-            ],
+          child: BitPerfectLock(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                const _EqPresetChips(),
+                _EqBandSliderSection(activeTouches: _activeBandTouches),
+                const _SectionDivider(),
+                const _AdvancedAudioControls(),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),

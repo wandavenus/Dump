@@ -11,20 +11,27 @@ class _AudioSection extends StatelessWidget {
         SettingsSectionHeader('AUDIO'),
         SizedBox(height: 6),
 
-        // ── Audio Normalize ─────────────────────────────────────────────────
-        _ReplayGainSection(),
-        SettingsDivider(),
+        BitPerfectLock(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Audio Normalize ───────────────────────────────────────────
+              _ReplayGainSection(),
+              SettingsDivider(),
 
-        // ── Loudness Normalization ───────────────────────────────────────────
-        _LoudnessNormSection(),
-        SettingsDivider(),
+              // ── Loudness Normalization ─────────────────────────────────────
+              _LoudnessNormSection(),
+              SettingsDivider(),
 
-        // ── Crossfeed ─────────────────────────────────────────────────────────
-        _CrossfeedSection(),
-        SettingsDivider(),
+              // ── Crossfeed ───────────────────────────────────────────────────
+              _CrossfeedSection(),
+              SettingsDivider(),
 
-        _CrossfadePicker(),
-        SettingsDivider(),
+              _CrossfadePicker(),
+              SettingsDivider(),
+            ],
+          ),
+        ),
       ],
     );
   }

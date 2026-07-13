@@ -18,27 +18,34 @@ class _EqualizerSection extends StatelessWidget {
         const SettingsSectionHeader('EQUALIZER'),
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
-          valueListenable: AudioEffectsService.equalizerEnabled,
-          builder: (_, enabled, _) {
-            return ValueListenableBuilder<int>(
-              valueListenable: AudioEffectsService.eqPreset,
-              builder: (_, presetIdx, _) {
-                String trailing;
-                if (!enabled) {
-                  trailing = 'Nonaktif';
-                } else if (presetIdx >= 0 &&
-                    presetIdx < AudioEffectsService.eqPresets.length) {
-                  trailing =
-                      AudioEffectsService.eqPresets[presetIdx]['name'] as String;
-                } else {
-                  trailing = 'Custom';
-                }
-                return SettingsActionRow(
-                  title: 'Equalizer',
-                  trailing: trailing,
-                  onTap: () => Navigator.of(context).push(
-                    ZoomFadeRoute<void>(page: const EqualizerPage()),
-                  ),
+          valueListenable: AudioEffectsService.bitPerfectMode,
+          builder: (_, bitPerfect, _) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: AudioEffectsService.equalizerEnabled,
+              builder: (_, enabled, _) {
+                return ValueListenableBuilder<int>(
+                  valueListenable: AudioEffectsService.eqPreset,
+                  builder: (_, presetIdx, _) {
+                    String trailing;
+                    if (bitPerfect) {
+                      trailing = 'Bit-Perfect';
+                    } else if (!enabled) {
+                      trailing = 'Nonaktif';
+                    } else if (presetIdx >= 0 &&
+                        presetIdx < AudioEffectsService.eqPresets.length) {
+                      trailing = AudioEffectsService
+                          .eqPresets[presetIdx]['name'] as String;
+                    } else {
+                      trailing = 'Custom';
+                    }
+                    return SettingsActionRow(
+                      title: 'Equalizer',
+                      trailing: trailing,
+                      onTap: () => Navigator.of(context).push(
+                        ZoomFadeRoute<void>(page: const EqualizerPage()),
+                      ),
+                    );
+                  },
                 );
               },
             );

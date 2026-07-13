@@ -26,6 +26,7 @@ part 'settings_page/debug_state.dart';
 part 'settings_page/page.dart';
 part 'settings_page/body.dart';
 part 'settings_page/appearance.dart';
+part 'settings_page/bit_perfect.dart';
 part 'settings_page/glass_toggle.dart';
 part 'settings_page/audio.dart';
 part 'settings_page/playback_engine.dart';

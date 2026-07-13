@@ -93,6 +93,20 @@ class AudioEffectsService {
 
   static final ValueNotifier<String> lyricsPath = ValueNotifier('');
 
+  // ── Bit-Perfect Mode ─────────────────────────────────────────────────────
+  //
+  // Master switch that force-bypasses EVERY audio-altering feature in the
+  // app (EQ, Bass Boost, Spatial/Virtualizer, Compressor, Limiter, Soft
+  // Clipper, Crossfeed, ReplayGain, Loudness Normalization, Crossfade,
+  // Speed, Pitch, and the native Gain/PEQ pipeline stages) so the signal
+  // reaches the output as close as possible to the untouched source PCM.
+  //
+  // The previous state of every feature is snapshotted to SharedPreferences
+  // before bypassing, so turning this back off restores exactly what the
+  // user had configured — this survives an app restart, since the snapshot
+  // is persisted, not just kept in memory.
+  static final ValueNotifier<bool> bitPerfectMode = ValueNotifier(false);
+
   // ── Room acoustic presets ──────────────────────────────────────────────────
   // {name, eq gains [60Hz,230Hz,910Hz,3.6k,14k], description}
 
@@ -176,6 +190,7 @@ class AudioEffectsService {
     limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? 0.0;
     softClipperEnabled.value  = prefs.getBool('scEnabled')          ?? false;
     softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? 0.0;
+    bitPerfectMode.value      = prefs.getBool('bitPerfectMode')     ?? false;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -616,6 +631,123 @@ class AudioEffectsService {
       unawaited(PlaybackManager.setVirtualizerEnabled(true));
     }
     LogService.log('AudioEffects', 'Spatial strength: $v');
+  }
+
+  // ── Bit-Perfect Mode ─────────────────────────────────────────────────────
+  //
+  // Master switch — force-bypasses every audio-altering feature in the app
+  // so the signal reaches the output as close as possible to the untouched
+  // source PCM. Snapshots the previous state of every feature to
+  // SharedPreferences before bypassing so turning it back off restores
+  // exactly what the user had configured, even across an app restart.
+
+  static Future<void> setBitPerfectMode(bool enabled) async {
+    if (bitPerfectMode.value == enabled) return;
+    bitPerfectMode.value = enabled;
+    await _saveBool('bitPerfectMode', enabled);
+
+    if (enabled) {
+      await _snapshotBeforeBitPerfect();
+      await _forceBypassEverything();
+      LogService.log(
+        'AudioEffects',
+        'Bit-Perfect Mode: ON — all audio processing bypassed',
+      );
+    } else {
+      await _restoreFromBitPerfectSnapshot();
+      LogService.log(
+        'AudioEffects',
+        'Bit-Perfect Mode: OFF — previous settings restored',
+      );
+    }
+  }
+
+  static Future<void> _snapshotBeforeBitPerfect() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('bpmSnapEq', equalizerEnabled.value);
+    await prefs.setInt('bpmSnapBass', bassBoost.value);
+    await prefs.setBool('bpmSnapSpatial', spatialAudio.value);
+    await prefs.setInt('bpmSnapSpatialStr', spatialStrength.value);
+    await prefs.setDouble('bpmSnapSpeed', playbackSpeed.value);
+    await prefs.setDouble('bpmSnapPitch', pitchShift.value);
+    await prefs.setDouble('bpmSnapCrossfade', crossfadeDuration.value);
+    await prefs.setInt('bpmSnapRgMode', replayGainMode.value.index);
+    await prefs.setBool('bpmSnapLn', loudnessNormEnabled.value);
+    await prefs.setBool('bpmSnapCrossfeed', crossfeedEnabled.value);
+    await prefs.setDouble('bpmSnapCompRatio', compressorRatio.value);
+    await prefs.setDouble('bpmSnapLimThreshold', limiterThreshold.value);
+    await prefs.setDouble('bpmSnapScThreshold', softClipperThreshold.value);
+    await prefs.setBool('bpmSnapValid', true);
+  }
+
+  static Future<void> _forceBypassEverything() async {
+    await setEqualizerEnabled(false);
+    await setBassBoost(0);
+    await setSpatial(false);
+    await setSpeed(1.0);
+    await setPitch(0.0);
+    await setCrossfade(0.0);
+    await setReplayGainMode(ReplayGainMode.off);
+    await setLoudnessNormEnabled(false);
+    await setCrossfeedEnabled(false);
+    await setCompressorRatio(1.0);
+    await setLimiterThreshold(0.0);
+    await setSoftClipperThreshold(0.0);
+
+    // Bypass ReplayGain on the currently-loaded track immediately, rather
+    // than waiting for the next track change to pick up the new mode.
+    PlaybackManager.setNativeReplayGainBypass(true);
+    // Native Gain/Preamp and PEQ are live DSP stages with no dedicated UI
+    // toggle elsewhere in the app — force them to unity/bypass too so
+    // nothing in the native chain still touches the signal.
+    PlaybackManager.setNativeGainBypass(true);
+    PlaybackManager.setNativePeqBypass(true);
+    // System-level LoudnessEnhancer, in case anything left it engaged.
+    unawaited(PlaybackManager.setLoudnessEnabled(false));
+    unawaited(PlaybackManager.setLoudnessTargetGain(0.0));
+  }
+
+  static Future<void> _restoreFromBitPerfectSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('bpmSnapValid') ?? false)) return;
+
+    final eq         = prefs.getBool('bpmSnapEq')             ?? false;
+    final bass       = prefs.getInt('bpmSnapBass')            ?? 0;
+    final spatial    = prefs.getBool('bpmSnapSpatial')        ?? false;
+    final spatialStr = prefs.getInt('bpmSnapSpatialStr')      ?? 1000;
+    final speed      = prefs.getDouble('bpmSnapSpeed')        ?? 1.0;
+    final pitch      = prefs.getDouble('bpmSnapPitch')        ?? 0.0;
+    final crossfade  = prefs.getDouble('bpmSnapCrossfade')    ?? 0.0;
+    final rgIdx      = prefs.getInt('bpmSnapRgMode')          ?? 0;
+    final ln         = prefs.getBool('bpmSnapLn')             ?? false;
+    final crossfeed  = prefs.getBool('bpmSnapCrossfeed')      ?? false;
+    final compRatio  = prefs.getDouble('bpmSnapCompRatio')    ?? 1.0;
+    final limThresh  = prefs.getDouble('bpmSnapLimThreshold') ?? 0.0;
+    final scThresh   = prefs.getDouble('bpmSnapScThreshold')  ?? 0.0;
+
+    await setEqualizerEnabled(eq);
+    if (eq) await restoreEqualizerBands();
+    await setBassBoost(bass);
+    await setSpatial(spatial);
+    if (spatial) await setSpatialStrength(spatialStr);
+    await setSpeed(speed);
+    await setPitch(pitch);
+    await setCrossfade(crossfade);
+    await setReplayGainMode(
+      ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)],
+    );
+    await setLoudnessNormEnabled(ln);
+    await setCrossfeedEnabled(crossfeed);
+    await setCompressorRatio(compRatio);
+    await setLimiterThreshold(limThresh);
+    await setSoftClipperThreshold(scThresh);
+
+    // Native Gain/PEQ stages have no user-facing toggle — their normal
+    // resting state is simply "not bypassed" (unity/flat passthrough).
+    PlaybackManager.setNativeGainBypass(false);
+    PlaybackManager.setNativePeqBypass(false);
+
+    await prefs.setBool('bpmSnapValid', false);
   }
 
   // ── Lyrics path ───────────────────────────────────────────────────────────

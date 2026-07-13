@@ -53,3 +53,4 @@
 - [DSP processors default off](dsp-processors-default-off.md) — compressor/limiter/soft_clipper/crossfeed native default bypass=0 (active); Dart must force-bypass until user opts in.
 - [Service readiness gate](service-ready-gate.md) — Media3PlaybackService only starts on-demand (play/setQueue); startup settings pushes must await a real ServiceReadyGate signal, not retry, to fix the one-time fresh-install not_ready race.
 - [Vertical slider vs scroll conflict](vertical-slider-scroll-lock.md) — Listener-based multitouch sliders don't join the gesture arena; lock ancestor ScrollView via a shared active-pointer-count ValueNotifier instead of fighting the arena.
+- [Bit-Perfect Mode design](bit-perfect-mode.md) — app-wide audio-bypass master switch: snapshot-to-prefs + force-off + UI lock pattern, lives in Settings root not inside Equalizer page.
