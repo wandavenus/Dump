@@ -52,3 +52,4 @@
 - [Native runtime symbol name mismatch](native-runtime-symbol-name-mismatch.md) — dlopen "cannot locate symbol" when a .c file skips its own internal header and defines a differently-named static fn instead of the extern one; also: Dart clamp() is NaN/Infinity-safe, bare toInt() on stream doubles is not.
 - [DSP processors default off](dsp-processors-default-off.md) — compressor/limiter/soft_clipper/crossfeed native default bypass=0 (active); Dart must force-bypass until user opts in.
 - [Service readiness gate](service-ready-gate.md) — Media3PlaybackService only starts on-demand (play/setQueue); startup settings pushes must await a real ServiceReadyGate signal, not retry, to fix the one-time fresh-install not_ready race.
+- [Vertical slider vs scroll conflict](vertical-slider-scroll-lock.md) — Listener-based multitouch sliders don't join the gesture arena; lock ancestor ScrollView via a shared active-pointer-count ValueNotifier instead of fighting the arena.

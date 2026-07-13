@@ -2,8 +2,25 @@ part of '../equalizer_page.dart';
 
 // ─── EqualizerPage ─────────────────────────────────────────────────────────────
 
-class EqualizerPage extends StatelessWidget {
+class EqualizerPage extends StatefulWidget {
   const EqualizerPage({super.key});
+
+  @override
+  State<EqualizerPage> createState() => _EqualizerPageState();
+}
+
+class _EqualizerPageState extends State<EqualizerPage> {
+  // Jumlah pointer yang sedang aktif menekan/menggeser salah satu band
+  // slider vertikal. Selama > 0, scroll halaman dikunci agar drag vertikal
+  // di slider tidak ikut menggeser layar (SingleChildScrollView bertumpuk
+  // vertikal dengan slider vertikal → gesture bentrok tanpa ini).
+  final ValueNotifier<int> _activeBandTouches = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _activeBandTouches.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,19 +50,25 @@ class EqualizerPage extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: const SafeArea(
+      body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          physics: ClampingScrollPhysics(),
+        child: ValueListenableBuilder<int>(
+          valueListenable: _activeBandTouches,
+          builder: (_, touches, child) => SingleChildScrollView(
+            physics: touches > 0
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
+            child: child,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 8),
-              _EqPresetChips(),
-              _EqBandSliderSection(),
-              _SectionDivider(),
-              _AdvancedAudioControls(),
-              SizedBox(height: 40),
+              const SizedBox(height: 8),
+              const _EqPresetChips(),
+              _EqBandSliderSection(activeTouches: _activeBandTouches),
+              const _SectionDivider(),
+              const _AdvancedAudioControls(),
+              const SizedBox(height: 40),
             ],
           ),
         ),

@@ -21,7 +21,12 @@ part of '../equalizer_page.dart';
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class _EqBandSliderSection extends StatefulWidget {
-  const _EqBandSliderSection();
+  const _EqBandSliderSection({required this.activeTouches});
+
+  /// Shared counter of active pointers currently dragging a band slider.
+  /// Passed up to [EqualizerPage] so it can lock page scrolling while any
+  /// band slider is being touched.
+  final ValueNotifier<int> activeTouches;
 
   @override
   State<_EqBandSliderSection> createState() => _EqBandSliderSectionState();
@@ -161,6 +166,7 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
                           max: _maxDb,
                           enabled: enabled,
                           onChanged: (v) => _onBandChanged(i, v),
+                          activeTouches: widget.activeTouches,
                         ),
                       );
                     }),
@@ -186,6 +192,7 @@ class _VerticalBandSlider extends StatefulWidget {
     required this.max,
     required this.enabled,
     required this.onChanged,
+    required this.activeTouches,
   });
 
   final double gain;
@@ -194,6 +201,10 @@ class _VerticalBandSlider extends StatefulWidget {
   final double max;
   final bool enabled;
   final ValueChanged<double> onChanged;
+
+  /// Shared counter of active pointers across all band sliders in this
+  /// section — incremented on pointer down, decremented on pointer up/cancel.
+  final ValueNotifier<int> activeTouches;
 
   @override
   State<_VerticalBandSlider> createState() => _VerticalBandSliderState();
@@ -216,17 +227,12 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
     );
   }
 
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
   // ── Pointer tracking (multitouch-safe via Listener) ───────────────────────
 
   void _onPointerDown(PointerDownEvent e, BoxConstraints c) {
     if (!widget.enabled || _activePointer != null) return;
     _activePointer = e.pointer;
+    widget.activeTouches.value++;
     _pressCtrl.forward();
     final v = _yToValue(e.localPosition.dy, c.maxHeight);
     widget.onChanged(v);
@@ -241,13 +247,28 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
   void _onPointerUp(PointerUpEvent e) {
     if (e.pointer != _activePointer) return;
     _activePointer = null;
+    widget.activeTouches.value--;
     _pressCtrl.reverse();
   }
 
   void _onPointerCancel(PointerCancelEvent e) {
     if (e.pointer != _activePointer) return;
     _activePointer = null;
+    widget.activeTouches.value--;
     _pressCtrl.reverse();
+  }
+
+  @override
+  void dispose() {
+    // Safety net: if this slider is disposed mid-drag (e.g. page popped
+    // while dragging), make sure its touch is released from the shared
+    // counter so the counter never gets stuck above zero.
+    if (_activePointer != null) {
+      widget.activeTouches.value--;
+      _activePointer = null;
+    }
+    _pressCtrl.dispose();
+    super.dispose();
   }
 
   /// Convert a raw Y coordinate within the track area to a gain value.
