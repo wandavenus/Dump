@@ -12,7 +12,7 @@ class _PlaybackEngineSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('Engine Tunneling'),
+        const SettingsSectionHeader('ENGINE TUNNELING'),
         const SizedBox(height: 6),
 
         BitPerfectLock(
@@ -23,7 +23,7 @@ class _PlaybackEngineSection extends StatelessWidget {
               ValueListenableBuilder<bool>(
                 valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
                 builder: (_, v, _) => SettingsToggleRow(
-                  title: 'Lewati Keheningan',
+                  title: 'Skip Silence',
                   subtitle:
                       'Potong bagian senyap di dalam lagu (intro/outro)',
                   value: v,
@@ -42,7 +42,7 @@ class _PlaybackEngineSection extends StatelessWidget {
                   builder: (_, v, _) {
                     final pct = (v * 100).round();
                     return SettingsSliderRow(
-                      title: 'Pelebaran Stereo',
+                      title: 'Stereo Widening',
                       subtitle: enabled ? '$pct%' : 'Nonaktif',
                       value: enabled ? v : 0.0,
                       min: 0.0,
