@@ -15,51 +15,63 @@ class _PlaybackEngineSection extends StatelessWidget {
         const SettingsSectionHeader('Engine Tunneling'),
         const SizedBox(height: 6),
 
-        // ── Skip Silence ───────────────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
-          builder: (_, v, _) => SettingsToggleRow(
-            title: 'Lewati Keheningan',
-            subtitle: 'Potong bagian senyap di dalam lagu (intro/outro)',
-            value: v,
-            onChanged: MediaCapabilitiesService.setSkipSilence,
-          ),
-        ),
-        const SettingsDivider(),
+        BitPerfectLock(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Skip Silence ───────────────────────────────────────────
+              ValueListenableBuilder<bool>(
+                valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
+                builder: (_, v, _) => SettingsToggleRow(
+                  title: 'Lewati Keheningan',
+                  subtitle:
+                      'Potong bagian senyap di dalam lagu (intro/outro)',
+                  value: v,
+                  onChanged: MediaCapabilitiesService.setSkipSilence,
+                ),
+              ),
+              const SettingsDivider(),
 
-        // ── Stereo Widening ────────────────────────────────────────────────
-        ValueListenableBuilder<bool>(
-          valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-          builder: (_, enabled, _) => ValueListenableBuilder<double>(
-            valueListenable: MediaCapabilitiesService.stereoWideningStrength,
-            builder: (_, v, _) {
-              final pct = (v * 100).round();
-              return SettingsSliderRow(
-                title: 'Pelebaran Stereo',
-                subtitle: enabled ? '$pct%' : 'Nonaktif',
-                value: enabled ? v : 0.0,
-                min: 0.0,
-                max: 1.0,
-                divisions: 20,
-                onChanged: (val) async {
-                  if (val > 0) {
-                    await MediaCapabilitiesService.setStereoWidening(true);
-                    await MediaCapabilitiesService
-                        .setStereoWideningStrength(val);
-                  } else {
-                    await MediaCapabilitiesService.setStereoWidening(false);
-                  }
-                },
-                showReset: enabled,
-                onReset: () async {
-                  await MediaCapabilitiesService.setStereoWidening(false);
-                },
-                expandable: true,
-              );
-            },
+              // ── Stereo Widening ──────────────────────────────────────────
+              ValueListenableBuilder<bool>(
+                valueListenable:
+                    MediaCapabilitiesService.stereoWideningEnabled,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable:
+                      MediaCapabilitiesService.stereoWideningStrength,
+                  builder: (_, v, _) {
+                    final pct = (v * 100).round();
+                    return SettingsSliderRow(
+                      title: 'Pelebaran Stereo',
+                      subtitle: enabled ? '$pct%' : 'Nonaktif',
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) async {
+                        if (val > 0) {
+                          await MediaCapabilitiesService
+                              .setStereoWidening(true);
+                          await MediaCapabilitiesService
+                              .setStereoWideningStrength(val);
+                        } else {
+                          await MediaCapabilitiesService
+                              .setStereoWidening(false);
+                        }
+                      },
+                      showReset: enabled,
+                      onReset: () async {
+                        await MediaCapabilitiesService.setStereoWidening(false);
+                      },
+                      expandable: true,
+                    );
+                  },
+                ),
+              ),
+              const SettingsDivider(),
+            ],
           ),
         ),
-        const SettingsDivider(),
       ],
     );
   }
