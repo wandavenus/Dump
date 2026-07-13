@@ -176,7 +176,10 @@ object ReplayGainService {
         return ReplayGainError.fromNative(code)
     }
 
-    /** Strips REPLAYGAIN_*/R128_* tags from [path], leaving other metadata intact. */
+    /**
+ * Strips REPLAYGAIN_* and R128_* tags from [path],
+ * leaving all other metadata intact.
+ */
     fun removeReplayGain(path: String): ReplayGainError {
         if (!nativeAvailable) return ReplayGainError.UNKNOWN
         if (TagFormat.fromPath(path) == null) return ReplayGainError.UNSUPPORTED_FORMAT
