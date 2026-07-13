@@ -1,0 +1,144 @@
+Perform a complete production audit of the entire ReplayGain implementation.
+
+Do NOT assume the implementation is correct just because it builds successfully.
+
+Your goal is to find every possible reason why ReplayGain tags may not actually be written to the file.
+
+Audit every layer from Flutter down to the native TagLib writer.
+
+Specifically inspect:
+
+1. Flutter
+- ReplayGainService
+- MethodChannel arguments
+- Data validation
+- Error propagation
+- Null handling
+- Parameter ordering
+
+2. Kotlin
+- ReplayGainBridge
+- ReplayGainNative
+- ReplayGainService
+- JNI bindings
+- Native library loading
+- Return code handling
+
+3. JNI
+- replaygain_jni.cpp
+- Parameter conversions
+- String conversions
+- Integer conversions
+- Double conversions
+- Memory ownership
+- Exception handling
+
+4. Native C++
+- WriteReplayGainTags()
+- WriteMp3()
+- WriteFlac()
+- WriteOggVorbis()
+- WriteOggOpus()
+- RemoveReplayGainTags()
+- WithCrashSafeWrite()
+
+5. TagLib
+Verify every API call against TagLib 2.3.
+
+Check for:
+- APIs that do not exist
+- Wrong overloads
+- Wrong ownership assumptions
+- Missing save()
+- Wrong XiphComment usage
+- Wrong Opus tag usage
+- Wrong MP3 TXXX usage
+
+6. ReplayGain values
+
+Verify:
+- Track Gain
+- Album Gain
+- Peak
+- LUFS
+- R128 conversion
+- Q7.8 conversion
+- Gain formatting
+- Peak formatting
+
+7. Opus
+
+Verify that WriteOggOpus actually writes:
+
+- R128_TRACK_GAIN
+- R128_ALBUM_GAIN
+
+Verify that:
+- they survive save()
+- they can be read back immediately after save()
+- they are written exactly as required by the Opus specification.
+
+8. Crash-safe writing
+
+Audit:
+
+- temp file creation
+- copy
+- metadata modification
+- save()
+- rename()
+- cleanup
+- rollback
+
+Ensure no code path can silently discard changes.
+
+9. End-to-end verification
+
+Trace one complete write operation:
+
+Flutter
+↓
+
+MethodChannel
+↓
+
+Kotlin
+
+↓
+
+JNI
+
+↓
+
+C++
+
+↓
+
+TagLib
+
+↓
+
+File.save()
+
+↓
+
+rename()
+
+↓
+
+result returned to Flutter
+
+At every step verify that:
+- parameters are preserved correctly
+- return values are checked
+- errors are propagated
+- no values are lost
+
+10. Silent failures
+
+Search for every location where:
+
+- save() result is ignored
+- native result is ignored
+- exceptions are swallowed
+- catch(...)

@@ -53,7 +53,19 @@ object ReplayGainService {
         )
 
         session?.use { s ->
-            if (ok) result = s.finish()
+            if (ok) {
+                val finished = s.finish()
+                // Reject invalid measurements (e.g. silence-only tracks that
+                // never cross libebur128's absolute gate) instead of letting
+                // them fall through as a bogus "+0.00 dB" result — scanAlbum
+                // already enforces this same check per-track; scanTrack must
+                // match it so a failed measurement is never mistaken for a
+                // real 0 dB gain and (if writeTags is on) permanently burned
+                // into the file's tags.
+                if (finished != null && finished.valid) {
+                    result = finished
+                }
+            }
         }
 
         return result
