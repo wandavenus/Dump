@@ -96,3 +96,51 @@ class NativeAudioRuntime {
     });
   }
 }
+
+// ── NativeAAudioProbe ─────────────────────────────────────────────────────────
+
+/// Dart facade over the native AAudio capability probe
+/// (`src/aaudio_probe.h`). Diagnostic-only — not part of the DSP pipeline,
+/// no lifecycle/registration step needed.
+///
+/// Answers "what does this device actually grant?" for AAudio exclusive
+/// mode / MMAP, which cannot be determined from static device info: it
+/// opens a real stream requesting exclusive + low-latency, reads back what
+/// AAudio actually handed back, then closes it immediately.
+class NativeAAudioProbe {
+  NativeAAudioProbe._();
+  static final NativeAAudioProbe instance = NativeAAudioProbe._();
+
+  /// Run one probe. Safe to call repeatedly — each call opens and closes a
+  /// fresh, short-lived stream; does not interfere with playback.
+  AAudioProbeReport run() {
+    final code = bindings.native_runtime_aaudio_probe();
+    final result = AAudioProbeResult.fromCode(code);
+
+    final sharingCode = bindings.native_runtime_aaudio_last_sharing_mode();
+    final sharingMode = switch (sharingCode) {
+      0 => AAudioSharingMode.exclusive,
+      1 => AAudioSharingMode.shared,
+      _ => AAudioSharingMode.unknown,
+    };
+
+    final perfCode = bindings.native_runtime_aaudio_last_performance_mode();
+    final performanceMode = switch (perfCode) {
+      10 => AAudioPerformanceMode.none,
+      11 => AAudioPerformanceMode.powerSaving,
+      12 => AAudioPerformanceMode.lowLatency,
+      _ => AAudioPerformanceMode.unknown,
+    };
+
+    final errPtr = bindings.native_runtime_aaudio_last_error();
+    final detail =
+        errPtr == ffi.nullptr ? '' : errPtr.cast<pkg_ffi.Utf8>().toDartString();
+
+    return AAudioProbeReport(
+      result: result,
+      sharingMode: sharingMode,
+      performanceMode: performanceMode,
+      detail: detail,
+    );
+  }
+}

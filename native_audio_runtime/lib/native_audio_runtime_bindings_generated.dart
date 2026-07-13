@@ -390,3 +390,29 @@ external void nar_soft_clipper_set_bypass(int bypass);
 /// Returns 1 if the soft clipper is bypassed, 0 otherwise.
 @ffi.Native<ffi.Int32 Function()>()
 external int nar_soft_clipper_get_bypass();
+
+// ── aaudio_probe.h ─────────────────────────────────────────────────────────────
+// Diagnostic-only: probes what AAudio actually grants when this app asks
+// for SHARING_MODE_EXCLUSIVE + PERFORMANCE_MODE_LOW_LATENCY. Not part of the
+// DSP pipeline — no register_internal(), no pipeline slot.
+
+/// Opens a real AAudio stream requesting exclusive/low-latency, reads back
+/// what was actually granted, then closes it. Returns a NarAAudioProbeResult
+/// (0 = ok; negative = specific failure — see src/aaudio_probe.h).
+@ffi.Native<ffi.Int32 Function()>()
+external int native_runtime_aaudio_probe();
+
+/// Sharing mode granted by the last probe (0 = EXCLUSIVE, 1 = SHARED),
+/// or -1 if the last probe did not reach a successful open.
+@ffi.Native<ffi.Int32 Function()>()
+external int native_runtime_aaudio_last_sharing_mode();
+
+/// Performance mode granted by the last probe (10 = NONE, 11 = POWER_SAVING,
+/// 12 = LOW_LATENCY), or -1 if unavailable.
+@ffi.Native<ffi.Int32 Function()>()
+external int native_runtime_aaudio_last_performance_mode();
+
+/// Human-readable detail for the last probe (empty string on success).
+/// Owned by native code — do not free.
+@ffi.Native<ffi.Pointer<ffi.Char> Function()>()
+external ffi.Pointer<ffi.Char> native_runtime_aaudio_last_error();

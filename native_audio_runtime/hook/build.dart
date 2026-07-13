@@ -28,8 +28,13 @@ void main(List<String> args) async {
     // web builds (which never compile this package's C sources) keep working.
     final libraries = <String>[
       if (input.config.buildCodeAssets &&
-          input.config.code.targetOS == OS.android)
+          input.config.code.targetOS == OS.android) ...[
         'log',
+        // aaudio_probe.c calls dlopen()/dlsym()/dlclose() to probe
+        // libaaudio.so's actual granted sharing mode at runtime (see
+        // src/aaudio_probe.h) — those symbols live in libdl on Android.
+        'dl',
+      ],
     ];
     final cbuilder = CBuilder.library(
       name: packageName,
@@ -52,6 +57,7 @@ void main(List<String> args) async {
         'src/limiter_processor.c',      // Look-ahead limiter processor (Phase 6)
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
         'src/loudness_processor.c',     // Loudness Normalization (Phase 8.5)
+        'src/aaudio_probe.c',           // AAudio exclusive/MMAP diagnostic probe
       ],
       libraries: libraries,
     );

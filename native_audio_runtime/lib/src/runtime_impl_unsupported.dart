@@ -38,3 +38,20 @@ class NativeAudioRuntime {
 
   List<String> get registeredModuleIds => const [];
 }
+
+// ── NativeAAudioProbe stub ────────────────────────────────────────────────────
+
+/// Unsupported-platform stub for [NativeAAudioProbe]. Always reports
+/// [AAudioProbeResult.unsupportedPlatform] — there is no AAudio on this
+/// platform (web).
+class NativeAAudioProbe {
+  NativeAAudioProbe._();
+  static final NativeAAudioProbe instance = NativeAAudioProbe._();
+
+  AAudioProbeReport run() => const AAudioProbeReport(
+        result: AAudioProbeResult.unsupportedPlatform,
+        sharingMode: AAudioSharingMode.unknown,
+        performanceMode: AAudioPerformanceMode.unknown,
+        detail: 'AAudio hanya tersedia di Android',
+      );
+}
