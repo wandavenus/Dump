@@ -28,3 +28,13 @@ correct post-switch session; native switch-on happens *after* `_forceBypassEvery
 No new UI — rides entirely on the existing toggle. Not compile-verified here (no Android
 Gradle toolchain in this sandbox) — only `flutter analyze` on the Dart side; real
 verification needs the physical device build.
+
+**Gotcha found on-device (2026-07-13):** the shared per-player `Player.Listener`'s
+`onAudioSessionIdChanged` unconditionally called `effectsManager.attachEffects(sessionId)`
+for whichever player fired it. Since `attachPlayerListener()` is reused for the bit-perfect
+player too, its first session-ID assignment re-attached EQ/LoudnessEnhancer/BassBoost/
+Virtualizer right onto the "clean" session, silently defeating the whole point. Fixed by
+guarding that call with `if (p !== bitPerfectPlayer)`. Lesson: any *generic* per-player
+listener/callback shared across all ExoPlayer instances needs an explicit bit-perfect-player
+exclusion check — don't assume a player-agnostic callback is safe just because it's already
+used elsewhere.

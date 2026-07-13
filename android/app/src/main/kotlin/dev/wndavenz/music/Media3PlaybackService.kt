@@ -1173,7 +1173,13 @@ class Media3PlaybackService : MediaSessionService() {
                     "onAudioSessionIdChanged: NEW session=$audioSessionId (active player)", p)
                 NativeLogger.emit("info", "Media3",
                     "audioSessionId → $audioSessionId  thread=${Thread.currentThread().name}")
-                effectsManager.attachEffects(audioSessionId)
+                // Bit-Perfect Mode: never attach AudioEffects to the dedicated
+                // clean player's session — that would defeat the whole point
+                // of the mode. switchFromBitPerfectPlayer() re-attaches
+                // effects explicitly once we're back on a normal player.
+                if (p !== bitPerfectPlayer) {
+                    effectsManager.attachEffects(audioSessionId)
+                }
                 transportState.emitAll()
             }
 
