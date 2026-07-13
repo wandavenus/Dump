@@ -17,6 +17,7 @@ import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import dev.wndavenz.music.metadata.MetadataPrescanner
 import dev.wndavenz.music.replaygain.ReplayGainBridge
+import dev.wndavenz.music.replaygain.MediaStoreWriteGate
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
