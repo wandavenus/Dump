@@ -35,6 +35,16 @@ class AudioEffectsService {
   /// Typical: −23.0 (EBU R128 broadcast), −16.0 (podcast), −14.0 (streaming).
   static final ValueNotifier<double> loudnessNormTarget = ValueNotifier(-23.0);
 
+  // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────
+
+  /// Whether headphone crossfeed is enabled. Native default is ON (amount
+  /// 0.3) as soon as the DSP pipeline initializes, so this notifier starts
+  /// `true` to mirror that reality until prefs say otherwise.
+  static final ValueNotifier<bool> crossfeedEnabled = ValueNotifier(true);
+
+  /// Crossfeed blend strength [0, 1]. Default 0.3 (native default).
+  static final ValueNotifier<double> crossfeedAmount = ValueNotifier(0.3);
+
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
   static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
@@ -124,6 +134,8 @@ class AudioEffectsService {
     clippingProtection.value  = prefs.getBool('rgClipProtect')      ?? true;
     loudnessNormEnabled.value = prefs.getBool('lnEnabled')          ?? false;
     loudnessNormTarget.value  = prefs.getDouble('lnTarget')         ?? -23.0;
+    crossfeedEnabled.value    = prefs.getBool('crossfeedEnabled')   ?? true;
+    crossfeedAmount.value     = prefs.getDouble('crossfeedAmount')  ?? 0.3;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -169,6 +181,12 @@ class AudioEffectsService {
 
     // Crossfade
     unawaited(PlaybackManager.setCrossfadeDuration(crossfadeDuration.value));
+
+    // Crossfeed (Phase 7)
+    PlaybackManager.setNativeCrossfeedBypass(!crossfeedEnabled.value);
+    if (crossfeedEnabled.value) {
+      PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
+    }
   }
 
   // ── ReplayGain (Audio Normalize) ───────────────────────────────────────────
@@ -223,6 +241,28 @@ class AudioEffectsService {
     await _saveDouble('lnTarget', v);
     PlaybackManager.setNativeLoudnessNormTargetLufs(v);
     LogService.log('AudioEffects', 'Loudness target: ${v.toStringAsFixed(1)} LUFS');
+  }
+
+  // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────
+
+  static Future<void> setCrossfeedEnabled(bool enabled) async {
+    crossfeedEnabled.value = enabled;
+    await _saveBool('crossfeedEnabled', enabled);
+    PlaybackManager.setNativeCrossfeedBypass(!enabled);
+    if (enabled) {
+      PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
+    }
+    LogService.log('AudioEffects', 'Crossfeed: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  static Future<void> setCrossfeedAmount(double amount) async {
+    final v = amount.clamp(0.0, 1.0);
+    crossfeedAmount.value = v;
+    await _saveDouble('crossfeedAmount', v);
+    if (crossfeedEnabled.value) {
+      PlaybackManager.setNativeCrossfeedParams(amount: v);
+    }
+    LogService.log('AudioEffects', 'Crossfeed amount: ${v.toStringAsFixed(2)}');
   }
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
