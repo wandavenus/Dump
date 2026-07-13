@@ -332,7 +332,7 @@ WriteResult RemoveOggOpus(const std::string& target_path) {
 
 WriteResult WriteReplayGainTags(const WriteRequest& req) {
     if (req.path.empty()) return WriteResult::kInvalidArgument;
-    if (!TagLib::File::isWritable(req.path.c_str())) return WriteResult::kPermissionFailure;
+    
 
     return WithCrashSafeWrite(req.path, [&req](const std::string& target_path) -> WriteResult {
         switch (req.format) {
@@ -347,7 +347,7 @@ WriteResult WriteReplayGainTags(const WriteRequest& req) {
 
 WriteResult RemoveReplayGainTags(const std::string& path) {
     if (path.empty()) return WriteResult::kInvalidArgument;
-    if (!TagLib::File::isWritable(path.c_str())) return WriteResult::kPermissionFailure;
+    
 
     const auto ext_pos = path.find_last_of('.');
     std::string ext = (ext_pos == std::string::npos) ? "" : path.substr(ext_pos + 1);
