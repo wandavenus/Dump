@@ -1,0 +1,106 @@
+[2026-07-13T16:08:15.374115] [INF] [Media3] AudioTrack initialized / PCM sink ready: isActive=true  encoding=2  48000Hz offload=false  thread=main
+[2026-07-13T16:08:15.374057] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695373ms] AnalyticsListener.onAudioTrackInitialized: isActive=true  encoding=2  sampleRate=48000  offload=false  bufferSize=61504 | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.348165] [INF] [Media3] Selected renderer/input format: isActive=true  mime=audio/opus codec=  48000Hz 2ch  reuse=0 discardReasons=2  thread=main
+[2026-07-13T16:08:15.348134] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695347ms] AnalyticsListener.onAudioInputFormatChanged: isActive=true  mime=audio/opus  48000Hz 2ch  reuse=0 discardReasons=2 | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.347728] [INF] [Media3] Selected decoder: isActive=true  decoder=c2.android.opus.decoder  mime=audio/opus  codec=MediaCodec/platform  hardwareSoftware=platform  init=16ms  thread=main
+[2026-07-13T16:08:15.347688] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695347ms] AnalyticsListener.onAudioDecoderInitialized: isActive=true  decoder=c2.android.opus.decoder initDuration=16ms | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.331893] [WRN] [Media3] AudioDecoder RELEASED isActive=true decoder=c2.android.opus.decoder  thread=main
+[2026-07-13T16:08:15.331830] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695330ms] AnalyticsListener.onAudioDecoderReleased: isActive=true decoder=c2.android.opus.decoder | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.321090] [INF] [Media3] Audio format: audio/opus 48000Hz 2ch 
+[2026-07-13T16:08:15.318139] [INF] [Media3] AudioRenderer ENABLED isActive=true  thread=main
+[2026-07-13T16:08:15.318096] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695317ms] AnalyticsListener.onAudioEnabled: isActive=true wall=1783933695317ms  thread=main | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.278503] [INF] [DeviceDsp] Effect support — virt=true, bass=true
+[2026-07-13T16:08:15.278039] [WRN] [Media3] AudioTrack RELEASED isActive=true  encoding=2 48000Hz  thread=main
+[2026-07-13T16:08:15.278007] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695277ms] AnalyticsListener.onAudioTrackReleased: isActive=true  encoding=2  sampleRate=48000  offload=false | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.274346] [WRN] [Media3] AudioRenderer DISABLED isActive=true  thread=main
+[2026-07-13T16:08:15.274307] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933695272ms] AnalyticsListener.onAudioDisabled: isActive=true  decoderInitCount=1  decoderReleaseCount=1 | thread=main | state=BUFFERING pos=150613ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:15.264665] [INF] [AudioEffects] Bit-Perfect Mode: ON — all audio processing bypassed
+[2026-07-13T16:08:15.264391] [INF] [Transport] setBitPerfectMode: true
+[2026-07-13T16:08:15.264380] [INF] [Media3] BitPerfect: active — session=17577 pos=150613ms playing=true
+[2026-07-13T16:08:15.264359] [INF] [Media3] Player transition reason=3 active=true
+[2026-07-13T16:08:15.264226] [INF] [Media3] ActivePlayerProxy.switchTo: migrated 1 listener(s)
+[2026-07-13T16:08:15.263993] [INF] [Media3] BitPerfect: enabling — switching to clean player
+[2026-07-13T16:08:15.217853] [INF] [AudioEffects] Soft Clipper threshold: 0.0 dB
+[2026-07-13T16:08:15.215926] [INF] [AudioEffects] Limiter threshold: 0.0 dB
+[2026-07-13T16:08:15.213882] [INF] [AudioEffects] Compressor ratio: 1.0:1
+[2026-07-13T16:08:15.211515] [INF] [AudioEffects] Crossfeed: OFF
+[2026-07-13T16:08:15.210451] [INF] [AudioEffects] Loudness Norm: OFF
+[2026-07-13T16:08:15.209493] [INF] [AudioEffects] ReplayGain mode: off
+[2026-07-13T16:08:15.207754] [INF] [AudioOffload] Offload eligibility note: crossfade disabled — OS may grant offload if no software effects are attached and the audio format is DSP-supported on this device.
+[2026-07-13T16:08:15.206373] [INF] [AudioEffects] Crossfade: 0.0s
+[2026-07-13T16:08:15.201548] [INF] [AudioEffects] Pitch: 0.0 semitones
+[2026-07-13T16:08:15.199519] [INF] [AudioEffects] Speed: 1.0x
+[2026-07-13T16:08:15.197844] [INF] [AudioEffects] Spatial: false
+[2026-07-13T16:08:15.196946] [INF] [AudioEffects] BassBoost: 0
+[2026-07-13T16:08:15.195849] [INF] [AudioEffects] EQ enabled: false
+[2026-07-13T16:08:11.883516] [INF] [Media3] AudioTrack initialized / PCM sink ready: isActive=true  encoding=2  48000Hz offload=false  thread=main
+[2026-07-13T16:08:11.883476] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691882ms] AnalyticsListener.onAudioTrackInitialized: isActive=true  encoding=2  sampleRate=48000  offload=false  bufferSize=61504 | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.848609] [INF] [Media3] Selected renderer/input format: isActive=true  mime=audio/opus codec=  48000Hz 2ch  reuse=0 discardReasons=2  thread=main
+[2026-07-13T16:08:11.848580] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691848ms] AnalyticsListener.onAudioInputFormatChanged: isActive=true  mime=audio/opus  48000Hz 2ch  reuse=0 discardReasons=2 | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.848015] [INF] [Media3] Selected decoder: isActive=true  decoder=c2.android.opus.decoder  mime=audio/opus  codec=MediaCodec/platform  hardwareSoftware=platform  init=13ms  thread=main
+[2026-07-13T16:08:11.847974] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691847ms] AnalyticsListener.onAudioDecoderInitialized: isActive=true  decoder=c2.android.opus.decoder initDuration=13ms | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.832542] [WRN] [Media3] AudioDecoder RELEASED isActive=true decoder=c2.android.opus.decoder  thread=main
+[2026-07-13T16:08:11.832463] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691831ms] AnalyticsListener.onAudioDecoderReleased: isActive=true decoder=c2.android.opus.decoder | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.818364] [INF] [Media3] Audio format: audio/opus 48000Hz 2ch 
+[2026-07-13T16:08:11.814655] [INF] [Media3] AudioRenderer ENABLED isActive=true  thread=main
+[2026-07-13T16:08:11.814618] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691814ms] AnalyticsListener.onAudioEnabled: isActive=true wall=1783933691814ms  thread=main | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.788447] [INF] [AudioEffects] Bit-Perfect Mode: OFF — previous settings restored
+[2026-07-13T16:08:11.773068] [INF] [AudioEffects] Soft Clipper threshold: 0.0 dB
+[2026-07-13T16:08:11.773018] [INF] [AudioOffload] Offload eligibility note: crossfade disabled — OS may grant offload if no software effects are attached and the audio format is DSP-supported on this device.
+[2026-07-13T16:08:11.771143] [INF] [AudioEffects] Limiter threshold: 0.0 dB
+[2026-07-13T16:08:11.770501] [WRN] [Media3] AudioTrack RELEASED isActive=true  encoding=2 48000Hz  thread=main
+[2026-07-13T16:08:11.770455] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691769ms] AnalyticsListener.onAudioTrackReleased: isActive=true  encoding=2  sampleRate=48000  offload=false | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.769652] [INF] [AudioEffects] Compressor ratio: 1.0:1
+[2026-07-13T16:08:11.769589] [INF] [DeviceDsp] Effect support — virt=true, bass=true
+[2026-07-13T16:08:11.767446] [INF] [AudioEffects] Crossfeed: OFF
+[2026-07-13T16:08:11.766472] [INF] [AudioEffects] Loudness Norm: OFF
+[2026-07-13T16:08:11.766184] [INF] [AudioEffects] ReplayGain mode: off
+[2026-07-13T16:08:11.765872] [INF] [AudioEffects] Crossfade: 0.0s
+[2026-07-13T16:08:11.765510] [INF] [AudioEffects] Pitch: 0.0 semitones
+[2026-07-13T16:08:11.765085] [WRN] [Media3] AudioRenderer DISABLED isActive=true  thread=main
+[2026-07-13T16:08:11.765072] [INF] [AudioEffects] Speed: 1.0x
+[2026-07-13T16:08:11.764960] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691764ms] AnalyticsListener.onAudioDisabled: isActive=true  decoderInitCount=1  decoderReleaseCount=1 | thread=main | state=BUFFERING pos=147505ms pwr=true idx=1 session=17569
+[2026-07-13T16:08:11.764291] [INF] [AudioEffects] Spatial: false
+[2026-07-13T16:08:11.763732] [INF] [AudioEffects] BassBoost: 0
+[2026-07-13T16:08:11.763047] [INF] [AudioEffects] EQ enabled: false
+[2026-07-13T16:08:11.747413] [INF] [Transport] setBitPerfectMode: false
+[2026-07-13T16:08:11.747411] [INF] [Media3] BitPerfect: deactivated — session=17569 pos=147505ms playing=true
+[2026-07-13T16:08:11.747406] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933691741ms] attachEffects: SKIPPED (already on session=17569 lastAttached=17569) | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-13T16:08:11.747363] [INF] [Media3] Player transition reason=3 active=true
+[2026-07-13T16:08:11.747205] [INF] [Media3] ActivePlayerProxy.switchTo: migrated 1 listener(s)
+[2026-07-13T16:08:11.746857] [INF] [Media3] BitPerfect: disabling — restoring normal pipeline
+[2026-07-13T16:08:02.792528] [INF] [Media3] AudioTrack initialized / PCM sink ready: isActive=true  encoding=2  48000Hz offload=false  thread=main
+[2026-07-13T16:08:02.792479] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682791ms] AnalyticsListener.onAudioTrackInitialized: isActive=true  encoding=2  sampleRate=48000  offload=false  bufferSize=61504 | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.692500] [INF] [Media3] Selected renderer/input format: isActive=true  mime=audio/opus codec=  48000Hz 2ch  reuse=0 discardReasons=2  thread=main
+[2026-07-13T16:08:02.692475] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682692ms] AnalyticsListener.onAudioInputFormatChanged: isActive=true  mime=audio/opus  48000Hz 2ch  reuse=0 discardReasons=2 | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.692029] [INF] [Media3] Selected decoder: isActive=true  decoder=c2.android.opus.decoder  mime=audio/opus  codec=MediaCodec/platform  hardwareSoftware=platform  init=30ms  thread=main
+[2026-07-13T16:08:02.691986] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682691ms] AnalyticsListener.onAudioDecoderInitialized: isActive=true  decoder=c2.android.opus.decoder initDuration=30ms | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.667704] [WRN] [Media3] AudioDecoder RELEASED isActive=true decoder=c2.android.opus.decoder  thread=main
+[2026-07-13T16:08:02.667679] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682667ms] AnalyticsListener.onAudioDecoderReleased: isActive=true decoder=c2.android.opus.decoder | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.656463] [INF] [Media3] Audio format: audio/opus 48000Hz 2ch 
+[2026-07-13T16:08:02.654015] [INF] [Media3] AudioRenderer ENABLED isActive=true  thread=main
+[2026-07-13T16:08:02.653984] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682653ms] AnalyticsListener.onAudioEnabled: isActive=true wall=1783933682653ms  thread=main | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.599026] [WRN] [Media3] AudioTrack RELEASED isActive=true  encoding=2 48000Hz  thread=main
+[2026-07-13T16:08:02.598804] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682598ms] AnalyticsListener.onAudioTrackReleased: isActive=true  encoding=2  sampleRate=48000  offload=false | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.597975] [INF] [DeviceDsp] Effect support — virt=true, bass=true
+[2026-07-13T16:08:02.594951] [WRN] [Media3] AudioRenderer DISABLED isActive=true  thread=main
+[2026-07-13T16:08:02.594918] [INF] [CrossfadeTimeline] [+-1ms | wall=1783933682594ms] AnalyticsListener.onAudioDisabled: isActive=true  decoderInitCount=1  decoderReleaseCount=1 | thread=main | state=BUFFERING pos=138819ms pwr=true idx=1 session=17577
+[2026-07-13T16:08:02.589213] [INF] [AudioEffects] Bit-Perfect Mode: ON — all audio processing bypassed
+[2026-07-13T16:08:02.588938] [INF] [Transport] setBitPerfectMode: true
+[2026-07-13T16:08:02.588928] [INF] [Media3] BitPerfect: active — session=17577 pos=138819ms playing=true
+[2026-07-13T16:08:02.588905] [INF] [Media3] Player transition reason=3 active=true
+[2026-07-13T16:08:02.588711] [INF] [Media3] ActivePlayerProxy.switchTo: migrated 1 listener(s)
+[2026-07-13T16:08:02.588423] [INF] [Media3] BitPerfect: enabling — switching to clean player
+[2026-07-13T16:08:02.544637] [INF] [AudioEffects] Soft Clipper threshold: 0.0 dB
+[2026-07-13T16:08:02.541126] [INF] [AudioEffects] Limiter threshold: 0.0 dB
+[2026-07-13T16:08:02.540363] [INF] [AudioEffects] Compressor ratio: 1.0:1
+[2026-07-13T16:08:02.539600] [INF] [AudioEffects] Crossfeed: OFF
+[2026-07-13T16:08:02.539221] [INF] [AudioEffects] Loudness Norm: OFF
+[2026-07-13T16:08:02.538838] [INF] [AudioEffects] ReplayGain mode: off
+[2026-07-13T16:08:02.538781] [INF] [AudioOffload] Offload eligibility note: crossfade disabled — OS may grant offload if no software effects are attached and the audio format is DSP-supported on this device.
+[2026-07-13T16:08:02.537929] [INF] [AudioEffects] Crossfade: 0.0s
+[2026-07-13T16:08:02.537350] [INF] [AudioEffects] Pitch: 0.0 semitones
+[2026-07-13T16:08:02.536726] [INF] [AudioEffects] Speed: 1.0x
+[2026-07-13T16:08:02.536019] [INF] [AudioEffects] Spatial: false
+[2026-07-13T16:08:02.534312] [INF] [AudioEffects] BassBoost: 0
+[2026-07-13T16:08:02.532909] [INF] [AudioEffects] EQ enabled: false
