@@ -57,14 +57,24 @@ enum class WriteResult : int32_t {
 // tag/metadata region of the file — the encoded audio stream is never
 // touched, so this is a metadata-only operation with no re-encoding.
 //
+// Crash-safe: the mutation runs against a same-directory temp copy of the
+// file (TagLib::File::save() rewrites its target in place and is NOT
+// crash-safe on its own — a kill or power loss mid-save can truncate or
+// corrupt the original). The temp copy is only renamed over the original
+// (an atomic replace on the same POSIX filesystem) once TagLib reports a
+// fully successful save; on any failure the temp file is discarded and the
+// original file is left completely untouched.
+//
 // Threading: safe to call from any thread, but never call it twice
 // concurrently on the SAME path — the Kotlin-side executor must serialize
 // writes per file (reads are fine to overlap).
 WriteResult WriteReplayGainTags(const WriteRequest& req);
 
-// Strips REPLAYGAIN_*, R128_*, and iTunNORM tag fields, leaving all other
-// metadata (title/artist/album/art/lyrics/etc.) intact. Detects format from
-// the file extension internally, same as WriteReplayGainTags.
+// Strips REPLAYGAIN_*, R128_*, and (for MP3/ID3v2) ITUNNORM/"ITUN NORM" tag
+// fields, leaving all other metadata (title/artist/album/art/lyrics/etc.)
+// intact. Detects format from the file extension internally, same as
+// WriteReplayGainTags. Uses the same crash-safe temp-file + atomic-rename
+// strategy described above.
 WriteResult RemoveReplayGainTags(const std::string& path);
 
 }  // namespace replaygain

@@ -1658,4 +1658,315 @@ void main() {
       bufNeg.destroy();
     }
   });
+
+  // ── NativeLoudnessNorm (Phase 8.5, hardening pass) ───────────────────────
+  //
+  // Verifies the BS.1770-4 production-hardening rewrite: per-channel power
+  // summation (the fixed stereo-averaging bug), LFE exclusion, the absolute
+  // gate, and NaN fail-open behavior. All isolate the loudness processor by
+  // disabling every other pipeline stage.
+
+  void isolateLoudness() {
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.gain', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.replaygain',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.compressor',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.crossfeed',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.limiter',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.soft_clipper',
+      enabled: false,
+    );
+    NativeDspPipeline.instance.setProcessorEnabled(
+      'dsp.loudness',
+      enabled: true,
+    );
+  }
+
+  NativeAudioBuffer sineBuffer({
+    required int frames,
+    required int channels,
+    required int sampleRate,
+    required double amplitude,
+    List<int>? silentChannels,
+  }) {
+    final buf = NativeAudioBuffer.create(
+      capacityFrames: frames,
+      channelCount: channels,
+      sampleRate: sampleRate,
+    );
+    expect(buf, isNotNull);
+    buf!;
+    const freqHz = 1000.0;
+    for (var f = 0; f < frames; f++) {
+      final sample =
+          amplitude * math.sin(2 * math.pi * freqHz * f / sampleRate);
+      for (var ch = 0; ch < channels; ch++) {
+        final silent = silentChannels?.contains(ch) ?? false;
+        buf.data[f * channels + ch] = silent ? 0.0 : sample;
+      }
+    }
+    return buf;
+  }
+
+  test('loudness: default bypass is true (starts disabled)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    expect(NativeLoudnessNorm.instance.bypass, isTrue);
+  });
+
+  test('loudness: bypass round-trips correctly', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+
+    NativeLoudnessNorm.instance.setBypass(false);
+    expect(NativeLoudnessNorm.instance.bypass, isFalse);
+
+    NativeLoudnessNorm.instance.setBypass(true);
+    expect(NativeLoudnessNorm.instance.bypass, isTrue);
+  });
+
+  test('loudness: bypass passes audio unchanged', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    isolateLoudness();
+    NativeLoudnessNorm.instance.setBypass(true);
+
+    final buf = NativeAudioBuffer.create(
+      capacityFrames: 8,
+      channelCount: 2,
+      sampleRate: 48000,
+    );
+    expect(buf, isNotNull);
+    buf!;
+    try {
+      for (var i = 0; i < buf.data.length; i++) {
+        buf.data[i] = 0.42;
+      }
+      NativeDspPipeline.instance.processBuffer(buf);
+      for (var i = 0; i < buf.data.length; i++) {
+        expect(buf.data[i], closeTo(0.42, 1e-6));
+      }
+    } finally {
+      buf.destroy();
+    }
+  });
+
+  test(
+    'loudness: stereo (identical L=R) reads ~3.01 dB louder than mono '
+    'at the same per-channel amplitude — regression test for the fixed '
+    'channel-averaging bug (BS.1770-4 sums channel power, it does not '
+    'average it)',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      isolateLoudness();
+      NativeLoudnessNorm.instance.reset();
+      NativeLoudnessNorm.instance.setBypass(false);
+
+      const sampleRate = 48000;
+      // 600 ms: past the first 400 ms gating block plus one extra 100 ms hop.
+      final frames = (sampleRate * 0.6).round();
+
+      final monoBuf = sineBuffer(
+        frames: frames,
+        channels: 1,
+        sampleRate: sampleRate,
+        amplitude: 0.5,
+      );
+      try {
+        NativeDspPipeline.instance.processBuffer(monoBuf);
+      } finally {
+        monoBuf.destroy();
+      }
+      final monoLufs = NativeLoudnessNorm.instance.measuredLufs;
+
+      NativeLoudnessNorm.instance.reset();
+      final stereoBuf = sineBuffer(
+        frames: frames,
+        channels: 2,
+        sampleRate: sampleRate,
+        amplitude: 0.5,
+      );
+      try {
+        NativeDspPipeline.instance.processBuffer(stereoBuf);
+      } finally {
+        stereoBuf.destroy();
+      }
+      final stereoLufs = NativeLoudnessNorm.instance.measuredLufs;
+
+      expect(
+        monoLufs,
+        greaterThan(-99.0),
+        reason: 'mono block should have gated in in 600 ms',
+      );
+      expect(
+        stereoLufs,
+        greaterThan(-99.0),
+        reason: 'stereo block should have gated in in 600 ms',
+      );
+      expect(
+        stereoLufs - monoLufs,
+        closeTo(3.0103, 0.05),
+        reason:
+            'identical L=R channels must sum power (+3.01 dB), not average '
+            'it (which would read identically to mono — the historical bug)',
+      );
+    },
+  );
+
+  test(
+    'loudness: LFE channel (index 3 of 6) is excluded from the measurement',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      isolateLoudness();
+      NativeLoudnessNorm.instance.reset();
+      NativeLoudnessNorm.instance.setBypass(false);
+
+      const sampleRate = 48000;
+      final frames = (sampleRate * 0.6).round();
+
+      // Full-scale tone ONLY on channel 3 (LFE in the assumed 5.1 layout);
+      // all other channels silent. BS.1770-4 gives LFE a 0.0 power weight,
+      // so this must never pass the absolute gate.
+      final buf = sineBuffer(
+        frames: frames,
+        channels: 6,
+        sampleRate: sampleRate,
+        amplitude: 0.9,
+        silentChannels: [0, 1, 2, 4, 5],
+      );
+      try {
+        NativeDspPipeline.instance.processBuffer(buf);
+      } finally {
+        buf.destroy();
+      }
+
+      expect(
+        NativeLoudnessNorm.instance.measuredLufs,
+        equals(-99.0),
+        reason: 'LFE-only content must never gate in (G_LFE == 0.0)',
+      );
+    },
+  );
+
+  test(
+    'loudness: content below the absolute gate never updates measuredLufs',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      isolateLoudness();
+      NativeLoudnessNorm.instance.reset();
+      NativeLoudnessNorm.instance.setBypass(false);
+
+      const sampleRate = 48000;
+      final frames = (sampleRate * 0.6).round();
+
+      // −70 LUFS absolute gate ≈ very small linear amplitude. 1e-5 peak is
+      // roughly −140 dBFS-ish after K-weighting attenuation — deep silence.
+      final buf = sineBuffer(
+        frames: frames,
+        channels: 2,
+        sampleRate: sampleRate,
+        amplitude: 0.00001,
+      );
+      try {
+        NativeDspPipeline.instance.processBuffer(buf);
+      } finally {
+        buf.destroy();
+      }
+
+      expect(
+        NativeLoudnessNorm.instance.measuredLufs,
+        equals(-99.0),
+        reason: 'near-silent content must stay gated out (sentinel unchanged)',
+      );
+    },
+  );
+
+  test(
+    'loudness: a single NaN sample does not poison filter state or produce '
+    'non-finite output (fail-open defensive guard)',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      isolateLoudness();
+      NativeLoudnessNorm.instance.reset();
+      NativeLoudnessNorm.instance.setBypass(false);
+
+      const sampleRate = 48000;
+      final frames = (sampleRate * 0.6).round();
+
+      final buf = sineBuffer(
+        frames: frames,
+        channels: 2,
+        sampleRate: sampleRate,
+        amplitude: 0.5,
+      );
+      try {
+        // Inject a NaN into the very first frame, both channels.
+        buf.data[0] = double.nan;
+        buf.data[1] = double.nan;
+
+        NativeDspPipeline.instance.processBuffer(buf);
+
+        for (var i = 0; i < buf.data.length; i++) {
+          expect(
+            buf.data[i].isFinite,
+            isTrue,
+            reason:
+                'a single NaN input sample must never propagate to a '
+                'non-finite output sample',
+          );
+        }
+        expect(
+          NativeLoudnessNorm.instance.measuredLufs.isFinite,
+          isTrue,
+          reason: 'measured LUFS must remain finite despite the NaN input',
+        );
+      } finally {
+        buf.destroy();
+      }
+    },
+  );
+
+  test('loudness: reset clears gating state back to the sentinel', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    isolateLoudness();
+    NativeLoudnessNorm.instance.reset();
+    NativeLoudnessNorm.instance.setBypass(false);
+
+    const sampleRate = 48000;
+    final frames = (sampleRate * 0.6).round();
+    final buf = sineBuffer(
+      frames: frames,
+      channels: 2,
+      sampleRate: sampleRate,
+      amplitude: 0.5,
+    );
+    try {
+      NativeDspPipeline.instance.processBuffer(buf);
+    } finally {
+      buf.destroy();
+    }
+    expect(NativeLoudnessNorm.instance.measuredLufs, greaterThan(-99.0));
+
+    NativeLoudnessNorm.instance.reset();
+    expect(NativeLoudnessNorm.instance.measuredLufs, equals(-99.0));
+    expect(NativeLoudnessNorm.instance.appliedGainDb, equals(0.0));
+  });
 }

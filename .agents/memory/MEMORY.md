@@ -57,3 +57,5 @@
 - [AAudio exclusive/MMAP runtime probe](aaudio-exclusive-probe.md) — dlopen-based runtime AAudio ABI probe (no NDK header/link needed); pattern for adding new native_audio_runtime diagnostics/modules.
 - [Bit-Perfect Mode dedicated player](bit-perfect-dedicated-player.md) — 3rd ExoPlayer with zero AudioProcessors/AudioEffects, switched via activePlayer var reassignment + activePlayerProxy.switchTo(), wired into existing toggle.
 - [Native ReplayGain (libebur128 + TagLib)](native-replaygain-libebur128-taglib.md) — JNI/CMake module replaces old Kotlin K-weighting scanner; real loudness math + permanent tag writes; M4A write unsupported by design.
+- [ReplayGain/loudness hardening pass](replaygain-hardening.md) — real-time loudness_processor.c (causal approx) vs offline ebur128_analyzer.cpp (exact) are different problems; BS.1770-4 sums channel power, never averages; crash-safe TagLib write = temp-file+atomic-rename.
+- [native_audio_runtime host test env](native-audio-runtime-test-env.md) — use /home/runner/flutter/bin (Dart 3.12.2) on PATH + `ln -sf $(which gcc) /tmp/clang` to actually run `dart test` here.
