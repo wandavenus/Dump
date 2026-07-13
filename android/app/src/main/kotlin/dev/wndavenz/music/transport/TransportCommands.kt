@@ -78,6 +78,12 @@ class TransportCommands(
      * player.volume at the same time as the crossfade equal-power fade.
      */
     private val playPauseFadeController: PlayPauseFadeController,
+    /**
+     * Bit-Perfect Mode: switches playback onto/off the dedicated
+     * processing-free ExoPlayer in Media3PlaybackService. Wired to the
+     * existing Dart bitPerfectMode toggle — no new UI is involved.
+     */
+    private val setBitPerfectMode: (Boolean) -> Unit = {},
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
@@ -93,6 +99,12 @@ class TransportCommands(
             }
             "cancelSleepTimer" -> {
                 sleepTimerManager.cancel()
+                result.success(null); return
+            }
+            "setBitPerfectMode" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                setBitPerfectMode(enabled)
+                log("info", "setBitPerfectMode: $enabled")
                 result.success(null); return
             }
         }

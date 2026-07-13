@@ -64,6 +64,12 @@ class ServiceShutdownCoordinator(
     private val releasePrimaryPlayer:   () -> Unit,
     private val releaseSecondaryPlayer: () -> Unit,
     private val releaseMediaSession:    () -> Unit,
+    /**
+     * Bit-Perfect Mode: releases the dedicated processing-free ExoPlayer, if
+     * one was ever created. Default no-op keeps existing test construction
+     * sites (which predate Bit-Perfect Mode) compiling unchanged.
+     */
+    private val releaseBitPerfectPlayer: () -> Unit = {},
 ) {
     @Volatile var shutdownPrepared  = false
         private set
@@ -115,6 +121,7 @@ class ServiceShutdownCoordinator(
         abandonAudioFocus()
         releasePrimaryPlayer()
         releaseSecondaryPlayer()
+        releaseBitPerfectPlayer()
         releaseMediaSession()
     }
 }

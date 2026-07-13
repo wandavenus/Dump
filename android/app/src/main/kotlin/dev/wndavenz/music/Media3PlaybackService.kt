@@ -83,6 +83,16 @@ class Media3PlaybackService : MediaSessionService() {
     private fun standbyPlayer(): ExoPlayer? =
         if (activePlayer === primaryPlayer) secondaryPlayer else primaryPlayer
 
+    // ── Bit-Perfect Mode: dedicated processing-free player ────────────────────
+    // A third ExoPlayer instance with zero custom AudioProcessors and zero
+    // attached AudioEffects, used only while Bit-Perfect Mode is enabled. It
+    // never runs concurrently with primaryPlayer/secondaryPlayer — crossfade
+    // is force-cancelled and the standby player released before switching to
+    // it, and it is switched away from before crossfade/effects can resume.
+    private var bitPerfectPlayer:    ExoPlayer? = null
+    private var bitPerfectModeOn:    Boolean = false
+    private var preBitPerfectPlayer: ExoPlayer? = null
+
     // ── Session ───────────────────────────────────────────────────────────────
     private var session: MediaSession? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -473,6 +483,11 @@ class Media3PlaybackService : MediaSessionService() {
             offloadManager        = offloadManager,
             playPauseFadeController = playPauseFadeController,
 
+            // Bit-Perfect Mode: wired to the existing Dart bitPerfectMode
+            // toggle (AudioEffectsService.setBitPerfectMode) via
+            // TransportCommands' "setBitPerfectMode" MethodChannel method.
+            setBitPerfectMode = { enabled -> setBitPerfectMode(enabled) },
+
             // Item 1: skip silence — applied to ALL live players atomically so
             // both active and standby behave identically during crossfade overlap.
             applySkipSilence = { enabled ->
@@ -566,6 +581,9 @@ class Media3PlaybackService : MediaSessionService() {
             releasePrimaryPlayer   = { primaryPlayer?.release() },
             releaseSecondaryPlayer = { secondaryPlayer?.release() },
             releaseMediaSession    = { session?.release() },
+            releaseBitPerfectPlayer = {
+                bitPerfectPlayer?.let { detachPlayerListener(it); it.release() }
+            },
         )
 
         instance = this
@@ -710,12 +728,15 @@ class Media3PlaybackService : MediaSessionService() {
         ServiceReadyGate.reset()
         // Null out service-level fields that the coordinator cannot clear
         // because it holds lambdas, not direct field references.
-        audioCapReceiver = null
-        instance         = null
-        primaryPlayer    = null
-        secondaryPlayer  = null
-        activePlayer     = null
-        session          = null
+        audioCapReceiver     = null
+        instance             = null
+        primaryPlayer        = null
+        secondaryPlayer      = null
+        bitPerfectPlayer     = null
+        preBitPerfectPlayer  = null
+        bitPerfectModeOn     = false
+        activePlayer         = null
+        session              = null
         super.onDestroy()
     }
 
@@ -951,6 +972,84 @@ class Media3PlaybackService : MediaSessionService() {
         if (::stereoWidthManager.isInitialized) {
             playerProcessors[player] = channelMixingProc
         }
+
+        return player
+    }
+
+    /**
+     * Bit-Perfect Mode: builds a dedicated ExoPlayer with an empty audio
+     * processor chain — no [NativeDspAudioProcessor], no
+     * [StereoWideningAudioProcessor] — and float output disabled, since
+     * nothing in this chain needs float PCM and skipping the int↔float round
+     * trip avoids an unnecessary precision-loss step.
+     *
+     * Never registered with [stereoWidthManager] and never given an
+     * [ExoPlayer.AudioOffloadListener] — this player is single-purpose and
+     * only exists while Bit-Perfect Mode is on. [AudioEffectsManager] effects
+     * (EQ, LoudnessEnhancer, BassBoost, Virtualizer) are never attached to its
+     * session either — see [switchToBitPerfectPlayer].
+     */
+    private fun createBitPerfectPlayer(): ExoPlayer {
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(15_000, 50_000, 1_500, 3_000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                // No custom AudioProcessors. Media3's own SilenceSkipping/Sonic
+                // processors are still present internally (they're built into
+                // DefaultAudioSink, not this chain) but are transparent no-ops
+                // as long as skipSilenceEnabled=false and speed/pitch=1.0 —
+                // both are forced below / left at their ExoPlayer defaults.
+                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain())
+                .build()
+        }
+            .setEnableAudioFloatOutput(false)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
+
+        val trackSelector = DefaultTrackSelector(this).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMaxAudioChannelCount(Int.MAX_VALUE)
+                    .setForceLowestBitrate(false)
+                    .build()
+            )
+        }
+
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
+
+        val player = ExoPlayer.Builder(this, renderersFactory)
+            .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setSeekBackIncrementMs(10_000L)
+            .setSeekForwardIncrementMs(30_000L)
+            .build()
+            .apply {
+                val attrs = androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build()
+                setAudioAttributes(attrs, false)
+                setHandleAudioBecomingNoisy(false)
+                setWakeMode(C.WAKE_MODE_LOCAL)
+                // Bit-Perfect purity: always off, regardless of the user's
+                // global skip-silence setting.
+                skipSilenceEnabled = false
+            }
+
+        NativeLogger.emit("info", "Media3",
+            "BitPerfect: dedicated clean player created (no AudioProcessors, floatOutput=false)")
 
         return player
     }
@@ -1477,6 +1576,114 @@ class Media3PlaybackService : MediaSessionService() {
             "Restored queue: ${restored.items.size} tracks idx=${restored.index} " +
             "pos=${restored.posMs}ms repeat=${restored.repeat} shuffle=${restored.shuffle}")
         transportState.emitAll(emitQueue = true)
+    }
+
+    // ── Bit-Perfect Mode ──────────────────────────────────────────────────────
+
+    /**
+     * Entry point called by [TransportCommands] for the "setBitPerfectMode"
+     * MethodChannel method. Wired into the existing Dart bitPerfectMode toggle
+     * (`AudioEffectsService.setBitPerfectMode`) — no new UI is involved.
+     */
+    fun setBitPerfectMode(enabled: Boolean) {
+        if (enabled) switchToBitPerfectPlayer() else switchFromBitPerfectPlayer()
+    }
+
+    /**
+     * Switches playback onto [bitPerfectPlayer] — a dedicated ExoPlayer with
+     * no custom AudioProcessors and no attached AudioEffects. Crossfade is
+     * cancelled and the standby player released first, since Bit-Perfect Mode
+     * and the dual-player crossfade architecture are mutually exclusive.
+     */
+    private fun switchToBitPerfectPlayer() {
+        if (bitPerfectModeOn) return
+        val current = activePlayer ?: return
+        NativeLogger.emit("info", "Media3", "BitPerfect: enabling — switching to clean player")
+
+        // Dual-player crossfade and Bit-Perfect Mode never run together.
+        crossfadeController.cancel(resetVolume = true)
+        preloadManager.releaseStandbyPlayer()
+
+        val wasPlaying = current.isPlaying
+        val positionMs = current.currentPosition
+        current.pause()
+
+        // No AudioEffects during bit-perfect playback.
+        effectsManager.releaseEffects()
+
+        preBitPerfectPlayer = current
+
+        val clean = bitPerfectPlayer ?: createBitPerfectPlayer().also {
+            bitPerfectPlayer = it
+            attachPlayerListener(it)
+        }
+
+        activePlayer = clean
+        try {
+            activePlayerProxy.switchTo(clean)
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(clean) failed: ${e.message}")
+        }
+
+        if (queueManager.queue.isNotEmpty()) {
+            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+        }
+        if (wasPlaying) clean.play()
+
+        bitPerfectModeOn = true
+        transportState.emitAll()
+        notificationManager.refresh()
+        NativeLogger.emit("info", "Media3",
+            "BitPerfect: active — session=${clean.audioSessionId} pos=${positionMs}ms playing=$wasPlaying")
+    }
+
+    /**
+     * Restores normal playback: switches back to the dual-player pipeline
+     * (the player that was active before Bit-Perfect Mode was enabled) and
+     * re-attaches AudioEffects for whichever settings AudioEffectsService
+     * restores next.
+     */
+    private fun switchFromBitPerfectPlayer() {
+        if (!bitPerfectModeOn) return
+        val clean = bitPerfectPlayer
+        if (clean == null) { bitPerfectModeOn = false; return }
+        NativeLogger.emit("info", "Media3", "BitPerfect: disabling — restoring normal pipeline")
+
+        val wasPlaying = clean.isPlaying
+        val positionMs = clean.currentPosition
+        clean.pause()
+
+        val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer().also {
+            primaryPlayer = it
+            attachPlayerListener(it)
+        }
+        preBitPerfectPlayer = null
+
+        activePlayer = restored
+        try {
+            activePlayerProxy.switchTo(restored)
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
+        }
+
+        if (queueManager.queue.isNotEmpty()) {
+            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+        }
+
+        // Re-attach AudioEffects for the restored session — the
+        // onAudioSessionIdChanged listener only fires when the numeric
+        // session ID actually changes, which is not guaranteed here, so
+        // attach explicitly (mirrors the onCrossfadeComplete callback).
+        val sid = restored.audioSessionId
+        if (sid > 0) effectsManager.attachEffects(sid)
+
+        if (wasPlaying) restored.play()
+
+        bitPerfectModeOn = false
+        transportState.emitAll()
+        notificationManager.refresh()
+        NativeLogger.emit("info", "Media3",
+            "BitPerfect: deactivated — session=$sid pos=${positionMs}ms playing=$wasPlaying")
     }
 
     // ── Item helpers ──────────────────────────────────────────────────────────

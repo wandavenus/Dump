@@ -649,11 +649,17 @@ class AudioEffectsService {
     if (enabled) {
       await _snapshotBeforeBitPerfect();
       await _forceBypassEverything();
+      // Switch native playback onto the dedicated processing-free player —
+      // zero AudioProcessors, zero AudioEffects, no dual-player crossfade.
+      await PlaybackManager.setBitPerfectMode(true);
       LogService.log(
         'AudioEffects',
         'Bit-Perfect Mode: ON — all audio processing bypassed',
       );
     } else {
+      // Switch back to the normal dual-player pipeline first, so the
+      // settings restored below apply to the correct (post-switch) session.
+      await PlaybackManager.setBitPerfectMode(false);
       await _restoreFromBitPerfectSnapshot();
       LogService.log(
         'AudioEffects',

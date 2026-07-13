@@ -247,6 +247,11 @@ class PlaybackManager {
   static Future<void> setCrossfadeDuration(double s) =>
       Media3PlaybackBridge.setCrossfadeDuration(s);
 
+  /// Bit-Perfect Mode: switches native playback onto (or off) a dedicated
+  /// processing-free ExoPlayer. See Media3PlaybackBridge.setBitPerfectMode.
+  static Future<void> setBitPerfectMode(bool enabled) =>
+      Media3PlaybackBridge.setBitPerfectMode(enabled);
+
   /// Cold-start race fix — see `ServiceReadyGate` (native) and
   /// `Media3PlaybackBridge.serviceReadyStream` (bridge).
   ///

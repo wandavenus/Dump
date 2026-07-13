@@ -407,6 +407,15 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setCrossfadeDuration(double seconds) =>
       _invoke<void>('setCrossfadeDuration', {'duration': seconds});
 
+  // ── Bit-Perfect Mode ───────────────────────────────────────────────────────
+
+  /// Switches native playback onto (or off) a dedicated processing-free
+  /// ExoPlayer instance with no custom AudioProcessors and no attached
+  /// AudioEffects — see Media3PlaybackService.setBitPerfectMode(). Never runs
+  /// concurrently with the dual-player crossfade pipeline.
+  static Future<void> setBitPerfectMode(bool enabled) =>
+      _invoke<void>('setBitPerfectMode', {'enabled': enabled});
+
   // ── Sleep timer ────────────────────────────────────────────────────────────
 
   /// Start a duration-based sleep timer. [durationMs] in milliseconds.
