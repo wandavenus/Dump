@@ -54,7 +54,9 @@ class AudioEffectsService {
 
   static final ValueNotifier<bool> compressorEnabled = ValueNotifier(false);
   static final ValueNotifier<double> compressorThreshold = ValueNotifier(-20.0);
-  static final ValueNotifier<double> compressorRatio = ValueNotifier(4.0);
+
+  /// 1.0 = no compression (off, no separate switch). Range (1.0, 20.0].
+  static final ValueNotifier<double> compressorRatio = ValueNotifier(1.0);
 
   // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
   //
@@ -62,7 +64,9 @@ class AudioEffectsService {
   // −1 dBFS) the moment it registers — same caveat as crossfeed.
 
   static final ValueNotifier<bool> limiterEnabled = ValueNotifier(false);
-  static final ValueNotifier<double> limiterThreshold = ValueNotifier(-1.0);
+
+  /// 0.0 = off (no separate switch). Range [-24.0, 0.0].
+  static final ValueNotifier<double> limiterThreshold = ValueNotifier(0.0);
 
   // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
   //
@@ -70,7 +74,9 @@ class AudioEffectsService {
   // −0.5 dBFS) the moment it registers — same caveat as crossfeed.
 
   static final ValueNotifier<bool> softClipperEnabled = ValueNotifier(false);
-  static final ValueNotifier<double> softClipperThreshold = ValueNotifier(-0.5);
+
+  /// 0.0 = off (no separate switch). Range [-12.0, 0.0].
+  static final ValueNotifier<double> softClipperThreshold = ValueNotifier(0.0);
 
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
@@ -165,11 +171,11 @@ class AudioEffectsService {
     crossfeedAmount.value     = prefs.getDouble('crossfeedAmount')  ?? 0.3;
     compressorEnabled.value   = prefs.getBool('compEnabled')        ?? false;
     compressorThreshold.value = prefs.getDouble('compThreshold')    ?? -20.0;
-    compressorRatio.value     = prefs.getDouble('compRatio')        ?? 4.0;
+    compressorRatio.value     = prefs.getDouble('compRatio')        ?? 1.0;
     limiterEnabled.value      = prefs.getBool('limEnabled')         ?? false;
-    limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? -1.0;
+    limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? 0.0;
     softClipperEnabled.value  = prefs.getBool('scEnabled')          ?? false;
-    softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? -0.5;
+    softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? 0.0;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -352,11 +358,19 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'Compressor threshold: $v dB');
   }
 
+  /// Ratio drives the compressor's on/off state directly — 1:1 is the
+  /// mathematical definition of "no compression", so there is no separate
+  /// switch. Any ratio above 1.0 engages the processor.
   static Future<void> setCompressorRatio(double ratio) async {
     final v = ratio.clamp(1.0, 20.0);
     compressorRatio.value = v;
     await _saveDouble('compRatio', v);
-    if (compressorEnabled.value) {
+
+    final enabled = v > 1.0;
+    compressorEnabled.value = enabled;
+    await _saveBool('compEnabled', enabled);
+    PlaybackManager.setNativeCompressorBypass(!enabled);
+    if (enabled) {
       PlaybackManager.setNativeCompressorParams(
         thresholdDb: compressorThreshold.value,
         ratio: v,
@@ -377,11 +391,19 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
   }
 
+  /// The ceiling slider drives on/off directly — `0.0` dB (top of the
+  /// slider's range) means "no headroom removed", i.e. off. Anything below
+  /// engages the limiter at that ceiling, with no separate switch.
   static Future<void> setLimiterThreshold(double db) async {
-    final v = db.clamp(-24.0, -0.1);
+    final v = db.clamp(-24.0, 0.0);
     limiterThreshold.value = v;
     await _saveDouble('limThreshold', v);
-    if (limiterEnabled.value) {
+
+    final enabled = v < 0.0;
+    limiterEnabled.value = enabled;
+    await _saveBool('limEnabled', enabled);
+    PlaybackManager.setNativeLimiterBypass(!enabled);
+    if (enabled) {
       PlaybackManager.setNativeLimiterParams(thresholdDb: v);
     }
     LogService.log('AudioEffects', 'Limiter threshold: $v dB');
@@ -399,11 +421,20 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'Soft Clipper: ${enabled ? 'ON' : 'OFF'}');
   }
 
+  /// The threshold slider drives on/off directly — `0.0` dB (top of the
+  /// slider's range) means "clip point at digital max", i.e. off. Anything
+  /// below engages the soft clipper at that threshold, with no separate
+  /// switch.
   static Future<void> setSoftClipperThreshold(double db) async {
-    final v = db.clamp(-12.0, -0.1);
+    final v = db.clamp(-12.0, 0.0);
     softClipperThreshold.value = v;
     await _saveDouble('scThreshold', v);
-    if (softClipperEnabled.value) {
+
+    final enabled = v < 0.0;
+    softClipperEnabled.value = enabled;
+    await _saveBool('scEnabled', enabled);
+    PlaybackManager.setNativeSoftClipperBypass(!enabled);
+    if (enabled) {
       PlaybackManager.setNativeSoftClipperThresholdDb(v);
     }
     LogService.log('AudioEffects', 'Soft Clipper threshold: $v dB');

@@ -5,95 +5,26 @@ class _AudioSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('AUDIO'),
-        const SizedBox(height: 6),
+        SettingsSectionHeader('AUDIO'),
+        SizedBox(height: 6),
 
         // ── Audio Normalize ─────────────────────────────────────────────────
-        const _ReplayGainSection(),
-        const SettingsDivider(),
+        _ReplayGainSection(),
+        SettingsDivider(),
 
         // ── Loudness Normalization ───────────────────────────────────────────
-        const _LoudnessNormSection(),
-        const SettingsDivider(),
+        _LoudnessNormSection(),
+        SettingsDivider(),
 
         // ── Crossfeed ─────────────────────────────────────────────────────────
-        const _CrossfeedSection(),
-        const SettingsDivider(),
+        _CrossfeedSection(),
+        SettingsDivider(),
 
-        // ── Compressor ────────────────────────────────────────────────────────
-        const _CompressorSection(),
-        const SettingsDivider(),
-
-        // ── Limiter ───────────────────────────────────────────────────────────
-        const _LimiterSection(),
-        const SettingsDivider(),
-
-        // ── Soft Clipper ──────────────────────────────────────────────────────
-        const _SoftClipperSection(),
-        const SettingsDivider(),
-
-        const _CrossfadePicker(),
-        const SettingsDivider(),
-
-        ValueListenableBuilder<double>(
-          valueListenable: AudioEffectsService.playbackSpeed,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Kecepatan Putar',
-            subtitle: '${v.toStringAsFixed(2)}x',
-            value: v,
-            min: 0.25,
-            max: 3.0,
-            onChanged: AudioEffectsService.setSpeed,
-            divisions: 22,
-            showReset: v != 1.0,
-            onReset: () => AudioEffectsService.setSpeed(1.0),
-            expandable: true,
-          ),
-        ),
-        const SettingsDivider(),
-
-        ValueListenableBuilder<double>(
-          valueListenable: AudioEffectsService.pitchShift,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Pitch Shift',
-            subtitle: v == 0
-                ? 'Normal'
-                : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} semitone',
-            value: v,
-            min: -6,
-            max: 6,
-            onChanged: AudioEffectsService.setPitch,
-            divisions: 24,
-            showReset: v != 0,
-            onReset: () => AudioEffectsService.setPitch(0),
-            expandable: true,
-          ),
-        ),
-        const SettingsDivider(),
-
-        ValueListenableBuilder<int>(
-          valueListenable: AudioEffectsService.bassBoost,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Bass Boost',
-            subtitle: v == 0
-                ? 'Nonaktif'
-                : DeviceDsp.bassBoostSupported
-                    ? '${(v / 10).round()}%'
-                    : 'Tidak didukung perangkat ini',
-            value: v.toDouble(),
-            min: 0,
-            max: 1000,
-            onChanged: (val) => AudioEffectsService.setBassBoost(val.round()),
-            divisions: 20,
-            showReset: v != 0,
-            onReset: () => AudioEffectsService.setBassBoost(0),
-            expandable: true,
-          ),
-        ),
-        const SettingsDivider(),
+        _CrossfadePicker(),
+        SettingsDivider(),
       ],
     );
   }
@@ -549,160 +480,6 @@ class _CrossfeedSection extends StatelessWidget {
 //
 // Feed-forward soft-knee compressor (Phase 6, native DSP pipeline). Reduces
 // dynamic range above a threshold — evens out loud/quiet passages.
-
-class _CompressorSection extends StatelessWidget {
-  const _CompressorSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AudioEffectsService.compressorEnabled,
-      builder: (context, enabled, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SettingsToggleRow(
-              title: 'Compressor',
-              subtitle: enabled
-                  ? 'Meratakan dinamika volume secara real-time'
-                  : 'Aktifkan untuk meratakan bagian keras/lembut',
-              value: enabled,
-              onChanged: AudioEffectsService.setCompressorEnabled,
-            ),
-            if (enabled) ...[
-              const SizedBox(height: 2),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.compressorThreshold,
-                builder: (_, v, _) => SettingsSliderRow(
-                  title: 'Threshold',
-                  subtitle: '${v.toStringAsFixed(0)} dB',
-                  value: v,
-                  min: -60.0,
-                  max: 0.0,
-                  onChanged: AudioEffectsService.setCompressorThreshold,
-                  divisions: 60,
-                  showReset: v != -20.0,
-                  onReset: () => AudioEffectsService.setCompressorThreshold(-20.0),
-                ),
-              ),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.compressorRatio,
-                builder: (_, v, _) => SettingsSliderRow(
-                  title: 'Ratio',
-                  subtitle: '${v.toStringAsFixed(1)}:1',
-                  value: v,
-                  min: 1.0,
-                  max: 20.0,
-                  onChanged: AudioEffectsService.setCompressorRatio,
-                  divisions: 38,
-                  showReset: v != 4.0,
-                  onReset: () => AudioEffectsService.setCompressorRatio(4.0),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Limiter section ────────────────────────────────────────────────────────
-//
-// Look-ahead brickwall limiter (Phase 6, native DSP pipeline). Prevents
-// peaks from exceeding a ceiling — useful safety net when boosting gain
-// elsewhere (bass boost, preamp, EQ).
-
-class _LimiterSection extends StatelessWidget {
-  const _LimiterSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AudioEffectsService.limiterEnabled,
-      builder: (context, enabled, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SettingsToggleRow(
-              title: 'Limiter',
-              subtitle: enabled
-                  ? 'Mencegah peak melebihi ceiling'
-                  : 'Aktifkan sebagai pengaman saat menaikkan gain',
-              value: enabled,
-              onChanged: AudioEffectsService.setLimiterEnabled,
-            ),
-            if (enabled) ...[
-              const SizedBox(height: 2),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.limiterThreshold,
-                builder: (_, v, _) => SettingsSliderRow(
-                  title: 'Ceiling',
-                  subtitle: '${v.toStringAsFixed(1)} dB',
-                  value: v,
-                  min: -24.0,
-                  max: -0.1,
-                  onChanged: AudioEffectsService.setLimiterThreshold,
-                  divisions: 48,
-                  showReset: v != -1.0,
-                  onReset: () => AudioEffectsService.setLimiterThreshold(-1.0),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Soft Clipper section ───────────────────────────────────────────────────
-//
-// Tanh soft clipper (Phase 6, native DSP pipeline). Shapes peaks above a
-// threshold smoothly toward 0 dBFS instead of hard-clipping.
-
-class _SoftClipperSection extends StatelessWidget {
-  const _SoftClipperSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AudioEffectsService.softClipperEnabled,
-      builder: (context, enabled, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SettingsToggleRow(
-              title: 'Soft Clipper',
-              subtitle: enabled
-                  ? 'Melembutkan peak yang mendekati 0 dBFS'
-                  : 'Aktifkan untuk menghindari distorsi keras saat clipping',
-              value: enabled,
-              onChanged: AudioEffectsService.setSoftClipperEnabled,
-            ),
-            if (enabled) ...[
-              const SizedBox(height: 2),
-              ValueListenableBuilder<double>(
-                valueListenable: AudioEffectsService.softClipperThreshold,
-                builder: (_, v, _) => SettingsSliderRow(
-                  title: 'Threshold',
-                  subtitle: '${v.toStringAsFixed(1)} dB',
-                  value: v,
-                  min: -12.0,
-                  max: -0.1,
-                  onChanged: AudioEffectsService.setSoftClipperThreshold,
-                  divisions: 24,
-                  showReset: v != -0.5,
-                  onReset: () => AudioEffectsService.setSoftClipperThreshold(-0.5),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
 
 // ─── Crossfade discrete picker ────────────────────────────────────────────────
 
