@@ -318,12 +318,16 @@ class ReplayGainService {
     }
   }
 
-  /// Batch-scan [songs] sequentially with the native EBU R128 scanner.
+  /// Batch-scan [songs] with the native EBU R128 scanner using controlled
+  /// concurrency.
   ///
-  /// Songs already in the in-memory cache with a non-zero gain are skipped so
-  /// large, already-tagged libraries are not unnecessarily re-decoded.
+  /// Two songs are decoded in parallel on the native side (the native
+  /// `rg-scan` executor has 2 threads).  Each pair is awaited before moving
+  /// on so progress stays predictable and cancellation is responsive.
+  ///
+  /// Songs already in the in-memory cache with a non-zero gain are skipped.
   /// Progress is reported via [scanProgress].  Call [cancelScan] to abort
-  /// mid-run; the current song always completes before the loop stops.
+  /// mid-run; the current pair of songs always finishes before stopping.
   ///
   /// Returns immediately (no-op) if a scan is already running.
   static Future<void> scanLibrary(List<LocalSong> songs) async {
@@ -347,35 +351,44 @@ class ReplayGainService {
     _cancelRequested = false;
     scanProgress.value = BatchScanProgress(total: toScan.length, running: true);
 
+    // 2 concurrent scans — matches the native executor thread count.
+    // Snapdragon 730 hardware MediaCodec handles 2 parallel audio decoders
+    // without significant CPU or thermal contention.
+    const concurrency = 2;
     var failed = 0;
-    for (var i = 0; i < toScan.length; i++) {
+
+    for (var base = 0; base < toScan.length; base += concurrency) {
       if (_cancelRequested) {
         scanProgress.value = scanProgress.value.copyWith(
-          done: i, running: false, cancelled: true,
+          done: base, running: false, cancelled: true,
         );
-        LogService.log('ReplayGain', 'Scan dibatalkan pada $i/${toScan.length}');
+        LogService.log('ReplayGain', 'Scan dibatalkan pada $base/${toScan.length}');
         return;
       }
 
-      final song = toScan[i];
+      final end = (base + concurrency).clamp(0, toScan.length);
+      final chunk = toScan.sublist(base, end);
+
+      // Show the first song of the chunk as the "current" title
       scanProgress.value = scanProgress.value.copyWith(
-        done: i, currentTitle: song.title,
+        done: base, currentTitle: chunk.first.title,
       );
 
-      // Retry once on scan_busy (native executor occupied by concurrent scan)
-      LoudnessData? result;
-      for (var attempt = 0; attempt < 2 && result == null; attempt++) {
-        if (attempt > 0) {
-          await Future<void>.delayed(const Duration(milliseconds: 600));
-        }
-        result = await scanOneSong(song);
-      }
-      if (result == null) failed++;
+      // Fire both scans concurrently; scanOneSong never throws (catches all).
+      final results = await Future.wait(chunk.map(scanOneSong));
 
-      // Brief yield between songs — reduces thermal pressure on mid-range
-      // devices (e.g. Snapdragon 730 on Xiaomi Mi 9T).
-      if (i < toScan.length - 1) {
-        await Future<void>.delayed(const Duration(milliseconds: 60));
+      for (final r in results) {
+        if (r == null) failed++;
+      }
+
+      scanProgress.value = scanProgress.value.copyWith(
+        done: end,
+      );
+
+      // Minimal yield between chunks to keep the event loop responsive and
+      // allow cancellation checks without adding noticeable total latency.
+      if (end < toScan.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
       }
     }
 

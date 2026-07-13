@@ -53,8 +53,10 @@ class MainActivity : FlutterActivity() {
     )
     private val replayGainScanExecutor: ExecutorService = boundedExecutor(
         name = "rg-scan",
-        threads = 1,
-        queueCapacity = 4,
+        threads = 2,   // 2 concurrent scans — Snapdragon 730 hardware MediaCodec
+                       // supports multiple concurrent audio decoders without
+                       // significant CPU contention.  Queue increased in proportion.
+        queueCapacity = 8,
     )
 
     @Volatile private var shuttingDown = false
