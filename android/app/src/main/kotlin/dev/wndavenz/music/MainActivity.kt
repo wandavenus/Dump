@@ -526,6 +526,35 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    // ── ReplayGain batch write-access pre-authorization ─────
+                    // Requests write access for every songId in `songIds` up
+                    // front, with at most ONE system confirmation dialog for
+                    // the whole batch (Android 11+, via a single
+                    // MediaStore.createWriteRequest grant) — see
+                    // MediaStoreWriteGate.ensureWriteAccessBatch. Callers
+                    // (e.g. the batch "write tags" library/album scan) should
+                    // invoke this once with every songId they intend to write
+                    // before making any individual `writeReplayGain` calls;
+                    // those per-song calls will then find access already
+                    // granted and proceed with no further dialogs.
+                    //
+                    // Returns a map of songId (as String, since Flutter's
+                    // MethodChannel map keys round-trip cleanly as strings) to
+                    // whether that song is now writable.
+                    "requestReplayGainWriteAccessBatch" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val songIds = (call.argument<List<Any?>>("songIds"))
+                            ?.mapNotNull { (it as? Number)?.toInt() }
+                            ?: emptyList()
+                        if (songIds.isEmpty()) {
+                            result.success(emptyMap<String, Boolean>())
+                        } else {
+                            requestReplayGainWriteAccessBatch(songIds) { grantedById ->
+                                result.success(grantedById.mapKeys { (id, _) -> id.toString() })
+                            }
+                        }
+                    }
+
                     // ── ReplayGain tag write ─────────────────────────────────
                     // Writes measured gain/peak (from a prior scanTrack/scanAlbum
                     // call) permanently into the file's own tags via TagLib:
@@ -736,6 +765,26 @@ class MainActivity : FlutterActivity() {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong(),
         )
         replayGainWriteGate.ensureWriteAccess(this, contentUri, onResult)
+    }
+
+    /**
+     * Batch variant of [requestReplayGainWriteAccess] — pre-authorizes every
+     * songId in [songIds] with at most one system dialog for the whole
+     * batch (Android 11+). [onResult] receives a map from songId to whether
+     * that song is now writable. See [MediaStoreWriteGate.ensureWriteAccessBatch].
+     */
+    private fun requestReplayGainWriteAccessBatch(
+        songIds: List<Int>,
+        onResult: (Map<Int, Boolean>) -> Unit,
+    ) {
+        val uriToSongId = songIds.associateBy { songId ->
+            android.content.ContentUris.withAppendedId(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong(),
+            )
+        }
+        replayGainWriteGate.ensureWriteAccessBatch(this, uriToSongId.keys.toList()) { grantedByUri ->
+            onResult(grantedByUri.mapKeys { (uri, _) -> uriToSongId.getValue(uri) })
+        }
     }
 
     /**

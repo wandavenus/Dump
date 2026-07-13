@@ -375,6 +375,19 @@ class ReplayGainService {
     _cancelRequested = false;
     scanProgress.value = BatchScanProgress(total: toScan.length, running: true);
 
+    // Pre-authorize write access for every song up front so the whole batch
+    // only ever shows ONE system confirmation dialog (Android 11+), instead
+    // of one dialog per file as songs are scanned/written. The per-song
+    // writeReplayGain calls below will see access already granted and won't
+    // trigger any further dialogs. Songs the user declines here are simply
+    // skipped when writing (their scan result is still kept/cached).
+    Map<int, bool> writeAccessById = const {};
+    if (writeTags) {
+      writeAccessById = await requestBatchWriteAccess(
+        toScan.map((s) => s.id).toList(),
+      );
+    }
+
     // 2 concurrent scans — matches the native executor thread count.
     // Snapdragon 730 hardware MediaCodec handles 2 parallel audio decoders
     // without significant CPU or thermal contention.
@@ -399,8 +412,15 @@ class ReplayGainService {
       );
 
       // Fire both scans concurrently; scanOneSong never throws (catches all).
+      // Only pass writeTags through for songs whose write access was
+      // actually granted in the pre-authorization above — declined songs
+      // still get scanned (for in-app normalization) but skip the file
+      // write, and critically do NOT trigger a fallback per-file dialog.
       final results = await Future.wait(
-        chunk.map((s) => scanOneSong(s, writeTags: writeTags)),
+        chunk.map((s) => scanOneSong(
+              s,
+              writeTags: writeTags && (writeAccessById[s.id] ?? false),
+            )),
       );
 
       for (final r in results) {
@@ -516,6 +536,43 @@ class ReplayGainService {
         albumIntegratedLufs: null,
         failedPaths: songs.map((s) => s.path).toList(),
       );
+    }
+  }
+
+  // ── Batch write-access pre-authorization ───────────────────────────────────
+
+  /// Pre-authorizes MediaStore write access for every song in [songIds] with
+  /// **at most one** system confirmation dialog for the whole batch
+  /// (Android 11+, via a single native `MediaStore.createWriteRequest`
+  /// grant). Call this once before issuing a series of [writeReplayGain] /
+  /// [removeReplayGainTags] calls (e.g. writing an entire album or library)
+  /// — those calls will then find access already granted and proceed
+  /// without any further dialogs.
+  ///
+  /// Returns a map of songId to whether that song is now writable. On
+  /// Android 10, the OS has no batch-grant API, so the native side falls
+  /// back to resolving each file one at a time (still only one dialog on
+  /// screen at any moment, just not collapsed into a single dialog for the
+  /// whole batch — a platform limitation, not something Dart can change).
+  ///
+  /// Never requests `WRITE_EXTERNAL_STORAGE` or `MANAGE_EXTERNAL_STORAGE`.
+  static Future<Map<int, bool>> requestBatchWriteAccess(
+    List<int> songIds,
+  ) async {
+    if (kIsWeb || songIds.isEmpty) return {};
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'requestReplayGainWriteAccessBatch',
+        {'songIds': songIds},
+      );
+      if (raw == null) return {for (final id in songIds) id: false};
+      return raw.map((k, v) => MapEntry(int.parse(k), v == true));
+    } on PlatformException catch (e) {
+      LogService.warn(
+        'ReplayGain',
+        'requestBatchWriteAccess (${songIds.length} songs): ${e.code} – ${e.message}',
+      );
+      return {for (final id in songIds) id: false};
     }
   }
 
