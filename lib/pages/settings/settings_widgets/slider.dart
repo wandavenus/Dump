@@ -118,7 +118,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                 style: const TextStyle(
                   color: Color(0xFF6D6D72),
                   fontSize: 11,
-                  fontStyle: FontStyle.italic,
+                  fontStyle: FontStyle.normal,
                   height: 1.3,
                 ),
               ),
@@ -190,7 +190,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                         style: const TextStyle(
                           color: Color(0xFF6D6D72),
                           fontSize: 11,
-                          fontStyle: FontStyle.italic,
+                          fontStyle: FontStyle.normal,
                           height: 1.3,
                         ),
                       ),
