@@ -1,0 +1,302 @@
+Perform a complete production audit of the entire Audio Normalize / Loudness Normalization implementation.
+
+This is an audit only.
+
+Do NOT modify any code.
+
+Do NOT refactor anything.
+
+Do NOT optimize anything.
+
+Your goal is to prove the implementation wrong.
+
+Assume there is at least one hidden bug.
+
+Audit every layer from Flutter to the native DSP.
+
+──────────────────────────────
+
+1. Architecture
+
+Trace the complete signal path.
+
+Audio source
+
+↓
+
+Decoder
+
+↓
+
+ReplayGain
+
+↓
+
+Audio Normalize
+
+↓
+
+Loudness Normalization
+
+↓
+
+Limiter / Clipper protection
+
+↓
+
+Volume
+
+↓
+
+AudioTrack
+
+Verify the processing order matches the intended design.
+
+──────────────────────────────
+
+2. ReplayGain interaction
+
+Verify:
+
+- ReplayGain is applied before Loudness Normalization.
+- ReplayGain cannot be applied twice.
+- Track Gain and Album Gain are mutually exclusive.
+- Missing ReplayGain tags fall back correctly.
+- Opus R128 tags are handled correctly.
+- FLAC/MP3/Ogg ReplayGain tags are handled correctly.
+
+──────────────────────────────
+
+3. Loudness measurement
+
+Verify compliance with:
+
+- ITU-R BS.1770-4
+- EBU R128
+
+Check:
+
+- K-weighting
+- Absolute gate
+- Relative gate
+- Channel weighting
+- LUFS calculation
+- Momentary
+- Short-term
+- Integrated
+- True Peak
+- Sample Peak
+
+Identify every approximation.
+
+State whether each approximation is acceptable.
+
+──────────────────────────────
+
+4. DSP correctness
+
+Verify:
+
+- No clipping
+- No NaN propagation
+- No Infinity
+- No denormal performance issues
+- No DC offset accumulation
+- No unstable filters
+- No gain pumping
+- No zipper noise
+- No clicks
+- No pops
+
+Stress test extreme values.
+
+──────────────────────────────
+
+5. Gain computation
+
+Audit:
+
+- Attack
+- Release
+- Hold
+- Smoothing
+- Envelope follower
+- Peak limiter
+- Soft clipping
+- Hard clipping
+
+Look for oscillation.
+
+──────────────────────────────
+
+6. Multichannel
+
+Verify:
+
+- Mono
+- Stereo
+- 5.1
+- 7.1
+
+Ensure loudness math follows BS.1770 channel weighting.
+
+Verify stereo loudness is NOT averaged incorrectly.
+
+──────────────────────────────
+
+7. Sample rates
+
+Audit:
+
+- 44.1
+- 48
+- 88.2
+- 96
+- 176.4
+- 192
+
+Verify coefficient generation.
+
+Verify filter stability.
+
+──────────────────────────────
+
+8. Float precision
+
+Look for:
+
+- precision loss
+- overflow
+- underflow
+- repeated gain conversions
+- float/double mistakes
+
+──────────────────────────────
+
+9. Performance
+
+Audit:
+
+- allocations
+- memcpy
+- JNI crossings
+- locking
+- mutex contention
+- unnecessary copies
+- cache locality
+- SIMD opportunities
+
+Report only.
+
+Do not optimize.
+
+──────────────────────────────
+
+10. Thread safety
+
+Verify:
+
+- UI thread
+- playback thread
+- decoder thread
+- analyzer thread
+
+Check:
+
+- races
+- deadlocks
+- atomic usage
+- lock ordering
+
+──────────────────────────────
+
+11. Runtime behavior
+
+Verify:
+
+- enabling normalize while playing
+- disabling while playing
+- seek
+- pause
+- resume
+- next track
+- previous track
+- crossfade
+- gapless
+- replaygain transition
+
+No audible artifacts.
+
+──────────────────────────────
+
+12. Extreme cases
+
+Test mentally:
+
+- silence
+- white noise
+- clipped masters
+- extremely quiet recordings
+- podcasts
+- classical music
+- live recordings
+- 32-bit float source
+- DSD converted PCM
+
+──────────────────────────────
+
+13. Android integration
+
+Verify:
+
+- Media3
+- AudioTrack
+- AudioSession
+- Effects
+- Offload interaction
+
+Ensure normalization is bypassed when required.
+
+──────────────────────────────
+
+14. Verification
+
+For every issue found:
+
+Provide:
+
+- severity
+- root cause
+- affected files
+- affected lines
+- audible impact
+- standards impact
+- production impact
+- exact fix recommendation
+
+──────────────────────────────
+
+15. Final verdict
+
+Classify the implementation as:
+
+- Production Ready
+- Minor Issues
+- Major Issues
+- Unsafe
+
+Give an overall quality score out of 10.
+
+Be extremely critical.
+
+Assume nothing.
+
+Cross-check every implementation against:
+
+- ITU-R BS.1770-4
+- EBU R128
+- ReplayGain 2.0
+- RFC 7845 (Opus)
+- Android Media3 best practices
+
+Do not change code until the audit is completely finished.
