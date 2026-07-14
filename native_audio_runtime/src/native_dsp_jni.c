@@ -30,7 +30,14 @@
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
 // JNI name mangling: '.' → '_', no underscores in any component.
 
-// Process frame_count * channel_count float32 samples in `buffer` in-place.
+// Process frame_count * channel_count float32 samples in `buffer` in-place,
+// for the given `stream_slot` (production-hardening pass — see
+// dsp_stream.h). Each NativeDspAudioProcessor instance is constructed with
+// its own fixed streamSlot (0 = primary ExoPlayer, 1 = secondary/
+// crossfade-standby ExoPlayer) and passes it on every call, so the two
+// concurrently-playing streams' envelope followers / delay lines / filter
+// histories never collide inside the native pipeline.
+//
 // `buffer` must be a direct java.nio.ByteBuffer positioned at offset 0 of the
 // PCM data. Returns NATIVE_RUNTIME_OK (0) on success. Returns
 // NATIVE_RUNTIME_ERROR_NOT_INITIALIZED (2) if the pipeline is not ready yet —
@@ -41,7 +48,8 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeProcessFloat(
     jobject buffer,
     jint    frame_count,
     jint    channel_count,
-    jint    sample_rate) {
+    jint    sample_rate,
+    jint    stream_slot) {
   (void)clazz;
   if (buffer == NULL) {
     return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
@@ -50,8 +58,9 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeProcessFloat(
   if (data == NULL) {
     return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
-  return (jint)nar_dsp_pipeline_process_raw(
-      data, (int32_t)frame_count, (int32_t)channel_count, (int32_t)sample_rate);
+  return (jint)nar_dsp_pipeline_process_raw_stream(
+      data, (int32_t)frame_count, (int32_t)channel_count, (int32_t)sample_rate,
+      (int32_t)stream_slot);
 }
 
 // Returns JNI_TRUE (1) if the DSP pipeline has been initialised by Dart,

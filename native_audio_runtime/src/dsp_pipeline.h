@@ -40,18 +40,60 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_init(void);
 // Safe to call at any time from any thread (atomic load).
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_is_initialized(void);
 
-// Process `buffer` through every ENABLED processor in registration order.
-// Returns NATIVE_RUNTIME_OK on success. Returns the first non-OK code from
-// a failing processor and stops the chain there. buffer must not be NULL.
+// Process `buffer` through every ENABLED processor in registration order,
+// for stream slot 0 (the primary/legacy single-stream caller — Dart's own
+// pipeline calls always target slot 0). Equivalent to
+// nar_dsp_pipeline_process_stream(buffer, 0) — kept as a distinct exported
+// symbol so existing callers' behavior and binary signature never change.
+//
+// Production-hardening pass: a non-OK return from one processor no longer
+// stops the chain — every subsequent processor still runs (see
+// nar_dsp_pipeline_process_stream() for the full rationale). The return
+// value is still the FIRST non-OK code observed, for diagnostics.
+// buffer must not be NULL.
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process(NarAudioBuffer* buffer);
 
-// Process a raw interleaved float32 PCM buffer in-place. No heap allocation.
-// `data` points to frame_count × channel_count floats. This is the JNI entry
-// point called by NativeDspAudioProcessor.kt on ExoPlayer's audio thread —
-// must not lock or allocate. Returns NATIVE_RUNTIME_ERROR_NOT_INITIALIZED if
-// the pipeline has not been initialised yet (audio passes unchanged — fail-open).
+// Process `buffer` through every ENABLED processor in registration order,
+// for the given `stream_slot` (see dsp_stream.h) — the stream identifier is
+// threaded down into every stateful processor's per-stream runtime state so
+// that two concurrently-playing streams (e.g. Media3PlaybackService.kt's
+// primary + crossfade-standby ExoPlayer instances) never share the same
+// envelope followers / delay lines / filter histories.
+//
+// Robustness (production-hardening pass): unlike the pre-hardening
+// contract, a non-OK return from one processor does NOT stop the chain —
+// the pipeline always continues through every remaining slot, guaranteeing
+// the limiter and soft-clipper (registered last) always run as the final
+// safety net even if an earlier processor fails. The function still
+// returns the FIRST non-OK code it observed (0/NATIVE_RUNTIME_OK if none),
+// for diagnostics — callers must not treat a non-OK return as "the buffer
+// was left unprocessed", since later stages may still have run.
+// buffer must not be NULL.
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_stream(
+    NarAudioBuffer* buffer, int32_t stream_slot);
+
+// Process a raw interleaved float32 PCM buffer in-place, for stream slot 0.
+// No heap allocation. `data` points to frame_count × channel_count floats.
+// Kept as a distinct exported symbol with its original signature for
+// existing single-stream JNI/FFI callers. Equivalent to
+// nar_dsp_pipeline_process_raw_stream(data, frame_count, channel_count,
+// sample_rate, 0). Returns NATIVE_RUNTIME_ERROR_NOT_INITIALIZED if the
+// pipeline has not been initialised yet (audio passes unchanged —
+// fail-open).
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
     float* data, int32_t frame_count, int32_t channel_count, int32_t sample_rate);
+
+// Process a raw interleaved float32 PCM buffer in-place for the given
+// `stream_slot` (see dsp_stream.h). No heap allocation. This is the JNI
+// entry point called by NativeDspAudioProcessor.kt on EACH ExoPlayer
+// instance's own audio rendering thread — primary player passes
+// stream_slot=0, the secondary/crossfade-standby player passes
+// stream_slot=1. Must not lock or allocate. Returns
+// NATIVE_RUNTIME_ERROR_NOT_INITIALIZED if the pipeline has not been
+// initialised yet (audio passes unchanged — fail-open).
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw_stream(
+    float* data, int32_t frame_count, int32_t channel_count,
+    int32_t sample_rate, int32_t stream_slot);
 
 // Reset all registered processors (clear filter history, envelope followers,
 // etc.) without re-initialising. Calls reset() on each processor, enabled

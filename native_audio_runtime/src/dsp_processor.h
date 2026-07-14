@@ -22,9 +22,27 @@
 //                concept, e.g. gain_processor.h's bypass flag). Must not
 //                allocate on this path and must be safe to call
 //                repeatedly, back-to-back, on different buffers.
-//   reset()    — clear any internal state (e.g. filter history, envelope
-//                followers) without a full re-init. Safe to call at any
-//                time after init(), whether enabled or not.
+//
+//                `stream_slot` (production-hardening pass) identifies WHICH
+//                concurrently-playing audio stream this buffer belongs to
+//                — see dsp_stream.h for the full rationale. A processor
+//                with no persistent per-sample state (e.g. gain,
+//                replaygain, soft_clipper) may ignore it entirely. A
+//                processor with persistent runtime state (envelope
+//                followers, delay lines, filter histories) MUST index that
+//                state by `stream_slot` (after clamping via
+//                nar_dsp_clamp_stream()) rather than keeping one shared
+//                instance, or concurrent streams will corrupt each other's
+//                acoustic history. Shared, user-configured PARAMETERS
+//                (thresholds, ratios, target LUFS, etc.) are unaffected —
+//                they intentionally keep applying uniformly to every
+//                stream.
+//   reset()    — clear internal state for ALL streams (e.g. filter
+//                history, envelope followers) without a full re-init. Safe
+//                to call at any time after init(), whether enabled or not.
+//                Reset is rare (seek/flush/dispose), not per-buffer, so
+//                clearing every stream's state unconditionally is a safe
+//                superset of the pre-hardening single-stream behavior.
 //   dispose()  — release resources referenced by `self`. Called once, by
 //                the pipeline's own dispose, in registration order. Must
 //                NOT free `self` itself — the pipeline never allocated it
@@ -59,10 +77,15 @@ typedef struct {
   // than NATIVE_RUNTIME_OK aborts registration.
   int32_t (*init)(void* self);
 
-  // Process `buffer` in place, in the given sample format/frame count.
-  // Returns a NativeRuntimeStatus code; a non-OK return stops the whole
-  // pipeline chain for that call (see nar_dsp_pipeline_process()).
-  int32_t (*process)(void* self, NarAudioBuffer* buffer);
+  // Process `buffer` in place, in the given sample format/frame count, for
+  // the given `stream_slot` (see dsp_stream.h). Returns a
+  // NativeRuntimeStatus code. A non-OK return no longer aborts the pipeline
+  // chain (production-hardening pass) — the pipeline now runs every
+  // subsequent processor regardless, so a single failing effect can never
+  // skip the limiter/soft-clipper safety net at the end of the chain. The
+  // pipeline still surfaces the FIRST non-OK code it observed via
+  // native_runtime_last_status()/the process call's own return value.
+  int32_t (*process)(void* self, NarAudioBuffer* buffer, int32_t stream_slot);
 
   // Clear internal state. No return value — expected to always succeed.
   void (*reset)(void* self);

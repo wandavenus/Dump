@@ -76,13 +76,25 @@ static int32_t _rg_init(void* self) {
     return NATIVE_RUNTIME_OK;
 }
 
-static int32_t _rg_process(void* self, NarAudioBuffer* buffer) {
+// Fully stateless per-sample (a single shared atomic gain knob computed
+// from the current track's metadata, no persistent history). Two
+// concurrently-playing streams during crossfade are, by design, two
+// DIFFERENT tracks whose gain values may legitimately differ — but Dart's
+// `_applyReplayGain` call site has no concept of "which stream" a track
+// belongs to today (see delegation notes), so that UX nuance is explicitly
+// out of scope for this memory-safety hardening pass. `stream_slot` is
+// accepted (vtable contract) but unused; there is no per-sample state to
+// isolate, only a shared knob whose value briefly represents whichever
+// track's metadata Dart last pushed.
+static int32_t _rg_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
     (void)self;
+    (void)stream_slot;
 
     // True zero-copy bypass: return immediately, no samples touched.
     if (atomic_load(&_bypass)) return NATIVE_RUNTIME_OK;
 
-    const float g = _bits_to_float(atomic_load(&_gain_bits));
+    float g = _bits_to_float(atomic_load(&_gain_bits));
+    if (!isfinite(g)) g = 1.0f;  // defensive fail-open
 
     // Unity gain optimisation: skip the loop entirely.
     if (g == 1.0f) return NATIVE_RUNTIME_OK;
@@ -96,9 +108,12 @@ static int32_t _rg_process(void* self, NarAudioBuffer* buffer) {
 
     // Hot loop — plain scalar multiply.
     // Same form as gain_processor.c so the compiler can auto-vectorize with NEON
-    // on arm64 without any processor-specific intrinsics.
+    // on arm64 without any processor-specific intrinsics. A non-finite INPUT
+    // sample is sanitized in place so it cannot poison downstream processors.
     for (int32_t i = 0; i < total; ++i) {
-        data[i] *= g;
+        float x = data[i];
+        if (!isfinite(x)) x = 0.0f;
+        data[i] = x * g;
     }
 
     return NATIVE_RUNTIME_OK;

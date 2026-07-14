@@ -11,6 +11,7 @@
 #include "biquad_filter.h"
 #include "dsp_pipeline.h"
 #include "dsp_processor.h"
+#include "dsp_stream.h"
 #include "native_audio_runtime.h"
 #include "native_audio_runtime_internal.h"
 #include "stereo_matrix.h"
@@ -56,18 +57,29 @@ typedef struct {
 } NarCrossfeedParams;
 
 // ── Module singleton ──────────────────────────────────────────────────────────
+//
+// SHARED control-plane: `pending`/`active` hold the user-configured
+// amount/cutoff/width knobs — one crossfeed curve for the whole app,
+// applied uniformly to every stream.
+//
+// PER-STREAM runtime state (production-hardening pass): `dirty` and the 4
+// biquad states (lp_l/lp_r/hf_l/hf_r) are now per-stream. The biquad states
+// hold actual IIR filter history derived from a specific stream's audio —
+// sharing them between two concurrently-playing streams would corrupt each
+// other's filtering (audible artifacts during crossfade). `dirty` is
+// per-stream for the same reason as comp/limiter/peq.
 
 typedef struct {
-  NarCrossfeedParams pending;
-  NarCrossfeedParams active;
-  _Atomic int32_t    dirty;
-  _Atomic int32_t    bypass;
+  NarCrossfeedParams pending;                       // shared
+  NarCrossfeedParams active[NAR_DSP_MAX_STREAMS];   // per stream
+  _Atomic int32_t    dirty[NAR_DSP_MAX_STREAMS];
+  _Atomic int32_t    bypass;                        // shared
 
-  // Audio-thread-only biquad state (no atomics — touched only on audio thread):
-  NarCfBiquadState lp_l;  // LP state: R → L cross path
-  NarCfBiquadState lp_r;  // LP state: L → R cross path
-  NarCfBiquadState hf_l;  // HF shelf state: L direct path
-  NarCfBiquadState hf_r;  // HF shelf state: R direct path
+  // Audio-thread-only biquad state (no atomics), per stream:
+  NarCfBiquadState lp_l[NAR_DSP_MAX_STREAMS];  // LP state: R → L cross path
+  NarCfBiquadState lp_r[NAR_DSP_MAX_STREAMS];  // LP state: L → R cross path
+  NarCfBiquadState hf_l[NAR_DSP_MAX_STREAMS];  // HF shelf state: L direct path
+  NarCfBiquadState hf_r[NAR_DSP_MAX_STREAMS];  // HF shelf state: R direct path
 } NarCrossfeedState;
 
 static NarCrossfeedState _xf;
@@ -125,16 +137,17 @@ static int32_t _xf_init(void* self) {
       XF_DEFAULT_AMOUNT, XF_DEFAULT_CUTOFF_HZ,
       XF_DEFAULT_HF_COMP_DB, XF_DEFAULT_HF_COMP_HZ,
       XF_DEFAULT_WIDTH, XF_DEFAULT_SAMPLE_RATE);
-  _xf.active  = _xf.pending;
 
-  atomic_store(&_xf.dirty,  0);
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+    _xf.active[s] = _xf.pending;
+    atomic_store(&_xf.dirty[s], 0);
+    // Clear biquad state (zeroed = silence = correct initial state).
+    memset(&_xf.lp_l[s], 0, sizeof(_xf.lp_l[s]));
+    memset(&_xf.lp_r[s], 0, sizeof(_xf.lp_r[s]));
+    memset(&_xf.hf_l[s], 0, sizeof(_xf.hf_l[s]));
+    memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
+  }
   atomic_store(&_xf.bypass, 0);
-
-  // Clear biquad state (zeroed = silence = correct initial state).
-  memset(&_xf.lp_l, 0, sizeof(_xf.lp_l));
-  memset(&_xf.lp_r, 0, sizeof(_xf.lp_r));
-  memset(&_xf.hf_l, 0, sizeof(_xf.hf_l));
-  memset(&_xf.hf_r, 0, sizeof(_xf.hf_r));
 
   XF_LOG("_xf_init: ok (amount=%.2f, lp_cutoff=%.0f Hz, hf_comp=%.1f dB @ %.0f Hz, width=%.2f)",
          XF_DEFAULT_AMOUNT, XF_DEFAULT_CUTOFF_HZ,
@@ -143,21 +156,22 @@ static int32_t _xf_init(void* self) {
   return NATIVE_RUNTIME_OK;
 }
 
-static int32_t _xf_process(void* self, NarAudioBuffer* buffer) {
+static int32_t _xf_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
   (void)self;
+  const int32_t s = nar_dsp_clamp_stream(stream_slot);
 
   // ── Global bypass ──────────────────────────────────────────────────────────
   if (atomic_load_explicit(&_xf.bypass, memory_order_relaxed)) {
     return NATIVE_RUNTIME_OK;
   }
 
-  // ── Swap pending params if updated ────────────────────────────────────────
-  if (atomic_load_explicit(&_xf.dirty, memory_order_acquire)) {
-    _xf.active = _xf.pending;
+  // ── Swap pending params if updated (per-stream dirty flag) ────────────────
+  if (atomic_load_explicit(&_xf.dirty[s], memory_order_acquire)) {
+    _xf.active[s] = _xf.pending;
     // Note: biquad state is NOT reset on a parameter update — resetting would
     // produce a discontinuity (audible click). The IIR state from the old
     // coefficients is a graceful transient that decays within milliseconds.
-    atomic_store_explicit(&_xf.dirty, 0, memory_order_relaxed);
+    atomic_store_explicit(&_xf.dirty[s], 0, memory_order_relaxed);
   }
 
   float* data = nar_audio_buffer_data(buffer);
@@ -173,7 +187,7 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer) {
   // (mono signals don't have a stereo image to improve).
   if (channels < 2) return NATIVE_RUNTIME_OK;
 
-  const NarCrossfeedParams* p = &_xf.active;
+  const NarCrossfeedParams* p = &_xf.active[s];
 
   // ── Per-frame stereo processing ───────────────────────────────────────────
   //
@@ -193,16 +207,21 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer) {
 
   for (int32_t f = 0; f < frames; f++) {
     const int32_t base = f * channels;
-    const float L_in = data[base + 0];
-    const float R_in = data[base + 1];
+    float L_in = data[base + 0];
+    float R_in = data[base + 1];
+    // Sanitize non-finite input samples before they enter any biquad's
+    // recursive state — an unsanitized NaN/Inf would poison the filter
+    // history for every subsequent frame.
+    if (!isfinite(L_in)) { L_in = 0.0f; data[base + 0] = 0.0f; }
+    if (!isfinite(R_in)) { R_in = 0.0f; data[base + 1] = 0.0f; }
 
     // 1. Cross-path lowpass filters.
-    const float xfeed_L = _cf_biquad(&p->lp, &_xf.lp_l, R_in);  // filtered R → L
-    const float xfeed_R = _cf_biquad(&p->lp, &_xf.lp_r, L_in);  // filtered L → R
+    const float xfeed_L = _cf_biquad(&p->lp, &_xf.lp_l[s], R_in);  // filtered R → L
+    const float xfeed_R = _cf_biquad(&p->lp, &_xf.lp_r[s], L_in);  // filtered L → R
 
     // 2. HF compensation on the direct path.
-    const float direct_L = _cf_biquad(&p->hf, &_xf.hf_l, L_in);
-    const float direct_R = _cf_biquad(&p->hf, &_xf.hf_r, R_in);
+    const float direct_L = _cf_biquad(&p->hf, &_xf.hf_l[s], L_in);
+    const float direct_R = _cf_biquad(&p->hf, &_xf.hf_r[s], R_in);
 
     // 3. Mix and normalize to equal loudness.
     float L_mixed = (direct_L + amount * xfeed_L) * norm;
@@ -211,6 +230,19 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer) {
     // 4. Stereo width matrix.
     float L_out, R_out;
     nar_stereo_matrix_apply(&p->width_m, L_mixed, R_mixed, &L_out, &R_out);
+
+    // Defensive: if any biquad's recursive state has gone unstable (e.g. an
+    // extreme parameter combination), fail open on that frame rather than
+    // emit NaN/Inf, and reset the offending states so the corruption cannot
+    // persist into subsequent frames.
+    if (!isfinite(L_out) || !isfinite(R_out)) {
+      memset(&_xf.lp_l[s], 0, sizeof(_xf.lp_l[s]));
+      memset(&_xf.lp_r[s], 0, sizeof(_xf.lp_r[s]));
+      memset(&_xf.hf_l[s], 0, sizeof(_xf.hf_l[s]));
+      memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
+      L_out = L_in;
+      R_out = R_in;
+    }
 
     data[base + 0] = L_out;
     data[base + 1] = R_out;
@@ -222,22 +254,26 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer) {
 
 static void _xf_reset(void* self) {
   (void)self;
-  // On seek/flush: clear the biquad state so transient history from the
-  // previous track does not bleed into the next track.
-  memset(&_xf.lp_l, 0, sizeof(_xf.lp_l));
-  memset(&_xf.lp_r, 0, sizeof(_xf.lp_r));
-  memset(&_xf.hf_l, 0, sizeof(_xf.hf_l));
-  memset(&_xf.hf_r, 0, sizeof(_xf.hf_r));
+  // On seek/flush: clear the biquad state for EVERY stream so transient
+  // history from the previous track does not bleed into the next track.
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+    memset(&_xf.lp_l[s], 0, sizeof(_xf.lp_l[s]));
+    memset(&_xf.lp_r[s], 0, sizeof(_xf.lp_r[s]));
+    memset(&_xf.hf_l[s], 0, sizeof(_xf.hf_l[s]));
+    memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
+  }
 }
 
 static void _xf_dispose(void* self) {
   (void)self;
-  memset(&_xf.lp_l, 0, sizeof(_xf.lp_l));
-  memset(&_xf.lp_r, 0, sizeof(_xf.lp_r));
-  memset(&_xf.hf_l, 0, sizeof(_xf.hf_l));
-  memset(&_xf.hf_r, 0, sizeof(_xf.hf_r));
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+    memset(&_xf.lp_l[s], 0, sizeof(_xf.lp_l[s]));
+    memset(&_xf.lp_r[s], 0, sizeof(_xf.lp_r[s]));
+    memset(&_xf.hf_l[s], 0, sizeof(_xf.hf_l[s]));
+    memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
+    atomic_store(&_xf.dirty[s], 0);
+  }
   atomic_store(&_xf.bypass, 0);
-  atomic_store(&_xf.dirty,  0);
 }
 
 static int32_t _xf_latency_frames(void* self) {
@@ -295,8 +331,12 @@ FFI_PLUGIN_EXPORT int32_t nar_crossfeed_set_params(
   _xf.pending = _build_params(
       amount, cutoff_hz, hf_comp_db, hf_comp_hz, width, sample_rate);
 
-  // Commit with release-store so the audio thread sees the full pending struct.
-  atomic_store_explicit(&_xf.dirty, 1, memory_order_release);
+  // Commit with release-store, for EVERY stream, so each stream's audio
+  // thread independently sees the full pending struct (see NarCrossfeedState
+  // comment for why a single shared dirty flag would starve one stream).
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+    atomic_store_explicit(&_xf.dirty[s], 1, memory_order_release);
+  }
 
   nar_runtime_set_last_status(NATIVE_RUNTIME_OK);
   return NATIVE_RUNTIME_OK;

@@ -196,8 +196,8 @@ class Media3PlaybackService : MediaSessionService() {
         // correctly tracked from the start.
         stereoWidthManager = StereoWidthManager()
 
-        // Create primary player
-        primaryPlayer = createConfiguredPlayer()
+        // Create primary player — always physical stream slot 0.
+        primaryPlayer = createConfiguredPlayer(streamSlot = 0)
         activePlayer  = primaryPlayer
 
         // ── Audio Offload Manager ─────────────────────────────────────────────
@@ -335,7 +335,15 @@ class Media3PlaybackService : MediaSessionService() {
         preloadManager = PreloadManager(
             getActivePlayer    = { activePlayer },
             getStandbyPlayer   = { standbyPlayer() },
-            createPlayer       = { createConfiguredPlayer() },
+            // The standby player being (re)built always lands in whichever
+            // physical slot is not currently active — see setStandbyPlayer
+            // below, which places it into primaryPlayer or secondaryPlayer
+            // accordingly. Slot must match here so its NativeDspAudioProcessor
+            // is tagged correctly BEFORE it starts decoding.
+            createPlayer       = {
+                val slot = if (activePlayer === primaryPlayer) 1 else 0
+                createConfiguredPlayer(streamSlot = slot)
+            },
             attachListener     = { attachPlayerListener(it) },
             detachListener     = { detachPlayerListener(it) },
             setStandbyPlayer   = { newStandby ->
@@ -820,7 +828,17 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── Player factory ────────────────────────────────────────────────────────
 
-    private fun createConfiguredPlayer(): ExoPlayer {
+    // streamSlot: 0 or 1 (see dsp_stream.h) — identifies which of the two
+    // concurrently-possible physical players (primaryPlayer var vs
+    // secondaryPlayer var) this instance is being built for, so its
+    // NativeDspAudioProcessor tags every buffer with the right slot and the
+    // native pipeline's per-stream runtime state (comp/limiter/peq/crossfeed/
+    // loudness) never collides between the two during crossfade. Slot
+    // assignment is by PHYSICAL VARIABLE, not by "active/standby" role,
+    // because active/standby flips on every crossfade promotion while the
+    // underlying ExoPlayer object (and its already-constructed
+    // NativeDspAudioProcessor) does not change.
+    private fun createConfiguredPlayer(streamSlot: Int = 0): ExoPlayer {
         // Tuned for local (offline) file playback:
         //  - 15 s min buffer  : local reads are near-instant; no need to buffer more before play.
         //  - 50 s max buffer  : keeps enough audio pre-decoded for smooth gapless / crossfade.
@@ -849,7 +867,7 @@ class Media3PlaybackService : MediaSessionService() {
         //
         // If libnative_audio_runtime.so is absent or the Dart-side pipeline has not
         // yet been initialised, audio passes through unmodified (fail-open).
-        val nativeDspProc = NativeDspAudioProcessor()
+        val nativeDspProc = NativeDspAudioProcessor(streamSlot)
 
         // Item 8: each player gets its own StereoWideningAudioProcessor so
         // stereo widening can be applied/updated atomically during crossfade.
@@ -1659,7 +1677,7 @@ class Media3PlaybackService : MediaSessionService() {
         val positionMs = clean.currentPosition
         clean.pause()
 
-        val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer().also {
+        val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
             primaryPlayer = it
             attachPlayerListener(it)
         }

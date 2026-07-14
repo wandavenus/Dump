@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "audio_buffer_internal.h"      // full NarAudioBuffer layout for process_raw()
+#include "dsp_stream.h"
 #include "native_audio_runtime_internal.h"
 
 #if defined(__ANDROID__)
@@ -156,22 +157,36 @@ done:
 
 // ── Processing ───────────────────────────────────────────────────────────────
 
-FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process(NarAudioBuffer* buffer) {
+// Production-hardening pass: the chain no longer aborts on a processor's
+// non-OK return. Every processor still runs its process() call even if an
+// earlier one failed — this is what guarantees the limiter/soft-clipper
+// (registered last) always execute as the final safety net. Only the FIRST
+// non-OK code is remembered/returned, for diagnostics.
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_stream(
+    NarAudioBuffer* buffer, int32_t stream_slot) {
   if (buffer == NULL) {
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
+  const int32_t slot = nar_dsp_clamp_stream(stream_slot);
   int32_t count = atomic_load(&_count);
+  int32_t first_error = NATIVE_RUNTIME_OK;
   for (int32_t i = 0; i < count; i++) {
     if (!atomic_load(&_slots[i].enabled)) continue;  // skip disabled
-    int32_t r = _slots[i].vtable->process(_slots[i].self, buffer);
-    if (r != NATIVE_RUNTIME_OK) {
-      nar_runtime_set_last_status(r);
-      return r;  // stop chain on first error
+    int32_t r = _slots[i].vtable->process(_slots[i].self, buffer, slot);
+    if (r != NATIVE_RUNTIME_OK && first_error == NATIVE_RUNTIME_OK) {
+      first_error = r;  // remember the first failure but keep going —
+                         // a single failing effect must never skip the
+                         // limiter/soft-clipper safety net further down
+                         // the chain.
     }
   }
-  nar_runtime_set_last_status(NATIVE_RUNTIME_OK);
-  return NATIVE_RUNTIME_OK;
+  nar_runtime_set_last_status(first_error);
+  return first_error;
+}
+
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process(NarAudioBuffer* buffer) {
+  return nar_dsp_pipeline_process_stream(buffer, 0);
 }
 
 // ── Enable / disable ─────────────────────────────────────────────────────────
@@ -239,10 +254,15 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_is_initialized(void) {
 // through the existing process() call. The view is zero-copy: `data` is the
 // same pointer ExoPlayer passes us via JNI GetDirectBufferAddress().
 //
-// Called from NativeDspAudioProcessor.kt on ExoPlayer's audio rendering thread.
-// Thread safety is identical to nar_dsp_pipeline_process(): no locks, no alloc.
-FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
-    float* data, int32_t frame_count, int32_t channel_count, int32_t sample_rate) {
+// Called from NativeDspAudioProcessor.kt on EACH ExoPlayer instance's own
+// audio rendering thread — one call site per stream (primary vs
+// secondary/crossfade-standby), each passing its own stream_slot. Thread
+// safety is identical to nar_dsp_pipeline_process_stream(): no locks, no
+// alloc; two different stream_slots may call in concurrently from two
+// different OS threads with zero shared mutable per-stream state.
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw_stream(
+    float* data, int32_t frame_count, int32_t channel_count,
+    int32_t sample_rate, int32_t stream_slot) {
   if (!atomic_load(&_initialized)) {
     // Pipeline not yet initialised by Dart — fail-open (audio passes unchanged).
     return NATIVE_RUNTIME_ERROR_NOT_INITIALIZED;
@@ -263,5 +283,12 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
   view.format           = NAR_SAMPLE_FORMAT_FLOAT32;
   view.timestamp_us     = 0;
 
-  return nar_dsp_pipeline_process(&view);
+  return nar_dsp_pipeline_process_stream(&view, stream_slot);
+}
+
+// Legacy single-stream entry point — always targets stream slot 0.
+FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_raw(
+    float* data, int32_t frame_count, int32_t channel_count, int32_t sample_rate) {
+  return nar_dsp_pipeline_process_raw_stream(
+      data, frame_count, channel_count, sample_rate, 0);
 }

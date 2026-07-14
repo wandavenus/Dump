@@ -65,8 +65,13 @@ static int32_t _sc_init(void* self) {
   return NATIVE_RUNTIME_OK;
 }
 
-static int32_t _sc_process(void* self, NarAudioBuffer* buffer) {
+// Stateless waveshaper (no persistent history — each sample's output
+// depends only on that sample and the shared threshold knob), so
+// `stream_slot` is accepted (vtable contract) but unused. See
+// dsp_stream.h.
+static int32_t _sc_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
   (void)self;
+  (void)stream_slot;
 
   if (atomic_load_explicit(&_sc_bypass, memory_order_relaxed)) {
     return NATIVE_RUNTIME_OK;  // zero-copy bypass
@@ -94,7 +99,14 @@ static int32_t _sc_process(void* self, NarAudioBuffer* buffer) {
   // arm64; the tanhf branch breaks vectorization only for the rare clips.
   if (range > 1e-6f) {
     for (int32_t i = 0; i < total; i++) {
-      const float x = data[i];
+      float x = data[i];
+      if (!isfinite(x)) {
+        // Sanitize a non-finite INPUT sample in place — otherwise it would
+        // multiply/propagate straight through as the final stage of the
+        // chain (soft_clipper is the pipeline's safety net).
+        data[i] = 0.0f;
+        continue;
+      }
       const float abs_x = x < 0.0f ? -x : x;
       if (abs_x > threshold) {
         data[i] = _soft_clip(x, threshold, range);

@@ -53,8 +53,14 @@ static int32_t _gain_init(void* self) {
   return NATIVE_RUNTIME_OK;
 }
 
-static int32_t _gain_process(void* self, NarAudioBuffer* buffer) {
+// Fully stateless per-sample (a single shared atomic gain knob, no
+// persistent history) — both concurrently-playing streams intentionally
+// apply the SAME user-configured gain, so `stream_slot` is accepted (vtable
+// contract) but not used for anything. See dsp_stream.h for the general
+// per-stream rationale and why stateless processors are exempt from it.
+static int32_t _gain_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
   (void)self;
+  (void)stream_slot;
 
   // True zero-copy bypass: return immediately without reading any sample.
   if (atomic_load(&_bypass)) return NATIVE_RUNTIME_OK;
@@ -69,12 +75,17 @@ static int32_t _gain_process(void* self, NarAudioBuffer* buffer) {
   // Convert dBFS → linear once, outside the hot loop.
   float gain_db     = _bits_to_float(atomic_load(&_gain_db_bits));
   float gain_linear = powf(10.0f, gain_db / 20.0f);
+  if (!isfinite(gain_linear)) gain_linear = 1.0f;  // defensive fail-open
 
   // Hot loop — plain indexed multiply. Written in a form the compiler can
   // auto-vectorize with NEON on arm64. Future phases can replace with
   // explicit NEON intrinsics without touching the surrounding pipeline code.
+  // A non-finite INPUT sample is sanitized in place so it cannot multiply
+  // straight through to every downstream processor.
   for (int32_t i = 0; i < samples; i++) {
-    data[i] *= gain_linear;
+    float x = data[i];
+    if (!isfinite(x)) x = 0.0f;
+    data[i] = x * gain_linear;
   }
 
   return NATIVE_RUNTIME_OK;

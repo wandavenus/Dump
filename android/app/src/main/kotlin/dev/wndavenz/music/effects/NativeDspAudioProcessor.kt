@@ -50,18 +50,31 @@ import java.nio.ByteBuffer
  *  One NativeDspAudioProcessor is created per ExoPlayer instance (matching the
  *  StereoWideningAudioProcessor pattern). BaseAudioProcessor is stateful, so
  *  instances must not be shared. All instances call into the same global C
- *  pipeline state — gain/bypass/enable apply uniformly to both primary and
- *  secondary (crossfade) players, which is the intended behaviour.
+ *  pipeline state — shared, user-configured PARAMETERS (gain/bypass/enable/
+ *  thresholds/ratios/etc.) apply uniformly to both primary and secondary
+ *  (crossfade) players, which is the intended behaviour.
+ *
+ *  Production-hardening pass: each instance now also carries its own
+ *  immutable [streamSlot] (0 = primary, 1 = secondary/crossfade-standby),
+ *  threaded into every native call. This tells the native pipeline WHICH
+ *  concurrently-playing stream a buffer belongs to, so per-stream RUNTIME
+ *  state (envelope followers, look-ahead delay buffers, filter histories)
+ *  inside comp/limiter/peq/crossfeed/loudness stays isolated between the two
+ *  players — see dsp_stream.h for the full rationale. Before this, both
+ *  ExoPlayer audio threads wrote the same unsynchronized global state during
+ *  crossfade, a genuine data race.
  */
 @UnstableApi
-class NativeDspAudioProcessor : BaseAudioProcessor() {
+class NativeDspAudioProcessor(
+    private val streamSlot: Int = 0,
+) : BaseAudioProcessor() {
 
     companion object {
         private const val LOG_TAG = "NativeDspAudioProc"
 
         /**
          * Process [frameCount] × [channelCount] float32 samples in [buffer]
-         * in-place.
+         * in-place, for the given [streamSlot] (see dsp_stream.h).
          *
          * [buffer] must be a direct ByteBuffer with position 0 pointing at the
          * first PCM sample. Returns NATIVE_RUNTIME_OK (0) on success.
@@ -74,6 +87,7 @@ class NativeDspAudioProcessor : BaseAudioProcessor() {
             frameCount: Int,
             channelCount: Int,
             sampleRate: Int,
+            streamSlot: Int,
         ): Int
 
         /**
@@ -144,7 +158,7 @@ class NativeDspAudioProcessor : BaseAudioProcessor() {
         // frameCount = total_bytes / (channelCount × sizeof(float32))
         val frameCount   = remaining / (channelCount * 4)
 
-        nativeProcessFloat(output, frameCount, channelCount, sampleRate)
+        nativeProcessFloat(output, frameCount, channelCount, sampleRate, streamSlot)
         // output.position/limit unchanged by JNI — BaseAudioProcessor.getOutput() is correct.
     }
 }

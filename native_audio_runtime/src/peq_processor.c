@@ -3,6 +3,7 @@
 
 #include "peq_processor.h"
 
+#include <math.h>
 #include <stdatomic.h>
 #include <string.h>
 
@@ -10,6 +11,7 @@
 #include "biquad_filter.h"
 #include "dsp_pipeline.h"
 #include "dsp_processor.h"
+#include "dsp_stream.h"
 #include "native_audio_runtime.h"
 #include "native_audio_runtime_internal.h"
 
@@ -43,15 +45,25 @@
 //
 // The filter history arrays (s1, s2) are touched exclusively by the audio
 // thread — no atomics required.
+//
+// Production-hardening pass: `dirty` and the TDF-II history (`s1`/`s2`) are
+// now per-stream (NAR_DSP_MAX_STREAMS slots). `s1`/`s2` hold actual
+// filter-history samples from a specific stream's audio — sharing them
+// between two concurrently-playing streams would corrupt each other's
+// filtering. `pending`/`active`/`enabled` (the user-configured band
+// coefficients) stay shared: one EQ curve applies uniformly to every
+// stream. `dirty` must be per-stream for the same reason as comp/limiter
+// (a shared flag would starve whichever stream's audio thread didn't
+// happen to observe it first).
 
 typedef struct {
-  NarBiquadCoeffs pending;  // control thread: staging area for next coefficients
-  NarBiquadCoeffs active;   // audio thread: current working coefficients
-  _Atomic int32_t dirty;    // 1 = pending has new data for the audio thread
-  _Atomic int32_t enabled;  // 1 = process this band; 0 = skip (zero cost)
-  // TDF-II state, one slot per channel, audio-thread-only (no atomics needed).
-  float s1[NAR_PEQ_MAX_CHANNELS];
-  float s2[NAR_PEQ_MAX_CHANNELS];
+  NarBiquadCoeffs pending;                     // control thread: staging area for next coefficients (shared)
+  NarBiquadCoeffs active[NAR_DSP_MAX_STREAMS]; // audio thread: current working coefficients, per stream
+  _Atomic int32_t dirty[NAR_DSP_MAX_STREAMS];  // 1 = pending has new data for that stream's audio thread
+  _Atomic int32_t enabled;                     // 1 = process this band; 0 = skip (zero cost) (shared)
+  // TDF-II state, one slot per channel per stream, audio-thread-only (no atomics needed).
+  float s1[NAR_DSP_MAX_STREAMS][NAR_PEQ_MAX_CHANNELS];
+  float s2[NAR_DSP_MAX_STREAMS][NAR_PEQ_MAX_CHANNELS];
 } NarPeqBand;
 
 // ── Module-level singleton ────────────────────────────────────────────────────
@@ -80,14 +92,16 @@ static const NarBiquadCoeffs kUnityCoeffs = {
 
 static int32_t _peq_init(void* self) {
   (void)self;
-  // Initialise all bands to unity-gain pass-through.
+  // Initialise all bands to unity-gain pass-through, for every stream.
   for (int32_t b = 0; b < NAR_PEQ_MAX_BANDS; b++) {
-    _peq.bands[b].active  = kUnityCoeffs;
     _peq.bands[b].pending = kUnityCoeffs;
-    atomic_store(&_peq.bands[b].dirty,   0);
     atomic_store(&_peq.bands[b].enabled, 0);
-    memset(_peq.bands[b].s1, 0, sizeof(_peq.bands[b].s1));
-    memset(_peq.bands[b].s2, 0, sizeof(_peq.bands[b].s2));
+    for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+      _peq.bands[b].active[s] = kUnityCoeffs;
+      atomic_store(&_peq.bands[b].dirty[s], 0);
+      memset(_peq.bands[b].s1[s], 0, sizeof(_peq.bands[b].s1[s]));
+      memset(_peq.bands[b].s2[s], 0, sizeof(_peq.bands[b].s2[s]));
+    }
   }
   atomic_store(&_peq.band_count, 0);
   atomic_store(&_peq.bypass,     0);
@@ -95,8 +109,9 @@ static int32_t _peq_init(void* self) {
   return NATIVE_RUNTIME_OK;
 }
 
-static int32_t _peq_process(void* self, NarAudioBuffer* buffer) {
+static int32_t _peq_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
   (void)self;
+  const int32_t s = nar_dsp_clamp_stream(stream_slot);
 
   // ── Global bypass ──────────────────────────────────────────────────────────
   // Zero-copy early return: buffer is untouched.
@@ -122,13 +137,14 @@ static int32_t _peq_process(void* self, NarAudioBuffer* buffer) {
 
   // ── Coefficient swap (once per process() call, not per sample) ────────────
   //
-  // For each band: if the control thread has written new coefficients
-  // (dirty == 1 via acquire), copy pending → active.  This is the only
-  // per-buffer work for disabled bands; enabled bands then iterate samples.
+  // For each band: if the control thread has written new coefficients for
+  // THIS stream (dirty[s] == 1 via acquire), copy pending → active[s]. This
+  // is the only per-buffer work for disabled bands; enabled bands then
+  // iterate samples.
   for (int32_t b = 0; b < band_count; b++) {
-    if (atomic_load_explicit(&_peq.bands[b].dirty, memory_order_acquire)) {
-      _peq.bands[b].active = _peq.bands[b].pending;
-      atomic_store_explicit(&_peq.bands[b].dirty, 0, memory_order_relaxed);
+    if (atomic_load_explicit(&_peq.bands[b].dirty[s], memory_order_acquire)) {
+      _peq.bands[b].active[s] = _peq.bands[b].pending;
+      atomic_store_explicit(&_peq.bands[b].dirty[s], 0, memory_order_relaxed);
     }
   }
 
@@ -143,9 +159,9 @@ static int32_t _peq_process(void* self, NarAudioBuffer* buffer) {
       continue;  // zero-cost skip for disabled bands
     }
 
-    const NarBiquadCoeffs* c = &_peq.bands[b].active;
-    float* s1 = _peq.bands[b].s1;
-    float* s2 = _peq.bands[b].s2;
+    const NarBiquadCoeffs* c = &_peq.bands[b].active[s];
+    float* s1 = _peq.bands[b].s1[s];
+    float* s2 = _peq.bands[b].s2[s];
 
     // Inner loop: interleaved sample processing.
     // Frame f, channel c_idx → sample index = f * channels + c_idx.
@@ -153,7 +169,18 @@ static int32_t _peq_process(void* self, NarAudioBuffer* buffer) {
     for (int32_t f = 0; f < frames; f++) {
       for (int32_t c_idx = 0; c_idx < proc_ch; c_idx++) {
         const int32_t idx = f * channels + c_idx;
-        data[idx] = nar_biquad_process_sample(c, &s1[c_idx], &s2[c_idx], data[idx]);
+        float x = data[idx];
+        if (!isfinite(x)) x = 0.0f;  // sanitize input before it enters filter history
+        float y = nar_biquad_process_sample(c, &s1[c_idx], &s2[c_idx], x);
+        if (!isfinite(y)) {
+          // A non-finite output means the filter history itself has gone
+          // unstable (extreme Q/gain combination) — clear it and pass the
+          // sanitized input through rather than propagate NaN/Inf downstream.
+          s1[c_idx] = 0.0f;
+          s2[c_idx] = 0.0f;
+          y = x;
+        }
+        data[idx] = y;
       }
     }
   }
@@ -163,13 +190,16 @@ static int32_t _peq_process(void* self, NarAudioBuffer* buffer) {
 
 static void _peq_reset(void* self) {
   (void)self;
-  // Clear all filter history. Called by the pipeline on seek/flush.
-  // Runs on the audio thread — no locking needed for s1/s2 (audio-thread-only).
+  // Clear all filter history, for EVERY stream. Called by the pipeline on
+  // seek/flush. Runs on the audio thread — no locking needed for s1/s2
+  // (audio-thread-only).
   const int32_t band_count = atomic_load_explicit(&_peq.band_count,
                                                    memory_order_relaxed);
   for (int32_t b = 0; b < band_count; b++) {
-    memset(_peq.bands[b].s1, 0, sizeof(float) * NAR_PEQ_MAX_CHANNELS);
-    memset(_peq.bands[b].s2, 0, sizeof(float) * NAR_PEQ_MAX_CHANNELS);
+    for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+      memset(_peq.bands[b].s1[s], 0, sizeof(float) * NAR_PEQ_MAX_CHANNELS);
+      memset(_peq.bands[b].s2[s], 0, sizeof(float) * NAR_PEQ_MAX_CHANNELS);
+    }
   }
 }
 
@@ -178,12 +208,14 @@ static void _peq_dispose(void* self) {
   // All state is in the static _peq singleton — no heap to free.
   // Re-zero so a re-register after dispose starts clean.
   for (int32_t b = 0; b < NAR_PEQ_MAX_BANDS; b++) {
-    _peq.bands[b].active  = kUnityCoeffs;
     _peq.bands[b].pending = kUnityCoeffs;
-    atomic_store(&_peq.bands[b].dirty,   0);
     atomic_store(&_peq.bands[b].enabled, 0);
-    memset(_peq.bands[b].s1, 0, sizeof(_peq.bands[b].s1));
-    memset(_peq.bands[b].s2, 0, sizeof(_peq.bands[b].s2));
+    for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+      _peq.bands[b].active[s] = kUnityCoeffs;
+      atomic_store(&_peq.bands[b].dirty[s], 0);
+      memset(_peq.bands[b].s1[s], 0, sizeof(_peq.bands[b].s1[s]));
+      memset(_peq.bands[b].s2[s], 0, sizeof(_peq.bands[b].s2[s]));
+    }
   }
   atomic_store(&_peq.band_count, 0);
   atomic_store(&_peq.bypass,     0);
@@ -247,12 +279,15 @@ FFI_PLUGIN_EXPORT int32_t nar_peq_set_band(
     return r;
   }
 
-  // Write pending coefficients, then release-store dirty to synchronize with
-  // the audio thread's acquire-load in _peq_process().
+  // Write pending coefficients, then release-store dirty for EVERY stream to
+  // synchronize with each stream's acquire-load in _peq_process() — both
+  // concurrently-playing streams must independently notice this update.
   _peq.bands[band_index].pending = new_coeffs;
   atomic_store_explicit(&_peq.bands[band_index].enabled, enabled ? 1 : 0,
                         memory_order_relaxed);
-  atomic_store_explicit(&_peq.bands[band_index].dirty, 1, memory_order_release);
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
+    atomic_store_explicit(&_peq.bands[band_index].dirty[s], 1, memory_order_release);
+  }
 
   // Grow band_count to cover this index (monotonically; bands are not removed).
   const int32_t required = band_index + 1;
