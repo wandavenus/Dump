@@ -20,29 +20,32 @@ class SettingsActionRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: isDestructive
-                    ? const Color(0xFFF92D48)
-                    : Colors.white,
-                fontSize: 16,
-              ),
-            ),
-            if (subtitle != null && subtitle!.isNotEmpty) ...[
-              const SizedBox(height: 2),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                subtitle!,
-                style: const TextStyle(
-                  color: Color(0xFF8E8E93),
-                  fontSize: 13,
+                title,
+                style: TextStyle(
+                  color: isDestructive
+                      ? const Color(0xFFF92D48)
+                      : Colors.white,
+                  fontSize: 16,
                 ),
               ),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: const TextStyle(
+                    color: Color(0xFF8E8E93),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
