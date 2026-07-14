@@ -25,6 +25,8 @@ dependencies:
 
   native_audio_runtime:
     path: native_audio_runtime
+  url_launcher: ^6.3.2
+  font_awesome_flutter: ^11.0.0
 
 dev_dependencies:
   flutter_test:

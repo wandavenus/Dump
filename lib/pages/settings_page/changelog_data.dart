@@ -23,6 +23,13 @@ const List<_ChangelogEntry> _changelogEntries = [
     version: '1.0.0',
     date: '14 Juli 2026',
     changes: [
+      'Penambahan deskripsi app, link Catatan Pembaruan, dan sosmed (Instagram & Facebook) di halaman Tentang App.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.0.0',
+    date: '14 Juli 2026',
+    changes: [
       'Redesign halaman Tentang App menjadi tampilan minimalis.',
     ],
   ),

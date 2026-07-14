@@ -1,9 +1,6 @@
 part of '../settings_page.dart';
 
 // ─── Tentang App ────────────────────────────────────────────────────────────
-//
-// Tampilan minimalis: nama app + versi di tengah layar, footer copyright
-// di bawah. Ketuk teks versi 5× dalam 2 detik untuk Mode Debug.
 
 class AboutAppPage extends StatefulWidget {
   const AboutAppPage({super.key});
@@ -40,6 +37,22 @@ class _AboutAppPageState extends State<AboutAppPage> {
             backgroundColor: Color(0xFF1C1C1E),
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak bisa membuka link'),
+            backgroundColor: Color(0xFF1C1C1E),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -87,7 +100,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
       ),
       body: Stack(
         children: [
-          // ── Konten tengah ───────────────────────────────────────────────
+          // ── Konten ──────────────────────────────────────────────────────
           CustomScrollView(
             controller: _scroll,
             physics: const ClampingScrollPhysics(),
@@ -95,70 +108,119 @@ class _AboutAppPageState extends State<AboutAppPage> {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Nama app
-                      const Text(
-                        'Music Player',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Nama app
+                        const Text(
+                          'Music Player',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
+                        const SizedBox(height: 6),
 
-                      // Versi — tap 5× untuk mode debug
-                      ValueListenableBuilder<bool>(
-                        valueListenable: _DebugState.enabled,
-                        builder: (_, debug, _) => GestureDetector(
-                          onTap: _onVersionTap,
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 4),
-                            child: Text(
-                              debug ? 'Versi 1.0.0 [DEBUG]' : 'Versi 1.0.0',
-                              style: TextStyle(
-                                color: debug
-                                    ? const Color(0xFFF92D48)
-                                    : const Color(0xFF8E8E93),
-                                fontSize: 15,
+                        // Versi — tap 5× untuk mode debug
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _DebugState.enabled,
+                          builder: (_, debug, _) => GestureDetector(
+                            onTap: _onVersionTap,
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 4),
+                              child: Text(
+                                debug
+                                    ? 'Versi 1.0.0 [DEBUG]'
+                                    : 'Versi 1.0.0',
+                                style: TextStyle(
+                                  color: debug
+                                      ? const Color(0xFFF92D48)
+                                      : const Color(0xFF8E8E93),
+                                  fontSize: 15,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 28),
+                        const SizedBox(height: 28),
 
-                      // Divider pendek
-                      Container(
-                        width: 48,
-                        height: 1,
-                        color: const Color(0xFF3A3A3C),
-                      ),
-                      const SizedBox(height: 28),
+                        // Divider pendek
+                        Container(
+                          width: 48,
+                          height: 1,
+                          color: const Color(0xFF3A3A3C),
+                        ),
+                        const SizedBox(height: 28),
 
-                      // Dibuat oleh
-                      const Text(
-                        'Dibuat dengan dedikasi oleh',
-                        style: TextStyle(
-                          color: Color(0xFFEBEBF0),
-                          fontSize: 15,
+                        // Dibuat oleh
+                        const Text(
+                          'Dibuat dengan dedikasi oleh',
+                          style: TextStyle(
+                            color: Color(0xFFEBEBF0),
+                            fontSize: 15,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Wndavenznchole',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Wndavenznchole',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 28),
+
+                        // ── Deskripsi singkat ──────────────────────────
+                        const Text(
+                          'Pemutar musik lokal yang ringan, cepat, dan kaya fitur — dirancang untuk pengalaman mendengarkan yang menyenangkan.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF8E8E93),
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // ── Catatan Pembaruan ──────────────────────────
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            ZoomFadeRoute<void>(page: const ChangelogPage()),
+                          ),
+                          child: const Text(
+                            'Catatan Pembaruan',
+                            style: TextStyle(
+                              color: Color(0xFFF92D48),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── Sosial media ───────────────────────────────
+                        _SocialRow(
+                          icon: FontAwesomeIcons.instagram,
+                          label: 'Wndavenznchole',
+                          onTap: () => _openUrl(
+                              'https://www.instagram.com/wndavenznchole'),
+                        ),
+                        const SizedBox(height: 14),
+                        _SocialRow(
+                          icon: FontAwesomeIcons.facebook,
+                          label: 'Wndavenz Nchole',
+                          onTap: () => _openUrl(
+                              'https://www.facebook.com/Wndavenznchole'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -177,6 +239,43 @@ class _AboutAppPageState extends State<AboutAppPage> {
                 color: Color(0xFF636366),
                 fontSize: 13,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Widget baris sosmed ────────────────────────────────────────────────────
+
+class _SocialRow extends StatelessWidget {
+  final FaIconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SocialRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FaIcon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
