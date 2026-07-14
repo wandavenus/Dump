@@ -48,7 +48,7 @@ Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter
 ## User preferences
 
 - Setelah selesai pengerjaan, jalankan `flutter analyze` dan Restart App saja ketika build otomatis sudah selesai — **jangan rebuild web (`flutter build web`)** kecuali ada perintah eksplisit dari user.
-- **Setiap pengerjaan (fitur/perubahan/perbaikan) wajib dicatat di halaman Changelog** (`lib/pages/settings_page/changelog_data.dart`, tampil di Pengaturan → Tentang → Changelog). Tambah satu entri baru di urutan paling atas berisi: versi app (dari `pubspec.yaml`), tanggal pengerjaan, dan daftar perubahan singkat. Ini wajib, bukan opsional.
+- **Setiap pengerjaan (fitur/perubahan/perbaikan) wajib dicatat di halaman Changelog** (`lib/pages/settings_page/changelog_data.dart`, tampil di Pengaturan → Tentang → Changelog). Tambah satu entri baru di urutan paling atas berisi: versi app (dari `pubspec.yaml`), tanggal pengerjaan, dan daftar perubahan **singkat** (satu kalimat per item, tanpa detail teknis). Ini wajib, bukan opsional.
 - Setelah kode selesai diubah dan analyze clean, langsung akhiri tanpa menunggu proses rebuild web selesai.
 - Gunakan **Bahasa Indonesia non-formal / gaul** untuk semua pesan progres, penjelasan, dan info pengerjaan. Pakai "aku/kamu", bukan "gue/lu".
 - Lakukan Pengerjaan dengan penuh pertimbangan supaya tidak membuat kesalahan yang tidak diingin kan dari hasil pengerjaan yang sudah di lakukan
