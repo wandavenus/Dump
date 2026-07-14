@@ -44,6 +44,7 @@ part 'settings_page/about.dart';
 part 'settings_page/version.dart';
 part 'settings_page/version_state.dart';
 part 'settings_page/about_app_page.dart';
+part 'settings_page/changelog_data.dart';
 part 'settings_page/changelog_page.dart';
 part 'settings_page/bug_report_page.dart';
 part 'settings_page/support_page.dart';

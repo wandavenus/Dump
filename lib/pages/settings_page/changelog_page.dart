@@ -1,13 +1,144 @@
 part of '../settings_page.dart';
 
 // ─── Changelog ──────────────────────────────────────────────────────────────
-// Placeholder — konten diisi belakangan.
+//
+// Menampilkan riwayat perubahan app dari _changelogEntries (lihat
+// changelog_data.dart). Setiap pengerjaan baru WAJIB menambah entri di sana.
 
-class ChangelogPage extends StatelessWidget {
+class ChangelogPage extends StatefulWidget {
   const ChangelogPage({super.key});
 
   @override
+  State<ChangelogPage> createState() => _ChangelogPageState();
+}
+
+class _ChangelogPageState extends State<ChangelogPage> {
+  final _scroll = ScrollController();
+  double _offset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final offset = _scroll.offset;
+    if ((offset - _offset).abs() > 0.5) {
+      setState(() => _offset = offset);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const _EmptyPlaceholderPage(title: 'Changelog');
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: FadingTitleAppBar(
+        title: 'Changelog',
+        scrollOffset: _offset,
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).maybePop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
+        actions: const [],
+      ),
+      body: _changelogEntries.isEmpty
+          ? const Center(
+              child: Text(
+                'Belum ada perubahan tercatat',
+                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+              ),
+            )
+          : SingleChildScrollView(
+              controller: _scroll,
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const LargePageTitle(title: 'Changelog'),
+                  const HeaderDivider(),
+                  const SizedBox(height: 6),
+                  for (final entry in _changelogEntries) ...[
+                    _ChangelogEntryTile(entry: entry),
+                    const SettingsDivider(),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _ChangelogEntryTile extends StatelessWidget {
+  final _ChangelogEntry entry;
+  const _ChangelogEntryTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'v${entry.version}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                entry.date,
+                style: const TextStyle(
+                  color: Color(0xFF8E8E93),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final change in entry.changes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '•  ',
+                    style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                  ),
+                  Expanded(
+                    child: Text(
+                      change,
+                      style: const TextStyle(
+                        color: Color(0xFFEBEBF0),
+                        fontSize: 15,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
