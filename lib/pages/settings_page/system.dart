@@ -10,15 +10,14 @@ class _SystemSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('SISTEM'),
         const SizedBox(height: 6),
-
         ValueListenableBuilder<int>(
-  valueListenable: LogService.logCount,
-  builder: (_, count, _) => SettingsActionRow(
-    title: 'Log Aktivitas',
-    subtitle: '$count entri',
-    onTap: () => _showLogs(context),
-  ),
-),
+          valueListenable: LogService.logCount,
+          builder: (_, count, _) => SettingsActionRow(
+            title: 'Log Aktivitas',
+            subtitle: '$count entri',
+            onTap: () => _showLogs(context),
+          ),
+        ),
         const SettingsDivider(),
       ],
     );
@@ -27,7 +26,9 @@ class _SystemSection extends StatelessWidget {
   void _showLogs(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LogPage()),
+      MaterialPageRoute(
+        builder: (_) => const LogPage(),
+      ),
     );
   }
 }
