@@ -10,10 +10,37 @@ class _AboutSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('TENTANG'),
         const SizedBox(height: 6),
-        const SettingsInfoRow(title: 'Music Player', trailing: 'Wndavenznchole'),
+        SettingsActionRow(
+          title: 'Changelog',
+          trailing: '',
+          onTap: () => Navigator.of(context).push(
+            ZoomFadeRoute<void>(page: const ChangelogPage()),
+          ),
+        ),
         const SettingsDivider(),
-        // Version — tap 3x to enable debug mode
-        _VersionTile(),
+        SettingsActionRow(
+          title: 'Laporkan Bug',
+          trailing: '',
+          onTap: () => Navigator.of(context).push(
+            ZoomFadeRoute<void>(page: const BugReportPage()),
+          ),
+        ),
+        const SettingsDivider(),
+        SettingsActionRow(
+          title: 'Dukungan',
+          trailing: '',
+          onTap: () => Navigator.of(context).push(
+            ZoomFadeRoute<void>(page: const SupportPage()),
+          ),
+        ),
+        const SettingsDivider(),
+        SettingsActionRow(
+          title: 'Tentang App',
+          trailing: '',
+          onTap: () => Navigator.of(context).push(
+            ZoomFadeRoute<void>(page: const AboutAppPage()),
+          ),
+        ),
         const SettingsDivider(),
       ],
     );
