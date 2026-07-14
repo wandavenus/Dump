@@ -3,9 +3,11 @@
 /// Public API:
 /// - [NativeAudioRuntime]  — singleton facade: lifecycle, version, capabilities.
 /// - [NativeDspPipeline]   — pipeline facade: gain, enable/disable processors.
-/// - [NativeParametricEq]  — Phase 5: 32-band parametric EQ facade.
-/// - [PeqFilterType]       — Phase 5: filter topology enum for [NativeParametricEq].
 /// - [NativeAudioBuffer]   — interleaved float32 PCM buffer (primarily for tests).
+///
+/// Note: the native 32-band Parametric EQ (Phase 5) was removed — the Band EQ
+/// feature now uses only the legacy Android system Equalizer
+/// (see `AudioEffectsService` in the app layer).
 ///
 /// Platform note: the real implementations require `dart:ffi`, unavailable on
 /// web. This file conditionally exports FFI-backed implementations on every

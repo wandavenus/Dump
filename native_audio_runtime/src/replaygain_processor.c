@@ -1,7 +1,7 @@
 // ReplayGain Processor implementation — Phase 8.
 // See replaygain_processor.h for the contract.
 //
-// Architecture: pipeline slot 1 (after dsp.gain, before dsp.peq).
+// Architecture: pipeline slot 1 (after dsp.gain).
 // The effective linear gain is pre-computed on the control thread
 // (including dB-to-linear conversion and optional clipping protection).
 // The audio thread's hot path is a single atomic load + scalar multiply loop —

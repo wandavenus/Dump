@@ -20,7 +20,8 @@
 // so the hot loop needs no additional division.
 //
 // This header is INTERNAL to native_audio_runtime. It is NOT exported via
-// FFI_PLUGIN_EXPORT — callers use the higher-level peq_processor.h API.
+// FFI_PLUGIN_EXPORT — used internally by crossfeed_processor.c and
+// loudness_processor.c.
 
 #ifndef NATIVE_AUDIO_RUNTIME_BIQUAD_FILTER_H_
 #define NATIVE_AUDIO_RUNTIME_BIQUAD_FILTER_H_
@@ -35,8 +36,7 @@ extern "C" {
 
 // ── Filter topologies ─────────────────────────────────────────────────────────
 
-// Supported filter types. Integer values are part of the public Dart API
-// (PeqFilterType enum in runtime_types.dart) — do NOT reorder.
+// Supported filter types (used internally by crossfeed/loudness processors).
 typedef enum {
   NAR_BIQUAD_PEAK       = 0,  // Peaking EQ: boost/cut at centre frequency
   NAR_BIQUAD_LOW_SHELF  = 1,  // Low shelf: boost/cut below corner frequency
@@ -63,8 +63,7 @@ typedef struct {
 
 // ── Per-channel TDF-II delay state ───────────────────────────────────────────
 
-// Maximum channels supported by the biquad state arrays. Must match
-// NAR_PEQ_MAX_CHANNELS in peq_processor.h.
+// Maximum channels supported by the biquad state arrays.
 #define NAR_BIQUAD_MAX_CHANNELS 8
 
 typedef struct {

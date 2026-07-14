@@ -7,7 +7,7 @@
 // player and the standby player that is being faded in. Both instances share
 // the SAME libnative_audio_runtime.so process image, and therefore the SAME
 // global/static DSP processor singletons (comp_processor.c, limiter_processor.c,
-// peq_processor.c, crossfeed_processor.c, loudness_processor.c, ...).
+// crossfeed_processor.c, loudness_processor.c, ...).
 //
 // Before this header existed, every processor's AUDIO-THREAD-ONLY runtime
 // state (envelope followers, look-ahead delay buffers, biquad filter

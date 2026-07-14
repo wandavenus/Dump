@@ -1,7 +1,7 @@
 // ReplayGain Processor — Phase 8.
 //
 // A transparent metadata-driven gain stage at DSP pipeline slot 1 (between
-// dsp.gain and dsp.peq). Applies REPLAYGAIN_TRACK_GAIN / REPLAYGAIN_ALBUM_GAIN
+// dsp.gain and dsp.compressor). Applies REPLAYGAIN_TRACK_GAIN / REPLAYGAIN_ALBUM_GAIN
 // (or R128 / iTunNORM equivalents) as a scalar multiply.
 //
 // Key properties:

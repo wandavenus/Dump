@@ -166,7 +166,6 @@ class NativeDspPipeline {
 
   /// Initialize the C DSP pipeline and register built-in processors:
   ///   1. dsp.gain  — Phase 4 gain / volume stage
-  ///   2. dsp.peq   — Phase 5 parametric equalizer
   ///
   /// Idempotent — safe to call more than once (e.g. after a hot restart).
   Future<void> initialize() async {
@@ -188,7 +187,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (gain)', gainStatus);
     }
 
-    // Phase 8: ReplayGain (slot 1, between gain and peq).
+    // Phase 8: ReplayGain (slot 1, after gain).
     // Starts bypassed — PlaybackManager engages it after resolving metadata.
     final replayGainStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_replaygain_processor_register_internal());
@@ -198,7 +197,7 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (replaygain)', replayGainStatus);
     }
 
-    // Phase 8.5: Loudness Normalization (slot 2, between replaygain and peq).
+    // Phase 8.5: Loudness Normalization (slot 2, after replaygain).
     // Starts bypassed — PlaybackManager engages it when user enables the feature.
     final loudnessStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_loudness_processor_register_internal());
@@ -208,16 +207,9 @@ class NativeDspPipeline {
           'NativeDspPipeline.initialize (loudness)', loudnessStatus);
     }
 
-    // Phase 5: register the Parametric EQ processor (slot 3, after loudness).
-    final peqStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_peq_processor_register_internal());
-    if (peqStatus != NativeRuntimeStatus.ok &&
-        peqStatus != NativeRuntimeStatus.duplicateModule) {
-      throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (peq)', peqStatus);
-    }
-
-    // Phase 6: Compressor (slot 4)
+    // Phase 6: Compressor (slot 3; Parametric EQ removed — legacy system
+    // Equalizer is the sole EQ backend, see MEMORY.md "EQ silent attach
+    // failure").
     final compStatus = NativeRuntimeStatus.fromCode(
         bindings.nar_comp_processor_register_internal());
     if (compStatus != NativeRuntimeStatus.ok &&
@@ -328,100 +320,12 @@ class NativeDspPipeline {
   bool get gainBypass => bindings.nar_gain_processor_get_bypass() != 0;
 }
 
-// ── NativeParametricEq ────────────────────────────────────────────────────────
-
-/// Dart facade over the native Parametric EQ processor (`src/peq_processor.h`).
-///
-/// **Architecture**: `PlaybackManager` is the only sanctioned caller — do not
-/// import this class directly from UI or service code.
-///
-/// **Threading**: [setBand], [setBandEnabled], [setBypass] are thread-safe
-/// (backed by C11 atomics + acquire/release dirty protocol). The audio thread
-/// reads the parameters lock-free during ExoPlayer's render cycle.
-///
-/// **Sample rate**: always pass the current playback sample rate from
-/// [PlaybackManager.audioFormatStream] (or a recent snapshot). If the sample
-/// rate changes (e.g. 44.1 kHz → 48 kHz between tracks), re-apply all active
-/// bands via [setBand] so coefficients stay correct. Using a stale sample rate
-/// causes a mild frequency offset in the filter response, not a crash.
-///
-/// **Lifecycle**: managed by [NativeDspPipeline.initialize] / [dispose].
-/// The PEQ processor is registered immediately after the gain processor; no
-/// separate initialization step is needed.
-class NativeParametricEq {
-  NativeParametricEq._();
-
-  static final NativeParametricEq instance = NativeParametricEq._();
-
-  // ── Band configuration ─────────────────────────────────────────────────────
-
-  /// Configure a single EQ band. Computes biquad coefficients on the calling
-  /// thread and queues them for atomic adoption by the audio thread on its
-  /// next render cycle — no playback interruption.
-  ///
-  /// [bandIndex] : 0 … [maxBands]-1.
-  /// [enabled]   : Whether this band processes audio.
-  /// [type]      : Filter topology ([PeqFilterType]).
-  /// [freqHz]    : Centre/corner frequency in Hz.
-  /// [q]         : Quality factor (> 0; typical values 0.5–10).
-  /// [gainDb]    : Gain in dBFS for Peak/Shelf types. Ignored by LP/HP/BP/Notch.
-  /// [sampleRate]: Current playback sample rate (from [audioFormatStream]).
-  ///
-  /// Returns the native status code (0 = OK).
-  int setBand({
-    required int bandIndex,
-    required bool enabled,
-    required PeqFilterType type,
-    required double freqHz,
-    required double q,
-    required double gainDb,
-    required double sampleRate,
-  }) =>
-      bindings.nar_peq_set_band(
-        bandIndex,
-        enabled ? 1 : 0,
-        type.index,
-        freqHz,
-        q,
-        gainDb,
-        sampleRate,
-      );
-
-  /// Enable or disable a single band without recomputing coefficients.
-  /// Useful for quick A/B comparison of individual bands.
-  int setBandEnabled(int bandIndex, {required bool enabled}) =>
-      bindings.nar_peq_set_band_enabled(bandIndex, enabled ? 1 : 0);
-
-  /// Whether the band at [bandIndex] is currently enabled.
-  bool isBandEnabled(int bandIndex) =>
-      bindings.nar_peq_get_band_enabled(bandIndex) == 1;
-
-  // ── Global bypass ─────────────────────────────────────────────────────────
-
-  /// Enable or disable the global PEQ bypass.
-  /// When bypassed, all bands are skipped with zero computational cost
-  /// (true zero-copy pass-through). Thread-safe.
-  void setBypass(bool bypass) =>
-      bindings.nar_peq_set_bypass(bypass ? 1 : 0);
-
-  /// `true` if the global PEQ bypass is active.
-  bool get bypass => bindings.nar_peq_get_bypass() != 0;
-
-  // ── Metadata ──────────────────────────────────────────────────────────────
-
-  /// Maximum number of configurable bands (compile-time constant = 32).
-  int get maxBands => bindings.nar_peq_max_bands();
-
-  /// Number of bands currently configured (0 until the first [setBand] call).
-  int get bandCount => bindings.nar_peq_band_count();
-}
-
 // ── NativeCompressor ──────────────────────────────────────────────────────────
 
 /// Dart facade over the native Compressor processor (`src/comp_processor.h`).
 ///
-/// Feed-forward soft-knee dynamic range compressor sitting at pipeline slot 2
-/// (after dsp.peq, before dsp.limiter).
+/// Feed-forward soft-knee dynamic range compressor sitting early in the
+/// pipeline (after dsp.loudness, before dsp.limiter).
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
 /// **Threading**: all setters are thread-safe (acquire/release dirty protocol).
@@ -546,7 +450,7 @@ class NativeCrossfeed {
 /// (`src/replaygain_processor.h`).
 ///
 /// Metadata-driven transparent gain stage at pipeline slot 1 (between
-/// dsp.gain and dsp.peq). Starts bypassed — [PlaybackManager] engages it
+/// dsp.gain and dsp.compressor). Starts bypassed — [PlaybackManager] engages it
 /// after resolving REPLAYGAIN_TRACK_GAIN / REPLAYGAIN_ALBUM_GAIN (or R128 /
 /// iTunNORM equivalents) via [ReplayGainService.resolveBoth].
 ///
@@ -598,7 +502,7 @@ class NativeReplayGain {
 /// (`src/loudness_processor.h`).
 ///
 /// EBU R128 / ITU-R BS.1770-4 real-time perceptual loudness measurement with
-/// smooth gain control at pipeline slot 2 (between ReplayGain and PEQ).
+/// smooth gain control at pipeline slot 2 (after ReplayGain).
 ///
 /// **This is NOT a compressor.** The 3 s smoothing time constant ensures that
 /// gain changes are imperceptibly gradual — no pumping, no clicks.

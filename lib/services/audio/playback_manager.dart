@@ -370,7 +370,7 @@ class PlaybackManager {
   // ── Fail-open guard ───────────────────────────────────────────────────────
   //
   // Every native DSP call below (ReplayGain, Loudness Normalization, Gain,
-  // PEQ, Compressor, Limiter, Crossfeed, Soft Clipper) MUST pass through
+  // Compressor, Limiter, Crossfeed, Soft Clipper) MUST pass through
   // [_dspGuard] before touching `bindings.nar_*` / the `Native*` facades.
   //
   // Rationale: the native runtime can fail to load for reasons entirely
@@ -453,101 +453,10 @@ class PlaybackManager {
           NativeDspPipeline.instance.processorIdAt(i) ?? '',
       ];
 
-  // ── Native DSP: Parametric Equalizer (Phase 5) ───────────────────────────
-  //
-  // The PEQ processor (dsp.peq) sits immediately after dsp.gain in the
-  // pipeline: ExoPlayer PCM → dsp.gain → dsp.peq → AudioTrack.
-  // All methods delegate to NativeParametricEq.instance (lock-free, safe
-  // to call from any isolate at any time during playback).
-  //
-  // Usage pattern for a typical Equalizer UI:
-  //   1. Subscribe to audioFormatStream to get the current sample rate.
-  //   2. On every slider change: call setNativePeqBand(..., sampleRate: sr).
-  //   3. If sample rate changes mid-session (track swap), re-apply all bands.
-  //   4. Call setNativePeqBypass(true) to A/B compare with flat response.
-
-  /// Whether the native PEQ is available (pipeline initialized on this device).
-  static bool get nativePeqAvailable =>
-      NativeDspPipeline.instance.isInitialized;
-
-  /// Maximum number of configurable EQ bands (currently 32). `0` when the
-  /// pipeline is unavailable.
-  static int get nativePeqMaxBands =>
-      _dspGuard('nativePeqMaxBands') ? NativeParametricEq.instance.maxBands : 0;
-
-  /// Number of bands that have been configured via [setNativePeqBand]. `0`
-  /// when the pipeline is unavailable.
-  static int get nativePeqBandCount => _dspGuard('nativePeqBandCount')
-      ? NativeParametricEq.instance.bandCount
-      : 0;
-
-  /// Configure a single EQ band. Coefficients are computed on the calling
-  /// thread (control thread) and queued for atomic adoption by the audio
-  /// thread — no glitch, no lock held.
-  ///
-  /// [bandIndex]  : 0 … [nativePeqMaxBands]-1.
-  /// [enabled]    : `true` to process this band; `false` to skip (free).
-  /// [type]       : Filter topology ([PeqFilterType]).
-  /// [freqHz]     : Centre/corner frequency in Hz (clamped internally).
-  /// [q]          : Quality factor (typical: 0.5–10). Must be > 0.
-  /// [gainDb]     : Boost/cut in dBFS — only used by Peak and Shelf types.
-  /// [sampleRate] : Current playback sample rate from [audioFormatStream].
-  ///               Pass 0 or omit to fall back to 48 000 Hz.
-  ///
-  /// Returns the native status code (0 = OK, negative = error). Returns
-  /// [NativeRuntimeStatus.notInitialized]'s index when the pipeline is
-  /// unavailable, without touching native bindings.
-  static int setNativePeqBand({
-    required int bandIndex,
-    required bool enabled,
-    required PeqFilterType type,
-    required double freqHz,
-    required double q,
-    required double gainDb,
-    double sampleRate = 48000.0,
-  }) {
-    if (!_dspGuard('setNativePeqBand')) {
-      return NativeRuntimeStatus.notInitialized.index;
-    }
-    return NativeParametricEq.instance.setBand(
-      bandIndex: bandIndex,
-      enabled: enabled,
-      type: type,
-      freqHz: freqHz,
-      q: q,
-      gainDb: gainDb,
-      sampleRate: sampleRate,
-    );
-  }
-
-  /// Enable or disable a single EQ band without recomputing coefficients.
-  /// Useful for quick A/B comparison of individual bands.
-  static int setNativePeqBandEnabled(int bandIndex, {required bool enabled}) {
-    if (!_dspGuard('setNativePeqBandEnabled')) {
-      return NativeRuntimeStatus.notInitialized.index;
-    }
-    return NativeParametricEq.instance
-        .setBandEnabled(bandIndex, enabled: enabled);
-  }
-
-  /// Whether the band at [bandIndex] is currently enabled. `false` when the
-  /// pipeline is unavailable.
-  static bool isNativePeqBandEnabled(int bandIndex) =>
-      _dspGuard('isNativePeqBandEnabled') &&
-      NativeParametricEq.instance.isBandEnabled(bandIndex);
-
-  /// Enable (`true`) or disable (`false`) the global PEQ bypass.
-  /// When bypassed, the PEQ processor is skipped entirely (zero-copy).
-  /// Thread-safe. No-op when the pipeline is unavailable.
-  static void setNativePeqBypass(bool bypass) {
-    if (!_dspGuard('setNativePeqBypass')) return;
-    NativeParametricEq.instance.setBypass(bypass);
-  }
-
-  /// Whether the global PEQ bypass is currently active. `true` (effectively
-  /// bypassed) when the pipeline is unavailable.
-  static bool get nativePeqBypass =>
-      !_dspGuard('nativePeqBypass') || NativeParametricEq.instance.bypass;
+  // Native Parametric EQ (Phase 5) was removed — the legacy Android system
+  // Equalizer (via Media3PlaybackBridge.getEqualizerParameters/
+  // setEqualizerBandGain) is now the sole EQ backend. See
+  // `.agents/memory/eq-silent-attach-failure.md` for background.
 
   /// Release native module and DSP pipeline resources. Safe to call even
   /// if never initialized.
@@ -563,7 +472,7 @@ class PlaybackManager {
 
   // ── Native DSP: Dynamics Processing (Phase 6) ────────────────────────────
   //
-  // Signal chain (Phase 6): dsp.gain → dsp.peq → dsp.compressor → dsp.limiter
+  // Signal chain (Phase 6): dsp.gain → dsp.compressor → dsp.limiter
   //                         → dsp.soft_clipper → AudioTrack
   //
   // All methods delegate to the singleton facades in native_audio_runtime.
@@ -821,7 +730,7 @@ class PlaybackManager {
 
   // ── Native DSP: Crossfeed / Stereo Processing (Phase 7) ──────────────────
   //
-  // Signal chain (Phase 7): dsp.gain → dsp.peq → dsp.compressor →
+  // Signal chain (Phase 7): dsp.gain → dsp.compressor →
   //                          dsp.crossfeed → dsp.limiter → dsp.soft_clipper
   //
   // Crossfeed improves headphone listening by blending a lowpass-filtered

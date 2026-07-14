@@ -120,40 +120,6 @@ class NativeReplayGain {
   bool get bypass => true;
 }
 
-// ── NativeParametricEq stub ───────────────────────────────────────────────────
-
-/// Unsupported-platform stub for [NativeParametricEq].
-/// All methods are safe no-ops. [bypass] is always `false`.
-class NativeParametricEq {
-  NativeParametricEq._();
-
-  static final NativeParametricEq instance = NativeParametricEq._();
-
-  int setBand({
-    required int bandIndex,
-    required bool enabled,
-    required PeqFilterType type,
-    required double freqHz,
-    required double q,
-    required double gainDb,
-    required double sampleRate,
-  }) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
-
-  int setBandEnabled(int bandIndex, {required bool enabled}) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
-
-  bool isBandEnabled(int bandIndex) => false;
-
-  void setBypass(bool bypass) {}
-
-  bool get bypass => false;
-
-  int get maxBands => 0;
-
-  int get bandCount => 0;
-}
-
 // ── NativeCompressor stub ─────────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeCompressor]. All methods are no-ops.

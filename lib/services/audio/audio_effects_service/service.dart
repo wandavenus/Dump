@@ -245,15 +245,8 @@ class AudioEffectsService {
     unawaited(PlaybackManager.setBassBoost(bassBoost.value));
     unawaited(PlaybackManager.setBassBoostEnabled(bassBoost.value > 0));
 
-    // Equalizer — sync initial backend + bypass state, matching
-    // setEqualizerEnabled's routing (native PEQ when available, else the
-    // system Equalizer effect).
-    if (_useNativePeq) {
-      unawaited(PlaybackManager.setEqualizerEnabled(false));
-      PlaybackManager.setNativePeqBypass(!equalizerEnabled.value);
-    } else {
-      unawaited(PlaybackManager.setEqualizerEnabled(equalizerEnabled.value));
-    }
+    // Equalizer — sync initial enabled state to the system Equalizer effect.
+    unawaited(PlaybackManager.setEqualizerEnabled(equalizerEnabled.value));
     if (equalizerEnabled.value) _sendRoomPresetEq(roomPreset.value);
 
     // Crossfade
@@ -544,92 +537,22 @@ class AudioEffectsService {
 
   // ── Equalizer ─────────────────────────────────────────────────────────────
   //
-  // Band EQ is applied through one of two backends:
-  //   • Native PEQ (Phase 5, `dsp.peq`) — 32-band biquad EQ in the native DSP
-  //     pipeline. Used whenever `PlaybackManager.nativePeqAvailable` is true.
-  //     Each of the UI's bands is mapped 1:1 onto a native PEQ band as a
-  //     Peak filter at that band's reported center frequency.
-  //   • System Equalizer (Media3/AudioFlinger effect) — fallback when the
-  //     native DSP pipeline never initialized.
-  // Only one backend is ever active at a time: the system Equalizer is force-
-  // disabled whenever the native path is used, so gain is never applied twice
-  // in series on the same signal.
+  // Band EQ is applied through the legacy Android system Equalizer
+  // (Media3/AudioFlinger effect) only. The native 32-band Parametric EQ
+  // (Phase 5) was removed — see `.agents/memory/eq-silent-attach-failure.md`
+  // for background on why the system Equalizer is the sole EQ backend.
 
-  /// Current sample rate hint (Hz) used to compute native PEQ biquad
-  /// coefficients. Kept in sync with `audioFormatStream` by `AudioService`
-  /// (see `setPeqSampleRateHint`). Defaults to 48 kHz, matching the native
-  /// runtime's own fallback.
-  static double _peqSampleRateHz = 48000.0;
-
-  /// Cached per-band center frequencies (Hz), fetched once from the engine.
-  /// Falls back to the standard 5-band set used by the UI when unavailable.
-  static List<int>? _cachedBandFreqsHz;
-
-  static const List<int> _fallbackBandFreqsHz = [60, 230, 910, 3600, 14000];
-
-  /// Whether the native 32-band PEQ backend should be used instead of the
-  /// system Equalizer effect.
-  static bool get _useNativePeq => PlaybackManager.nativePeqAvailable;
-
-  /// Called by `AudioService` on every `audioFormatStream` event so native
-  /// PEQ biquad coefficients stay accurate for the current track's sample
-  /// rate (mirrors the Loudness Normalization sample-rate sync).
-  static void setPeqSampleRateHint(int sampleRateHz) {
-    if (sampleRateHz > 0) _peqSampleRateHz = sampleRateHz.toDouble();
-  }
-
-  static Future<int> _freqForBand(int bandIndex) async {
-    _cachedBandFreqsHz ??= await _loadBandFreqsHz();
-    final freqs = _cachedBandFreqsHz!;
-    if (bandIndex < freqs.length && freqs[bandIndex] > 0) {
-      return freqs[bandIndex];
-    }
-    return _fallbackBandFreqsHz[
-        bandIndex.clamp(0, _fallbackBandFreqsHz.length - 1)];
-  }
-
-  static Future<List<int>> _loadBandFreqsHz() async {
-    try {
-      final params = await PlaybackManager.getEqualizerParameters();
-      final freqs = params?.centerFrequenciesHz ?? const [];
-      return freqs.isNotEmpty ? freqs : _fallbackBandFreqsHz;
-    } catch (_) {
-      return _fallbackBandFreqsHz;
-    }
-  }
-
-  /// Writes a single band's gain to whichever EQ backend is active.
+  /// Writes a single band's gain to the system Equalizer.
   static Future<void> _writeEqBand(int bandIndex, double gainDb) async {
-    if (_useNativePeq) {
-      final freqHz = await _freqForBand(bandIndex);
-      PlaybackManager.setNativePeqBand(
-        bandIndex: bandIndex,
-        enabled: true,
-        type: PeqFilterType.peak,
-        freqHz: freqHz.toDouble(),
-        q: 1.0,
-        gainDb: gainDb,
-        sampleRate: _peqSampleRateHz,
-      );
-    } else {
-      unawaited(PlaybackManager.setEqualizerBandGain(bandIndex, gainDb));
-    }
+    unawaited(PlaybackManager.setEqualizerBandGain(bandIndex, gainDb));
   }
 
   static Future<void> setEqualizerEnabled(bool value) async {
     equalizerEnabled.value = value;
     await _saveBool('eqEnabled', value);
-    if (_useNativePeq) {
-      // Force the system Equalizer off — the native PEQ is the sole backend
-      // whenever it's available, so gain is never applied in both layers.
-      unawaited(PlaybackManager.setEqualizerEnabled(false));
-      PlaybackManager.setNativePeqBypass(!value);
-    } else {
-      unawaited(PlaybackManager.setEqualizerEnabled(value));
-    }
+    unawaited(PlaybackManager.setEqualizerEnabled(value));
     if (value) _sendRoomPresetEq(roomPreset.value);
-    LogService.log('AudioEffects',
-        'EQ enabled: $value (backend: ${_useNativePeq ? 'native PEQ' : 'system Equalizer'})');
+    LogService.log('AudioEffects', 'EQ enabled: $value');
   }
 
   /// Returns engine-agnostic EQ parameters, or null if the active engine
@@ -847,11 +770,10 @@ class AudioEffectsService {
     // Bypass ReplayGain on the currently-loaded track immediately, rather
     // than waiting for the next track change to pick up the new mode.
     PlaybackManager.setNativeReplayGainBypass(true);
-    // Native Gain/Preamp and PEQ are live DSP stages with no dedicated UI
-    // toggle elsewhere in the app — force them to unity/bypass too so
-    // nothing in the native chain still touches the signal.
+    // Native Gain/Preamp is a live DSP stage with no dedicated UI toggle
+    // elsewhere in the app — force it to unity/bypass too so nothing in the
+    // native chain still touches the signal.
     PlaybackManager.setNativeGainBypass(true);
-    PlaybackManager.setNativePeqBypass(true);
     // System-level LoudnessEnhancer, in case anything left it engaged.
     unawaited(PlaybackManager.setLoudnessEnabled(false));
     unawaited(PlaybackManager.setLoudnessTargetGain(0.0));
@@ -888,10 +810,9 @@ class AudioEffectsService {
     await setLimiterThreshold(limThresh);
     await setSoftClipperThreshold(scThresh);
 
-    // Native Gain/PEQ stages have no user-facing toggle — their normal
-    // resting state is simply "not bypassed" (unity/flat passthrough).
+    // Native Gain stage has no user-facing toggle — its normal resting
+    // state is simply "not bypassed" (unity passthrough).
     PlaybackManager.setNativeGainBypass(false);
-    PlaybackManager.setNativePeqBypass(false);
 
     await prefs.setBool('bpmSnapValid', false);
   }

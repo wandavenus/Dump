@@ -4,7 +4,9 @@
 // Phase 4 additions: DSP pipeline init, gain processor registration,
 // buffer processing (unity gain / non-zero gain / bypass), enable/disable.
 //
-// Phase 5 additions: PEQ processor registration, band configuration.
+// Phase 5 (Parametric EQ) was removed — the legacy Android system Equalizer
+// is now the sole EQ backend; see MEMORY.md "EQ silent attach failure" /
+// PEQ removal notes for context.
 //
 // Phase 6 additions: Compressor, Limiter, SoftClipper registration and
 // functional verification (gain reduction, brickwall ceiling, tanh waveshaper).
@@ -150,31 +152,31 @@ void main() {
     expect(NativeDspPipeline.instance.isInitialized, isTrue);
   });
 
-  test('pipeline registers all 8 processors (Phase 4–8.5) in order', () async {
+  test('pipeline registers all 7 processors (Phase 4–8.5, PEQ removed) in order', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
 
-    // [0]gain → [1]replaygain → [2]loudness → [3]peq → [4]compressor →
-    // [5]crossfeed → [6]limiter → [7]soft_clipper
-    expect(NativeDspPipeline.instance.processorCount, equals(8));
+    // [0]gain → [1]replaygain → [2]loudness → [3]compressor →
+    // [4]crossfeed → [5]limiter → [6]soft_clipper
+    // (Parametric EQ removed — legacy system Equalizer is the sole EQ backend.)
+    expect(NativeDspPipeline.instance.processorCount, equals(7));
     expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
     expect(
       NativeDspPipeline.instance.processorIdAt(1),
       equals('dsp.replaygain'),
     );
     expect(NativeDspPipeline.instance.processorIdAt(2), equals('dsp.loudness'));
-    expect(NativeDspPipeline.instance.processorIdAt(3), equals('dsp.peq'));
     expect(
-      NativeDspPipeline.instance.processorIdAt(4),
+      NativeDspPipeline.instance.processorIdAt(3),
       equals('dsp.compressor'),
     );
     expect(
-      NativeDspPipeline.instance.processorIdAt(5),
+      NativeDspPipeline.instance.processorIdAt(4),
       equals('dsp.crossfeed'),
     );
-    expect(NativeDspPipeline.instance.processorIdAt(6), equals('dsp.limiter'));
+    expect(NativeDspPipeline.instance.processorIdAt(5), equals('dsp.limiter'));
     expect(
-      NativeDspPipeline.instance.processorIdAt(7),
+      NativeDspPipeline.instance.processorIdAt(6),
       equals('dsp.soft_clipper'),
     );
   });
@@ -504,7 +506,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.replaygain',
       enabled: false,
@@ -572,7 +573,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.replaygain',
       enabled: false,
@@ -658,7 +658,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.replaygain',
       enabled: false,
@@ -784,7 +783,6 @@ void main() {
         'dsp.loudness',
         enabled: false,
       );
-      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
       NativeDspPipeline.instance.setProcessorEnabled(
         'dsp.compressor',
         enabled: false,
@@ -853,7 +851,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -982,7 +979,6 @@ void main() {
         'dsp.loudness',
         enabled: false,
       );
-      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
       NativeDspPipeline.instance.setProcessorEnabled(
         'dsp.compressor',
         enabled: false,
@@ -1055,7 +1051,6 @@ void main() {
         'dsp.loudness',
         enabled: false,
       );
-      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
       NativeDspPipeline.instance.setProcessorEnabled(
         'dsp.compressor',
         enabled: false,
@@ -1125,7 +1120,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1217,7 +1211,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1279,7 +1272,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1343,7 +1335,6 @@ void main() {
         'dsp.loudness',
         enabled: false,
       );
-      NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
       NativeDspPipeline.instance.setProcessorEnabled(
         'dsp.compressor',
         enabled: false,
@@ -1438,7 +1429,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1518,7 +1508,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1593,7 +1582,6 @@ void main() {
       'dsp.loudness',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,
@@ -1672,7 +1660,6 @@ void main() {
       'dsp.replaygain',
       enabled: false,
     );
-    NativeDspPipeline.instance.setProcessorEnabled('dsp.peq', enabled: false);
     NativeDspPipeline.instance.setProcessorEnabled(
       'dsp.compressor',
       enabled: false,

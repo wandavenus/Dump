@@ -1,7 +1,7 @@
 // Compressor Processor — Phase 6.
 //
 // Feed-forward, soft-knee dynamic range compressor.
-// Registers as "dsp.compressor" at pipeline slot 2 (after dsp.peq).
+// Registers as "dsp.compressor" (after dsp.loudness; Parametric EQ removed).
 //
 // Signal path inside process():
 //   1. For each frame: find peak absolute value across all channels.
@@ -10,8 +10,8 @@
 //   4. Add makeup gain. Convert to linear.
 //   5. Apply the same linear gain to all channels at that frame (stereo-linked).
 //
-// Parameter updates are thread-safe (acquire/release dirty-flag protocol, same
-// as the PEQ). Coefficients (coeff_attack, coeff_release) are pre-computed on
+// Parameter updates are thread-safe (acquire/release dirty-flag protocol).
+// Coefficients (coeff_attack, coeff_release) are pre-computed on
 // the control thread via nar_time_coeff(); the audio thread does no
 // transcendental math for parameter adoption.
 
@@ -26,7 +26,6 @@ extern "C" {
 #endif
 
 // Register the compressor processor with the DSP pipeline.
-// Must be called after nar_peq_processor_register_internal().
 // Idempotent (returns NATIVE_RUNTIME_ERROR_DUPLICATE_MODULE if already registered).
 FFI_PLUGIN_EXPORT int32_t nar_comp_processor_register_internal(void);
 

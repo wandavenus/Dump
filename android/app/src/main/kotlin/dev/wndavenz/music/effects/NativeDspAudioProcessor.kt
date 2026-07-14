@@ -59,7 +59,7 @@ import java.nio.ByteBuffer
  *  threaded into every native call. This tells the native pipeline WHICH
  *  concurrently-playing stream a buffer belongs to, so per-stream RUNTIME
  *  state (envelope followers, look-ahead delay buffers, filter histories)
- *  inside comp/limiter/peq/crossfeed/loudness stays isolated between the two
+ *  inside comp/limiter/crossfeed/loudness stays isolated between the two
  *  players — see dsp_stream.h for the full rationale. Before this, both
  *  ExoPlayer audio threads wrote the same unsynchronized global state during
  *  crossfade, a genuine data race.

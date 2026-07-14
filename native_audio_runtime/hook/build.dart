@@ -8,7 +8,7 @@ void main(List<String> args) async {
     final packageName = input.packageName;
     // comp_processor.c, crossfeed_processor.c, dsp_pipeline.c,
     // limiter_processor.c, loudness_processor.c, native_audio_runtime.c,
-    // peq_processor.c, and soft_clipper_processor.c all guard their debug
+    // and soft_clipper_processor.c all guard their debug
     // logging with `#if defined(__ANDROID__)` and call
     // `__android_log_print()` from <android/log.h> on that branch. That
     // symbol lives in Android's `liblog.so`, which is NOT linked
@@ -50,8 +50,7 @@ void main(List<String> args) async {
         'src/dsp_pipeline.c',      // DSP processing chain
         'src/gain_processor.c',    // Gain processor (Phase 4: pipeline validator)
         'src/replaygain_processor.c',   // ReplayGain processor (Phase 8: metadata gain)
-        'src/biquad_filter.c',          // Biquad coefficient computation (Phase 5)
-        'src/peq_processor.c',          // Parametric EQ processor (Phase 5)
+        'src/biquad_filter.c',          // Biquad coefficient computation (shared by crossfeed/loudness)
         'src/comp_processor.c',         // Compressor processor (Phase 6)
         'src/crossfeed_processor.c',    // Crossfeed processor (Phase 7)
         'src/limiter_processor.c',      // Look-ahead limiter processor (Phase 6)

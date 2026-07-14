@@ -42,20 +42,6 @@ class NativeRuntimeCapability {
   String toString() => 'NativeRuntimeCapability($key, supported=$supported)';
 }
 
-/// Phase 5: Parametric EQ filter topologies.
-///
-/// Integer values mirror the C `NarBiquadType` enum in `biquad_filter.h` —
-/// do NOT reorder. Cast to [int] when calling [NativeParametricEq.setBand].
-enum PeqFilterType {
-  peak,       // 0: Peaking EQ — boost/cut at centre frequency; uses gain
-  lowShelf,   // 1: Low shelf — boost/cut below corner frequency; uses gain
-  highShelf,  // 2: High shelf — boost/cut above corner frequency; uses gain
-  lowPass,    // 3: Low-pass (gain ignored)
-  highPass,   // 4: High-pass (gain ignored)
-  bandPass,   // 5: Band-pass, 0 dB peak gain (gain ignored)
-  notch,      // 6: Notch / band-reject (gain ignored)
-}
-
 /// Outcome of [NativeAAudioProbe.run] — mirrors `NarAAudioProbeResult` in
 /// `src/aaudio_probe.h`. Distinct from [NativeRuntimeStatus] since this is a
 /// standalone diagnostic, not a DSP pipeline module.

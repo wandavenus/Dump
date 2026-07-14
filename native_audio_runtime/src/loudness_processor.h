@@ -1,6 +1,6 @@
 // Loudness Normalization Processor — Phase 8.5 (hardened, ITU-R BS.1770-4).
 //
-// Pipeline slot 2 (between dsp.replaygain at slot 1 and dsp.peq at slot 3).
+// Pipeline slot 2 (after dsp.replaygain at slot 1).
 //
 // Implements a real-time EBU R128 / ITU-R BS.1770-4 perceptual loudness
 // measurement + smooth gain controller. This processor is SEPARATE from and
