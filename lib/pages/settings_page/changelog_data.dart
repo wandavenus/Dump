@@ -23,6 +23,13 @@ const List<_ChangelogEntry> _changelogEntries = [
     version: '1.0.0',
     date: '14 Juli 2026',
     changes: [
+      'Halaman Laporkan Bug diisi konten: teks penjelasan, link Gmail merah, dan referensi ke halaman Tentang.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.0.0',
+    date: '14 Juli 2026',
+    changes: [
       'Tombol Changelog dihapus dari halaman Pengaturan, akses hanya lewat halaman Tentang App.',
     ],
   ),
