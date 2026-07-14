@@ -12,13 +12,13 @@ class _SystemSection extends StatelessWidget {
         const SizedBox(height: 6),
 
         ValueListenableBuilder<int>(
-          valueListenable: LogService.logCount,
-          builder: (_, count, _) => SettingsActionRow(
-            title: 'Log Aktivitas',
-            trailing: '$count entri',
-            onTap: () => _showLogs(context),
-          ),
-        ),
+  valueListenable: LogService.logCount,
+  builder: (_, count, _) => SettingsActionRow(
+    title: 'Log Aktivitas',
+    subtitle: '$count entri',
+    onTap: () => _showLogs(context),
+  ),
+),
         const SettingsDivider(),
       ],
     );
