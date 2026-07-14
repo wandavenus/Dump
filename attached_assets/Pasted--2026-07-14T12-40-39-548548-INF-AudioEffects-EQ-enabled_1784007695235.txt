@@ -1,0 +1,244 @@
+[2026-07-14T12:40:39.548548] [INF] [AudioEffects] EQ enabled: false (backend: native PEQ)
+[2026-07-14T12:40:35.135339] [INF] [AudioEffects] Native Preamp: 0.0 dB
+[2026-07-14T12:40:29.153801] [INF] [AudioEffects] EQ enabled: true (backend: native PEQ)
+[2026-07-14T12:40:27.635456] [INF] [AudioEffects] Native Preamp: -24.0 dB
+[2026-07-14T12:40:27.614504] [INF] [AudioEffects] Native Preamp: -23.5 dB
+[2026-07-14T12:40:27.585051] [INF] [AudioEffects] Native Preamp: -23.0 dB
+[2026-07-14T12:40:27.551222] [INF] [AudioEffects] Native Preamp: -22.5 dB
+[2026-07-14T12:40:27.515688] [INF] [AudioEffects] Native Preamp: -22.0 dB
+[2026-07-14T12:40:27.482275] [INF] [AudioEffects] Native Preamp: -21.5 dB
+[2026-07-14T12:40:27.459133] [INF] [AudioEffects] Native Preamp: -21.0 dB
+[2026-07-14T12:40:27.430935] [INF] [AudioEffects] Native Preamp: -20.5 dB
+[2026-07-14T12:40:27.424470] [INF] [AudioEffects] Native Preamp: -20.0 dB
+[2026-07-14T12:40:27.397407] [INF] [AudioEffects] Native Preamp: -19.5 dB
+[2026-07-14T12:40:27.383992] [INF] [AudioEffects] Native Preamp: -19.0 dB
+[2026-07-14T12:40:27.378251] [INF] [AudioEffects] Native Preamp: -18.5 dB
+[2026-07-14T12:40:27.361552] [INF] [AudioEffects] Native Preamp: -17.5 dB
+[2026-07-14T12:40:27.350272] [INF] [AudioEffects] Native Preamp: -17.0 dB
+[2026-07-14T12:40:27.340943] [INF] [AudioEffects] Native Preamp: -16.0 dB
+[2026-07-14T12:40:27.326685] [INF] [AudioEffects] Native Preamp: -15.5 dB
+[2026-07-14T12:40:27.315771] [INF] [AudioEffects] Native Preamp: -14.5 dB
+[2026-07-14T12:40:27.306963] [INF] [AudioEffects] Native Preamp: -13.0 dB
+[2026-07-14T12:40:27.291397] [INF] [AudioEffects] Native Preamp: -12.0 dB
+[2026-07-14T12:40:27.286486] [INF] [AudioEffects] Native Preamp: -10.5 dB
+[2026-07-14T12:40:27.270014] [INF] [AudioEffects] Native Preamp: -9.0 dB
+[2026-07-14T12:40:27.261933] [INF] [AudioEffects] Native Preamp: -8.0 dB
+[2026-07-14T12:40:27.242839] [INF] [AudioEffects] Native Preamp: -6.5 dB
+[2026-07-14T12:40:27.233576] [INF] [AudioEffects] Native Preamp: -5.5 dB
+[2026-07-14T12:40:27.229718] [INF] [AudioEffects] Native Preamp: -4.0 dB
+[2026-07-14T12:40:27.227336] [INF] [AudioEffects] Native Preamp: -2.0 dB
+[2026-07-14T12:40:27.224440] [INF] [AudioEffects] Native Preamp: 0.0 dB
+[2026-07-14T12:40:27.190673] [INF] [AudioEffects] Native Preamp: 2.5 dB
+[2026-07-14T12:40:27.175043] [INF] [AudioEffects] Native Preamp: 5.0 dB
+[2026-07-14T12:40:27.161175] [INF] [AudioEffects] Native Preamp: 7.0 dB
+[2026-07-14T12:40:27.159110] [INF] [AudioEffects] Native Preamp: 9.0 dB
+[2026-07-14T12:40:27.138284] [INF] [AudioEffects] Native Preamp: 10.5 dB
+[2026-07-14T12:40:27.125908] [INF] [AudioEffects] Native Preamp: 11.5 dB
+[2026-07-14T12:40:27.119400] [INF] [AudioEffects] Native Preamp: 12.5 dB
+[2026-07-14T12:40:27.100652] [INF] [AudioEffects] Native Preamp: 13.0 dB
+[2026-07-14T12:40:27.094410] [INF] [AudioEffects] Native Preamp: 14.0 dB
+[2026-07-14T12:40:27.077915] [INF] [AudioEffects] Native Preamp: 14.5 dB
+[2026-07-14T12:40:27.069354] [INF] [AudioEffects] Native Preamp: 15.0 dB
+[2026-07-14T12:40:27.031406] [INF] [AudioEffects] Native Preamp: 15.5 dB
+[2026-07-14T12:40:26.981819] [INF] [AudioEffects] Native Preamp: 16.0 dB
+[2026-07-14T12:40:26.685277] [INF] [AudioEffects] Native Preamp: 16.5 dB
+[2026-07-14T12:40:26.599206] [INF] [AudioEffects] Native Preamp: 16.0 dB
+[2026-07-14T12:40:26.550182] [INF] [AudioEffects] Native Preamp: 15.5 dB
+[2026-07-14T12:40:26.512916] [INF] [AudioEffects] Native Preamp: 15.0 dB
+[2026-07-14T12:40:26.472222] [INF] [AudioEffects] Native Preamp: 14.5 dB
+[2026-07-14T12:40:26.439098] [INF] [AudioEffects] Native Preamp: 14.0 dB
+[2026-07-14T12:40:26.284365] [INF] [AudioEffects] Native Preamp: 13.5 dB
+[2026-07-14T12:40:26.124343] [INF] [AudioEffects] Native Preamp: 13.0 dB
+[2026-07-14T12:40:26.041952] [INF] [AudioEffects] Native Preamp: 12.5 dB
+[2026-07-14T12:40:26.004867] [INF] [AudioEffects] Native Preamp: 12.0 dB
+[2026-07-14T12:40:25.981010] [INF] [AudioEffects] Native Preamp: 11.5 dB
+[2026-07-14T12:40:25.956419] [INF] [AudioEffects] Native Preamp: 11.0 dB
+[2026-07-14T12:40:25.933758] [INF] [AudioEffects] Native Preamp: 10.5 dB
+[2026-07-14T12:40:25.899313] [INF] [AudioEffects] Native Preamp: 10.0 dB
+[2026-07-14T12:40:25.872835] [INF] [AudioEffects] Native Preamp: 9.5 dB
+[2026-07-14T12:40:25.870240] [INF] [AudioEffects] Native Preamp: 9.0 dB
+[2026-07-14T12:40:25.867825] [INF] [AudioEffects] Native Preamp: 8.5 dB
+[2026-07-14T12:40:25.826838] [INF] [AudioEffects] Native Preamp: 8.0 dB
+[2026-07-14T12:40:25.815149] [INF] [AudioEffects] Native Preamp: 7.5 dB
+[2026-07-14T12:40:25.800700] [INF] [AudioEffects] Native Preamp: 7.0 dB
+[2026-07-14T12:40:25.786042] [INF] [AudioEffects] Native Preamp: 6.5 dB
+[2026-07-14T12:40:25.781833] [INF] [AudioEffects] Native Preamp: 5.5 dB
+[2026-07-14T12:40:25.762960] [INF] [AudioEffects] Native Preamp: 5.0 dB
+[2026-07-14T12:40:25.757127] [INF] [AudioEffects] Native Preamp: 4.5 dB
+[2026-07-14T12:40:25.740801] [INF] [AudioEffects] Native Preamp: 3.5 dB
+[2026-07-14T12:40:25.729359] [INF] [AudioEffects] Native Preamp: 3.0 dB
+[2026-07-14T12:40:25.713320] [INF] [AudioEffects] Native Preamp: 2.0 dB
+[2026-07-14T12:40:25.706201] [INF] [AudioEffects] Native Preamp: 1.5 dB
+[2026-07-14T12:40:25.694646] [INF] [AudioEffects] Native Preamp: 1.0 dB
+[2026-07-14T12:40:25.678424] [INF] [AudioEffects] Native Preamp: 0.0 dB
+[2026-07-14T12:40:25.665334] [INF] [AudioEffects] Native Preamp: -1.0 dB
+[2026-07-14T12:40:25.656375] [INF] [AudioEffects] Native Preamp: -2.0 dB
+[2026-07-14T12:40:25.642678] [INF] [AudioEffects] Native Preamp: -3.5 dB
+[2026-07-14T12:40:25.629904] [INF] [AudioEffects] Native Preamp: -4.0 dB
+[2026-07-14T12:40:25.620095] [INF] [AudioEffects] Native Preamp: -5.0 dB
+[2026-07-14T12:40:25.606561] [INF] [AudioEffects] Native Preamp: -6.0 dB
+[2026-07-14T12:40:25.596866] [INF] [AudioEffects] Native Preamp: -7.0 dB
+[2026-07-14T12:40:25.585761] [INF] [AudioEffects] Native Preamp: -8.0 dB
+[2026-07-14T12:40:25.575104] [INF] [AudioEffects] Native Preamp: -8.5 dB
+[2026-07-14T12:40:25.558491] [INF] [AudioEffects] Native Preamp: -9.5 dB
+[2026-07-14T12:40:25.551248] [INF] [AudioEffects] Native Preamp: -10.0 dB
+[2026-07-14T12:40:25.543735] [INF] [AudioEffects] Native Preamp: -11.0 dB
+[2026-07-14T12:40:25.525641] [INF] [AudioEffects] Native Preamp: -12.0 dB
+[2026-07-14T12:40:25.510971] [INF] [AudioEffects] Native Preamp: -13.0 dB
+[2026-07-14T12:40:25.507843] [INF] [AudioEffects] Native Preamp: -14.5 dB
+[2026-07-14T12:40:25.487269] [INF] [AudioEffects] Native Preamp: -16.0 dB
+[2026-07-14T12:40:25.473502] [INF] [AudioEffects] Native Preamp: -17.5 dB
+[2026-07-14T12:40:25.467259] [INF] [AudioEffects] Native Preamp: -18.5 dB
+[2026-07-14T12:40:25.451880] [INF] [AudioEffects] Native Preamp: -19.5 dB
+[2026-07-14T12:40:25.444940] [INF] [AudioEffects] Native Preamp: -20.0 dB
+[2026-07-14T12:40:25.418234] [INF] [AudioEffects] Native Preamp: -20.5 dB
+[2026-07-14T12:40:23.614087] [INF] [AudioEffects] Native Preamp: -21.5 dB
+[2026-07-14T12:40:23.531435] [INF] [AudioEffects] Native Preamp: -21.0 dB
+[2026-07-14T12:40:23.480801] [INF] [AudioEffects] Native Preamp: -20.5 dB
+[2026-07-14T12:40:23.470919] [INF] [AudioEffects] Native Preamp: -20.0 dB
+[2026-07-14T12:40:23.437345] [INF] [AudioEffects] Native Preamp: -19.5 dB
+[2026-07-14T12:40:23.412319] [INF] [AudioEffects] Native Preamp: -19.0 dB
+[2026-07-14T12:40:23.391352] [INF] [AudioEffects] Native Preamp: -18.5 dB
+[2026-07-14T12:40:23.355446] [INF] [AudioEffects] Native Preamp: -18.0 dB
+[2026-07-14T12:40:23.329135] [INF] [AudioEffects] Native Preamp: -17.5 dB
+[2026-07-14T12:40:23.321307] [INF] [AudioEffects] Native Preamp: -17.0 dB
+[2026-07-14T12:40:23.293793] [INF] [AudioEffects] Native Preamp: -16.5 dB
+[2026-07-14T12:40:23.287544] [INF] [AudioEffects] Native Preamp: -16.0 dB
+[2026-07-14T12:40:23.258371] [INF] [AudioEffects] Native Preamp: -15.5 dB
+[2026-07-14T12:40:23.249038] [INF] [AudioEffects] Native Preamp: -15.0 dB
+[2026-07-14T12:40:23.235282] [INF] [AudioEffects] Native Preamp: -14.5 dB
+[2026-07-14T12:40:23.225039] [INF] [AudioEffects] Native Preamp: -14.0 dB
+[2026-07-14T12:40:23.202322] [INF] [AudioEffects] Native Preamp: -13.5 dB
+[2026-07-14T12:40:23.190044] [INF] [AudioEffects] Native Preamp: -13.0 dB
+[2026-07-14T12:40:23.166641] [INF] [AudioEffects] Native Preamp: -12.5 dB
+[2026-07-14T12:40:23.155511] [INF] [AudioEffects] Native Preamp: -12.0 dB
+[2026-07-14T12:40:23.145608] [INF] [AudioEffects] Native Preamp: -11.5 dB
+[2026-07-14T12:40:23.132355] [INF] [AudioEffects] Native Preamp: -11.0 dB
+[2026-07-14T12:40:23.104739] [INF] [AudioEffects] Native Preamp: -10.5 dB
+[2026-07-14T12:40:23.099656] [INF] [AudioEffects] Native Preamp: -10.0 dB
+[2026-07-14T12:40:23.075278] [INF] [AudioEffects] Native Preamp: -9.5 dB
+[2026-07-14T12:40:23.051164] [INF] [AudioEffects] Native Preamp: -9.0 dB
+[2026-07-14T12:40:23.041523] [INF] [AudioEffects] Native Preamp: -8.5 dB
+[2026-07-14T12:40:23.007764] [INF] [AudioEffects] Native Preamp: -8.0 dB
+[2026-07-14T12:40:22.972757] [INF] [AudioEffects] Native Preamp: -7.5 dB
+[2026-07-14T12:40:22.938691] [INF] [AudioEffects] Native Preamp: -7.0 dB
+[2026-07-14T12:40:22.891397] [INF] [AudioEffects] Native Preamp: -6.5 dB
+[2026-07-14T12:40:22.873756] [INF] [AudioEffects] Native Preamp: -6.0 dB
+[2026-07-14T12:40:22.840817] [INF] [AudioEffects] Native Preamp: -5.5 dB
+[2026-07-14T12:40:22.809168] [INF] [AudioEffects] Native Preamp: -5.0 dB
+[2026-07-14T12:40:22.800568] [INF] [AudioEffects] Native Preamp: -4.5 dB
+[2026-07-14T12:40:22.773723] [INF] [AudioEffects] Native Preamp: -4.0 dB
+[2026-07-14T12:40:22.765720] [INF] [AudioEffects] Native Preamp: -3.5 dB
+[2026-07-14T12:40:22.750378] [INF] [AudioEffects] Native Preamp: -3.0 dB
+[2026-07-14T12:40:22.742873] [INF] [AudioEffects] Native Preamp: -2.5 dB
+[2026-07-14T12:40:22.732641] [INF] [AudioEffects] Native Preamp: -2.0 dB
+[2026-07-14T12:40:22.716965] [INF] [AudioEffects] Native Preamp: -1.5 dB
+[2026-07-14T12:40:13.356708] [INF] [AudioEffects] Clipping protection: false
+[2026-07-14T12:40:13.349110] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -8.68 dB (peak=1.000, clip=false, src=ReplayGain (Track))
+[2026-07-14T12:40:13.349044] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=track)
+[2026-07-14T12:40:09.475021] [INF] [AudioEffects] ReplayGain preamp: 0.0 dB
+[2026-07-14T12:40:09.471337] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -8.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:09.471253] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=track)
+[2026-07-14T12:40:08.791196] [INF] [AudioEffects] ReplayGain preamp: -14.0 dB
+[2026-07-14T12:40:08.785533] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -22.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:08.785504] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=track)
+[2026-07-14T12:40:08.730416] [INF] [AudioEffects] ReplayGain preamp: -13.0 dB
+[2026-07-14T12:40:08.718727] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -21.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:08.718655] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=track)
+[2026-07-14T12:40:07.598157] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -22.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:07.598116] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=track)
+[2026-07-14T12:40:07.597818] [INF] [AudioEffects] ReplayGain mode: track
+[2026-07-14T12:40:06.015769] [INF] [AudioEffects] ReplayGain preamp: -14.0 dB
+[2026-07-14T12:40:06.011357] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -22.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:06.011331] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.923827] [INF] [AudioEffects] ReplayGain preamp: -13.0 dB
+[2026-07-14T12:40:05.917490] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -21.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.917456] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.848367] [INF] [AudioEffects] ReplayGain preamp: -12.0 dB
+[2026-07-14T12:40:05.846668] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -20.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.846642] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.790562] [INF] [AudioEffects] ReplayGain preamp: -11.0 dB
+[2026-07-14T12:40:05.789435] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -19.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.789408] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.754606] [INF] [AudioEffects] ReplayGain preamp: -10.0 dB
+[2026-07-14T12:40:05.754058] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -18.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.754037] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.721279] [INF] [AudioEffects] ReplayGain preamp: -9.0 dB
+[2026-07-14T12:40:05.720413] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -17.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.720387] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.700646] [INF] [AudioEffects] ReplayGain preamp: -8.0 dB
+[2026-07-14T12:40:05.699761] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -16.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.699734] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.686497] [INF] [AudioEffects] ReplayGain preamp: -7.0 dB
+[2026-07-14T12:40:05.685953] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -15.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.685928] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.663649] [INF] [AudioEffects] ReplayGain preamp: -6.0 dB
+[2026-07-14T12:40:05.659394] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -14.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.659373] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.654845] [INF] [AudioEffects] ReplayGain preamp: -5.0 dB
+[2026-07-14T12:40:05.652592] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -13.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.652561] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.641130] [INF] [AudioEffects] ReplayGain preamp: -4.0 dB
+[2026-07-14T12:40:05.636889] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -12.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.636864] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.622887] [INF] [AudioEffects] ReplayGain preamp: -3.0 dB
+[2026-07-14T12:40:05.621582] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -11.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.621551] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:05.607236] [INF] [AudioEffects] ReplayGain preamp: -2.0 dB
+[2026-07-14T12:40:05.606475] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -10.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:05.606419] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:03.344500] [VRB] [AudioService] ReplayGain "2 On (feat. ScHoolboy Q)": -8.68 dB (peak=1.000, clip=true, src=ReplayGain (Track))
+[2026-07-14T12:40:03.343395] [VRB] [LoudnessResolver] "2 On (feat. ScHoolboy Q)": -8.68 dB (ReplayGain (Track), mode=auto)
+[2026-07-14T12:40:03.198293] [INF] [AudioEffects] ReplayGain mode: auto
+[2026-07-14T12:39:55.351663] [INF] [Media3] AudioTrack initialized / PCM sink ready: isActive=true  encoding=2  48000Hz offload=false  thread=main
+[2026-07-14T12:39:55.351590] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007595350ms] AnalyticsListener.onAudioTrackInitialized: isActive=true  encoding=2  sampleRate=48000  offload=false  bufferSize=61504 | thread=main | state=BUFFERING pos=0ms pwr=true idx=1 session=20049
+[2026-07-14T12:39:55.313766] [INF] [Media3] Selected renderer/input format: isActive=true  mime=audio/opus codec=  48000Hz 2ch  reuseEval=null  thread=main
+[2026-07-14T12:39:55.313682] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007595312ms] AnalyticsListener.onAudioInputFormatChanged: isActive=true  mime=audio/opus  48000Hz 2ch  reuseEval=null | thread=main | state=BUFFERING pos=0ms pwr=true idx=1 session=20049
+[2026-07-14T12:39:55.311566] [INF] [Media3] Selected decoder: isActive=true  decoder=c2.android.opus.decoder  mime=unknown  codec=MediaCodec/platform  hardwareSoftware=platform  init=40ms  thread=main
+[2026-07-14T12:39:55.311449] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007595309ms] AnalyticsListener.onAudioDecoderInitialized: isActive=true  decoder=c2.android.opus.decoder initDuration=40ms | thread=main | state=BUFFERING pos=0ms pwr=true idx=1 session=20049
+[2026-07-14T12:39:55.288303] [VRB] [Media3] volume → 1.0
+[2026-07-14T12:39:55.284466] [INF] [Media3] Audio format: audio/opus 48000Hz 2ch 
+[2026-07-14T12:39:55.276450] [INF] [Media3] AudioRenderer ENABLED isActive=true  thread=main
+[2026-07-14T12:39:55.275619] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007595274ms] AnalyticsListener.onAudioEnabled: isActive=true wall=1784007595274ms  thread=main | thread=main | state=BUFFERING pos=0ms pwr=true idx=1 session=20049
+[2026-07-14T12:39:55.270630] [VRB] [Media3] volume → 0.9166667
+[2026-07-14T12:39:55.248812] [VRB] [Media3] volume → 0.8333333
+[2026-07-14T12:39:55.228661] [VRB] [Media3] volume → 0.75
+[2026-07-14T12:39:55.206341] [VRB] [Media3] volume → 0.6666667
+[2026-07-14T12:39:55.188705] [VRB] [Media3] volume → 0.5833333
+[2026-07-14T12:39:55.168925] [VRB] [Media3] volume → 0.5
+[2026-07-14T12:39:55.142851] [VRB] [Media3] volume → 0.41666666
+[2026-07-14T12:39:55.125771] [VRB] [Media3] volume → 0.33333334
+[2026-07-14T12:39:55.104252] [VRB] [Media3] volume → 0.25
+[2026-07-14T12:39:55.086350] [VRB] [Media3] volume → 0.16666667
+[2026-07-14T12:39:55.064667] [VRB] [Media3] volume → 0.083333336
+[2026-07-14T12:39:55.055311] [INF] [AudioService] Now playing [2/54]: "2 On (feat. ScHoolboy Q)" — Tinashe
+[2026-07-14T12:39:55.055095] [INF] [Transport] play → '2 On (feat. ScHoolboy Q)' · Tinashe [2/54]
+[2026-07-14T12:39:55.055089] [VRB] [PlayPauseFade] fadeInOnPlay: 200ms, 12 steps, target=1.0
+[2026-07-14T12:39:55.055065] [VRB] [Media3] volume → 0.0
+[2026-07-14T12:39:55.054851] [INF] [AudioFocus] requestAudioFocus → granted=true
+[2026-07-14T12:39:55.003243] [INF] [Transport] setQueue: 54 tracks → [1] '2 On (feat. ScHoolboy Q)'
+[2026-07-14T12:39:55.002424] [INF] [Media3] Player transition reason=3 active=true
+[2026-07-14T12:39:55.002018] [VRB] [SleepTimer] cancelSleepTimer called but no active timer or fade
+[2026-07-14T12:39:54.945947] [INF] [DeviceDsp] Effect support — bass=true
+[2026-07-14T12:39:54.944072] [INF] [Transport] setStereoWidening: enabled=false strength=0.5
+[2026-07-14T12:39:54.943898] [INF] [StereoWidth] stereoWidening=false strength=0.5 (active processors=1)
+[2026-07-14T12:39:54.941259] [INF] [Transport] setSkipSilence: false
+[2026-07-14T12:39:54.941187] [INF] [Media3] skipSilence=false applied to all live players
+[2026-07-14T12:39:54.938574] [VRB] [Transport] setCrossfadeDuration: 0.0s
+[2026-07-14T12:39:54.938448] [INF] [AudioOffload] Offload eligibility note: crossfade disabled — OS may grant offload if no software effects are attached and the audio format is DSP-supported on this device.
+[2026-07-14T12:39:54.908620] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594902ms] attachEffects: ALL DONE OK session=20049 bass=true | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908596] [INF] [Effects] attachEffects OK session=20049 a1 bass=true
+[2026-07-14T12:39:54.908586] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594900ms] attachEffects: BassBoost ATTACHED session=20049 | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908577] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594838ms] attachEffects: BassBoost(20049) START | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908569] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594830ms] attachEffects: LoudnessEnhancer ATTACHED session=20049 | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908562] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594815ms] attachEffects: LoudnessEnhancer(20049) START | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908553] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594815ms] attachEffects: Equalizer ATTACHED session=20049 | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908543] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594749ms] attachEffects: Equalizer(0,20049) START | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908420] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594749ms] attachEffects: releaseEffects() DONE — old effects torn down session=20049 | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908411] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594749ms] attachEffects: ENTER session=20049 attempt=0 lastAttached=-4 eq=false loud=false | thread=main | state=n/a pos=-1ms pwr=false idx=-1 session=0
+[2026-07-14T12:39:54.908374] [INF] [Media3] audioSessionId → 20049  thread=main
+[2026-07-14T12:39:54.906140] [INF] [CrossfadeTimeline] [+-1ms | wall=1784007594748ms] onAudioSessionIdChanged: NEW session=20049 (active player) | thread=main | state=IDLE pos=0ms pwr=false idx=0 session=20049
+[2026-07-14T12:39:54.744449] [INF] [Media3] onCreate: ExoPlayer ready (Android SDK 30 / MIUI=true)
+[2026-07-14T12:39:54.721893] [VRB] [AudioService] Repeat → off
+[2026-07-14T12:39:54.721637] [INF] [Ffmpeg] Renderer config: extensionRendererMode=PREFER decoderFallback=true moduleLinked=true classLinked=true available=true version=Lavc60.3.100 supported=ALAC, DTS, DTS-HD, TrueHD playerRenderers=#0:type=2, #1:type=2, #2:type=1, #3:type=1, #4:type=3, #5:type=5, #6:type=5, #7:type=5, #8:type=5, #9:type=6, #10:type=4
+[2026-07-14T12:38:52.415863] [INF] [ReplayGain] Batch scan selesai: 54 berhasil, 0 gagal
