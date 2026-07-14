@@ -41,6 +41,7 @@ class _AboutSection extends StatelessWidget {
             ZoomFadeRoute<void>(page: const AboutAppPage()),
           ),
         ),
+        const SettingsDivider(),
         const _AboutFooter(),
       ],
     );
@@ -53,21 +54,30 @@ class _AboutFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final year = DateTime.now().year;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Center(
+      child: Align(
+        alignment: Alignment.centerLeft,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Made by Wndavenznchole',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+              textAlign: TextAlign.left,
+              style: TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              '© $year  Flutter Music App x Apple Music',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+              '© $year Flutter Music App x Apple Music',
+              textAlign: TextAlign.left,
+              style: const TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 13,
+              ),
             ),
           ],
         ),
