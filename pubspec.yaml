@@ -26,8 +26,6 @@ dependencies:
   native_audio_runtime:
     path: native_audio_runtime
 
-  leak_tracker: '>=11.0.1 <12.0.0'
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

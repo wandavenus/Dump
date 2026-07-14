@@ -5,7 +5,7 @@ import 'package:musicplayer/services/log_service.dart';
 /// Full-screen developer log viewer.
 /// Dibuka via Navigator.push dari Settings → Log Aktivitas.
 /// Opsional: [initialCategory] untuk langsung memfilter ke kategori tertentu
-/// saat dibuka (mis. 'LeakTracker' dari Debug Section).
+/// saat dibuka.
 class LogPage extends StatefulWidget {
   const LogPage({super.key, this.initialCategory});
 

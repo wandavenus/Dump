@@ -162,9 +162,6 @@ Future<void> main() async {
         );
       }
 
-      // Hanya aktif di debug build — mengikuti LogService.loggingEnabled.
-      LeakTrackerService.init();
-
       NativeLogBridge.init();
 
       // ── Global error hooks (dipasang setelah LogService siap) ───────────────
