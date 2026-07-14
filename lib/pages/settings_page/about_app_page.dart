@@ -26,7 +26,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
     } else {
       _tapCount++;
     }
-    if (_tapCount >= 5) {
+    if (_tapCount >= 3) {
       _tapCount = 0;
       _firstTap = null;
       if (!_DebugState.enabled.value) {
@@ -136,8 +136,8 @@ class _AboutAppPageState extends State<AboutAppPage> {
                                   horizontal: 24, vertical: 4),
                               child: Text(
                                 debug
-                                    ? 'Versi 1.0.0 [DEBUG]'
-                                    : 'Versi 1.0.0',
+                                    ? 'Versi 1.1.5 [Mode Debug Aktif]'
+                                    : 'Versi 1.1.5',
                                 style: TextStyle(
                                   color: debug
                                       ? const Color(0xFFF92D48)
@@ -179,7 +179,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
                         // ── Deskripsi singkat ──────────────────────────
                         const Text(
-                          'Pemutar musik lokal yang ringan, cepat, dan kaya fitur — dirancang untuk pengalaman mendengarkan yang menyenangkan.',
+                          'Pemutar musik offline dengan basis Flutter, di tenagai oleh Media3 Dual Exoplayer + Single Exoplayer tanpa Efek DSP',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF8E8E93),
@@ -233,7 +233,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
             left: 0,
             right: 0,
             child: Text(
-              '© $year Flutter Music App × Apple Music',
+              '© $year Flutter Music App with Media3 Exoplayer',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF636366),
