@@ -63,6 +63,13 @@ object ExoMetadataReader {
         val r128Album   : String? = null,
         val iTunNorm    : String? = null,
         val lyrics      : String? = null,
+        // ── Extended metadata tags ─────────────────────────────────────────
+        val composer    : String? = null,
+        val comment     : String? = null,
+        val encoder     : String? = null,
+        val isrc        : String? = null,
+        val copyright   : String? = null,
+        val publisher   : String? = null,
     ) {
         /** True if at least one loudness tag is present. */
         fun hasLoudness(): Boolean =

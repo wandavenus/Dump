@@ -115,6 +115,11 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
+
+    /** Decoder name stored by onAudioDecoderInitialized for the active player.
+     *  Read by onTracksChanged to include in the audioFormat EventChannel event. */
+    @Volatile private var activeDecoderName: String = ""
+    @Volatile private var activeDecoderIsHardware: Boolean = false
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
 
@@ -1266,6 +1271,8 @@ class Media3PlaybackService : MediaSessionService() {
                     "mimeType"     to (fmt.sampleMimeType ?: ""),
                     "codecs"       to (fmt.codecs        ?: ""),
                     "pcmEncoding"  to (fmt.pcmEncoding.takeIf  { it != Format.NO_VALUE } ?: 0),
+                    "decoderName"  to activeDecoderName,
+                    "isHardware"   to activeDecoderIsHardware,
                 ) else emptyMap()
                 EventEmitter.emit("audioFormat", fmtMap)
                 if (fmt != null) {
@@ -1426,6 +1433,11 @@ class Media3PlaybackService : MediaSessionService() {
                 initializationDurationMs: Long,
             ) {
                 val active = p === activePlayer
+                if (active) {
+                    activeDecoderName = decoderName
+                    activeDecoderIsHardware = !dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe
+                        .isFfmpegDecoderName(decoderName)
+                }
                 CrossfadeTimelineLogger.stamp(
                     "AnalyticsListener.onAudioDecoderInitialized: isActive=$active" +
                     "  decoder=$decoderName initDuration=${initializationDurationMs}ms", p)

@@ -470,6 +470,73 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    // ── Extended tag read (ExoMetadataReader) ──────────────
+                    // Returns RG/R128 tags + extended metadata (composer, encoder,
+                    // ISRC, copyright, publisher, comment, hasLyrics, lyricsType)
+                    // via Media3 ExoMetadataReader. Runs on metadataExecutor;
+                    // opportunistically populates MetadataCacheDb on cache-miss.
+                    "getSongExtendedTags" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val tags = ExoMetadataReader.read(this, path)
+                                // Opportunistically populate RG/lyrics cache if not present
+                                val mtime = MetadataCacheDb.mtime(path)
+                                if (File(path).exists() && metadataCacheDb.getByPath(path, mtime) == null) {
+                                    metadataCacheDb.putByPath(path, mtime, MetadataCacheDb.CachedEntry(
+                                        rgTrackGain = tags.rgTrackGain,
+                                        rgTrackPeak = tags.rgTrackPeak,
+                                        rgAlbumGain = tags.rgAlbumGain,
+                                        rgAlbumPeak = tags.rgAlbumPeak,
+                                        r128Track   = tags.r128Track,
+                                        r128Album   = tags.r128Album,
+                                        iTunNorm    = tags.iTunNorm,
+                                        lyrics      = tags.lyrics ?: MetadataCacheDb.LYRICS_NONE,
+                                    ))
+                                }
+                                // Detect lyrics type on Kotlin side to avoid
+                                // sending potentially large raw lyrics to Dart.
+                                val rawLyrics = tags.lyrics
+                                val lyricsType = when {
+                                    rawLyrics.isNullOrBlank() ||
+                                    rawLyrics == MetadataCacheDb.LYRICS_NONE -> null
+                                    rawLyrics.contains(Regex("""\[\d+:\d+""")) -> "LRC"
+                                    else -> "PLAIN"
+                                }
+                                postToFlutter {
+                                    result.success(mapOf(
+                                        "replayGainTrackGain" to tags.rgTrackGain,
+                                        "replayGainTrackPeak" to tags.rgTrackPeak,
+                                        "replayGainAlbumGain" to tags.rgAlbumGain,
+                                        "replayGainAlbumPeak" to tags.rgAlbumPeak,
+                                        "r128TrackGain"       to tags.r128Track,
+                                        "r128AlbumGain"       to tags.r128Album,
+                                        "iTunNORM"            to tags.iTunNorm,
+                                        "hasLyrics"           to (lyricsType != null),
+                                        "lyricsType"          to lyricsType,
+                                        "composer"            to tags.composer,
+                                        "comment"             to tags.comment,
+                                        "encoder"             to tags.encoder,
+                                        "isrc"                to tags.isrc,
+                                        "copyright"           to tags.copyright,
+                                        "publisher"           to tags.publisher,
+                                    ))
+                                }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("ext_tags_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
+
                     // ── ReplayGain scan (single track) ──────────────────────
                     // Native EBU R128 analysis via libebur128 (JNI). "scanReplayGain"
                     // is kept as an alias of "scanTrack" for backward compatibility
@@ -1005,6 +1072,7 @@ class MainActivity : FlutterActivity() {
                 "year"       to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR),
                 "bitrate"    to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE),
                 "sampleRate" to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE),
+                "composer"   to retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPOSER),
                 "fileSize"   to getFileSize(path),
             )
         } catch (_: Exception) { emptyMap() } finally { retriever.release() }
@@ -1050,6 +1118,7 @@ class MainActivity : FlutterActivity() {
             MediaStore.Audio.Media.YEAR,     // API 1+, always safe
             MediaStore.Audio.Media.TRACK,    // API 1+, encodes disc*1000+track
             "album_artist",                  // column exists in MediaStore DB since API 16+
+            MediaStore.Audio.Media.DATE_ADDED, // epoch seconds; available since API 1
         )
 
         // API 30 (Android 11): genre added to the audio tracks table directly
@@ -1081,6 +1150,7 @@ class MainActivity : FlutterActivity() {
             val yearCol    = cursor.getColumnIndex(MediaStore.Audio.Media.YEAR)
             val trackCol   = cursor.getColumnIndex(MediaStore.Audio.Media.TRACK)
             val albumArtistCol = cursor.getColumnIndex("album_artist")
+            val dateAddedCol   = cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)
             val genreCol       = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                 cursor.getColumnIndex("genre") else -1
             val bitrateCol     = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -1130,6 +1200,12 @@ class MainActivity : FlutterActivity() {
                 if (genreCol >= 0) {
                     val g = cursor.getString(genreCol)
                     if (!g.isNullOrBlank()) map["genre"] = g
+                }
+
+                // Date added (epoch seconds, API 1+)
+                if (dateAddedCol >= 0) {
+                    val da = cursor.getLong(dateAddedCol)
+                    if (da > 0L) map["dateAdded"] = da.toInt()
                 }
 
                 // Bitrate (API 31+) — stored in bits/s by MediaStore

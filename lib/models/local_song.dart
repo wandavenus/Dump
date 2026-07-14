@@ -17,6 +17,7 @@ class LocalSong {
   final String? genre;
   final int? bitrate;    // bits/s — MediaStore API 31+
   final int? sampleRate; // Hz    — MediaStore API 31+
+  final int? dateAdded;  // epoch seconds — MediaStore DATE_ADDED (API 1+)
 
   const LocalSong({
     required this.id,
@@ -34,6 +35,7 @@ class LocalSong {
     this.genre,
     this.bitrate,
     this.sampleRate,
+    this.dateAdded,
   });
 
   factory LocalSong.fromMap(Map<dynamic, dynamic> map) {
@@ -55,6 +57,7 @@ class LocalSong {
       genre:       map['genre'] as String?,
       bitrate:     (map['bitrate'] as num?)?.toInt(),
       sampleRate:  (map['sampleRate'] as num?)?.toInt(),
+      dateAdded:   (map['dateAdded'] as num?)?.toInt(),
     );
   }
 
@@ -75,6 +78,7 @@ class LocalSong {
       if (genre       != null) 'genre':       genre,
       if (bitrate     != null) 'bitrate':     bitrate,
       if (sampleRate  != null) 'sampleRate':  sampleRate,
+      if (dateAdded   != null) 'dateAdded':   dateAdded,
     };
   }
 
@@ -94,6 +98,7 @@ class LocalSong {
     String? genre,
     int? bitrate,
     int? sampleRate,
+    int? dateAdded,
   }) {
     return LocalSong(
       id:          id          ?? this.id,
@@ -111,6 +116,7 @@ class LocalSong {
       genre:       genre       ?? this.genre,
       bitrate:     bitrate     ?? this.bitrate,
       sampleRate:  sampleRate  ?? this.sampleRate,
+      dateAdded:   dateAdded   ?? this.dateAdded,
     );
   }
 }

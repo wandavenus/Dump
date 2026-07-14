@@ -6,27 +6,17 @@ class SongMetadataService {
   static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
   static const String unknown = 'Unknown';
 
-  // ── In-memory result cache (mtime-keyed) ──────────────────────────────────
-  //
-  // Only matters on API 29-30 devices (e.g. this project's Android 11 test
-  // device), where bitrate/sampleRate aren't in the MediaStore projection and
-  // every Song Info open pays for a MediaMetadataRetriever round-trip. On
-  // API 31+ the fast path above already avoids native I/O entirely, so the
-  // cache is a pure no-op cost there (one map lookup).
-  //
-  // Keyed by songId; invalidated automatically if the file's mtime changes
-  // (e.g. re-tagged externally), so a stale entry can never be served.
-  // Capped at [_maxCacheEntries] with LRU eviction to keep memory bounded —
-  // important on a 6 GB RAM device.
+  // ── In-memory LRU cache (mtime-keyed) ─────────────────────────────────────
+  // Keyed by songId; invalidated if the file's mtime changes.
+  // Capped at [_maxCacheEntries] with LRU eviction.
   static const int _maxCacheEntries = 100;
   static final LinkedHashMap<int, ({SongInfo info, int mtimeMs})> _cache =
       LinkedHashMap();
 
-  // Deduplicates concurrent slow-path requests for the same song: if the
-  // Song Info sheet somehow triggers two lookups for the same songId before
-  // the first native call returns, the second one just awaits the first's
-  // result instead of issuing its own MediaMetadataRetriever round-trip.
+  // Deduplicates concurrent requests for the same song.
   static final Map<int, Future<SongInfo>> _inFlight = {};
+
+  // ── Cache helpers ─────────────────────────────────────────────────────────
 
   static int? _mtimeMs(String path) {
     try {
@@ -37,7 +27,7 @@ class SongMetadataService {
   }
 
   static void _cachePut(int songId, int? mtimeMs, SongInfo info) {
-    if (mtimeMs == null) return; // can't validate freshness later — skip.
+    if (mtimeMs == null) return;
     _cache.remove(songId);
     _cache[songId] = (info: info, mtimeMs: mtimeMs);
     while (_cache.length > _maxCacheEntries) {
@@ -45,187 +35,247 @@ class SongMetadataService {
     }
   }
 
-  /// Removes the cached entry for a single song (e.g. after deletion from
-  /// the library, so a stale [SongInfo] can never be served for a reused
-  /// songId).
-  static void invalidate(int songId) {
-    _cache.remove(songId);
-  }
+  static void invalidate(int songId) => _cache.remove(songId);
 
-  /// Returns full technical metadata for [song].
-  ///
-  /// Fast path (API 31+ devices): bitrate and sampleRate are already present
-  /// in [LocalSong] from the expanded MediaStore projection — no native I/O.
-  /// Slow path (API 29-30): falls back to [MediaMetadataRetriever] via the
-  /// native [getAudioMetadata] channel call, with an in-memory cache (see
-  /// above) so re-opening Song Info for the same unchanged file is instant.
-  /// File size is read directly from [dart:io] on all API levels.
+  // ── Public API ────────────────────────────────────────────────────────────
+
   static Future<SongInfo> getSongInfo(LocalSong song) async {
-    final fileSizeStr = _readFileSizeString(song.path);
-
-    // Fast path — MediaStore already gave us bitrate/sampleRate (API 31+).
-    if (!kIsWeb && (song.bitrate != null || song.sampleRate != null)) {
-      return SongInfo(
-        title:      _clean(song.title),
-        artist:     _clean(song.albumArtist ?? song.artist),
-        album:      _clean(song.album),
-        year:       song.year != null ? song.year.toString() : unknown,
-        duration:   _formatDuration(song.duration),
-        format:     extractAudioFormat(song.path),
-        bitrate:    _formatBitrate(song.bitrate?.toString()),
-        sampleRate: _formatSampleRate(song.sampleRate?.toString()),
-        fileSize:   formatFileSize(int.tryParse(fileSizeStr)),
-        filePath:   _clean(song.path),
-      );
-    }
-
-    // Slow-path cache lookup — skip the native round-trip if we already
-    // fetched this exact (unchanged) file's metadata before.
     final mtimeMs = kIsWeb ? null : _mtimeMs(song.path);
+
+    // Cache hit — same file, same mtime
     if (mtimeMs != null) {
       final cached = _cache[song.id];
       if (cached != null && cached.mtimeMs == mtimeMs) {
+        // Refresh LRU order
         _cache.remove(song.id);
-        _cache[song.id] = cached; // move to MRU position
+        _cache[song.id] = cached;
         return cached.info;
       }
     }
 
-    // Slow path — call MediaMetadataRetriever via native channel.
-    // Deduplicate: if a lookup for this songId is already in flight, await
-    // that instead of starting a second native round-trip.
+    // Deduplicate concurrent opens
     final existing = _inFlight[song.id];
     if (existing != null) return existing;
 
-    final future = _fetchSlowPath(song, fileSizeStr, mtimeMs);
+    final future = _fetchSongInfo(song, mtimeMs);
     _inFlight[song.id] = future;
     try {
       return await future;
     } finally {
-      _inFlight.remove(song.id); // ignore: unawaited_futures
+      _inFlight.remove(song.id);
     }
   }
 
-  static Future<SongInfo> _fetchSlowPath(
-    LocalSong song,
-    String fileSizeStr,
-    int? mtimeMs,
-  ) async {
-    final metadata = await _loadNativeMetadata(song);
+  static Future<SongInfo> _fetchSongInfo(LocalSong song, int? mtimeMs) async {
+    if (kIsWeb) return _buildWebFallback(song);
+
+    // Parallel-fetch from all data sources
+    final List<dynamic> results = await Future.wait([
+      _loadNativeMetadata(song),   // year, bitrate, sampleRate, composer (MediaMetadataRetriever)
+      _loadExtendedTags(song),     // RG/R128 + encoder/isrc/copyright/publisher/comment/lyrics
+      _getPlayCount(song.id),      // play count from SharedPreferences history
+      ReplayGainService.resolve(song), // applied gain from in-memory/prefs cache
+    ]);
+
+    final nativeMeta = results[0] as Map<String, String?>;
+    final extTags    = results[1] as Map<String, dynamic>;
+    final playCount  = results[2] as int;
+    final loudness   = results[3] as LoudnessData;
+
+    // File info — read from dart:io (cheap, sync)
+    final path       = song.path;
+    final fileName   = path.contains('/') ? path.split('/').last : path;
+    final folder     = path.contains('/')
+        ? path.substring(0, path.lastIndexOf('/'))
+        : '';
+    final rawSizeBytes = _fileSizeBytes(path);
+    final mtimeMs2   = mtimeMs ?? _mtimeMs(path);
+    final modified   = mtimeMs2 != null
+        ? _formatDate(DateTime.fromMillisecondsSinceEpoch(mtimeMs2))
+        : null;
+    final dateAdded = song.dateAdded != null
+        ? _formatDate(DateTime.fromMillisecondsSinceEpoch(song.dateAdded! * 1000))
+        : null;
+
+    // Lyrics
+    final hasLyrics  = extTags['hasLyrics'] == true;
+    final lyricsType = hasLyrics
+        ? _lyricsTypeLabel(extTags['lyricsType'] as String?)
+        : null;
+
+    // albumArtist: skip if same as artist or empty
+    final rawAlbumArtist = _clean(song.albumArtist);
+    final albumArtist = (rawAlbumArtist == unknown ||
+            rawAlbumArtist == _clean(song.artist))
+        ? ''
+        : rawAlbumArtist;
+
+    final rawGenre = _clean(song.genre);
+    final genre    = rawGenre == unknown ? '' : rawGenre;
+
+    // Composer comes from extTags (ExoMetadataReader) and falls back to
+    // nativeMeta (MediaMetadataRetriever) for formats not handled by TagBuilder.
+    final composer = _nullableStr(extTags['composer'] as String?)
+        ?? _nullableStr(nativeMeta['composer']);
+
     final info = SongInfo(
-      title:      _clean(song.title),
-      artist:     _clean(song.albumArtist ?? song.artist),
-      album:      _clean(song.album),
-      year:       _clean(metadata['year'] ?? song.year?.toString()),
-      duration:   _formatDuration(song.duration),
-      format:     extractAudioFormat(song.path),
-      bitrate:    _formatBitrate(metadata['bitrate']),
-      sampleRate: _formatSampleRate(metadata['sampleRate']),
-      fileSize:   formatFileSize(
-                    int.tryParse(metadata['fileSize'] ?? fileSizeStr)),
-      filePath:   _clean(song.path),
+      // General
+      title:       _clean(song.title),
+      artist:      _clean(song.artist),
+      album:       _clean(song.album),
+      albumArtist: albumArtist,
+      genre:       genre,
+      year:        song.year != null
+          ? song.year.toString()
+          : (_clean(nativeMeta['year']) == unknown ? '' : _clean(nativeMeta['year'])),
+      trackNumber: song.trackNumber?.toString() ?? '',
+      discNumber:  song.discNumber?.toString() ?? '',
+      duration:    _formatDuration(song.duration),
+      composer:    composer,
+      comment:     _nullableStr(extTags['comment']    as String?),
+      isrc:        _nullableStr(extTags['isrc']       as String?),
+      copyright:   _nullableStr(extTags['copyright']  as String?),
+      publisher:   _nullableStr(extTags['publisher']  as String?),
+
+      // Audio
+      format:      extractAudioFormat(path),
+      bitrate:     _formatBitrate(
+          song.bitrate?.toString() ?? nativeMeta['bitrate']),
+      sampleRate:  _formatSampleRate(
+          song.sampleRate?.toString() ?? nativeMeta['sampleRate']),
+      encoder:     _nullableStr(extTags['encoder'] as String?),
+
+      // ReplayGain
+      rgTrackGain:    _nullableStr(extTags['replayGainTrackGain'] as String?),
+      rgTrackPeak:    _nullableStr(extTags['replayGainTrackPeak'] as String?),
+      rgAlbumGain:    _nullableStr(extTags['replayGainAlbumGain'] as String?),
+      rgAlbumPeak:    _nullableStr(extTags['replayGainAlbumPeak'] as String?),
+      r128Track:      _nullableStr(extTags['r128TrackGain'] as String?),
+      r128Album:      _nullableStr(extTags['r128AlbumGain'] as String?),
+      appliedGainDb:  loudness.hasData ? loudness.gainDb : null,
+      loudnessSource: loudness.hasData ? loudness.source.label : null,
+
+      // File
+      fileSize:  formatFileSize(rawSizeBytes) ?? unknown,
+      filePath:  path,
+      fileName:  fileName,
+      folder:    folder,
+      modified:  modified,
+      dateAdded: dateAdded,
+
+      // Embedded Content
+      hasEmbeddedLyrics: hasLyrics,
+      lyricsType:        lyricsType,
+
+      // Statistics
+      playCount: playCount,
     );
-    _cachePut(song.id, mtimeMs, info);
+
+    _cachePut(song.id, mtimeMs2, info);
     return info;
   }
 
-  static Future<Map<String, String>> _loadNativeMetadata(LocalSong song) async {
-    if (kIsWeb || song.path.trim().isEmpty) return const <String, String>{};
+  static SongInfo _buildWebFallback(LocalSong song) {
+    final path = song.path;
+    return SongInfo(
+      title:      _clean(song.title),
+      artist:     _clean(song.artist),
+      album:      _clean(song.album),
+      duration:   _formatDuration(song.duration),
+      format:     extractAudioFormat(path),
+      bitrate:    unknown,
+      sampleRate: unknown,
+      fileSize:   unknown,
+      filePath:   path,
+      fileName:   path.contains('/') ? path.split('/').last : path,
+      folder:     '',
+    );
+  }
 
+  // ── Data fetchers ─────────────────────────────────────────────────────────
+
+  static Future<Map<String, String?>> _loadNativeMetadata(LocalSong song) async {
     try {
-      final result = await _channel.invokeMapMethod<String, dynamic>(
+      final result = await _channel.invokeMapMethod<String, String?>(
         'getAudioMetadata',
         {'path': song.path, 'songId': song.id},
       );
-
-      if (result == null) return const <String, String>{};
-
-      return result.map(
-        (key, value) => MapEntry(key, value?.toString() ?? ''),
-      );
-    } on PlatformException catch (error, stackTrace) {
-      LogService.error('Metadata', 'Failed to load metadata for ${song.path}: $error', stackTrace: stackTrace.toString());
-      return const <String, String>{};
-    } catch (error, stackTrace) {
-      LogService.error('Metadata', 'Invalid metadata payload for ${song.path}: $error', stackTrace: stackTrace.toString());
-      return const <String, String>{};
+      return result ?? {};
+    } catch (e) {
+      LogService.log('[SongMetadata] getAudioMetadata failed: $e', level: 'warning');
+      return {};
     }
   }
 
-  // ── File size (Dart-side, no native round-trip needed) ───────────────────
-
-  /// Returns the file size as a raw byte-count string, or empty string on error.
-  static String _readFileSizeString(String path) {
-    if (kIsWeb || path.isEmpty) return '';
+  static Future<Map<String, dynamic>> _loadExtendedTags(LocalSong song) async {
     try {
-      final bytes = File(path).lengthSync();
-      return bytes > 0 ? bytes.toString() : '';
-    } catch (_) {
-      return '';
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'getSongExtendedTags',
+        {'path': song.path},
+      );
+      return result ?? {};
+    } catch (e) {
+      LogService.log('[SongMetadata] getSongExtendedTags failed: $e', level: 'warning');
+      return {};
     }
   }
 
-  // ── Format helpers ────────────────────────────────────────────────────────
+  static Future<int> _getPlayCount(int songId) async {
+    try {
+      final counts = await HistoryService.getPlayCounts();
+      return (counts[songId.toString()] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ── Public helpers ────────────────────────────────────────────────────────
 
   static String extractAudioFormat(String path) {
-    final sanitizedPath = path.split('?').first.trim();
-    if (sanitizedPath.isEmpty || !sanitizedPath.contains('.')) {
-      return unknown;
-    }
-
-    final extension = sanitizedPath.split('.').last.toUpperCase();
-    return extension.isEmpty ? unknown : extension;
+    final parts = path.split('.');
+    if (parts.length < 2) return unknown;
+    return parts.last.toUpperCase();
   }
 
-  static String formatFileSize(int? bytes) {
-    if (bytes == null || bytes <= 0) return unknown;
-
+  /// Formats [bytes] into a human-readable string (B / KB / MB / GB).
+  /// Returns null if [bytes] is null or ≤ 0.
+  static String? formatFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) return null;
     const units = ['B', 'KB', 'MB', 'GB'];
-    var size = bytes.toDouble();
-    var unitIndex = 0;
-
+    double size = bytes.toDouble();
+    int unitIndex = 0;
     while (size >= 1024 && unitIndex < units.length - 1) {
       size /= 1024;
       unitIndex++;
     }
-
     final formatted = unitIndex == 0
         ? size.toStringAsFixed(0)
         : size.toStringAsFixed(size >= 10 ? 1 : 2);
     return '$formatted ${units[unitIndex]}';
   }
 
-  static String _formatDuration(Duration duration) {
-    if (duration <= Duration.zero) return unknown;
+  // ── Private helpers ───────────────────────────────────────────────────────
 
-    final hours   = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:'
-          '${seconds.toString().padLeft(2, '0')}';
+  static int? _fileSizeBytes(String path) {
+    try {
+      final len = File(path).lengthSync();
+      return len > 0 ? len : null;
+    } catch (_) {
+      return null;
     }
-
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  static String _formatBitrate(String? rawBitrate) {
-    final bitrate = int.tryParse(rawBitrate ?? '');
-    if (bitrate == null || bitrate <= 0) return unknown;
-
-    return '${(bitrate / 1000).round()} kbps';
+  static String _formatDate(DateTime dt) {
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$d/$m/${dt.year}  $h:$min';
   }
 
-  static String _formatSampleRate(String? rawSampleRate) {
-    final sampleRate = int.tryParse(rawSampleRate ?? '');
-    if (sampleRate == null || sampleRate <= 0) return unknown;
-
-    final khz       = sampleRate / 1000;
-    final formatted = khz == khz.roundToDouble()
-        ? khz.toStringAsFixed(0)
-        : khz.toStringAsFixed(1);
-    return '$formatted kHz';
+  static String? _nullableStr(String? v) {
+    final s = v?.trim();
+    return (s == null || s.isEmpty) ? null : s;
   }
 
   static String _clean(String? value) {
@@ -233,7 +283,40 @@ class SongMetadataService {
     if (sanitized == null || sanitized.isEmpty || sanitized == '<unknown>') {
       return unknown;
     }
-
     return sanitized;
   }
+
+  static String _formatDuration(Duration duration) {
+    if (duration <= Duration.zero) return unknown;
+    final hours   = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  static String _formatBitrate(String? rawBitrate) {
+    final bitrate = int.tryParse(rawBitrate ?? '');
+    if (bitrate == null || bitrate <= 0) return unknown;
+    return '${(bitrate / 1000).round()} kbps';
+  }
+
+  static String _formatSampleRate(String? rawSampleRate) {
+    final sampleRate = int.tryParse(rawSampleRate ?? '');
+    if (sampleRate == null || sampleRate <= 0) return unknown;
+    final khz = sampleRate / 1000;
+    final formatted = khz == khz.roundToDouble()
+        ? khz.toStringAsFixed(0)
+        : khz.toStringAsFixed(1);
+    return '$formatted kHz';
+  }
+
+  static String? _lyricsTypeLabel(String? type) => switch (type) {
+        'LRC'   => 'LRC (synced)',
+        'PLAIN' => 'Plain text',
+        _       => null,
+      };
 }
