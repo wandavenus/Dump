@@ -40,7 +40,7 @@ class _EqualizerSection extends StatelessWidget {
                     }
                     return SettingsActionRow(
                       title: 'Equalizer',
-                      trailing: trailing,
+                      subtitle: trailing,
                       onTap: () => Navigator.of(context).push(
                         ZoomFadeRoute<void>(page: const EqualizerPage()),
                       ),
