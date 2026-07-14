@@ -12,7 +12,7 @@ class _AboutSection extends StatelessWidget {
         const SizedBox(height: 6),
         SettingsActionRow(
           title: 'Laporkan Bug',
-          trailing: '',
+          
           onTap: () => Navigator.of(context).push(
             ZoomFadeRoute<void>(page: const BugReportPage()),
           ),
@@ -20,7 +20,7 @@ class _AboutSection extends StatelessWidget {
         
         SettingsActionRow(
           title: 'Dukungan',
-          trailing: '',
+          
           onTap: () => Navigator.of(context).push(
             ZoomFadeRoute<void>(page: const SupportPage()),
           ),
@@ -28,7 +28,7 @@ class _AboutSection extends StatelessWidget {
         
         SettingsActionRow(
           title: 'Tentang App',
-          trailing: '',
+        
           onTap: () => Navigator.of(context).push(
             ZoomFadeRoute<void>(page: const AboutAppPage()),
           ),
