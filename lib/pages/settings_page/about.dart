@@ -11,14 +11,6 @@ class _AboutSection extends StatelessWidget {
         const SettingsSectionHeader('TENTANG'),
         const SizedBox(height: 6),
         SettingsActionRow(
-          title: 'Changelog',
-          trailing: '',
-          onTap: () => Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: const ChangelogPage()),
-          ),
-        ),
-        const SettingsDivider(),
-        SettingsActionRow(
           title: 'Laporkan Bug',
           trailing: '',
           onTap: () => Navigator.of(context).push(
