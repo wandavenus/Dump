@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../log_service.dart';
+import 'audio_effects_service.dart';
 import 'playback_manager.dart';
 
 // ─── DeviceDsp ────────────────────────────────────────────────────────────────
@@ -83,9 +84,17 @@ class DeviceDsp {
 
   // ── Normalize / ReplayGain ─────────────────────────────────────────────────
 
-  /// Applies loudness normalization (LoudnessEnhancer) via [PlaybackManager].
+  /// Applies loudness normalization (system LoudnessEnhancer, AudioFlinger
+  /// layer) via [PlaybackManager].
   ///
   /// [targetGainMb] is in millibels (100 mb = 1 dB).
+  ///
+  /// Reverse mutual-exclusion interlock: the system LoudnessEnhancer and the
+  /// native EBU R128 Loudness Norm processor apply gain in series on the same
+  /// signal path. Enabling this while native Loudness Norm is active would
+  /// double-boost and risk clipping (see AudioEffectsService.
+  /// setLoudnessNormEnabled for the forward direction of this interlock), so
+  /// enabling the system LoudnessEnhancer here disables native Loudness Norm.
   static void applyNormalize({
     required bool enabled,
     double targetGainMb = 0.0,
@@ -93,6 +102,13 @@ class DeviceDsp {
     if (kIsWeb) return;
     // Clamp to ±2400 mb (±24 dB) matching LoudnessEnhancer limits on Android.
     final clamped = targetGainMb.clamp(-2400.0, 2400.0);
+    if (enabled && AudioEffectsService.loudnessNormEnabled.value) {
+      unawaited(AudioEffectsService.setLoudnessNormEnabled(false));
+      LogService.log(
+        'DeviceDsp',
+        'Native Loudness Norm disabled — system LoudnessEnhancer is now active',
+      );
+    }
     unawaited(PlaybackManager.setLoudnessEnabled(enabled));
     unawaited(PlaybackManager.setLoudnessTargetGain(enabled ? clamped : 0.0));
   }

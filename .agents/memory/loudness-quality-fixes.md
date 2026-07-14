@@ -25,10 +25,10 @@ description: Fixes for audio quality issues in the loudness normalization pipeli
 **Why:** Both systems adjust gain independently. With both active, the EBU R128 loop re-normalizes an already ReplayGain-adjusted signal → unstable, oscillating gain.
 **How to apply:** If loudness norm is re-enabled or disabled, `_onReplayGainSettingChanged` fires automatically via listener, which calls `_applyReplayGain` again and re-evaluates the coordination logic.
 
-### 5. System LoudnessEnhancer disabled when native norm is enabled
-**Rule:** `AudioEffectsService.setLoudnessNormEnabled(true)` now calls `PlaybackManager.setLoudnessEnabled(false)` + `setLoudnessTargetGain(0.0)`.
+### 5. System LoudnessEnhancer ↔ native norm mutual exclusion (both directions)
+**Rule:** `AudioEffectsService.setLoudnessNormEnabled(true)` disables the system LoudnessEnhancer; `DeviceDsp.applyNormalize(enabled: true)` disables native Loudness Norm. Both directions are now covered.
 **Why:** System LoudnessEnhancer (AudioFlinger) and native EBU R128 (ExoPlayer audio processor) are in series. Both active = double gain boost + potential clipping.
-**Note:** Reverse interlock (system LE → disable native norm) not implemented — would require intercepting `DeviceDsp.applyNormalize()` which is called from the settings UI. Consider adding if double-active is still possible via Settings UI path.
+**Note:** `DeviceDsp.applyNormalize()` has no UI call site yet (dead code as of last check) — the interlock was added defensively so it's safe whenever it does get wired up.
 
 ### 6. Batch ReplayGain library scan
 **Rule:** `ReplayGainService.scanLibrary(List<LocalSong>)` scans songs sequentially via `scanReplayGain` MethodChannel. Uses existing `ReplayGainScanner.kt` (MediaCodec + EBU R128). Progress tracked via `ReplayGainService.scanProgress` (ValueNotifier<BatchScanProgress>). UI lives in `_BatchScanSection` inside Settings → Audio → Audio Normalize (collapsible area).
