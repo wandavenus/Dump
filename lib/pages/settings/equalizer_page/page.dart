@@ -161,6 +161,28 @@ class _AdvancedAudioControls extends StatelessWidget {
         ),
         const _SectionDivider(),
 
+        // ── Native Preamp ─────────────────────────────────────────────────────
+        //
+        // Manual gain trim applied first in the native DSP pipeline (before
+        // EQ/dynamics). 0 dB (center of range) = off, no separate switch.
+        ValueListenableBuilder<double>(
+          valueListenable: AudioEffectsService.nativePreampDb,
+          builder: (_, v, _) => SettingsSliderRow(
+            title: 'Preamp',
+            subtitle: v == 0.0 ? 'Nonaktif' : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} dB',
+            value: v,
+            min: -24.0,
+            max: 24.0,
+            onChanged: AudioEffectsService.setNativePreampDb,
+            divisions: 96,
+            showReset: v != 0.0,
+            onReset: () => AudioEffectsService.setNativePreampDb(0.0),
+            description:
+                'Menyesuaikan volume dasar sebelum EQ dan efek lain diproses. Geser ke kanan untuk menaikkan, ke kiri untuk menurunkan.',
+          ),
+        ),
+        const _SectionDivider(),
+
         // ── Compressor ────────────────────────────────────────────────────────
         //
         // Ratio drives on/off directly: 1:1 = no compression (off). No
@@ -185,7 +207,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                 description:
                     'Menekan perbedaan volume antara suara pelan dan keras. Rasio lebih tinggi = kompresi lebih agresif. 1:1 berarti nonaktif.',
               ),
-              if (ratio > 1.0)
+              if (ratio > 1.0) ...[
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.compressorThreshold,
                   builder: (_, v, _) => SettingsSliderRow(
@@ -203,6 +225,55 @@ class _AdvancedAudioControls extends StatelessWidget {
                         'Ambang batas volume tempat compressor mulai bekerja. Semakin rendah nilainya, semakin banyak bagian suara yang dikompres.',
                   ),
                 ),
+                ValueListenableBuilder<double>(
+                  valueListenable: AudioEffectsService.compressorAttackMs,
+                  builder: (_, v, _) => SettingsSliderRow(
+                    title: 'Compressor Attack',
+                    subtitle: '${v.toStringAsFixed(0)} ms',
+                    value: v,
+                    min: 0.1,
+                    max: 500.0,
+                    onChanged: AudioEffectsService.setCompressorAttackMs,
+                    divisions: 50,
+                    showReset: v != 10.0,
+                    onReset: () => AudioEffectsService.setCompressorAttackMs(10.0),
+                    description:
+                        'Seberapa cepat compressor bereaksi saat suara melewati threshold. Lebih cepat = lebih responsif terhadap suara mendadak.',
+                  ),
+                ),
+                ValueListenableBuilder<double>(
+                  valueListenable: AudioEffectsService.compressorReleaseMs,
+                  builder: (_, v, _) => SettingsSliderRow(
+                    title: 'Compressor Release',
+                    subtitle: '${v.toStringAsFixed(0)} ms',
+                    value: v,
+                    min: 1.0,
+                    max: 2000.0,
+                    onChanged: AudioEffectsService.setCompressorReleaseMs,
+                    divisions: 40,
+                    showReset: v != 100.0,
+                    onReset: () => AudioEffectsService.setCompressorReleaseMs(100.0),
+                    description:
+                        'Seberapa cepat volume kembali normal setelah kompresi. Terlalu cepat bisa terdengar "berpompa".',
+                  ),
+                ),
+                ValueListenableBuilder<double>(
+                  valueListenable: AudioEffectsService.compressorKneeDb,
+                  builder: (_, v, _) => SettingsSliderRow(
+                    title: 'Compressor Knee',
+                    subtitle: v == 0.0 ? 'Hard knee' : '${v.toStringAsFixed(0)} dB',
+                    value: v,
+                    min: 0.0,
+                    max: 24.0,
+                    onChanged: AudioEffectsService.setCompressorKneeDb,
+                    divisions: 24,
+                    showReset: v != 6.0,
+                    onReset: () => AudioEffectsService.setCompressorKneeDb(6.0),
+                    description:
+                        'Melembutkan transisi masuk ke kompresi di sekitar threshold. 0 dB = transisi tegas (hard knee).',
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -214,18 +285,40 @@ class _AdvancedAudioControls extends StatelessWidget {
         // separate switch — moving the slider below 0 engages it.
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.limiterThreshold,
-          builder: (_, v, _) => SettingsSliderRow(
-            title: 'Limiter',
-            subtitle: v >= 0.0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} dB',
-            value: v,
-            min: -24.0,
-            max: 0.0,
-            onChanged: AudioEffectsService.setLimiterThreshold,
-            divisions: 48,
-            showReset: v != 0.0,
-            onReset: () => AudioEffectsService.setLimiterThreshold(0.0),
-            description:
-                'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.',
+          builder: (_, v, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SettingsSliderRow(
+                title: 'Limiter',
+                subtitle: v >= 0.0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} dB',
+                value: v,
+                min: -24.0,
+                max: 0.0,
+                onChanged: AudioEffectsService.setLimiterThreshold,
+                divisions: 48,
+                showReset: v != 0.0,
+                onReset: () => AudioEffectsService.setLimiterThreshold(0.0),
+                description:
+                    'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.',
+              ),
+              if (v < 0.0)
+                ValueListenableBuilder<double>(
+                  valueListenable: AudioEffectsService.limiterReleaseMs,
+                  builder: (_, r, _) => SettingsSliderRow(
+                    title: 'Limiter Release',
+                    subtitle: '${r.toStringAsFixed(0)} ms',
+                    value: r,
+                    min: 1.0,
+                    max: 1000.0,
+                    onChanged: AudioEffectsService.setLimiterReleaseMs,
+                    divisions: 50,
+                    showReset: r != 50.0,
+                    onReset: () => AudioEffectsService.setLimiterReleaseMs(50.0),
+                    description:
+                        'Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.',
+                  ),
+                ),
+            ],
           ),
         ),
         const _SectionDivider(),

@@ -16,15 +16,18 @@ class _SpatialSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Accordion — slider muncul saat diketuk; fitur aktif saat slider digeser
+              // Perangkat tanpa Android Virtualizer (mis. dibatasi MIUI 12) tidak
+              // bisa menjalankan efek ini — slider dinonaktifkan dan diberi label,
+              // sama seperti perlakuan Bass Boost di `DeviceDsp.bassBoostSupported`.
               ValueListenableBuilder<bool>(
                 valueListenable: AudioEffectsService.spatialAudio,
                 builder: (_, enabled, _) => ValueListenableBuilder<int>(
                   valueListenable: AudioEffectsService.spatialStrength,
                   builder: (_, strength, _) => SettingsSliderRow(
                     title: 'Spatial Audio',
-                    subtitle: enabled
-                        ? '${(strength / 10).round()}%'
-                        : 'Nonaktif',
+                    subtitle: !DeviceDsp.virtualizerSupported
+                        ? 'Tidak didukung perangkat ini'
+                        : (enabled ? '${(strength / 10).round()}%' : 'Nonaktif'),
                     // Slider dimulai dari 0 saat fitur off
                     value: enabled ? strength.toDouble() : 0.0,
                     min: 0,

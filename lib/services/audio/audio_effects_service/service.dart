@@ -58,6 +58,15 @@ class AudioEffectsService {
   /// 1.0 = no compression (off, no separate switch). Range (1.0, 20.0].
   static final ValueNotifier<double> compressorRatio = ValueNotifier(1.0);
 
+  /// Attack time in ms — how fast gain reduction engages. Native default 10.0.
+  static final ValueNotifier<double> compressorAttackMs = ValueNotifier(10.0);
+
+  /// Release time in ms — how fast gain reduction recovers. Native default 100.0.
+  static final ValueNotifier<double> compressorReleaseMs = ValueNotifier(100.0);
+
+  /// Knee width in dB — 0 = hard knee. Native default 6.0.
+  static final ValueNotifier<double> compressorKneeDb = ValueNotifier(6.0);
+
   // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
   //
   // Native pipeline defaults this processor to bypass=false (ceiling
@@ -68,6 +77,9 @@ class AudioEffectsService {
   /// 0.0 = off (no separate switch). Range [-24.0, 0.0].
   static final ValueNotifier<double> limiterThreshold = ValueNotifier(0.0);
 
+  /// Gain-recovery time in ms after the limiter engages. Native default 50.0.
+  static final ValueNotifier<double> limiterReleaseMs = ValueNotifier(50.0);
+
   // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
   //
   // Native pipeline defaults this processor to bypass=false (threshold
@@ -77,6 +89,12 @@ class AudioEffectsService {
 
   /// 0.0 = off (no separate switch). Range [-12.0, 0.0].
   static final ValueNotifier<double> softClipperThreshold = ValueNotifier(0.0);
+
+  // ── Native Preamp (Gain Processor, dsp.gain) ─────────────────────────────
+  //
+  // Manual gain trim applied at the very start of the native DSP pipeline,
+  // before EQ/dynamics/etc. 0.0 = unity (off, no separate switch).
+  static final ValueNotifier<double> nativePreampDb = ValueNotifier(0.0);
 
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
@@ -186,8 +204,13 @@ class AudioEffectsService {
     compressorEnabled.value   = prefs.getBool('compEnabled')        ?? false;
     compressorThreshold.value = prefs.getDouble('compThreshold')    ?? -20.0;
     compressorRatio.value     = prefs.getDouble('compRatio')        ?? 1.0;
+    compressorAttackMs.value  = prefs.getDouble('compAttackMs')     ?? 10.0;
+    compressorReleaseMs.value = prefs.getDouble('compReleaseMs')    ?? 100.0;
+    compressorKneeDb.value    = prefs.getDouble('compKneeDb')       ?? 6.0;
     limiterEnabled.value      = prefs.getBool('limEnabled')         ?? false;
     limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? 0.0;
+    limiterReleaseMs.value    = prefs.getDouble('limReleaseMs')     ?? 50.0;
+    nativePreampDb.value      = prefs.getDouble('nativePreampDb')   ?? 0.0;
     softClipperEnabled.value  = prefs.getBool('scEnabled')          ?? false;
     softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? 0.0;
     bitPerfectMode.value      = prefs.getBool('bitPerfectMode')     ?? false;
@@ -252,12 +275,21 @@ class AudioEffectsService {
       PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
     }
 
+    // Native Preamp (dsp.gain) — always push explicit bypass state.
+    PlaybackManager.setNativeGainBypass(nativePreampDb.value == 0.0);
+    if (nativePreampDb.value != 0.0) {
+      PlaybackManager.setNativeGainDb(nativePreampDb.value);
+    }
+
     // Compressor (Phase 6) — same always-on native default; always push.
     PlaybackManager.setNativeCompressorBypass(!compressorEnabled.value);
     if (compressorEnabled.value) {
       PlaybackManager.setNativeCompressorParams(
         thresholdDb: compressorThreshold.value,
         ratio: compressorRatio.value,
+        attackMs: compressorAttackMs.value,
+        releaseMs: compressorReleaseMs.value,
+        kneeDb: compressorKneeDb.value,
       );
     }
 
@@ -266,6 +298,7 @@ class AudioEffectsService {
     if (limiterEnabled.value) {
       PlaybackManager.setNativeLimiterParams(
         thresholdDb: limiterThreshold.value,
+        releaseMs: limiterReleaseMs.value,
       );
     }
 
@@ -354,16 +387,24 @@ class AudioEffectsService {
 
   // ── Compressor (Phase 6) ─────────────────────────────────────────────────────
 
+  /// Re-sends every current compressor parameter to the native processor in
+  /// one call. Used by threshold/ratio/attack/release/knee setters so each
+  /// one doesn't have to repeat the full parameter list.
+  static void _pushCompressorParams() {
+    PlaybackManager.setNativeCompressorParams(
+      thresholdDb: compressorThreshold.value,
+      ratio: compressorRatio.value,
+      attackMs: compressorAttackMs.value,
+      releaseMs: compressorReleaseMs.value,
+      kneeDb: compressorKneeDb.value,
+    );
+  }
+
   static Future<void> setCompressorEnabled(bool enabled) async {
     compressorEnabled.value = enabled;
     await _saveBool('compEnabled', enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
-    if (enabled) {
-      PlaybackManager.setNativeCompressorParams(
-        thresholdDb: compressorThreshold.value,
-        ratio: compressorRatio.value,
-      );
-    }
+    if (enabled) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor: ${enabled ? 'ON' : 'OFF'}');
   }
 
@@ -371,13 +412,37 @@ class AudioEffectsService {
     final v = db.clamp(-60.0, 0.0);
     compressorThreshold.value = v;
     await _saveDouble('compThreshold', v);
-    if (compressorEnabled.value) {
-      PlaybackManager.setNativeCompressorParams(
-        thresholdDb: v,
-        ratio: compressorRatio.value,
-      );
-    }
+    if (compressorEnabled.value) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor threshold: $v dB');
+  }
+
+  /// Attack time in ms — how fast the compressor engages once the signal
+  /// crosses the threshold. Range [0.1, 500].
+  static Future<void> setCompressorAttackMs(double ms) async {
+    final v = ms.clamp(0.1, 500.0);
+    compressorAttackMs.value = v;
+    await _saveDouble('compAttackMs', v);
+    if (compressorEnabled.value) _pushCompressorParams();
+    LogService.log('AudioEffects', 'Compressor attack: $v ms');
+  }
+
+  /// Release time in ms — how fast gain reduction recovers. Range [1, 2000].
+  static Future<void> setCompressorReleaseMs(double ms) async {
+    final v = ms.clamp(1.0, 2000.0);
+    compressorReleaseMs.value = v;
+    await _saveDouble('compReleaseMs', v);
+    if (compressorEnabled.value) _pushCompressorParams();
+    LogService.log('AudioEffects', 'Compressor release: $v ms');
+  }
+
+  /// Knee width in dB — 0 = hard knee (abrupt), higher = softer transition
+  /// into compression. Range [0, 24].
+  static Future<void> setCompressorKneeDb(double db) async {
+    final v = db.clamp(0.0, 24.0);
+    compressorKneeDb.value = v;
+    await _saveDouble('compKneeDb', v);
+    if (compressorEnabled.value) _pushCompressorParams();
+    LogService.log('AudioEffects', 'Compressor knee: $v dB');
   }
 
   /// Ratio drives the compressor's on/off state directly — 1:1 is the
@@ -392,25 +457,34 @@ class AudioEffectsService {
     compressorEnabled.value = enabled;
     await _saveBool('compEnabled', enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
-    if (enabled) {
-      PlaybackManager.setNativeCompressorParams(
-        thresholdDb: compressorThreshold.value,
-        ratio: v,
-      );
-    }
+    if (enabled) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor ratio: ${v.toStringAsFixed(1)}:1');
   }
 
   // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
 
+  static void _pushLimiterParams() {
+    PlaybackManager.setNativeLimiterParams(
+      thresholdDb: limiterThreshold.value,
+      releaseMs: limiterReleaseMs.value,
+    );
+  }
+
   static Future<void> setLimiterEnabled(bool enabled) async {
     limiterEnabled.value = enabled;
     await _saveBool('limEnabled', enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
-    if (enabled) {
-      PlaybackManager.setNativeLimiterParams(thresholdDb: limiterThreshold.value);
-    }
+    if (enabled) _pushLimiterParams();
     LogService.log('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
+  }
+
+  /// Gain-recovery time in ms after the limiter engages. Range [1, 1000].
+  static Future<void> setLimiterReleaseMs(double ms) async {
+    final v = ms.clamp(1.0, 1000.0);
+    limiterReleaseMs.value = v;
+    await _saveDouble('limReleaseMs', v);
+    if (limiterEnabled.value) _pushLimiterParams();
+    LogService.log('AudioEffects', 'Limiter release: $v ms');
   }
 
   /// The ceiling slider drives on/off directly — `0.0` dB (top of the
@@ -425,10 +499,24 @@ class AudioEffectsService {
     limiterEnabled.value = enabled;
     await _saveBool('limEnabled', enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
-    if (enabled) {
-      PlaybackManager.setNativeLimiterParams(thresholdDb: v);
-    }
+    if (enabled) _pushLimiterParams();
     LogService.log('AudioEffects', 'Limiter threshold: $v dB');
+  }
+
+  // ── Native Preamp (Gain Processor, dsp.gain) ─────────────────────────────
+
+  /// Manual gain trim (dBFS) applied before every other native DSP stage.
+  /// `0.0` (top-center of the slider) drives the on/off state directly —
+  /// no separate switch. Range [-24.0, 24.0] (native hard limit is wider,
+  /// clamped tighter here to keep the UI usable).
+  static Future<void> setNativePreampDb(double db) async {
+    final v = db.clamp(-24.0, 24.0);
+    nativePreampDb.value = v;
+    await _saveDouble('nativePreampDb', v);
+    final enabled = v != 0.0;
+    PlaybackManager.setNativeGainBypass(!enabled);
+    if (enabled) PlaybackManager.setNativeGainDb(v);
+    LogService.log('AudioEffects', 'Native Preamp: $v dB');
   }
 
   // ── Soft Clipper (Phase 6) ───────────────────────────────────────────────────
