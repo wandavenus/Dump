@@ -2,14 +2,14 @@ part of '../settings_widgets.dart';
 
 class SettingsActionRow extends StatelessWidget {
   final String title;
-  final String trailing;
+  final String? subtitle;
   final VoidCallback onTap;
   final bool isDestructive;
 
   const SettingsActionRow({
     super.key,
     required this.title,
-    required this.trailing,
+    this.subtitle,
     required this.onTap,
     this.isDestructive = false,
   });
@@ -20,23 +20,28 @@ class SettingsActionRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: isDestructive
-                      ? const Color(0xFFF92D48)
-                      : Colors.white,
-                  fontSize: 16,
-                ),
+            Text(
+              title,
+              style: TextStyle(
+                color: isDestructive
+                    ? const Color(0xFFF92D48)
+                    : Colors.white,
+                fontSize: 16,
               ),
             ),
-            Text(
-              trailing,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
-            ),
+            if (subtitle != null && subtitle!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  color: Color(0xFF8E8E93),
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ],
         ),
       ),
