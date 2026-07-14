@@ -1,0 +1,99 @@
+Audit dan redesign halaman Song Info agar menjadi salah satu metadata viewer paling lengkap di Android, tetapi tanpa menurunkan performa.
+
+Target utama:
+
+- Jangan mengubah tampilan menjadi ramai; tetap bergaya Apple Music (clean, minimal, section-based).
+- Semua metadata harus dikelompokkan dalam beberapa section yang bisa di-collapse bila perlu.
+- Metadata mahal tidak boleh dibaca saat scan library atau getSongs(). Metadata tersebut hanya dibaca ketika user membuka halaman Song Info (lazy loading).
+- Gunakan cache yang sudah ada (MetadataCacheDb, artwork cache, ReplayGain cache, dll.) bila memungkinkan.
+- Jangan melakukan decode audio hanya untuk menampilkan informasi.
+- Prioritaskan MediaStore, Media3 MetadataRetriever, TagLib, dan parser metadata yang sudah ada sebelum menambah dependency baru.
+
+Lakukan audit seluruh metadata yang sebenarnya sudah tersedia di project tetapi belum ditampilkan.
+
+Rancang halaman Song Info selengkap mungkin.
+
+Section General
+- Title
+- Artist
+- Album
+- Album Artist
+- Composer
+- Genre
+- Year
+- Track Number
+- Disc Number
+- Duration
+- Comment
+- Grouping
+- BPM
+- Compilation
+- ISRC
+- Copyright
+- Publisher
+
+Section Audio
+- Container
+- Codec
+- Codec Profile
+- Bitrate
+- Bitrate Mode (CBR/VBR)
+- Sample Rate
+- Bit Depth (jika tersedia)
+- Channels
+- Channel Layout
+- Encoder
+- Encoding Library
+- MIME Type
+
+Section ReplayGain / Loudness
+- Track Gain
+- Track Peak
+- Album Gain
+- Album Peak
+- R128 Track
+- R128 Album
+- Integrated Loudness
+- Loudness Source
+- ReplayGain Status (Applied / Not Present)
+
+Section Playback
+- Active Decoder
+- Hardware / Software Decoder
+- Audio Renderer
+- Offload
+- Gapless
+- Crossfade
+- Skip Silence
+- Output Sample Rate
+
+Section Embedded Content
+- Embedded Artwork
+- Artwork Resolution
+- Artwork Format
+- Embedded Lyrics
+- Lyrics Type (LRC / Unsynced)
+
+Section File
+- File Name
+- Extension
+- Folder
+- Absolute Path
+- File Size
+- Created
+- Modified
+- Date Added
+
+Section Statistics
+- Play Count
+- Skip Count
+- Last Played
+- Added To Library
+
+Untuk setiap field:
+
+- Jelaskan sumber datanya (MediaStore, Media3, TagLib, MetadataCacheDb, Runtime Playback, atau sumber lain).
+- Jelaskan apakah field tersebut gratis dibaca, perlu parsing tambahan, atau mahal.
+- Tandai mana yang sebaiknya lazy-loaded.
+- Tandai mana yang sudah tersedia di project tetapi belum dimanfaatkan.
+- Jelaskan jika ada metadata yang tidak bisa diper
