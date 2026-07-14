@@ -67,6 +67,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
   @override
   Widget build(BuildContext context) {
     final year = DateTime.now().year;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -87,100 +88,94 @@ class _AboutAppPageState extends State<AboutAppPage> {
       body: Stack(
         children: [
           // ── Konten tengah ───────────────────────────────────────────────
-          LayoutBuilder(
-            builder: (_, constraints) => SingleChildScrollView(
-              controller: _scroll,
-              physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 72),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Nama app
-                    const Text(
-                      'Music Player',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+          CustomScrollView(
+            controller: _scroll,
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Nama app
+                      const Text(
+                        'Music Player',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
+                      const SizedBox(height: 6),
 
-                    // Versi — tap 5× untuk mode debug
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _DebugState.enabled,
-                      builder: (_, debug, _) => GestureDetector(
-                        onTap: _onVersionTap,
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 4),
-                          child: Text(
-                            debug ? 'Versi 1.0.0 [DEBUG]' : 'Versi 1.0.0',
-                            style: TextStyle(
-                              color: debug
-                                  ? const Color(0xFFF92D48)
-                                  : const Color(0xFF8E8E93),
-                              fontSize: 15,
+                      // Versi — tap 5× untuk mode debug
+                      ValueListenableBuilder<bool>(
+                        valueListenable: _DebugState.enabled,
+                        builder: (_, debug, _) => GestureDetector(
+                          onTap: _onVersionTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 4),
+                            child: Text(
+                              debug ? 'Versi 1.0.0 [DEBUG]' : 'Versi 1.0.0',
+                              style: TextStyle(
+                                color: debug
+                                    ? const Color(0xFFF92D48)
+                                    : const Color(0xFF8E8E93),
+                                fontSize: 15,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // Divider pendek
-                    Container(
-                      width: 48,
-                      height: 1,
-                      color: const Color(0xFF3A3A3C),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Dibuat oleh
-                    const Text(
-                      'Dibuat dengan dedikasi oleh',
-                      style: TextStyle(
-                        color: Color(0xFFEBEBF0),
-                        fontSize: 15,
+                      // Divider pendek
+                      Container(
+                        width: 48,
+                        height: 1,
+                        color: const Color(0xFF3A3A3C),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Wndavenznchole',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                      const SizedBox(height: 28),
 
-                  ],
+                      // Dibuat oleh
+                      const Text(
+                        'Dibuat dengan dedikasi oleh',
+                        style: TextStyle(
+                          color: Color(0xFFEBEBF0),
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Wndavenznchole',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
 
           // ── Footer copyright ─────────────────────────────────────────────
           Positioned(
-            bottom: 0,
+            bottom: bottomPadding + 20,
             left: 0,
             right: 0,
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(
-                  '© $year Flutter Music App × Apple Music',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF636366),
-                    fontSize: 13,
-                  ),
-                ),
+            child: Text(
+              '© $year Flutter Music App × Apple Music',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF636366),
+                fontSize: 13,
               ),
             ),
           ),
