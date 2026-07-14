@@ -48,7 +48,7 @@ class _DebugSection extends StatelessWidget {
         const SettingsDivider(),
 
         // AAudio exclusive/MMAP probe
-        _AAudioProbeRow(),
+        const _AAudioProbeRow(),
         const SettingsDivider(),
 
         // Statistik Sesi
@@ -84,6 +84,8 @@ class _DebugSection extends StatelessWidget {
 // mode, then closes it immediately — no effect on playback.
 
 class _AAudioProbeRow extends StatefulWidget {
+  const _AAudioProbeRow({super.key});
+
   @override
   State<_AAudioProbeRow> createState() => _AAudioProbeRowState();
 }
