@@ -54,7 +54,7 @@ class _DebugSection extends StatelessWidget {
         // Statistik Sesi
         SettingsActionRow(
           title: 'Statistik Sesi',
-          trailing: 'Lihat',
+          subtitle: 'Lihat',
           onTap: () => _showStatsSheet(context),
         ),
         const SettingsDivider(),
@@ -62,7 +62,7 @@ class _DebugSection extends StatelessWidget {
         // Exit debug
         SettingsActionRow(
           title: 'Keluar Mode Debug',
-          trailing: '',
+          
           onTap: () {
             PlayerSheetController.close();
             _DebugState.enabled.value = false;
