@@ -17,7 +17,7 @@ class _AboutSection extends StatelessWidget {
             ZoomFadeRoute<void>(page: const BugReportPage()),
           ),
         ),
-        const SettingsDivider(),
+        
         SettingsActionRow(
           title: 'Dukungan',
           trailing: '',
@@ -25,7 +25,7 @@ class _AboutSection extends StatelessWidget {
             ZoomFadeRoute<void>(page: const SupportPage()),
           ),
         ),
-        const SettingsDivider(),
+        
         SettingsActionRow(
           title: 'Tentang App',
           trailing: '',
@@ -64,7 +64,7 @@ class _AboutFooter extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              '© $year Flutter Music App x Apple Music',
+              '© $year Flutter Music App with Media3 Exoplayer',
               textAlign: TextAlign.left,
               style: const TextStyle(
                 color: Color(0xFF8E8E93),
