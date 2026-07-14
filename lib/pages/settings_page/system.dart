@@ -20,14 +20,6 @@ class _SystemSection extends StatelessWidget {
           ),
         ),
         const SettingsDivider(),
-
-        const SettingsActionRow(
-          title: 'Bersihkan Log',
-          trailing: '',
-          onTap: LogService.clear,
-          isDestructive: true,
-        ),
-        const SettingsDivider(),
       ],
     );
   }
