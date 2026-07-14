@@ -47,6 +47,23 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
         private const val TAG    = "FallbackBitmapLoader"
         /** Max longest side for decoded bitmaps — matches PlaybackNotificationManager. */
         private const val MAX_PX = 512
+
+        /**
+         * Session-lifetime negative cache: albumIds confirmed to have NO resolvable
+         * artwork (neither MediaStore-indexed nor embedded in the file). Populated
+         * only after both [tryUri] and [tryEmbedded] fail for a given albumId.
+         *
+         * Why: MediaSessionLegacyStub calls loadBitmap(artworkUri) again on every
+         * metadata/queue update, not just once per track — without this cache, a
+         * song confirmed to have zero artwork pays a full ContentResolver open +
+         * MediaStore query + MediaMetadataRetriever attempt every single time.
+         *
+         * Safe because: cache lives only for the process lifetime (cleared on app
+         * restart), so if MediaStore later indexes new artwork for an albumId
+         * (e.g. after a rescan), the worst case is it stays "no artwork" until the
+         * next cold start — never a permanent or persisted false negative.
+         */
+        private val noArtworkCache = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
     }
 
     /**
@@ -80,12 +97,24 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
+        val albumId = parseAlbumId(uri)
+
+        // Short-circuit: this albumId was already confirmed to have no artwork
+        // (neither MediaStore-indexed nor embedded) earlier this session — skip
+        // the ContentResolver + MediaStore query + MediaMetadataRetriever work
+        // entirely instead of repeating a known-failed lookup.
+        if (albumId != null && noArtworkCache.contains(albumId)) {
+            future.setException(Exception("No artwork resolved for: $uri (cached)"))
+            return future
+        }
+
         executor.execute {
             try {
                 val bmp = tryUri(uri) ?: tryEmbedded(uri)
                 if (bmp != null) {
                     future.set(bmp)
                 } else {
+                    if (albumId != null) noArtworkCache.add(albumId)
                     // setException so Media3 knows there is no artwork — it will not
                     // retry, and MediaSessionLegacyStub will simply show no art rather
                     // than logging a fresh warning on every tick.
@@ -133,7 +162,7 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
      * Expected URI format: content://media/external/audio/albumart/{albumId}
      */
     private fun tryEmbedded(uri: Uri): Bitmap? {
-        val albumId = uri.lastPathSegment?.toLongOrNull() ?: run {
+        val albumId = parseAlbumId(uri) ?: run {
             Log.d(TAG, "Cannot parse albumId from $uri")
             return null
         }
@@ -194,4 +223,10 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
         while ((w / s) > maxPx || (h / s) > maxPx) s = s shl 1
         return s
     }
+
+    /**
+     * Parses the albumId from an expected `content://media/external/audio/albumart/{albumId}`
+     * URI. Returns null if the last path segment is not numeric (unexpected URI shape).
+     */
+    private fun parseAlbumId(uri: Uri): Long? = uri.lastPathSegment?.toLongOrNull()
 }
