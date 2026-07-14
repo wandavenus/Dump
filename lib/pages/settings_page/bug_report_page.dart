@@ -2,29 +2,16 @@ part of '../settings_page.dart';
 
 // ─── Laporkan Bug ───────────────────────────────────────────────────────────
 
-class BugReportPage extends StatefulWidget {
+class BugReportPage extends StatelessWidget {
   const BugReportPage({super.key});
 
-  @override
-  State<BugReportPage> createState() => _BugReportPageState();
-}
-
-class _BugReportPageState extends State<BugReportPage> {
-  final _scroll = ScrollController();
-  double _offset = 0;
-
-  void _onScroll() {
-    final o = _scroll.offset;
-    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
-  }
-
-  Future<void> _openGmail() async {
+  Future<void> _openGmail(BuildContext context) async {
     final uri = Uri.parse(
       'mailto:wandavenus25@gmail.com'
       '?subject=Bug%20Report%20%2F%20Saran%20Music%20Player',
     );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Tidak bisa membuka aplikasi email'),
@@ -38,25 +25,13 @@ class _BugReportPageState extends State<BugReportPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: FadingTitleAppBar(
-        title: 'Laporkan Bug',
-        scrollOffset: _offset,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).maybePop(),
@@ -66,16 +41,23 @@ class _BugReportPageState extends State<BugReportPage> {
             size: 28,
           ),
         ),
-        actions: const [],
+        title: const Text(
+          'Laporkan Bug',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(height: 0.5, color: const Color(0xFF48484A)),
+        ),
       ),
       body: ListView(
-        controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
-          const LargePageTitle(title: 'Laporkan Bug'),
-          const SizedBox(height: 24),
-
-          // ── Paragraf 1 ─────────────────────────────────────────────────
+          // ── Paragraf 1 ───────────────────────────────────────────────────
           const Text(
             'Kalau kamu menemukan bug, error, crash, atau ada fitur yang tidak bekerja sebagaimana mestinya, mohon laporkan agar bisa segera diperbaiki.',
             style: TextStyle(
@@ -86,7 +68,7 @@ class _BugReportPageState extends State<BugReportPage> {
           ),
           const SizedBox(height: 16),
 
-          // ── Paragraf 2 ─────────────────────────────────────────────────
+          // ── Paragraf 2 ───────────────────────────────────────────────────
           const Text(
             'Kamu juga bisa mengirimkan saran, masukan, atau permintaan fitur baru. Setiap laporan sangat membantu dalam meningkatkan kualitas aplikasi.',
             style: TextStyle(
@@ -97,7 +79,7 @@ class _BugReportPageState extends State<BugReportPage> {
           ),
           const SizedBox(height: 16),
 
-          // ── Terima kasih ───────────────────────────────────────────────
+          // ── Terima kasih ─────────────────────────────────────────────────
           const Text(
             'Terima kasih atas dukunganmu.',
             style: TextStyle(
@@ -108,7 +90,7 @@ class _BugReportPageState extends State<BugReportPage> {
           ),
           const SizedBox(height: 36),
 
-          // ── Kirim laporan ──────────────────────────────────────────────
+          // ── Kirim laporan ────────────────────────────────────────────────
           RichText(
             text: TextSpan(
               style: const TextStyle(
@@ -122,7 +104,7 @@ class _BugReportPageState extends State<BugReportPage> {
                   alignment: PlaceholderAlignment.baseline,
                   baseline: TextBaseline.alphabetic,
                   child: GestureDetector(
-                    onTap: _openGmail,
+                    onTap: () => _openGmail(context),
                     child: const Text(
                       'wandavenus25@gmail.com',
                       style: TextStyle(
@@ -134,8 +116,8 @@ class _BugReportPageState extends State<BugReportPage> {
                   ),
                 ),
                 const TextSpan(
-                    text:
-                        ' atau ke akun sosial media di halaman Tentang.'),
+                  text: ' atau ke akun sosial media di halaman Tentang.',
+                ),
               ],
             ),
           ),
