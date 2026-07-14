@@ -179,7 +179,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
                         // ── Deskripsi singkat ──────────────────────────
                         const Text(
-                          'Pemutar musik offline dengan basis Flutter, di tenagai oleh Media3 Dual Exoplayer + Single Exoplayer tanpa Efek DSP',
+                          'Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFF8E8E93),
