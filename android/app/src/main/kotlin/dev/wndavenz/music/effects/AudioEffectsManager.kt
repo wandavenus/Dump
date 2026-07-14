@@ -98,6 +98,14 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             "attachEffects: releaseEffects() DONE — old effects torn down session=$sessionId")
 
         var anyOk = false
+        // Tracked separately from anyOk: previously a single successfully-attached
+        // effect (e.g. LoudnessEnhancer) suppressed the retry-on-failure path below
+        // even when the Equalizer itself failed to attach — leaving `equalizer` null
+        // permanently for that session. Band-gain/enable calls against a null
+        // `equalizer` are silent no-ops (see setEqualizerBandGain/setEqualizerEnabled),
+        // so a failed EQ attach here surfaced to the user as "slider moves, dB
+        // updates, but zero audible/native effect" with no error anywhere.
+        var eqOk = false
 
         // ── Equalizer ─────────────────────────────────────────────────────────
         CrossfadeTimelineLogger.stamp("attachEffects: Equalizer(0,$sessionId) START")
@@ -108,6 +116,7 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                     eq.setBandLevel(b, g.coerceIn(eq.bandLevelRange[0], eq.bandLevelRange[1]))
                 }
                 anyOk = true
+                eqOk = true
             }
             CrossfadeTimelineLogger.stamp("attachEffects: Equalizer ATTACHED session=$sessionId")
         } catch (e: Exception) {
@@ -146,7 +155,15 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             }
         }
 
-        if (anyOk) {
+        // A session is only considered fully settled once the Equalizer attached —
+        // not merely "some effect attached" (anyOk). Retrying on !eqOk (rather than
+        // !anyOk) is what actually fixes the "EQ slider does nothing" bug: without
+        // this, a session where e.g. LoudnessEnhancer attached but Equalizer's
+        // AudioEffect() constructor threw (transient MIUI AudioFlinger race) would
+        // lock in lastAttachedSessionId here and never retry — every future
+        // setEqualizerBandGain() call would then be a permanent, silent no-op for
+        // the rest of that track (see setEqualizerBandGain's null-equalizer guard).
+        if (anyOk && eqOk) {
             lastAttachedSessionId = sessionId
             log("info", "attachEffects OK session=$sessionId a${attempt+1} " +
                 "bass=$bassBoostSupported")
@@ -156,15 +173,24 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             return
         }
 
-        // Nothing attached — schedule retry with backoff
+        // Equalizer (and/or everything else) not attached yet — schedule retry.
         if (attempt < 3) {
             val delayMs = when (attempt) {
                 0 -> 150L   // first retry after 150 ms
                 1 -> 400L   // second retry
                 else -> 900L // final retry (MIUI 12 can be slow)
             }
-            log("warn", "attachEffects session=$sessionId all failed, retry in ${delayMs}ms")
+            log("warn", "attachEffects session=$sessionId eq=$eqOk any=$anyOk, retry in ${delayMs}ms")
             effectHandler.postDelayed({ attachEffects(sessionId, attempt + 1) }, delayMs)
+        } else if (anyOk) {
+            // Retries exhausted but at least one effect (not EQ) is live — accept
+            // this as the final state so lastAttachedSessionId still guards future
+            // duplicate attaches, but make the permanent EQ gap loud in the logs.
+            lastAttachedSessionId = sessionId
+            log("warn", "attachEffects session=$sessionId gave up after ${attempt+1} attempts — " +
+                "Equalizer never attached, EQ controls will be silent no-ops until next session change")
+            CrossfadeTimelineLogger.stamp(
+                "attachEffects: GAVE UP on Equalizer, session=$sessionId settled without EQ")
         } else {
             log("warn", "attachEffects session=$sessionId failed after ${attempt+1} attempts")
         }
@@ -201,17 +227,34 @@ class AudioEffectsManager(private val effectHandler: Handler) {
 
     fun setEqualizerEnabled(enabled: Boolean) {
         eqEnabled = enabled
-        try { equalizer?.enabled = enabled } catch (_: Exception) {}
+        val eq = equalizer
+        if (eq == null) {
+            log("warn", "setEqualizerEnabled($enabled): equalizer not attached — " +
+                "state saved, no native effect to apply it to (session=$lastAttachedSessionId)")
+            return
+        }
+        try { eq.enabled = enabled } catch (e: Exception) {
+            log("warn", "setEqualizerEnabled($enabled) failed: ${e.message}")
+        }
     }
 
     fun setEqualizerBandGain(band: Short, gainHundredths: Short) {
         bandGains[band] = gainHundredths
+        val eq = equalizer
+        if (eq == null) {
+            // Previously a fully silent no-op — the UI slider would move and
+            // persist the value with zero indication that nothing reached the
+            // audio path. Logged so this is visible via the in-app Log Viewer.
+            log("warn", "setEqualizerBandGain(band=$band): equalizer not attached — " +
+                "gain saved but not applied (session=$lastAttachedSessionId)")
+            return
+        }
         try {
-            equalizer?.let { eq ->
-                eq.setBandLevel(band, gainHundredths.coerceIn(
-                    eq.bandLevelRange[0], eq.bandLevelRange[1]))
-            }
-        } catch (_: Exception) {}
+            eq.setBandLevel(band, gainHundredths.coerceIn(
+                eq.bandLevelRange[0], eq.bandLevelRange[1]))
+        } catch (e: Exception) {
+            log("warn", "setEqualizerBandGain(band=$band) failed: ${e.message}")
+        }
     }
 
     fun setLoudnessTargetGain(gainMb: Float) {

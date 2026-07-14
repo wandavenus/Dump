@@ -61,3 +61,4 @@
 - [native_audio_runtime host test env](native-audio-runtime-test-env.md) — use /home/runner/flutter/bin (Dart 3.12.2) on PATH + `ln -sf $(which gcc) /tmp/clang` to actually run `dart test` here.
 - [Native PEQ wired to graphic EQ UI](native-peq-ui-wiring.md) — Band EQ UI now drives native 32-band PEQ (Peak filters) instead of system Equalizer; mutual-exclusion interlock + sample-rate sync required.
 - [Spatial Audio / Virtualizer removed](spatial-audio-virtualizer-removed.md) — feature deleted at user request; don't confuse with still-active StereoWidthManager (separate DSP feature).
+- [EQ silent attach failure](eq-silent-attach-failure.md) — system Equalizer fallback can silently no-op forever if attach fails while another effect succeeds; fixed with eqOk tracking + logging.
