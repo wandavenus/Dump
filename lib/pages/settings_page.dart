@@ -9,7 +9,6 @@ import 'package:musicplayer/services/audio/device_dsp.dart';
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 import 'package:musicplayer/services/replay_gain_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/services/media_capabilities_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
