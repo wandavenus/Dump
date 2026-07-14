@@ -641,12 +641,6 @@ class _BatchScanSection extends StatefulWidget {
 }
 
 class _BatchScanSectionState extends State<_BatchScanSection> {
-  // Off by default — most users only want in-app normalization, not a
-  // permanent file modification. When on, each successfully-scanned song's
-  // measurement is written into its own file tags via TagLib (see
-  // ReplayGainService.writeReplayGain), preserving all other metadata.
-  bool _writeTags = false;
-
   Future<void> _startScan(BuildContext context) async {
     try {
       final songs = await MediaStoreService.getSongs();
@@ -657,8 +651,9 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         );
         return;
       }
-      // Fire-and-forget — progress is tracked via ReplayGainService.scanProgress
-      unawaited(ReplayGainService.scanLibrary(songs, writeTags: _writeTags));
+      // Tulis tag ke file secara otomatis setelah scan — tidak perlu
+      // konfirmasi manual dari user.
+      unawaited(ReplayGainService.scanLibrary(songs, writeTags: true));
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -675,54 +670,14 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         if (progress.running) {
           return _ScanProgressRow(progress: progress);
         }
-        Widget content;
         if (progress.finished) {
-          content = _ScanResultRow(
+          return _ScanResultRow(
             progress: progress,
             onScanAgain: () => _startScan(context),
           );
-        } else {
-          content = _ScanIdleRow(onTap: () => _startScan(context));
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            content,
-            _WriteTagsToggleRow(
-              value: _writeTags,
-              onChanged: (v) => setState(() => _writeTags = v),
-            ),
-          ],
-        );
+        return _ScanIdleRow(onTap: () => _startScan(context));
       },
-    );
-  }
-}
-
-class _WriteTagsToggleRow extends StatelessWidget {
-  const _WriteTagsToggleRow({required this.value, required this.onChanged});
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Tulis tag permanen ke file setelah scan',
-              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: const Color(0xFFF92D48),
-          ),
-        ],
-      ),
     );
   }
 }
