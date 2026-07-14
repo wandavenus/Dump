@@ -11,11 +11,6 @@ class _EffectStatusRow extends StatelessWidget {
           const Text('Status Efek Aktif',
               style: TextStyle(color: Colors.white, fontSize: 15)),
           const SizedBox(height: 6),
-          ValueListenableBuilder<bool>(
-            valueListenable: AudioEffectsService.spatialAudio,
-            builder: (_, v, _) =>
-                _InfoLine('Spatial', v ? 'ON (${AudioEffectsService.spatialStrength.value})' : 'OFF'),
-          ),
           ValueListenableBuilder<ReplayGainMode>(
             valueListenable: AudioEffectsService.replayGainMode,
             builder: (_, v, _) => _InfoLine('Normalize', v == ReplayGainMode.off ? 'OFF' : v.label),

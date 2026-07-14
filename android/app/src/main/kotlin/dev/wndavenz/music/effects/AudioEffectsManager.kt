@@ -4,15 +4,13 @@ import android.media.audiofx.AudioEffect
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
-import android.media.audiofx.Virtualizer
 import android.os.Build
 import android.os.Handler
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 
 /**
- * Manages Android audio effects lifecycle (EQ, LoudnessEnhancer, BassBoost,
- * Virtualizer).
+ * Manages Android audio effects lifecycle (EQ, LoudnessEnhancer, BassBoost).
  *
  * Improvements for Android 11 / MIUI 12:
  *
@@ -44,7 +42,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     private var equalizer:   Equalizer?         = null
     private var loudness:    LoudnessEnhancer?   = null
     private var bassBoost:   BassBoost?          = null
-    private var virtualizer: Virtualizer?        = null
 
     private var lastAttachedSessionId = AudioEffect.ERROR_BAD_VALUE
 
@@ -54,13 +51,10 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     var loudnessTargetMb:     Float   = 0f;     private set
     var bassBoostEnabled:     Boolean = false;  private set
     var bassBoostStrength:    Short   = 0;      private set
-    var virtualizerEnabled:   Boolean = false;  private set
-    var virtualizerStrength:  Short   = 1000;   private set
     val bandGains = mutableMapOf<Short, Short>()
 
     // ── Capability flags ──────────────────────────────────────────────────────
     var bassBoostSupported:   Boolean = false;  private set
-    var virtualizerSupported: Boolean = false;  private set
 
     // ── Session attachment ────────────────────────────────────────────────────
 
@@ -152,30 +146,13 @@ class AudioEffectsManager(private val effectHandler: Handler) {
             }
         }
 
-        // ── Virtualizer ───────────────────────────────────────────────────────
-        virtualizerSupported = false
-        if (isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_VIRTUALIZER)) {
-            CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer($sessionId) START")
-            try {
-                virtualizer = Virtualizer(0, sessionId).also { virt ->
-                    virt.setStrength(virtualizerStrength)
-                    virt.enabled = virtualizerEnabled
-                    virtualizerSupported = true
-                }
-                CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer ATTACHED session=$sessionId")
-            } catch (e: Exception) {
-                log("warn", "Virtualizer init failed (a${attempt+1}): ${e.message}")
-                CrossfadeTimelineLogger.stamp("attachEffects: Virtualizer FAILED: ${e.message}")
-            }
-        }
-
         if (anyOk) {
             lastAttachedSessionId = sessionId
             log("info", "attachEffects OK session=$sessionId a${attempt+1} " +
-                "bass=$bassBoostSupported virt=$virtualizerSupported")
+                "bass=$bassBoostSupported")
             CrossfadeTimelineLogger.stamp(
                 "attachEffects: ALL DONE OK session=$sessionId" +
-                " bass=$bassBoostSupported virt=$virtualizerSupported")
+                " bass=$bassBoostSupported")
             return
         }
 
@@ -197,11 +174,9 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         try { equalizer?.release()   } catch (_: Exception) {}
         try { loudness?.release()    } catch (_: Exception) {}
         try { bassBoost?.release()   } catch (_: Exception) {}
-        try { virtualizer?.release() } catch (_: Exception) {}
         equalizer   = null
         loudness    = null
         bassBoost   = null
-        virtualizer = null
         // Do NOT reset lastAttachedSessionId here — it guards attachEffects retries.
         // It is reset in the guard at the top of attachEffects when a new session arrives.
     }
@@ -260,21 +235,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
         if (bassBoostEnabled != (strength > 0)) setBassBoostEnabled(strength > 0)
     }
 
-    fun setVirtualizerEnabled(enabled: Boolean) {
-        virtualizerEnabled = enabled
-        try {
-            virtualizer?.run {
-                if (enabled) { setStrength(virtualizerStrength); this.enabled = true }
-                else         { this.enabled = false }
-            }
-        } catch (_: Exception) {}
-    }
-
-    fun setVirtualizerStrength(strength: Short) {
-        virtualizerStrength = strength
-        try { if (virtualizerEnabled) virtualizer?.setStrength(strength) } catch (_: Exception) {}
-    }
-
     // ── Queries ───────────────────────────────────────────────────────────────
 
     /** RC-04 fix: returns safe defaults when EQ is not attached. */
@@ -297,7 +257,6 @@ class AudioEffectsManager(private val effectHandler: Handler) {
     }
 
     fun effectSupportMap() = mapOf(
-        "virtualizerSupported" to virtualizerSupported,
         "bassBoostSupported"   to bassBoostSupported,
         "equalizerAttached"    to (equalizer != null),
         "loudnessAttached"     to (loudness  != null),

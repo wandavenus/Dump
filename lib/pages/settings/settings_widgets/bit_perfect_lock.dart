@@ -3,7 +3,7 @@ part of '../settings_widgets.dart';
 // ─── Bit-Perfect Mode lock wrapper ──────────────────────────────────────────
 //
 // Wraps any settings section that alters the audio signal (Equalizer,
-// Spatial Audio, ReplayGain, Loudness Normalization, Crossfeed, Crossfade,
+// ReplayGain, Loudness Normalization, Crossfeed, Crossfade,
 // Compressor, Limiter, Soft Clipper, Bass Boost, Speed, Pitch). While
 // [AudioEffectsService.bitPerfectMode] is on, the wrapped controls are
 // visually dimmed and unresponsive to touch — this keeps the UI honest:

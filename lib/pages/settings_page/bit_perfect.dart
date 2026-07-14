@@ -3,8 +3,8 @@ part of '../settings_page.dart';
 // ─── Bit-Perfect Mode Section ───────────────────────────────────────────────
 //
 // Master switch that force-bypasses every audio-altering feature in the
-// app — Equalizer, Bass Boost, Spatial Audio/Virtualizer, Compressor,
-// Limiter, Soft Clipper, Crossfeed, ReplayGain, Loudness Normalization,
+// app — Equalizer, Bass Boost, Compressor, Limiter, Soft Clipper,
+// Crossfeed, ReplayGain, Loudness Normalization,
 // Crossfade, Playback Speed, and Pitch Shift — as close to the untouched
 // source signal as this device allows. Lives at the top level of Settings,
 // not inside the Equalizer page, because it governs the whole app's audio

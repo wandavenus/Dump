@@ -45,7 +45,7 @@ object EventEmitter {
  * `needsService` comment in MainActivity — anything else must not force a
  * start, or a queueless cold start hits the startForeground() deadline crash).
  * Meanwhile several Dart init steps (e.g. AudioEffectsService.init() pushing
- * persisted bass boost / virtualizer / EQ / crossfade settings) fire their
+ * persisted bass boost / EQ / crossfade settings) fire their
  * first MethodChannel call into `musicplayer/media3_playback` unconditionally
  * at Dart startup. If that races ahead of `Media3PlaybackService.onCreate()`
  * finishing, `instance` is still null and the call fails with

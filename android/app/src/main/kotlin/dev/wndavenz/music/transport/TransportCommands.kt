@@ -273,8 +273,6 @@ class TransportCommands(
             }
             "setBassBoostEnabled"    -> { effectsManager.setBassBoostEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
             "setBassBoostStrength"   -> { effectsManager.setBassBoostStrength((call.argument<Number>("strength")?.toInt() ?: 0).toShort()); result.success(null) }
-            "setVirtualizerEnabled"  -> { effectsManager.setVirtualizerEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
-            "setVirtualizerStrength" -> { effectsManager.setVirtualizerStrength((call.argument<Number>("strength")?.toInt() ?: 1000).toShort()); result.success(null) }
 
             // ── Skip silence (Item 1) ─────────────────────────────────────────
 

@@ -836,19 +836,8 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "attachEffects" -> {
                         result.success(mapOf(
-                            "virtualizerSupported" to true,
-                            "bassBoostSupported"   to true
+                            "bassBoostSupported" to true
                         ))
-                    }
-                    "setSpatialEnabled" -> {
-                        val enabled  = call.argument<Boolean>("enabled") ?: false
-                        val strength = call.argument<Int>("strength") ?: 1000
-                        val args1 = mutableMapOf<String, Any?>("enabled" to enabled)
-                        service.handle(MethodCall("setVirtualizerEnabled", args1), result)
-                        if (enabled) {
-                            val args2 = mutableMapOf<String, Any?>("strength" to strength)
-                            service.handle(MethodCall("setVirtualizerStrength", args2), result)
-                        }
                     }
                     "setBassBoost" -> {
                         val strength = call.argument<Int>("strength") ?: 0

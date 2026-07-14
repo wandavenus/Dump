@@ -560,7 +560,7 @@ class Media3PlaybackService : MediaSessionService() {
             }
             // MIUI 12: delay the effects re-attach slightly so the new AudioSession
             // (if any) has time to be published by AudioFlinger before we attempt to
-            // bind Equalizer / BassBoost / Virtualizer etc.
+            // bind Equalizer / BassBoost etc.
             handler.postDelayed({
                 val sessionId = activePlayer?.audioSessionId ?: 0
                 if (sessionId > 0) {
@@ -1004,7 +1004,7 @@ class Media3PlaybackService : MediaSessionService() {
      * Never registered with [stereoWidthManager] and never given an
      * [ExoPlayer.AudioOffloadListener] — this player is single-purpose and
      * only exists while Bit-Perfect Mode is on. [AudioEffectsManager] effects
-     * (EQ, LoudnessEnhancer, BassBoost, Virtualizer) are never attached to its
+     * (EQ, LoudnessEnhancer, BassBoost) are never attached to its
      * session either — see [switchToBitPerfectPlayer].
      */
     private fun createBitPerfectPlayer(): ExoPlayer {

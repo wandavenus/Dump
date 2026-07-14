@@ -13,8 +13,6 @@ class _AudioSessionInfo extends StatelessWidget {
           const SizedBox(height: 6),
           _InfoLine('DSP Pipeline',
               DeviceDsp.isAndroid ? 'Android DSP' : 'Web / Fallback'),
-          _InfoLine('Virtualizer',
-              DeviceDsp.virtualizerSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
           _InfoLine('BassBoost',
               DeviceDsp.bassBoostSupported ? 'Didukung ✓' : 'Tidak tersedia ✗'),
         ],

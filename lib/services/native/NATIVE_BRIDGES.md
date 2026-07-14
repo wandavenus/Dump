@@ -170,7 +170,7 @@ When ready to implement real DSP (Phase 4+):
    - No changes needed in `PlaybackManager` or any other service.
 
 3. **Routing decision**
-   - Android `AudioEffect` (bassboost/virtualizer): stay in `Media3PlaybackBridge` — OS-managed, session-aware.
+   - Android `AudioEffect` (bassboost): stay in `Media3PlaybackBridge` — OS-managed, session-aware.
    - Custom precision EQ / compressor / resampler: route through `NativeDspBridge`.
 
 ---

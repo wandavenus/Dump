@@ -98,8 +98,6 @@ class AudioEffectsService {
 
   static final ValueNotifier<double> crossfadeDuration = ValueNotifier(0.0);
   static final ValueNotifier<double> pitchShift = ValueNotifier(0.0);
-  static final ValueNotifier<bool> spatialAudio = ValueNotifier(false);
-  static final ValueNotifier<int> spatialStrength = ValueNotifier(1000);
   static final ValueNotifier<int> bassBoost = ValueNotifier(0);
   static final ValueNotifier<double> playbackSpeed = ValueNotifier(1.0);
   static final ValueNotifier<bool> equalizerEnabled = ValueNotifier(false);
@@ -114,7 +112,7 @@ class AudioEffectsService {
   // ── Bit-Perfect Mode ─────────────────────────────────────────────────────
   //
   // Master switch that force-bypasses EVERY audio-altering feature in the
-  // app (EQ, Bass Boost, Spatial/Virtualizer, Compressor, Limiter, Soft
+  // app (EQ, Bass Boost, Compressor, Limiter, Soft
   // Clipper, Crossfeed, ReplayGain, Loudness Normalization, Crossfade,
   // Speed, Pitch, and the native Gain/PEQ pipeline stages) so the signal
   // reaches the output as close as possible to the untouched source PCM.
@@ -183,8 +181,6 @@ class AudioEffectsService {
 
     crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
     pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
-    spatialAudio.value     = prefs.getBool('spatial')         ?? false;
-    spatialStrength.value  = prefs.getInt('spatialStr')       ?? 1000;
     bassBoost.value        = prefs.getInt('bassBoost')        ?? 0;
     playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
     equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
@@ -248,10 +244,6 @@ class AudioEffectsService {
     // Bass boost
     unawaited(PlaybackManager.setBassBoost(bassBoost.value));
     unawaited(PlaybackManager.setBassBoostEnabled(bassBoost.value > 0));
-
-    // Virtualizer / spatial
-    unawaited(PlaybackManager.setVirtualizerStrength(spatialStrength.value));
-    unawaited(PlaybackManager.setVirtualizerEnabled(spatialAudio.value));
 
     // Equalizer — sync initial backend + bypass state, matching
     // setEqualizerEnabled's routing (native PEQ when available, else the
@@ -788,26 +780,6 @@ class AudioEffectsService {
     LogService.log('AudioEffects', 'BassBoost: $v');
   }
 
-  // ── Spatial Audio ─────────────────────────────────────────────────────────
-
-  static Future<void> setSpatial(bool value) async {
-    spatialAudio.value = value;
-    await _saveBool('spatial', value);
-    unawaited(PlaybackManager.setVirtualizerEnabled(value));
-    LogService.log('AudioEffects', 'Spatial: $value');
-  }
-
-  static Future<void> setSpatialStrength(int strength) async {
-    final v = strength.clamp(0, 1000).toInt();
-    spatialStrength.value = v;
-    await _saveInt('spatialStr', v);
-    unawaited(PlaybackManager.setVirtualizerStrength(v));
-    if (spatialAudio.value) {
-      unawaited(PlaybackManager.setVirtualizerEnabled(true));
-    }
-    LogService.log('AudioEffects', 'Spatial strength: $v');
-  }
-
   // ── Bit-Perfect Mode ─────────────────────────────────────────────────────
   //
   // Master switch — force-bypasses every audio-altering feature in the app
@@ -847,8 +819,6 @@ class AudioEffectsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('bpmSnapEq', equalizerEnabled.value);
     await prefs.setInt('bpmSnapBass', bassBoost.value);
-    await prefs.setBool('bpmSnapSpatial', spatialAudio.value);
-    await prefs.setInt('bpmSnapSpatialStr', spatialStrength.value);
     await prefs.setDouble('bpmSnapSpeed', playbackSpeed.value);
     await prefs.setDouble('bpmSnapPitch', pitchShift.value);
     await prefs.setDouble('bpmSnapCrossfade', crossfadeDuration.value);
@@ -864,7 +834,6 @@ class AudioEffectsService {
   static Future<void> _forceBypassEverything() async {
     await setEqualizerEnabled(false);
     await setBassBoost(0);
-    await setSpatial(false);
     await setSpeed(1.0);
     await setPitch(0.0);
     await setCrossfade(0.0);
@@ -894,8 +863,6 @@ class AudioEffectsService {
 
     final eq         = prefs.getBool('bpmSnapEq')             ?? false;
     final bass       = prefs.getInt('bpmSnapBass')            ?? 0;
-    final spatial    = prefs.getBool('bpmSnapSpatial')        ?? false;
-    final spatialStr = prefs.getInt('bpmSnapSpatialStr')      ?? 1000;
     final speed      = prefs.getDouble('bpmSnapSpeed')        ?? 1.0;
     final pitch      = prefs.getDouble('bpmSnapPitch')        ?? 0.0;
     final crossfade  = prefs.getDouble('bpmSnapCrossfade')    ?? 0.0;
@@ -909,8 +876,6 @@ class AudioEffectsService {
     await setEqualizerEnabled(eq);
     if (eq) await restoreEqualizerBands();
     await setBassBoost(bass);
-    await setSpatial(spatial);
-    if (spatial) await setSpatialStrength(spatialStr);
     await setSpeed(speed);
     await setPitch(pitch);
     await setCrossfade(crossfade);

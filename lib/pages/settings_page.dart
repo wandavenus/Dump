@@ -31,7 +31,6 @@ part 'settings_page/bit_perfect.dart';
 part 'settings_page/glass_toggle.dart';
 part 'settings_page/audio.dart';
 part 'settings_page/playback_engine.dart';
-part 'settings_page/spatial.dart';
 part 'settings_page/equalizer.dart';
 part 'settings_page/sleep_timer.dart';
 part 'settings_page/lyrics.dart';

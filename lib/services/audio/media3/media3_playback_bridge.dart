@@ -357,13 +357,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setBassBoostStrength(int strength) =>
       _invoke<void>('setBassBoostStrength', {'strength': strength});
 
-  // ── Virtualizer / Spatial Audio ────────────────────────────────────────────
-
-  static Future<void> setVirtualizerEnabled(bool enabled) =>
-      _invoke<void>('setVirtualizerEnabled', {'enabled': enabled});
-  static Future<void> setVirtualizerStrength(int strength) =>
-      _invoke<void>('setVirtualizerStrength', {'strength': strength});
-
   // ── Skip silence (Item 1) ─────────────────────────────────────────────────
 
   static Future<void> setSkipSilence(bool enabled) =>

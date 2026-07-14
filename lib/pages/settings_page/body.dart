@@ -22,8 +22,6 @@ class _SettingsBody extends StatelessWidget {
             const _PlaybackEngineSection(),
 
             const SizedBox(height: 32),
-            const _SpatialSection(),
-            const SizedBox(height: 32),
             const _EqualizerSection(),
 
             const SizedBox(height: 32),

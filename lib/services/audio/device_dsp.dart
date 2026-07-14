@@ -21,7 +21,6 @@ class DeviceDsp {
   DeviceDsp._();
 
   // ── Effect-support flags (queried from native, exposed to UI) ─────────────
-  static bool _virtualizerSupported = false;
   static bool _bassBoostSupported   = false;
 
   static bool _initialized = false;
@@ -32,7 +31,6 @@ class DeviceDsp {
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static bool get virtualizerSupported => _virtualizerSupported;
   static bool get bassBoostSupported   => _bassBoostSupported;
 
   // ── Initialization ─────────────────────────────────────────────────────────
@@ -56,12 +54,10 @@ class DeviceDsp {
     try {
       final result = await PlaybackManager.getEffectSupport();
       if (result == null) return;
-      _virtualizerSupported = result['virtualizerSupported'] as bool? ?? false;
-      _bassBoostSupported   = result['bassBoostSupported']   as bool? ?? false;
+      _bassBoostSupported = result['bassBoostSupported'] as bool? ?? false;
       LogService.log(
         'DeviceDsp',
-        'Effect support — virt=$_virtualizerSupported, '
-        'bass=$_bassBoostSupported',
+        'Effect support — bass=$_bassBoostSupported',
       );
     } catch (e) {
       LogService.warn('DeviceDsp', 'queryEffectSupport: $e');
@@ -116,7 +112,6 @@ class DeviceDsp {
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
   static Future<void> dispose() async {
-    _virtualizerSupported = false;
     _bassBoostSupported   = false;
     _initialized          = false;
     _lastSessionId        = -1;

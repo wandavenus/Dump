@@ -239,10 +239,6 @@ class PlaybackManager {
       Media3PlaybackBridge.setBassBoostStrength(strength);
   static Future<void> setBassBoostEnabled(bool e) =>
       Media3PlaybackBridge.setBassBoostEnabled(e);
-  static Future<void> setVirtualizerEnabled(bool e) =>
-      Media3PlaybackBridge.setVirtualizerEnabled(e);
-  static Future<void> setVirtualizerStrength(int s) =>
-      Media3PlaybackBridge.setVirtualizerStrength(s);
   static Future<void> setEqualizerEnabled(bool e) =>
       Media3PlaybackBridge.setEqualizerEnabled(e);
   static Future<void> setEqualizerBandGain(int b, double g) =>
@@ -266,9 +262,9 @@ class PlaybackManager {
   /// wiring (player, session, managers, TransportCommands, queue restore).
   /// On a fresh install the service does not exist until the user's first
   /// "play"/"setQueue" call creates it — anything that must configure the
-  /// engine before that (persisted bass boost / virtualizer / EQ / crossfade
-  /// / skip-silence / stereo-widening settings) should await this first
-  /// instead of firing immediately and racing `instance` being null.
+  /// engine before that (persisted bass boost / EQ / crossfade / skip-silence
+  /// / stereo-widening settings) should await this first instead of firing
+  /// immediately and racing `instance` being null.
   static Future<void> waitForServiceReady() =>
       Media3PlaybackBridge.serviceReadyStream.first;
 
