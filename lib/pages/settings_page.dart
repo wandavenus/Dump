@@ -41,8 +41,6 @@ part 'settings_page/session_info.dart';
 part 'settings_page/info_line.dart';
 part 'settings_page/effect_status.dart';
 part 'settings_page/about.dart';
-part 'settings_page/version.dart';
-part 'settings_page/version_state.dart';
 part 'settings_page/about_app_page.dart';
 part 'settings_page/changelog_data.dart';
 part 'settings_page/changelog_page.dart';
