@@ -91,6 +91,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
             builder: (_, constraints) => SingleChildScrollView(
               controller: _scroll,
               physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 72),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
@@ -157,8 +158,6 @@ class _AboutAppPageState extends State<AboutAppPage> {
                       ),
                     ),
 
-                    // Space bawah supaya footer tidak nutupin konten
-                    const SizedBox(height: 72),
                   ],
                 ),
               ),
