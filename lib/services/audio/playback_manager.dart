@@ -22,10 +22,17 @@ class EqualizerParameters {
   final double maxDecibels;
   final int bandCount;
 
+  /// Center frequency (Hz) of each band, in band order. May be shorter than
+  /// [bandCount] or empty when the engine did not report frequencies (e.g.
+  /// before the first audio session) — callers should fall back to a
+  /// standard 5-band frequency set in that case.
+  final List<int> centerFrequenciesHz;
+
   const EqualizerParameters({
     required this.minDecibels,
     required this.maxDecibels,
     required this.bandCount,
+    this.centerFrequenciesHz = const [],
   });
 }
 
@@ -272,6 +279,8 @@ class PlaybackManager {
         minDecibels: raw.minDecibels,
         maxDecibels: raw.maxDecibels,
         bandCount: raw.bands.length,
+        centerFrequenciesHz:
+            raw.bands.map((b) => b.centerFrequencyHz).toList(),
       );
     } catch (_) {
       return null;

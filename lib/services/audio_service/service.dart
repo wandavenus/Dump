@@ -177,6 +177,11 @@ class AudioService {
           if (sr > 0 && PlaybackManager.nativeLoudnessNormAvailable) {
             PlaybackManager.setNativeLoudnessSampleRate(sr);
           }
+          // Native Parametric EQ (Phase 5) biquad coefficients are also
+          // sample-rate dependent — keep them in sync the same way.
+          if (sr > 0 && PlaybackManager.nativePeqAvailable) {
+            AudioEffectsService.setPeqSampleRateHint(sr);
+          }
         }),
       );
     }

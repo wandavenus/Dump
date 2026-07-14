@@ -59,3 +59,4 @@
 - [Native ReplayGain (libebur128 + TagLib)](native-replaygain-libebur128-taglib.md) — JNI/CMake module replaces old Kotlin K-weighting scanner; real loudness math + permanent tag writes; M4A write unsupported by design.
 - [ReplayGain/loudness hardening pass](replaygain-hardening.md) — real-time loudness_processor.c (causal approx) vs offline ebur128_analyzer.cpp (exact) are different problems; BS.1770-4 sums channel power, never averages; crash-safe TagLib write = temp-file+atomic-rename.
 - [native_audio_runtime host test env](native-audio-runtime-test-env.md) — use /home/runner/flutter/bin (Dart 3.12.2) on PATH + `ln -sf $(which gcc) /tmp/clang` to actually run `dart test` here.
+- [Native PEQ wired to graphic EQ UI](native-peq-ui-wiring.md) — Band EQ UI now drives native 32-band PEQ (Peak filters) instead of system Equalizer; mutual-exclusion interlock + sample-rate sync required.
