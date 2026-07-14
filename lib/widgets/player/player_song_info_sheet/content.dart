@@ -72,7 +72,19 @@ class _SongInfoContent extends StatelessWidget {
             title: 'DETAILS',
             children: [
               PlayerSongInfoRow(label: 'Album', value: songInfo.album),
+              if (songInfo.albumArtist.isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'Album Artist', value: songInfo.albumArtist),
+              if (songInfo.genre.isNotEmpty)
+                PlayerSongInfoRow(label: 'Genre', value: songInfo.genre),
               PlayerSongInfoRow(label: 'Year', value: songInfo.year),
+              if (songInfo.trackNumber.isNotEmpty)
+                PlayerSongInfoRow(
+                  label: 'Track',
+                  value: songInfo.discNumber.isNotEmpty
+                      ? '${songInfo.trackNumber} (Disc ${songInfo.discNumber})'
+                      : songInfo.trackNumber,
+                ),
               PlayerSongInfoRow(label: 'Duration', value: songInfo.duration),
             ],
           ),
@@ -131,11 +143,118 @@ class _SongInfoContent extends StatelessWidget {
                     : songInfo.bitrate,
               ),
 
+              // Encoder — from embedded tags only, skip when absent
+              if ((songInfo.encoder ?? '').isNotEmpty)
+                PlayerSongInfoRow(label: 'Encoder', value: songInfo.encoder!),
+
               // File Size — always from metadata (no native live equivalent)
               PlayerSongInfoRow(label: 'File Size', value: songInfo.fileSize),
             ],
           ),
           const SizedBox(height: 16),
+
+          // ── Loudness / ReplayGain ──────────────────────────────────────────
+          // Only shown when the player actually has a resolved gain to apply
+          // — otherwise this section would just be a wall of "—".
+          if (songInfo.appliedGainDb != null) ...[
+            _InfoSection(
+              title: 'LOUDNESS',
+              children: [
+                PlayerSongInfoRow(
+                  label: 'Applied Gain',
+                  value:
+                      '${songInfo.appliedGainDb!.toStringAsFixed(1)} dB',
+                ),
+                if ((songInfo.loudnessSource ?? '').isNotEmpty)
+                  PlayerSongInfoRow(
+                    label: 'Source',
+                    value: songInfo.loudnessSource!,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Embedded content ─────────────────────────────────────────────
+          if (songInfo.hasEmbeddedLyrics) ...[
+            _InfoSection(
+              title: 'EMBEDDED CONTENT',
+              children: [
+                PlayerSongInfoRow(
+                  label: 'Lyrics',
+                  value: songInfo.lyricsType ?? 'Yes',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Statistics ────────────────────────────────────────────────────
+          if (songInfo.playCount > 0) ...[
+            _InfoSection(
+              title: 'STATISTICS',
+              children: [
+                PlayerSongInfoRow(
+                  label: 'Play Count',
+                  value: '${songInfo.playCount}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── File ──────────────────────────────────────────────────────────
+          _InfoSection(
+            title: 'FILE',
+            children: [
+              PlayerSongInfoRow(label: 'File Name', value: songInfo.fileName),
+              if (songInfo.folder.isNotEmpty)
+                PlayerSongInfoRow(label: 'Folder', value: songInfo.folder),
+              if ((songInfo.dateAdded ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'Date Added', value: songInfo.dateAdded!),
+              if ((songInfo.modified ?? '').isNotEmpty)
+                PlayerSongInfoRow(label: 'Modified', value: songInfo.modified!),
+            ],
+          ),
+
+          // ── Additional info — credits, raw tags; collapsed by default ────
+          _CollapsibleSection(
+            title: 'ADDITIONAL INFO',
+            children: [
+              if ((songInfo.composer ?? '').isNotEmpty)
+                PlayerSongInfoRow(label: 'Composer', value: songInfo.composer!),
+              if ((songInfo.publisher ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'Publisher', value: songInfo.publisher!),
+              if ((songInfo.copyright ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'Copyright', value: songInfo.copyright!),
+              if ((songInfo.isrc ?? '').isNotEmpty)
+                PlayerSongInfoRow(label: 'ISRC', value: songInfo.isrc!),
+              if ((songInfo.comment ?? '').isNotEmpty)
+                PlayerSongInfoRow(label: 'Comment', value: songInfo.comment!),
+              if ((songInfo.rgTrackGain ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'RG Track Gain', value: songInfo.rgTrackGain!),
+              if ((songInfo.rgTrackPeak ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'RG Track Peak', value: songInfo.rgTrackPeak!),
+              if ((songInfo.rgAlbumGain ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'RG Album Gain', value: songInfo.rgAlbumGain!),
+              if ((songInfo.rgAlbumPeak ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'RG Album Peak', value: songInfo.rgAlbumPeak!),
+              if ((songInfo.r128Track ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'R128 Track Gain', value: songInfo.r128Track!),
+              if ((songInfo.r128Album ?? '').isNotEmpty)
+                PlayerSongInfoRow(
+                    label: 'R128 Album Gain', value: songInfo.r128Album!),
+            ],
+          ),
+          const SizedBox(height: 8),
           _FilePathSection(filePath: songInfo.filePath),
         ],
       ),

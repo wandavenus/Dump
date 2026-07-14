@@ -62,6 +62,7 @@ class SongMetadataService {
     try {
       return await future;
     } finally {
+      // ignore: unawaited_futures
       _inFlight.remove(song.id);
     }
   }
@@ -202,7 +203,7 @@ class SongMetadataService {
       );
       return result ?? {};
     } catch (e) {
-      LogService.log('[SongMetadata] getAudioMetadata failed: $e', level: 'warning');
+      LogService.log('SongMetadata', 'getAudioMetadata failed: $e', level: LogLevel.warning);
       return {};
     }
   }
@@ -215,7 +216,7 @@ class SongMetadataService {
       );
       return result ?? {};
     } catch (e) {
-      LogService.log('[SongMetadata] getSongExtendedTags failed: $e', level: 'warning');
+      LogService.log('SongMetadata', 'getSongExtendedTags failed: $e', level: LogLevel.warning);
       return {};
     }
   }
