@@ -20,40 +20,47 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
-    version: '1.0.0',
+    version: '1.1.5',
     date: '14 Juli 2026',
     changes: [
       'Halaman Laporkan Bug diisi konten: teks penjelasan, link Gmail merah, dan referensi ke halaman Tentang.',
     ],
   ),
   _ChangelogEntry(
-    version: '1.0.0',
+    version: '1.0.4',
     date: '14 Juli 2026',
     changes: [
       'Tombol Changelog dihapus dari halaman Pengaturan, akses hanya lewat halaman Tentang App.',
     ],
   ),
   _ChangelogEntry(
-    version: '1.0.0',
+    version: '1.0.3',
     date: '14 Juli 2026',
     changes: [
       'Penambahan deskripsi app, link Catatan Pembaruan, dan sosmed (Instagram & Facebook) di halaman Tentang App.',
     ],
   ),
   _ChangelogEntry(
-    version: '1.0.0',
+    version: '1.0.2',
     date: '14 Juli 2026',
     changes: [
       'Redesign halaman Tentang App menjadi tampilan minimalis.',
     ],
   ),
   _ChangelogEntry(
-    version: '1.0.0',
+    version: '1.0.1',
     date: '14 Juli 2026',
     changes: [
       'Penambahan section Tentang di Pengaturan dengan 4 menu navigasi.',
       'Footer developer & copyright di bawah section Tentang.',
       'Divider tiap item Pengaturan diubah agar tidak full width.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '0.0.1',
+    date: '07 Mei 2026',
+    changes: [
+      'Initial Build',
     ],
   ),
 ];
