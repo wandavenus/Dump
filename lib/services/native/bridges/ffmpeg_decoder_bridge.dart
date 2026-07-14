@@ -130,12 +130,17 @@ class FfmpegDecoderInfo {
 ///
 /// ## Build-time state
 ///
-/// The native `media3-decoder-ffmpeg` module is not vendored in this
-/// environment (no Android NDK available to build it) and is not on Maven
-/// Central. Until someone runs the build documented in
-/// `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md` on a machine with the NDK and
-/// flips `ffmpegDecoderEnabled=true` in `local.properties`, [isAvailable]
-/// will always be `false` — that is the correct, fail-open answer, not a bug.
+/// The native FFmpeg decoder is sourced from the Jellyfin prebuilt AAR
+/// (`org.jellyfin.media3:media3-ffmpeg-decoder`, Maven Central) and is
+/// **unconditionally on the classpath** — see `android/app/build.gradle`.
+/// There is no `ffmpegDecoderEnabled` flag and no local NDK build step; the
+/// old plan documented in `docs/PHASE_9_FFMPEG_DECODER_INTEGRATION.md`
+/// (vendoring `androidx.media3:media3-decoder-ffmpeg` as a local Gradle
+/// module built against the NDK) was superseded before that approach ever
+/// shipped. [isAvailable] now only reflects the runtime check —
+/// `FfmpegLibrary.isAvailable()` — i.e. whether `libffmpegJNI.so` actually
+/// loaded on the device. A `false` result on a real device means the native
+/// library failed to load, not that the module is missing from the build.
 class FfmpegDecoderBridge implements NativeModule {
   FfmpegDecoderBridge._();
 

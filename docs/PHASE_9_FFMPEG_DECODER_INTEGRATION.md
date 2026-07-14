@@ -1,5 +1,18 @@
 # Phase 9 — FFmpeg Decoder Integration
 
+> **Superseded — read this first.** This document describes the *original*
+> plan: vendoring `androidx.media3:media3-decoder-ffmpeg` as a local Gradle
+> module built from source against a real Android NDK, gated by an
+> `ffmpegDecoderEnabled` flag in `local.properties`. **That plan was replaced**
+> before it ever shipped. The app now unconditionally depends on the Jellyfin
+> prebuilt AAR (`org.jellyfin.media3:media3-ffmpeg-decoder`, Maven Central) —
+> see `android/app/build.gradle` and `.agents/memory/ffmpeg-decoder-phase9.md`.
+> There is no `ffmpegDecoderEnabled` flag, no local `:decoder-ffmpeg` module,
+> and no NDK build step required. The architecture sections below (renderer
+> wiring, capability probe, decoder-selection diagnostics) are still accurate
+> — only the "Gradle wiring" and "Building the module yourself" sections that
+> follow are obsolete and kept here for historical context only.
+
 ## Objective
 
 Add a fallback audio decoder for formats Media3/ExoPlayer can demux (it
