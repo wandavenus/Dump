@@ -18,6 +18,10 @@
 #include "dsp_processor.h"
 #include "native_audio_runtime_internal.h"
 
+#if defined(__aarch64__)
+#include "neon_kernels.h"
+#endif
+
 // ── Module-private state ──────────────────────────────────────────────────────
 //
 // Both knobs use the IEEE 754 bit-pattern trick (same as gain_processor.c)
@@ -107,14 +111,26 @@ static int32_t _rg_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
     const int32_t total    = frames * channels;
 
     // Hot loop — plain scalar multiply.
-    // Same form as gain_processor.c so the compiler can auto-vectorize with NEON
-    // on arm64 without any processor-specific intrinsics. A non-finite INPUT
-    // sample is sanitized in place so it cannot poison downstream processors.
+    //
+    // AArch64: delegate to the same hand-written NEON kernel gain_processor.c
+    // uses (neon_kernels.S) — this loop has the exact same shape ("multiply
+    // every sample by one scalar gain, in place"), so the kernel is a
+    // drop-in reuse, not new assembly. The NEON path skips the per-sample
+    // isfinite() check for throughput; this is safe for the same reason
+    // gain_processor.c's NEON path is: the soft_clipper at the end of the
+    // pipeline sanitizes any non-finite sample before it reaches the output.
+    //
+    // All other targets: scalar loop with in-place NaN/Inf sanitization so a
+    // single corrupt decoded sample cannot propagate to downstream processors.
+#if defined(__aarch64__)
+    nar_gain_apply_neon(data, total, g);
+#else
     for (int32_t i = 0; i < total; ++i) {
         float x = data[i];
         if (!isfinite(x)) x = 0.0f;
         data[i] = x * g;
     }
+#endif
 
     return NATIVE_RUNTIME_OK;
 }

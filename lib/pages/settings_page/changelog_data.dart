@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.1.9',
+    date: '15 Juli 2026',
+    changes: [
+      'ReplayGain processor sekarang pakai NEON kernel juga (reuse kernel yang sama dengan gain processor): perkalian gain per-sample lebih cepat di perangkat arm64, fallback scalar untuk build lain.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.1.8',
     date: '15 Juli 2026',
     changes: [
