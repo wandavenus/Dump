@@ -16,6 +16,10 @@
 #include "native_audio_runtime_internal.h"
 #include "stereo_matrix.h"
 
+#if defined(__aarch64__)
+#include "neon_kernels.h"
+#endif
+
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define XF_TAG "NarCrossfeedProcessor"
@@ -215,6 +219,32 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
     if (!isfinite(L_in)) { L_in = 0.0f; data[base + 0] = 0.0f; }
     if (!isfinite(R_in)) { R_in = 0.0f; data[base + 1] = 0.0f; }
 
+#if defined(__aarch64__)
+    // 1+2. Cross-path lowpass and direct-path HF shelf via the 2-lane NEON
+    // stereo biquad kernel (neon_kernels.S) — this is the documented
+    // "intended call site" from neon_kernels.h's nar_biquad_stereo_neon
+    // comment. Each call processes both channels' independent delay state
+    // through ONE shared coefficient set in parallel, replacing two
+    // sequential scalar _cf_biquad() calls with one NEON call.
+    //
+    // LP's inputs are intentionally cross-routed (R_in feeds the state that
+    // becomes xfeed_L, L_in feeds the state that becomes xfeed_R) — the
+    // kernel only cares that two independent state pairs share one
+    // coefficient set; it has no notion of which physical channel is
+    // "left"/"right", so cross-routing the inputs is safe and produces the
+    // exact same math as the two separate scalar calls it replaces.
+    float xfeed_L, xfeed_R;
+    nar_biquad_stereo_neon((const float*)&p->lp, R_in, L_in,
+                            &_xf.lp_l[s].s1, &_xf.lp_r[s].s1,
+                            &_xf.lp_l[s].s2, &_xf.lp_r[s].s2,
+                            &xfeed_L, &xfeed_R);
+
+    float direct_L, direct_R;
+    nar_biquad_stereo_neon((const float*)&p->hf, L_in, R_in,
+                            &_xf.hf_l[s].s1, &_xf.hf_r[s].s1,
+                            &_xf.hf_l[s].s2, &_xf.hf_r[s].s2,
+                            &direct_L, &direct_R);
+#else
     // 1. Cross-path lowpass filters.
     const float xfeed_L = _cf_biquad(&p->lp, &_xf.lp_l[s], R_in);  // filtered R → L
     const float xfeed_R = _cf_biquad(&p->lp, &_xf.lp_r[s], L_in);  // filtered L → R
@@ -222,6 +252,7 @@ static int32_t _xf_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
     // 2. HF compensation on the direct path.
     const float direct_L = _cf_biquad(&p->hf, &_xf.hf_l[s], L_in);
     const float direct_R = _cf_biquad(&p->hf, &_xf.hf_r[s], R_in);
+#endif
 
     // 3. Mix and normalize to equal loudness.
     float L_mixed = (direct_L + amount * xfeed_L) * norm;
