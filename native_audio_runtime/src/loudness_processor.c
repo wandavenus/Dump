@@ -116,6 +116,10 @@
 #include "dsp_stream.h"
 #include "native_audio_runtime_internal.h"
 
+#if defined(__aarch64__)
+#include "neon_kernels.h"
+#endif
+
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define LN_TAG "NarLoudness"
@@ -429,6 +433,43 @@ static inline float _kweight_sample(NarLoudnessStream* st, int32_t ch, float x) 
     return y2;
 }
 
+#if defined(__aarch64__)
+// Stereo K-weighting cascade using the hand-written NEON stereo biquad
+// kernel (neon_kernels.S) — processes L and R through BOTH K-weighting
+// stages simultaneously instead of calling _kweight_sample() once per
+// channel. This is exactly the "intended call site" documented in
+// neon_kernels.h for nar_biquad_stereo_neon(), previously declared but
+// unused. NarBiquadCoeffs is 5 contiguous floats {b0,b1,b2,a1,a2} with no
+// padding, so it can be passed directly as the kernel's `const float*`
+// coefficient pointer.
+//
+// Same fail-open contract as _kweight_sample(): a non-finite intermediate
+// result zeros that channel's own delay state for the stage that produced
+// it (never the other channel's) and treats the sample as silence.
+static inline void _kweight_stereo_neon(NarLoudnessStream* st,
+                                         float x_l, float x_r,
+                                         float* y_l, float* y_r) {
+    float y1_l, y1_r;
+    nar_biquad_stereo_neon((const float*)&st->kw1, x_l, x_r,
+                            &st->st1.s1[0], &st->st1.s1[1],
+                            &st->st1.s2[0], &st->st1.s2[1],
+                            &y1_l, &y1_r);
+    if (!isfinite(y1_l)) { st->st1.s1[0] = 0.0f; st->st1.s2[0] = 0.0f; y1_l = 0.0f; }
+    if (!isfinite(y1_r)) { st->st1.s1[1] = 0.0f; st->st1.s2[1] = 0.0f; y1_r = 0.0f; }
+
+    float y2_l, y2_r;
+    nar_biquad_stereo_neon((const float*)&st->kw2, y1_l, y1_r,
+                            &st->st2.s1[0], &st->st2.s1[1],
+                            &st->st2.s2[0], &st->st2.s2[1],
+                            &y2_l, &y2_r);
+    if (!isfinite(y2_l)) { st->st2.s1[0] = 0.0f; st->st2.s2[0] = 0.0f; y2_l = 0.0f; }
+    if (!isfinite(y2_r)) { st->st2.s1[1] = 0.0f; st->st2.s2[1] = 0.0f; y2_r = 0.0f; }
+
+    *y_l = y2_l;
+    *y_r = y2_r;
+}
+#endif  // __aarch64__
+
 static int32_t _ln_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
     (void)self;
     const int32_t s = nar_dsp_clamp_stream(stream_slot);
@@ -468,19 +509,37 @@ static int32_t _ln_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
         //    contribution to the block's channel-weighted mean-square z,
         //    since averaging is linear and distributes over the weighted sum.
         double frame_power = 0.0;
-        for (int32_t ch = 0; ch < channels; ++ch) {
-            // Sanitize a non-finite INPUT sample in place before it reaches
-            // either the K-weighting measurement path or the gain multiply
-            // below — otherwise a single corrupt decoded sample (NaN/Inf)
-            // would multiply straight through to the output and poison
-            // every downstream processor (peq/compressor/limiter/etc.).
-            float x = frame[ch];
-            if (!isfinite(x)) {
-                x = 0.0f;
-                frame[ch] = 0.0f;
+#if defined(__aarch64__)
+        if (channels == 2) {
+            // Stereo fast path: both channels through both K-weighting
+            // stages in one NEON call each, instead of two scalar calls.
+            float x_l = frame[0];
+            float x_r = frame[1];
+            if (!isfinite(x_l)) { x_l = 0.0f; frame[0] = 0.0f; }
+            if (!isfinite(x_r)) { x_r = 0.0f; frame[1] = 0.0f; }
+
+            float y_l, y_r;
+            _kweight_stereo_neon(st, x_l, x_r, &y_l, &y_r);
+
+            frame_power = (double)st->weights[0] * (double)y_l * (double)y_l
+                        + (double)st->weights[1] * (double)y_r * (double)y_r;
+        } else
+#endif
+        {
+            for (int32_t ch = 0; ch < channels; ++ch) {
+                // Sanitize a non-finite INPUT sample in place before it reaches
+                // either the K-weighting measurement path or the gain multiply
+                // below — otherwise a single corrupt decoded sample (NaN/Inf)
+                // would multiply straight through to the output and poison
+                // every downstream processor (peq/compressor/limiter/etc.).
+                float x = frame[ch];
+                if (!isfinite(x)) {
+                    x = 0.0f;
+                    frame[ch] = 0.0f;
+                }
+                const float y = _kweight_sample(st, ch, x);
+                frame_power += (double)st->weights[ch] * (double)y * (double)y;
             }
-            const float y = _kweight_sample(st, ch, x);
-            frame_power += (double)st->weights[ch] * (double)y * (double)y;
         }
         st->sub_acc += frame_power;
         st->sub_count += 1;

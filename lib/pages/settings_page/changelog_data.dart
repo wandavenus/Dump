@@ -23,6 +23,13 @@ const List<_ChangelogEntry> _changelogEntries = [
     version: '1.0.0',
     date: '15 Juli 2026',
     changes: [
+      'Loudness Normalization sekarang pakai NEON kernel juga: K-weighting stereo (L+R) diproses bareng lewat nar_biquad_stereo_neon di perangkat arm64, fallback scalar untuk build lain.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.0.0',
+    date: '15 Juli 2026',
+    changes: [
       'Tambah ARM64 NEON Assembly kernels: nar_gain_apply_neon (16 sample/iterasi via fmul v.4s) dan nar_biquad_stereo_neon (L+R biquad paralel via 2-lane NEON).',
       'Gain processor sekarang pakai NEON kernel di perangkat arm64 (termasuk Snapdragon 730), fallback scalar untuk build lain.',
     ],
