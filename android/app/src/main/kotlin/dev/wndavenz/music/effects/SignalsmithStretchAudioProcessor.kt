@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import dev.wndavenz.music.events.NativeLogger
 import java.nio.ByteBuffer
 import kotlin.math.floor
@@ -71,6 +72,15 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     companion object {
         private const val LOG_TAG = "StretchAudioProc"
 
+        /**
+         * Minimum accumulated output-frame count before [getMediaDuration] switches from the
+         * nominal-speed approximation to the actual I/O-frame ratio.  Mirrors Sonic's
+         * MIN_BYTES_FOR_DURATION_SCALING_CALCULATION (1 024 bytes) scaled to frames; at 44 100 Hz
+         * stereo float32 one chunk is typically 1 024 frames, so the real path kicks in after
+         * the very first queueInput() call under normal conditions.
+         */
+        private const val MIN_FRAMES_FOR_RATIO = 512L
+
         @JvmStatic
         private external fun nativeCreate(sampleRate: Int, channels: Int): Long
 
@@ -134,6 +144,21 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
     private var handle: Long = 0L
     private var carryFrames: Double = 0.0
+
+    // ── Media-timeline synchronization counters ───────────────────────────────
+    //
+    // Accumulated input and output frame counts since the last flush() — mirrors
+    // SonicAudioProcessor's inputBytes/outputBytes approach (SonicAudioProcessor.java:64–65,
+    // 233, 259).  Used by getMediaDuration() to report the actual I/O ratio to
+    // StretchAwareAudioProcessorChain, which feeds it into DefaultAudioSink's
+    // applyMediaPositionParameters() → getCurrentPositionUs() path.
+    //
+    // Both fields are written exclusively on the ExoPlayer audio thread (same thread
+    // that calls queueInput/onFlush/onReset), so they need no synchronisation.
+    // getMediaDuration() is also called from the same audio/render thread via
+    // DecoderAudioRenderer → DefaultAudioSink.getCurrentPositionUs().
+    private var totalInputFrames: Long = 0L
+    private var totalOutputFrames: Long = 0L
 
     // Tracks whether the current handle has run any audio through the real
     // STFT path (nativeProcess) since it was created or last flushed/reset.
@@ -249,6 +274,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         if (h == 0L || (currentSpeed == 1f && currentPitch == 0f)) {
             // Fast bypass: pure pass-through, no STFT cost.
+            // Count 1:1 so getMediaDuration() returns identity for this path.
+            totalInputFrames  += inputFrames
+            totalOutputFrames += inputFrames
             val output = replaceOutputBuffer(inputFrames * bytesPerFrame)
             output.put(inputBuffer)
             output.flip()
@@ -261,6 +289,13 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val exactOutputFrames = inputFrames / currentSpeed.toDouble() + carryFrames
         val outputFrames = max(0, floor(exactOutputFrames).toInt())
         carryFrames = exactOutputFrames - outputFrames
+
+        // Record the actual I/O ratio for getMediaDuration().  Input is always
+        // counted (the bytes are fully consumed regardless of outputFrames), so
+        // the ratio tracks the true cumulative stretch applied so far — identical
+        // in approach to SonicAudioProcessor.inputBytes / outputBytes.
+        totalInputFrames  += inputFrames
+        totalOutputFrames += outputFrames
 
         maybeLogQueueInput(h, inputFrames, outputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
 
@@ -356,6 +391,80 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
     }
 
+    // ── Media-timeline synchronization API ───────────────────────────────────
+    //
+    // These two methods are the Signalsmith counterparts of
+    // SonicAudioProcessor.getMediaDuration() / getDurationAfterProcessorApplied().
+    // Together they close the gap identified in the audit: DefaultAudioSink has
+    // no way to learn about a custom processor's time-stretch ratio unless the
+    // processor explicitly exposes it.
+
+    /**
+     * Returns the media duration corresponding to [playoutDurationUs] of AudioTrack
+     * output, accounting for the actual accumulated I/O frame ratio.
+     *
+     * Called by [StretchAwareAudioProcessorChain.getMediaDuration], which is invoked
+     * on every [DefaultAudioSink.getCurrentPositionUs] call so that
+     * [currentPositionUs] in DecoderAudioRenderer stays aligned with the real media
+     * timeline regardless of the current stretch factor.
+     *
+     * Uses the same approach as [androidx.media3.common.audio.SonicAudioProcessor]:
+     * accumulated byte counts (here: frame counts) rather than the nominal speed
+     * parameter, so small per-call rounding errors in [carryFrames] cannot
+     * accumulate into a visible position drift over a long track.
+     *
+     * Falls back to the nominal speed multiplier when fewer than [MIN_FRAMES_FOR_RATIO]
+     * output frames have been accumulated (initial buffer before the ratio is stable),
+     * and returns [playoutDurationUs] unchanged (identity) when speed == 1.0 and
+     * pitch == 0 (the common case — fast path produces a 1:1 ratio anyway).
+     *
+     * Thread: audio / render thread only (same thread that calls queueInput and
+     * getCurrentPositionUs inside DefaultAudioSink).
+     */
+    fun getMediaDuration(playoutDurationUs: Long): Long {
+        val out = totalOutputFrames
+        val inp = totalInputFrames
+        return when {
+            // Below the stability threshold — nominal speed gives a reasonable approximation.
+            out < MIN_FRAMES_FOR_RATIO -> {
+                val s = speed
+                if (s == 1f) playoutDurationUs
+                else (playoutDurationUs.toDouble() * s).toLong()
+            }
+            // Accumulated ratio path — identical math to SonicAudioProcessor.getMediaDuration():
+            //   Util.scaleLargeTimestamp(playoutDuration, processedInputBytes, outputBytes)
+            // substituting frames for bytes (units cancel in the ratio).
+            else -> Util.scaleLargeTimestamp(playoutDurationUs, inp, out)
+        }
+    }
+
+    /**
+     * Returns the playout duration that corresponds to [durationUs] of media input
+     * at the current speed setting.
+     *
+     * Called by [AudioProcessingPipeline.flush] (line 188, Media3 1.10.1) for each
+     * active processor during seek/track-change to propagate [StreamMetadata.positionOffsetUs]
+     * through the pipeline.  At flush time the frame counters have just been reset to
+     * zero, so there is no accumulated ratio to use — the nominal speed value is the
+     * only available information (same fallback Sonic uses at line 157:
+     * `return (long)((double) speed * playoutDuration)` in reverse).
+     *
+     * Pitch-shift alone (speed == 1.0, semitones ≠ 0) does not change frame count —
+     * the result is the identity in that case.
+     *
+     * @return [durationUs] / speed, i.e. how many microseconds of AudioTrack output
+     *         this processor will produce from [durationUs] microseconds of input.
+     */
+    override fun getDurationAfterProcessorApplied(durationUs: Long): Long {
+        val s = speed
+        // Fast path / pitch-only: ratio is 1:1.
+        if (s == 1f) return durationUs
+        // Stretch path: playout is shorter at speed > 1.0, longer at speed < 1.0.
+        return (durationUs.toDouble() / s).toLong().coerceAtLeast(0L)
+    }
+
+    // ── BaseAudioProcessor lifecycle ──────────────────────────────────────────
+
     override fun onFlush() {
         // Called on seek/discontinuity while the processor stays configured —
         // clear internal STFT state so spectral history never bleeds across
@@ -365,6 +474,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         if (h != 0L) nativeReset(h)
         carryFrames = 0.0
         hasBufferedStretchState = false
+        // Reset I/O counters: the new segment starts fresh, so any ratio
+        // accumulated before the seek is irrelevant to the new position.
+        totalInputFrames  = 0L
+        totalOutputFrames = 0L
     }
 
     override fun onReset() {
@@ -377,5 +490,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
         carryFrames = 0.0
         hasBufferedStretchState = false
+        totalInputFrames  = 0L
+        totalOutputFrames = 0L
     }
 }

@@ -946,7 +946,7 @@ class Media3PlaybackService : MediaSessionService() {
                     "info", "Stretch",
                     "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
-                        "stretchHash=${System.identityHashCode(stretchProc)}",
+                        "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
                 return DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
@@ -962,8 +962,15 @@ class Media3PlaybackService : MediaSessionService() {
                     // transparent no-op as long as PlaybackParameters.speed/pitch stay at
                     // their ExoPlayer defaults (1.0/1.0), which TransportCommands now
                     // enforces — see StretchManager wiring below.
+                    //
+                    // StretchAwareAudioProcessorChain extends DefaultAudioProcessorChain and
+                    // overrides getMediaDuration() to incorporate Signalsmith's actual I/O
+                    // frame ratio before passing to Sonic (inactive → identity).  This fixes
+                    // two bugs: currentPositionUs drift and READY↔BUFFERING oscillation at
+                    // speed ≠ 1.0.  See StretchAwareAudioProcessorChain for the full proof.
                     .setAudioProcessorChain(
-                        DefaultAudioSink.DefaultAudioProcessorChain(
+                        dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
+                            stretchProc,
                             toFloatProc, nativeDspProc, channelMixingProc, stretchProc, toInt16Proc
                         )
                     )
