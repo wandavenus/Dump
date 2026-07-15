@@ -625,8 +625,8 @@ Transform.translate(
           icon: Icon(
             state.isPlaying
                 ? CupertinoIcons.pause_fill
-                : CupertinoIcons.arrowtriangle_right_fill,
-            size: 30,
+                : CupertinoIcons.play_fill,
+            size: 31,
             color: Colors.white,
           ),
         ),
