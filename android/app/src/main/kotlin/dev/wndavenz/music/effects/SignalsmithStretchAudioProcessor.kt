@@ -135,6 +135,17 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var handle: Long = 0L
     private var carryFrames: Double = 0.0
 
+    // Tracks whether the current handle has run any audio through the real
+    // STFT path (nativeProcess) since it was created or last flushed/reset.
+    // This — NOT the current live speed/pitch values — is what determines
+    // whether Signalsmith may still be holding buffered/unemitted output at
+    // EOS: speed/pitch can return to unity (routing queueInput() onto the
+    // fast bypass below) while audio from an earlier non-unity stretch is
+    // still sitting inside the STFT pipeline, unflushed. Only ever touched
+    // from this instance's own audio thread (see class doc "Per-player
+    // instances"), so a plain field is safe.
+    private var hasBufferedStretchState: Boolean = false
+
     // queueInput() runs exclusively on this instance's own ExoPlayer audio
     // thread (see class doc "Per-player instances"), so a plain (non-volatile)
     // field is safe here and keeps the throttle check allocation-free.
@@ -192,6 +203,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         handle = h
         nativeSetPitchSemitones(h, pitchSemitones)
         carryFrames = 0.0
+        hasBufferedStretchState = false
 
         NativeLogger.emit(
             "info", "Stretch",
@@ -258,6 +270,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         if (outputFrames == 0) return
 
+        // The STFT engine is about to run — it may retain buffered/unemitted
+        // output afterwards even if speed/pitch return to unity before EOS.
+        hasBufferedStretchState = true
+
         val outputBytes = outputFrames * bytesPerFrame
         val output = replaceOutputBuffer(outputBytes)
         val result = nativeProcess(h, inputBuffer, inputFrames, output, outputFrames)
@@ -291,29 +307,53 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun onQueueEndOfStream() {
-    val h = handle
-    NativeLogger.emit("info", "Stretch", "[Stretch] onQueueEndOfStream EOS received handle=0x${h.toString(16)}")
-    if (h != 0L && !(speed == 1f && pitchSemitones == 0f)) {
-        val channelCount = inputAudioFormat.channelCount
-        val drainFrames = max(1, nativeOutputLatencyFrames(h))
-        NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush started handle=0x${h.toString(16)} drainFrames=$drainFrames")
-        val outputBytes = drainFrames * channelCount * 4
-        val output = replaceOutputBuffer(outputBytes)
-        val result = nativeFlush(h, output, drainFrames)
-        if (result == 0) {
-            output.position(0).limit(outputBytes)
-            NativeLogger.emit(
-                "info", "Stretch",
-                "[Stretch] EOS flush completed handle=0x${h.toString(16)} framesFlushed=$drainFrames result=$result",
-            )
+        val h = handle
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] onQueueEndOfStream EOS received handle=0x${h.toString(16)} hasBufferedState=$hasBufferedStretchState",
+        )
+        // Whether to flush depends on whether the STFT engine has actually
+        // buffered anything since it was last flushed/reset — NOT on the
+        // current live speed/pitch values (those can have returned to unity
+        // while earlier non-unity output is still sitting inside the pipeline).
+        if (h != 0L && hasBufferedStretchState) {
+            val channelCount = inputAudioFormat.channelCount
+            // outputLatency() is only the library's documented *minimum* flush
+            // size ("should ideally be at least outputLatency()"); passing
+            // exactly that triggers Signalsmith's lossy fold-back path inside
+            // flush(). outputLatency() == windowSize() - windowSize()/2, i.e.
+            // ceil(windowSize()/2), so 2*outputLatency() is always >= the STFT
+            // window size — no public API exposes windowSize()/blockSamples()
+            // directly, so this is the safest value derivable from the one
+            // accessor that does exist. Requesting >= windowSize() makes
+            // flush()'s plainOutput branch cover the whole request with zero
+            // fold-back, i.e. a clean linear drain.
+            val drainFrames = max(1, nativeOutputLatencyFrames(h) * 2)
+            NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush started handle=0x${h.toString(16)} drainFrames=$drainFrames")
+            val outputBytes = drainFrames * channelCount * 4
+            val output = replaceOutputBuffer(outputBytes)
+            // Defensive zero-fill: if windowSize() is odd, 2*outputLatency()
+            // overshoots it by exactly one frame that flush() never writes.
+            // Without this, that trailing frame would surface whatever stale
+            // audio was last left in the reused native scratch buffer instead
+            // of silence.
+            for (i in 0 until outputBytes) output.put(i, 0)
+            val result = nativeFlush(h, output, drainFrames)
+            if (result == 0) {
+                output.position(0).limit(outputBytes)
+                hasBufferedStretchState = false
+                NativeLogger.emit(
+                    "info", "Stretch",
+                    "[Stretch] EOS flush completed handle=0x${h.toString(16)} framesFlushed=$drainFrames result=$result",
+                )
+            } else {
+                output.position(0).limit(0)
+                NativeLogger.emit("warn", "Stretch", "[Stretch] EOS flush failed handle=0x${h.toString(16)} result=$result")
+            }
         } else {
-            output.position(0).limit(0)
-            NativeLogger.emit("warn", "Stretch", "[Stretch] EOS flush failed handle=0x${h.toString(16)} result=$result")
+            NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush skipped (no buffered state) handle=0x${h.toString(16)}")
         }
-    } else {
-        NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush skipped (bypass or no handle) handle=0x${h.toString(16)}")
     }
-}
 
     override fun onFlush() {
         // Called on seek/discontinuity while the processor stays configured —
@@ -323,6 +363,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         NativeLogger.emit("info", "Stretch", "[Stretch] onFlush resetting DSP state handle=0x${h.toString(16)}")
         if (h != 0L) nativeReset(h)
         carryFrames = 0.0
+        hasBufferedStretchState = false
     }
 
     override fun onReset() {
@@ -334,5 +375,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             NativeLogger.emit("info", "Stretch", "[Stretch] onReset processor destroyed handle=0x${h.toString(16)}")
         }
         carryFrames = 0.0
+        hasBufferedStretchState = false
     }
 }
