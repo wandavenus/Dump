@@ -71,7 +71,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(left: kPageLeftPadding, top: 9),
+          padding: EdgeInsets.only(left: kPageLeftPadding, top: 11),
           child: Text(
             'Top Picks For You',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
