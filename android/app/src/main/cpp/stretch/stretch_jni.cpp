@@ -348,10 +348,21 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
             if (hasNonFinite) {
                 slog(env, "warn", "nativeProcess NaN/Inf detected in output pointer=" + ptrToHex(handlePtr));
             }
+            // Logging-only (no behaviour change): Signalsmith Stretch's process()
+            // contract always fills exactly `outputFrames` (see signalsmith-stretch.h
+            // process(): the outputIndex loop runs unconditionally for the full
+            // requested outputSamples, with no early-exit that writes fewer), so
+            // "actual frames written" is always equal to the requested outputFrames
+            // on this success path — logged explicitly per the runtime-audit request
+            // rather than left implicit.
+            slog(env, "info",
+                 "nativeProcess actualFramesWritten=" + std::to_string(outputFrames) +
+                     " returnValue=0 pointer=" + ptrToHex(handlePtr));
             h->lastProcessLogTime = now;
         }
     } catch (...) {
-        slog(env, "error", "nativeProcess exception during process() pointer=" + ptrToHex(handlePtr));
+        slog(env, "error", "nativeProcess exception during process() pointer=" + ptrToHex(handlePtr) +
+                                " actualFramesWritten=0 returnValue=-1");
         return -1;
     }
     return 0;

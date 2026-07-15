@@ -252,7 +252,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             val output = replaceOutputBuffer(inputFrames * bytesPerFrame)
             output.put(inputBuffer)
             output.flip()
-            maybeLogQueueInput(h, inputFrames, inputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining)
+            maybeLogQueueInput(h, inputFrames, inputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
             return
         }
 
@@ -262,7 +262,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val outputFrames = max(0, floor(exactOutputFrames).toInt())
         carryFrames = exactOutputFrames - outputFrames
 
-        maybeLogQueueInput(h, inputFrames, outputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining)
+        maybeLogQueueInput(h, inputFrames, outputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
 
         // Fully consume the input regardless of outcome — this processor
         // never asks to be re-called with the same bytes.
@@ -294,6 +294,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         pitch: Float,
         bytesPerFrame: Int,
         bufferSize: Int,
+        carry: Double,
     ) {
         val now = SystemClock.elapsedRealtime()
         if (now - lastQueueInputLogMs < 2000L) return
@@ -301,7 +302,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         NativeLogger.emit(
             "info", "Stretch",
             "[Stretch] queueInput hash=${System.identityHashCode(this)} handle=0x${h.toString(16)} " +
-                "inputFrames=$inputFrames outputFrames=$outputFrames speed=$spd pitch=${pitch}st " +
+                "inputFrames=$inputFrames outputFrames=$outputFrames carryFrames=$carry speed=$spd pitch=${pitch}st " +
                 "bytesPerFrame=$bytesPerFrame bufferSize=$bufferSize",
         )
     }
