@@ -473,7 +473,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                   ? 16
                                   : lerpDouble(22.0, coverLeft, progress)!,
                           child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 220),
+                            duration: const Duration(milliseconds: 120),
                             opacity: widget.hideArtwork ? 0.0 : 1.0,
                             child: AnimatedContainer(
                               duration: _animDuration,
