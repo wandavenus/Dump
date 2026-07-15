@@ -197,22 +197,21 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
     }
 
-    override fun queueEndOfStream() {
-        val h = handle
-        if (h != 0L && !(speed == 1f && pitchSemitones == 0f)) {
-            val channelCount = inputAudioFormat.channelCount
-            val drainFrames = max(1, nativeOutputLatencyFrames(h))
-            val outputBytes = drainFrames * channelCount * 4
-            val output = replaceOutputBuffer(outputBytes)
-            val result = nativeFlush(h, output, drainFrames)
-            if (result == 0) {
-                output.position(0).limit(outputBytes)
-            } else {
-                output.position(0).limit(0)
-            }
+    override fun onQueueEndOfStream() {
+    val h = handle
+    if (h != 0L && !(speed == 1f && pitchSemitones == 0f)) {
+        val channelCount = inputAudioFormat.channelCount
+        val drainFrames = max(1, nativeOutputLatencyFrames(h))
+        val outputBytes = drainFrames * channelCount * 4
+        val output = replaceOutputBuffer(outputBytes)
+        val result = nativeFlush(h, output, drainFrames)
+        if (result == 0) {
+            output.position(0).limit(outputBytes)
+        } else {
+            output.position(0).limit(0)
         }
-        super.queueEndOfStream()
     }
+}
 
     override fun onFlush() {
         // Called on seek/discontinuity while the processor stays configured —
