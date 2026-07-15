@@ -57,6 +57,10 @@ void main(List<String> args) async {
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
         'src/loudness_processor.c',     // Loudness Normalization (Phase 8.5)
         'src/aaudio_probe.c',           // AAudio exclusive/MMAP diagnostic probe
+        // ARM64 NEON Assembly kernels — compiled by clang's integrated assembler.
+        // Compiled only for arm64-v8a; the file is guarded by #ifdef __aarch64__
+        // so x86_64 host builds (unit tests) get an empty translation unit.
+        'src/neon_kernels.S',           // nar_gain_apply_neon, nar_biquad_stereo_neon
       ],
       libraries: libraries,
     );
