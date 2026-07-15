@@ -23,7 +23,7 @@ class PlayerTransportControls extends StatelessWidget {
           ),
           onPressed: hasPlaylist ? AudioService.skipPrevious : null,
         ),
-        const SizedBox(width: 25),
+        const SizedBox(width: 35),
         IconButton(
           icon: Icon(
             playbackState.isPlaying
@@ -38,7 +38,7 @@ class PlayerTransportControls extends StatelessWidget {
                 : AudioService.play();
           },
         ),
-        const SizedBox(width: 25),
+        const SizedBox(width: 35),
         IconButton(
           icon: const Icon(
             CupertinoIcons.forward_fill,
