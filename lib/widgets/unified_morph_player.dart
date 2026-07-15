@@ -626,7 +626,7 @@ Transform.translate(
             state.isPlaying
                 ? CupertinoIcons.pause_fill
                 : CupertinoIcons.arrowtriangle_right_fill,
-            size: 36,
+            size: 30,
             color: Colors.white,
           ),
         ),
@@ -634,7 +634,7 @@ Transform.translate(
           onPressed: AudioService.skipNext,
           icon: Icon(
             CupertinoIcons.forward_fill,
-            size: 36,
+            size: 30,
             color: Colors.white,
           ),
         ),
