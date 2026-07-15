@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/cupertino.dart';
 import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
 
@@ -17,7 +17,7 @@ class PlayerTransportControls extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(
-            Icons.fast_rewind_rounded,
+            CupertinoIcons.backward_fill,
             size: 64,
             color: Colors.white,
           ),
@@ -27,8 +27,8 @@ class PlayerTransportControls extends StatelessWidget {
         IconButton(
           icon: Icon(
             playbackState.isPlaying
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded,
+                ? CupertinoIcons.pause_fill
+                : CupertinoIcons.arrowtriangle_right_fill,
             size: 75,
             color: Colors.white,
           ),
@@ -41,7 +41,7 @@ class PlayerTransportControls extends StatelessWidget {
         const SizedBox(width: 15),
         IconButton(
           icon: const Icon(
-            Icons.fast_forward_rounded,
+            CupertinoIcons.forward_fill,
             size: 64,
             color: Colors.white,
           ),
