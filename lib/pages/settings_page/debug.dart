@@ -84,7 +84,7 @@ class _DebugSection extends StatelessWidget {
 // mode, then closes it immediately — no effect on playback.
 
 class _AAudioProbeRow extends StatefulWidget {
-  const _AAudioProbeRow({super.key});
+  const _AAudioProbeRow();
 
   @override
   State<_AAudioProbeRow> createState() => _AAudioProbeRowState();
