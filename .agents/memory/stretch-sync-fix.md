@@ -10,6 +10,9 @@ Any AudioProcessor that changes output frame count MUST contribute to `audioProc
 
 **How to apply:** Subclass `DefaultAudioProcessorChain`, override `getMediaDuration()` to apply the stretch processor's I/O frame ratio before delegating to super (Sonic inactive → identity). Wire via `.setAudioProcessorChain()`.
 
+## Status
+Implemented, Flutter Analyze clean, **verified on real device (2026-07-15) — position reporting correct, no buffering oscillation at any speed setting.**
+
 ## Fix (implemented, Flutter Analyze clean)
 
 ### SignalsmithStretchAudioProcessor.kt
