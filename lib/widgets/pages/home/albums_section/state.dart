@@ -71,7 +71,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(left: kPageLeftPadding, top: 51),
+          padding: EdgeInsets.only(left: kPageLeftPadding, top: 13),
           child: Text(
             'Top Picks For You',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -81,7 +81,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
           height: 368,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(kListLeftPadding, 5, 10, 10),
             itemCount: _albums.length,
             itemBuilder: (context, index) => _AlbumCard(
               album: _albums[index],
