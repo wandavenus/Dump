@@ -122,6 +122,7 @@ class Media3PlaybackService : MediaSessionService() {
     @Volatile private var activeDecoderIsHardware: Boolean = false
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
+    private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
     // so onAudioDecoderInitialized can include it in the "ffmpegDecoderInfo" event
@@ -134,6 +135,11 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
+
+    // Signalsmith Stretch — playback speed + pitch shift, replacing Sonic.
+    // See StretchManager doc for why this needs its own manager (per-instance
+    // native state, unlike the shared-global NativeDspAudioProcessor pipeline).
+    private lateinit var stretchManager: dev.wndavenz.music.effects.StretchManager
 
     // ── CRIT-01 fix: session player proxy ─────────────────────────────────────
     // activePlayerProxy is always the MediaSession's player. It dynamically
@@ -200,6 +206,7 @@ class Media3PlaybackService : MediaSessionService() {
         // createConfiguredPlayer() call so the primary player's processor is
         // correctly tracked from the start.
         stereoWidthManager = StereoWidthManager()
+        stretchManager = dev.wndavenz.music.effects.StretchManager()
 
         // Create primary player — always physical stream slot 0.
         primaryPlayer = createConfiguredPlayer(streamSlot = 0)
@@ -500,6 +507,12 @@ class Media3PlaybackService : MediaSessionService() {
             // toggle (AudioEffectsService.setBitPerfectMode) via
             // TransportCommands' "setBitPerfectMode" MethodChannel method.
             setBitPerfectMode = { enabled -> setBitPerfectMode(enabled) },
+
+            // Signalsmith Stretch — speed + pitch, replacing Sonic. Delegates
+            // to StretchManager which updates every live processor instance
+            // (primary + secondary/crossfade) atomically.
+            onSpeedChanged = { speed -> stretchManager.setSpeed(speed) },
+            onPitchSemitonesChanged = { semitones -> stretchManager.setPitchSemitones(semitones) },
 
             // Item 1: skip silence — applied to ALL live players atomically so
             // both active and standby behave identically during crossfade overlap.
@@ -880,6 +893,13 @@ class Media3PlaybackService : MediaSessionService() {
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
             else StereoWideningAudioProcessor()
 
+        // Signalsmith Stretch — replaces Sonic for both playback speed and
+        // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
+        // docs). Placed last in the chain, exactly where Sonic used to sit.
+        val stretchProc: dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor =
+            if (::stretchManager.isInitialized) stretchManager.createProcessor()
+            else dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor()
+
         // Custom DefaultRenderersFactory that injects the Phase 4.5 processor chain:
         //   NativeDspAudioProcessor → StereoWideningAudioProcessor
         //                           → SilenceSkipping → Sonic → AudioTrack
@@ -909,8 +929,15 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                // Phase 4.5 chain order: NativeDsp → StereoWiden → SilenceSkip → Sonic.
-                .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc))
+                // Chain order: NativeDsp → StereoWiden → Stretch (speed+pitch) → SilenceSkip.
+                // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
+                // internal Sonic/TeeAudioProcessor still exists downstream but is a
+                // transparent no-op as long as PlaybackParameters.speed/pitch stay at
+                // their ExoPlayer defaults (1.0/1.0), which TransportCommands now
+                // enforces — see StretchManager wiring below.
+                .setAudioProcessorChain(
+                    DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc, stretchProc)
+                )
                 .build()
         }
             .setEnableAudioFloatOutput(true)
@@ -994,6 +1021,9 @@ class Media3PlaybackService : MediaSessionService() {
         // StereoWidthManager when the player is released (via detachPlayerListener).
         if (::stereoWidthManager.isInitialized) {
             playerProcessors[player] = channelMixingProc
+        }
+        if (::stretchManager.isInitialized) {
+            playerStretchProcessors[player] = stretchProc
         }
 
         return player
@@ -1595,6 +1625,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
+        // Signalsmith Stretch: same rationale, for the speed/pitch processor.
+        playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
         lastAudioMimeType.remove(p)
     }

@@ -97,3 +97,67 @@ target_link_libraries(replaygain_native PRIVATE
 )
 
 target_compile_options(replaygain_native PRIVATE -Wall -Wextra -fvisibility=hidden)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Signalsmith Stretch module — pitch-shift / time-stretch playback engine
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Builds `libstretch_native.so`, wrapping Signalsmith Stretch (MIT license,
+# https://github.com/Signalsmith-Audio/signalsmith-stretch) — a header-only
+# C++11 STFT-based pitch/time library. Chosen to fully replace ExoPlayer's
+# built-in SonicAudioProcessor for BOTH speed and pitch, because Sonic's
+# WSOLA-ish algorithm gets noticeably robotic/gritty away from 1.0x, while
+# Signalsmith Stretch stays clean across a much wider pitch/rate range.
+#
+# Signalsmith Stretch itself depends on header-only "Signalsmith Linear"
+# (also MIT) for its FFT/STFT plumbing. Both are pinned to the exact tags
+# their own upstream CMakeLists.txt were pinned to at integration time —
+# do not casually bump without re-checking the API surface below still
+# matches (process()/flush()/setTransposeSemitones() signatures).
+#
+# NOTE: same caveat as replaygain_native above — this sandbox has no
+# Android SDK/NDK, so this section has never actually been built here.
+# The include-directory layout below was verified by inspecting the
+# fetched repos' structure directly (GitHub API), not by compiling.
+#
+# We deliberately do NOT add_subdirectory() either upstream repo (which is
+# what their own CMakeLists.txt normally does via FetchContent_MakeAvailable):
+#   - both require cmake_minimum_required(3.24), higher than this project's
+#     3.22 floor (matching the cmake version pinned in app/build.gradle);
+#   - their CMakeLists.txt also probes Apple Accelerate / Intel IPP / PFFFT,
+#     none of which apply to this Android-only build.
+# Instead we FetchContent_Populate() just the sources and wire up our own
+# minimal include paths — both libraries are header-only, so no upstream
+# build step is actually needed.
+FetchContent_Declare(
+    signalsmith_linear
+    GIT_REPOSITORY https://github.com/Signalsmith-Audio/linear.git
+    GIT_TAG        0.3.1
+)
+FetchContent_GetProperties(signalsmith_linear)
+if(NOT signalsmith_linear_POPULATED)
+    FetchContent_Populate(signalsmith_linear)
+endif()
+
+FetchContent_Declare(
+    signalsmith_stretch
+    GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
+    GIT_TAG        1.1.0
+)
+FetchContent_GetProperties(signalsmith_stretch)
+if(NOT signalsmith_stretch_POPULATED)
+    FetchContent_Populate(signalsmith_stretch)
+endif()
+
+add_library(stretch_native SHARED
+    stretch/stretch_jni.cpp
+)
+
+target_include_directories(stretch_native PRIVATE
+    ${signalsmith_stretch_SOURCE_DIR}          # signalsmith-stretch.h (repo root)
+    ${signalsmith_linear_SOURCE_DIR}/include   # signalsmith-linear/{fft,linear,stft}.h
+)
+
+target_compile_options(stretch_native PRIVATE -Wall -Wextra -fvisibility=hidden -O3)
+
+target_link_libraries(stretch_native PRIVATE log)

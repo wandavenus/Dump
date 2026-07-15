@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.0',
+    date: '15 Juli 2026',
+    changes: [
+      'Engine Speed & Pitch diganti total: dari Sonic (bawaan Media3/ExoPlayer) ke Signalsmith Stretch — library time-stretch/pitch-shift native (C++) kualitas tinggi, jauh lebih bersih/tidak "robotic" terutama di speed/pitch ekstrem.',
+      'Speed & pitch sekarang diproses di processor terpisah per player (mendukung crossfade tanpa konflik state), dengan fallback aman: kalau native library gagal dimuat, audio tetap main normal di 1.0x tanpa crash.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.1.9',
     date: '15 Juli 2026',
     changes: [

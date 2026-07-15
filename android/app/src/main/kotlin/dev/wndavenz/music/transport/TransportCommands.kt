@@ -3,7 +3,6 @@ package dev.wndavenz.music.transport
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.wndavenz.music.audio_focus.AudioFocusManager
@@ -84,6 +83,14 @@ class TransportCommands(
      * existing Dart bitPerfectMode toggle — no new UI is involved.
      */
     private val setBitPerfectMode: (Boolean) -> Unit = {},
+    /**
+     * Playback speed + pitch shift — delegates to StretchManager, which
+     * updates every live SignalsmithStretchAudioProcessor instance (primary
+     * + secondary/crossfade) atomically. Replaces the old PlaybackParameters-
+     * based approach (which drove ExoPlayer's built-in Sonic processor).
+     */
+    private val onSpeedChanged: (Float) -> Unit = {},
+    private val onPitchSemitonesChanged: (Float) -> Unit = {},
 ) {
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
@@ -232,14 +239,24 @@ class TransportCommands(
             // ── Playback parameters ───────────────────────────────────────────
 
             "setSpeed" -> {
+                // Speed is now realised by SignalsmithStretchAudioProcessor
+                // (see StretchManager), not ExoPlayer's PlaybackParameters/Sonic —
+                // Signalsmith Stretch stays clean far outside 1.0x where Sonic
+                // gets robotic. PlaybackParameters.speed is deliberately left at
+                // its ExoPlayer default (1.0) so Sonic's own speed handling
+                // never doubles up with Stretch's.
                 val speed = (call.argument<Number>("speed")?.toFloat() ?: 1f).coerceIn(0.25f, 4f)
-                p.playbackParameters = PlaybackParameters(speed, p.playbackParameters.pitch)
+                onSpeedChanged(speed)
                 result.success(null)
             }
 
             "setPitch" -> {
-                val pitch = (call.argument<Number>("pitch")?.toFloat() ?: 1f).coerceIn(0.5f, 2f)
-                p.playbackParameters = PlaybackParameters(p.playbackParameters.speed, pitch)
+                // Dart sends a pitch FACTOR (0.5x–2x, matching the old
+                // PlaybackParameters.pitch semantics) — convert to semitones
+                // for Signalsmith Stretch's setTransposeSemitones().
+                val pitchFactor = (call.argument<Number>("pitch")?.toFloat() ?: 1f).coerceIn(0.5f, 2f)
+                val semitones = 12f * (kotlin.math.ln(pitchFactor.toDouble()) / kotlin.math.ln(2.0)).toFloat()
+                onPitchSemitonesChanged(semitones)
                 result.success(null)
             }
 

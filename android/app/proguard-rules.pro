@@ -26,3 +26,6 @@
 -keepclassmembers class dev.wndavenz.music.replaygain.ReplayGainNative {
     *;
 }
+-keepclasseswithmembers class dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor {
+    native <methods>;
+}
