@@ -57,6 +57,16 @@ void main(List<String> args) async {
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
         'src/loudness_processor.c',     // Loudness Normalization (Phase 8.5)
         'src/aaudio_probe.c',           // AAudio exclusive/MMAP diagnostic probe
+        // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
+        // System.loadLibrary("native_audio_runtime") on Android; it is the
+        // JVM/JNI counterpart to the Dart FFI entry points in this same
+        // library (see native_dsp_jni.c header comment). Unlike the other
+        // files above, this one unconditionally includes <jni.h>, which only
+        // exists in an Android NDK toolchain — it must be Android-only or it
+        // breaks Linux/Windows/macOS/host-test builds of this package.
+        if (input.config.buildCodeAssets &&
+            input.config.code.targetOS == OS.android)
+          'src/native_dsp_jni.c',
         // ARM64 NEON Assembly kernels — compiled by clang's integrated assembler.
         // Compiled only for arm64-v8a; the file is guarded by #ifdef __aarch64__
         // so x86_64 host builds (unit tests) get an empty translation unit.
