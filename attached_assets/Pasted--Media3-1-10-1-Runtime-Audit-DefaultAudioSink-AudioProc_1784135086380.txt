@@ -1,0 +1,354 @@
+# Media3 1.10.1 Runtime Audit — DefaultAudioSink / AudioProcessingPipeline
+
+IMPORTANT RULES
+
+1. Do NOT modify any code.
+2. Do NOT create patches.
+3. Do NOT propose fixes.
+4. Do NOT speculate.
+5. Every conclusion MUST be backed by the actual Media3 1.10.1 source code.
+6. Read the complete call chain before making any conclusion.
+7. If something cannot be proven from source, explicitly write "NOT VERIFIABLE".
+8. This audit is focused ONLY on Media3 internals, not my application code.
+
+────────────────────────────────────────
+
+## Background
+
+My own DSP implementation has already been audited.
+
+The following have already been ruled out from source:
+
+- Signalsmith Stretch frame calculation
+- outputFrames math
+- carryFrames
+- nativeProcess()
+- nativeFlush()
+- JNI implementation
+- AudioProcessor lifecycle
+- Signalsmith library limits
+
+Playback works correctly at normal values.
+
+The remaining bug only appears when Speed Playback and/or Pitch Shift are pushed to the maximum slider values.
+
+Symptoms:
+
+- playback suddenly stops
+- audio disappears
+- Play/Pause UI rapidly flickers
+- playback sometimes never recovers
+
+The next suspect is Media3 itself.
+
+────────────────────────────────────────
+
+## Read ONLY Media3 1.10.1 source
+
+Please inspect the actual Media3 source code (androidx/media tag 1.10.1).
+
+Read at minimum every class involved in PCM processing:
+
+- DefaultAudioSink
+- AudioProcessingPipeline
+- DefaultAudioProcessorChain
+- AudioProcessor
+- AudioTrackPositionTracker
+- DecoderAudioRenderer
+- MediaCodecAudioRenderer
+- ExoPlayerImplInternal
+- PlaybackInfo
+- PlayerMessage
+- any other class directly involved in audio rendering
+
+Read the complete execution flow.
+
+────────────────────────────────────────
+
+## Investigate these questions
+
+────────────────────────────────────────
+
+### 1.
+
+Exactly when does DefaultAudioSink stop requesting buffers from AudioProcessors?
+
+Show:
+
+- source file
+- method
+- exact condition
+
+────────────────────────────────────────
+
+### 2.
+
+Exactly when does AudioProcessingPipeline stop calling queueInput()?
+
+Can repeated tiny output buffers cause the pipeline to stop?
+
+Can zero-length output cause it?
+
+Show the exact code.
+
+────────────────────────────────────────
+
+### 3.
+
+How does DefaultAudioSink determine starvation?
+
+Search for:
+
+starvation
+
+underrun
+
+drain
+
+stall
+
+buffer exhaustion
+
+insufficient output
+
+empty output
+
+Show every condition.
+
+────────────────────────────────────────
+
+### 4.
+
+What exactly causes:
+
+PlaybackState = BUFFERING
+
+during playback?
+
+Trace the complete call chain.
+
+Do NOT stop at Player.Listener.
+
+Go all the way back to ExoPlayerImplInternal.
+
+────────────────────────────────────────
+
+### 5.
+
+What exactly causes:
+
+PlaybackState = ENDED
+
+during playback?
+
+Could repeated empty processor output trigger it?
+
+Or is real stream EOS required?
+
+Show source.
+
+────────────────────────────────────────
+
+### 6.
+
+AudioTrack underrun
+
+Inspect:
+
+AudioTrackPositionTracker
+
+DefaultAudioSink
+
+AudioTrack usage
+
+Show:
+
+- how underrun is detected
+- how it is reported
+- whether underrun changes playback state
+- whether underrun pauses playback
+- whether underrun can produce Play/Pause flicker
+
+────────────────────────────────────────
+
+### 7.
+
+Repeated small outputFrames
+
+Suppose my processor continuously returns:
+
+inputFrames = 960
+
+outputFrames = 240
+
+or
+
+inputFrames = 960
+
+outputFrames = 120
+
+or
+
+outputFrames fluctuates rapidly.
+
+Can this by itself cause Media3 to:
+
+- enter BUFFERING
+- pause rendering
+- stop requesting input
+- think EOS happened
+- restart renderer
+- recreate AudioTrack
+
+Show the exact source proving yes or no.
+
+────────────────────────────────────────
+
+### 8.
+
+Empty AudioProcessor output
+
+Inspect every place where:
+
+output.remaining()==0
+
+or
+
+output.hasRemaining()==false
+
+or
+
+buffer.remaining()==0
+
+is checked.
+
+Trace exactly what Media3 does afterwards.
+
+────────────────────────────────────────
+
+### 9.
+
+Drain behaviour
+
+Inspect how DefaultAudioSink drains AudioProcessors.
+
+Can one processor returning empty repeatedly prevent downstream processors from draining?
+
+Show source.
+
+────────────────────────────────────────
+
+### 10.
+
+AudioProcessor timing
+
+Is there any timeout inside Media3?
+
+Examples:
+
+- processor too slow
+- processor returns nothing too many times
+- watchdog
+- retry limit
+- starvation counter
+
+Search all relevant source.
+
+────────────────────────────────────────
+
+### 11.
+
+Renderer lifecycle
+
+Trace:
+
+MediaCodecAudioRenderer
+
+↓
+
+DecoderAudioRenderer
+
+↓
+
+DefaultAudioSink
+
+↓
+
+AudioProcessingPipeline
+
+↓
+
+AudioProcessor
+
+Show every place where rendering can stop without a player error.
+
+────────────────────────────────────────
+
+### 12.
+
+Player state transitions
+
+Trace:
+
+READY
+
+↓
+
+BUFFERING
+
+↓
+
+READY
+
+↓
+
+BUFFERING
+
+What exact internal conditions create this loop?
+
+Do NOT explain conceptually.
+
+Show the exact methods involved.
+
+────────────────────────────────────────
+
+### 13.
+
+Search entire Media3 source for
+
+- starvation
+- underrun
+- stalled
+- waiting
+- timeout
+- buffer full
+- buffer empty
+- output empty
+- processBuffers
+- drainAudioProcessors
+- queueInput
+- queueEndOfStream
+- getOutput
+- isEnded
+- isReady
+- playWhenReady
+
+Include every relevant finding.
+
+────────────────────────────────────────
+
+## Deliverable
+
+Do NOT suggest fixes.
+
+Only provide:
+
+1. Verified findings.
+2. Exact file names.
+3. Exact methods.
+4. Exact line numbers (if available).
+5. Complete execution flow.
+6. Root cause only if it can be proven.
+7. Otherwise clearly mark it as NOT VERIFIABLE.
+
+If Media3 source proves that repeated small outputFrames or repeated empty AudioProcessor output can cause BUFFERING, ENDED, starvation, renderer restart, or playback oscillation, show the exact code path that proves it.
