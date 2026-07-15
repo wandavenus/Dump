@@ -1,10 +1,12 @@
 package dev.wndavenz.music.effects
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.events.NativeLogger
 import java.nio.ByteBuffer
 import kotlin.math.floor
 import kotlin.math.max
@@ -97,15 +99,34 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         private external fun nativeFlush(handle: Long, output: ByteBuffer, outputFrames: Int): Int
 
         /** Evaluated once; never changes afterwards. */
-        val isLibraryAvailable: Boolean = runCatching {
-            System.loadLibrary("stretch_native")
-            true
-        }.getOrElse { e ->
-            Log.w(LOG_TAG, "stretch_native unavailable — speed/pitch bypassed: $e")
-            false
+        val isLibraryAvailable: Boolean = run {
+            Log.i(LOG_TAG, "Loading native library stretch_native...")
+            NativeLogger.emit("info", "Stretch", "[Stretch] Loading native library stretch_native...")
+            runCatching {
+                System.loadLibrary("stretch_native")
+                Log.i(LOG_TAG, "Native library loaded successfully")
+                NativeLogger.emit("info", "Stretch", "[Stretch] Native library loaded successfully")
+                true
+            }.getOrElse { e ->
+                Log.w(LOG_TAG, "Failed to load stretch_native.so: $e")
+                NativeLogger.emit("error", "Stretch", "[Stretch] Failed to load stretch_native.so: ${e.message}")
+                false
+            }
         }
 
         private const val MAX_CHANNELS = 8
+
+        /**
+         * Bridge for native (JNI/C++) log calls — stretch_jni.cpp resolves this
+         * static method via JNI and calls it directly, since native code cannot
+         * reach the Dart-facing [NativeLogger] EventChannel on its own. Every
+         * native log therefore also appears in the app's System Log screen, not
+         * only in Logcat.
+         */
+        @JvmStatic
+        fun nativeLog(level: String, message: String) {
+            NativeLogger.emit(level, "StretchNative", message)
+        }
     }
 
     @Volatile private var speed: Float = 1f
@@ -113,6 +134,11 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
     private var handle: Long = 0L
     private var carryFrames: Double = 0.0
+
+    // queueInput() runs exclusively on this instance's own ExoPlayer audio
+    // thread (see class doc "Per-player instances"), so a plain (non-volatile)
+    // field is safe here and keeps the throttle check allocation-free.
+    private var lastQueueInputLogMs: Long = 0L
 
     /** Applies a new speed (1.0 = normal). Safe to call from any thread. */
     fun setSpeed(newSpeed: Float) {
@@ -129,28 +155,71 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     // ── BaseAudioProcessor overrides ─────────────────────────────────────────
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (!isLibraryAvailable ||
-            inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ||
-            inputAudioFormat.channelCount !in 1..MAX_CHANNELS
-        ) {
+        val notSetReason = when {
+            !isLibraryAvailable -> "library not available"
+            inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT ->
+                "encoding=${inputAudioFormat.encoding} != ENCODING_PCM_FLOAT(${C.ENCODING_PCM_FLOAT})"
+            inputAudioFormat.channelCount !in 1..MAX_CHANNELS ->
+                "channelCount=${inputAudioFormat.channelCount} out of range 1..$MAX_CHANNELS"
+            else -> null
+        }
+        if (notSetReason != null) {
+            NativeLogger.emit(
+                "warn", "Stretch",
+                "[Stretch] onConfigure -> NOT_SET reason=\"$notSetReason\" sampleRate=${inputAudioFormat.sampleRate} " +
+                    "channels=${inputAudioFormat.channelCount} encoding=${inputAudioFormat.encoding} " +
+                    "handle=0x${handle.toString(16)} libraryAvailable=$isLibraryAvailable active=false",
+            )
             return AudioProcessor.AudioFormat.NOT_SET
         }
 
         if (handle != 0L) {
+            NativeLogger.emit("info", "Stretch", "[Stretch] onConfigure destroying stale handle=0x${handle.toString(16)}")
             nativeDestroy(handle)
             handle = 0L
         }
         val h = nativeCreate(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         if (h == 0L) {
             Log.w(LOG_TAG, "native stretch init failed — speed/pitch bypassed for this format")
+            NativeLogger.emit(
+                "warn", "Stretch",
+                "[Stretch] onConfigure -> NOT_SET reason=\"nativeCreate returned 0\" " +
+                    "sampleRate=${inputAudioFormat.sampleRate} channels=${inputAudioFormat.channelCount} " +
+                    "libraryAvailable=$isLibraryAvailable active=false",
+            )
             return AudioProcessor.AudioFormat.NOT_SET
         }
         handle = h
         nativeSetPitchSemitones(h, pitchSemitones)
         carryFrames = 0.0
 
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] onConfigure -> ACTIVE sampleRate=${inputAudioFormat.sampleRate} " +
+                "channels=${inputAudioFormat.channelCount} encoding=${inputAudioFormat.encoding} " +
+                "handle=0x${h.toString(16)} libraryAvailable=$isLibraryAvailable returned=PCM_FLOAT active=true",
+        )
+        logDiagnosticSummary(inputAudioFormat, h)
+
         // Frame count changes with speed, but channel layout/encoding/rate do not.
         return inputAudioFormat
+    }
+
+    /** One-shot "playback started" summary block — see rule 13 of the Stretch diagnostics spec. */
+    private fun logDiagnosticSummary(format: AudioProcessor.AudioFormat, h: Long) {
+        val summary = buildString {
+            appendLine("[Stretch] ========== Stretch Diagnostic ==========")
+            appendLine("[Stretch] Library Loaded      : $isLibraryAvailable")
+            appendLine("[Stretch] Processor Active    : true")
+            appendLine("[Stretch] Audio Format        : ${if (format.encoding == C.ENCODING_PCM_FLOAT) "PCM_FLOAT" else format.encoding.toString()}")
+            appendLine("[Stretch] Sample Rate         : ${format.sampleRate}")
+            appendLine("[Stretch] Channels            : ${format.channelCount}")
+            appendLine("[Stretch] Handle              : 0x${h.toString(16)}")
+            appendLine("[Stretch] Speed               : ${"%.2f".format(speed)}")
+            appendLine("[Stretch] Pitch               : ${"%.2f".format(pitchSemitones)} st")
+            append("[Stretch] ========================================")
+        }
+        NativeLogger.emit("info", "Stretch", summary)
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -171,6 +240,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             val output = replaceOutputBuffer(inputFrames * bytesPerFrame)
             output.put(inputBuffer)
             output.flip()
+            maybeLogQueueInput(h, inputFrames, inputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining)
             return
         }
 
@@ -179,6 +249,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val exactOutputFrames = inputFrames / currentSpeed.toDouble() + carryFrames
         val outputFrames = max(0, floor(exactOutputFrames).toInt())
         carryFrames = exactOutputFrames - outputFrames
+
+        maybeLogQueueInput(h, inputFrames, outputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining)
 
         // Fully consume the input regardless of outcome — this processor
         // never asks to be re-called with the same bytes.
@@ -197,19 +269,49 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
     }
 
+    /** Throttled to at most once every 2s (rule 6) to avoid flooding the System Log. */
+    private fun maybeLogQueueInput(
+        h: Long,
+        inputFrames: Int,
+        outputFrames: Int,
+        spd: Float,
+        pitch: Float,
+        bytesPerFrame: Int,
+        bufferSize: Int,
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastQueueInputLogMs < 2000L) return
+        lastQueueInputLogMs = now
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] queueInput hash=${System.identityHashCode(this)} handle=0x${h.toString(16)} " +
+                "inputFrames=$inputFrames outputFrames=$outputFrames speed=$spd pitch=${pitch}st " +
+                "bytesPerFrame=$bytesPerFrame bufferSize=$bufferSize",
+        )
+    }
+
     override fun onQueueEndOfStream() {
     val h = handle
+    NativeLogger.emit("info", "Stretch", "[Stretch] onQueueEndOfStream EOS received handle=0x${h.toString(16)}")
     if (h != 0L && !(speed == 1f && pitchSemitones == 0f)) {
         val channelCount = inputAudioFormat.channelCount
         val drainFrames = max(1, nativeOutputLatencyFrames(h))
+        NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush started handle=0x${h.toString(16)} drainFrames=$drainFrames")
         val outputBytes = drainFrames * channelCount * 4
         val output = replaceOutputBuffer(outputBytes)
         val result = nativeFlush(h, output, drainFrames)
         if (result == 0) {
             output.position(0).limit(outputBytes)
+            NativeLogger.emit(
+                "info", "Stretch",
+                "[Stretch] EOS flush completed handle=0x${h.toString(16)} framesFlushed=$drainFrames result=$result",
+            )
         } else {
             output.position(0).limit(0)
+            NativeLogger.emit("warn", "Stretch", "[Stretch] EOS flush failed handle=0x${h.toString(16)} result=$result")
         }
+    } else {
+        NativeLogger.emit("info", "Stretch", "[Stretch] EOS flush skipped (bypass or no handle) handle=0x${h.toString(16)}")
     }
 }
 
@@ -218,6 +320,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         // clear internal STFT state so spectral history never bleeds across
         // a seek boundary.
         val h = handle
+        NativeLogger.emit("info", "Stretch", "[Stretch] onFlush resetting DSP state handle=0x${h.toString(16)}")
         if (h != 0L) nativeReset(h)
         carryFrames = 0.0
     }
@@ -225,8 +328,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     override fun onReset() {
         val h = handle
         if (h != 0L) {
+            NativeLogger.emit("info", "Stretch", "[Stretch] onReset destroying handle=0x${h.toString(16)}")
             nativeDestroy(h)
             handle = 0L
+            NativeLogger.emit("info", "Stretch", "[Stretch] onReset processor destroyed handle=0x${h.toString(16)}")
         }
         carryFrames = 0.0
     }

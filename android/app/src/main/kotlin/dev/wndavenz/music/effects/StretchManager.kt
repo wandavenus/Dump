@@ -37,12 +37,25 @@ class StretchManager {
         val p = SignalsmithStretchAudioProcessor()
         p.setSpeed(speed)
         p.setPitchSemitones(pitchSemitones)
-        synchronized(lock) { processors.add(p) }
+        val count: Int
+        synchronized(lock) {
+            processors.add(p)
+            count = processors.size
+        }
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] processor created hash=${System.identityHashCode(p)} count=$count speed=$speed pitch=${pitchSemitones}st",
+        )
         return p
     }
 
     fun removeProcessor(p: SignalsmithStretchAudioProcessor) {
-        synchronized(lock) { processors.remove(p) }
+        val count: Int
+        synchronized(lock) {
+            processors.remove(p)
+            count = processors.size
+        }
+        NativeLogger.emit("info", "Stretch", "[Stretch] processor destroyed hash=${System.identityHashCode(p)} count=$count")
     }
 
     fun setSpeed(newSpeed: Float) {
@@ -50,7 +63,11 @@ class StretchManager {
         val snapshot: List<SignalsmithStretchAudioProcessor>
         synchronized(lock) { snapshot = processors.toList() }
         snapshot.forEach { it.setSpeed(speed) }
-        NativeLogger.emit("info", "Stretch", "speed=$speed applied to ${snapshot.size} live processor(s)")
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] speed changed speed=$speed pitch=${pitchSemitones}st appliedTo=${snapshot.size} " +
+                "hashes=${snapshot.map { System.identityHashCode(it) }}",
+        )
     }
 
     fun setPitchSemitones(newSemitones: Float) {
@@ -58,10 +75,19 @@ class StretchManager {
         val snapshot: List<SignalsmithStretchAudioProcessor>
         synchronized(lock) { snapshot = processors.toList() }
         snapshot.forEach { it.setPitchSemitones(pitchSemitones) }
-        NativeLogger.emit("info", "Stretch", "pitch=${pitchSemitones}st applied to ${snapshot.size} live processor(s)")
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] pitch changed speed=$speed pitch=${pitchSemitones}st appliedTo=${snapshot.size} " +
+                "hashes=${snapshot.map { System.identityHashCode(it) }}",
+        )
     }
 
     fun releaseAll() {
-        synchronized(lock) { processors.clear() }
+        val count: Int
+        synchronized(lock) {
+            processors.clear()
+            count = processors.size
+        }
+        NativeLogger.emit("info", "Stretch", "[Stretch] releaseAll — all processors cleared count=$count")
     }
 }

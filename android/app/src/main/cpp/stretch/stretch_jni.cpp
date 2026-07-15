@@ -41,9 +41,13 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <new>
+#include <string>
 #include <vector>
 
 #include <android/log.h>
@@ -51,19 +55,97 @@
 #include "signalsmith-stretch.h"
 
 #define LOG_TAG "StretchNative"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+// ─────────────────────────────────────────────────────────────────────────
+// System Log bridge (diagnostics feature — added per runtime-diagnostics
+// request; does NOT alter any DSP behaviour below).
+//
+// Native code cannot reach the Dart-facing NativeLogger EventChannel
+// directly, so every log point below also calls back into Kotlin via
+// SignalsmithStretchAudioProcessor.nativeLog(level, message) (a plain
+// @JvmStatic method), which forwards to NativeLogger.emit(...) — the same
+// mechanism already used for every other native→System Log message in this
+// app (see events/EventEmitter.kt + lib/services/log_service/native_log_bridge.dart).
+// This keeps Logcat (__android_log_print) AND the in-app System Log in sync.
+// ─────────────────────────────────────────────────────────────────────────
+
 namespace {
+
+std::mutex gLogMutex;
+jclass gProcClass = nullptr;
+jmethodID gLogMethodId = nullptr;
+
+std::string ptrToHex(jlong p) {
+    char buf[24];
+    snprintf(buf, sizeof(buf), "0x%llx", static_cast<unsigned long long>(p));
+    return std::string(buf);
+}
+
+// Calls SignalsmithStretchAudioProcessor.nativeLog(level, message) so the
+// message also lands in the app's System Log screen, not just Logcat.
+// Resolved and cached once (global ref); safe to call from any JNI entry
+// point since each already carries a valid JNIEnv*.
+void bridgeToSystemLog(JNIEnv *env, const char *level, const std::string &message) {
+    std::lock_guard<std::mutex> lock(gLogMutex);
+    if (gProcClass == nullptr) {
+        jclass local = env->FindClass("dev/wndavenz/music/effects/SignalsmithStretchAudioProcessor");
+        if (local == nullptr) {
+            env->ExceptionClear();
+            return;
+        }
+        gProcClass = static_cast<jclass>(env->NewGlobalRef(local));
+        env->DeleteLocalRef(local);
+        if (gProcClass != nullptr) {
+            gLogMethodId = env->GetStaticMethodID(gProcClass, "nativeLog", "(Ljava/lang/String;Ljava/lang/String;)V");
+            if (gLogMethodId == nullptr) env->ExceptionClear();
+        }
+    }
+    if (gProcClass == nullptr || gLogMethodId == nullptr) return;
+
+    jstring jLevel = env->NewStringUTF(level);
+    jstring jMessage = env->NewStringUTF(message.c_str());
+    env->CallStaticVoidMethod(gProcClass, gLogMethodId, jLevel, jMessage);
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    env->DeleteLocalRef(jLevel);
+    env->DeleteLocalRef(jMessage);
+}
+
+// Single entry point used by every log call below: writes to Logcat (for
+// `adb logcat` users) AND bridges to the in-app System Log (rule 4).
+// `msg` should NOT include the "[Stretch] " prefix — added once here (rule 7).
+void slog(JNIEnv *env, const char *level, const std::string &msg) {
+    const std::string full = std::string("[Stretch] ") + msg;
+    if (std::strcmp(level, "error") == 0) {
+        LOGE("%s", full.c_str());
+    } else if (std::strcmp(level, "warn") == 0) {
+        LOGW("%s", full.c_str());
+    } else {
+        LOGI("%s", full.c_str());
+    }
+    bridgeToSystemLog(env, level, full);
+}
 
 // Defensive upper bound — real content is mono/stereo/5.1/7.1 at most.
 // Rejecting anything above this in nativeCreate() avoids unbounded
 // allocation from a malformed AudioFormat.
 constexpr int kMaxChannels = 8;
 
+// nativeProcess() logging (RMS + call summary) is throttled to at most once
+// every 2 seconds per handle (rule 6) — see StretchHandle::lastProcessLogTime.
+constexpr auto kProcessLogInterval = std::chrono::milliseconds(2000);
+
 struct StretchHandle {
     signalsmith::stretch::SignalsmithStretch<float> stretch;
     int channels = 0;
+
+    // Diagnostics only — last time nativeProcess() emitted its throttled
+    // RMS/summary log. Default-constructed to the clock epoch so the very
+    // first call always logs. Never read/written outside the single audio
+    // thread that owns this handle (see class doc in the .kt file).
+    std::chrono::steady_clock::time_point lastProcessLogTime{};
 
     // Flat planar scratch storage, reused (grow-only) across calls.
     // inPtrs[c]/outPtrs[c] are recomputed on every call from the CURRENT
@@ -100,68 +182,86 @@ extern "C" {
 
 JNIEXPORT jlong JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
-        JNIEnv *, jclass, jint sampleRate, jint channels) {
+        JNIEnv *env, jclass, jint sampleRate, jint channels) {
+    slog(env, "info", "nativeCreate sampleRate=" + std::to_string(sampleRate) + " channels=" + std::to_string(channels));
     if (sampleRate <= 0 || channels <= 0 || channels > kMaxChannels) {
-        LOGW("nativeCreate: rejecting invalid params sampleRate=%d channels=%d", sampleRate, channels);
+        slog(env, "warn", "nativeCreate rejecting invalid params sampleRate=" + std::to_string(sampleRate) +
+                               " channels=" + std::to_string(channels));
         return 0;
     }
     auto *handle = new (std::nothrow) StretchHandle();
     if (handle == nullptr) {
-        LOGE("nativeCreate: allocation failed");
+        slog(env, "error", "nativeCreate allocation failed");
         return 0;
     }
     handle->channels = channels;
     try {
         // presetDefault(): ~120ms block / ~30ms interval — the library's
         // general-purpose preset, a good default for full-range music.
+        slog(env, "info", "presetDefault() channels=" + std::to_string(channels) + " sampleRate=" + std::to_string(sampleRate));
         handle->stretch.presetDefault(channels, static_cast<float>(sampleRate));
     } catch (...) {
-        LOGE("nativeCreate: presetDefault() threw");
+        slog(env, "error", "nativeCreate presetDefault() threw");
         delete handle;
         return 0;
     }
-    return static_cast<jlong>(reinterpret_cast<intptr_t>(handle));
+    const jlong ptr = static_cast<jlong>(reinterpret_cast<intptr_t>(handle));
+    slog(env, "info", "nativeCreate succeeded pointer=" + ptrToHex(ptr));
+    return ptr;
 }
 
 JNIEXPORT void JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeDestroy(
-        JNIEnv *, jclass, jlong handlePtr) {
+        JNIEnv *env, jclass, jlong handlePtr) {
+    slog(env, "info", "nativeDestroy pointer=" + ptrToHex(handlePtr));
     delete fromPtr(handlePtr);
 }
 
 JNIEXPORT void JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeReset(
-        JNIEnv *, jclass, jlong handlePtr) {
+        JNIEnv *env, jclass, jlong handlePtr) {
+    slog(env, "info", "nativeReset pointer=" + ptrToHex(handlePtr));
     auto *h = fromPtr(handlePtr);
     if (h == nullptr) return;
     try {
         h->stretch.reset();
     } catch (...) {
-        LOGE("nativeReset: reset() threw");
+        slog(env, "error", "nativeReset reset() threw pointer=" + ptrToHex(handlePtr));
     }
 }
 
 JNIEXPORT void JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeSetPitchSemitones(
-        JNIEnv *, jclass, jlong handlePtr, jfloat semitones) {
+        JNIEnv *env, jclass, jlong handlePtr, jfloat semitones) {
     auto *h = fromPtr(handlePtr);
-    if (h == nullptr) return;
+    if (h == nullptr) {
+        slog(env, "warn", "nativeSetPitchSemitones null handle pointer=" + ptrToHex(handlePtr));
+        return;
+    }
     if (!std::isfinite(semitones)) semitones = 0.0f;
+    {
+        char buf[96];
+        snprintf(buf, sizeof(buf), "setTransposeSemitones() pointer=%s semitones=%.3f", ptrToHex(handlePtr).c_str(), semitones);
+        slog(env, "info", buf);
+    }
     try {
         h->stretch.setTransposeSemitones(semitones);
     } catch (...) {
-        LOGE("nativeSetPitchSemitones: threw");
+        slog(env, "error", "nativeSetPitchSemitones threw pointer=" + ptrToHex(handlePtr));
     }
 }
 
 JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeOutputLatencyFrames(
-        JNIEnv *, jclass, jlong handlePtr) {
+        JNIEnv *env, jclass, jlong handlePtr) {
     auto *h = fromPtr(handlePtr);
     if (h == nullptr) return 0;
     try {
-        return h->stretch.outputLatency();
+        const int latency = h->stretch.outputLatency();
+        slog(env, "info", "nativeOutputLatencyFrames pointer=" + ptrToHex(handlePtr) + " latency=" + std::to_string(latency));
+        return latency;
     } catch (...) {
+        slog(env, "error", "nativeOutputLatencyFrames threw pointer=" + ptrToHex(handlePtr));
         return 0;
     }
 }
@@ -171,40 +271,87 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeOutputLat
 // Signalsmith Stretch realises time-stretching — see README "Time-stretching").
 // Returns 0 on success, negative on failure (Kotlin side treats this as
 // "emit nothing for this call" — fail-open, never garbage audio).
+//
+// Diagnostics (RMS + call summary) are throttled to at most once every 2s
+// per handle (rule 6) via StretchHandle::lastProcessLogTime — this adds no
+// extra per-sample work on the throttled-out calls beyond one clock read.
 JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         JNIEnv *env, jclass, jlong handlePtr,
         jobject inputBuffer, jint inputFrames,
         jobject outputBuffer, jint outputFrames) {
     auto *h = fromPtr(handlePtr);
-    if (h == nullptr || inputFrames < 0 || outputFrames < 0) return -1;
+    if (h == nullptr || inputFrames < 0 || outputFrames < 0) {
+        slog(env, "warn", "nativeProcess invalid args pointer=" + ptrToHex(handlePtr) +
+                               " inputFrames=" + std::to_string(inputFrames) + " outputFrames=" + std::to_string(outputFrames));
+        return -1;
+    }
 
     auto *inSamples = static_cast<float *>(env->GetDirectBufferAddress(inputBuffer));
     auto *outSamples = static_cast<float *>(env->GetDirectBufferAddress(outputBuffer));
     if (inSamples == nullptr || outSamples == nullptr) {
-        LOGE("nativeProcess: GetDirectBufferAddress returned null");
+        slog(env, "error", "nativeProcess GetDirectBufferAddress returned null pointer=" + ptrToHex(handlePtr));
         return -1;
     }
+
+    const auto now = std::chrono::steady_clock::now();
+    const bool shouldLog = (now - h->lastProcessLogTime) >= kProcessLogInterval;
 
     try {
         h->ensureCapacity(inputFrames, outputFrames);
 
+        double inSumSq = 0.0;
         for (int i = 0; i < inputFrames; ++i) {
             for (int c = 0; c < h->channels; ++c) {
-                h->inPtrs[c][i] = inSamples[i * h->channels + c];
+                const float s = inSamples[i * h->channels + c];
+                h->inPtrs[c][i] = s;
+                if (shouldLog) inSumSq += static_cast<double>(s) * s;
             }
+        }
+
+        if (shouldLog) {
+            slog(env, "info",
+                 "process() pointer=" + ptrToHex(handlePtr) + " inputFrames=" + std::to_string(inputFrames) +
+                     " outputFrames=" + std::to_string(outputFrames) + " channels=" + std::to_string(h->channels));
         }
 
         h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), outputFrames);
 
+        bool hasNonFinite = false;
+        double outSumSq = 0.0;
         for (int i = 0; i < outputFrames; ++i) {
             for (int c = 0; c < h->channels; ++c) {
                 const float s = h->outPtrs[c][i];
-                outSamples[i * h->channels + c] = std::isfinite(s) ? s : 0.0f;
+                const bool finite = std::isfinite(s);
+                if (!finite) hasNonFinite = true;
+                const float safe = finite ? s : 0.0f;
+                outSamples[i * h->channels + c] = safe;
+                if (shouldLog) outSumSq += static_cast<double>(safe) * safe;
             }
         }
+
+        if (shouldLog) {
+            const long inCount = static_cast<long>(inputFrames) * h->channels;
+            const long outCount = static_cast<long>(outputFrames) * h->channels;
+            const double inRms = inCount > 0 ? std::sqrt(inSumSq / inCount) : 0.0;
+            const double outRms = outCount > 0 ? std::sqrt(outSumSq / outCount) : 0.0;
+
+            char buf[64];
+            snprintf(buf, sizeof(buf), "RMS in=%.4f", inRms);
+            slog(env, "info", buf);
+            snprintf(buf, sizeof(buf), "RMS out=%.4f", outRms);
+            slog(env, "info", buf);
+
+            if (outCount > 0 && outRms == 0.0) {
+                slog(env, "warn", "nativeProcess output RMS is zero pointer=" + ptrToHex(handlePtr));
+            }
+            if (hasNonFinite) {
+                slog(env, "warn", "nativeProcess NaN/Inf detected in output pointer=" + ptrToHex(handlePtr));
+            }
+            h->lastProcessLogTime = now;
+        }
     } catch (...) {
-        LOGE("nativeProcess: exception during process()");
+        slog(env, "error", "nativeProcess exception during process() pointer=" + ptrToHex(handlePtr));
         return -1;
     }
     return 0;
@@ -218,13 +365,18 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
         JNIEnv *env, jclass, jlong handlePtr,
         jobject outputBuffer, jint outputFrames) {
     auto *h = fromPtr(handlePtr);
-    if (h == nullptr || outputFrames < 0) return -1;
+    if (h == nullptr || outputFrames < 0) {
+        slog(env, "warn", "nativeFlush invalid args pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames));
+        return -1;
+    }
 
     auto *outSamples = static_cast<float *>(env->GetDirectBufferAddress(outputBuffer));
     if (outSamples == nullptr) {
-        LOGE("nativeFlush: GetDirectBufferAddress returned null");
+        slog(env, "error", "nativeFlush GetDirectBufferAddress returned null pointer=" + ptrToHex(handlePtr));
         return -1;
     }
+
+    slog(env, "info", "flush() pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames));
 
     try {
         h->ensureCapacity(0, outputFrames);
@@ -236,9 +388,10 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
             }
         }
     } catch (...) {
-        LOGE("nativeFlush: exception during flush()");
+        slog(env, "error", "nativeFlush exception during flush() pointer=" + ptrToHex(handlePtr) + " result=-1");
         return -1;
     }
+    slog(env, "info", "nativeFlush completed pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames) + " result=0");
     return 0;
 }
 

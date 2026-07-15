@@ -926,19 +926,27 @@ class Media3PlaybackService : MediaSessionService() {
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
-            ): DefaultAudioSink = DefaultAudioSink.Builder(context)
-                .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                // Chain order: NativeDsp → StereoWiden → Stretch (speed+pitch) → SilenceSkip.
-                // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
-                // internal Sonic/TeeAudioProcessor still exists downstream but is a
-                // transparent no-op as long as PlaybackParameters.speed/pitch stay at
-                // their ExoPlayer defaults (1.0/1.0), which TransportCommands now
-                // enforces — see StretchManager wiring below.
-                .setAudioProcessorChain(
-                    DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc, stretchProc)
+            ): DefaultAudioSink {
+                NativeLogger.emit(
+                    "info", "Stretch",
+                    "[Stretch] audio sink processor chain created order=[NativeDsp,StereoWiden,Stretch(+SilenceSkip,Sonic)] " +
+                        "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
+                        "stretchHash=${System.identityHashCode(stretchProc)}",
                 )
-                .build()
+                return DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    // Chain order: NativeDsp → StereoWiden → Stretch (speed+pitch) → SilenceSkip.
+                    // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
+                    // internal Sonic/TeeAudioProcessor still exists downstream but is a
+                    // transparent no-op as long as PlaybackParameters.speed/pitch stay at
+                    // their ExoPlayer defaults (1.0/1.0), which TransportCommands now
+                    // enforces — see StretchManager wiring below.
+                    .setAudioProcessorChain(
+                        DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc, stretchProc)
+                    )
+                    .build()
+            }
         }
             .setEnableAudioFloatOutput(true)
             // ALAC must use the bundled FFmpeg software renderer when present.

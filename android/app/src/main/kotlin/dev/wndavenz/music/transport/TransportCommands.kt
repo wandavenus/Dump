@@ -245,7 +245,9 @@ class TransportCommands(
                 // gets robotic. PlaybackParameters.speed is deliberately left at
                 // its ExoPlayer default (1.0) so Sonic's own speed handling
                 // never doubles up with Stretch's.
-                val speed = (call.argument<Number>("speed")?.toFloat() ?: 1f).coerceIn(0.25f, 4f)
+                val rawSpeed = call.argument<Number>("speed")?.toFloat() ?: 1f
+                val speed = rawSpeed.coerceIn(0.25f, 4f)
+                NativeLogger.emit("info", "Stretch", "[Stretch] Flutter setSpeed command raw=$rawSpeed clamped=$speed")
                 onSpeedChanged(speed)
                 result.success(null)
             }
@@ -254,8 +256,13 @@ class TransportCommands(
                 // Dart sends a pitch FACTOR (0.5x–2x, matching the old
                 // PlaybackParameters.pitch semantics) — convert to semitones
                 // for Signalsmith Stretch's setTransposeSemitones().
-                val pitchFactor = (call.argument<Number>("pitch")?.toFloat() ?: 1f).coerceIn(0.5f, 2f)
+                val rawPitch = call.argument<Number>("pitch")?.toFloat() ?: 1f
+                val pitchFactor = rawPitch.coerceIn(0.5f, 2f)
                 val semitones = 12f * (kotlin.math.ln(pitchFactor.toDouble()) / kotlin.math.ln(2.0)).toFloat()
+                NativeLogger.emit(
+                    "info", "Stretch",
+                    "[Stretch] Flutter setPitch command raw=$rawPitch clamped=$pitchFactor semitones=$semitones",
+                )
                 onPitchSemitonesChanged(semitones)
                 result.success(null)
             }
