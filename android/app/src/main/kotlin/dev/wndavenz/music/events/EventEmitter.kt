@@ -1,5 +1,7 @@
 package dev.wndavenz.music.events
 
+import android.os.Handler
+import android.os.Looper
 import io.flutter.plugin.common.EventChannel
 
 /**
@@ -89,14 +91,39 @@ object ServiceReadyGate {
  * MainActivity still accesses this via Media3PlaybackService.NativeLogs (companion alias).
  */
 object NativeLogger {
-    private var sink: EventChannel.EventSink? = null
+    // @Volatile: emit() is now called from arbitrary background threads (audio/
+    // playback thread, native JNI callbacks) in addition to the main thread —
+    // without this, a background-thread read of `sink` is not guaranteed to see
+    // the value published by onListen() on the main thread.
+    @Volatile private var sink: EventChannel.EventSink? = null
+
+    // Reused single Handler bound to the main Looper — see emit() below.
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun handler(): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
         override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
         override fun onCancel(arguments: Any?) { sink = null }
     }
 
+    /**
+     * Safe to call from ANY thread — including ExoPlayer's playback/audio
+     * thread and native JNI callbacks (see SignalsmithStretchAudioProcessor /
+     * stretch_jni.cpp diagnostics).
+     *
+     * Root cause this guards against: EventChannel.EventSink.success() is only
+     * legal on Flutter's main/platform thread; calling it directly from a
+     * background thread throws IllegalStateException. When that throw happened
+     * inside SignalsmithStretchAudioProcessor's companion object initializer
+     * (touched for the first time on the playback thread), it became an
+     * unrecoverable ExceptionInInitializerError/NoClassDefFoundError that broke
+     * audio sink construction and silently killed playback. Posting to the main
+     * thread makes emit() fire-and-forget and non-throwing from the caller's
+     * perspective, so a logging call can never abort playback again.
+     */
     fun emit(level: String, category: String, message: String) {
-        sink?.success(mapOf("level" to level, "category" to category, "message" to message))
+        val payload = mapOf("level" to level, "category" to category, "message" to message)
+        mainHandler.post {
+            runCatching { sink?.success(payload) }
+        }
     }
 }
