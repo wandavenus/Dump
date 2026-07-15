@@ -120,11 +120,18 @@ class NativeDspAudioProcessor(
      * float32. PCM_16BIT inputs pass through this processor unchanged (NOT_SET
      * makes it inactive for that format, so ExoPlayer skips it entirely).
      */
-    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat =
-        if (isLibraryAvailable && inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT)
+    override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
+        val active = isLibraryAvailable && inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
+        Log.i(
+            LOG_TAG,
+            "onConfigure encoding=${inputAudioFormat.encoding} " +
+                "(PCM_FLOAT=${C.ENCODING_PCM_FLOAT}) libraryAvailable=$isLibraryAvailable active=$active",
+        )
+        return if (active)
             inputAudioFormat  // same format in/out; gain is transparent w.r.t. sample type
         else
             AudioProcessor.AudioFormat.NOT_SET
+    }
 
     /**
      * Bulk-copy PCM into an owned output buffer, then process in-place via JNI.

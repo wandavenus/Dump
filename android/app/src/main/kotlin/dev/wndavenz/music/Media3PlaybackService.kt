@@ -48,6 +48,8 @@ import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioCapabilitiesReceiver
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.ToFloatPcmAudioProcessor
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.effects.NativeDspAudioProcessor
 import dev.wndavenz.music.effects.StereoWideningAudioProcessor
@@ -887,6 +889,19 @@ class Media3PlaybackService : MediaSessionService() {
         // yet been initialised, audio passes through unmodified (fail-open).
         val nativeDspProc = NativeDspAudioProcessor(streamSlot)
 
+        // Option B: explicit format-guard processors bracketing the custom chain.
+        // ToFloatPcmAudioProcessor forces PCM_FLOAT into NativeDsp/StereoWiden/Stretch
+        // regardless of what the decoder actually emits (isActive() is a transparent
+        // no-op when the input is already PCM_FLOAT). ToInt16PcmAudioProcessor converts
+        // back to 16-bit before Media3's internal SilenceSkipping/Sonic stage, so the
+        // custom chain's float-domain assumptions never leak downstream. Both are
+        // public @UnstableApi BaseAudioProcessor subclasses (Media3 1.10.1,
+        // androidx.media3.exoplayer.audio / androidx.media3.common.audio) — stateful,
+        // so a fresh instance is required per ExoPlayer/player build, same as the
+        // other processors in this chain.
+        val toFloatProc = ToFloatPcmAudioProcessor()
+        val toInt16Proc = ToInt16PcmAudioProcessor()
+
         // Item 8: each player gets its own StereoWideningAudioProcessor so
         // stereo widening can be applied/updated atomically during crossfade.
         val channelMixingProc: StereoWideningAudioProcessor =
@@ -929,21 +944,28 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[NativeDsp,StereoWiden,Stretch(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)}",
                 )
                 return DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    // Chain order: NativeDsp → StereoWiden → Stretch (speed+pitch) → SilenceSkip.
+                    // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
+                    // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
+                    // the custom DSP/widening/stretch stages always see PCM_FLOAT
+                    // (transparent no-op if the decoder already emits float); ToInt16
+                    // converts back before Media3's own internal SilenceSkipping/Sonic
+                    // stage so nothing downstream has to reason about float input.
                     // Stretch fully replaces Sonic here — DefaultAudioProcessorChain's own
                     // internal Sonic/TeeAudioProcessor still exists downstream but is a
                     // transparent no-op as long as PlaybackParameters.speed/pitch stay at
                     // their ExoPlayer defaults (1.0/1.0), which TransportCommands now
                     // enforces — see StretchManager wiring below.
                     .setAudioProcessorChain(
-                        DefaultAudioSink.DefaultAudioProcessorChain(nativeDspProc, channelMixingProc, stretchProc)
+                        DefaultAudioSink.DefaultAudioProcessorChain(
+                            toFloatProc, nativeDspProc, channelMixingProc, stretchProc, toInt16Proc
+                        )
                     )
                     .build()
             }

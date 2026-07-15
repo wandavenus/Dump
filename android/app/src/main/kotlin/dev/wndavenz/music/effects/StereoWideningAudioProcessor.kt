@@ -1,10 +1,13 @@
 package dev.wndavenz.music.effects
 
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
+
+private const val LOG_TAG = "StereoWideningProc"
 
 /**
  * Custom AudioProcessor implementing stereo widening via a 2×2 mixing matrix.
@@ -49,6 +52,11 @@ class StereoWideningAudioProcessor : BaseAudioProcessor() {
         val supported = inputAudioFormat.channelCount == 2 && (
             inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
             inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
+        )
+        Log.i(
+            LOG_TAG,
+            "onConfigure encoding=${inputAudioFormat.encoding} (PCM_FLOAT=${C.ENCODING_PCM_FLOAT}) " +
+                "channels=${inputAudioFormat.channelCount} supported=$supported",
         )
         return if (supported) inputAudioFormat else AudioProcessor.AudioFormat.NOT_SET
     }
