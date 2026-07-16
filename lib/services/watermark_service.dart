@@ -11,7 +11,7 @@ class WatermarkService {
   static const String text = 'IG : Wndavenznchole';
 
   /// Default visibility saat fresh install (true = muncul, false = tersembunyi).
-  static const bool defaultVisible = false;
+  static const bool defaultVisible = true;
 
   // ── Internal ─────────────────────────────────────────────────────────────────
   static const _kKey = 'watermark_visible';
