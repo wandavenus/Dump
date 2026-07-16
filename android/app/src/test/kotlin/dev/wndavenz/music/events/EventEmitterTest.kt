@@ -48,6 +48,8 @@ class EventEmitterTest {
         registeredStreams.clear()
         // Reset onSubscribe callback so it doesn't bleed across tests
         EventEmitter.setOnSubscribeCallback { }
+        // Restore production dispatcher in case a test overrode it
+        NativeLogger.resetDispatcher()
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -214,6 +216,11 @@ class EventEmitterTest {
     }
 
     @Test fun `D02 NativeLogger emit after subscribe delivers structured map`() {
+        // NativeLogger.emit() posts to the main looper by default, which is never
+        // drained in JVM unit tests. Override with a synchronous dispatcher so the
+        // sink call executes inline before the assertions run.
+        NativeLogger.dispatcher = { it.run() }
+
         val sink = FakeSink()
         val handler = NativeLogger.handler()
         handler.onListen(null, sink)

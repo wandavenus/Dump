@@ -100,6 +100,22 @@ object NativeLogger {
     // Reused single Handler bound to the main Looper — see emit() below.
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * Dispatcher used by [emit] to schedule the sink call on the correct thread.
+     *
+     * Production default: posts to the main looper so that [emit] is safe to
+     * call from any background thread (ExoPlayer playback thread, JNI callbacks).
+     *
+     * Override in JVM unit tests to make [emit] synchronous:
+     *   `NativeLogger.dispatcher = { it.run() }`
+     * Reset when done:
+     *   `NativeLogger.resetDispatcher()`
+     */
+    internal var dispatcher: (Runnable) -> Unit = mainHandler::post
+
+    /** Restore the production (main-looper) dispatcher after tests. */
+    internal fun resetDispatcher() { dispatcher = mainHandler::post }
+
     fun handler(): EventChannel.StreamHandler = object : EventChannel.StreamHandler {
         override fun onListen(arguments: Any?, events: EventChannel.EventSink?) { sink = events }
         override fun onCancel(arguments: Any?) { sink = null }
@@ -122,8 +138,6 @@ object NativeLogger {
      */
     fun emit(level: String, category: String, message: String) {
         val payload = mapOf("level" to level, "category" to category, "message" to message)
-        mainHandler.post {
-            runCatching { sink?.success(payload) }
-        }
+        dispatcher { runCatching { sink?.success(payload) } }
     }
 }
