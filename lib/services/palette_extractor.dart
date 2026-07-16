@@ -135,6 +135,10 @@ class PaletteExtractor {
   /// Returns the cached palette for [songId], or null if not yet extracted.
   static List<Color>? getSync(int songId) => _cache.get(songId);
 
+  /// Clears the in-memory palette cache to free up RAM. Disk cache remains
+  /// intact and will be re-hydrated on demand.
+  static void clearMemoryCache() => _cache.clear();
+
   /// Extracts and caches the palette for [songId] from [artwork] bytes.
   /// Returns the cached result immediately if already available. Concurrent
   /// calls for the same [songId] share a single in-flight extraction.
@@ -235,4 +239,6 @@ class _LruCache<K, V> {
       _map.remove(_map.keys.first); // evict least-recently-used
     }
   }
+
+  void clear() => _map.clear();
 }

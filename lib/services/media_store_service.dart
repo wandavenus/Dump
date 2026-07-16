@@ -70,10 +70,9 @@ class MediaStoreService {
       if (!file.existsSync()) return;
 
       final raw = await file.readAsString();
-      final decoded = jsonDecode(raw) as List<dynamic>;
-      _songsCache = decoded
-          .map((m) => LocalSong.fromMap(Map<dynamic, dynamic>.from(m as Map)))
-          .toList(growable: false);
+      // Use compute to parse in a background isolate to keep the UI thread
+      // free during the critical first-frame startup window.
+      _songsCache = await compute(_parseSongsJson, raw);
     } catch (_) {
       // Corrupt or unreadable cache — fall through to a normal live query.
     }
@@ -401,4 +400,12 @@ class MediaStoreService {
       return null;
     }
   }
+}
+
+/// Top-level helper for [compute] to parse song list JSON in a background isolate.
+List<LocalSong> _parseSongsJson(String json) {
+  final decoded = jsonDecode(json) as List<dynamic>;
+  return decoded
+      .map((m) => LocalSong.fromMap(Map<dynamic, dynamic>.from(m as Map)))
+      .toList(growable: false);
 }

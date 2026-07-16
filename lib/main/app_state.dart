@@ -26,6 +26,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       unawaited(OpenFileService.onResume());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      // Clear heavy in-memory caches to free up RAM for other apps while we
+      // are in the background. Disk caches remain safe.
+      PaletteExtractor.clearMemoryCache();
+
       // Flush any debounced settings writes (e.g. lyrics appearance sliders)
       // before the app goes to background, so a pending write isn't lost.
       unawaited(LyricsSettings.flush());

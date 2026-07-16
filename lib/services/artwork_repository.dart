@@ -347,15 +347,22 @@ Future<String> _resolvedCacheDir() async {
     if (_prefetching || songIds.isEmpty) return;
     _prefetching = true;
     try {
-      for (final id in songIds.take(limit)) {
-        if (id <= 0 || _paths.containsKey(id)) continue;
+      // De-duplicate and filter invalid IDs before starting the loop.
+      final uniqueIds = songIds.where((id) => id > 0).toSet().toList();
+
+      for (final id in uniqueIds.take(limit)) {
+        // Skip if already in memory cache.
+        if (_paths.containsKey(id)) continue;
+
         try {
+          // Resolve path (triggers disk check or native extraction).
           await getPath(id);
         } catch (_) {
           // Never let a single failed extraction abort the batch.
         }
         // Yield back to the event loop between items so scrolling/animation
         // frames are never blocked by this low-priority background work.
+        // 120ms is a safe window for mid-range devices to process other UI events.
         await Future.delayed(const Duration(milliseconds: 120));
       }
     } finally {
