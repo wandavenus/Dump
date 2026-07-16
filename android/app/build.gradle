@@ -1,7 +1,10 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+}
+
+kotlin {
+    jvmToolchain(21)
 }
 
 def localProperties = new Properties()
@@ -34,15 +37,6 @@ android {
     namespace "dev.wndavenz.music"
     compileSdk 36
     ndkVersion flutter.ndkVersion
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
-    }
-
-    kotlinOptions {
-        jvmTarget = '21'
-    }
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
