@@ -368,6 +368,65 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
     return 0;
 }
 
+// Feeds `inputFrames` interleaved input frames into the STFT engine with
+// ZERO output requested — "priming" the engine's spectral-analysis history
+// without producing any audible output.
+//
+// Called once, immediately before the first real nativeProcess() call after
+// a bypass→STFT transition (speed/pitch leaving their unity values).  By
+// feeding the engine the last outputLatency() frames of bypass audio (plain
+// 1:1 copy that was already sent to the AudioTrack), the STFT's spectral
+// history is populated with real signal rather than zero-padded silence.
+// This makes the first stretched output frame indistinguishable from a
+// seamless continuation — zero-flicker bypass→STFT transitions.
+//
+// Signalsmith Stretch's process() contract: when outputSamples == 0 the
+// output loop body executes zero times and no output pointer is ever
+// dereferenced, so passing a stub output array is safe.
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativePrime(
+        JNIEnv *env, jclass, jlong handlePtr,
+        jobject inputBuffer, jint inputFrames) {
+    auto *h = fromPtr(handlePtr);
+    if (h == nullptr || inputFrames <= 0) {
+        slog(env, "warn", "nativePrime invalid args pointer=" + ptrToHex(handlePtr) +
+             " inputFrames=" + std::to_string(inputFrames));
+        return -1;
+    }
+
+    auto *inSamples = static_cast<float *>(env->GetDirectBufferAddress(inputBuffer));
+    if (inSamples == nullptr) {
+        slog(env, "error", "nativePrime GetDirectBufferAddress null pointer=" + ptrToHex(handlePtr));
+        return -1;
+    }
+
+    slog(env, "info", "nativePrime pointer=" + ptrToHex(handlePtr) +
+         " primeFrames=" + std::to_string(inputFrames));
+
+    try {
+        // ensureCapacity(in, 1): guarantees outFlat is non-empty so outPtrs[c]
+        // is a valid non-null pointer even though process() writes 0 output frames.
+        h->ensureCapacity(inputFrames, 1);
+
+        // Deinterleave into planar scratch (same layout as nativeProcess).
+        for (int i = 0; i < inputFrames; ++i)
+            for (int c = 0; c < h->channels; ++c)
+                h->inPtrs[c][i] = inSamples[i * h->channels + c];
+
+        // Feed into STFT analysis with outputSamples=0 — populates spectral
+        // history without writing any output.  outPtrs are valid but never
+        // written (process() loop body runs 0 times when outputSamples==0).
+        h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), 0);
+    } catch (...) {
+        slog(env, "error", "nativePrime exception pointer=" + ptrToHex(handlePtr));
+        return -1;
+    }
+
+    slog(env, "info", "nativePrime completed pointer=" + ptrToHex(handlePtr) +
+         " primeFrames=" + std::to_string(inputFrames) + " result=0");
+    return 0;
+}
+
 // End-of-stream drain: produces the final `outputFrames` of output still
 // buffered inside the STFT pipeline (Signalsmith Stretch's flush() already
 // internally zero-pads as needed — see README "Ending").

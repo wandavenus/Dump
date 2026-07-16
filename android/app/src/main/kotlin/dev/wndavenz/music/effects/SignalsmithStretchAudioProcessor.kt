@@ -108,6 +108,18 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         @JvmStatic
         private external fun nativeFlush(handle: Long, output: ByteBuffer, outputFrames: Int): Int
 
+        /**
+         * Primes the STFT engine's spectral-analysis history without producing output.
+         * Feeds [inputFrames] of interleaved float32 PCM into the engine with
+         * outputSamples=0 — the analysis window fills with real signal so the very
+         * first [nativeProcess] call after a bypass→STFT transition produces clean,
+         * seamless audio instead of a STFT warm-up silence artifact.
+         *
+         * Returns 0 on success, negative on failure (treated as no-op by the caller).
+         */
+        @JvmStatic
+        private external fun nativePrime(handle: Long, input: ByteBuffer, inputFrames: Int): Int
+
         /** Evaluated once; never changes afterwards. */
         val isLibraryAvailable: Boolean = run {
             Log.i(LOG_TAG, "Loading native library stretch_native...")
@@ -190,11 +202,34 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     @Volatile private var pendingPitchApply: Boolean = false
 
     // Audio thread only — tracks whether the PREVIOUS queueInput() call went
-    // through the fast-bypass path. Used by Fix 2 to detect bypass↔STFT
-    // transitions and call nativeReset() before the first STFT call, preventing
-    // cold-start spectral-history artifacts. Initialised to true so the very
-    // first queueInput() in STFT mode triggers a clean reset.
+    // through the fast-bypass path. Used to detect bypass↔STFT transitions.
+    // Initialised to true so the very first queueInput() in STFT mode always
+    // attempts a prime (or falls back to reset if the ring is empty).
     private var prevWasBypass: Boolean = true
+
+    // ── Bypass audio ring buffer for zero-flicker STFT priming ───────────────
+    //
+    // On a bypass→STFT transition (speed/pitch leaving 1.0×/0st) we feed the
+    // last outputLatency() frames of bypass audio into the engine with
+    // outputFrames=0 via nativePrime().  This populates the STFT's spectral-
+    // analysis history with real signal so its very first process() output is a
+    // seamless continuation — no warm-up silence, no fade-in artifact.
+    //
+    // Layout: interleaved float32 PCM bytes, identical to ExoPlayer's ByteBuffer,
+    // so the assembled prime buffer can be passed directly to nativePrime() via
+    // GetDirectBufferAddress without any extra deinterleave step in Kotlin.
+    //
+    // All fields are audio-thread-only — no synchronisation required.
+    //
+    //   bypassRingBytes  – circular byte store; size = ringCapBytes (set at configure)
+    //   bypassRingWritePos – next write position (byte index, wraps at capacity)
+    //   bypassRingFilled   – bytes currently valid (≤ capacity)
+    //   bypassPrimeBuf     – pre-allocated direct ByteBuffer for the JNI prime call;
+    //                        assembled from the ring on each bypass→STFT transition
+    private var bypassRingBytes: ByteArray = ByteArray(0)
+    private var bypassRingWritePos: Int = 0
+    private var bypassRingFilled: Int = 0
+    private var bypassPrimeBuf: ByteBuffer = ByteBuffer.allocateDirect(0)
 
     /** Applies a new speed (1.0 = normal). Safe to call from any thread. */
     fun setSpeed(newSpeed: Float) {
@@ -257,6 +292,23 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         carryFrames = 0.0
         hasBufferedStretchState = false
 
+        // Allocate the bypass ring buffer sized to the engine's output latency.
+        // outputLatency() is deterministic after presetDefault() — no audio has
+        // to have been processed for this to return the correct value.
+        val latencyFrames  = nativeOutputLatencyFrames(h)
+        val ringCapFrames  = max(latencyFrames, 1024)   // 1024 frames minimum (~23 ms)
+        val ringCapBytes   = ringCapFrames * inputAudioFormat.channelCount * 4  // float32
+        if (bypassRingBytes.size != ringCapBytes) {
+            bypassRingBytes  = ByteArray(ringCapBytes)
+            bypassPrimeBuf   = ByteBuffer.allocateDirect(ringCapBytes)
+        }
+        clearBypassRing()
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] bypass ring: latencyFrames=$latencyFrames ringCapFrames=$ringCapFrames " +
+                "ringCapBytes=$ringCapBytes handle=0x${h.toString(16)}",
+        )
+
         NativeLogger.emit(
             "info", "Stretch",
             "[Stretch] onConfigure -> ACTIVE sampleRate=${inputAudioFormat.sampleRate} " +
@@ -267,6 +319,70 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         // Frame count changes with speed, but channel layout/encoding/rate do not.
         return inputAudioFormat
+    }
+
+    // ── Bypass ring buffer helpers (audio thread only) ────────────────────────
+
+    /**
+     * Writes [byteCount] bytes from [src] (at its current position, via a
+     * duplicate so the caller's position is not advanced) into the circular
+     * bypass ring buffer, overwriting the oldest data when full.
+     */
+    private fun writeBypassRing(src: ByteBuffer, byteCount: Int) {
+        val cap = bypassRingBytes.size
+        if (cap == 0 || byteCount <= 0) return
+        val view = src.duplicate()           // independent position, same backing data
+        if (byteCount >= cap) {
+            // Input fills or overflows the entire ring — keep only the last cap bytes.
+            view.position(view.position() + byteCount - cap)
+            view.get(bypassRingBytes, 0, cap)
+            bypassRingWritePos = 0
+            bypassRingFilled   = cap
+            return
+        }
+        // Write two contiguous slices into the circular store.
+        val firstChunk  = minOf(byteCount, cap - bypassRingWritePos)
+        val secondChunk = byteCount - firstChunk
+        view.get(bypassRingBytes, bypassRingWritePos, firstChunk)
+        if (secondChunk > 0) view.get(bypassRingBytes, 0, secondChunk)
+        bypassRingWritePos = (bypassRingWritePos + byteCount) % cap
+        bypassRingFilled   = minOf(bypassRingFilled + byteCount, cap)
+    }
+
+    /**
+     * Assembles the ring's content into [bypassPrimeBuf] in chronological order
+     * and calls [nativePrime] so the STFT engine's analysis window is populated
+     * with real bypass audio before the first [nativeProcess] call.
+     *
+     * Returns true when priming succeeded; false when there was not enough data
+     * (caller should fall back to [nativeReset] for a clean-but-silent start).
+     */
+    private fun primeEngineFromRing(h: Long, bytesPerFrame: Int): Boolean {
+        val filled = bypassRingFilled
+        if (filled < bytesPerFrame || bypassPrimeBuf.capacity() == 0) return false
+        val cap = bypassRingBytes.size
+        // Assemble ring into the pre-allocated direct buffer in chronological order.
+        bypassPrimeBuf.clear()
+        val startPos    = ((bypassRingWritePos - filled) % cap + cap) % cap
+        val firstChunk  = minOf(filled, cap - startPos)
+        val secondChunk = filled - firstChunk
+        bypassPrimeBuf.put(bypassRingBytes, startPos, firstChunk)
+        if (secondChunk > 0) bypassPrimeBuf.put(bypassRingBytes, 0, secondChunk)
+        bypassPrimeBuf.flip()
+        val primeFrames = filled / bytesPerFrame
+        val result = nativePrime(h, bypassPrimeBuf, primeFrames)
+        NativeLogger.emit(
+            "info", "Stretch",
+            "[Stretch] bypass→STFT prime: primeFrames=$primeFrames result=$result " +
+                "ringFilled=${filled}B handle=0x${h.toString(16)}",
+        )
+        return result == 0
+    }
+
+    /** Resets the ring buffer's logical content without zeroing the backing array. */
+    private fun clearBypassRing() {
+        bypassRingWritePos = 0
+        bypassRingFilled   = 0
     }
 
     /** One-shot "playback started" summary block — see rule 13 of the Stretch diagnostics spec. */
@@ -310,43 +426,50 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val currentPitch = pitchSemitones
         val isBypass = h == 0L || (currentSpeed == 1f && currentPitch == 0f)
 
-        // ── Fix 2: Reset engine on bypass ↔ STFT transitions ─────────────────
-        // Crossing the 1.0x/0st boundary cold causes STFT warm-up artifacts
-        // (STFT latency window of silence then a sudden jump) or leaves stale
-        // spectral history that corrupts the next STFT session. A nativeReset()
-        // at the transition boundary replaces the artifact with a clean engine
-        // start — subjectively a brief fade-in rather than an audible glitch.
+        // ── bypass ↔ STFT transition handling ────────────────────────────────
         if (h != 0L) {
             if (!isBypass && prevWasBypass) {
-                // bypass → STFT: engine may hold stale spectral history from an
-                // earlier STFT session. Reset for a clean start.
-                NativeLogger.emit("info", "Stretch",
-                    "[Stretch] bypass→STFT transition: resetting engine handle=0x${h.toString(16)}")
-                nativeReset(h)
+                // bypass → STFT: prime the STFT engine with the last outputLatency()
+                // frames of bypass audio so its spectral history is populated with
+                // real signal — the first process() output is a seamless continuation
+                // rather than a STFT warm-up silence (zero-flicker transition).
+                // Fall back to nativeReset() only if the ring has no data yet
+                // (first-ever STFT call, or transition too quick to fill the ring).
+                val primed = primeEngineFromRing(h, bytesPerFrame)
+                if (!primed) {
+                    nativeReset(h)
+                    NativeLogger.emit("info", "Stretch",
+                        "[Stretch] bypass→STFT: no ring data, fallback reset handle=0x${h.toString(16)}")
+                }
                 carryFrames = 0.0
                 hasBufferedStretchState = false
                 totalInputFrames  = 0L
                 totalOutputFrames = 0L
             } else if (isBypass && !prevWasBypass && hasBufferedStretchState) {
-                // STFT → bypass: clear leftover spectral state so the next
-                // bypass→STFT entry starts from a clean engine.
-                NativeLogger.emit("info", "Stretch",
-                    "[Stretch] STFT→bypass transition: resetting engine handle=0x${h.toString(16)}")
+                // STFT → bypass: reset engine + clear ring.
+                // Clearing the ring ensures the next bypass→STFT prime uses only
+                // the fresh bypass audio that follows — not audio from before this
+                // STFT session, which could be temporally distant.
                 nativeReset(h)
+                clearBypassRing()
                 carryFrames = 0.0
                 hasBufferedStretchState = false
+                NativeLogger.emit("info", "Stretch",
+                    "[Stretch] STFT→bypass: reset engine + cleared ring handle=0x${h.toString(16)}")
             }
         }
         prevWasBypass = isBypass
 
         if (isBypass) {
             // Fast bypass: pure pass-through, no STFT cost.
-            // Count 1:1 so getMediaDuration() returns identity for this path.
             totalInputFrames  += inputFrames
             totalOutputFrames += inputFrames
             val output = replaceOutputBuffer(inputFrames * bytesPerFrame)
             output.put(inputBuffer)
             output.flip()
+            // Feed bypass audio into the ring so a future bypass→STFT transition
+            // can prime the engine's spectral history for zero-flicker output.
+            writeBypassRing(output, inputFrames * bytesPerFrame)
             maybeLogQueueInput(h, inputFrames, inputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
             return
         }
@@ -545,8 +668,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         // accumulated before the seek is irrelevant to the new position.
         totalInputFrames  = 0L
         totalOutputFrames = 0L
-        // Engine has been reset — treat next queueInput() as a fresh start so
-        // Fix 2's bypass→STFT transition logic doesn't skip the reset it needs.
+        // Engine has been reset; ring contents are pre-seek audio — discard them
+        // so the next bypass→STFT prime uses only post-seek bypass audio.
+        clearBypassRing()
         prevWasBypass = true
     }
 
@@ -563,6 +687,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         totalInputFrames  = 0L
         totalOutputFrames = 0L
         pendingPitchApply = false
+        clearBypassRing()
         prevWasBypass = true
     }
 }
