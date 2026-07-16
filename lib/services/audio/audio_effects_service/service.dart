@@ -663,11 +663,24 @@ class AudioEffectsService {
 
   // ── Pitch Shift ───────────────────────────────────────────────────────────
 
+  // Throttle timer for pitch: while the slider is being dragged we update the
+  // UI ValueNotifier on every tick (immediate visual feedback) but defer the
+  // native MethodChannel call + SharedPreferences write to 50 ms after the
+  // last movement. This prevents flooding the audio thread with rapid-fire
+  // nativeSetPitchSemitones() calls and eliminates mid-drag SharedPrefs I/O.
+  static Timer? _pitchThrottle;
+
   static Future<void> setPitch(double semitones) async {
+    // Immediate UI update — slider label stays in sync on every tick.
     pitchShift.value = semitones;
-    await _saveDouble('pitch', semitones);
-    _sendPitch(semitones);
-    LogService.log('AudioEffects', 'Pitch: $semitones semitones');
+
+    // Throttle: cancel any pending commit and restart the 50 ms window.
+    _pitchThrottle?.cancel();
+    _pitchThrottle = Timer(const Duration(milliseconds: 50), () async {
+      await _saveDouble('pitch', semitones);
+      _sendPitch(semitones);
+      LogService.log('AudioEffects', 'Pitch: $semitones semitones');
+    });
   }
 
   /// Converts semitone offset to a pitch factor and forwards to the active engine.
@@ -679,12 +692,24 @@ class AudioEffectsService {
 
   // ── Playback Speed ────────────────────────────────────────────────────────
 
+  // Throttle timer for speed: same rationale as _pitchThrottle above.
+  // The fast-bypass ↔ STFT transition at 1.0× already has a nativeReset()
+  // guard in the Kotlin layer; throttling here reduces how often that
+  // transition is triggered when the slider is dragged across the 1.0 division.
+  static Timer? _speedThrottle;
+
   static Future<void> setSpeed(double speed) async {
     final v = speed.clamp(0.25, 3.0).toDouble();
+    // Immediate UI update — slider label stays in sync on every tick.
     playbackSpeed.value = v;
-    await _saveDouble('speed', v);
-    _sendSpeed(v);
-    LogService.log('AudioEffects', 'Speed: ${v}x');
+
+    // Throttle: cancel any pending commit and restart the 50 ms window.
+    _speedThrottle?.cancel();
+    _speedThrottle = Timer(const Duration(milliseconds: 50), () async {
+      await _saveDouble('speed', v);
+      _sendSpeed(v);
+      LogService.log('AudioEffects', 'Speed: ${v}x');
+    });
   }
 
   static void _sendSpeed(double speed) {

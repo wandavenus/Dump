@@ -176,16 +176,41 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     // field is safe here and keeps the throttle check allocation-free.
     private var lastQueueInputLogMs: Long = 0L
 
+    // ── Thread-safety for pitch changes ───────────────────────────────────────
+    //
+    // Signalsmith Stretch is NOT thread-safe. Both setTransposeSemitones() and
+    // process() operate on the same C++ StretchHandle. Previously, setPitchSemitones()
+    // called nativeSetPitchSemitones() directly from whatever thread it was
+    // invoked on (typically the MethodChannel handler = main thread), racing with
+    // nativeProcess() on the audio thread — undefined behaviour.
+    //
+    // Fix: setPitchSemitones() now only writes the @Volatile pitchSemitones
+    // field and raises this flag. The actual native call is deferred to
+    // queueInput(), which always runs on the audio thread that owns this handle.
+    @Volatile private var pendingPitchApply: Boolean = false
+
+    // Audio thread only — tracks whether the PREVIOUS queueInput() call went
+    // through the fast-bypass path. Used by Fix 2 to detect bypass↔STFT
+    // transitions and call nativeReset() before the first STFT call, preventing
+    // cold-start spectral-history artifacts. Initialised to true so the very
+    // first queueInput() in STFT mode triggers a clean reset.
+    private var prevWasBypass: Boolean = true
+
     /** Applies a new speed (1.0 = normal). Safe to call from any thread. */
     fun setSpeed(newSpeed: Float) {
         speed = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
     }
 
-    /** Applies a new pitch shift in semitones (0 = no shift). Safe to call from any thread. */
+    /**
+     * Applies a new pitch shift in semitones (0 = no shift). Safe to call from any thread.
+     *
+     * The actual [nativeSetPitchSemitones] call is deferred to [queueInput] so it always
+     * runs on the audio thread — never concurrently with [nativeProcess] on the same
+     * (not thread-safe) Signalsmith Stretch object. See [pendingPitchApply].
+     */
     fun setPitchSemitones(newSemitones: Float) {
         pitchSemitones = if (newSemitones.isFinite()) newSemitones else 0f
-        val h = handle
-        if (h != 0L) nativeSetPitchSemitones(h, pitchSemitones)
+        pendingPitchApply = true
     }
 
     // ── BaseAudioProcessor overrides ─────────────────────────────────────────
@@ -226,7 +251,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             return AudioProcessor.AudioFormat.NOT_SET
         }
         handle = h
-        nativeSetPitchSemitones(h, pitchSemitones)
+        nativeSetPitchSemitones(h, pitchSemitones)   // safe: onConfigure runs on audio thread
+        pendingPitchApply = false                     // pitch is now in sync with the engine
+        prevWasBypass = true                          // fresh engine, treat as bypass start
         carryFrames = 0.0
         hasBufferedStretchState = false
 
@@ -268,11 +295,51 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val inputFrames = remaining / bytesPerFrame
         if (inputFrames == 0) return
 
-        val currentSpeed = speed
-        val currentPitch = pitchSemitones
         val h = handle
 
-        if (h == 0L || (currentSpeed == 1f && currentPitch == 0f)) {
+        // ── Fix 1: Apply pending pitch change on the audio thread ─────────────
+        // setPitchSemitones() only writes @Volatile pitchSemitones + sets this
+        // flag; the actual native call is deferred here so setTransposeSemitones()
+        // and process() never run concurrently on the same StretchHandle.
+        if (pendingPitchApply && h != 0L) {
+            nativeSetPitchSemitones(h, pitchSemitones)
+            pendingPitchApply = false
+        }
+
+        val currentSpeed = speed
+        val currentPitch = pitchSemitones
+        val isBypass = h == 0L || (currentSpeed == 1f && currentPitch == 0f)
+
+        // ── Fix 2: Reset engine on bypass ↔ STFT transitions ─────────────────
+        // Crossing the 1.0x/0st boundary cold causes STFT warm-up artifacts
+        // (STFT latency window of silence then a sudden jump) or leaves stale
+        // spectral history that corrupts the next STFT session. A nativeReset()
+        // at the transition boundary replaces the artifact with a clean engine
+        // start — subjectively a brief fade-in rather than an audible glitch.
+        if (h != 0L) {
+            if (!isBypass && prevWasBypass) {
+                // bypass → STFT: engine may hold stale spectral history from an
+                // earlier STFT session. Reset for a clean start.
+                NativeLogger.emit("info", "Stretch",
+                    "[Stretch] bypass→STFT transition: resetting engine handle=0x${h.toString(16)}")
+                nativeReset(h)
+                carryFrames = 0.0
+                hasBufferedStretchState = false
+                totalInputFrames  = 0L
+                totalOutputFrames = 0L
+            } else if (isBypass && !prevWasBypass && hasBufferedStretchState) {
+                // STFT → bypass: clear leftover spectral state so the next
+                // bypass→STFT entry starts from a clean engine.
+                NativeLogger.emit("info", "Stretch",
+                    "[Stretch] STFT→bypass transition: resetting engine handle=0x${h.toString(16)}")
+                nativeReset(h)
+                carryFrames = 0.0
+                hasBufferedStretchState = false
+            }
+        }
+        prevWasBypass = isBypass
+
+        if (isBypass) {
             // Fast bypass: pure pass-through, no STFT cost.
             // Count 1:1 so getMediaDuration() returns identity for this path.
             totalInputFrames  += inputFrames
@@ -478,6 +545,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         // accumulated before the seek is irrelevant to the new position.
         totalInputFrames  = 0L
         totalOutputFrames = 0L
+        // Engine has been reset — treat next queueInput() as a fresh start so
+        // Fix 2's bypass→STFT transition logic doesn't skip the reset it needs.
+        prevWasBypass = true
     }
 
     override fun onReset() {
@@ -492,5 +562,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         hasBufferedStretchState = false
         totalInputFrames  = 0L
         totalOutputFrames = 0L
+        pendingPitchApply = false
+        prevWasBypass = true
     }
 }
