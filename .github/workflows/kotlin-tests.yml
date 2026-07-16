@@ -31,6 +31,10 @@ jobs:
         with:
           flutter-version: '3.44.5'
 
+      # === Generate gradlew wrapper (not committed to repo) ===
+      - name: Regenerate Android wrapper
+        run: flutter create --platforms=android .
+
       - name: Create local.properties
         run: |
           echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
@@ -50,4 +54,3 @@ jobs:
         with:
           name: kotlin-test-reports
           path: android/app/build/reports/tests/testDebugUnitTest/
-          
