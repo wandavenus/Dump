@@ -32,10 +32,6 @@ jobs:
           flutter-version: '3.44.5'
           cache: true
 
-      # === Generate gradlew wrapper (not committed to repo) ===
-      - name: Regenerate Android wrapper
-        run: flutter create --platforms=android .
-
       - name: cache pub
         uses: actions/cache@v6
         with:
