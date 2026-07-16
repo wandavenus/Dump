@@ -10,6 +10,7 @@ on:
     branches: [ main ]
     paths:
       - 'android/**'
+      - '.github/workflows/kotlin-tests.yml'
 
 jobs:
   test:
@@ -36,8 +37,8 @@ jobs:
           echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
 
-
-      - run: flutter pub get
+      - name: Get Flutter dependencies
+        run: flutter pub get
 
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
