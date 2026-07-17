@@ -1,6 +1,7 @@
 package dev.wndavenz.music
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -86,6 +87,22 @@ class MainActivity : FlutterActivity() {
     // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
     @Volatile private var pendingOpenFileUri: String? = null
     private var openFileChannel: MethodChannel? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Set task description explicitly so MIUI recents screen shows the app
+        // name correctly. Without this, MIUI ignores android:label in the manifest
+        // and renders the card with no label.
+        val label = getString(R.string.app_name)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setTaskDescription(
+                ActivityManager.TaskDescription.Builder().setLabel(label).build()
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            setTaskDescription(ActivityManager.TaskDescription(label))
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
