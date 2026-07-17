@@ -27,7 +27,7 @@ class PlayerSecondaryControls extends StatelessWidget {
             active: showLyrics,
             onTap: onLyricsToggle,
           ),
-          const SizedBox(width: 140),
+          const SizedBox(width: 138),
           _QueueToggleButton(
             active: showQueue,
             onTap: onQueueToggle,
