@@ -443,8 +443,17 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
                 }
                 carryFrames = 0.0
                 hasBufferedStretchState = false
-                totalInputFrames  = 0L
-                totalOutputFrames = 0L
+                // NOTE: totalInputFrames / totalOutputFrames are intentionally NOT
+                // reset here.  Zeroing them while getMediaDuration() can be called
+                // concurrently from the render thread causes a window where the
+                // method falls back to:
+                //   (playoutDurationUs × newSpeed).toLong()
+                // At mid-song (e.g. 2 min played) with newSpeed=2.0 this returns
+                // 4 min, which exceeds the track duration → ExoPlayer fires EOS →
+                // song jumps to the next track.
+                // The bypass phase accumulated a correct 1:1 ratio; keeping those
+                // counters means getMediaDuration() continues to use the stable
+                // accumulated-ratio path and never overshoots.
             } else if (isBypass && !prevWasBypass && hasBufferedStretchState) {
                 // STFT → bypass: reset engine + clear ring.
                 // Clearing the ring ensures the next bypass→STFT prime uses only

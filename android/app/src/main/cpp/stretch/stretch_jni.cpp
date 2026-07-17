@@ -372,17 +372,34 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
 // ZERO output requested — "priming" the engine's spectral-analysis history
 // without producing any audible output.
 //
-// Called once, immediately before the first real nativeProcess() call after
-// a bypass→STFT transition (speed/pitch leaving their unity values).  By
-// feeding the engine the last outputLatency() frames of bypass audio (plain
-// 1:1 copy that was already sent to the AudioTrack), the STFT's spectral
-// history is populated with real signal rather than zero-padded silence.
-// This makes the first stretched output frame indistinguishable from a
-// seamless continuation — zero-flicker bypass→STFT transitions.
+// Primes the STFT engine's spectral-analysis+synthesis history without
+// producing any audible output.
 //
-// Signalsmith Stretch's process() contract: when outputSamples == 0 the
-// output loop body executes zero times and no output pointer is ever
-// dereferenced, so passing a stub output array is safe.
+// Called once immediately before the first real nativeProcess() call after a
+// bypass→STFT transition.  Feeding the last outputLatency() frames of bypass
+// audio into the engine ensures its spectral history is populated with real
+// signal so the first stretched output frame is a seamless continuation of
+// the bypass audio — true zero-flicker transition.
+//
+// ── Why outputSamples = inputFrames, not 0 ───────────────────────────────
+//
+// Signalsmith Stretch's process() drives analysis from the OUTPUT loop:
+//
+//   for (int outputIndex = 0; outputIndex < outputSamples; ++outputIndex) {
+//       if (newBlock) { /* FFT analyse + phase-vocoder synthesise */ }
+//       write output sample;
+//   }
+//
+// When outputSamples == 0 the loop body NEVER executes — for non-silent
+// audio, no STFT analysis runs and the spectral history is NOT populated.
+// (Silent audio takes a separate early-return path that does buffer input,
+// which is why priming appeared to work sometimes but not always.)
+//
+// By requesting outputSamples == inputFrames the analysis+synthesis loop
+// runs fully.  The output lands in h->outFlat (reused scratch) and is
+// intentionally NOT copied back to the caller — it corresponds to the
+// already-played bypass audio shifted by STFT latency, so discarding it
+// is correct.  The engine's synthesis window is now fully warm.
 JNIEXPORT jint JNICALL
 Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativePrime(
         JNIEnv *env, jclass, jlong handlePtr,
@@ -404,19 +421,19 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativePrime(
          " primeFrames=" + std::to_string(inputFrames));
 
     try {
-        // ensureCapacity(in, 1): guarantees outFlat is non-empty so outPtrs[c]
-        // is a valid non-null pointer even though process() writes 0 output frames.
-        h->ensureCapacity(inputFrames, 1);
+        // Size both input AND output scratch for inputFrames — the output loop
+        // must be able to write inputFrames samples per channel into h->outFlat.
+        h->ensureCapacity(inputFrames, inputFrames);
 
-        // Deinterleave into planar scratch (same layout as nativeProcess).
+        // Deinterleave input into planar scratch (same layout as nativeProcess).
         for (int i = 0; i < inputFrames; ++i)
             for (int c = 0; c < h->channels; ++c)
                 h->inPtrs[c][i] = inSamples[i * h->channels + c];
 
-        // Feed into STFT analysis with outputSamples=0 — populates spectral
-        // history without writing any output.  outPtrs are valid but never
-        // written (process() loop body runs 0 times when outputSamples==0).
-        h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), 0);
+        // Run the full analysis+synthesis loop.  Output lands in h->outFlat and
+        // is discarded — we only want the side-effect of warming the engine's
+        // spectral-synthesis history with real bypass signal.
+        h->stretch.process(h->inPtrs.data(), inputFrames, h->outPtrs.data(), inputFrames);
     } catch (...) {
         slog(env, "error", "nativePrime exception pointer=" + ptrToHex(handlePtr));
         return -1;
