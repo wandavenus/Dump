@@ -746,6 +746,12 @@ class Media3PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // Unconditionally release the sleep timer's Handler runnables before
+        // performTeardown() clears the players. This prevents timerRunnable /
+        // tickRunnable / fadeRunnable from firing against a released ExoPlayer
+        // when the system kills the service without a prior prepareShutdown().
+        if (::sleepTimerManager.isInitialized) sleepTimerManager.release()
+
         // Delegate the teardown sequence to ServiceShutdownCoordinator.
         // performTeardown() is idempotent — safe even when prepareShutdown() ran
         // first (the "release" MethodChannel path) or when the system kills the

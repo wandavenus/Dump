@@ -51,6 +51,9 @@ class NowPlayingOverlayActivity : Activity() {
     private var controller: MediaController? = null
     private var connectRetries = 0
     private var isOpeningMainApp = false
+    // Tracked so onDestroy() can interrupt the background I/O thread if the
+    // Activity is dismissed before metadata reading finishes.
+    @Volatile private var metadataThread: Thread? = null
     
     // ── Progress ticker ───────────────────────────────────────────────────────
     private val ticker = object : Runnable {
@@ -129,8 +132,9 @@ class NowPlayingOverlayActivity : Activity() {
 
     // ── Load metadata + start playback ────────────────────────────────────────
     private fun loadAndPlay(uriStr: String) {
-        Thread {
+        val t = Thread {
             val (title, artist, art) = readMeta(uriStr)
+            if (Thread.currentThread().isInterrupted) return@Thread
             startPlaybackService(uriStr)
             handler.post {
                 tvTitle.text  = title
@@ -138,7 +142,9 @@ class NowPlayingOverlayActivity : Activity() {
                 if (art != null) ivArt.setImageBitmap(art)
                 connectController()
             }
-        }.start()
+        }
+        metadataThread = t
+        t.start()
     }
 
             private fun startPlaybackService(uriStr: String) {
@@ -182,6 +188,11 @@ class NowPlayingOverlayActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
+
+        // Interrupt background metadata thread so it does not continue holding
+        // a MediaMetadataRetriever or posting to the handler after destroy.
+        metadataThread?.interrupt()
+        metadataThread = null
 
         // Kalau user pencet luar (bukan pencet tombol Open App)
         if (!isOpeningMainApp) {

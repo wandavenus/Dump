@@ -212,20 +212,26 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeComputeAlbumLoudness(
     jlong* elems = env->GetLongArrayElements(handles, nullptr);
     if (elems == nullptr) return -HUGE_VAL;
 
+    // Hold g_registry_mutex for the entire pointer-collection + loudness computation
+    // block. Without this, DestroyAnalyzer() on a concurrent thread could free an
+    // ebur128_state* between the lock release and the ebur128_loudness_global_multiple
+    // call, causing a use-after-free crash. The computation is sub-millisecond even
+    // for large albums, so holding the lock here is safe.
     std::vector<ebur128_state*> states;
-    states.reserve(count);
+    double result;
     {
         std::lock_guard<std::mutex> lock(g_registry_mutex);
+        states.reserve(count);
         for (jsize i = 0; i < count; i++) {
             auto it = g_registry.find(elems[i]);
             if (it != g_registry.end()) {
                 states.push_back(it->second->raw_state());
             }
         }
+        env->ReleaseLongArrayElements(handles, elems, JNI_ABORT);
+        result = replaygain::ComputeAlbumLoudness(states);
     }
-    env->ReleaseLongArrayElements(handles, elems, JNI_ABORT);
-
-    return replaygain::ComputeAlbumLoudness(states);
+    return result;
 }
 
 // ── Tag writing ───────────────────────────────────────────────────────────────

@@ -158,6 +158,6 @@ target_include_directories(stretch_native PRIVATE
     ${signalsmith_linear_SOURCE_DIR}/include   # signalsmith-linear/{fft,linear,stft}.h
 )
 
-target_compile_options(stretch_native PRIVATE -Wall -Wextra -fvisibility=hidden -O3)
+target_compile_options(stretch_native PRIVATE -Wall -Wextra -fvisibility=hidden -O3 -fstack-protector-strong)
 
 target_link_libraries(stretch_native PRIVATE log)

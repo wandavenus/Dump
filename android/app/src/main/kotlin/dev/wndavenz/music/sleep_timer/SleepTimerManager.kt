@@ -183,5 +183,15 @@ class SleepTimerManager(
         sleepTimerEndMs  = 0L
     }
 
+    /**
+     * Unconditional cleanup — call from Service.onDestroy() to guarantee all
+     * Handler runnables are removed even if [cancel] was never called.
+     * Unlike [cancel], this has no guard check and does not emit events.
+     */
+    fun release() {
+        cancelFadeOut()
+        cancelInternal()
+    }
+
     private fun log(msg: String) = NativeLogger.emit("info", "SleepTimer", msg)
 }

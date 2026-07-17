@@ -20,7 +20,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       applyEdgeToEdge();
       // Re-synchronize with the native Media3 service so the mini player
       // reappears immediately if background playback was active.
-      unawaited(AudioService.syncFromNative());
+      unawaited(AudioService.syncFromNative().catchError(
+        (e) => LogService.warn('AppState', 'syncFromNative error: $e'),
+      ));
       // Check for any pending open-file URI that arrived during a warm restart
       // before the Dart handler was fully ready.
       unawaited(OpenFileService.onResume());
@@ -32,7 +34,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // Flush any debounced settings writes (e.g. lyrics appearance sliders)
       // before the app goes to background, so a pending write isn't lost.
-      unawaited(LyricsSettings.flush());
+      unawaited(LyricsSettings.flush().catchError(
+        (e) => LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
+      ));
     }
   }
 

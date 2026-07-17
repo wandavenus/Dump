@@ -61,8 +61,11 @@ object PcmDecoder {
         }
 
         val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
-        val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-        val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceIn(1, 8)
+        // getInteger() throws NullPointerException (not returns null) when a key is absent.
+        // A malformed/corrupt audio file may lack KEY_SAMPLE_RATE or KEY_CHANNEL_COUNT, so
+        // wrap in runCatching and fall back to safe defaults rather than crashing.
+        val sampleRate = runCatching { format.getInteger(MediaFormat.KEY_SAMPLE_RATE) }.getOrElse { 44100 }
+        val channels = runCatching { format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) }.getOrElse { 2 }.coerceIn(1, 8)
         val durationUs = runCatching { format.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(-1L)
         onFormat(TrackFormat(sampleRate, channels, durationUs))
 

@@ -20,6 +20,19 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.1',
+    date: '17 Juli 2026',
+    changes: [
+      'Perbaiki crash saat scan ReplayGain pada file audio corrupt/malformed (MediaFormat.getInteger NPE).',
+      'Perbaiki data race di nativeComputeAlbumLoudness: mutex sekarang dijaga sampai komputasi libebur128 selesai.',
+      'Perbaiki label app "Apple Music" → "Music" (sudah diganti ke nama yang benar di strings.xml dan AndroidManifest).',
+      'Perbaiki Handler runnable leak di SleepTimerManager: tambah release() yang dipanggil dari onDestroy() Service.',
+      'Perbaiki Thread leak di NowPlayingOverlayActivity: metadata thread sekarang di-interrupt saat Activity destroyed.',
+      'Tambah -fstack-protector-strong ke compile flags stretch_native (keamanan stack buffer).',
+      'Tambah error handling ke unawaited LyricsSettings.flush(), syncFromNative(), dan writeEqBand() agar error tidak hilang diam-diam.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.0',
     date: '15 Juli 2026',
     changes: [
