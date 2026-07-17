@@ -1,0 +1,123 @@
+Lakukan audit menyeluruh terhadap seluruh source code repository ini.
+
+Bahasa yang wajib diaudit:
+
+- Dart / Flutter
+- Kotlin
+- Java
+- C
+- C++
+- Assembly
+- Gradle (Groovy/KTS)
+- CMake
+- AndroidManifest.xml
+- File konfigurasi build lain yang berkaitan
+
+Jangan berhenti setelah menemukan beberapa bug. Audit seluruh repository sampai selesai dan pastikan tidak ada file yang terlewat.
+
+Tujuan
+
+Cari semua:
+
+- Bug yang benar-benar tervalidasi
+- Compile error
+- Runtime error
+- Crash
+- Memory leak
+- Resource leak
+- JNI issue
+- Thread safety issue
+- Race condition
+- Deadlock
+- Nullability issue
+- Lifecycle issue
+- Ownership issue
+- Undefined Behavior
+- Buffer overflow / out-of-bounds
+- Integer overflow
+- Audio processing bug
+- DSP bug
+- Logic bug
+- State synchronization bug
+- API misuse
+- Android framework misuse
+- Flutter framework misuse
+- Platform Channel / MethodChannel / EventChannel issue
+- Media3 issue
+- Coroutine issue
+- Executor issue
+- Native bridge issue
+- Build configuration issue
+- Gradle/CMake/NDK issue
+- Performance issue yang benar-benar berdampak
+- Security issue bila memang ada
+
+Aturan yang WAJIB dipatuhi
+
+- Jangan membuat asumsi.
+- Jangan berspekulasi.
+- Jangan mengarang.
+- Jangan memaksakan bug jika tidak ada bukti.
+- Jangan memberi jawaban ambigu.
+- Jangan memakai kata seperti "mungkin", "sepertinya", atau "kemungkinan" tanpa bukti yang kuat.
+- Jika suatu hal tidak bisa diverifikasi dari source code, tulis dengan jelas "Tidak dapat diverifikasi dari kode yang tersedia."
+- Semua kesimpulan harus berdasarkan fakta yang dapat dibuktikan langsung dari source code.
+
+Metode Audit
+
+- Baca seluruh file satu per satu.
+- Jangan melewati file apa pun.
+- Ikuti seluruh call graph.
+- Ikuti seluruh alur Platform Channel.
+- Ikuti seluruh alur JNI.
+- Ikuti seluruh alur Flutter ↔ Kotlin ↔ Java ↔ Native.
+- Audit semua thread, coroutine, executor, handler, callback, listener, mutex, atomic, lock, lifecycle, dan ownership resource.
+- Audit semua build script dan konfigurasi.
+- Audit seluruh dependency usage.
+- Verifikasi setiap temuan sampai ke implementasinya.
+- Jika sebuah bug berasal dari beberapa file, telusuri seluruh rantai pemanggilannya.
+
+Output yang saya inginkan
+
+Untuk setiap temuan tampilkan:
+
+- Severity
+  
+  - Critical
+  - High
+  - Medium
+  - Low
+  - Informational
+
+- File
+
+- Nomor baris
+
+- Fungsi
+
+- Bukti kode
+
+- Penjelasan teknis mengapa itu bug
+
+- Dampak nyata
+
+- Cara perbaikan yang benar
+
+Pisahkan dengan jelas antara:
+
+1. Bug yang sudah tervalidasi
+2. Risiko yang masih memerlukan verifikasi
+3. False positive yang berhasil dibantah
+4. Area yang sudah diaudit dan dipastikan bersih
+
+Checklist Audit
+
+Di akhir laporan, tampilkan daftar seluruh file yang berhasil diaudit.
+
+Untuk setiap file beri status:
+
+- Sudah diaudit dan bersih
+- Sudah diaudit dan ditemukan bug
+- Belum dapat diaudit (sertakan alasannya)
+
+Jangan mengakhiri audit sebelum seluruh file selesai diperiksa. Jika repository terlalu besar, lanjutkan audit secara bertahap sampai semua file selesai diperiksa.
