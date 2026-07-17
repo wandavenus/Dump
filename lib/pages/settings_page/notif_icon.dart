@@ -15,8 +15,8 @@ class _NotifIconRow extends StatelessWidget {
         child: Row(
           children: [
             const Icon(Icons.notifications_none,
-                color: Color(0x00000000), size: 5),
-            const SizedBox(width: 1),
+                color: Color(0xFF8E8E93), size: 22),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

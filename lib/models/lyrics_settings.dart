@@ -57,7 +57,7 @@ class LyricsSettings {
     _debounceTimers[key]?.cancel();
     _debounceTimers[key] = Timer(_debounceDelay, () {
       _debounceTimers.remove(key);
-      write();
+      write().catchError((_) {/* SharedPreferences write failed — ignored */});
     });
   }
 

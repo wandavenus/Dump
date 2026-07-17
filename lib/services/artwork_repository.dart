@@ -86,7 +86,8 @@ class ArtworkRepository {
   /// this helper is only for the ResizeImage (<250) branch.
   int resolveTargetPx(double size) {
   final dpr = _cachedDpr ??=
-      SchedulerBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+      SchedulerBinding.instance.platformDispatcher.views.firstOrNull
+          ?.devicePixelRatio ?? 3.0; // 3.0 = Mi 9T DPR; fallback sebelum view terpasang
 
   var target = (size * dpr).round();
 

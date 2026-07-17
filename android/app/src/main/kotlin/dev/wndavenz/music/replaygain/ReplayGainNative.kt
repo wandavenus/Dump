@@ -18,6 +18,8 @@ object ReplayGainNative {
     @Volatile
     private var loaded = false
     @Volatile
+    private var failed = false
+    @Volatile
     private var loadError: Throwable? = null
 
     /**
@@ -31,13 +33,16 @@ object ReplayGainNative {
      */
     fun ensureLoaded(): Boolean {
         if (loaded) return true
+        if (failed) return false   // permanent failure — skip re-attempt
         synchronized(this) {
             if (loaded) return true
+            if (failed) return false
             try {
                 System.loadLibrary("replaygain_native")
                 loaded = true
             } catch (t: Throwable) {
                 loadError = t
+                failed = true      // don't retry on every call
             }
         }
         return loaded

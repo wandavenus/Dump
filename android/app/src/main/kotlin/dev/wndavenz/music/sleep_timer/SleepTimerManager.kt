@@ -148,8 +148,10 @@ class SleepTimerManager(
                 val p = getPlayer()
                 if (p == null || step >= totalSteps) {
                     // Fade complete (or player gone) — pause and restore volume.
+                    // Use the same captured reference for both operations so
+                    // a concurrent player swap can't affect the wrong player.
                     p?.pause()
-                    getPlayer()?.volume = 1.0f
+                    p?.volume = 1.0f
                     fadeRunnable = null
                     log("Sleep fade-out complete — paused, volume restored")
                     return

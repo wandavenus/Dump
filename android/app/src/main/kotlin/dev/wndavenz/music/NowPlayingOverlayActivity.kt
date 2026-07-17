@@ -201,9 +201,9 @@ class NowPlayingOverlayActivity : Activity() {
                 val svcIntent = Intent(this, Media3PlaybackService::class.java)
                 stopService(svcIntent)
             } catch (_: Exception) {}
-            
-            // Kill total aplikasi biar ga nggantung di background
-            android.os.Process.killProcess(android.os.Process.myPid())
+            // Aktivitas selesai; biarkan sistem mengelola lifecycle proses
+            // secara normal — killProcess() sebelumnya juga membunuh
+            // playback service di proses yang sama.
         }
     }
 

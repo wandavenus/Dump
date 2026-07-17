@@ -134,9 +134,14 @@ if (ok) {
         }
 
         // Run LRU cleanup after a successful save, protecting the active queue.
-        // This runs outside the per-songId lock — cleanup is idempotent and only
-        // does real work when total cache size exceeds MAX_BYTES.
-        if (result != null) cleanupIfNeeded(activeQueueIds)
+        // Also protect any songId that currently holds a per-songId lock
+        // (i.e. being extracted by another thread) to prevent a TOCTOU where
+        // cleanup deletes a file between the fast-path exists() check and the
+        // caller consuming the returned path.
+        if (result != null) {
+            val lockedIds = globalLock.withLock { songLocks.keys.toSet() }
+            cleanupIfNeeded(activeQueueIds + lockedIds)
+        }
 
         return result
     }

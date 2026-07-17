@@ -457,7 +457,10 @@ WriteResult WriteReplayGainTagsFd(int fd, const WriteRequest& req, TagSnapshot* 
     if (fd < 0) return WriteResult::kInvalidArgument;
     if (out_region != nullptr) {
         const WriteResult backup_result = BackupRegion(fd, req.format, out_region);
-        if (backup_result != WriteResult::kOk) return backup_result;
+        if (backup_result != WriteResult::kOk) {
+            ::close(fd);  // FileStream not yet created — we still own this fd
+            return backup_result;
+        }
     }
 
     FsyncGuard fsync_guard(fd);
@@ -523,7 +526,10 @@ WriteResult RemoveReplayGainTagsFd(int fd, TagFormat format, TagSnapshot* out_pr
     if (fd < 0) return WriteResult::kInvalidArgument;
     if (out_region != nullptr) {
         const WriteResult backup_result = BackupRegion(fd, format, out_region);
-        if (backup_result != WriteResult::kOk) return backup_result;
+        if (backup_result != WriteResult::kOk) {
+            ::close(fd);  // FileStream not yet created — we still own this fd
+            return backup_result;
+        }
     }
 
     FsyncGuard fsync_guard(fd);
@@ -703,7 +709,10 @@ WriteResult VerifyReplayGainRemovedFd(int fd, TagFormat format,
 WriteResult RestoreMetadataRegionFd(int fd, TagFormat format, const RegionBackup& backup) {
     if (fd < 0) return WriteResult::kInvalidArgument;
     const auto current_size = DetermineMetadataRegionSize(fd, format);
-    if (!current_size.has_value()) return WriteResult::kUnknown;
+    if (!current_size.has_value()) {
+        ::close(fd);  // FileStream not yet created — we still own this fd
+        return WriteResult::kUnknown;
+    }
 
     FsyncGuard fsync_guard(fd);
     TagLib::FileStream stream(fd, /*openReadOnly=*/false);

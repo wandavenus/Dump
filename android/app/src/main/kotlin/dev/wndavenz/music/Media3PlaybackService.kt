@@ -114,6 +114,10 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var offloadManager:       AudioOffloadManager
     private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
 
+    // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
+    // Shut down in onDestroy() so tasks don't outlive the service.
+    private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     // ── Listener registry (prevents double-attach / leaks) ────────────────────
     private val playerListeners      = IdentityHashMap<ExoPlayer, Player.Listener>()
     private val analyticsListeners   = IdentityHashMap<ExoPlayer, AnalyticsListener>()
@@ -681,7 +685,7 @@ class Media3PlaybackService : MediaSessionService() {
             notificationManager.ensureMediaForeground()
         }
         
-        Thread {
+        ioExecutor.execute {
             val songMap = buildSongMapFromUri(uriStr)
             handler.post {
                 try {
@@ -695,7 +699,7 @@ class Media3PlaybackService : MediaSessionService() {
                     NativeLogger.emit("error", "Media3", "handlePlayUri failed: $e")
                 }
             }
-        }.start()
+        }
     }
 
 
@@ -708,8 +712,8 @@ class Media3PlaybackService : MediaSessionService() {
         var artist    = "Unknown Artist"
         var album     = "Unknown Album"
         var durationMs = 0L
+        val r = android.media.MediaMetadataRetriever()
         try {
-            val r = android.media.MediaMetadataRetriever()
             if (uriStr.startsWith("content://")) {
                 r.setDataSource(applicationContext, android.net.Uri.parse(uriStr))
             } else {
@@ -725,9 +729,10 @@ class Media3PlaybackService : MediaSessionService() {
                 ?.takeIf { it.isNotBlank() }?.let { album = it }
             r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()?.let { durationMs = it }
-            r.release()
         } catch (e: Exception) {
             NativeLogger.emit("warn", "Media3", "buildSongMapFromUri metadata read failed: $e")
+        } finally {
+            r.release()
         }
         return mapOf(
             "id"       to 0,
@@ -751,6 +756,9 @@ class Media3PlaybackService : MediaSessionService() {
         // tickRunnable / fadeRunnable from firing against a released ExoPlayer
         // when the system kills the service without a prior prepareShutdown().
         if (::sleepTimerManager.isInitialized) sleepTimerManager.release()
+
+        // Shut down URI-metadata I/O executor (H-02 fix).
+        ioExecutor.shutdown()
 
         // Delegate the teardown sequence to ServiceShutdownCoordinator.
         // performTeardown() is idempotent — safe even when prepareShutdown() ran

@@ -116,7 +116,15 @@ class MetadataCacheDb private constructor(context: Context)
         val r128Album   : String?,
         val iTunNorm    : String?,
         val lyrics      : String?,   // null = not cached yet; LYRICS_NONE = confirmed absent
-    )
+    ) {
+        /**
+         * Returns the actual lyrics text, or null if not cached or confirmed absent.
+         * Use this instead of [lyrics] in display/consumer code so callers don't
+         * need to know about the LYRICS_NONE sentinel.
+         */
+        val lyricsOrNull: String?
+            get() = lyrics?.takeIf { it != LYRICS_NONE }
+    }
 
     // ── Read ──────────────────────────────────────────────────────────────────
 

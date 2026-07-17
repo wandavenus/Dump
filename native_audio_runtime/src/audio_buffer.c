@@ -15,7 +15,12 @@ FFI_PLUGIN_EXPORT NarAudioBuffer* nar_audio_buffer_create(
     int32_t channel_count,
     int32_t sample_rate,
     int32_t format) {
-  if (capacity_frames <= 0 || channel_count <= 0 || sample_rate <= 0) {
+  /* 10 menit × 192 kHz × 8 ch = 921,600,000 sampel — batas wajar */
+  static const int32_t MAX_CAPACITY_FRAMES = 115200000; /* 10 min × 192000 Hz */
+  static const int32_t MAX_CHANNELS        = 8;
+  if (capacity_frames <= 0 || capacity_frames > MAX_CAPACITY_FRAMES ||
+      channel_count   <= 0 || channel_count   > MAX_CHANNELS ||
+      sample_rate     <= 0) {
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NULL;
   }

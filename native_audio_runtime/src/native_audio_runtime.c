@@ -190,13 +190,20 @@ FFI_PLUGIN_EXPORT int32_t native_runtime_register_module(const char* module_id) 
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
+  /* Reject IDs longer than the storage limit to prevent silent truncation
+   * and prefix collisions (e.g. "abc...63" vs "abc...63_extra" would match
+   * with strncmp if we silently stored only the first 63 chars). */
+  if (strlen(module_id) > NAR_MODULE_ID_MAX_LEN) {
+    nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
+    return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
 
   int32_t result = NATIVE_RUNTIME_OK;
   nar_lock();
   {
     int32_t count = atomic_load(&_module_count);
     for (int32_t i = 0; i < count; i++) {
-      if (strncmp(_module_ids[i], module_id, NAR_MODULE_ID_MAX_LEN) == 0) {
+      if (strcmp(_module_ids[i], module_id) == 0) {
         result = NATIVE_RUNTIME_ERROR_DUPLICATE_MODULE;
         break;
       }
