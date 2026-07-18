@@ -58,9 +58,18 @@ Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter
 
 ## Target device (real Android testing device)
 
-- **Model:** Xiaomi Mi 9T / K20 (sama hardware, beda nama regional)
-- **Chipset:** Snapdragon 730 (Kryo 470, octa-core, ~2.2GHz)
-- **RAM:** 6GB
-- **Storage:** 64GB
+- **Model:** Xiaomi Mi 9T / K20 (hardware identik, beda nama regional)
+- **Chipset:** Qualcomm Snapdragon 730 (8 nm) — octa-core 2× 2.2 GHz Kryo 470 Gold + 6× 1.8 GHz Kryo 470 Silver
+- **GPU:** Adreno 618
+- **RAM:** 6 GB — Android 11 + MIUI 12 baseline ~2.5 GB; efektif tersisa ~3.5 GB untuk app
+- **Storage:** 64 GB UFS 2.0 (seq. read ~1.2 GB/s) — **no microSD**, semua storage internal
 - **OS:** MIUI 12 (berbasis Android 11)
-- Ini adalah device mid-range — pertimbangkan batasan RAM/CPU/storage saat menambahkan fitur baru (misal: prefetch/cache warm-up harus konservatif, hindari operasi berat/paralel besar-besaran yang bisa bikin app lag atau boros storage/baterai di device ini).
+- **Layar:** 6.39" AMOLED, 1080×2340, ~403 ppi, Gorilla Glass 5 — full screen tanpa notch/punch-hole (kamera pop-up motorized); hitam = piksel mati → dark theme hemat baterai
+- **Baterai:** 4000 mAh, 18W fast charge
+- **Konektivitas:** USB-C 2.0, Bluetooth 5.0 (aptX), NFC, IR blaster, Wi-Fi ac dual-band
+
+### Catatan hardware relevan untuk pengerjaan app
+- **UFS 2.0** — I/O cukup kencang, tapi tetap kelola artwork cache & lyric cache secara ketat (no microSD, storage internal saja)
+- **Adreno 618** — cukup kuat untuk shader GLSL (fluid background), tapi harus efisien; selalu render downscale + FittedBox, jangan full-res
+- **RAM headroom ~3.5 GB** — hindari operasi paralel berat atau cache besar-besaran yang bisa bikin lag / boros baterai
+- **AMOLED tanpa notch** — layar penuh bebas cutout; manfaatkan dark theme untuk efisiensi baterai
