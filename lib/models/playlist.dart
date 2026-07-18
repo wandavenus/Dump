@@ -30,11 +30,14 @@ class Playlist {
       };
 
   factory Playlist.fromJson(Map<String, dynamic> json) => Playlist(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        songIds: (json['songIds'] as List).map((e) => e as int).toList(),
-        createdAt:
-            DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        songIds: (json['songIds'] as List? ?? const [])
+            .map((e) => (e as num).toInt())
+            .toList(),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          (json['createdAt'] as num?)?.toInt() ?? 0,
+        ),
       );
 
   static String encodeList(List<Playlist> list) =>

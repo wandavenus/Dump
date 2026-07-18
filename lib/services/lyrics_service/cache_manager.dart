@@ -19,10 +19,12 @@ class LyricsCacheManager {
 
   // ── Memory cache ──────────────────────────────────────────────────────────
   final Map<String, _CacheEntry> _mem = {};
+  static const _maxMemEntries = 100;
 
   // Kunci yang baru-baru ini gagal dicari — hindari re-request selama 1 jam.
   final Map<String, int> _failedAtMs = {};
   static const _failedTtlMs = 60 * 60 * 1000; // 1 jam
+  static const _maxFailedEntries = 200;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,10 @@ class LyricsCacheManager {
 
   /// Simpan ke memory cache.
   void putMemory(String key, LyricsProviderResult result) {
+    // Evict oldest entry if at capacity (insertion-order FIFO).
+    if (_mem.length >= _maxMemEntries) {
+      _mem.remove(_mem.keys.first);
+    }
     _mem[key] = _CacheEntry(result, DateTime.now().millisecondsSinceEpoch);
   }
 
@@ -110,6 +116,10 @@ class LyricsCacheManager {
   }
 
   void markFailed(String key) {
+    // Evict oldest entry if at capacity to prevent unbounded growth.
+    if (_failedAtMs.length >= _maxFailedEntries) {
+      _failedAtMs.remove(_failedAtMs.keys.first);
+    }
     _failedAtMs[key] = DateTime.now().millisecondsSinceEpoch;
   }
 

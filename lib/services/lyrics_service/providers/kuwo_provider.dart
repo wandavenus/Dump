@@ -83,7 +83,7 @@ class KuwoProvider implements LyricsProvider {
       final lrcData = jsonDecode(lrcResp.body);
       // Coba beberapa jalur response
       String? lrc = lrcData['data']?['lrclist'] is List
-          ? _buildLrcFromList(lrcData['data']['lrclist'])
+          ? _buildLrcFromList(lrcData['data']?['lrclist'])
           : (lrcData['data']?['lrc'] as String?);
 
       if (lrc == null || lrc.trim().isEmpty) return null;

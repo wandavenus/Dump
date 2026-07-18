@@ -112,8 +112,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
   }
 
   Future<void> _removeSong(int songId) async {
-    if (widget.userPlaylist == null) return;
-    await PlaylistService.removeSong(widget.userPlaylist!.id, songId);
+    final playlist = widget.userPlaylist;
+    if (playlist == null) return;
+    await PlaylistService.removeSong(playlist.id, songId);
     if (mounted) setState(() => _songs.removeWhere((s) => s.id == songId));
   }
 
@@ -161,7 +162,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
     controller.dispose();
     if (result != null && result.isNotEmpty && mounted) {
-      await PlaylistService.renamePlaylist(widget.userPlaylist!.id, result);
+      final playlist = widget.userPlaylist;
+      if (playlist == null) return;
+      await PlaylistService.renamePlaylist(playlist.id, result);
       if (mounted) setState(() {});
     }
   }
@@ -194,7 +197,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
           ),
     );
     if ((ok ?? false) && mounted) {
-      await PlaylistService.deletePlaylist(widget.userPlaylist!.id);
+      final playlist = widget.userPlaylist;
+      if (playlist == null) return;
+      await PlaylistService.deletePlaylist(playlist.id);
       if (mounted) Navigator.pop(context);
     }
   }

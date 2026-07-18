@@ -43,8 +43,9 @@ class LoudnessData {
   double safeGain({double preamp = 0.0}) {
     if (!hasData) return 0.0;
     var g = gainDb + preamp;
-    if (peakLinear != null && peakLinear! > 0.0) {
-      final maxGain = -20.0 * (peakLinear! > 0 ? _log10(peakLinear!) : 0.0);
+    final peak = peakLinear;
+    if (peak != null && peak > 0.0) {
+      final maxGain = -20.0 * _log10(peak);
       if (g > maxGain) g = maxGain;
     }
     return g.clamp(-24.0, 24.0).toDouble();

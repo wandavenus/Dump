@@ -18,37 +18,36 @@ class _FontSizePicker extends StatelessWidget {
       valueListenable: LyricsSettings.fontSize,
       builder:
           (_, cur, _) => Row(
-            children:
-                _sizes.map((s) {
-                  final active = cur == s.value;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => LyricsSettings.setFontSize(s.value),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(right: 8),
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color:
-                              active
-                                  ? const Color(0xFFF92D48)
-                                  : Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          s.label,
-                          style: TextStyle(
-                            color: active ? Colors.white : Colors.white54,
-                            fontWeight:
-                                active ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 14,
-                          ),
+            children: [
+              for (final s in _sizes)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => LyricsSettings.setFontSize(s.value),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cur == s.value
+                            ? const Color(0xFFF92D48)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        s.label,
+                        style: TextStyle(
+                          color: cur == s.value ? Colors.white : Colors.white54,
+                          fontWeight: cur == s.value
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 14,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
+            ],
           ),
     );
   }
@@ -71,33 +70,31 @@ class _AlignPicker extends StatelessWidget {
       valueListenable: LyricsSettings.textAlign,
       builder:
           (_, cur, _) => Row(
-            children:
-                _opts.map((o) {
-                  final active = cur == o.value;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => LyricsSettings.setTextAlign(o.value),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(right: 8),
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color:
-                              active
-                                  ? const Color(0xFFF92D48)
-                                  : Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          o.icon,
-                          color: active ? Colors.white : Colors.white54,
-                          size: 20,
-                        ),
+            children: [
+              for (final o in _opts)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => LyricsSettings.setTextAlign(o.value),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cur == o.value
+                            ? const Color(0xFFF92D48)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        o.icon,
+                        color: cur == o.value ? Colors.white : Colors.white54,
+                        size: 20,
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
+            ],
           ),
     );
   }
@@ -120,44 +117,42 @@ class _ColorPicker extends StatelessWidget {
       valueListenable: LyricsSettings.activeColor,
       builder:
           (_, cur, _) => Row(
-            children:
-                _opts.map((o) {
-                  final active = cur == o.value;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => LyricsSettings.setActiveColor(o.value),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(right: 8),
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color:
-                              active
-                                  ? o.color
-                                  : Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border:
-                              active
-                                  ? null
-                                  : Border.all(
-                                    color: o.color.withValues(alpha: 0.4),
-                                    width: 1,
-                                  ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          o.label,
-                          style: TextStyle(
-                            color: active ? Colors.white : Colors.white54,
-                            fontSize: 13,
-                            fontWeight:
-                                active ? FontWeight.bold : FontWeight.normal,
-                          ),
+            children: [
+              for (final o in _opts)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => LyricsSettings.setActiveColor(o.value),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 8),
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cur == o.value
+                            ? o.color
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: cur == o.value
+                            ? null
+                            : Border.all(
+                                color: o.color.withValues(alpha: 0.4),
+                                width: 1,
+                              ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        o.label,
+                        style: TextStyle(
+                          color: cur == o.value ? Colors.white : Colors.white54,
+                          fontSize: 13,
+                          fontWeight: cur == o.value
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
+            ],
           ),
     );
   }

@@ -32,23 +32,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     ),
     fontFamily: 'SF Pro Text',
     textTheme: const TextTheme(
-      displayLarge:   TextStyle(fontFamily: 'SF Pro Text'),
-      displayMedium:  TextStyle(fontFamily: 'SF Pro Text'),
-      displaySmall:   TextStyle(fontFamily: 'SF Pro Text'),
-      headlineLarge:  TextStyle(fontFamily: 'SF Pro Text'),
-      headlineMedium: TextStyle(fontFamily: 'SF Pro Text'),
-      headlineSmall:  TextStyle(fontFamily: 'SF Pro Text'),
-      titleLarge:     TextStyle(fontFamily: 'SF Pro Text'),
-      titleMedium:    TextStyle(fontFamily: 'SF Pro Text'),
-      titleSmall:     TextStyle(fontFamily: 'SF Pro Text'),
-      bodyLarge:      TextStyle(fontFamily: 'SF Pro Text'),
-      bodyMedium:     TextStyle(fontFamily: 'SF Pro Text'),
-      bodySmall:      TextStyle(fontFamily: 'SF Pro Text'),
-      labelLarge:     TextStyle(fontFamily: 'SF Pro Text'),
-      labelMedium:    TextStyle(fontFamily: 'SF Pro Text'),
-      labelSmall:     TextStyle(fontFamily: 'SF Pro Text'),
+      displayLarge:   _sfProText,
+      displayMedium:  _sfProText,
+      displaySmall:   _sfProText,
+      headlineLarge:  _sfProText,
+      headlineMedium: _sfProText,
+      headlineSmall:  _sfProText,
+      titleLarge:     _sfProText,
+      titleMedium:    _sfProText,
+      titleSmall:     _sfProText,
+      bodyLarge:      _sfProText,
+      bodyMedium:     _sfProText,
+      bodySmall:      _sfProText,
+      labelLarge:     _sfProText,
+      labelMedium:    _sfProText,
+      labelSmall:     _sfProText,
     ),
   );
+
+  static const TextStyle _sfProText = TextStyle(fontFamily: 'SF Pro Text');
   @override
   void initState() {
     super.initState();

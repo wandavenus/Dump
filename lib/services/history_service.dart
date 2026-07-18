@@ -56,32 +56,36 @@ class HistoryService {
   static Future<void> trackPlay(LocalSong song) async {
     final prefs = await _getPrefs();
 
-    // ── Recently played ──────────────────────────────────────────────────────
+    // ── Compute all values first, then flush in parallel ─────────────────────
+
+    // Recently played
     final recent = prefs.getStringList(_recentKey) ?? [];
     recent.remove(song.id.toString());
     recent.insert(0, song.id.toString());
     if (recent.length > 20) recent.removeRange(20, recent.length);
-    await prefs.setStringList(_recentKey, recent);
 
-    // Write-through: keep in-memory cache in sync so sync getters remain valid.
-    _cachedRecentIds = recent.map(int.parse).toList(growable: false);
-
-    // ── Song play count ──────────────────────────────────────────────────────
+    // Song play count
     final playCounts = Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_playCountKey) ?? '{}'),
     );
     playCounts[song.id.toString()] =
         (playCounts[song.id.toString()] ?? 0) + 1;
-    await prefs.setString(_playCountKey, jsonEncode(playCounts));
 
-    // ── Artist play count ────────────────────────────────────────────────────
+    // Artist play count
     final artistCounts = Map<String, dynamic>.from(
       jsonDecode(prefs.getString(_artistPlayCountKey) ?? '{}'),
     );
     artistCounts[song.artist] = (artistCounts[song.artist] ?? 0) + 1;
-    await prefs.setString(_artistPlayCountKey, jsonEncode(artistCounts));
 
-    // Write-through: update artist count cache too.
+    // Flush all three keys to SharedPreferences in parallel.
+    await Future.wait([
+      prefs.setStringList(_recentKey, recent),
+      prefs.setString(_playCountKey, jsonEncode(playCounts)),
+      prefs.setString(_artistPlayCountKey, jsonEncode(artistCounts)),
+    ]);
+
+    // Write-through: keep in-memory caches in sync so sync getters stay valid.
+    _cachedRecentIds = recent.map(int.parse).toList(growable: false);
     _cachedArtistCounts = artistCounts;
   }
 
