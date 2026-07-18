@@ -1,6 +1,20 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+/// Thin adapter that drives the player bottom sheet open/close animation.
+///
+/// Exposes two [ValueNotifier]s consumed by the player UI:
+/// - [expanded] — whether the sheet is considered "open" (progress > 0).
+/// - [progress] — animation progress in [0.0, 1.0]; drives the sheet drag handle,
+///   mini-player opacity, and full-player slide-up transition.
+///
+/// All writes go through [setProgress] or the convenience helpers [open],
+/// [close], [toggle]. The easeOutCubic timer in [_animateTo] handles smooth
+/// programmatic transitions (e.g. tapping the mini-player).
+///
+/// This class sits on top of [PlayerSheetController] (the legacy controller
+/// that owns the draggable sheet) and is the sole public API for the rest of
+/// the app; the underlying sheet widget subscribes directly to [progress].
 class PlayerSheetController {
   PlayerSheetController._();
 

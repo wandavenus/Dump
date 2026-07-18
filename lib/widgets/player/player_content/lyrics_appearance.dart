@@ -77,15 +77,15 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _label('Ukuran Teks'),
+                  _buildLabel('Ukuran Teks'),
                   const SizedBox(height: 8),
                   const _FontSizePicker(),
                   const SizedBox(height: 16),
-                  _label('Rata Teks'),
+                  _buildLabel('Rata Teks'),
                   const SizedBox(height: 8),
                   const _AlignPicker(),
                   const SizedBox(height: 16),
-                  _label('Warna Aktif'),
+                  _buildLabel('Warna Aktif'),
                   const SizedBox(height: 8),
                   const _ColorPicker(),
 
@@ -111,7 +111,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     );
   }
 
-  static Widget _label(String text) => Text(
+  static Widget _buildLabel(String text) => Text(
     text,
     style: const TextStyle(
       color: Color(0xFF8E8E93),

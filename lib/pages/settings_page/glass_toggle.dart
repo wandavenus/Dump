@@ -1,5 +1,8 @@
 part of '../settings_page.dart';
 
+// TODO(cleanup): _GlassSubToggle duplicates SettingsToggleRow conceptually but
+// differs in padding, icon, and onChanged signature (Future<void> vs ValueChanged).
+// Consolidate once the glass-theme API is stabilised.
 class _GlassSubToggle extends StatelessWidget {
   final String label;
   final ValueNotifier<bool> notifier;

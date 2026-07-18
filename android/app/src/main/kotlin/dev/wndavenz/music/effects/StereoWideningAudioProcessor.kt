@@ -90,6 +90,11 @@ class StereoWideningAudioProcessor : BaseAudioProcessor() {
                 output.putShort(rOut)
             }
         }
+        // K-05: Defensive drain for any sub-frame bytes left after the integer
+        // division above (e.g. remaining % 4 != 0 for PCM-16 or remaining % 8 != 0
+        // for PCM-float). In practice ExoPlayer always delivers aligned buffers, so
+        // this loop is never entered; it is kept to avoid silent data loss if an
+        // upstream processor ever produces a misaligned buffer.
         while (inputBuffer.hasRemaining()) output.put(inputBuffer.get())
         output.flip()
     }

@@ -1,3 +1,11 @@
+// ── AudioService library ──────────────────────────────────────────────────────
+//
+// Library entry point for the high-level audio playback service.
+// Aggregates imports used by all sub-parts and exposes the implementation
+// via `part 'audio_service/service.dart'`.
+//
+// Public surface: [AudioService] (all static, facade over PlaybackManager).
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';

@@ -1,5 +1,8 @@
 part of '../settings_page.dart';
 
+// TODO(cleanup): _InfoLine duplicates SettingsInfoRow (settings_widgets/info.dart)
+// in intent but differs in padding and font sizes (compact 12px vs full 16px).
+// Consolidate once a shared compact-row variant exists in settings_widgets.
 class _InfoLine extends StatelessWidget {
   final String label;
   final String val;

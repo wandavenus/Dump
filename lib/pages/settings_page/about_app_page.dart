@@ -1,5 +1,10 @@
 part of '../settings_page.dart';
 
+// ─── URL konstanta ────────────────────────────────────────────────────────────
+
+const String _kInstagramUrl = 'https://www.instagram.com/wndavenznchole';
+const String _kFacebookUrl  = 'https://www.facebook.com/Wndavenznchole';
+
 // ─── Tentang App ────────────────────────────────────────────────────────────
 
 class AboutAppPage extends StatefulWidget {
@@ -213,15 +218,13 @@ class _AboutAppPageState extends State<AboutAppPage> {
                         _SocialRow(
                           icon: FontAwesomeIcons.instagram,
                           label: 'Wndavenznchole',
-                          onTap: () => _openUrl(
-                              'https://www.instagram.com/wndavenznchole'),
+                          onTap: () => _openUrl(_kInstagramUrl),
                         ),
                         const SizedBox(height: 14),
                         _SocialRow(
                           icon: FontAwesomeIcons.facebook,
                           label: 'Wndavenz Nchole',
-                          onTap: () => _openUrl(
-                              'https://www.facebook.com/Wndavenznchole'),
+                          onTap: () => _openUrl(_kFacebookUrl),
                         ),
                       ],
                     ),

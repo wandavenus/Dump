@@ -1,3 +1,11 @@
+// ── SleepTimerPage library ────────────────────────────────────────────────────
+//
+// Library entry point for the sleep timer bottom sheet.
+// Declares shared imports and includes sub-parts via `part`.
+//
+// Public surface: [showSleepTimerSheet] (top-level helper used by the player
+// 3-dot menu); widget tree lives in the `sleep_timer_page/` sub-parts.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';

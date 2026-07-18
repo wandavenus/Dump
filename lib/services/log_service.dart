@@ -1,3 +1,10 @@
+// ── LogService library ────────────────────────────────────────────────────────
+//
+// Library entry point for the in-app logging subsystem.
+// Declares all shared imports and includes the implementation via `part`.
+//
+// Public surface: [LogService] (all static); [LogEntry], [LogLevel].
+
 import 'dart:async';
 import 'dart:collection';
 

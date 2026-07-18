@@ -221,7 +221,12 @@ class CrossfadeController(
         // Notify AudioOffloadManager BEFORE the first Handler tick so offload
         // scheduling is disabled before the 16 ms volume-fade runnable starts.
         onCrossfadeStarting()
-        //setActiveQueueIndex(nextIndex) <- JANGAN PERNAH MENYENTUH INI!!!, KENAPA ITU DI KOMEN? KARENA ITU PENYEBAB LAGU A TERPOTONG SAAT BERPINDAH KE LAGU B DI PROSES CROSSFADE
+        // K-02: Do NOT call setActiveQueueIndex here (before the fade starts).
+        // Calling it at this point causes track A to be cut short (~200 ms) the moment
+        // the index advances, because ExoPlayer treats the index change as an implicit
+        // seek/stop signal while both players are still outputting audio simultaneously.
+        // The correct call sites are: inside runEqualPowerFade after promotion (line ~304)
+        // and inside onCrossfadeComplete (line ~363), where A is already silent.
 
         // Isolate the old player to exactly the current item so it cannot
         // auto-advance to any other queue position during the fade.
