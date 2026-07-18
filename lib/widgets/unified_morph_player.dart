@@ -75,13 +75,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     _currentSong = AudioService.playbackState.value.currentSong;
     _isPlaying = AudioService.playbackState.value.isPlaying;
     // If a song is already active on mount (restored session / Activity recreation),
-    // jump the entry animation to its completed state so the mini player is
-    // immediately visible at the correct position.
-    // Without this, _entryAnim.value stays 0.0 → entrySlide = baseBottom + miniH
-    // → bottom becomes negative → mini player is hidden below the screen until
-    // the next playback event fires (which never comes if nothing changes).
+    // play the same slide-up entry animation as when a song first appears during
+    // a fresh session. Without this, _entryAnim stays at 0.0 → entrySlide ≈ 120 px
+    // → bottom is negative → mini player is hidden below the screen until the next
+    // playback event fires (which never comes if nothing changes).
     if (_currentSong != null) {
-      _entryAnim.value = 1.0;
+      _entryAnim.forward(from: 0.0);
     }
   }
 
