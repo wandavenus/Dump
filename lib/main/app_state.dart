@@ -59,6 +59,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // MediaCapabilitiesService holds a StreamSubscription (_stereoWideningSub)
+    // that must be cancelled when the app widget tree is torn down.
+    MediaCapabilitiesService.dispose();
     super.dispose();
   }
 

@@ -64,12 +64,19 @@ class NativeModuleRegistry {
   }
 
   /// Dispose all registered modules in reverse registration order.
+  ///
+  /// Errors from individual modules are logged and suppressed so that a single
+  /// failing module never prevents the remaining modules from being disposed.
   static Future<void> disposeAll() async {
     for (final m in _modules.reversed) {
       try {
         await m.dispose();
-      } catch (_) {
-        // Suppress disposal errors — app is shutting down.
+      } catch (e, st) {
+        // Log before suppressing — silent swallowing hides bugs during shutdown.
+        LogService.warn(
+          'NativeModuleRegistry',
+          'disposeAll: ${m.displayName} (${m.moduleId}) threw: $e\n$st',
+        );
       }
     }
     _modules.clear();

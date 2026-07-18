@@ -268,6 +268,12 @@ Future<String> _resolvedCacheDir() async {
 
     return bytes;
   } catch (_) {
+    // File read failed — the path is stale (e.g. native LRU evicted the file
+    // while Dart still held a memory reference).  Evict all cached references
+    // so the next call goes through the full resolve → re-extract path instead
+    // of returning the same dead path again.
+    evict(songId);
+    _diskCachedIds.remove(songId);
     return null;
   }
 }

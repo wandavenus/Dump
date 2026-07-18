@@ -1,0 +1,237 @@
+# Phase 2 — Stability, Lifecycle & Resource Management
+
+## Objective
+
+Implement ONLY the validated stability and lifecycle findings from `Audit_Validation_Report.md`.
+
+This phase focuses on:
+
+- resource cleanup
+- lifecycle correctness
+- preventing memory leaks
+- improving reliability
+
+Do NOT perform performance optimizations.
+
+Do NOT perform architecture refactors.
+
+Do NOT modify application behavior unless required to fix a validated issue.
+
+---
+
+# Source of Truth
+
+Use ONLY:
+
+- Audit_Validation_Report.md
+
+Ignore every finding marked:
+
+- Rejected
+- False Positive
+- Needs Manual Verification (NMV)
+
+Implement ONLY findings explicitly validated.
+
+---
+
+# Scope
+
+## 1. StreamController lifecycle
+
+Locate every validated StreamController that is never closed.
+
+Examples include:
+
+- ffmpeg_decoder_bridge
+
+Ensure:
+
+- close() is always called
+- no double-close
+- no resource leaks
+
+---
+
+## 2. StreamSubscription lifecycle
+
+Fix every validated subscription leak.
+
+Examples:
+
+- detail_sections/songs.dart
+- radio_sections/recent_state.dart
+
+Verify:
+
+- subscriptions are cancelled
+- cancellation is safe
+- no duplicate cancellation
+
+---
+
+## 3. MediaCapabilitiesService
+
+Audit its lifecycle.
+
+If initialize() is called:
+
+ensure dispose() is also called from the appropriate lifecycle owner.
+
+Do not dispose too early.
+
+---
+
+## 4. NativeModuleRegistry
+
+Review:
+
+- initializeAll()
+- disposeAll()
+
+Implement validated improvements only.
+
+Specifically:
+
+- avoid silently swallowing errors
+- preserve initialization order
+- improve logging where appropriate
+
+Do not parallelize initialization in this phase.
+
+---
+
+## 5. LyricsService cache
+
+Implement validated cleanup improvements.
+
+Review:
+
+- duplicated cache usage
+- providerName.contains("tag")
+
+Only apply improvements that do not alter runtime behavior.
+
+---
+
+## 6. HistoryService
+
+Review validated lifecycle issues.
+
+Examples:
+
+- repeated SharedPreferences instance retrieval
+- repeated writes
+
+Only implement lifecycle-safe improvements.
+
+Major performance optimization belongs to Phase 3.
+
+---
+
+## 7. ArtworkRepository
+
+Implement validated fixes for:
+
+- stale cache entries
+- deleted file handling
+
+Do not redesign cache architecture.
+
+---
+
+## 8. Timer lifecycle
+
+Review validated timer issues.
+
+Examples:
+
+- _scrollResumeTimer
+
+Ensure:
+
+- cancel before reassignment
+- cancel during dispose()
+
+---
+
+## 9. Resource cleanup
+
+Review every validated resource requiring cleanup:
+
+Examples:
+
+- listeners
+- controllers
+- subscriptions
+- streams
+
+Ensure ownership is respected.
+
+Never dispose externally owned objects.
+
+---
+
+# Safety Rules
+
+Do NOT:
+
+- split files
+- rename folders
+- redesign services
+- optimize rendering
+- rewrite architecture
+
+Only fix validated lifecycle problems.
+
+---
+
+# Validation
+
+Before completion:
+
+- flutter analyze
+- verify no lifecycle regressions
+- verify application startup
+- verify playback lifecycle
+- verify background playback
+- verify resource cleanup paths
+
+---
+
+# Deliverables
+
+## Summary
+
+For every validated finding:
+
+- Fixed
+- Skipped
+
+Explain why.
+
+---
+
+## Changed Files
+
+List every modified file.
+
+---
+
+## Verification
+
+Report:
+
+- analyzer result
+- build result
+
+---
+
+## Remaining Work
+
+List only findings that belong to:
+
+- Phase 3 (Performance)
+- Phase 4 (Architecture)
+
+Stop after Phase 2.

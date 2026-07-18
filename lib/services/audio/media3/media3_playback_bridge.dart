@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import '../../../models/local_song.dart';
 import '../../../utils/safe_num.dart';
+import '../../log_service.dart';
 
 // ── Equalizer types ────────────────────────────────────────────────────────────
 // Defined here rather than in the legacy media3_audio_player.dart so that the
@@ -365,7 +366,8 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
     try {
       final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackStats');
       return raw?.map((k, v) => MapEntry(k.toString(), v));
-    } catch (_) {
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getPlaybackStats failed: $e');
       return null;
     }
   }
@@ -419,7 +421,8 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
     try {
       final raw = await _invoke<Map<dynamic, dynamic>>('getAudioFormat');
       return raw?.map((k, v) => MapEntry(k.toString(), v));
-    } catch (_) {
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getAudioFormat failed: $e');
       return null;
     }
   }
@@ -430,7 +433,8 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
     try {
       final raw = await _invoke<Map<dynamic, dynamic>>('getEffectSupport');
       return raw?.map((k, v) => MapEntry(k.toString(), v));
-    } catch (_) {
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getEffectSupport failed: $e');
       return null;
     }
   }
@@ -443,7 +447,8 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackSnapshot');
       if (raw == null) return null;
       return raw.map((k, v) => MapEntry(k.toString(), v));
-    } catch (_) {
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getPlaybackSnapshot failed: $e');
       return null;
     }
   }

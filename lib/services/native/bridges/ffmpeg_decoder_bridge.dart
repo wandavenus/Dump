@@ -264,6 +264,9 @@ class FfmpegDecoderBridge implements NativeModule {
     if (_status == NativeModuleStatus.disposed) return;
     await _decoderInfoSub?.cancel();
     _decoderInfoSub = null;
+    // Close the broadcast StreamController so any remaining listeners receive
+    // the done event and no further events are added after disposal.
+    if (!_decoderInfoCtrl.isClosed) await _decoderInfoCtrl.close();
     _status = NativeModuleStatus.disposed;
   }
 
