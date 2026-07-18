@@ -20,6 +20,17 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.4',
+    date: '18 Juli 2026',
+    changes: [
+      'Hapus file dan widget mati (chip, sleep_timer, lyrics, lyrics_rows, notif_icon dari settings; FutureLocalSongCarousel).',
+      'Bersihkan radioStations: type eksplisit, rename file webViewContainer → web_view_container.',
+      'Rename variabel fog_painter dari kode kriptonim ke nama deskriptif (_old0r/_cur0r dll).',
+      'Rename parameter v → enabled di semua setter ThemeController.',
+      'Perbaiki KDoc stale PlaybackNotificationManager (hapus referensi MediaKitPlaybackService).',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.3',
     date: '18 Juli 2026',
     changes: [

@@ -1,0 +1,304 @@
+# Phase 5 — Codebase Cleanup & Final Polish
+
+## Objective
+
+Complete the final cleanup of the repository after all previous phases have been completed.
+
+This phase focuses ONLY on:
+
+- dead code removal
+- obsolete files
+- cleanup
+- consistency
+- maintainability
+- documentation
+
+No behavioral changes.
+
+No feature additions.
+
+No architecture redesign.
+
+---
+
+# Source of Truth
+
+Use ONLY:
+
+- Audit_Validation_Report.md
+
+Ignore:
+
+- Rejected
+- False Positive
+- Needs Manual Verification (NMV)
+
+Only remove or clean items explicitly validated.
+
+---
+
+# Scope
+
+## 1. Dead Files
+
+Safely remove validated dead files.
+
+Examples include:
+
+- empty files
+- placeholder files
+- obsolete wrappers
+- unused debug files
+- unused templates
+
+Verify there are no remaining references.
+
+---
+
+## 2. Dead Methods
+
+Remove validated unused methods.
+
+Examples:
+
+- exportPlaylist()
+- clearHistory()
+- getAlbumArtUri()
+
+Only remove methods confirmed to have no callers.
+
+---
+
+## 3. Dead Classes
+
+Remove validated unused classes.
+
+Verify:
+
+- no imports
+- no runtime references
+- no reflection usage
+
+---
+
+## 4. Dead Widgets
+
+Remove validated unused widgets.
+
+Examples:
+
+- notif_icon
+- placeholder widgets
+- obsolete wrappers
+
+Preserve public behavior.
+
+---
+
+## 5. Pure Re-export Files
+
+Review export-only files.
+
+If unnecessary:
+
+- remove them
+
+Otherwise:
+
+- document their purpose.
+
+Update imports safely.
+
+---
+
+## 6. Const Cleanup
+
+Apply remaining validated const improvements.
+
+Examples:
+
+- Icon
+- Padding
+- SizedBox
+- TextStyle
+- constructors
+
+Do not force const where runtime evaluation exists.
+
+---
+
+## 7. Naming Cleanup
+
+Finish remaining validated naming issues.
+
+Examples:
+
+- cryptic variables
+- inconsistent identifiers
+- inconsistent filenames
+
+Avoid unnecessary renames.
+
+---
+
+## 8. Documentation Cleanup
+
+Remove obsolete comments.
+
+Update outdated comments.
+
+Document:
+
+- public APIs
+- native bridges
+- lifecycle ownership
+- important assumptions
+
+Avoid redundant comments.
+
+---
+
+## 9. Import Cleanup
+
+Remove:
+
+- unused imports
+- duplicate imports
+- obsolete exports
+
+Sort imports consistently.
+
+---
+
+## 10. Analyzer Cleanup
+
+Resolve remaining analyzer hints that are confirmed safe.
+
+Do NOT suppress warnings unnecessarily.
+
+Prefer fixing root causes.
+
+---
+
+## 11. Formatting
+
+Run:
+
+- dart format
+
+Only after all changes are complete.
+
+Avoid formatting unrelated files.
+
+---
+
+## 12. Final Repository Review
+
+Perform one final repository-wide review.
+
+Check for:
+
+- dead code
+- duplicate code
+- obsolete files
+- stale TODOs
+- stale FIXMEs
+- outdated comments
+- inconsistent naming
+- unused assets
+- unused exports
+
+Only remove items confirmed safe.
+
+---
+
+# Constraints
+
+Do NOT:
+
+- redesign architecture
+- optimize performance
+- modify playback
+- modify DSP
+- modify Media3
+- introduce new abstractions
+
+Cleanup only.
+
+---
+
+# Validation
+
+Run:
+
+- flutter analyze
+
+Run:
+
+- dart format
+
+Verify:
+
+- project builds
+- analyzer passes
+- no missing imports
+- no missing assets
+- no broken references
+
+---
+
+# Deliverables
+
+## Cleanup Summary
+
+For every validated cleanup finding:
+
+- Removed
+- Retained
+- Deferred
+
+Explain why.
+
+---
+
+## Files Removed
+
+List every deleted file.
+
+---
+
+## Code Removed
+
+Summarize:
+
+- methods removed
+- classes removed
+- widgets removed
+- exports removed
+
+---
+
+## Repository Health
+
+Report:
+
+- analyzer status
+- formatting status
+- remaining TODOs
+- remaining technical debt
+
+---
+
+## Final Summary
+
+Summarize the improvements across:
+
+- Phase 1
+- Phase 2
+- Phase 3
+- Phase 4
+- Phase 5
+
+Do NOT continue with additional changes.
+
+This is the final cleanup phase.

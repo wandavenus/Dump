@@ -22,14 +22,13 @@ import dev.wndavenz.music.events.NativeLogger
 import java.util.concurrent.Executors
 
 /**
- * Engine-agnostic media playback notification manager.
+ * Media playback notification manager for [Media3PlaybackService].
  *
- * Accepts any [android.app.Service] as host — works with both
- * [Media3PlaybackService] and [MediaKitPlaybackService].
+ * Accepts any [android.app.Service] as host and manages the foreground
+ * media notification lifecycle.
  *
  * The [serviceClass] parameter determines the PendingIntent target for
- * transport action buttons (Play/Pause, Next, Previous, Stop). Each engine
- * passes its own class so button presses are routed to the correct service.
+ * transport action buttons (Play/Pause, Next, Previous, Stop).
  *
  * Fixes applied:
  * NS-01: Unified notification building — single buildNotification() shared by both

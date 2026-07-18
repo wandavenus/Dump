@@ -9,10 +9,7 @@ import 'local_song_card.dart';
 class LocalSongCarousel extends StatelessWidget {
   final List<LocalSong> songs;
 
-  const LocalSongCarousel({
-    super.key,
-    required this.songs,
-  });
+  const LocalSongCarousel({super.key, required this.songs});
 
   @override
   Widget build(BuildContext context) {
@@ -24,36 +21,9 @@ class LocalSongCarousel extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
         itemCount: songs.length,
-        itemBuilder: (context, index) => LocalSongCard(
-          song: songs[index],
-          playlist: songs,
-          index: index,
-        ),
+        itemBuilder: (context, index) =>
+            LocalSongCard(song: songs[index], playlist: songs, index: index),
       ),
-    );
-  }
-}
-
-/// Widget yang me-load lagu dari Future lalu menampilkan [LocalSongCarousel].
-/// Menampilkan loading indicator saat memuat, SizedBox kosong jika kosong.
-class FutureLocalSongCarousel extends StatelessWidget {
-  final Future<List<LocalSong>> future;
-
-  const FutureLocalSongCarousel({super.key, required this.future});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<LocalSong>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 250,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return LocalSongCarousel(songs: snapshot.data ?? const []);
-      },
     );
   }
 }
