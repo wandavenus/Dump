@@ -64,12 +64,7 @@ class NeteaseProvider implements LyricsProvider {
       final lyricResp = await ProviderHttp.get(
         lyricUri, name, cancelToken, headers: _headers,
       );
-      if (lyricResp == null) return null;
-      if (lyricResp.statusCode == 429) {
-        ProviderRateLimiter.instance.markRateLimited(name);
-        return null;
-      }
-      if (lyricResp.statusCode != 200) return null;
+      if (lyricResp == null || lyricResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
       final lyricData = jsonDecode(lyricResp.body);

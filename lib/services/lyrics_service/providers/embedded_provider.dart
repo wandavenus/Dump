@@ -46,6 +46,7 @@ class EmbeddedProvider implements LyricsProvider {
         quality: parsed.quality,
         providerName: 'Dari tag file',
         isInternet: false,
+        isEmbedded: true,
         rawLrc: raw.trim(),
       );
     } on CancelledException {

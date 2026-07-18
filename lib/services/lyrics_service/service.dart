@@ -6,17 +6,11 @@ part of '../lyrics_service.dart';
 /// Implementasi sekarang didelegasikan ke [LyricsFetchManager] yang
 /// menjalankan semua provider online SECARA PARALEL.
 class LyricsService {
-  // Legacy memory cache kept for backward-compatibility with call sites that
-  // were written before LyricsCacheManager existed.  Both caches are cleared
-  // together in [clearCache].
-  // TODO(cleanup): consolidate into LyricsCacheManager in a future phase.
-  static final Map<String, LyricsResult> _cache = {};
-
-  // Provider name marker for embedded-tag sources (EmbeddedTagProvider).
-  // A string constant rather than an inline literal so it's easy to find and
-  // update if the provider name ever changes.
-  // TODO(robustness): replace with a typed isEmbedded flag on LyricsProviderResult.
-  static const _kEmbeddedProviderMarker = 'tag';
+  // Catatan arsitektur: tidak ada cache di lapisan ini.
+  // LyricsCacheManager (dikelola oleh LyricsFetchManager) adalah
+  // satu-satunya sumber kebenaran untuk caching — memory + disk + failure TTL.
+  // LyricsResult dibangun on-the-fly dari LyricsProviderResult; operasinya
+  // sangat murah sehingga tidak perlu di-cache ulang di sini.
 
   // ── Inisialisasi (dipanggil sekali dari main.dart / AudioEffectsService) ───
 
@@ -41,12 +35,6 @@ class LyricsService {
     String? album,
     int? durationMs,
   }) async {
-    // Cek legacy memory cache dulu (kompat dengan kode lama)
-    final legacyKey = '$artist|$title|${filePath ?? ''}';
-    if (_cache.containsKey(legacyKey)) {
-      return _cache[legacyKey]!;
-    }
-
     final query = LyricsQuery(
       title: title,
       artist: artist,
@@ -61,30 +49,26 @@ class LyricsService {
       return const LyricsResult([], LyricsSource.none);
     }
 
+    // Sumber ditentukan dari flag typed — tidak ada string matching.
     final source = providerResult.isInternet
         ? LyricsSource.internet
-        : providerResult.providerName.contains(_kEmbeddedProviderMarker)
+        : providerResult.isEmbedded
             ? LyricsSource.embedded
             : LyricsSource.localFile;
 
-    final result = LyricsResult(
+    return LyricsResult(
       providerResult.lines,
       source,
       quality: providerResult.quality,
       providerName: providerResult.providerName,
       rawLrc: providerResult.rawLrc,
     );
-
-    _cache[legacyKey] = result;
-    return result;
   }
 
   /// Bersihkan cache (panggil ketika folder lirik berubah).
   static void clearCache() {
-    final count = _cache.length;
-    _cache.clear();
     LyricsFetchManager.instance.clearMemoryCache();
-    LogService.verbose('LyricsService', 'Cache cleared ($count entries)');
+    LogService.verbose('LyricsService', 'Cache cleared');
   }
 
   /// Batalkan semua request yang sedang berjalan (mis. saat ganti lagu).

@@ -52,12 +52,7 @@ class QQMusicProvider implements LyricsProvider {
       final searchResp = await ProviderHttp.get(
         searchUri, name, cancelToken, headers: _headers,
       );
-      if (searchResp == null) return null;
-      if (searchResp.statusCode == 429) {
-        ProviderRateLimiter.instance.markRateLimited(name);
-        return null;
-      }
-      if (searchResp.statusCode != 200) return null;
+      if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
       final searchData = jsonDecode(searchResp.body);

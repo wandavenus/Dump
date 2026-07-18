@@ -5,7 +5,6 @@ import '../cancellation.dart';
 import '../lrc_parser.dart';
 import '../provider.dart';
 import '../quality.dart';
-import '../rate_limiter.dart';
 import 'provider_http.dart';
 
 /// Provider: lrclib.net — sumber utama untuk lirik synced (gratis, open).
@@ -22,11 +21,6 @@ class LrclibProvider implements LyricsProvider {
     LyricsQuery query,
     CancellationToken cancelToken,
   ) async {
-    if (ProviderRateLimiter.instance.isLimited(name)) {
-      LogService.verbose(name, 'Rate limited — skip');
-      return null;
-    }
-
     final artist = query.artist.split(',').first.trim();
     final title = query.title.replaceAll(RegExp(r'\s*\(.*?\)'), '').trim();
 
@@ -69,10 +63,6 @@ class LrclibProvider implements LyricsProvider {
       headers: {'User-Agent': 'MusicPlayerApp/2.0 (github.com/user/musicplayer)'},
     );
     if (response == null) return null;
-    if (response.statusCode == 429) {
-      ProviderRateLimiter.instance.markRateLimited(name);
-      return null;
-    }
     if (response.statusCode != 200) return null;
 
     final data = jsonDecode(response.body);

@@ -5,7 +5,6 @@ import '../cancellation.dart';
 import '../lrc_parser.dart';
 import '../provider.dart';
 import '../quality.dart';
-import '../rate_limiter.dart';
 import 'provider_http.dart';
 
 /// Provider: Apple Music (word-timed "Syllable" lyrics).
@@ -37,11 +36,6 @@ class AppleMusicProvider implements LyricsProvider {
     LyricsQuery query,
     CancellationToken cancelToken,
   ) async {
-    if (ProviderRateLimiter.instance.isLimited(name)) {
-      LogService.verbose(name, 'Rate limited — skip');
-      return null;
-    }
-
     try {
       final trackId = await _searchTrackId(query, cancelToken);
       if (trackId == null) return null;
@@ -78,10 +72,6 @@ class AppleMusicProvider implements LyricsProvider {
 
     final response = await ProviderHttp.get(uri, name, cancelToken);
     if (response == null) return null;
-    if (response.statusCode == 429) {
-      ProviderRateLimiter.instance.markRateLimited(name);
-      return null;
-    }
     if (response.statusCode != 200) return null;
 
     final data = jsonDecode(response.body);
@@ -139,10 +129,6 @@ class AppleMusicProvider implements LyricsProvider {
 
     final response = await ProviderHttp.get(uri, name, cancelToken);
     if (response == null) return null;
-    if (response.statusCode == 429) {
-      ProviderRateLimiter.instance.markRateLimited(name);
-      return null;
-    }
     if (response.statusCode != 200) return null;
     return response.body;
   }

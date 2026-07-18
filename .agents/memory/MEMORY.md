@@ -1,3 +1,4 @@
+- [Phase 8C Lyrics Architecture](lyrics-phase8c.md) — single cache (LyricsCacheManager only); isEmbedded typed flag; 429 centralized di ProviderHttp.
 - [Phase 8.5 Loudness Normalization](dsp-phase8-5.md) — EBU R128 IIR real-time normalizer at slot 2; slots renumbered (peq=3…soft_clipper=7); 3s smoothing tau; absolute gate −70 LUFS; NativeLoudnessNorm facade.
 - [Loudness quality fixes](loudness-quality-fixes.md) — sample rate propagation to DSP; asymmetric attack/release tau; relative gate; ReplayGain/LN mutual exclusion; system LE disabled when native norm is on.
 - [Phase 8 ReplayGain Engine](dsp-phase8.md) — NativeReplayGain DSP slot 1; _applyReplayGain rewired from LoudnessEnhancer→native DSP; clippingProtection VN added; duplicate ReplayGainMode enum removed from playback_manager.

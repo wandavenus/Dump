@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.9',
+    date: '18 Juli 2026',
+    changes: [
+      'Phase 8C: refactor arsitektur Lyrics — hapus dual cache (satu sumber kebenaran via LyricsCacheManager).',
+      'Ganti string matching providerName.contains("tag") dengan flag isEmbedded typed di LyricsProviderResult.',
+      'Pusatkan 429 rate-limit handling ke ProviderHttp — hapus duplikasi per-provider.',
+      'Kuwo provider: ekstrak akses data["data"] sekali untuk null safety yang lebih jelas.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.8',
     date: '18 Juli 2026',
     changes: [

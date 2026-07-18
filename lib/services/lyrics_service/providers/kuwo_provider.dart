@@ -51,12 +51,7 @@ class KuwoProvider implements LyricsProvider {
       final searchResp = await ProviderHttp.get(
         searchUri, name, cancelToken, headers: _headers,
       );
-      if (searchResp == null) return null;
-      if (searchResp.statusCode == 429) {
-        ProviderRateLimiter.instance.markRateLimited(name);
-        return null;
-      }
-      if (searchResp.statusCode != 200) return null;
+      if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
       final searchData = jsonDecode(searchResp.body);
@@ -81,10 +76,11 @@ class KuwoProvider implements LyricsProvider {
       cancelToken.throwIfCancelled();
 
       final lrcData = jsonDecode(lrcResp.body);
-      // Coba beberapa jalur response
-      String? lrc = lrcData['data']?['lrclist'] is List
-          ? _buildLrcFromList(lrcData['data']?['lrclist'])
-          : (lrcData['data']?['lrc'] as String?);
+      // Coba beberapa jalur response — ekstrak 'data' sekali untuk null safety
+      final lrcDataSection = lrcData['data'];
+      String? lrc = lrcDataSection?['lrclist'] is List
+          ? _buildLrcFromList(lrcDataSection?['lrclist'])
+          : (lrcDataSection?['lrc'] as String?);
 
       if (lrc == null || lrc.trim().isEmpty) return null;
 

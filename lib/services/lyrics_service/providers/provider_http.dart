@@ -48,7 +48,14 @@ class ProviderHttp {
         LogService.verbose(providerName,
             'HTTP ${response.statusCode} ${uri.host} ${sw.elapsedMilliseconds}ms');
 
-        // Jangan retry 4xx
+        // 429 → mark rate-limited dan hentikan
+        if (response.statusCode == 429) {
+          ProviderRateLimiter.instance.markRateLimited(providerName);
+          LogService.verbose(providerName, 'Rate limited (429) — cooldown dimulai');
+          return null;
+        }
+
+        // Jangan retry 4xx lainnya
         if (response.statusCode >= 400 && response.statusCode < 500) {
           return response;
         }
@@ -93,6 +100,11 @@ class ProviderHttp {
               .post(uri, headers: headers, body: body)
               .timeout(_readTimeout),
         );
+        if (response.statusCode == 429) {
+          ProviderRateLimiter.instance.markRateLimited(providerName);
+          LogService.verbose(providerName, 'Rate limited (429) — cooldown dimulai');
+          return null;
+        }
         if (response.statusCode >= 400 && response.statusCode < 500) {
           return response;
         }
