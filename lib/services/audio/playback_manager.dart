@@ -15,6 +15,13 @@ import '../native/bridges/ffmpeg_decoder_bridge.dart';
 import '../native/contracts/native_module.dart';
 import '../native/native_module_registry.dart';
 
+// TODO(refactor): playback_manager.dart is 833 lines — god file. Future split
+//   boundaries:
+//   1. EqualizerParameters + EQ setters → playback_manager/equalizer.dart
+//   2. Volume / duck / ReplayGain logic → playback_manager/volume.dart
+//   3. DSP pipeline wiring → playback_manager/dsp.dart
+//   4. Queue / shuffle / repeat helpers → playback_manager/queue.dart
+
 // ─── Equalizer parameter type ─────────────────────────────────────────────────
 
 class EqualizerParameters {

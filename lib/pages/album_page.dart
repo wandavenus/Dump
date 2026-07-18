@@ -11,8 +11,9 @@ class AlbumPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final route = ModalRoute.of(context);
+    if (route == null) return const Scaffold(backgroundColor: Colors.black);
+    final args = route.settings.arguments as Map<String, dynamic>;
 
     final album = args['album'] as LocalSong;
     final songs = args['songs'] as List<LocalSong>;

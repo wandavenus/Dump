@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/services/log_service.dart';
 
+// TODO(refactor): LogPage is 889 lines — god file. Future split boundaries:
+//   1. _LogPageState (state + filtering logic) → log_page/state.dart
+//   2. _LogEntryTile (entry renderer) → log_page/entry_tile.dart
+//   3. Filter bar / search bar widgets → log_page/filter_bar.dart
+
 /// Full-screen developer log viewer.
 /// Dibuka via Navigator.push dari Settings → Log Aktivitas.
 /// Opsional: [initialCategory] untuk langsung memfilter ke kategori tertentu

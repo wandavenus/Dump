@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
+import 'package:musicplayer/bottom_nav_bar/bottom_nav.dart';
 import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/services/audio/device_dsp.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';

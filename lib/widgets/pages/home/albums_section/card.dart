@@ -32,7 +32,7 @@ class _AlbumCardState extends State<_AlbumCard> {
 
     final cached = PaletteExtractor.getSync(songId);
     if (cached != null) {
-      if (mounted) setState(() => _bgColor = cached[2]);
+      if (mounted) setState(() => _bgColor = cached.length > 2 ? cached[2] : _fallbackColor);
       return;
     }
 
@@ -40,7 +40,7 @@ class _AlbumCardState extends State<_AlbumCard> {
     if (bytes == null || !mounted) return;
 
     final colors = await PaletteExtractor.get(songId, bytes);
-    if (mounted) setState(() => _bgColor = colors[2]);
+    if (mounted) setState(() => _bgColor = colors.length > 2 ? colors[2] : _fallbackColor);
   }
 
   @override

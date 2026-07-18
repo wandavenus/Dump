@@ -11,7 +11,9 @@ class ArtistPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final songs = ModalRoute.of(context)!.settings.arguments as List<LocalSong>;
+    final route = ModalRoute.of(context);
+    if (route == null) return const Scaffold(backgroundColor: Colors.black);
+    final songs = route.settings.arguments as List<LocalSong>;
 
     return Scaffold(
       backgroundColor: Colors.black,

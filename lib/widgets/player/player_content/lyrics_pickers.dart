@@ -109,7 +109,7 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih', color: Colors.black, value: 'white'),
+    (label: 'Putih', color: Colors.white, value: 'white'),
     (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
     (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
   ];

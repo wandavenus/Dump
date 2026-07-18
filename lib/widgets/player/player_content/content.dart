@@ -78,23 +78,24 @@ class _PlayerContentState extends State<PlayerContent> {
   static _PlayerContentState? _current;
 
   static void forwardExternalDragStart() {
-    _current?._forwardVerticalDragStart(
-      showLyrics: _current!.widget.showLyrics,
-    );
+    final cur = _current;
+    cur?._forwardVerticalDragStart(showLyrics: cur.widget.showLyrics);
   }
 
   static void forwardExternalDrag(double deltaY) {
-    _current?._forwardVerticalDrag(
-      showLyrics: _current!.widget.showLyrics,
-      showQueue: _current!.widget.showQueue,
+    final cur = _current;
+    cur?._forwardVerticalDrag(
+      showLyrics: cur.widget.showLyrics,
+      showQueue: cur.widget.showQueue,
       deltaY: deltaY,
     );
   }
 
   static void forwardExternalDragEnd(double velocity) {
-    _current?._forwardVerticalDragEnd(
-      showLyrics: _current!.widget.showLyrics,
-      showQueue: _current!.widget.showQueue,
+    final cur = _current;
+    cur?._forwardVerticalDragEnd(
+      showLyrics: cur.widget.showLyrics,
+      showQueue: cur.widget.showQueue,
       velocity: velocity,
     );
   }

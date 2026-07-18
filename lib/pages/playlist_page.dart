@@ -65,10 +65,12 @@ class _PlaylistPageState extends State<PlaylistPage> {
   Future<void> _load() async {
     try {
       List<int> ids;
-      if (widget.smartType != null) {
-        ids = await _smartIds(widget.smartType!);
+      final smartType = widget.smartType;
+      if (smartType != null) {
+        ids = await _smartIds(smartType);
       } else {
-        ids = List<int>.from(widget.userPlaylist!.songIds);
+        final playlist = widget.userPlaylist;
+        ids = playlist != null ? List<int>.from(playlist.songIds) : [];
       }
 
       final allSongs = await MediaStoreService.getSongs();

@@ -67,40 +67,39 @@ class _PlaybackStatsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            if (stats == null)
+            if (stats case final s?) ...[
+              _StatRow(
+                label: 'Waktu Putar',
+                value: _fmtMs(
+                    (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
+                icon: Icons.play_circle_outline_rounded,
+              ),
+              _StatRow(
+                label: 'Waktu Buffering',
+                value: _fmtMs(
+                    (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
+                icon: Icons.hourglass_bottom_rounded,
+              ),
+              _StatRow(
+                label: 'Rebuffer',
+                value:
+                    '${(s['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+                icon: Icons.cached_rounded,
+              ),
+              _StatRow(
+                label: 'Error',
+                value:
+                    '${(s['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+                icon: Icons.error_outline_rounded,
+              ),
+            ] else
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Text(
                   'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
                   style: TextStyle(color: Colors.white54, fontSize: 14),
                 ),
-              )
-            else ...[
-              _StatRow(
-                label: 'Waktu Putar',
-                value: _fmtMs(
-                    (stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
-                icon: Icons.play_circle_outline_rounded,
               ),
-              _StatRow(
-                label: 'Waktu Buffering',
-                value: _fmtMs(
-                    (stats!['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
-                icon: Icons.hourglass_bottom_rounded,
-              ),
-              _StatRow(
-                label: 'Rebuffer',
-                value:
-                    '${(stats!['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
-                icon: Icons.cached_rounded,
-              ),
-              _StatRow(
-                label: 'Error',
-                value:
-                    '${(stats!['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
-                icon: Icons.error_outline_rounded,
-              ),
-            ],
             const SizedBox(height: 24),
           ],
         ),

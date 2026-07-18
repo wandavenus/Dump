@@ -47,6 +47,24 @@ class MetadataCacheDb private constructor(context: Context)
         const val LYRICS_NONE                = "\u0000NONE\u0000"
         private const val COL_CACHED_AT      = "cached_at"
 
+        /**
+         * Converts a file path to a collision-safe 64-bit synthetic id.
+         *
+         * Uses FNV-1a 64-bit instead of String.hashCode() (32-bit, ~50 %
+         * collision probability at 77 K entries per birthday-paradox) to
+         * reduce collision risk to negligible levels across realistic library
+         * sizes.  The id is only a PRIMARY KEY surrogate; COL_PATH remains
+         * the authoritative lookup key for all business logic.
+         */
+        fun pathToId(path: String): Long {
+            var h = -3750763034362895579L   // FNV-1a 64-bit offset basis
+            for (c in path) {
+                h = h xor c.code.toLong()
+                h *= 1099511628211L          // FNV-1a 64-bit prime
+            }
+            return h
+        }
+
         @Volatile
         private var instance: MetadataCacheDb? = null
 
@@ -243,7 +261,7 @@ class MetadataCacheDb private constructor(context: Context)
     fun putByPath(path: String, mtime: Long, entry: CachedEntry) {
         try {
             val values = ContentValues().apply {
-                put(COL_ID,           path.hashCode())   // synthetic id from path
+                put(COL_ID,           pathToId(path))    // collision-safe 64-bit id from path
                 put(COL_PATH,         path)
                 put(COL_MTIME,        mtime)
                 put(COL_RG_TRACK_GAIN, entry.rgTrackGain)

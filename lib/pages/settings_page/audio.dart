@@ -1,5 +1,12 @@
 part of '../settings_page.dart';
 
+// TODO(refactor): audio.dart is 869 lines — god file. Future split boundaries:
+//   1. _ReplayGainSection → audio/replaygain_section.dart
+//   2. _LoudnessNormSection → audio/loudness_section.dart
+//   3. _EqualizerSection → audio/equalizer_section.dart
+//   4. _OutputModeSection → audio/output_mode_section.dart
+//   5. _DspSection (compressor/limiter/crossfeed) → audio/dsp_section.dart
+
 class _AudioSection extends StatelessWidget {
   const _AudioSection();
 
