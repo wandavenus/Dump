@@ -1,0 +1,236 @@
+# Regression Fix — Mini Player State Restoration
+
+## Background
+
+After completing the Phase 8B Player Sheet Rendering refactor, a regression was discovered.
+
+Playback itself works correctly.
+
+Media3 service remains alive.
+
+Music continues playing normally.
+
+However, after leaving the application completely (Back button / Activity destroyed) and reopening it, the Mini Player no longer appears even though playback is still active.
+
+Before Phase 8B this behavior worked correctly.
+
+---
+
+# Symptoms
+
+Current behavior:
+
+- Music continues playing
+- Media3 service remains alive
+- Notification still works
+- Playback controls work
+- Reopening the app shows no Mini Player
+- Selecting another song makes the Mini Player appear again
+
+Expected behavior:
+
+When the app is reopened while Media3 is already playing,
+
+the Mini Player should immediately restore itself using the current playback state.
+
+---
+
+# Suspected Cause
+
+During Phase 8B,
+
+`AudioService.playbackState` listeners were refactored.
+
+`_onSongAppeared`
+
+was merged into
+
+`_onPlaybackStateChanged`.
+
+The UI may now depend entirely on playback change callbacks.
+
+After Activity recreation,
+
+no playback event is emitted because:
+
+- current song is unchanged
+- playback state is unchanged
+- isPlaying is unchanged
+
+As a result,
+
+the UI never receives an initial synchronization.
+
+---
+
+# Investigation
+
+Audit the following:
+
+- UnifiedMorphPlayer
+- PlayerSheet
+- AudioService
+- playbackState listeners
+- current song restoration
+- widget lifecycle
+- initState()
+- didChangeDependencies()
+- didUpdateWidget()
+
+Determine whether the UI now waits only for future playback events instead of restoring the current state immediately.
+
+---
+
+# Fix Requirements
+
+Restore the original behavior.
+
+When the Player UI is created,
+
+perform an initial synchronization from the current AudioService state.
+
+The UI must restore:
+
+- current song
+- playback state
+- play/pause state
+- queue information (if required)
+- artwork state (if required)
+
+without waiting for another playback callback.
+
+Do NOT fake events.
+
+Do NOT trigger unnecessary playback notifications.
+
+Read the existing state directly.
+
+---
+
+# Preserve Phase 8B Optimizations
+
+Do NOT revert the rendering optimization.
+
+Keep:
+
+- reduced rebuild scope
+- ValueListenableBuilder optimizations
+- listener optimizations
+
+The only goal is restoring the initial UI state.
+
+---
+
+# Validation
+
+Verify all of the following:
+
+## Fresh playback
+
+Start a song.
+
+Mini Player appears.
+
+---
+
+## Background playback
+
+Leave app.
+
+Return.
+
+Mini Player still appears.
+
+---
+
+## Activity recreation
+
+Destroy Activity.
+
+Open app again.
+
+Mini Player restores immediately.
+
+---
+
+## Process recreation
+
+If process survives:
+
+Mini Player restores.
+
+If process is actually killed:
+
+Behavior follows current application design.
+
+---
+
+## Song change
+
+Changing song still updates Mini Player.
+
+---
+
+## Pause
+
+Pause still updates UI correctly.
+
+---
+
+## Resume
+
+Resume still updates UI correctly.
+
+---
+
+## Progress
+
+Progress updates still use the optimized rebuild scope introduced in Phase 8B.
+
+---
+
+# Constraints
+
+Do NOT modify:
+
+- Media3
+- DSP
+- ReplayGain
+- playback pipeline
+- rendering optimization
+- animations
+
+Only fix the UI state restoration regression introduced by the Phase 8B refactor.
+
+---
+
+# Deliverables
+
+Produce:
+
+## Root Cause
+
+Explain exactly why the regression occurred.
+
+---
+
+## Changed Files
+
+List every modified file.
+
+---
+
+## Fix Description
+
+Explain how the initial synchronization is now performed.
+
+---
+
+## Validation
+
+Confirm:
+
+- flutter analyze
+- build succeeds
+- Mini Player restoration works correctly
+- Phase 8B rendering optimizations remain intact

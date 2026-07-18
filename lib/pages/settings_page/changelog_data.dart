@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.8',
+    date: '18 Juli 2026',
+    changes: [
+      'Regression fix: Mini Player tidak muncul saat app dibuka kembali setelah Activity destroyed — _entryAnim sekarang di-jump ke 1.0 di initState() bila lagu sudah aktif.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.7',
     date: '18 Juli 2026',
     changes: [

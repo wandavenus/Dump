@@ -70,9 +70,19 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Single listener replaces the old _onSongAppeared + playbackState VLB.
     // Only setState when song identity or isPlaying changes — never on position ticks.
     AudioService.playbackState.addListener(_onPlaybackStateChanged);
-    // Initialise fields from current state (in case widget mounts mid-playback).
+    // Initialise fields from current state (in case widget mounts mid-playback,
+    // e.g. Activity recreation while Media3 is still playing).
     _currentSong = AudioService.playbackState.value.currentSong;
     _isPlaying = AudioService.playbackState.value.isPlaying;
+    // If a song is already active on mount (restored session / Activity recreation),
+    // jump the entry animation to its completed state so the mini player is
+    // immediately visible at the correct position.
+    // Without this, _entryAnim.value stays 0.0 → entrySlide = baseBottom + miniH
+    // → bottom becomes negative → mini player is hidden below the screen until
+    // the next playback event fires (which never comes if nothing changes).
+    if (_currentSong != null) {
+      _entryAnim.value = 1.0;
+    }
   }
 
   @override
