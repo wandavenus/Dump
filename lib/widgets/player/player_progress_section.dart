@@ -28,6 +28,19 @@ class PlayerProgressSection extends StatefulWidget {
 }
 
 class _PlayerProgressSectionState extends State<PlayerProgressSection> {
+  // Shared SliderThemeData — computed once instead of on every ~50 ms
+  // playback-state rebuild.  All values are const so this is safe to cache.
+  static final _sliderTheme = SliderThemeData(
+    trackHeight: 6,
+    activeTrackColor: Colors.white,
+    inactiveTrackColor: const Color(0xFF8D8D8D),
+    thumbShape:
+        const RoundSliderThumbShape(enabledThumbRadius: 0, disabledThumbRadius: 0),
+    overlayShape: SliderComponentShape.noOverlay,
+    thumbColor: Colors.transparent,
+    overlayColor: Colors.transparent,
+  );
+
   // ── Drag state ─────────────────────────────────────────────────────────────
   bool _isDragging = false;
   double _dragValue = 0.0;
@@ -138,18 +151,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
         return Column(
           children: [
             SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 6,
-                activeTrackColor: Colors.white,
-                inactiveTrackColor: const Color(0xFF8D8D8D),
-                thumbShape: const RoundSliderThumbShape(
-                  enabledThumbRadius: 0,
-                  disabledThumbRadius: 0,
-                ),
-                overlayShape: SliderComponentShape.noOverlay,
-                thumbColor: Colors.transparent,
-                overlayColor: Colors.transparent,
-              ),
+              data: _sliderTheme,
               child: Slider(
                 min: 0,
                 max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),

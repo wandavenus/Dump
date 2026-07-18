@@ -13,6 +13,10 @@ class _AboutAppPageState extends State<AboutAppPage> {
   final _scroll = ScrollController();
   double _offset = 0;
 
+  // Year is constant for the lifetime of the widget — computed once so
+  // build() never allocates a DateTime on every frame.
+  static final int _currentYear = DateTime.now().year;
+
   // ── Debug easter egg ──────────────────────────────────────────────────────
   int _tapCount = 0;
   DateTime? _firstTap;
@@ -79,7 +83,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
   @override
   Widget build(BuildContext context) {
-    final year = DateTime.now().year;
+    final year = _currentYear;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(

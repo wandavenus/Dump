@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeController {
   ThemeController._();
 
+  // Cached after init() — avoids a SharedPreferences.getInstance() round-trip
+  // on every toggle.  Falls back to a fresh getInstance() if init() was skipped
+  // (e.g. tests or web preview).
+  static SharedPreferences? _prefs;
+
   // ─── Master toggle ──────────────────────────────────────────────────────────
   static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
 
@@ -25,7 +30,8 @@ class ThemeController {
 
   // ─── Init ───────────────────────────────────────────────────────────────────
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
+    _prefs = await SharedPreferences.getInstance();
+    final prefs = _prefs!;
     glassTheme.value       = prefs.getBool('glass_theme')        ?? false;
     glassNavBar.value      = prefs.getBool('glass_navbar')       ?? true;
     glassAppBar.value      = prefs.getBool('glass_appbar')       ?? true;
@@ -94,7 +100,9 @@ class ThemeController {
   }
 
   static Future<void> _save(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
+    // Re-use the cached instance from init(); fall back to getInstance() in
+    // the unlikely case that _save() is called before init() completes.
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
   }
 }

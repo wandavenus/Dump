@@ -8,20 +8,32 @@ class PlaylistService {
   static const _playlistsKey = 'user_playlists';
   static const _favoritesKey = 'favorite_song_ids';
 
+  // In-memory caches — avoids JSON decode on every read.  Both caches are
+  // written through on every mutation so they stay in sync with SharedPrefs.
+  static List<Playlist>? _cachedPlaylists;
+  static List<int>? _cachedFavoriteIds;
+
   // ─── User Playlists ────────────────────────────────────────────────────────
 
   static Future<List<Playlist>> getPlaylists() async {
+    if (_cachedPlaylists != null) return List.of(_cachedPlaylists!);
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_playlistsKey);
-    if (raw == null) return [];
+    if (raw == null) {
+      _cachedPlaylists = [];
+      return [];
+    }
     try {
-      return Playlist.decodeList(raw);
+      _cachedPlaylists = Playlist.decodeList(raw);
+      return List.of(_cachedPlaylists!);
     } catch (_) {
+      _cachedPlaylists = [];
       return [];
     }
   }
 
   static Future<void> _savePlaylists(List<Playlist> playlists) async {
+    _cachedPlaylists = List.of(playlists); // write-through
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_playlistsKey, Playlist.encodeList(playlists));
   }
@@ -75,12 +87,19 @@ class PlaylistService {
   // ─── Favorites ─────────────────────────────────────────────────────────────
 
   static Future<List<int>> getFavoriteIds() async {
+    if (_cachedFavoriteIds != null) return List.of(_cachedFavoriteIds!);
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_favoritesKey);
-    if (raw == null) return [];
+    if (raw == null) {
+      _cachedFavoriteIds = [];
+      return [];
+    }
     try {
-      return (jsonDecode(raw) as List).map((e) => e as int).toList();
+      _cachedFavoriteIds =
+          (jsonDecode(raw) as List).map((e) => e as int).toList();
+      return List.of(_cachedFavoriteIds!);
     } catch (_) {
+      _cachedFavoriteIds = [];
       return [];
     }
   }
@@ -91,7 +110,6 @@ class PlaylistService {
   }
 
   static Future<bool> toggleFavorite(int songId) async {
-    final prefs = await SharedPreferences.getInstance();
     final ids = await getFavoriteIds();
     final isFav = ids.contains(songId);
     if (isFav) {
@@ -99,6 +117,8 @@ class PlaylistService {
     } else {
       ids.add(songId);
     }
+    _cachedFavoriteIds = List.of(ids); // write-through
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_favoritesKey, jsonEncode(ids));
     return !isFav;
   }

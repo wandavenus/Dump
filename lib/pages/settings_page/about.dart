@@ -43,9 +43,13 @@ class _AboutSection extends StatelessWidget {
 class _AboutFooter extends StatelessWidget {
   const _AboutFooter();
 
+  // Year is stable for the app lifetime — static so it's computed once,
+  // never inside build().
+  static final int _currentYear = DateTime.now().year;
+
   @override
   Widget build(BuildContext context) {
-    final year = DateTime.now().year;
+    final year = _currentYear;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
