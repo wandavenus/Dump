@@ -47,11 +47,6 @@ class TransportCommands(
     private val ensureMediaForeground: () -> Unit,
     private val offloadManager: AudioOffloadManager,
     /**
-     * M4 — Applied to ALL live ExoPlayer instances (primary + secondary) whenever
-     * the skip-silence setting changes, so both players in a crossfade behave identically.
-     */
-    private val applySkipSilence: (Boolean) -> Unit = {},
-    /**
      * M5 — Called when the output mode changes (0=Auto/AAudio, 1=OpenSL ES, 2=Hi-Res).
      * The service uses this to update its hiResModeEnabled flag so the next player
      * created by createConfiguredPlayer() uses the appropriate LoadControl parameters.
@@ -297,15 +292,6 @@ class TransportCommands(
             }
             "setBassBoostEnabled"    -> { effectsManager.setBassBoostEnabled(call.argument<Boolean>("enabled") ?: false); result.success(null) }
             "setBassBoostStrength"   -> { effectsManager.setBassBoostStrength((call.argument<Number>("strength")?.toInt() ?: 0).toShort()); result.success(null) }
-
-            // ── Skip silence (Item 1) ─────────────────────────────────────────
-
-            "setSkipSilence" -> {
-                val enabled = call.argument<Boolean>("enabled") ?: false
-                applySkipSilence(enabled)
-                log("info", "setSkipSilence: $enabled")
-                result.success(null)
-            }
 
             // ── Stereo widening (Item 8) ──────────────────────────────────────
 

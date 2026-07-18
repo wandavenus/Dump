@@ -23,13 +23,6 @@ class MediaCapabilitiesService {
 
   // ── ValueNotifiers (UI ↔ Service) ─────────────────────────────────────────
 
-  /// Item 1: Skip silence in ExoPlayer's SonicAudioProcessor.
-  ///
-  /// When enabled, ExoPlayer trims silent gaps between notes / tracks
-  /// without changing the speed of the audio.  On Snapdragon 730 /
-  /// Android 11 this is entirely software-based and ~0 % CPU overhead.
-  static final ValueNotifier<bool> skipSilenceEnabled = ValueNotifier(false);
-
   /// Item 8: Software stereo widening via ChannelMixingAudioProcessor.
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
@@ -39,7 +32,6 @@ class MediaCapabilitiesService {
 
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
-  static StreamSubscription<bool>?                  _skipSilenceSub;
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
@@ -49,18 +41,8 @@ class MediaCapabilitiesService {
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    skipSilenceEnabled.value     = prefs.getBool('${_kPrefix}skipSilence')      ?? false;
     stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')    ?? false;
     stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
-
-    // ── Skip silence ─────────────────────────────────────────────────────────
-    // Subscribes to the engine-manager-forwarded stream so the toggle
-    // stays correct even when the native engine overrides the value
-    // (e.g. future ExoPlayer version resets silence-skip on seek).
-    _skipSilenceSub?.cancel();
-    _skipSilenceSub = PlaybackManager.skipSilenceStream.listen((v) {
-      if (skipSilenceEnabled.value != v) skipSilenceEnabled.value = v;
-    });
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -77,7 +59,7 @@ class MediaCapabilitiesService {
     // Push all settings to active engine on startup.
     unawaited(_applyAll());
 
-    LogService.log('MediaCap', 'Initialized — skipSilence=${skipSilenceEnabled.value} '
+    LogService.log('MediaCap', 'Initialized — '
         'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
   }
 
@@ -89,7 +71,6 @@ class MediaCapabilitiesService {
   // means these calls run once the service has actually finished wiring.
   static Future<void> _applyAll() async {
     await PlaybackManager.waitForServiceReady();
-    unawaited(PlaybackManager.setSkipSilence(skipSilenceEnabled.value));
     unawaited(PlaybackManager.setStereoWidening(
       enabled:  stereoWideningEnabled.value,
       strength: stereoWideningStrength.value,
@@ -97,15 +78,6 @@ class MediaCapabilitiesService {
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────
-
-  /// Item 1: Toggle skip-silence.
-  static Future<void> setSkipSilence(bool value) async {
-    skipSilenceEnabled.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${_kPrefix}skipSilence', value);
-    unawaited(PlaybackManager.setSkipSilence(value));
-    LogService.log('MediaCap', 'skipSilence: $value');
-  }
 
   /// Item 8: Toggle stereo widening.  Sends current [stereoWideningStrength]
   /// alongside the enable flag so the engine can apply both atomically.
@@ -153,9 +125,7 @@ class MediaCapabilitiesService {
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   static void dispose() {
-    _skipSilenceSub?.cancel();
     _stereoWideningSub?.cancel();
-    _skipSilenceSub    = null;
     _stereoWideningSub = null;
   }
 }

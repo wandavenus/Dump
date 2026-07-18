@@ -19,19 +19,6 @@ class _PlaybackEngineSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Skip Silence ───────────────────────────────────────────
-              ValueListenableBuilder<bool>(
-                valueListenable: MediaCapabilitiesService.skipSilenceEnabled,
-                builder: (_, v, _) => SettingsToggleRow(
-                  title: 'Skip Silence',
-                  subtitle:
-                      'Potong bagian senyap di dalam lagu (intro/outro)',
-                  value: v,
-                  onChanged: MediaCapabilitiesService.setSkipSilence,
-                ),
-              ),
-              const SettingsDivider(),
-
               // ── Stereo Widening ──────────────────────────────────────────
               ValueListenableBuilder<bool>(
                 valueListenable:

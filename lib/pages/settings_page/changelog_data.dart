@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.3',
+    date: '18 Juli 2026',
+    changes: [
+      'Hapus fitur Skip Silence.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.2',
     date: '18 Juli 2026',
     changes: [

@@ -60,7 +60,6 @@ class Media3PlaybackBridge {
   static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
   static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
   static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
-  static const EventChannel _skipSilenceEvents      = EventChannel('musicplayer/media3_skipSilence');
   static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
   // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
   // Media3PlaybackService.onCreate() has fully finished wiring; replays
@@ -177,14 +176,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
           .receiveBroadcastStream()
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>()
-          .asBroadcastStream();
-
-  /// Live skip-silence state from ExoPlayer's [onSkipSilenceEnabledChanged].
-  static final Stream<bool> skipSilenceStream =
-      _skipSilenceEvents
-          .receiveBroadcastStream()
-          .where((e) => e is bool)
-          .cast<bool>()
           .asBroadcastStream();
 
   /// Live stereo-widening state — emitted after [StereoWidthManager] applies
@@ -356,11 +347,6 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       _invoke<void>('setBassBoostEnabled', {'enabled': enabled});
   static Future<void> setBassBoostStrength(int strength) =>
       _invoke<void>('setBassBoostStrength', {'strength': strength});
-
-  // ── Skip silence (Item 1) ─────────────────────────────────────────────────
-
-  static Future<void> setSkipSilence(bool enabled) =>
-      _invoke<void>('setSkipSilence', {'enabled': enabled});
 
   // ── Stereo widening (Item 8) ──────────────────────────────────────────────
 

@@ -135,9 +135,6 @@ class Media3PlaybackService : MediaSessionService() {
     // without needing to query the player synchronously off the analytics thread.
     private val lastAudioMimeType    = IdentityHashMap<ExoPlayer, String>()
 
-    // ── Item 1: skip silence — persisted so new standby players inherit state ─
-    private var skipSilenceEnabled = false
-
     // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
@@ -519,15 +516,6 @@ class Media3PlaybackService : MediaSessionService() {
             // (primary + secondary/crossfade) atomically.
             onSpeedChanged = { speed -> stretchManager.setSpeed(speed) },
             onPitchSemitonesChanged = { semitones -> stretchManager.setPitchSemitones(semitones) },
-
-            // Item 1: skip silence — applied to ALL live players atomically so
-            // both active and standby behave identically during crossfade overlap.
-            applySkipSilence = { enabled ->
-                skipSilenceEnabled = enabled
-                forEachLivePlayer { it.skipSilenceEnabled = enabled }
-                NativeLogger.emit("info", "Media3",
-                    "skipSilence=$enabled applied to all live players")
-            },
 
             // Item 8: stereo widening — delegate to StereoWidthManager which
             // updates all ChannelMixingAudioProcessor instances atomically,
@@ -1043,9 +1031,6 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
-                // Item 1: apply current skip-silence state so standby players always
-                // match the active player — no gap in skip-silence behaviour mid-crossfade.
-                skipSilenceEnabled = this@Media3PlaybackService.skipSilenceEnabled
                 // Attach the offload listener when available (offloadManager is initialised
                 // after the primary player in onCreate; secondary players are always created
                 // after that point so the guard below covers the race-free case).
@@ -1147,9 +1132,6 @@ class Media3PlaybackService : MediaSessionService() {
                 setAudioAttributes(attrs, false)
                 setHandleAudioBecomingNoisy(false)
                 setWakeMode(C.WAKE_MODE_LOCAL)
-                // Bit-Perfect purity: always off, regardless of the user's
-                // global skip-silence setting.
-                skipSilenceEnabled = false
             }
 
         NativeLogger.emit("info", "Media3",
@@ -1315,17 +1297,6 @@ class Media3PlaybackService : MediaSessionService() {
                     "contentType=${audioAttributes.contentType} " +
                     "flags=${audioAttributes.flags}",
                 )
-            }
-
-            /**
-             * Fires when skip-silence is toggled on the player.
-             * Emitted to Flutter via the "skipSilence" EventChannel so the UI
-             * toggle stays in sync with the native player state.
-             */
-            override fun onSkipSilenceEnabledChanged(skipSilenceEnabled: Boolean) {
-                if (!isActiveEvent()) return
-                NativeLogger.emit("info", "Media3", "skipSilence → $skipSilenceEnabled")
-                EventEmitter.emit("skipSilence", skipSilenceEnabled)
             }
 
             /**

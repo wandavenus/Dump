@@ -109,8 +109,6 @@ class PlaybackManager {
       Media3PlaybackBridge.audioSessionIdStream;
   static Stream<Map<dynamic, dynamic>> get audioFormatStream =>
       Media3PlaybackBridge.audioFormatStream;
-  static Stream<bool> get skipSilenceStream =>
-      Media3PlaybackBridge.skipSilenceStream;
   static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
       Media3PlaybackBridge.stereoWideningStream;
 
@@ -287,9 +285,6 @@ class PlaybackManager {
       Media3PlaybackBridge.getEffectSupport();
 
   // ── Capabilities ──────────────────────────────────────────────────────────
-
-  static Future<void> setSkipSilence(bool e) =>
-      Media3PlaybackBridge.setSkipSilence(e);
 
   static Future<void> setStereoWidening({
     required bool enabled,
