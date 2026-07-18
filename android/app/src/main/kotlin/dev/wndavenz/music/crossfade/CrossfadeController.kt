@@ -221,7 +221,7 @@ class CrossfadeController(
         // Notify AudioOffloadManager BEFORE the first Handler tick so offload
         // scheduling is disabled before the 16 ms volume-fade runnable starts.
         onCrossfadeStarting()
-        //setActiveQueueIndex(nextIndex)
+        //setActiveQueueIndex(nextIndex) <- JANGAN PERNAH MENYENTUH INI!!!, KENAPA ITU DI KOMEN? KARENA ITU PENYEBAB LAGU A TERPOTONG SAAT BERPINDAH KE LAGU B DI PROSES CROSSFADE
 
         // Isolate the old player to exactly the current item so it cannot
         // auto-advance to any other queue position during the fade.
