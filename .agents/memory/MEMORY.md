@@ -65,3 +65,4 @@
 - [Native PEQ removed, system EQ only](peq-removed-system-eq-only.md) — dsp.peq/NativeParametricEq/PeqFilterType fully deleted; legacy system Equalizer is now the sole Band EQ backend, don't reintroduce dual-EQ.
 - [Media3 Option B format-guard processors](media3-optionb-format-guards.md) — ToFloat/ToInt16PcmAudioProcessor are public @UnstableApi, safe to bracket custom DefaultAudioProcessorChain; verified via Media3 source + androidx/media#2339.
 - [Signalsmith Stretch ↔ Media3 sync fix](stretch-sync-fix.md) — StretchAwareAudioProcessorChain overrides getMediaDuration; frame-ratio counters fix position drift; real-device verified 2026-07-15.
+- [Audit output convention](audit-output-convention.md) — setiap sesi audit harus menghasilkan file .md di root repo dengan seluruh temuan; jangan hanya output ke chat.
