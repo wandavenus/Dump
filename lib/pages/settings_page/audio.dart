@@ -5,30 +5,69 @@ class _AudioSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SettingsSectionHeader('AUDIO'),
-        SizedBox(height: 6),
+        const SettingsSectionHeader('AUDIO'),
+        const SizedBox(height: 6),
 
         BitPerfectLock(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Audio Normalize ───────────────────────────────────────────
-              _ReplayGainSection(),
-              SettingsDivider(),
+              const _ReplayGainSection(),
+              const SettingsDivider(),
 
               // ── Loudness Normalization ─────────────────────────────────────
-              _LoudnessNormSection(),
-              SettingsDivider(),
+              const _LoudnessNormSection(),
+              const SettingsDivider(),
 
               // ── Crossfeed ───────────────────────────────────────────────────
-              _CrossfeedSection(),
-              SettingsDivider(),
+              const _CrossfeedSection(),
+              const SettingsDivider(),
 
-              _CrossfadePicker(),
-              SettingsDivider(),
+              const _CrossfadePicker(),
+              const SettingsDivider(),
+
+              // ── Stereo Widening ───────────────────────────────────────────
+              ValueListenableBuilder<bool>(
+                valueListenable:
+                    MediaCapabilitiesService.stereoWideningEnabled,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable:
+                      MediaCapabilitiesService.stereoWideningStrength,
+                  builder: (_, v, _) {
+                    final pct = (v * 100).round();
+                    return SettingsSliderRow(
+                      title: 'Stereo Widening',
+                      subtitle: enabled ? '$pct%' : 'Nonaktif',
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) async {
+                        if (val > 0) {
+                          await MediaCapabilitiesService
+                              .setStereoWidening(true);
+                          await MediaCapabilitiesService
+                              .setStereoWideningStrength(val);
+                        } else {
+                          await MediaCapabilitiesService
+                              .setStereoWidening(false);
+                        }
+                      },
+                      showReset: enabled,
+                      onReset: () async {
+                        await MediaCapabilitiesService
+                            .setStereoWidening(false);
+                      },
+                      expandable: true,
+                    );
+                  },
+                ),
+              ),
+              const SettingsDivider(),
             ],
           ),
         ),
