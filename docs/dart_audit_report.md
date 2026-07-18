@@ -2,8 +2,8 @@
 
 **Tanggal:** 18 Juli 2026  
 **Versi App:** 1.2.3+1  
-**Total file Dart diaudit:** 263 (seluruh `lib/`, `test/`, `native_audio_runtime/lib/`)  
-**Metode:** Baca langsung per-file via subagent + verifikasi grep/shell
+**Total file Dart diaudit:** 263 / 263 (100% — `lib/`, `test/`, `native_audio_runtime/lib/`)  
+**Audit dilakukan dalam 3 round paralel + verifikasi grep/shell per temuan**
 
 ---
 
@@ -35,7 +35,7 @@
 
 File berisi satu baris komentar: *"Sleep Timer has been moved to the player 3-dot menu (PlayerMoreMenu). This file is intentionally empty"*. `part of` directive dipertahankan tanpa alasan kuat.
 
-**Rekomendasi:** Hapus file ini. Jika khawatir breaking library structure, cukup hapus `part 'sleep_timer.dart'` dari `settings_page.dart`.
+**Rekomendasi:** Hapus file ini dan `part 'sleep_timer.dart'` dari `settings_page.dart`.
 
 ---
 
@@ -73,7 +73,7 @@ Keduanya hanya berisi `part of '../settings_page.dart';` tanpa konten. Tidak ada
 | **File** | `lib/pages/settings_page/notif_icon.dart`, `debug_state.dart` |
 | **Confidence** | High |
 
-`_NotifIconRow` didefinisikan dengan `// ignore_for_file: unused_element` — artinya author sendiri sadar ini tidak dipakai. Tidak ditemukan satu pun instantiasi di seluruh codebase. `_DebugState.notifIcons` dan `_DebugState.notifIcon` di `debug_state.dart` juga hanya dikonsumsi oleh widget ini.
+`_NotifIconRow` didefinisikan dengan `// ignore_for_file: unused_element` — author sendiri sadar ini tidak dipakai. Tidak ditemukan satu pun instantiasi di seluruh codebase. `_DebugState.notifIcons` dan `_DebugState.notifIcon` di `debug_state.dart` juga hanya dikonsumsi oleh widget ini.
 
 **Rekomendasi:** Hapus `notif_icon.dart` dan field `notifIcons`/`notifIcon` dari `debug_state.dart`.
 
@@ -105,7 +105,75 @@ Hanya berisi `export 'data/radio_stations.dart';`. Satu-satunya consumer adalah 
 
 ---
 
-### 1.8 `NativeDspBridge` — Empty Stub Methods
+### 1.8 `FutureLocalSongCarousel` — Dead Class
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/widgets/local_song_carousel.dart` |
+| **Confidence** | High |
+
+`FutureLocalSongCarousel` didefinisikan di file yang sama dengan `LocalSongCarousel`. `LocalSongCarousel` dipakai di banyak tempat (browse_sections, recently_played_section, radio_sections). Tapi `FutureLocalSongCarousel` tidak diimport maupun dipakai di manapun dalam seluruh codebase.
+
+**Rekomendasi:** Hapus class `FutureLocalSongCarousel`.
+
+---
+
+### 1.9 `CommonActions._cast()` — TODO Stub yang Muncul di UI
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/widgets/common_actions.dart` |
+| **Confidence** | High |
+
+Method `_cast(BuildContext context)` hanya berisi komentar `// TODO: Cast function`. Widget `CommonActions` sendiri aktif dipakai di 5 halaman (album_page, artist_page, artist_list, library_page, music_list) sebagai action button di AppBar. Artinya ada tombol cast yang visible di UI tapi tidak melakukan apa-apa saat ditekan.
+
+**Dampak:** User experience buruk — user menekan tombol dan tidak ada respons.
+
+**Rekomendasi:** Implementasikan fitur cast atau sembunyikan tombol sampai fitur siap.
+
+---
+
+### 1.10 `WebView` — 5 Dead Parameters
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/webView/webViewContainer.dart` |
+| **Confidence** | High |
+
+`WebView` widget mendefinisikan parameter berikut tapi **tidak satu pun dipakai** di dalam `build()`:
+- `innerContainerHeight` (default: 866)
+- `innerContainerWidth` (default: 400)
+- `shadowColor` (default: Colors.black54)
+- `shadowBlurRadius` (default: 10.0)
+- `shadowSpreadRadius` (default: 0.0)
+
+`build()` hanya menggunakan `gradientColors`, `gradientStops`, `padding`, `borderRadius`, `innerContainerColor`, dan `child`. Container inner selalu pakai `double.infinity`, tidak pernah `innerContainerHeight`/`Width`.
+
+**Rekomendasi:** Hapus 5 parameter mati tersebut.
+
+---
+
+### 1.11 `native_runtime_last_status()` — Unused FFI Binding
+
+| | |
+|---|---|
+| **Severity** | Low |
+| **File** | `native_audio_runtime/lib/native_audio_runtime_bindings_generated.dart:63` |
+| **Confidence** | High |
+
+```dart
+external int native_runtime_last_status();
+```
+Binding ini didefinisikan tapi tidak pernah dipanggil dari Dart manapun (verified via grep). Binding lain (`nar_audio_buffer_*`, `native_runtime_aaudio_*`, `nar_dsp_pipeline_*`) semuanya dipakai.
+
+**Rekomendasi:** Hapus binding ini dari generated file, atau dokumentasikan bahwa ini reserved untuk future use.
+
+---
+
+### 1.12 `NativeDspBridge` — Empty Stub Methods
 
 | | |
 |---|---|
@@ -113,34 +181,33 @@ Hanya berisi `export 'data/radio_stations.dart';`. Satu-satunya consumer adalah 
 | **File** | `lib/services/native/bridges/native_dsp_bridge.dart` |
 | **Confidence** | High |
 
-Method `applyPreset()`, `setBandGain()`, `setEnabled()`, `registerProcessor()` semuanya adalah empty stubs/no-ops dengan TODO. Ini adalah Phase 3 placeholder yang terdokumentasi, jadi bukan bug, tapi perlu perhatian.
+Method `applyPreset()`, `setBandGain()`, `setEnabled()`, `registerProcessor()` semuanya empty stubs/no-ops dengan TODO. Phase 3 placeholder yang terdokumentasi.
 
-**Rekomendasi:** Pastikan UI yang bergantung pada `queryCapabilities()` menampilkan state yang benar. Tidak mendesak karena sudah terdokumentasi.
+**Rekomendasi:** Sudah terdokumentasi dengan baik. Tidak mendesak.
 
 ---
 
-### 1.9 `lib/services/audio/audio_session_handler/handler.dart` — Empty Stub Methods
+### 1.13 `lib/services/audio/audio_session_handler/handler.dart` — Empty Stub Methods
 
 | | |
 |---|---|
 | **Severity** | Low |
 | **Confidence** | High |
 
-`onAppPause()` dan `onAppResume()` adalah empty stubs. Native Media3 sudah menangani audio focus secara mandiri. Dipanggil dari `AudioFocusService` tapi tidak ada efek.
+`onAppPause()` dan `onAppResume()` empty stubs. Native Media3 sudah menangani audio focus secara mandiri.
 
-**Rekomendasi:** Hapus kedua method ini dan panggilan terkait di `AudioFocusService`.
+**Rekomendasi:** Hapus kedua method dan panggilan terkait di `AudioFocusService`.
 
 ---
 
-### 1.10 `lib/widgets/pages/home/albums_section/state.dart` — Empty Catch Block
+### 1.14 `lib/widgets/pages/home/albums_section/state.dart` — Empty Catch Block
 
 | | |
 |---|---|
 | **Severity** | Low |
-| **File** | `lib/widgets/pages/home/albums_section/state.dart` |
 | **Confidence** | High |
 
-`catch (_)` yang mengabaikan semua error dari `MediaStoreService`. Jika gagal, section home albums akan diam-diam tampil kosong tanpa indikasi apapun.
+`catch (_)` mengabaikan semua error dari `MediaStoreService`. Jika gagal, section home albums diam-diam tampil kosong.
 
 **Rekomendasi:** Minimal log error ke `LogService`.
 
@@ -155,13 +222,12 @@ Method `applyPreset()`, `setBandGain()`, `setEnabled()`, `registerProcessor()` s
 | **Severity** | High |
 | **Confidence** | High |
 
-Folder menggunakan spasi dalam nama, melanggar konvensi Dart/Flutter (`snake_case`). Akibatnya import menggunakan URL encoding:
+Folder menggunakan spasi, melanggar konvensi Dart/Flutter (`snake_case`). Akibatnya import menggunakan URL encoding:
 ```dart
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 ```
-Fragil di beberapa tools, tidak standar, dan menyulitkan refactor.
 
-**Rekomendasi:** Rename ke `lib/bottom_nav/`, update 2 import (`lib/main.dart`, `lib/main.dart` — keduanya mengacu ke file yang sama).
+**Rekomendasi:** Rename ke `lib/bottom_nav/`, update 2 import terkait.
 
 ---
 
@@ -172,7 +238,7 @@ Fragil di beberapa tools, tidak standar, dan menyulitkan refactor.
 | **Severity** | Low |
 | **Confidence** | High |
 
-Folder hanya berisi satu file: `webViewContainer.dart`. Widget `WebView` ini digunakan sebagai layout wrapper. Folder isolasi berlebihan.
+Folder hanya berisi satu file: `webViewContainer.dart` (nama juga camelCase — lihat 9.2). Folder isolasi berlebihan.
 
 **Rekomendasi:** Pindahkan ke `lib/widgets/common/web_view_container.dart`.
 
@@ -187,15 +253,15 @@ Folder hanya berisi satu file: `webViewContainer.dart`. Widget `WebView` ini dig
 | **Severity** | High |
 | **Confidence** | High |
 
-Ini adalah **default Flutter counter app test** hasil `flutter create`. Mencari `find.text('0')`, `find.text('1')`, `find.byIcon(Icons.add)` — tidak ada satupun di music player ini. Test ini **pasti gagal** jika dijalankan.
+Default Flutter counter app test hasil `flutter create`. Mencari `find.text('0')`, `find.text('1')`, `find.byIcon(Icons.add)` — tidak ada satupun di music player ini. **Pasti gagal** jika dijalankan.
 
-**Rekomendasi:** Hapus atau replace dengan smoke test yang sesuai (misal: verify `MyApp` render tanpa crash dalam kondisi mock).
+**Rekomendasi:** Hapus atau replace dengan smoke test yang sesuai.
 
 ---
 
-### 3.2 File Settings Kosong (`chip.dart`, `sleep_timer.dart`, `lyrics.dart`, `lyrics_rows.dart`)
+### 3.2 File Settings Kosong
 
-*(Sudah dibahas di Kategori 1.2–1.4)*
+*(`chip.dart`, `sleep_timer.dart`, `lyrics.dart`, `lyrics_rows.dart` — sudah dibahas di 1.2–1.4)*
 
 ---
 
@@ -212,13 +278,12 @@ Ini adalah **default Flutter counter app test** hasil `flutter create`. Mencari 
 ```dart
 import 'package:musicplayer/Bottom%20NavBar/bottom_nav.dart';
 ```
-Non-standard, berpotensi bermasalah di beberapa versi Dart analyzer.
 
 **Rekomendasi:** Fix root cause — rename folder (lihat 2.1).
 
 ---
 
-### 4.2 Duplicate `DateTime.now()` dalam `build()`
+### 4.2 `DateTime.now()` dalam `build()`
 
 | | |
 |---|---|
@@ -228,7 +293,7 @@ Non-standard, berpotensi bermasalah di beberapa versi Dart analyzer.
 
 `DateTime.now().year` dipanggil di dalam `build()`. Setiap rebuild mengalokasikan `DateTime` baru yang tidak perlu.
 
-**Rekomendasi:** Hitung sekali di `initState()` atau sebagai constant.
+**Rekomendasi:** Hitung sekali di `initState()` atau sebagai static constant.
 
 ---
 
@@ -246,15 +311,9 @@ Non-standard, berpotensi bermasalah di beberapa versi Dart analyzer.
 | `lib/pages/log_page.dart` | **889** | Mixing log display + filter logic + export + detail sheet |
 | `lib/pages/settings_page/audio.dart` | **869** | Semua audio settings: normalization, EQ, compressor, engine stats |
 | `lib/services/audio/playback_manager.dart` | **833** | Queue, volume, DSP, normalization, sleep timer, stats, native bridge |
-| `lib/widgets/pages/library_sections/detail.dart` | **576** | 4 view type (Artist/Album/Songs/Playlist) dalam satu widget + search + sort |
+| `lib/widgets/pages/library_sections/detail.dart` | **576** | 4 view type (Artist/Album/Songs/Playlist) + search + sort |
 
-**Dampak:** Sulit di-maintain, high merge conflict risk, cognitive load tinggi.
-
-**Rekomendasi:**
-- `detail.dart`: Pecah per view type ke widget terpisah, ekstrak sort/filter logic ke controller.
-- `log_page.dart`: Ekstrak filter ke `LogFilter` class, detail sheet ke file terpisah.
-- `audio.dart`: Pecah per section (normalization, EQ, engine).
-- `playback_manager.dart`: Pertimbangkan facade tipis + sub-manager terpisah.
+**Rekomendasi:** Pecah per concern. `detail.dart`: widget terpisah per view type + controller untuk logic. `audio.dart`: section jadi file terpisah. `playback_manager.dart`: facade tipis + sub-manager.
 
 ---
 
@@ -263,12 +322,12 @@ Non-standard, berpotensi bermasalah di beberapa versi Dart analyzer.
 | | |
 |---|---|
 | **Severity** | Medium |
-| **File** | `lib/services/native/native_module_registry.dart:38-63` |
+| **File** | `lib/services/native/native_module_registry.dart:38` |
 | **Confidence** | High |
 
-`initializeAll()` menggunakan `for` loop sequential. Module DSP dan FFmpeg tidak saling bergantung, sehingga bisa diinisialisasi paralel.
+`initializeAll()` loop sequential meskipun module DSP dan FFmpeg tidak saling bergantung.
 
-**Rekomendasi:** Ganti dengan `Future.wait(_modules.map((m) => m.initialize()))` jika tidak ada ordering dependency antar module.
+**Rekomendasi:** `await Future.wait(_modules.map((m) => m.initialize()))` jika tidak ada ordering dependency.
 
 ---
 
@@ -280,27 +339,23 @@ Non-standard, berpotensi bermasalah di beberapa versi Dart analyzer.
 | **File** | `lib/services/native/native_module_registry.dart:68` |
 | **Confidence** | High |
 
-`disposeAll()` membungkus setiap dispose dalam try-catch yang mengabaikan semua error. Jika disposal gagal, tidak ada indikasi sama sekali.
+`disposeAll()` membungkus setiap dispose dalam try-catch yang mengabaikan semua error.
 
-**Rekomendasi:** Minimal log error ke `LogService` saat disposal gagal, meski tidak re-throw.
+**Rekomendasi:** Minimal log error ke `LogService` saat disposal gagal.
 
 ---
 
-### 5.4 Massive Duplicate Logic — Lyrics Providers
+### 5.4 Massive Duplicate Logic — 7 Lyrics Providers
 
 | | |
 |---|---|
 | **Severity** | High |
-| **File** | `lib/services/lyrics_service/providers/` (7 provider online) |
+| **File** | `lib/services/lyrics_service/providers/` |
 | **Confidence** | High |
 
-Tujuh provider online (`AppleMusic`, `Kugou`, `Kuwo`, `NetEase`, `QQ`, `LRCLIB`, `Netease`) menduplikasi pola yang sama: HTTP handling, retry logic, rate limiting (429 check), JSON parsing. Inkonsistensi penanganan 429:
-- `AppleMusicProvider`: cek 429 (baris ~81)
-- `NetEaseProvider`: hanya cek 200 (baris ~50), 429 tidak di-handle
+Tujuh provider online menduplikasi pola yang sama: HTTP handling, retry logic, rate limiting (429 check), JSON parsing. Inkonsistensi: `AppleMusicProvider` cek 429, `NetEaseProvider` hanya cek 200. Bug di satu provider tidak otomatis fix di yang lain.
 
-**Dampak:** Bug di satu provider tidak otomatis diperbaiki di provider lain. Sulit menambah provider baru secara konsisten.
-
-**Rekomendasi:** Buat `AbstractOnlineLyricsProvider` yang menghandle HTTP/retry/rate-limiting. Setiap provider hanya perlu implement method `buildUrl()` dan `parseResponse()`.
+**Rekomendasi:** Buat `AbstractOnlineLyricsProvider` yang handle HTTP/retry/rate-limiting. Provider hanya implement `buildUrl()` dan `parseResponse()`.
 
 ---
 
@@ -312,7 +367,7 @@ Tujuh provider online (`AppleMusic`, `Kugou`, `Kuwo`, `NetEase`, `QQ`, `LRCLIB`,
 | **File** | `lib/services/replay_gain_service/service.dart` |
 | **Confidence** | Medium |
 
-`_readRawTags()` dan `_readTagsNative()` hampir identik dalam struktur. Keduanya membaca metadata audio dengan cara yang berbeda tapi sangat mirip pola kodenya.
+`_readRawTags()` dan `_readTagsNative()` hampir identik dalam struktur.
 
 **Rekomendasi:** Refactor ke satu method dengan parameter yang membedakan source.
 
@@ -326,9 +381,9 @@ Tujuh provider online (`AppleMusic`, `Kugou`, `Kuwo`, `NetEase`, `QQ`, `LRCLIB`,
 | **File** | `lib/themes/theme_controller.dart` |
 | **Confidence** | High |
 
-Class mencampur: state management (ValueNotifiers), persistence (SharedPreferences), dan UI logic. Private constructor `ThemeController._()` didefinisikan tapi class hanya gunakan static members — constructor tidak pernah bisa dipanggil secara eksternal.
+Class mencampur state management (ValueNotifiers), persistence (SharedPreferences), dan UI logic. Private constructor `ThemeController._()` didefinisikan tapi class hanya gunakan static members — constructor tidak pernah bisa dipanggil dari luar.
 
-**Rekomendasi:** Jadikan class `abstract` untuk mencegah instantiasi yang tidak perlu. Pertimbangkan memisahkan persistence layer.
+**Rekomendasi:** Jadikan class `abstract`. Pertimbangkan memisahkan persistence layer.
 
 ---
 
@@ -340,9 +395,9 @@ Class mencampur: state management (ValueNotifiers), persistence (SharedPreferenc
 | **File** | `lib/main/main.dart` |
 | **Confidence** | High |
 
-Sequential init 20+ service dengan urutan ketat + 74 BootTrace log tersebar di antaranya. Menambah service baru atau mengubah urutan bisa menyebabkan crash yang sulit di-debug.
+Sequential init 20+ service dengan urutan ketat + 74 BootTrace log di antaranya. Menambah service baru atau mengubah urutan bisa menyebabkan crash yang sulit di-debug.
 
-**Rekomendasi:** Kelompokkan service ke dalam init phases eksplisit. Setelah BootTrace dihapus, urutan lebih mudah diaudit.
+**Rekomendasi:** Kelompokkan ke init phases eksplisit setelah BootTrace dihapus.
 
 ---
 
@@ -353,13 +408,27 @@ Sequential init 20+ service dengan urutan ketat + 74 BootTrace log tersebar di a
 | **Severity** | Medium |
 | **Confidence** | High |
 
-Halaman UI (`playlist_page.dart`, `equalizer_page.dart`, `audio.dart`) mengimport dan memanggil `AudioService`, `AudioEffectsService`, `PlaybackManager`, `MediaStoreService` langsung. Ini pola umum di Flutter tanpa state management library, jadi tidak harus diubah sekarang.
+Halaman UI memanggil `AudioService`, `AudioEffectsService`, `PlaybackManager`, `MediaStoreService` langsung. Pola umum di Flutter tanpa state management library.
 
-**Rekomendasi:** Pertimbangkan ViewModel/Controller terpisah untuk halaman-halaman besar (>500 baris).
+**Rekomendasi:** Pertimbangkan ViewModel/Controller terpisah untuk halaman >500 baris.
 
 ---
 
-### 5.9 Duplikat Scroll Pattern di 3 Pages
+### 5.9 Static `_current` Singleton-lite di `player_content/content.dart`
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/widgets/player/player_content/content.dart` |
+| **Confidence** | High |
+
+Public static methods `forwardExternalDrag*` berkomunikasi antar widget melalui static `_current` instance. Pola ini bisa menyebabkan state leak jika widget di-dispose tapi static reference tidak dibersihkan.
+
+**Rekomendasi:** Gunakan `InheritedWidget`, `Provider`, atau `GlobalKey` yang lebih aman untuk cross-widget communication.
+
+---
+
+### 5.10 Duplikat Scroll Pattern di 3 Pages
 
 | | |
 |---|---|
@@ -373,20 +442,16 @@ Ketiga halaman mengimplementasikan pola identik: `ScrollController` + `_scrollOf
 
 ---
 
-### 5.10 Settings Code Tersebar di Dua Folder
+### 5.11 Settings Code Tersebar di Dua Folder
 
 | | |
 |---|---|
 | **Severity** | Medium |
 | **Confidence** | High |
 
-Settings-related code ada di:
-- `lib/pages/settings/` — `equalizer_page/`, `settings_widgets/`, `sleep_timer_page/`
-- `lib/pages/settings_page/` — `audio.dart`, `appearance.dart`, `lyrics.dart`, dll.
+`lib/pages/settings/` dan `lib/pages/settings_page/` — dua folder untuk satu fitur yang sama.
 
-Plus `lib/pages/settings_page.dart` sebagai entry point. Tiga lokasi untuk satu fitur.
-
-**Rekomendasi:** Konsolidasikan ke satu struktur folder. Ini pekerjaan besar — prioritaskan setelah dead file cleanup.
+**Rekomendasi:** Konsolidasikan ke satu folder. Pekerjaan besar — prioritaskan setelah dead file cleanup.
 
 ---
 
@@ -397,16 +462,16 @@ Plus `lib/pages/settings_page.dart` sebagai entry point. Tiga lokasi untuk satu 
 | | |
 |---|---|
 | **Severity** | High |
-| **File** | `lib/widgets/pages/library_sections/detail.dart` |
+| **File** | `lib/widgets/pages/library_sections/detail.dart:38,70` |
 | **Confidence** | High |
 
-**576 baris** dalam satu widget yang menangani 4 view type berbeda (Artist, Album, Songs, Playlist), search, filter, sort, dan playback logic. Di baris 38-70, `setState(() => _offset = o)` dipanggil pada setiap scroll event dengan threshold 0.5 — masih sangat sering di scroll cepat.
+576 baris widget yang menangani 4 view type berbeda + search + filter + sort + playback logic. `setState(() => _offset = o)` dipanggil setiap scroll event (threshold 0.5) — merebuild seluruh halaman hanya untuk appbar fade.
 
-**Rekomendasi:** Ganti `_offset` `setState` dengan `ValueNotifier`. Pecah 4 view type ke widget terpisah.
+**Rekomendasi:** Ganti `_offset` setState dengan `ValueNotifier`. Pecah 4 view type ke widget terpisah.
 
 ---
 
-### 6.2 `about_app_page.dart` — `setState` pada Setiap Scroll Offset
+### 6.2 `about_app_page.dart` — `setState` per Scroll Offset
 
 | | |
 |---|---|
@@ -414,12 +479,9 @@ Plus `lib/pages/settings_page.dart` sebagai entry point. Tiga lokasi untuk satu 
 | **File** | `lib/pages/settings_page/about_app_page.dart:70` |
 | **Confidence** | High |
 
-```dart
-if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
-```
-Merebuild seluruh halaman About hanya untuk appbar fade effect.
+`setState(() => _offset = o)` merebuild seluruh halaman About hanya untuk fade appbar title.
 
-**Rekomendasi:** Gunakan `ValueNotifier<double>` + `ValueListenableBuilder` yang hanya merebuild appbar section.
+**Rekomendasi:** `ValueNotifier<double>` + `ValueListenableBuilder` yang hanya merebuild appbar.
 
 ---
 
@@ -431,7 +493,7 @@ Merebuild seluruh halaman About hanya untuk appbar fade effect.
 | **File** | `lib/services/native/bridges/ffmpeg_decoder_bridge.dart` |
 | **Confidence** | High |
 
-`dispose()` hanya memanggil `_decoderInfoSub?.cancel()` tapi tidak memanggil `_decoderInfoCtrl.close()`. StreamController broadcast yang tidak ditutup menyebabkan memory leak.
+`dispose()` memanggil `_decoderInfoSub?.cancel()` tapi **tidak** `_decoderInfoCtrl.close()`. StreamController broadcast yang tidak ditutup = memory leak.
 
 **Rekomendasi:** Tambahkan `await _decoderInfoCtrl.close();` di `dispose()`.
 
@@ -445,43 +507,53 @@ Merebuild seluruh halaman About hanya untuk appbar fade effect.
 | **File** | `lib/services/media_capabilities_service/service.dart:127` |
 | **Confidence** | High |
 
-`dispose()` didefinisikan (line 127) tapi tidak ada satu pun lifecycle manager yang memanggilnya. Listeners/subscriptions yang di-register di service ini tidak akan pernah dibersihkan.
+`dispose()` didefinisikan tapi tidak ada satu pun lifecycle manager yang memanggilnya. Listeners tidak akan pernah dibersihkan.
 
-**Rekomendasi:** Panggil `MediaCapabilitiesService.dispose()` dari app lifecycle disposal chain.
+**Rekomendasi:** Panggil dari app lifecycle disposal chain.
 
 ---
 
-### 6.5 Missing `const` Constructors
+### 6.5 Player Sheet `build()` — Nested ValueListenableBuilder Terlalu Luas
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/widgets/player/player_sheet/state.dart:56` |
+| **Confidence** | High |
+
+`build()` berisi dua nested `ValueListenableBuilder` dan `MediaQuery.sizeOf` yang menyebabkan seluruh player sheet (background + content + controls) rebuild setiap progress update dan setiap playback state change.
+
+**Rekomendasi:** Pecah ke sub-widget yang lebih kecil dengan builder scope yang targeted per data yang berubah.
+
+---
+
+### 6.6 Missing `const` Constructors
 
 | | |
 |---|---|
 | **Severity** | Low |
 | **Confidence** | High |
 
-Banyak widget yang bisa di-`const` tapi tidak:
-
 | File | Widget |
 |---|---|
 | `lib/pages/settings_page/body.dart` | `_SettingsBody`, `Column` |
 | `lib/pages/settings_page/effect_status.dart` | `_EffectStatusRow` |
 | `lib/pages/settings_page/session_info.dart` | `_AudioSessionInfo` |
-| `lib/widgets/common/scrolling_page_chrome/app_bar.dart:53` | `Text` (TextStyle sudah const tapi Text-nya tidak) |
+| `lib/widgets/common/scrolling_page_chrome/app_bar.dart:53` | `Text` (TextStyle sudah const) |
 | `lib/widgets/pages/browse_sections/section.dart` | `Icon` |
 | `lib/widgets/pages/library_sections/detail.dart` | `TextStyle` instances |
 | `lib/widgets/pages/home/albums_section/card.dart` | `SizedBox` |
 
-**Rekomendasi:** Enable `prefer_const_constructors` linter rule di `analysis_options.yaml` dan jalankan `dart fix`.
+**Rekomendasi:** Enable `prefer_const_constructors` di `analysis_options.yaml` dan jalankan `dart fix`.
 
 ---
 
-### 6.6 Empty & Silent Catch Blocks
+### 6.7 Silent `catch (_)` Blocks — 20+ Lokasi
 
 | | |
 |---|---|
 | **Severity** | Medium |
 | **Confidence** | High |
-
-Ditemukan 20+ `catch (_)` atau `catch (e) {}` yang mengabaikan error:
 
 | File | Risiko |
 |---|---|
@@ -489,7 +561,9 @@ Ditemukan 20+ `catch (_)` atau `catch (e) {}` yang mengabaikan error:
 | `lib/pages/settings/equalizer_page/band_slider.dart:79` | EQ error tersembunyi |
 | `lib/services/audio/media3/media3_playback_bridge.dart` | 4 lokasi, playback error diabaikan |
 | `lib/services/audio/playback_manager.dart:279, 822` | Native DSP call failures |
-| `lib/widgets/pages/home/albums_section/state.dart` | Home section tampil kosong diam-diam |
+| `lib/services/artwork_repository.dart` | 3 lokasi |
+| `lib/widgets/pages/home/albums_section/state.dart` | Home section kosong diam-diam |
+| `lib/widgets/common_actions.dart` | Rescan failure (ada SnackBar, tapi inner catch diam) |
 
 **Rekomendasi:** Minimal `LogService.e(...)` di setiap catch block. Jangan swallow error tanpa trace.
 
@@ -505,13 +579,13 @@ Ditemukan 20+ `catch (_)` atau `catch (e) {}` yang mengabaikan error:
 | **File** | `lib/themes/theme_controller.dart:97` |
 | **Confidence** | High |
 
-Setiap setter (`setGlassNavBar`, `setGlassAppBar`, dll.) memanggil `SharedPreferences.getInstance()` secara async. Ini memanggil platform channel setiap kali user toggle switch, padahal instance bisa di-cache sekali saat `ThemeController.load()`.
+Setiap toggle switch memanggil `SharedPreferences.getInstance()` via platform channel. Instance bisa di-cache sekali saat `load()`.
 
-**Rekomendasi:** Cache `SharedPreferences` instance sebagai static field setelah `load()` pertama kali.
+**Rekomendasi:** Cache `SharedPreferences` instance sebagai static field.
 
 ---
 
-### 7.2 `unsafe Array Access` — `cached[2]`/`colors[2]` di Album Card
+### 7.2 Unsafe Array Access `cached[2]`/`colors[2]` — Album Card
 
 | | |
 |---|---|
@@ -523,9 +597,9 @@ Setiap setter (`setGlassNavBar`, `setGlassAppBar`, dll.) memanggil `SharedPrefer
 setState(() => _bgColor = cached[2]);  // line 35
 setState(() => _bgColor = colors[2]);  // line 43
 ```
-Jika `PaletteExtractor` mengembalikan kurang dari 3 warna (edge case: album artwork solid warna / gambar sangat kecil), ini throw `RangeError` dan crash.
+Jika `PaletteExtractor` mengembalikan < 3 warna (artwork solid / sangat kecil), ini throw `RangeError` dan crash.
 
-**Rekomendasi:** Gunakan `cached.length > 2 ? cached[2] : cached.last` atau `elementAtOrNull(2) ?? fallbackColor`.
+**Rekomendasi:** `cached.elementAtOrNull(2) ?? cached.last` atau guard `if (cached.length > 2)`.
 
 ---
 
@@ -537,27 +611,39 @@ Jika `PaletteExtractor` mengembalikan kurang dari 3 warna (edge case: album artw
 | **File** | `lib/services/song_metadata_service/service.dart` |
 | **Confidence** | Medium |
 
-`_mtimeMs()` dan `_fileSizeBytes()` menggunakan sync file operations. Meski per-file cepat, di library besar dengan ribuan lagu, loop ini bisa block isolate.
+`_mtimeMs()` dan `_fileSizeBytes()` menggunakan sync file operations. Di library besar, loop ini bisa block isolate.
 
 **Rekomendasi:** Gunakan async equivalents atau batch ke background isolate saat full library scan.
 
 ---
 
-### 7.4 Lyrics Provider — Regex/String Manipulation Tidak Di-cache
+### 7.4 `ShaderMask` di Lyrics Overlay — Aktif Saat Tidak Perlu
 
 | | |
 |---|---|
 | **Severity** | Low |
-| **File** | `AppleMusicProvider`, `LrclibProvider` |
+| **File** | `lib/widgets/player/player_content/lyrics_overlay.dart:80` |
 | **Confidence** | Medium |
 
-String manipulations (RegExp, Split) dijalankan ulang setiap fetch. Hasil parsing bisa di-cache.
+`ShaderMask` digunakan untuk fading effect. GPU-intensive operation yang seharusnya non-aktif saat lyrics hidden atau fully scrolled.
 
-**Rekomendasi:** Cache compiled `RegExp` sebagai static final. Hasil parsing sudah di-cache oleh `LyricsCacheManager`.
+**Rekomendasi:** Pastikan `ShaderMask` hanya dirender saat lyrics benar-benar visible dan ada konten untuk di-fade.
 
 ---
 
-### 7.5 `fog_painter.dart` — CustomPainter dengan Variable Cryptic
+### 7.5 `lerpDouble` di dalam `AnimatedPositioned` — Redundant Computation
+
+| | |
+|---|---|
+| **Severity** | Low |
+| **File** | `lib/widgets/player/player_content/content.dart:470` |
+| **Confidence** | Medium |
+
+`lerpDouble` digunakan di dalam `AnimatedPositioned` yang sudah handle interpolasi secara internal. Perhitungan ganda yang tidak perlu.
+
+---
+
+### 7.6 `fog_painter.dart` — Variable Names Cryptic
 
 | | |
 |---|---|
@@ -565,21 +651,52 @@ String manipulations (RegExp, Split) dijalankan ulang setiap fetch. Hasil parsin
 | **File** | `lib/widgets/player/player_background/fog_painter.dart:53-59` |
 | **Confidence** | High |
 
-Variable seperti `_o0r`, `_o0g`, `_o0b`, `_c1r`, `_c1g`, `_c1b` adalah nilai warna RGB yang sangat sulit dibaca. Tidak ada dampak performa tapi maintainability sangat buruk.
+Variable `_o0r`, `_o0g`, `_o0b`, `_c1r`, `_c1g`, `_c1b` adalah nilai warna RGB yang sangat sulit dibaca. Bukan masalah performa tapi maintainability sangat buruk.
 
-**Rekomendasi:** Rename ke `_origin0Red`, `_origin0Green`, dll. atau gunakan `Color` object yang proper.
+**Rekomendasi:** Rename ke nama deskriptif atau gunakan `Color` object.
+
+---
+
+### 7.7 Lyrics Provider — Regex Tidak Di-cache
+
+| | |
+|---|---|
+| **Severity** | Low |
+| **File** | `AppleMusicProvider`, `LrclibProvider` |
+| **Confidence** | Medium |
+
+String manipulations (RegExp, Split) dijalankan ulang setiap fetch.
+
+**Rekomendasi:** Cache compiled `RegExp` sebagai `static final`.
 
 ---
 
 ## Kategori 8: Null Safety Audit
 
-### 8.1 Force Unwrap `cached[2]`/`colors[2]` — RangeError
+### 8.1 CRASH BUG: Color Picker `'Putih'` → `Colors.black`
 
-*(Sudah dibahas di 7.2 — ini sekaligus null/bounds safety issue)*
+| | |
+|---|---|
+| **Severity** | High |
+| **File** | `lib/widgets/player/player_content/lyrics_pickers.dart:112` |
+| **Confidence** | High |
+
+```dart
+(label: 'Putih', color: Colors.black, value: 'white'),
+```
+Label `'Putih'` (putih/white) di-map ke `Colors.black`. User yang memilih warna "Putih" di color picker lirik akan mendapatkan warna hitam. Ini **display bug** yang aktif.
+
+**Rekomendasi:** Ubah ke `Colors.white`.
 
 ---
 
-### 8.2 `ModalRoute.of(context)!` — 2 Halaman
+### 8.2 Unsafe Array Access `cached[2]`/`colors[2]`
+
+*(Sudah dibahas di 7.2 — sekaligus bounds safety issue)*
+
+---
+
+### 8.3 `ModalRoute.of(context)!` — 2 Halaman
 
 | | |
 |---|---|
@@ -587,13 +704,13 @@ Variable seperti `_o0r`, `_o0g`, `_o0b`, `_c1r`, `_c1g`, `_c1b` adalah nilai war
 | **File** | `lib/pages/album_page.dart`, `lib/pages/artist_page.dart` |
 | **Confidence** | High |
 
-Force unwrap `ModalRoute.of(context)!` di awal build. Jika halaman di-push tanpa ModalRoute (edge case: navigation stack manipulation), ini crash.
+Force unwrap `ModalRoute.of(context)!` yang akan crash jika halaman di-push tanpa ModalRoute.
 
-**Rekomendasi:** Gunakan `ModalRoute.of(context)?.settings.arguments` dengan null fallback atau guard clause di `initState`.
+**Rekomendasi:** Gunakan `ModalRoute.of(context)?.settings.arguments` dengan null fallback.
 
 ---
 
-### 8.3 `widget.userPlaylist!` / `widget.smartType!` — `playlist_page.dart`
+### 8.4 `widget.userPlaylist!` / `widget.smartType!` — `playlist_page.dart`
 
 | | |
 |---|---|
@@ -601,13 +718,41 @@ Force unwrap `ModalRoute.of(context)!` di awal build. Jika halaman di-push tanpa
 | **File** | `lib/pages/playlist_page.dart:69,71,114,162,195` |
 | **Confidence** | High |
 
-5 force unwrap pada optional constructor parameters. Jika playlist_page dinagivasi tanpa parameter yang benar, semua ini crash.
+5 force unwrap pada optional constructor parameters. Crash jika navigasi tanpa parameter yang benar.
 
-**Rekomendasi:** Guard di `initState`: `if (widget.userPlaylist == null && widget.smartType == null) { Navigator.pop(context); return; }`.
+**Rekomendasi:** Guard di `initState`: early return atau `Navigator.pop()` jika kedua parameter null.
 
 ---
 
-### 8.4 `stats!` dalam Null-check Guard — `playback_engine.dart`
+### 8.5 `_current!` di `player_content/content.dart:82`
+
+| | |
+|---|---|
+| **Severity** | High |
+| **File** | `lib/widgets/player/player_content/content.dart:82` |
+| **Confidence** | High |
+
+Force unwrap static `_current!` dalam static method. Race condition selama dispose bisa menyebabkan crash.
+
+**Rekomendasi:** Guard dengan null check sebelum unwrap, atau gunakan `_current?.method()`.
+
+---
+
+### 8.6 `nextSong!` di `player_up_next_card.dart:69`
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | `lib/widgets/player/player_up_next_card.dart:69` |
+| **Confidence** | Medium |
+
+`nextSong` adalah nullable (`null` jika tidak ada lagu berikutnya). Meski ada boolean `visible` sebagai guard, unwrap `nextSong!` di dalam `_UpNextCardContent(song: nextSong!)` bisa race jika playlist berubah antara check dan build.
+
+**Rekomendasi:** Gunakan `if (nextSong == null) return const SizedBox.shrink();` sebelum unwrap.
+
+---
+
+### 8.7 `stats!` di `playback_engine.dart` — Dalam Null-check Guard
 
 | | |
 |---|---|
@@ -615,17 +760,11 @@ Force unwrap `ModalRoute.of(context)!` di awal build. Jika halaman di-push tanpa
 | **File** | `lib/pages/settings_page/playback_engine.dart:82,88,94,100` |
 | **Confidence** | High |
 
-```dart
-// Setelah null check pada stats
-(stats!['totalPlayTimeMs'] as num?)?.toInt() ?? 0)
-```
-Meski benar ada null check sebelumnya, force unwrap di dalam body null-check adalah code smell. Gunakan local shadowing.
-
-**Rekomendasi:** `final s = stats; if (s == null) return; ... s['key']` — tidak perlu `!` sama sekali.
+Force unwrap `stats!` meski sudah ada null check di atas. Gunakan local shadowing: `final s = stats; if (s == null) return; ... s['key']`.
 
 ---
 
-### 8.5 `songMap[id]!` — `recently_played_section.dart`
+### 8.8 `songMap[id]!` — `recently_played_section.dart:45`
 
 | | |
 |---|---|
@@ -633,18 +772,32 @@ Meski benar ada null check sebelumnya, force unwrap di dalam body null-check ada
 | **File** | `lib/widgets/pages/home/recently_played_section.dart:45` |
 | **Confidence** | High |
 
-Force unwrap meski ada guard `where`. Gunakan `whereType<LocalSong>()` atau `?? ` pattern yang lebih aman.
+Force unwrap meski ada guard. Lebih aman dengan `whereType<LocalSong>()`.
 
 ---
 
-### 8.6 Force Unwrap Umum — 264 Instance
+### 8.9 Unsafe Type Cast di Lyrics Providers
+
+| | |
+|---|---|
+| **Severity** | Medium |
+| **File** | Semua online providers |
+| **Confidence** | High |
+
+Frequent `as List`, `as Map`, `entry['trackId'] as int?` tanpa fallback. Jika API schema berubah, `TypeError` tidak tertangkap.
+
+**Rekomendasi:** Gunakan `(data['key'] as num?)?.toInt()` atau try-catch per field.
+
+---
+
+### 8.10 Force Unwrap Umum — 264 Instance
 
 | | |
 |---|---|
 | **Severity** | Medium |
 | **Confidence** | High |
 
-264 instance `!` total di codebase. Sebagian besar aman karena konteks jelas, tapi yang di atas (8.2–8.5) adalah yang paling berisiko crash di real usage.
+264 instance `!` total. Yang paling berisiko crash sudah dibahas di 8.1–8.9. Sisanya perlu review per-case.
 
 ---
 
@@ -671,7 +824,7 @@ Satu-satunya file dengan camelCase nama. Dart style guide: `lowercase_with_under
 
 ### 9.3 `fog_painter.dart` — Cryptic Variable Names
 
-*(Sudah dibahas di 7.5)*
+*(Sudah dibahas di 7.6)*
 
 ---
 
@@ -683,13 +836,27 @@ Satu-satunya file dengan camelCase nama. Dart style guide: `lowercase_with_under
 | **File** | `lib/themes/theme_controller.dart:46-91` |
 | **Confidence** | High |
 
-Semua setter menggunakan `v` sebagai nama parameter: `static Future<void> setGlassTheme(bool v)`. Tidak deskriptif.
+Semua setter menggunakan `v` sebagai nama parameter: `static Future<void> setGlassTheme(bool v)`.
 
 **Rekomendasi:** Rename ke `enabled` atau `value`.
 
 ---
 
-### 9.5 `_LibraryDestination.playlist` vs `.artists` — Singular/Plural Inconsistency
+### 9.5 Untyped `List` di Data Files
+
+| | |
+|---|---|
+| **Severity** | Low |
+| **File** | `lib/utils/data/browse_banners.dart`, `search_categories.dart` |
+| **Confidence** | High |
+
+`final List browseBanners = [...]` dan `final List searchCategories = [...]` tanpa generic type. Seharusnya `List<Map<String, dynamic>>`.
+
+**Rekomendasi:** Tambahkan generic type untuk type safety.
+
+---
+
+### 9.6 `_LibraryDestination` — Singular/Plural Inconsistency
 
 | | |
 |---|---|
@@ -701,25 +868,23 @@ Enum values menggunakan nama singular untuk beberapa item dan plural untuk lainn
 
 ---
 
-### 9.6 Magic Numbers di Library Sections
+### 9.7 Magic Numbers di Library Sections
 
 | | |
 |---|---|
 | **Severity** | Low |
-| **File** | `lib/widgets/pages/library_sections/detail.dart` dan beberapa file lain |
+| **File** | `lib/widgets/pages/library_sections/detail.dart` dll. |
 | **Confidence** | High |
 
-`bottomClearance: 64.5` dan `_kLibraryControlsHeight: 140` digunakan di beberapa file tanpa central constant. Jika diubah, harus update di banyak tempat.
+`bottomClearance: 64.5` dan `_kLibraryControlsHeight: 140` digunakan di beberapa file tanpa central constant. `lib/utils/constants.dart` sudah ada dan bisa digunakan.
 
-**Rekomendasi:** Ekstrak ke `lib/utils/constants.dart`.
+**Rekomendasi:** Tambahkan ke `constants.dart`.
 
 ---
 
 ## Kategori 10: Dependency Audit
 
-### 10.1 Semua Package Digunakan ✓
-
-Verifikasi semua 14 package di `pubspec.yaml`:
+### Semua Package Digunakan ✓
 
 | Package | Status | Lokasi |
 |---|---|---|
@@ -736,7 +901,7 @@ Verifikasi semua 14 package di `pubspec.yaml`:
 | `scrollable_positioned_list` | ✓ | Lyrics view + queue overlay |
 | `palette_generator_plus` | ✓ | `palette_extractor.dart` |
 | `url_launcher` | ✓ | Settings about page, bug report |
-| `font_awesome_flutter` | ✓ | `about_app_page.dart` (social icons) |
+| `font_awesome_flutter` | ✓ | `about_app_page.dart` — social icons |
 
 **Tidak ada package yang unused.**
 
@@ -751,21 +916,7 @@ Verifikasi semua 14 package di `pubspec.yaml`:
 | **Severity** | Critical |
 | **Confidence** | High |
 
-`browse_banners.dart` mereferensikan:
-```dart
-'img': 'assets/1.jpg'
-'img': 'assets/2.jpg'
-'img': 'assets/4.jpg'
-```
-
-Tapi `pubspec.yaml` hanya mendeklarasikan:
-```yaml
-assets:
-  - assets/images/
-  - assets/images/search/
-```
-
-File `assets/1.jpg`, `2.jpg`, `4.jpg` ada di root `assets/` — **tidak tercakup**. Flutter tidak bundling asset yang tidak dideklarasikan. Browse section banners **tidak bisa tampil** di build release.
+`browse_banners.dart` mereferensikan `assets/1.jpg`, `assets/2.jpg`, `assets/4.jpg`. Tapi `pubspec.yaml` hanya mendeklarasikan `assets/images/` dan `assets/images/search/`. File di root `assets/` **tidak tercakup** — Flutter tidak akan bundle mereka. Browse section banners **tidak bisa tampil** di release build.
 
 **Rekomendasi:** Tambahkan ke pubspec:
 ```yaml
@@ -776,24 +927,12 @@ assets:
   - assets/images/
   - assets/images/search/
 ```
-Atau pindahkan file ke `assets/images/` dan update referensi.
 
 ---
 
-### 11.2 `assets/images/` Tidak Berisi File Langsung
+### 11.2 Semua Font, Shader, dan Asset Images Digunakan ✓
 
-| | |
-|---|---|
-| **Severity** | Low |
-| **Confidence** | High |
-
-Deklarasi `assets/images/` mencakup folder yang hanya berisi subfolder `search/`. Tidak ada file langsung di `assets/images/`. Deklarasi ini redundant tapi tidak berbahaya.
-
----
-
-### 11.3 Semua Font dan Shader Digunakan ✓
-
-5 weight SF Pro Text font semuanya digunakan dalam theme system. Shader `assets/shaders/fluid.frag` digunakan oleh `artwork.dart:72`.
+5 weight SF Pro Text semuanya digunakan. Shader `fluid.frag` digunakan oleh `artwork.dart:72`. Semua file di `assets/images/search/` direferensikan via `searchCategories` data.
 
 ---
 
@@ -813,15 +952,15 @@ Deklarasi `assets/images/` mencakup folder yang hanya berisi subfolder `search/`
 | **File** | `lib/widgets/pages/radio_sections/stations.dart:98` |
 | **Confidence** | High |
 
-`_SmartPlaylistCardWidget` selalu dirender. Jika data kosong, tampil placeholder gelap dengan teks "Belum ada lagu". Ini UX yang membingungkan di tab yang seharusnya berisi radio stations.
+`_SmartPlaylistCardWidget` selalu dirender. Jika kosong, tampil placeholder gelap "Belum ada lagu" — UX membingungkan di tab radio.
 
-**Rekomendasi:** Terapkan empty state yang lebih jelas atau sembunyikan widget jika data kosong.
+**Rekomendasi:** Terapkan empty state lebih jelas atau sembunyikan widget saat data kosong.
 
 ---
 
-### 12.3 Semua Route Lain Dapat Diakses ✓
+### 12.3 Semua Route Dapat Diakses ✓
 
-`AlbumPage`, `ArtistPage`, `ArtistList`, `MusicList`, `PlaylistPage` semuanya reachable. Tidak ada halaman orphan.
+Semua halaman reachable. `ZoomFadeRoute` digunakan secara konsisten di 10+ lokasi navigasi. Tidak ada orphan route.
 
 ---
 
@@ -835,9 +974,9 @@ Deklarasi `assets/images/` mencakup folder yang hanya berisi subfolder `search/`
 | **File** | `lib/services/audio_focus_service.dart` |
 | **Confidence** | High |
 
-Service diinisialisasi di `main.dart` dan memanggil `onAppPause()`/`onAppResume()` yang semuanya empty stubs. Native Media3 sudah menangani audio focus. Init overhead tanpa manfaat.
+Service diinisialisasi di `main.dart` dan memanggil stub methods yang tidak melakukan apa-apa. Init overhead tanpa manfaat.
 
-**Rekomendasi:** Evaluasi apakah `AudioFocusService` masih diperlukan. Jika tidak, hapus bersama stub methods.
+**Rekomendasi:** Evaluasi apakah service ini masih diperlukan. Jika tidak, hapus.
 
 ---
 
@@ -856,9 +995,10 @@ Service diinisialisasi di `main.dart` dan memanggil `onAppPause()`/`onAppResume(
 | `HistoryService` | ✓ warmUp di main, trackPlay di AudioService |
 | `ArtworkRepository` | ✓ 3-layer cache, prewarm di main |
 | `LyricsService` | ✓ Full multi-provider aktif |
-| `PaletteExtractor` | ✓ Player background, warmUp di main |
-| `ScrollToTopService` | ✓ 4+ pages |
-| `PlaylistService` | ✓ playlist_page.dart |
+| `PaletteExtractor` | ✓ Player background + warmUp di main |
+| `ScrollToTopService` | ✓ BottomNav + 4 halaman utama |
+| `PlaylistService` | ✓ `playlist_page.dart`, `radio_sections/stations.dart` |
+| `ZoomFadeRoute` | ✓ 10+ lokasi navigasi |
 
 ---
 
@@ -872,7 +1012,7 @@ Service diinisialisasi di `main.dart` dan memanggil `onAppPause()`/`onAppResume(
 | **File** | `lib/services/audio/playback_manager.dart` |
 | **Confidence** | High |
 
-Method seperti `setNativeGainDb()`, `setNativeCompressorBypass()`, `resetNativeLoudnessNorm()` adalah public tapi hanya detail implementasi internal DSP. External code bisa bypass state management internal.
+`setNativeGainDb()`, `setNativeCompressorBypass()`, `resetNativeLoudnessNorm()` dll. adalah public tapi detail implementasi internal.
 
 **Rekomendasi:** Prefix `_` atau annotate `@internal`.
 
@@ -886,11 +1026,11 @@ Method seperti `setNativeGainDb()`, `setNativeCompressorBypass()`, `resetNativeL
 | **File** | `lib/services/log_service/native_log_bridge.dart` |
 | **Confidence** | Medium |
 
-Method bridge ke native log channel adalah public tapi hanya untuk `LogService`.
+Bridge methods public tapi hanya untuk `LogService`.
 
 ---
 
-### 14.3 `NativeDspBridge.applyPreset()` dll. — Public Stubs
+### 14.3 `NativeDspBridge` Stub Methods — Public Tapi Tidak Berfungsi
 
 | | |
 |---|---|
@@ -898,9 +1038,9 @@ Method bridge ke native log channel adalah public tapi hanya untuk `LogService`.
 | **File** | `lib/services/native/bridges/native_dsp_bridge.dart` |
 | **Confidence** | High |
 
-Empty stub methods (`applyPreset`, `setBandGain`, `setEnabled`, `registerProcessor`) adalah public padahal belum diimplementasi. Ini mengekspos API yang tidak berfungsi.
+`applyPreset`, `setBandGain`, `setEnabled`, `registerProcessor` adalah public stubs yang tidak melakukan apa-apa.
 
-**Rekomendasi:** Tandai dengan `@experimental` atau `@visibleForTesting` sampai implementasi selesai.
+**Rekomendasi:** Annotate dengan `@experimental` atau pindahkan ke interface saja.
 
 ---
 
@@ -914,9 +1054,9 @@ Empty stub methods (`applyPreset`, `setBandGain`, `setEnabled`, `registerProcess
 | **File** | `glass_toggle.dart`, `settings_widgets/toggle.dart` |
 | **Confidence** | High |
 
-`_GlassSubToggle` (digunakan 9x di `appearance.dart`) adalah implementasi toggle custom dengan icon leading dan padding khusus. `SettingsToggleRow` di `settings_widgets/toggle.dart` melakukan hal serupa untuk settings biasa. Dua implementasi untuk tujuan yang hampir sama.
+`_GlassSubToggle` dipakai 9x di `appearance.dart`. `SettingsToggleRow` di `settings_widgets/toggle.dart` fungsinya hampir sama. Dua implementasi toggle untuk tujuan yang serupa.
 
-**Rekomendasi:** Tambahkan optional `leadingIcon` parameter ke `SettingsToggleRow` dan ganti `_GlassSubToggle` dengan itu.
+**Rekomendasi:** Tambahkan optional `leadingIcon` ke `SettingsToggleRow` dan ganti `_GlassSubToggle`.
 
 ---
 
@@ -928,7 +1068,7 @@ Empty stub methods (`applyPreset`, `setBandGain`, `setEnabled`, `registerProcess
 | **File** | `info_line.dart`, `settings_widgets/info.dart` |
 | **Confidence** | High |
 
-`_InfoLine` (digunakan di `effect_status.dart`, `session_info.dart`) dan `SettingsInfoRow` (di `settings_widgets/info.dart`) keduanya menampilkan label-value pair. Layout sedikit berbeda tapi fungsi sama.
+`_InfoLine` dan `SettingsInfoRow` keduanya menampilkan label-value pair dengan layout sedikit berbeda.
 
 **Rekomendasi:** Konsolidasikan ke satu widget dengan variant layout.
 
@@ -936,7 +1076,7 @@ Empty stub methods (`applyPreset`, `setBandGain`, `setEnabled`, `registerProcess
 
 ### 15.3 Settings Tersebar di Dua Folder
 
-*(Sudah dibahas di 5.10)*
+*(Sudah dibahas di 5.11)*
 
 ---
 
@@ -947,9 +1087,13 @@ Empty stub methods (`applyPreset`, `setBandGain`, `setEnabled`, `registerProcess
 | **Severity** | Low |
 | **Confidence** | High |
 
-Beberapa modul menggunakan `part`/`part of` (`bottom_nav/`, `music_list/`, `settings_page/`), sementara modul lain menggunakan import biasa. Tidak konsisten di seluruh project.
+Beberapa modul menggunakan `part`/`part of`, yang lain tidak. Pola tidak konsisten di seluruh project.
 
-**Rekomendasi:** Pilih satu pola dan terapkan konsisten. Parts pattern OK untuk modul yang memang satu unit logis.
+---
+
+### 15.5 Untyped `List` di Data Files
+
+*(Sudah dibahas di 9.5)*
 
 ---
 
@@ -961,18 +1105,18 @@ Beberapa modul menggunakan `part`/`part of` (`bottom_nav/`, `music_list/`, `sett
 
 | Metrik | Jumlah |
 |---|---|
-| Total file Dart diaudit | **263** |
-| Total folder diaudit | **35+** |
-| Dead code / placeholder | **10** |
-| File kosong/tidak berguna | **6** (`chip.dart`, `sleep_timer.dart`, `lyrics.dart`, `lyrics_rows.dart`, `notif_icon.dart`, `sample_music_data.dart`) |
+| **Total file Dart diaudit** | **263 / 263 (100%)** |
+| Total folder diaudit | 35+ |
+| Dead code / placeholder ditemukan | **14** |
+| File kosong / tidak berguna | **7** (`chip.dart`, `sleep_timer.dart`, `lyrics.dart`, `lyrics_rows.dart`, `notif_icon.dart`, `sample_music_data.dart`, `FutureLocalSongCarousel` class) |
 | File dengan test salah | **1** (`test/widget_test.dart`) |
-| Naming violation | **4** |
-| Architecture issue | **10** |
-| Performance issue | **5** |
-| Maintainability issue | **8** |
-| Potential bug / crash risk | **9** |
-| Asset issue | **1 Critical + 1 Low** |
+| Bug aktif (crash / display error) | **4** (asset undeclared, `cached[2]` RangeError, `Colors.black` label Putih, `_cast()` silent no-op) |
+| Architecture issue | **11** |
+| Performance issue | **7** |
+| Maintainability issue | **9** |
+| Potential crash (force unwrap) | **8** |
 | Unused package | **0** |
+| Dead parameter di widget | **5** (WebView) + 1 FFI binding |
 
 ---
 
@@ -981,32 +1125,43 @@ Beberapa modul menggunakan `part`/`part of` (`bottom_nav/`, `music_list/`, `sett
 | Pri | Temuan | Severity | Risiko |
 |---|---|---|---|
 | 🔴 1 | **`assets/1.jpg`/`2.jpg`/`4.jpg` tidak dideklarasi di pubspec** | Critical | Browse banner tidak tampil di release build |
-| 🔴 2 | **`cached[2]`/`colors[2]` unsafe index** di album card | High | `RangeError` crash pada artwork dengan sedikit warna |
-| 🔴 3 | **`ModalRoute.of(context)!`** di album/artist page | High | Crash di edge case navigation |
-| 🔴 4 | **`widget.userPlaylist!`/`widget.smartType!`** di playlist_page (5x) | High | Crash jika navigasi tanpa parameter |
-| 🔴 5 | **`test/widget_test.dart` adalah default counter test** | High | CI fail, zero real test coverage |
-| 🔴 6 | **Folder `lib/Bottom NavBar/` dengan spasi** | High | Build fragility, URL-encoded import |
-| 🟡 7 | **`BootTrace` — 74 refs TEMPORARY** | High | Production overhead, code noise |
-| 🟡 8 | **`_decoderInfoCtrl` StreamController tidak di-close** | Medium | Memory leak setiap kali service di-dispose |
-| 🟡 9 | **`MediaCapabilitiesService.dispose()` tidak pernah dipanggil** | Medium | Listener leak |
-| 🟡 10 | **God files** (detail.dart 576L, log_page 889L, audio 869L, playback_manager 833L) | High | Maintainability debt |
-| 🟡 11 | **Duplicate HTTP logic di 7 lyrics providers** | High | Bug fix di satu provider tidak otomatis fix lain |
-| 🟡 12 | **`ThemeController._save()` calls `SharedPreferences.getInstance()` setiap toggle** | Medium | Platform channel call yang tidak perlu |
-| 🟡 13 | **20+ silent `catch (_)` blocks** | Medium | Error tersembunyi, debug sulit |
-| 🟡 14 | **Settings tersebar di dua folder** | Medium | Developer confusion |
-| 🟡 15 | **RadioPage tab aktif, data kosong** | Medium | Bad UX |
-| 🟢 16 | **6 file settings kosong** (`chip`, `sleep_timer`, `lyrics`, dll.) | Medium | Clutter tidak perlu |
-| 🟢 17 | **`_GlassSubToggle` duplikat `SettingsToggleRow`** | Medium | Inconsistency |
-| 🟢 18 | **`setState` per scroll tick** di `about_app_page` dan `detail.dart` | Medium | Unnecessary rebuilds |
-| 🟢 19 | **`NativeModuleRegistry.initializeAll()` sequential** | Medium | Startup lebih lambat dari perlu |
-| 🟢 20 | **Missing `const` constructors** di banyak widget | Low | Minor rebuild inefficiency |
-| 🟢 21 | **`fog_painter.dart` cryptic variable names** | Low | Maintainability |
-| 🟢 22 | **`webViewContainer.dart` camelCase filename** | Low | Style violation |
-| 🟢 23 | **`NativeDspBridge` stubs public** | Low | API surface misleading |
-| 🟢 24 | **Magic numbers di library sections** | Low | Maintainability |
+| 🔴 2 | **`'Putih'` → `Colors.black` di color picker lirik** | High | Display bug aktif — white option tampil hitam |
+| 🔴 3 | **`cached[2]`/`colors[2]` unsafe array index** | High | `RangeError` crash pada artwork dengan < 3 warna |
+| 🔴 4 | **`ModalRoute.of(context)!`** di album/artist page | High | Crash di edge case navigation |
+| 🔴 5 | **`widget.userPlaylist!`/`widget.smartType!`** (5x) di playlist_page | High | Crash jika navigasi tanpa parameter |
+| 🔴 6 | **`_current!` static di player_content** | High | Crash saat rapid navigation/dispose |
+| 🔴 7 | **`test/widget_test.dart` adalah default counter test** | High | CI fail, zero real test coverage |
+| 🔴 8 | **Folder `lib/Bottom NavBar/` dengan spasi** | High | URL-encoded import, build fragility |
+| 🟡 9 | **`BootTrace` — 74 refs TEMPORARY** | High | Production overhead, code noise |
+| 🟡 10 | **`_cast()` TODO di `CommonActions` — tombol di 5 halaman** | Medium | User tap tombol, tidak ada respons |
+| 🟡 11 | **`_decoderInfoCtrl` StreamController tidak di-close** | Medium | Memory leak |
+| 🟡 12 | **`MediaCapabilitiesService.dispose()` tidak pernah dipanggil** | Medium | Listener leak |
+| 🟡 13 | **God files** (detail.dart 576L, log_page 889L, audio 869L, playback_manager 833L) | High | Maintainability debt |
+| 🟡 14 | **Duplicate HTTP logic di 7 lyrics providers** | High | Bug fix tidak propagate antar provider |
+| 🟡 15 | **`ThemeController._save()` — platform channel per toggle** | Medium | Unnecessary overhead |
+| 🟡 16 | **20+ silent `catch (_)` blocks** | Medium | Error tersembunyi, debug sulit |
+| 🟡 17 | **Player sheet build scope terlalu luas** | Medium | Unnecessary full-sheet rebuild |
+| 🟡 18 | **Settings tersebar di dua folder** | Medium | Developer confusion |
+| 🟡 19 | **RadioPage tab aktif, data kosong** | Medium | Bad UX |
+| 🟡 20 | **`nextSong!` force unwrap di up_next_card** | Medium | Potential race condition crash |
+| 🟢 21 | **7 file settings kosong / dead** | Medium | Dead code clutter |
+| 🟢 22 | **`FutureLocalSongCarousel` dead class** | Medium | Unreachable code |
+| 🟢 23 | **`WebView` — 5 dead parameters** | Medium | API surface misleading |
+| 🟢 24 | **`_GlassSubToggle` duplikat `SettingsToggleRow`** | Medium | Inconsistency |
+| 🟢 25 | **`setState` per scroll tick** di about_app + detail.dart | Medium | Unnecessary rebuilds |
+| 🟢 26 | **`NativeModuleRegistry.initializeAll()` sequential** | Medium | Startup lebih lambat |
+| 🟢 27 | **Untyped `List` di browse_banners / search_categories** | Low | Type safety |
+| 🟢 28 | **Unsafe type cast di lyrics providers** | Medium | TypeError jika API schema berubah |
+| 🟢 29 | **Missing `const` constructors** (7+ lokasi) | Low | Minor rebuild inefficiency |
+| 🟢 30 | **`fog_painter.dart` cryptic variable names** | Low | Maintainability |
+| 🟢 31 | **`native_runtime_last_status()` unused FFI binding** | Low | Dead symbol |
+| 🟢 32 | **`webViewContainer.dart` camelCase filename** | Low | Style violation |
+| 🟢 33 | **Magic numbers di library sections** | Low | Maintainability |
+| 🟢 34 | **`NativeDspBridge` stubs public tapi tidak berfungsi** | Low | Misleading API |
 
 ---
 
-*Laporan ini hanya untuk audit dan pelaporan. Tidak ada perubahan kode yang dilakukan.*  
-*Audit Round 1 mencakup: dead code, architecture, imports, routing, flutter perf, services, native, themes.*  
-*Audit Round 2 mencakup: themes, native bridges, 12 service/provider files, 30+ widget/page files, semua settings files.*
+*Audit dilakukan dalam 3 round menggunakan subagent paralel + verifikasi grep/shell per temuan kritis.*  
+*Round 1: dead code, architecture, imports, routing, flutter perf, services, native, themes (area utama).*  
+*Round 2: themes, native bridges, 12 service/provider files, 30+ widget/page files, semua settings files.*  
+*Round 3: semua player widgets (38 file), utils, misc services, Bottom NavBar, webView, native_audio_runtime.*
