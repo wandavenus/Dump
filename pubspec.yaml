@@ -1,7 +1,7 @@
 name: musicplayer
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.2.4+1
+version: 1.2.5+1
 
 environment:
   sdk: '>=3.12.2 <4.0.0'
@@ -46,9 +46,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/1.jpg
-    - assets/2.jpg
-    - assets/4.jpg
     - assets/images/
     - assets/images/search/
 

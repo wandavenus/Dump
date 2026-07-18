@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.5',
+    date: '18 Juli 2026',
+    changes: [
+      'Hapus assets/1.jpg, assets/2.jpg, assets/4.jpg (tidak dipakai) dan bersihkan referensi di browse_banners.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.4',
     date: '18 Juli 2026',
     changes: [
