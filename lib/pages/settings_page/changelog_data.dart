@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.9+2',
+    date: '18 Juli 2026',
+    changes: [
+      'Phase 8D: shader background berhenti saat player collapsed — hemat GPU tiap frame.',
+      'Pre-compute 9 lerped color floats di FogPainter; paint() tidak ada aritmatika.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.9',
     date: '18 Juli 2026',
     changes: [

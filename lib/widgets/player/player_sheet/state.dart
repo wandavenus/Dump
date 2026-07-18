@@ -193,14 +193,22 @@ class _SheetBody extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (currentSong != null)
-            ClipRect(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: blurSigma,
-                  sigmaY: blurSigma,
-                ),
-                child: AnimatedBlurredPlayerBackground(
-                  songId: currentSong.id,
+            // TickerMode pauses the shader AnimationController when the
+            // player is fully collapsed (blurSigma = 0), stopping per-frame
+            // GPU work for a widget that is offscreen and invisible.
+            // The shader resumes seamlessly as the sheet opens — _t (time)
+            // and palette state are preserved in the stateful subtree.
+            TickerMode(
+              enabled: blurSigma > 0.5,
+              child: ClipRect(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                  ),
+                  child: AnimatedBlurredPlayerBackground(
+                    songId: currentSong.id,
+                  ),
                 ),
               ),
             )
