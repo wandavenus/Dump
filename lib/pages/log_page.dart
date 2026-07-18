@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/services/log_service.dart';
 
-// TODO(refactor): LogPage is 889 lines — god file. Future split boundaries:
-//   1. _LogPageState (state + filtering logic) → log_page/state.dart
-//   2. _LogEntryTile (entry renderer) → log_page/entry_tile.dart
-//   3. Filter bar / search bar widgets → log_page/filter_bar.dart
-
 part 'log_page/bar_btn.dart';
 part 'log_page/app_bar_badge.dart';
+part 'log_page/entry_tile.dart';
+part 'log_page/filter_bar.dart';
+part 'log_page/log_level_selector.dart';
 
 /// Full-screen developer log viewer.
 /// Dibuka via Navigator.push dari Settings → Log Aktivitas.
@@ -37,7 +35,6 @@ class _LogPageState extends State<LogPage> {
   @override
   void initState() {
     super.initState();
-    // Pre-set filter kategori kalau dipassing dari caller (mis. Debug Section).
     _categoryFilter = widget.initialCategory;
     LogService.logCount.addListener(_onNewLog);
   }
@@ -54,11 +51,8 @@ class _LogPageState extends State<LogPage> {
     if (!mounted) return;
     setState(_expanded.clear);
     if (_liveTail && _scrollCtrl.hasClients) {
-      _scrollCtrl.animateTo(
-        0,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
+      _scrollCtrl.animateTo(0,
+          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
     }
   }
 
@@ -83,9 +77,7 @@ class _LogPageState extends State<LogPage> {
 
   void _copyAll(List<LogEntry> entries) {
     final buf = StringBuffer();
-    for (final e in entries) {
-      buf.writeln(e.toString());
-    }
+    for (final e in entries) { buf.writeln(e.toString()); }
     Clipboard.setData(ClipboardData(text: buf.toString()));
     _snack('${entries.length} entri disalin');
   }
@@ -115,8 +107,7 @@ class _LogPageState extends State<LogPage> {
 
   void _jumpBottom() {
     if (!_scrollCtrl.hasClients) return;
-    _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
+    _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
   }
 
@@ -162,9 +153,24 @@ class _LogPageState extends State<LogPage> {
       appBar: _buildAppBar(entries),
       body: Column(
         children: [
-          _buildSearch(),
-          _buildFilterRow(categories),
-          const Divider(height: 1, thickness: 0.5, color: Color(0xFF1C1C1E)),
+          _LogFilterBar(
+            levelFilter:      _levelFilter,
+            categoryFilter:   _categoryFilter,
+            categories:       categories,
+            totalCount:       LogService.logCount.value,
+            countLevel:       _countLevel,
+            levelColor:       _levelColor,
+            searchController: _searchCtrl,
+            onLevelChanged:   (l) => setState(() {
+              _levelFilter = l;
+              _expanded.clear();
+            }),
+            onCategoryChanged: (c) => setState(() {
+              _categoryFilter = c;
+              _expanded.clear();
+            }),
+            onSearchChanged: () => setState(_expanded.clear),
+          ),
           Expanded(child: _buildList(entries)),
         ],
       ),
@@ -182,39 +188,28 @@ class _LogPageState extends State<LogPage> {
       backgroundColor:  Colors.black,
       foregroundColor:  Colors.white,
       surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      elevation:    0,
       titleSpacing: 0,
       leading: const BackButton(),
       title: Row(
         children: [
-          const Text(
-            'Log',
-            style: TextStyle(
-              fontSize:   17,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.4,
-            ),
-          ),
+          const Text('Log',
+              style: TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
           const SizedBox(width: 8),
-          Text(
-            '${entries.length}',
-            style: const TextStyle(
-              color:      Color(0xFF48484A),
-              fontSize:   12,
-              fontFamily: 'monospace',
-            ),
-          ),
+          Text('${entries.length}',
+              style: const TextStyle(
+                  color: Color(0xFF48484A), fontSize: 12, fontFamily: 'monospace')),
           const SizedBox(width: 10),
-          if (errCount > 0) _AppBarBadge(count: errCount, color: const Color(0xFFF92D48)),
+          if (errCount > 0)
+            _AppBarBadge(count: errCount,  color: const Color(0xFFF92D48)),
           if (errCount > 0 && warnCount > 0) const SizedBox(width: 5),
-          if (warnCount > 0) _AppBarBadge(count: warnCount, color: const Color(0xFFFF9F0A)),
+          if (warnCount > 0)
+            _AppBarBadge(count: warnCount, color: const Color(0xFFFF9F0A)),
         ],
       ),
       actions: [
-        // Logging level button — dipindah dari Settings › Sistem
-        // (dulu 3 toggle terpisah: Logging Aktif / Error & Peringatan Saja /
-        // Log Verbose), sekarang satu tombol yang membuka pemilih level.
-        _buildLogLevelButton(),
+        const _LogLevelSelector(),
         const SizedBox(width: 4),
         // Live tail toggle
         GestureDetector(
@@ -232,25 +227,21 @@ class _LogPageState extends State<LogPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.fiber_manual_record,
-                    size: 7,
-                    color: _liveTail
-                        ? const Color(0xFF30D158)
-                        : const Color(0xFF48484A),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'LIVE',
-                    style: TextStyle(
+                  Icon(Icons.fiber_manual_record,
+                      size: 7,
                       color: _liveTail
                           ? const Color(0xFF30D158)
-                          : const Color(0xFF48484A),
-                      fontSize:   10,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                          : const Color(0xFF48484A)),
+                  const SizedBox(width: 4),
+                  Text('LIVE',
+                      style: TextStyle(
+                        color: _liveTail
+                            ? const Color(0xFF30D158)
+                            : const Color(0xFF48484A),
+                        fontSize:   10,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                      )),
                 ],
               ),
             ),
@@ -258,346 +249,6 @@ class _LogPageState extends State<LogPage> {
         ),
         const SizedBox(width: 4),
       ],
-    );
-  }
-
-  // ── Log level button (menggantikan 3 toggle Settings › Sistem) ──────────────
-
-  ({String label, Color color, IconData icon}) _logLevelVisual() {
-    if (!LogService.loggingEnabled.value) {
-      return (label: 'OFF', color: const Color(0xFF48484A), icon: Icons.tune_rounded);
-    }
-    if (LogService.errorsOnly.value) {
-      return (label: 'ERR', color: const Color(0xFFFF9F0A), icon: Icons.tune_rounded);
-    }
-    if (LogService.verboseEnabled.value) {
-      return (label: 'VRB', color: const Color(0xFF0A84FF), icon: Icons.tune_rounded);
-    }
-    return (label: 'LOG', color: const Color(0xFF30D158), icon: Icons.tune_rounded);
-  }
-
-  Widget _buildLogLevelButton() {
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        LogService.loggingEnabled,
-        LogService.errorsOnly,
-        LogService.verboseEnabled,
-      ]),
-      builder: (_, _) {
-        final v = _logLevelVisual();
-        return GestureDetector(
-          onTap: _showLogLevelSheet,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color:        v.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(v.icon, size: 11, color: v.color),
-                  const SizedBox(width: 4),
-                  Text(
-                    v.label,
-                    style: TextStyle(
-                      color:      v.color,
-                      fontSize:   10,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showLogLevelSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([
-            LogService.loggingEnabled,
-            LogService.errorsOnly,
-            LogService.verboseEnabled,
-          ]),
-          builder: (_, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
-                child: Text(
-                  'Level Log',
-                  style: TextStyle(
-                    color:      Colors.white,
-                    fontSize:   15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              _logLevelOption(
-                title:    'Nonaktif',
-                subtitle: 'Logging dimatikan',
-                selected: !LogService.loggingEnabled.value,
-                onTap:    () => LogService.setLoggingEnabled(false),
-              ),
-              _logLevelOption(
-                title:    'Error & Peringatan Saja',
-                subtitle: 'Sembunyikan log info & verbose',
-                selected: LogService.loggingEnabled.value &&
-                    LogService.errorsOnly.value,
-                onTap: () async {
-                  await LogService.setLoggingEnabled(true);
-                  await LogService.setErrorsOnly(true);
-                },
-              ),
-              _logLevelOption(
-                title:    'Normal',
-                subtitle: 'Log info, error & peringatan',
-                selected: LogService.loggingEnabled.value &&
-                    !LogService.errorsOnly.value &&
-                    !LogService.verboseEnabled.value,
-                onTap: () async {
-                  await LogService.setLoggingEnabled(true);
-                  await LogService.setErrorsOnly(false);
-                  await LogService.setVerboseEnabled(false);
-                },
-              ),
-              _logLevelOption(
-                title:    'Log Verbose',
-                subtitle: 'Tampilkan log detail',
-                selected: LogService.loggingEnabled.value &&
-                    !LogService.errorsOnly.value &&
-                    LogService.verboseEnabled.value,
-                onTap: () async {
-                  await LogService.setLoggingEnabled(true);
-                  await LogService.setErrorsOnly(false);
-                  await LogService.setVerboseEnabled(true);
-                },
-              ),
-              const SizedBox(height: 6),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _logLevelOption({
-    required String title,
-    required String subtitle,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFAEAEB2),
-                      fontSize:   14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color:    Color(0xFF636366),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (selected)
-              const Icon(Icons.check_rounded, color: Color(0xFF30D158), size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Search bar ──────────────────────────────────────────────────────────────
-
-  Widget _buildSearch() => Container(
-        color: Colors.black,
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-        child: Container(
-          height: 36,
-          decoration: BoxDecoration(
-            color:        const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              const Icon(Icons.search_rounded,
-                  color: Color(0xFF48484A), size: 15),
-              const SizedBox(width: 7),
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: const TextStyle(
-                    color:      Color(0xFFAEAEB2),
-                    fontSize:   13,
-                    fontFamily: 'monospace',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText:      'Cari pesan atau kategori…',
-                    hintStyle:     TextStyle(
-                      color:      Color(0xFF3A3A3C),
-                      fontSize:   13,
-                      fontFamily: 'monospace',
-                    ),
-                    border:         InputBorder.none,
-                    isDense:        true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (_) => setState(_expanded.clear),
-                ),
-              ),
-              if (_searchCtrl.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    _searchCtrl.clear();
-                    setState(_expanded.clear);
-                  },
-                  child: const Icon(Icons.close_rounded,
-                      color: Color(0xFF48484A), size: 15),
-                ),
-            ],
-          ),
-        ),
-      );
-
-  // ── Filter row ──────────────────────────────────────────────────────────────
-
-  Widget _buildFilterRow(List<String> categories) {
-    final totalCount = LogService.logCount.value;
-
-    return Container(
-      color: Colors.black,
-      height: 32,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _levelChip(null,             'ALL',  totalCount),
-          _levelChip(LogLevel.error,   'ERR',  _countLevel(LogLevel.error)),
-          _levelChip(LogLevel.warning, 'WRN',  _countLevel(LogLevel.warning)),
-          _levelChip(LogLevel.info,    'INF',  _countLevel(LogLevel.info)),
-          _levelChip(LogLevel.verbose, 'VRB',  _countLevel(LogLevel.verbose)),
-          if (categories.isNotEmpty) ...[
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text('│',
-                    style: TextStyle(
-                        color: Color(0xFF2C2C2E),
-                        fontFamily: 'monospace')),
-              ),
-            ),
-            ...categories.map(_catChip),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _levelChip(LogLevel? level, String label, int count) {
-    final active = _levelFilter == level;
-    final color  = level == null ? Colors.white : _levelColor(level);
-    return GestureDetector(
-      onTap: () => setState(() {
-        _levelFilter = level;
-        _expanded.clear();
-      }),
-      child: Container(
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: const BoxDecoration(),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color:      active ? color : const Color(0xFF48484A),
-                fontSize:   11,
-                fontFamily: 'monospace',
-                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 4),
-              Text(
-                '$count',
-                style: TextStyle(
-                  color:      active ? color.withValues(alpha: 0.6) : const Color(0xFF3A3A3C),
-                  fontSize:   9,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _catChip(String cat) {
-    final active = _categoryFilter == cat;
-    return GestureDetector(
-      onTap: () => setState(() {
-        _categoryFilter = active ? null : cat;
-        _expanded.clear();
-      }),
-      child: Container(
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFFAEAEB2).withValues(alpha: 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: active
-              ? Border.all(
-                  color: const Color(0xFFAEAEB2).withValues(alpha: 0.2),
-                  width: 0.5)
-              : null,
-        ),
-        child: Text(
-          cat,
-          style: TextStyle(
-            color:      active ? const Color(0xFFAEAEB2) : const Color(0xFF48484A),
-            fontSize:   11,
-            fontFamily: 'monospace',
-            fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
-      ),
     );
   }
 
@@ -633,148 +284,25 @@ class _LogPageState extends State<LogPage> {
       controller:  _scrollCtrl,
       padding:     const EdgeInsets.only(bottom: 16),
       itemCount:   entries.length,
-      itemBuilder: (_, i) => _buildEntry(entries[i], i),
-    );
-  }
-
-  Widget _buildEntry(LogEntry entry, int i) {
-    final hasStack = (entry.stackTrace ?? '').isNotEmpty;
-    final expanded = _expanded.contains(i);
-    final color    = _levelColor(entry.level);
-
-    return GestureDetector(
-      behavior:    HitTestBehavior.opaque,
-      onTap:       hasStack ? () => setState(() {
-        if (expanded) { _expanded.remove(i); }
-        else          { _expanded.add(i); }
-      }) : null,
-      onLongPress: () {
-        HapticFeedback.lightImpact();
-        _copyEntry(entry);
+      itemBuilder: (_, i) {
+        final entry    = entries[i];
+        final hasStack = (entry.stackTrace ?? '').isNotEmpty;
+        return _LogEntryTile(
+          entry:    entry,
+          expanded: _expanded.contains(i),
+          levelColor: _levelColor,
+          onToggleExpand: hasStack
+              ? () => setState(() {
+                    if (_expanded.contains(i)) {
+                      _expanded.remove(i);
+                    } else {
+                      _expanded.add(i);
+                    }
+                  })
+              : null,
+          onCopy: () => _copyEntry(entry),
+        );
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Level color bar
-                Container(
-                  width: 3,
-                  color: color.withValues(alpha: 0.5),
-                ),
-                // Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Row 1: category + level tag + timestamp + chevron
-                        Row(
-                          children: [
-                            Text(
-                              entry.category.toUpperCase(),
-                              style: TextStyle(
-                                color:       color.withValues(alpha: 0.55),
-                                fontSize:    9,
-                                fontFamily:  'monospace',
-                                fontWeight:  FontWeight.w700,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color:        color.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                entry.levelTag,
-                                style: TextStyle(
-                                  color:      color.withValues(alpha: 0.6),
-                                  fontSize:   8,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              entry.formattedTime,
-                              style: const TextStyle(
-                                color:      Color(0xFF3A3A3C),
-                                fontSize:   9.5,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                            if (hasStack) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                expanded
-                                    ? Icons.keyboard_arrow_up_rounded
-                                    : Icons.keyboard_arrow_down_rounded,
-                                color: const Color(0xFF3A3A3C),
-                                size:  14,
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        // Row 2: message
-                        Text(
-                          entry.message,
-                          style: TextStyle(
-                            color: switch (entry.level) {
-                              LogLevel.error   => const Color(0xFFF92D48)
-                                  .withValues(alpha: 0.9),
-                              LogLevel.warning => const Color(0xFFFF9F0A)
-                                  .withValues(alpha: 0.9),
-                              LogLevel.verbose => const Color(0xFF48484A),
-                              _                => const Color(0xFFAEAEB2),
-                            },
-                            fontSize:   12,
-                            fontFamily: 'monospace',
-                            height:     1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Stack trace — expanded
-          if (hasStack && expanded)
-            Container(
-              margin:  const EdgeInsets.fromLTRB(13, 0, 12, 8),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color:        const Color(0xFF0A0A0A),
-                borderRadius: BorderRadius.circular(6),
-                border:       Border.all(
-                    color: color.withValues(alpha: 0.15), width: 0.5),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SelectableText(
-                  entry.stackTrace!,
-                  style: const TextStyle(
-                    color:      Color(0xFF636366),
-                    fontSize:   9.5,
-                    fontFamily: 'monospace',
-                    height:     1.65,
-                  ),
-                ),
-              ),
-            ),
-          Container(height: 0.5, color: const Color(0xFF111111)),
-        ],
-      ),
     );
   }
 
@@ -787,15 +315,15 @@ class _LogPageState extends State<LogPage> {
         child: Row(
           children: [
             _BarBtn(
-              icon:    Icons.keyboard_double_arrow_up_rounded,
-              label:   'Atas',
-              onTap:   _jumpTop,
+              icon:  Icons.keyboard_double_arrow_up_rounded,
+              label: 'Atas',
+              onTap: _jumpTop,
             ),
             const SizedBox(width: 6),
             _BarBtn(
-              icon:    Icons.keyboard_double_arrow_down_rounded,
-              label:   'Bawah',
-              onTap:   _jumpBottom,
+              icon:  Icons.keyboard_double_arrow_down_rounded,
+              label: 'Bawah',
+              onTap: _jumpBottom,
             ),
             const Spacer(),
             _BarBtn(
@@ -816,5 +344,3 @@ class _LogPageState extends State<LogPage> {
         ),
       );
 }
-
-// Extracted to part files — see log_page/ directory.

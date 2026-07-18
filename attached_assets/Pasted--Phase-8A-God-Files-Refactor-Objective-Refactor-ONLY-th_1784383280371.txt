@@ -1,0 +1,254 @@
+# Phase 8A — God Files Refactor
+
+## Objective
+
+Refactor ONLY the validated God Files.
+
+Goal:
+
+- improve maintainability
+- improve readability
+- reduce file size
+- make future AI audits easier
+
+WITHOUT changing application behavior.
+
+This is a structural refactor only.
+
+---
+
+# Scope
+
+Refactor ONLY these files:
+
+- lib/pages/log_page.dart
+- lib/pages/settings_page/audio.dart
+- lib/services/audio/playback_manager.dart
+- lib/widgets/pages/library_sections/detail.dart
+
+Do not touch any other architecture.
+
+---
+
+# Strict Rules
+
+Behavior must remain 100% identical.
+
+No feature changes.
+
+No UI changes.
+
+No logic changes.
+
+No API changes.
+
+No playback changes.
+
+No Media3 changes.
+
+No ReplayGain changes.
+
+No DSP changes.
+
+No native changes.
+
+Only move code into smaller files.
+
+---
+
+# Refactoring Rules
+
+Split by responsibility.
+
+Example only:
+
+audio.dart
+
+↓
+
+audio/
+
+    page.dart
+    output_section.dart
+    equalizer_section.dart
+    replaygain_section.dart
+    normalization_section.dart
+    widgets/
+
+Do NOT use this exact structure if a better one exists.
+
+Choose the most logical organization.
+
+---
+
+playback_manager.dart
+
+Split into logical components.
+
+Possible examples:
+
+- playback_state.dart
+- playback_commands.dart
+- playback_events.dart
+- playback_queue.dart
+- playback_lifecycle.dart
+
+Do not introduce unnecessary abstraction.
+
+---
+
+library detail
+
+Split by:
+
+- header
+- list
+- sorting
+- search
+- selection
+- state
+
+Only if it improves clarity.
+
+---
+
+log_page
+
+Extract:
+
+- widgets
+- dialogs
+- cards
+- filters
+
+Avoid duplicate code.
+
+---
+
+# Preserve Public API
+
+Existing imports throughout the repository must continue working.
+
+If necessary,
+
+keep a thin facade file
+
+that exports or delegates to the new implementation.
+
+Do not force unrelated files to change.
+
+---
+
+# Naming
+
+Use consistent naming.
+
+Avoid:
+
+utils.dart
+
+helpers.dart
+
+common.dart
+
+misc.dart
+
+Everything should describe its responsibility.
+
+---
+
+# File Size Target
+
+Target:
+
+150–300 lines
+
+Acceptable:
+
+<=350 lines
+
+Do not split merely to hit a number.
+
+Every extracted file must have a clear purpose.
+
+---
+
+# State Management
+
+Do not duplicate state.
+
+Do not introduce singleton.
+
+Do not move ownership.
+
+State ownership must remain exactly the same.
+
+---
+
+# Performance
+
+Do not introduce:
+
+extra rebuilds
+
+extra allocations
+
+extra listeners
+
+extra streams
+
+extra timers
+
+---
+
+# Validation
+
+After refactoring:
+
+- flutter analyze
+- verify imports
+- verify no circular dependencies
+- verify application builds
+- verify playback
+- verify DSP
+- verify ReplayGain
+- verify library page
+- verify settings page
+- verify logs page
+
+---
+
+# Deliverables
+
+Produce:
+
+## Refactor Summary
+
+For each God File:
+
+- old line count
+- new line count
+- extracted files
+- responsibilities of each extracted file
+
+---
+
+## Compatibility Report
+
+Confirm:
+
+- no API changes
+- no behavior changes
+- no performance regressions
+
+---
+
+## Validation Report
+
+Include:
+
+- flutter analyze
+- build status
+- runtime verification
+
+Stop after completing the four validated God Files.
