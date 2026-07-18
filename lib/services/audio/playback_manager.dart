@@ -15,12 +15,22 @@ import '../native/bridges/ffmpeg_decoder_bridge.dart';
 import '../native/contracts/native_module.dart';
 import '../native/native_module_registry.dart';
 
-// TODO(refactor): playback_manager.dart is 833 lines — god file. Future split
-//   boundaries:
-//   1. EqualizerParameters + EQ setters → playback_manager/equalizer.dart
-//   2. Volume / duck / ReplayGain logic → playback_manager/volume.dart
-//   3. DSP pipeline wiring → playback_manager/dsp.dart
-//   4. Queue / shuffle / repeat helpers → playback_manager/queue.dart
+// ── playback_manager.dart — split plan ───────────────────────────────────────
+//
+// This file is a validated god file (~840 lines).  It is intentionally kept
+// monolithic for now because [PlaybackManager] is a pure static facade — every
+// method is a thin delegation to [Media3PlaybackBridge] with no mutable
+// instance state beyond a handful of prefetch bookkeeping fields.  Splitting
+// it would create part files with ~50 lines each and no reduction in coupling.
+//
+// When these sections grow enough to justify extraction, use `part`/`part of`:
+//   1. EqualizerParameters + EQ setters  → playback_manager/equalizer.dart
+//   2. Volume / duck / ReplayGain logic  → playback_manager/volume.dart
+//   3. DSP pipeline wiring               → playback_manager/dsp.dart
+//   4. Queue / shuffle / repeat helpers  → playback_manager/queue.dart
+//
+// Prerequisite: each section must be at least ~150 lines and have no cross-
+// section field references that would need to become shared state.
 
 // ─── Equalizer parameter type ─────────────────────────────────────────────────
 

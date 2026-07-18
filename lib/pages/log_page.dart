@@ -7,6 +7,9 @@ import 'package:musicplayer/services/log_service.dart';
 //   2. _LogEntryTile (entry renderer) → log_page/entry_tile.dart
 //   3. Filter bar / search bar widgets → log_page/filter_bar.dart
 
+part 'log_page/bar_btn.dart';
+part 'log_page/app_bar_badge.dart';
+
 /// Full-screen developer log viewer.
 /// Dibuka via Navigator.push dari Settings → Log Aktivitas.
 /// Opsional: [initialCategory] untuk langsung memfilter ke kategori tertentu
@@ -814,81 +817,4 @@ class _LogPageState extends State<LogPage> {
       );
 }
 
-// ── Reusable bottom-bar button ───────────────────────────────────────────────
-
-class _BarBtn extends StatelessWidget {
-  const _BarBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.destructive = false,
-    this.enabled     = true,
-  });
-
-  final IconData icon;
-  final String   label;
-  final VoidCallback onTap;
-  final bool     destructive;
-  final bool     enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color fg = !enabled
-        ? const Color(0xFF2C2C2E)
-        : destructive
-            ? const Color(0xFFF92D48)
-            : const Color(0xFF8E8E93);
-
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color:        const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: fg),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color:      fg,
-                fontSize:   11,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── AppBar badge ─────────────────────────────────────────────────────────────
-
-class _AppBarBadge extends StatelessWidget {
-  const _AppBarBadge({required this.count, required this.color});
-  final int   count;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color:        color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          '$count',
-          style: TextStyle(
-            color:      color.withValues(alpha: 0.85),
-            fontSize:   10,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
-}
+// Extracted to part files — see log_page/ directory.

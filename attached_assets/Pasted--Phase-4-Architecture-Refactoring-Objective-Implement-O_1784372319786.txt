@@ -1,0 +1,292 @@
+# Phase 4 — Architecture & Refactoring
+
+## Objective
+
+Implement ONLY the validated architecture and maintainability improvements from `Audit_Validation_Report.md`.
+
+This phase focuses on:
+
+- improving code organization
+- reducing technical debt
+- increasing maintainability
+- simplifying future development
+
+This phase must NOT introduce new features.
+
+Application behavior must remain identical.
+
+---
+
+# Source of Truth
+
+Use ONLY:
+
+- Audit_Validation_Report.md
+
+Ignore:
+
+- Rejected
+- False Positive
+- Needs Manual Verification (NMV)
+
+Implement ONLY validated findings.
+
+---
+
+# Goals
+
+Improve architecture without changing observable behavior.
+
+Avoid "big bang" rewrites.
+
+Every refactor must be incremental.
+
+Every commit must remain buildable.
+
+---
+
+# Scope
+
+## 1. God Files
+
+Refactor validated oversized files into smaller modules.
+
+Examples include:
+
+- playback_manager
+- audio.dart
+- log_page
+- detail.dart
+- song_context_menu
+
+Split responsibilities logically.
+
+Avoid circular dependencies.
+
+Keep public APIs compatible.
+
+---
+
+## 2. ThemeController
+
+Review overall structure.
+
+Reduce unnecessary complexity.
+
+Keep existing public API stable.
+
+Avoid introducing breaking changes.
+
+---
+
+## 3. Lyrics Providers
+
+Review the validated issue regarding multiple providers.
+
+Introduce shared abstractions where appropriate.
+
+Possible improvements:
+
+- common base class
+- shared request pipeline
+- shared error handling
+- shared parsing helpers
+- shared retry logic
+
+Do not change provider behavior.
+
+---
+
+## 4. Duplicate UI Components
+
+Merge validated duplicate widgets.
+
+Examples:
+
+- info_line
+- Settings widgets
+- Glass toggle widgets
+
+Reduce duplicated implementations.
+
+Preserve appearance.
+
+---
+
+## 5. Thin Wrapper Files
+
+Review validated wrapper files.
+
+Examples:
+
+- replay_gain_service.dart
+- audio_session_handler.dart
+- similar export-only files
+
+If a wrapper provides no value:
+
+- remove it
+
+Otherwise:
+
+- document why it exists.
+
+Do not break imports.
+
+---
+
+## 6. Folder Organization
+
+Review validated folder organization issues.
+
+Examples:
+
+- Bottom NavBar
+- settings
+- settings_page
+
+Only reorganize when safe.
+
+Update every import.
+
+Maintain package structure.
+
+---
+
+## 7. Naming Consistency
+
+Improve validated naming issues.
+
+Examples:
+
+- cryptic variable names
+- inconsistent file names
+- inconsistent method names
+- inconsistent APIs
+
+Avoid unnecessary renaming.
+
+Only rename validated cases.
+
+---
+
+## 8. Shared Utilities
+
+Extract duplicated logic into reusable utilities.
+
+Examples:
+
+- repeated helper methods
+- repeated parsing
+- repeated UI helpers
+- repeated service utilities
+
+Do not over-generalize.
+
+---
+
+## 9. Documentation
+
+Improve documentation.
+
+Add comments only where useful.
+
+Document:
+
+- complex algorithms
+- native bridges
+- synchronization logic
+- lifecycle ownership
+
+Avoid commenting obvious code.
+
+---
+
+## 10. Dependency Cleanup
+
+Review internal dependencies.
+
+Reduce unnecessary coupling.
+
+Improve module boundaries.
+
+Do not redesign the entire architecture.
+
+---
+
+# Constraints
+
+Do NOT:
+
+- redesign playback engine
+- redesign DSP
+- redesign Media3 bridge
+- redesign ReplayGain pipeline
+- rewrite native modules
+- change business logic
+
+Only refactor validated architectural issues.
+
+---
+
+# Validation
+
+Before completion:
+
+Run:
+
+- flutter analyze
+
+Verify:
+
+- application builds
+- imports remain valid
+- public APIs remain compatible
+- no behavior changes
+- no new warnings introduced
+
+---
+
+# Deliverables
+
+## Summary
+
+For every validated architecture finding:
+
+- Refactored
+- Deferred
+- Skipped
+
+Explain why.
+
+---
+
+## Refactoring Report
+
+Describe:
+
+- files split
+- classes extracted
+- duplicated code removed
+- utilities introduced
+- documentation added
+
+---
+
+## Compatibility
+
+Confirm:
+
+- existing APIs remain compatible
+- imports updated
+- build successful
+
+---
+
+## Remaining Work
+
+List only cleanup items that belong to Phase 5.
+
+Stop after Phase 4.
+
+Do not continue automatically.

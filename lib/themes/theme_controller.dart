@@ -1,7 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Mengontrol tema visual secara global dan per-komponen.
+/// Global glass-theme controller — all state is static, no instances.
+///
+/// ## Design note: all-static pattern
+/// [ThemeController] uses a private constructor (`ThemeController._()`) to
+/// prevent accidental instantiation while keeping all public members static.
+/// This is intentional: the glass theme is a true singleton at the process
+/// level and is accessed from multiple unrelated widget subtrees.  A proper
+/// InheritedWidget or ChangeNotifier approach would require threading the
+/// controller through the entire widget tree — unnecessary complexity for a
+/// small, stable set of ten boolean toggles.
+///
+/// ## Lifecycle
+/// Call [init()] once during app startup (after [WidgetsFlutterBinding]).
+/// All setters are safe to call from any widget after [init()] completes.
 class ThemeController {
   ThemeController._();
 
