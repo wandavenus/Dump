@@ -44,7 +44,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
   // ── Entry animation — slide-up when mini player first appears ──────────────
   late final AnimationController _entryAnim;
-  LocalSong? _lastSong;
+
+  // ── Playback-derived state (updated by listener, NOT by VLB in build) ──────
+  // Only setState when these values change — not on every position tick.
+  LocalSong? _currentSong;
+  bool _isPlaying = false;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
@@ -63,7 +67,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       duration: const Duration(milliseconds: 420),
     );
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
-    AudioService.playbackState.addListener(_onSongAppeared);
+    // Single listener replaces the old _onSongAppeared + playbackState VLB.
+    // Only setState when song identity or isPlaying changes — never on position ticks.
+    AudioService.playbackState.addListener(_onPlaybackStateChanged);
+    // Initialise fields from current state (in case widget mounts mid-playback).
+    _currentSong = AudioService.playbackState.value.currentSong;
+    _isPlaying = AudioService.playbackState.value.isPlaying;
   }
 
   @override
@@ -71,17 +80,43 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     _overlayAnim.dispose();
     _releaseAnim.dispose();
     _entryAnim.dispose();
-    AudioService.playbackState.removeListener(_onSongAppeared);
+    AudioService.playbackState.removeListener(_onPlaybackStateChanged);
     PlayerSheetController.expanded.removeListener(_onExpandedChanged);
     super.dispose();
   }
 
-  void _onSongAppeared() {
-    final current = AudioService.playbackState.value.currentSong;
-    if (_lastSong == null && current != null) {
+  // ── Playback state listener ────────────────────────────────────────────────
+  // Runs on every AudioService.playbackState notification (including position
+  // ticks every ~100 ms). Only triggers a setState when song identity or
+  // isPlaying actually changes — position ticks are silently ignored.
+  void _onPlaybackStateChanged() {
+    final state = AudioService.playbackState.value;
+    final song = state.currentSong;
+    final isPlaying = state.isPlaying;
+
+    // Entry animation: first song appears (was null, now non-null).
+    if (_currentSong == null && song != null) {
       _entryAnim.forward(from: 0.0);
     }
-    _lastSong = current;
+
+    var needsRebuild = false;
+
+    // Song identity changed (including null → non-null and vice-versa).
+    final songChanged =
+        (_currentSong == null) != (song == null) ||
+        (_currentSong?.id != song?.id);
+    if (songChanged) {
+      _currentSong = song;
+      needsRebuild = true;
+    }
+
+    // Play / Pause state changed.
+    if (_isPlaying != isPlaying) {
+      _isPlaying = isPlaying;
+      needsRebuild = true;
+    }
+
+    if (needsRebuild && mounted) setState(() {});
   }
 
   void _onReleaseAnimTick() {
@@ -226,25 +261,28 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
+  // Chain: glassTheme VLB → entryAnim AB → progress VLB → _buildMorph
+  //
+  // AudioService.playbackState is NO LONGER in the VLB chain.
+  // Only song-identity and isPlaying changes trigger setState() here.
+  // Position ticks (~100 ms) are absorbed by the listener without rebuilding
+  // this widget or any layout geometry.
   @override
   Widget build(BuildContext context) {
+    // Guard: no song → nothing to render.
+    final song = _currentSong;
+    if (song == null) return const SizedBox.shrink();
+
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
         return AnimatedBuilder(
           animation: _entryAnim,
           builder: (context, _) {
-            return ValueListenableBuilder<AudioPlaybackState>(
-              valueListenable: AudioService.playbackState,
-              builder: (context, state, _) {
-                final song = state.currentSong;
-                if (song == null) return const SizedBox.shrink();
-                return ValueListenableBuilder<double>(
-                  valueListenable: PlayerSheetController.progress,
-                  builder: (context, progress, _) {
-                    return _buildMorph(context, song, state, progress, isGlass);
-                  },
-                );
+            return ValueListenableBuilder<double>(
+              valueListenable: PlayerSheetController.progress,
+              builder: (context, progress, _) {
+                return _buildMorph(context, song, progress, isGlass);
               },
             );
           },
@@ -256,7 +294,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   Widget _buildMorph(
     BuildContext context,
     LocalSong song,
-    AudioPlaybackState state,
     double progress,
     bool isGlass,
   ) {
@@ -414,6 +451,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 ),
 
               // ── Full player content (fades in) ─────────────────────────────
+              // _PlaybackContent has its own ValueListenableBuilder on
+              // AudioService.playbackState, so only this subtree rebuilds on
+              // position ticks — the morph layout above is unaffected.
               if (fullAlpha > 0)
                 Opacity(
                   opacity: fullAlpha,
@@ -423,9 +463,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       bottom: false,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 12),
-                        child: PlayerContent(
+                        child: _PlaybackContent(
                           song: song,
-                          playbackState: state,
                           formatTime: _formatTime,
                           showLyrics: _showLyrics,
                           onLyricsToggle: _toggleLyrics,
@@ -474,9 +513,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
     // only lifts once the overlay animation itself has fully reversed, not
     // during a sheet-close where _overlayAnim stays at 1.
+    // Uses _isPlaying field — rebuilt by setState only on play/pause, not position ticks.
     final targetScale = overlayT > 0.5
         ? 1.0
-        : (state.isPlaying ? 1.0 : 0.96);
+        : (_isPlaying ? 1.0 : 0.96);
 
     return Positioned(
       left:   finalLeft,
@@ -535,7 +575,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                     ignoring: progress > 0.08,
                     child: _buildMiniOverlay(
                     song,
-                    state,
                     progress,
                     ),
                   ),
@@ -558,9 +597,10 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 
   // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
+  // Uses _isPlaying field instead of AudioPlaybackState parameter —
+  // only rebuilt on song/isPlaying changes, not on position ticks.
   Widget _buildMiniOverlay(
   LocalSong song,
-  AudioPlaybackState state,
   double progress,
 ) {
     final miniContentAlpha =
@@ -611,7 +651,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   ),
 ),
                   
-              // Play / Pause
+              // Play / Pause — uses _isPlaying field
 Transform.translate(
   offset: Offset(0, miniContentOffset),
   child: Opacity(
@@ -619,11 +659,11 @@ Transform.translate(
     child: Row(
       children: [
         IconButton(
-          onPressed: () => state.isPlaying
+          onPressed: () => _isPlaying
               ? AudioService.pause()
               : AudioService.play(),
           icon: Icon(
-            state.isPlaying
+            _isPlaying
                 ? CupertinoIcons.pause_fill
                 : CupertinoIcons.play_fill,
             size: 31,
@@ -642,10 +682,55 @@ Transform.translate(
     ),
   ),
 ),
-                ],
+              ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── _PlaybackContent ─────────────────────────────────────────────────────────
+// Narrow VLB wrapper around PlayerContent.
+// Responsibility: subscribe to AudioService.playbackState and pass the full
+// state to PlayerContent — isolating position-tick rebuilds to this subtree
+// only, so the morph layout in _UnifiedMorphPlayerState is NOT rebuilt on
+// every 100 ms position update.
+class _PlaybackContent extends StatelessWidget {
+  final LocalSong song;
+  final String Function(Duration) formatTime;
+  final bool showLyrics;
+  final VoidCallback onLyricsToggle;
+  final bool showQueue;
+  final VoidCallback onQueueToggle;
+  final bool hideArtwork;
+
+  const _PlaybackContent({
+    required this.song,
+    required this.formatTime,
+    required this.showLyrics,
+    required this.onLyricsToggle,
+    required this.showQueue,
+    required this.onQueueToggle,
+    this.hideArtwork = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AudioPlaybackState>(
+      valueListenable: AudioService.playbackState,
+      builder: (context, playbackState, _) {
+        return PlayerContent(
+          song: song,
+          playbackState: playbackState,
+          formatTime: formatTime,
+          showLyrics: showLyrics,
+          onLyricsToggle: onLyricsToggle,
+          showQueue: showQueue,
+          onQueueToggle: onQueueToggle,
+          hideArtwork: hideArtwork,
+        );
+      },
     );
   }
 }

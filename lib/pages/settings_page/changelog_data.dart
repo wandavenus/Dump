@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.7',
+    date: '18 Juli 2026',
+    changes: [
+      'Phase 8B: refactor rebuild scope Player Sheet — position tick (~100ms) tidak lagi rebuild layout morph.',
+      'Ekstrak _PlaybackContent widget di UnifiedMorphPlayer — hanya PlayerContent yang rebuild saat posisi berubah.',
+      'Refactor player_sheet/state.dart — pisah VLB playbackState dari chain progress VLB.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.5',
     date: '18 Juli 2026',
     changes: [
