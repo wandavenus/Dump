@@ -146,26 +146,4 @@ class NativeDspBridge implements NativeModule {
         .toList();
   }
 
-  // ── Extension points (future DSP API surface) ─────────────────────────────
-
-  /// Future: apply a named DSP preset.
-  /// Currently a no-op — method signature is locked for forward compatibility.
-  Future<void> applyPreset(String presetName) async {
-    // TODO(phase-dsp): route through a dedicated FFI call once DSP exists.
-  }
-
-  /// Future: set a single equalizer band gain.
-  Future<void> setBandGain(int bandIndex, double gainDb) async {
-    // TODO(phase-dsp): route through a dedicated FFI call once DSP exists.
-  }
-
-  /// Future: enable or disable the C++ DSP pipeline.
-  Future<void> setEnabled({required bool enabled}) async {
-    // TODO(phase-dsp): route through a dedicated FFI call once DSP exists.
-  }
-
-  /// Future: register a custom audio processor (hook for FFT, visualizer, etc.).
-  Future<void> registerProcessor(String processorId) async {
-    // TODO(phase-dsp): route through a dedicated FFI call once DSP exists.
-  }
 }

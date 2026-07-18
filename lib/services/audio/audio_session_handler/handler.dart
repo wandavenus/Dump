@@ -31,6 +31,10 @@ class AudioSessionHandler {
     }
   }
 
+  /// No-op: audio focus and NOISY-headphones handling are managed natively
+  /// by `Media3PlaybackService.kt` (ExoPlayer focus + BroadcastReceiver).
   static void onAppPause() {}
+
+  /// No-op: see [onAppPause].
   static void onAppResume() {}
 }
