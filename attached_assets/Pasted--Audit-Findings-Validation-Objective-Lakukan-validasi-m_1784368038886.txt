@@ -1,0 +1,256 @@
+# Audit Findings Validation
+
+## Objective
+
+Lakukan validasi menyeluruh terhadap **seluruh laporan audit** yang berada di dalam folder `Audit/`.
+
+Tujuan utama adalah memastikan **setiap temuan benar-benar valid, dapat dibuktikan dari source code, masih relevan dengan kondisi repository saat ini, serta tidak bertentangan dengan temuan lain.**
+
+**Jangan memperbaiki kode terlebih dahulu. Fokus hanya pada proses validasi.**
+
+---
+
+# Scope
+
+Audit seluruh file Markdown yang berada di folder:
+
+```text
+Audit/
+```
+
+Termasuk seluruh file `.md` di dalam folder tersebut (saat ini terdapat 3 laporan audit).
+
+---
+
+# Validation Checklist
+
+## 1. Validate Every Finding
+
+Untuk **setiap temuan** pada seluruh laporan audit:
+
+- Temukan source code yang dimaksud.
+- Pastikan file yang dirujuk masih ada.
+- Pastikan line atau area kode masih sesuai.
+- Pastikan masalah tersebut benar-benar ada.
+- Pastikan masalah belum pernah diperbaiki.
+- Pastikan bukan false positive.
+
+Jangan menerima suatu temuan hanya karena tertulis di laporan audit.
+
+Semua harus diverifikasi ulang menggunakan source code terbaru.
+
+---
+
+## 2. Cross Validation
+
+Bandingkan ketiga laporan audit.
+
+Cari apakah terdapat:
+
+- Duplicate finding
+- Overlapping finding
+- Contradicting finding
+- Conflicting recommendation
+- Duplicate issue dengan deskripsi berbeda
+- Masalah yang sebenarnya sama tetapi dilaporkan beberapa kali
+
+Gabungkan jika memang merujuk pada akar masalah yang sama.
+
+---
+
+## 3. Root Cause Validation
+
+Pastikan setiap rekomendasi benar-benar menyelesaikan akar masalah.
+
+Periksa apakah:
+
+- Root cause benar
+- Analisis teknis benar
+- Dampak sesuai
+- Severity sesuai
+- Risiko sesuai
+
+Jika root cause ternyata salah, jelaskan root cause yang sebenarnya.
+
+---
+
+## 4. Dependency Validation
+
+Pastikan setiap rekomendasi:
+
+- Tidak merusak modul lain.
+- Tidak menyebabkan breaking change.
+- Tidak bertentangan dengan arsitektur project.
+- Tidak bertentangan dengan hasil audit lainnya.
+
+---
+
+## 5. Dead Code Validation
+
+Untuk setiap dead code yang ditemukan:
+
+Lakukan pencarian referensi di seluruh repository.
+
+Periksa:
+
+- Import
+- Export
+- Callback
+- Reflection
+- Provider
+- Service Locator
+- Dependency Injection
+- Generic
+- Extension
+- Dynamic dispatch
+- JNI registration
+- Native callback
+
+Jika masih ada kemungkinan digunakan, tandai sebagai:
+
+**Needs Manual Verification**
+
+Jangan menganggapnya dead code tanpa bukti.
+
+---
+
+## 6. File & Folder Validation
+
+Pastikan:
+
+- File benar-benar tidak digunakan.
+- Folder benar-benar obsolete.
+- Tidak ada referensi tersembunyi.
+
+---
+
+## 7. Performance Recommendation Validation
+
+Periksa apakah rekomendasi performa:
+
+- Memang meningkatkan performa.
+- Tidak hanya sekadar best practice.
+- Layak diterapkan pada project ini.
+
+---
+
+## 8. Architecture Validation
+
+Pastikan:
+
+- Temuan arsitektur memang merupakan masalah nyata.
+- Tidak hanya perbedaan gaya penulisan kode.
+- Masih relevan dengan struktur project saat ini.
+
+---
+
+## 9. Risk Validation
+
+Periksa kembali seluruh severity.
+
+Pastikan klasifikasi:
+
+- Critical
+- High
+- Medium
+- Low
+
+sesuai dengan dampak sebenarnya.
+
+Naikkan atau turunkan severity jika diperlukan.
+
+---
+
+## 10. Missing Evidence
+
+Jika suatu temuan:
+
+- Tidak memiliki bukti
+- Tidak dapat direproduksi
+- Tidak dapat diverifikasi
+
+maka tandai sebagai:
+
+**Rejected**
+
+dan jelaskan alasannya.
+
+---
+
+# Output Format
+
+Untuk setiap temuan tampilkan:
+
+- Status:
+  - ✅ Valid
+  - ⚠ Needs Manual Verification
+  - ❌ Rejected
+
+- File laporan audit
+- Nomor temuan (jika ada)
+- File source code terkait
+- Bukti teknis
+- Root cause
+- Alasan validasi
+- Severity akhir
+- Rekomendasi akhir
+
+---
+
+# Final Summary
+
+Di akhir laporan tampilkan ringkasan:
+
+## Valid Findings
+
+Daftar seluruh temuan yang benar-benar valid.
+
+---
+
+## Needs Manual Verification
+
+Daftar seluruh temuan yang masih membutuhkan pemeriksaan manual.
+
+---
+
+## Rejected Findings
+
+Daftar seluruh false positive atau temuan yang tidak lagi relevan.
+
+---
+
+## Duplicate Findings
+
+Daftar temuan yang sebenarnya merujuk pada masalah yang sama.
+
+---
+
+## Conflicting Findings
+
+Daftar rekomendasi yang saling bertentangan.
+
+---
+
+## Priority Order
+
+Urutkan seluruh temuan valid berdasarkan prioritas perbaikan:
+
+1. Critical
+2. High
+3. Medium
+4. Low
+
+---
+
+# Rules
+
+- Jangan mengubah source code.
+- Jangan melakukan refactor.
+- Jangan menghapus file.
+- Jangan membuat commit.
+- Jangan memperbaiki bug.
+- Jangan mengubah laporan audit.
+- Fokus hanya pada proses validasi.
+- Semua kesimpulan harus dapat dibuktikan langsung dari source code terbaru.
+- Jika ragu, gunakan **Needs Manual Verification**, bukan asumsi.
+- Jangan melewatkan satu pun temuan pada ketiga file audit di folder `Audit/`.
