@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.2.2',
+    date: '18 Juli 2026',
+    changes: [
+      'Perbaiki metadata/artwork lagu B yang delay muncul saat crossfade — sekarang langsung update di awal fade, bukan menunggu volume 1.0.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.1',
     date: '17 Juli 2026',
     changes: [

@@ -297,6 +297,12 @@ class CrossfadeController(
             CrossfadeTimelineLogger.stamp("beginCrossfade: WARN no audio focus — standby.play() skipped", standby)
         }
 
+        // Update activeQueueIndex ke lagu B sekarang — sebelum emitAll() — supaya
+        // TrackMapper.currentTrackMap() langsung membaca metadata lagu B saat fade dimulai,
+        // bukan menunggu hingga volume B mencapai 1.0 di akhir fade.
+        // (setActiveQueueIndex hanya mengubah integer, tidak ada efek ke ExoPlayer.)
+        setActiveQueueIndex(nextIndex)
+
         log("Promotion complete → [$nextIndex] '${queue[nextIndex]["title"]}' (fade=${actualFadeMs}ms)")
         emitAll()
         refreshNotification()
