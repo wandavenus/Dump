@@ -11,6 +11,13 @@ class _LibraryDetailPage extends StatefulWidget {
 
 class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   late Future<List<LocalSong>> _songsFuture;
+  // Cached once per songs-load; prevents FutureBuilder from re-subscribing on
+  // every scroll-induced rebuild (which would cause a waiting→data flicker).
+  Future<Map<String, dynamic>>? _countsFuture;
+  // Pre-sorted caches; recomputed only when songs change, not on every scroll.
+  List<ArtistInfo> _cachedSortedArtists = [];
+  List<List<LocalSong>> _cachedSortedAlbums = [];
+
   final _scroll = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
@@ -21,16 +28,48 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
+    _songsFuture.then(_updateSortedCaches);
+    _countsFuture = HistoryService.getPlayCounts();
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  /// Recomputes sorted artists + albums caches after songs are loaded/rescanned.
+  void _updateSortedCaches(List<LocalSong> songs) {
+    // Artists sorted A→Z.
+    final artistMap = <String, List<LocalSong>>{};
+    for (final song in songs) {
+      artistMap.putIfAbsent(song.artist, () => []).add(song);
+    }
+    final artists = artistMap.entries
+        .map((e) => ArtistInfo(name: e.key, songs: e.value))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Albums sorted A→Z by album title.
+    final albumMap = <String, List<LocalSong>>{};
+    for (final song in songs) {
+      albumMap.putIfAbsent('${song.albumId}-${song.album}', () => []).add(song);
+    }
+    final albums = albumMap.values.toList()
+      ..sort((a, b) => a.first.album.compareTo(b.first.album));
+
+    if (mounted) {
+      setState(() {
+        _cachedSortedArtists = artists;
+        _cachedSortedAlbums = albums;
+      });
+    }
   }
 
   void _onRescan() {
     if (!mounted) return;
     setState(() {
       _songsFuture = MediaStoreService.getSongs();
+      _countsFuture = HistoryService.getPlayCounts();
     });
+    _songsFuture.then(_updateSortedCaches);
   }
 
   void _onScroll() {
@@ -199,8 +238,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Daftar Putar ──────────────────────────────────────────────────────────
 
   Widget _frequentSongs(List<LocalSong> songs) {
+    // _countsFuture is cached in state — same object across scroll rebuilds so
+    // FutureBuilder does not re-subscribe and flash to waiting on every frame.
     return FutureBuilder<Map<String, dynamic>>(
-      future: HistoryService.getPlayCounts(),
+      future: _countsFuture,
       builder: (context, snapshot) {
         final counts = snapshot.data ?? const <String, dynamic>{};
         final sorted = List<LocalSong>.from(songs)
@@ -262,15 +303,8 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Artis ─────────────────────────────────────────────────────────────────
 
   Widget _artistSongs(List<LocalSong> songs) {
-    // Kelompokkan lagu per artis
-    final artistMap = <String, List<LocalSong>>{};
-    for (final song in songs) {
-      artistMap.putIfAbsent(song.artist, () => []).add(song);
-    }
-    final artists = artistMap.entries
-        .map((e) => ArtistInfo(name: e.key, songs: e.value))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    // Use pre-sorted cache; recomputed only when songs change, not per scroll.
+    final artists = _cachedSortedArtists;
 
     // Filter berdasarkan pencarian
     final filtered = _filter.isEmpty
@@ -310,12 +344,8 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Album ─────────────────────────────────────────────────────────────────
 
   Widget _albumCards(List<LocalSong> songs) {
-    final albums = <String, List<LocalSong>>{};
-    for (final song in songs) {
-      albums.putIfAbsent('${song.albumId}-${song.album}', () => []).add(song);
-    }
-    final entries = albums.values.toList()
-      ..sort((a, b) => a.first.album.compareTo(b.first.album));
+    // Use pre-sorted cache; recomputed only when songs change, not per scroll.
+    final entries = _cachedSortedAlbums;
 
     final filtered = _filter.isEmpty
         ? entries
