@@ -186,7 +186,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     // queueInput() runs exclusively on this instance's own ExoPlayer audio
     // thread (see class doc "Per-player instances"), so a plain (non-volatile)
     // field is safe here and keeps the throttle check allocation-free.
-    private var lastQueueInputLogMs: Long = 0L
 
     // ── Thread-safety for pitch changes ───────────────────────────────────────
     //
@@ -479,7 +478,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             // Feed bypass audio into the ring so a future bypass→STFT transition
             // can prime the engine's spectral history for zero-flicker output.
             writeBypassRing(output, inputFrames * bytesPerFrame)
-            maybeLogQueueInput(h, inputFrames, inputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
             return
         }
 
@@ -496,7 +494,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         totalInputFrames  += inputFrames
         totalOutputFrames += outputFrames
 
-        maybeLogQueueInput(h, inputFrames, outputFrames, currentSpeed, currentPitch, bytesPerFrame, remaining, carryFrames)
 
         // Fully consume the input regardless of outcome — this processor
         // never asks to be re-called with the same bytes.
@@ -519,27 +516,6 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
     }
 
-    /** Throttled to at most once every 2s (rule 6) to avoid flooding the System Log. */
-    private fun maybeLogQueueInput(
-        h: Long,
-        inputFrames: Int,
-        outputFrames: Int,
-        spd: Float,
-        pitch: Float,
-        bytesPerFrame: Int,
-        bufferSize: Int,
-        carry: Double,
-    ) {
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastQueueInputLogMs < 2000L) return
-        lastQueueInputLogMs = now
-        NativeLogger.emit(
-            "info", "Stretch",
-            "[Stretch] queueInput hash=${System.identityHashCode(this)} handle=0x${h.toString(16)} " +
-                "inputFrames=$inputFrames outputFrames=$outputFrames carryFrames=$carry speed=$spd pitch=${pitch}st " +
-                "bytesPerFrame=$bytesPerFrame bufferSize=$bufferSize",
-        )
-    }
 
     override fun onQueueEndOfStream() {
         val h = handle
