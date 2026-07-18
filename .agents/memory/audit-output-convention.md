@@ -15,4 +15,5 @@ Setiap sesi audit — apapun jenisnya (native code, Kotlin, security, performanc
 - Lokasi: **root repo** (bukan subdirektori).
 - Format: Markdown lengkap — summary statistik, semua temuan dengan severity/file/deskripsi/root cause/dampak/confidence/rekomendasi/risiko, matriks prioritas perbaikan, dan temuan positif.
 - Timing: Buat file **sebelum** menyatakan audit selesai. Jangan tunggu user meminta.
+- **Jangan output isi lengkap audit ke chat** — cukup buat file .md dan beritahu nama file + ringkasan singkat temuannya saja di chat.
 - Jika audit sangat besar (> 1 sesi), tetap tulis file di akhir setiap sesi dengan status "partial" yang jelas di header.
