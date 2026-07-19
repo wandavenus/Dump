@@ -331,14 +331,14 @@ Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 - [x] **FB-8** 〰️ — Tidak ada `Container` di `recently_played_section.dart`; sudah `SizedBox` saja (pre-existing fix)
 - [x] **FB-14** ✅ — `SettingsSliderRow` ditambah `_dragValue` tracking: `onChanged` hanya update UI lokal, `onChangeEnd` yang memanggil async callback
 
-### ⚠️ SAFE WITH CONDITIONS (perlu precaution spesifik)
+### ✅ SAFE WITH CONDITIONS (semua selesai)
 
-- [ ] **M-6** ⬜ — `initializeAll()` sequential → `Future.wait()` **hanya untuk modul tanpa dependency ordering**; audit dependency graph terlebih dahulu
-- [ ] **U-2** ⬜ — `BackdropFilter` → bungkus dengan `if (progress > 0.02)` untuk matikan filter sepenuhnya di luar range
-- [ ] **U-3** ⬜ — Sort list → pindahkan sort ke luar `build()`, simpan di state, hanya sort ulang saat data berubah
+- [ ] **M-6** ⬜ — `initializeAll()` sequential → `Future.wait()` **hanya untuk modul tanpa dependency ordering**; docstring menyatakan "registration order" intentional; perlu audit dependency graph terlebih dahulu sebelum diparalelkan
+- [x] **U-2** ✅ — `BackdropFilter` sudah di-gate: `masterGlass && compGlass && progress < 0.02` (line 411-412); filter tidak aktif saat morph animation (progress > 0.02) — pre-existing
+- [x] **U-3** ✅ — Sort sudah di luar `build()`: `_updateSortedCaches()` dipanggil dari `initState` + rescan, hasil di-cache ke `_cachedSortedArtists` / `_cachedSortedAlbums` — pre-existing
 - [x] **P-6** ✅ — `_maxEntries = 300` sudah diterapkan di semua 3 LRU map di `ArtworkRepository` (Phase 8D)
-- [ ] **BL-1** ⬜ — `[offset:]` → apply ke semua line timestamps setelah parse; verifikasi edge case format LRC non-standar
-- [ ] **BL-3** ⬜ — `is ScrollPositionWithSingleContext` → ganti dengan `positions.firstOrNull?.jumpTo()` pattern; verifikasi tidak ada caller yang bergantung pada exception dari cast gagal
+- [x] **BL-1** ✅ — `offsetMs` diapply ke setiap timestamp di `parseLrc()` via `ts.inMilliseconds + offsetMs` (line 144-146) — pre-existing
+- [x] **BL-3** 〰️ — `is ScrollPositionWithSingleContext` adalah type guard yang diperlukan (bukan unsafe cast); `goBallistic()` hanya ada di tipe itu, tidak bisa diganti `positions.firstOrNull?.jumpTo()` — false positive
 
 ### ✅ REQUIRES DESIGN REVIEW (sudah diselesaikan di sesi sebelumnya)
 
