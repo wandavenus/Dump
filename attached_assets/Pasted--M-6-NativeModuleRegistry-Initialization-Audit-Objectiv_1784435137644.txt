@@ -1,0 +1,180 @@
+# M-6 — NativeModuleRegistry Initialization Audit
+
+## Objective
+
+Audit `NativeModuleRegistry.initializeAll()` and determine whether native module initialization can safely be parallelized.
+
+Do NOT convert the initialization loop to `Future.wait()` unless it is proven safe.
+
+Correctness is more important than startup speed.
+
+---
+
+## Current Situation
+
+The current implementation initializes modules sequentially.
+
+Example:
+
+```dart
+for (final module in modules) {
+  await module.initialize();
+}
+```
+
+This guarantees ordering but may unnecessarily increase startup time.
+
+The audit previously marked this as:
+
+> SAFE WITH CONDITIONS
+
+Meaning dependency ordering must be verified first.
+
+---
+
+# Required Audit
+
+For every registered native module, determine:
+
+- initialization purpose
+- resources acquired
+- whether it depends on another module
+- whether another module depends on it
+- whether initialization has side effects
+- whether initialization touches shared native state
+- whether initialization performs JNI registration
+- whether initialization is idempotent
+
+Produce a dependency graph.
+
+Example:
+
+DSP
+↓
+
+ReplayGain
+
+↓
+
+Playback
+
+or
+
+Metadata
+
+AudioSession
+
+ReplayGain
+
+(all independent)
+
+---
+
+# Dependency Analysis
+
+Classify every module into one of three categories.
+
+## Category A
+
+Completely independent.
+
+Safe to initialize in parallel.
+
+---
+
+## Category B
+
+Depends on another module.
+
+Must remain sequential.
+
+---
+
+## Category C
+
+Unknown dependency.
+
+Needs to stay sequential until proven otherwise.
+
+---
+
+# Parallelization Rules
+
+Only if ALL modules in a group are independent may they be initialized together.
+
+Example:
+
+```dart
+await Future.wait([
+    artwork.initialize(),
+    metadata.initialize(),
+    replayGain.initialize(),
+]);
+```
+
+Then continue sequentially if required.
+
+Never reorder modules without justification.
+
+---
+
+# Validation
+
+If parallelization is implemented, verify:
+
+- flutter analyze
+- startup
+- JNI registration
+- native library loading
+- DSP
+- ReplayGain
+- Media3 playback
+- artwork extraction
+- metadata
+- background playback
+
+---
+
+# Deliverables
+
+## 1. Dependency Report
+
+List every module.
+
+For each module explain:
+
+- dependencies
+- initialization order
+- side effects
+
+---
+
+## 2. Decision
+
+One of:
+
+- Keep sequential
+- Fully parallel
+- Hybrid (recommended if applicable)
+
+Explain why.
+
+---
+
+## 3. Changed Files
+
+List every modified file.
+
+---
+
+## 4. Validation Report
+
+Include runtime verification.
+
+---
+
+# Stop Condition
+
+Stop after auditing and, if proven safe, implementing the optimal initialization strategy.
+
+Do not refactor unrelated code.

@@ -333,7 +333,7 @@ Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 
 ### ✅ SAFE WITH CONDITIONS (semua selesai)
 
-- [ ] **M-6** ⬜ — `initializeAll()` sequential → `Future.wait()` **hanya untuk modul tanpa dependency ordering**; docstring menyatakan "registration order" intentional; perlu audit dependency graph terlebih dahulu sebelum diparalelkan
+- [x] **M-6** ✅ — Audit selesai (lihat `M6_NativeModuleRegistry_Audit_Report.md`); kedua modul (NativeDspBridge, FfmpegDecoderBridge) Category A — tidak ada dependency; namun FfmpegDecoderBridge sudah `unawaited` probe sehingga `initialize()` return instant (~0ms); parallelisasi tidak menghemat waktu; **keputusan: keep sequential, no code change**
 - [x] **U-2** ✅ — `BackdropFilter` sudah di-gate: `masterGlass && compGlass && progress < 0.02` (line 411-412); filter tidak aktif saat morph animation (progress > 0.02) — pre-existing
 - [x] **U-3** ✅ — Sort sudah di luar `build()`: `_updateSortedCaches()` dipanggil dari `initState` + rescan, hasil di-cache ke `_cachedSortedArtists` / `_cachedSortedAlbums` — pre-existing
 - [x] **P-6** ✅ — `_maxEntries = 300` sudah diterapkan di semua 3 LRU map di `ArtworkRepository` (Phase 8D)
