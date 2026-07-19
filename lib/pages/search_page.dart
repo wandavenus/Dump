@@ -31,13 +31,13 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  static const double _kAnimEnd = 140.0;
+
   bool _handleScroll(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification &&
         notification.metrics.axis == Axis.vertical) {
-      final nextOffset = notification.metrics.pixels;
-      if ((nextOffset - _scrollOffset).abs() >= 1.0) {
-        setState(() => _scrollOffset = nextOffset);
-      }
+      final clamped = notification.metrics.pixels.clamp(0.0, _kAnimEnd);
+      if (clamped != _scrollOffset) setState(() => _scrollOffset = clamped);
     }
     return false;
   }

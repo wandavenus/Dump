@@ -31,12 +31,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Clamp ke batas atas animasi AppBar (divider opacity selesai di 140px).
+  // Di atas 140 tidak ada visual yang berubah, sehingga notifier tidak
+  // diupdate sama sekali. Di dalam 0–140 setiap sub-pixel perubahan lolos.
+  static const double _kAnimEnd = 140.0;
+
   bool _handleScroll(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification &&
         notification.metrics.axis == Axis.vertical) {
-      final nextOffset = notification.metrics.pixels;
-      if ((nextOffset - _scrollOffsetNotifier.value).abs() >= 1.0) {
-        _scrollOffsetNotifier.value = nextOffset;
+      final clamped = notification.metrics.pixels.clamp(0.0, _kAnimEnd);
+      if (clamped != _scrollOffsetNotifier.value) {
+        _scrollOffsetNotifier.value = clamped;
       }
     }
     return false;

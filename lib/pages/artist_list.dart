@@ -21,9 +21,13 @@ class _ArtistListState extends State<ArtistList> {
     _scroll.addListener(_onScroll);
   }
 
+  // Clamp ke 140px — batas atas animasi AppBar. Di atasnya output visual
+  // identik, jadi notifier tidak perlu diupdate.
+  static const double _kAnimEnd = 140.0;
+
   void _onScroll() {
-    final o = _scroll.offset;
-    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
+    final clamped = _scroll.offset.clamp(0.0, _kAnimEnd);
+    if (clamped != _offsetNotifier.value) _offsetNotifier.value = clamped;
   }
 
   @override

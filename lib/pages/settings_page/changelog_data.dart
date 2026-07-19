@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.0',
+    date: '19 Juli 2026',
+    changes: [
+      'Fix animasi judul AppBar yang terlihat "stepped" saat scroll — notifier sekarang diupdate setiap sub-pixel di rentang animasi (0–140px), tanpa threshold diskrit.',
+      'Rebuild AppBar otomatis berhenti saat scroll melewati 140px (posisi visual sudah konstan) — tidak ada rebuild sia-sia di luar rentang animasi.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.2.9+2',
     date: '18 Juli 2026',
     changes: [

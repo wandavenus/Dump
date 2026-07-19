@@ -49,9 +49,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (mounted) _load();
   }
 
+  static const double _kAnimEnd = 140.0;
+
   void _onScroll() {
-    final o = _scroll.offset;
-    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
+    final clamped = _scroll.offset.clamp(0.0, _kAnimEnd);
+    if (clamped != _offsetNotifier.value) _offsetNotifier.value = clamped;
   }
 
   @override
