@@ -83,6 +83,13 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_init(void) {
 }
 
 FFI_PLUGIN_EXPORT void nar_dsp_pipeline_reset(void) {
+  // NEW-02: Defensive guard — nar_dsp_pipeline_dispose() nulls all vtable
+  // pointers before zeroing _count. If reset() were called between those two
+  // atomic stores (structurally impossible in practice because ExoPlayer's
+  // audio thread is stopped before onDestroy() calls dispose()), dereferencing
+  // a null vtable would crash. The guard is purely defensive and cannot change
+  // runtime behaviour when the pipeline is live (_initialized == 1).
+  if (!atomic_load(&_initialized)) return;
   int32_t count = atomic_load(&_count);
   for (int32_t i = 0; i < count; i++) {
     _slots[i].vtable->reset(_slots[i].self);

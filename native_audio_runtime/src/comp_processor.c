@@ -121,6 +121,17 @@ static float _gain_reduction_db(float level_db,
     // Above knee — full ratio compression
     return over * (1.0f - 1.0f / p->ratio);
   }
+  // Hard-knee short-circuit: when knee_db is zero (or effectively zero),
+  // the soft-knee formula reduces to 0/0 at the threshold boundary
+  // (over == 0.0). Return the correct hard-knee result instead — this is
+  // the mathematical limit of the soft-knee formula as knee_db → 0, so
+  // it produces the right DSP behaviour with no continuity break.
+  // (NEW-02 guard in dsp_pipeline.c covers the structural race; this guard
+  // covers the arithmetic degenerate case here.)
+  if (p->knee_db < 1e-6f) {
+    return (over <= 0.0f) ? 0.0f : over * (1.0f - 1.0f / p->ratio);
+  }
+
   // In the soft-knee region
   const float t = (over + knee_half) / p->knee_db;
   return t * t * p->knee_db * 0.5f * (1.0f - 1.0f / p->ratio);
