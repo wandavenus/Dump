@@ -2,6 +2,10 @@
 - [Dart Layer Map](dart-layer-map.md) — every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ with class + role; init order.
 - [Native C DSP Layer Map](native-c-layer-map.md) — every .c/.h in native_audio_runtime/src/; DSP pipeline slot assignments; NEON kernels; CMake targets.
 - [Kotlin Android Layer Map](kotlin-android-layer-map.md) — every .kt file with class + key methods + role; dual-player, queue ownership, service startup rules.
+- [Kotlin Android Full](kotlin-android-full.md) — exhaustive .kt list; all MethodChannel/EventChannel names + directions; 3-player setup; MIUI12 rules.
+- [Lyrics Service Deep](lyrics-service-deep.md) — every file in lyrics_service/; full fetch pipeline; provider list; LRC parsing rules; quality ranking.
+- [Audio Services Deep](audio-services-deep.md) — PlaybackManager ownership; all channel names; AudioEffectsService DSP params; NativeModuleRegistry modules; pubspec deps.
+- [Settings Page Deep](settings-page-deep.md) — every settings file/widget; mutual exclusion rules (Bit-Perfect/EQ/ReplayGain/LN); ThemeController sub-toggles.
 - [Phase 8C Lyrics Architecture](lyrics-phase8c.md) — single cache (LyricsCacheManager only); isEmbedded typed flag; 429 centralized di ProviderHttp.
 - [Phase 8.5 Loudness Normalization](dsp-phase8-5.md) — EBU R128 IIR real-time normalizer at slot 2; slots renumbered (peq=3…soft_clipper=7); 3s smoothing tau; absolute gate −70 LUFS; NativeLoudnessNorm facade.
 - [Loudness quality fixes](loudness-quality-fixes.md) — sample rate propagation to DSP; asymmetric attack/release tau; relative gate; ReplayGain/LN mutual exclusion; system LE disabled when native norm is on.
