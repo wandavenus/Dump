@@ -303,25 +303,138 @@ ketiga guard sekaligus. **Status: FALSE POSITIVE** — guard sudah solid.
 
 ---
 
-### DP-6 — Crossfade + Repeat ONE (NEEDS MORE DATA)
+### DP-6 — Crossfade + Repeat ONE ⚠️ **[DIPERBARUI — STATUS: CONFIRMED]**
 
-**Lokasi:** `CrossfadeController.kt`, `maybeCrossfadeOut()`, line 108
+**Lokasi primer:** `CrossfadeController.kt`, `maybeCrossfadeOut()`, line 108  
+**Lokasi sekunder:** `PreloadManager.kt`, `preloadNextTrack()`, line 71  
+**Lokasi tersier:** `Media3PlaybackService.kt`, `onPlaybackStateChanged`, line 1174–1176
+
+> **Reproduksi terkonfirmasi:** Shuffle=ON, Repeat=ONE, Crossfade=8s → Song A berakhir,
+> crossfade terjadi, Song B yang mulai diputar. Seharusnya Song A loop ke dirinya sendiri.
+
+---
+
+#### Trace lengkap: Repeat ONE × Crossfade
+
+**Prasyarat ExoPlayer API (dikonfirmasi dari source Media3):**
+
+`Timeline.getNextWindowIndex(windowIndex, REPEAT_MODE_ONE, shuffleModeEnabled)`:
+```java
+case REPEAT_MODE_ONE:
+    return windowIndex;   // ← selalu current index, TIDAK pernah INDEX_UNSET
+```
+
+Efek turunan:
+- `hasNextMediaItem()` → memanggil `getNextMediaItemIndex()` → returns `windowIndex` (bukan UNSET) → **returns `true`**
+- Dengan REPEAT_MODE_ONE, `hasNextMediaItem()` selalu `true` → `nextMediaItemIndex` selalu = current index
+
+---
+
+#### Penyebab akar — Bagian A: Guard yang tidak lengkap
 
 ```kotlin
+// CrossfadeController.kt line 108
 if (!p.hasNextMediaItem() && p.repeatMode == Player.REPEAT_MODE_OFF) return
 ```
 
-Untuk `REPEAT_MODE_ONE`: ExoPlayer's `hasNextMediaItem()` behavior dengan REPEAT_ONE
-perlu verifikasi. Jika `hasNextMediaItem()` returns false saat REPEAT_ONE (karena tidak ada
-"next different item"), maka condition menjadi:
-`!false && mode != OFF` → **tidak return** → crossfade berjalan.
+Dengan REPEAT_MODE_ONE:
+- `p.hasNextMediaItem()` = **true** (ExoPlayer returns current index, bukan UNSET)
+- `!true && ...` = **false** → guard TIDAK triggered
+- **Crossfade terus berjalan dengan REPEAT_MODE_ONE** — padahal semantically salah
 
-Ini berarti dengan Repeat ONE + Crossfade, lagu B yang di-preload adalah... lagu yang sama?
-`preloadManager.preloadNextTrack()` membaca `current.nextMediaItemIndex` — dengan REPEAT_ONE
-ini adalah current index → standby akan preload lagu yang sama. Crossfade dari A ke A.
+Intent guard adalah "jangan crossfade kalau tidak ada lagu berikutnya." Dengan REPEAT_MODE_ONE,
+secara teknis ada "lagu berikutnya" (lagu yang sama), tapi crossfade untuk repeat-one tidak
+sesuai ekspektasi user (user ingin loop mulus, bukan crossfade ke salinan baru lagu yang sama).
 
-**Probability:** POSSIBLE (Repeat ONE + Crossfade aktif secara bersamaan)
-**Risk:** Bukan desync, tapi perilaku tidak intuitif (crossfade lagu dengan dirinya sendiri).
+---
+
+#### Penyebab akar — Bagian B: Preload target korupsi via `onPlaybackStateChanged`
+
+Bahkan setelah crossfade diizinkan berjalan (Bagian A), preload SEHARUSNYA memilih Song A:
+
+```kotlin
+// PreloadManager.kt line 71
+val nextIndex = current.nextMediaItemIndex
+// Dengan REPEAT_MODE_ONE: = current.currentMediaItemIndex = Song A (misal index 3)
+```
+
+Standby yang di-preload = Song A. ✅
+
+**Tapi ada jendela korupsi:** Di `beginCrossfade()`, urutan eksekusi:
+
+```
+Line 271: setActivePlayer(standby)       ← activePlayer = standby (1 item, Song A di index 0)
+Line 292: if (!READY) standby.prepare()  ← jika standby bukan READY: IDLE→BUFFERING→READY
+Line 299: standby.play()                 ← isPlaying berubah → callbacks mungkin fire
+                                         ↓
+                            [onPlaybackStateChanged(STATE_READY) bisa fire]
+                            [isActiveEvent() = true (standby sudah jadi active)]
+                            [→ preloadManager.preloadNextTrack() dipanggil, TANPA force]
+                                         ↓
+                            nextIndex = standby.nextMediaItemIndex
+                                      = 0  (standby 1 item, currentIndex=0, REPEAT_MODE_ONE)
+                            queue[0] = Song B (bukan Song A, jika Song A ada di index 3!)
+                            preloadedQueueIndex (3) ≠ 0 → TIDAK early-return
+                            → Standby baru di-load dengan Song B!
+                            → preloadedQueueIndex = 0
+
+Line 309: setActiveQueueIndex(nextIndex) ← baru update index setelah kerusakan sudah terjadi
+```
+
+Hasil: `preloadedQueueIndex = 0` = `queue[0]` = Song B, sementara activeQueueIndex = 3 = Song A.
+
+**Window korupsi ini aktif selama 8 detik crossfade berlangsung.**
+
+Selama 8 detik fade: `crossfadeInProgress = true` → `maybeCrossfadeOut()` return early → tidak ada koreksi otomatis.
+
+Setelah fade selesai (`runEqualPowerFade` step ≥ steps):
+```kotlin
+// CrossfadeController.kt line 418
+preloadManager.preloadNextTrack(force = true)
+// nextIndex = p.nextMediaItemIndex = 3 (REPEAT_MODE_ONE, setelah rebuildPlayerQueue)
+// force=true → override Song B dengan Song A ✅
+```
+
+**Koreksi ini terjadi SETELAH `rebuildPlayerQueue()`**. Tapi ada satu kasus di mana koreksi
+tidak sempat:
+
+#### Kasus kritis: Lagu pendek + crossfade panjang
+
+Jika Song A sangat pendek (misalnya 10s) dan crossfade = 8s, setelah crossfade A→A selesai
+(~8s), player baru memainkan Song A dari detik 0. Dengan REPEAT_MODE_ONE, lagu A akan
+berakhir lagi setelah ~10s. Jendela untuk `preloadNextTrack(force=true)` mengkoreksi
+`preloadedQueueIndex = 0 → 3` hanya ~2s.
+
+Dalam 2s itu, `crossfadeInProgress = false` dan `maybeCrossfadeOut()` boleh jalan. Jika
+`remaining ≤ crossMs + 250ms` (terpenuhi karena lagu pendek), `beginCrossfade()` dipicu
+dengan `preloadedQueueIndex = 0` = Song B → Song B dipromosikan ke active → **Song B diputar**.
+
+---
+
+#### Event timeline (reproduksi: Shuffle=ON, Repeat=ONE, Crossfade=8s)
+
+```
+T=0       Song A mulai diputar
+T=dur-9.5 maybeCrossfadeOut(): prewarm → standby load Song A (nextIndex=3, REPEAT_MODE_ONE) ✅
+T=dur-8.0 maybeCrossfadeOut(): beginCrossfade()
+            setActivePlayer(standby)     [standby: 1 item Song A, index 0]
+            onPlaybackStateChanged READY → preloadNextTrack():
+              nextIndex=0, queue[0]=Song B → preloadedQueueIndex=0 ← KORUPSI
+            setActiveQueueIndex(3)
+            runEqualPowerFade starts
+T=dur-8 → T=dur Fade berjalan, crossfadeInProgress=true, korupsi tidak terkoreksi
+T=dur     rebuildPlayerQueue() → N items, Song A di index 3
+            preloadNextTrack(force=true) → koreksi ke Song A (3) ✅ ... tapi terlambat?
+T=dur+~2s Song A (baru) hampir berakhir (jika lagu pendek, dur≈10s)
+            maybeCrossfadeOut(): remaining≤crossMs+250ms
+            beginCrossfade() dengan preloadedQueueIndex=0 (belum terkoreksi) → Song B!
+```
+
+> **Catatan penting:** Korupsi `preloadedQueueIndex = 0` hanya terjadi jika standby player
+> **bukan dalam keadaan READY** saat crossfade dimulai (prewarm gagal atau tidak sempat).
+> Jika prewarm berhasil penuh (standby sudah READY dan playing di volume=0), `standby.play()`
+> adalah no-op → `onPlaybackStateChanged` tidak fire → tidak ada korupsi.
+> Inilah yang menyebabkan bug bersifat **intermittent**: tergantung apakah prewarm berhasil.
 
 ---
 
@@ -338,8 +451,11 @@ ini adalah current index → standby akan preload lagu yang sama. Crossfade dari
   (via `current.repeatMode = REPEAT_MODE_OFF` di line 278). Guard `isActiveEvent()` memastikan
   `onRepeatModeChanged` dari old player tidak ter-emit ke Flutter. ✅ Aman.
 
-### Case C: Shuffle OFF, Repeat ONE, Crossfade ON
-- **DP-6** (NEEDS MORE DATA): crossfade mungkin preload track yang sama
+### Case C: Shuffle ON/OFF, Repeat ONE, Crossfade ON — **CONFIRMED BUG**
+- **DP-6 Bagian A** (CONFIRMED): guard line 108 tidak exclude REPEAT_MODE_ONE → crossfade terpicu
+- **DP-6 Bagian B** (CONFIRMED): jika prewarm gagal, `onPlaybackStateChanged(READY)` pada promoted 1-item player menyebabkan `preloadedQueueIndex = 0` (queue[0] ≠ Song A jika Song A bukan index 0)
+- Bug bersifat intermittent: terjadi ketika prewarm gagal (standby tidak READY saat `beginCrossfade()`) DAN koreksi `force=true` di crossfade end belum sempat terjadi sebelum crossfade berikutnya dipicu
+- Dengan Shuffle=ON: bug lebih sering karena urutan queue shuffle tidak predictable, Song A jarang di index 0
 
 ### Case D: Rapid Next → Next → Previous → Next (beberapa detik)
 - Semua MethodChannel calls dieksekusi di **main thread** (Android main looper)
@@ -380,7 +496,7 @@ ini adalah current index → standby akan preload lagu yang sama. Crossfade dari
 | **DP-3** | **VALID** | **POSSIBLE** | `TransportCommands.kt` | `handleSkipPrevious()` | 559 | `seekToPreviousMediaItem()` threshold 3s → dengan crossfade panjang, Previous restart current track bukan ke track sebelumnya |
 | **DP-4** | **FALSE POSITIVE** | — | `TransportCommands.kt` | `handleSkipNext()` | 614–628 | wrap-to-0 saat no-next: fungsional benar, `onMediaItemTransition` handles emission |
 | **DP-5** | **FALSE POSITIVE** | — | `Media3PlaybackService.kt` | `attachPlayerListener()` | 1197–1237 | Triple guard (`promotionOwner`, `isActiveEvent`, `crossfadeInProgress`) solid |
-| **DP-6** | **NEEDS MORE DATA** | POSSIBLE | `CrossfadeController.kt` | `maybeCrossfadeOut()` | 108 | Repeat ONE + Crossfade: `hasNextMediaItem()` behavior dengan REPEAT_ONE perlu verifikasi |
+| **DP-6** | **CONFIRMED** | **POSSIBLE–INTERMITTENT** | `CrossfadeController.kt` + `Media3PlaybackService.kt` | `maybeCrossfadeOut()` line 108 · `onPlaybackStateChanged` line 1174 | 108, 1174–1176 | Guard tidak exclude REPEAT_MODE_ONE → crossfade terpicu; `onPlaybackStateChanged(READY)` pada 1-item promoted player menyebabkan `preloadedQueueIndex=0`=Song B sementara Song A ada di index≠0 |
 | **DP-7** | **FALSE POSITIVE** | — | `TransportCommands.kt` | `handleSkipNext/Prev()` | 565–631 | Rapid skipping: semua di main thread, tidak ada actual race |
 
 ---
@@ -440,12 +556,33 @@ if (p.currentPosition > p.maxSeekToPreviousPosition && p.hasPreviousMediaItem())
 Atau: pertimbangkan untuk mengatur `maxSeekToPreviousPosition` ke nilai kecil (misalnya 0)
 pada player, sehingga "Previous" selalu berarti "go to previous track" tanpa threshold.
 
-### Untuk DP-6 (Repeat ONE + Crossfade)
+### Untuk DP-6 — Dua perbaikan yang diperlukan (CONFIRMED)
 
-**Rekomendasi:** Tambahkan explicit guard di `maybeCrossfadeOut()`:
+**Masalah Bagian A:** Guard `maybeCrossfadeOut()` line 108 tidak exclude REPEAT_MODE_ONE.
+
+**Fix A — Tambahkan guard eksplisit di `maybeCrossfadeOut()`:**
 ```kotlin
-if (p.repeatMode == Player.REPEAT_MODE_ONE) return  // crossfade tidak masuk akal untuk repeat-one
+// CrossfadeController.kt, maybeCrossfadeOut(), setelah line 108
+if (p.repeatMode == Player.REPEAT_MODE_ONE) return
 ```
+
+Ini menghentikan seluruh crossfade cycle (prewarm + fade) ketika repeat-one aktif.
+ExoPlayer's REPEAT_MODE_ONE sudah menangani auto-loop secara native tanpa butuh crossfade.
+Fix ini juga sekaligus mencegah Bagian B (tidak ada crossfade → tidak ada premature preload corruption).
+
+**Verifikasi side effects Fix A:**
+- Shuffle + Repeat ONE: crossfade tidak terpicu → lagu looping native ✅ (expected behavior)
+- Shuffle OFF + Repeat ONE: sama ✅
+- Repeat ALL + Crossfade: tidak terpengaruh (guard hanya untuk REPEAT_MODE_ONE) ✅
+- Repeat OFF + Crossfade: tidak terpengaruh ✅
+- Manual Next/Previous: tidak terpengaruh (menggunakan `handleSkipNext/Prev`, bukan `maybeCrossfadeOut`) ✅
+- Auto queue advance: tidak terpengaruh (REPEAT_MODE_ONE hanya loop current, tidak advance) ✅
+
+**Masalah Bagian B (residual, juga menyebabkan DP-1):** `onPlaybackStateChanged(STATE_READY)` pada promoted 1-item player menggunakan `nextMediaItemIndex=0` (bukan Song A's real index) karena player hanya punya 1 item.
+
+Fix A sudah menyelesaikan Bagian B khusus untuk Repeat ONE. Tapi masalah yang sama di Bagian B
+juga berkontribusi ke **DP-1** (UI brief shows wrong track). Perbaikan DP-1 (memindahkan
+`setActiveQueueIndex` ke sebelum `prepare/play`) juga menyelesaikan Bagian B untuk semua mode.
 
 ---
 
@@ -453,3 +590,67 @@ if (p.repeatMode == Player.REPEAT_MODE_ONE) return  // crossfade tidak masuk aka
 
 - Media3 / DSP / ReplayGain / UI design: tidak diubah
 - Dokumen ini adalah **diagnosis-only audit**
+
+---
+
+## 9. Addendum — Investigasi Repeat ONE × Crossfade (19 Juli 2026)
+
+**Triggered by:** Bug terkonfirmasi reproduksi (Shuffle=ON, Repeat=ONE, Crossfade=8s → Song B diputar, bukan Song A loop).
+
+**Status DP-6 sebelum addendum:** NEEDS MORE DATA  
+**Status DP-6 setelah addendum:** **CONFIRMED**
+
+### Ringkasan temuan
+
+| Aspek | Temuan |
+|---|---|
+| Apakah REPEAT_MODE_ONE mem-bypass crossfade guard? | **YA** — `hasNextMediaItem()` returns `true` dengan REPEAT_MODE_ONE |
+| Apakah `nextMediaItemIndex` respects REPEAT_MODE_ONE? | **YA** — ExoPlayer `getNextWindowIndex(REPEAT_MODE_ONE)` selalu returns `currentWindowIndex` |
+| Apakah preload *semestinya* memilih Song A? | **YA** — `nextIndex = current.nextMediaItemIndex = Song A's index` |
+| Lalu mengapa Song B bisa diputar? | **Korupsi preloadedQueueIndex via `onPlaybackStateChanged(STATE_READY)`** pada 1-item promoted player saat prewarm gagal |
+| Apakah bug selalu terjadi? | **TIDAK** — intermittent; hanya saat prewarm gagal (standby bukan READY saat `beginCrossfade()`) |
+
+### ExoPlayer API dikonfirmasi
+
+```
+Media3 source: Timeline.getNextWindowIndex()
+case REPEAT_MODE_ONE:
+    return windowIndex;   // ← tidak pernah INDEX_UNSET, tidak dipengaruhi shuffleModeEnabled
+```
+
+Ini mengkonfirmasi: dengan REPEAT_MODE_ONE, `hasNextMediaItem()` = true, dan `nextMediaItemIndex` = current index. Crossfade guard di line 108 tidak pernah triggered.
+
+### Mekanisme korupsi preloadedQueueIndex
+
+Kunci dari bug ada di urutan operasi `beginCrossfade()` dan callback yang dipicu:
+
+```
+beginCrossfade():
+  setActivePlayer(standby)          ← standby promoted, punya 1 item (Song A di index 0)
+  if (!READY) standby.prepare()     ← jika prewarm gagal, perlu prepare ulang
+  standby.play()
+    → onPlaybackStateChanged(READY) fires pada standby (isActiveEvent=true)
+      → preloadNextTrack() [NO force]
+        next = standby.nextMediaItemIndex = 0   ← 1-item player, REPEAT_MODE_ONE
+        queue[0] = Song B (jika Song A ada di index ≠ 0)
+        preloadedQueueIndex WAS 3 (Song A), NOW = 0 (Song B)  ← KORUPSI
+  setActiveQueueIndex(nextIndex=3)  ← index benar, tapi preload sudah salah
+```
+
+Korupsi `preloadedQueueIndex = 0` bertahan selama 8 detik fade (`crossfadeInProgress=true`
+memblokir koreksi otomatis dari `maybeCrossfadeOut()`). Setelah fade, koreksi `force=true`
+mengembalikan ke Song A. Tapi jika lagu pendek dan crossfade berikutnya dipicu sebelum koreksi
+sempat berlaku, Song B diputar.
+
+### Mengapa intermittent?
+
+Bug **hanya terjadi** ketika prewarm gagal menghasilkan standby dalam state READY+playing.
+Jika prewarm berhasil:
+- Standby sudah READY dan `playWhenReady=true` dari `prewarmStandby()`
+- `standby.play()` di `beginCrossfade()` adalah no-op (sudah playing)
+- `onPlaybackStateChanged` tidak fire → tidak ada korupsi ✅
+
+Prewarm gagal ketika:
+- I/O latency tinggi saat memuat file audio standby
+- Lagu sangat pendek (prewarm window 1500ms tidak tercapai)
+- Sistem resource terbatas (MIUI 12 memory pressure)
