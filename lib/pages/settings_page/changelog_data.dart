@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.3',
+    date: '19 Juli 2026',
+    changes: [
+      'Fix crossfade prewarm: intro lagu berikutnya tidak lagi terskip ~1 detik — seekTo(0) direset setelah pipeline warm sebelum fade-in dimulai.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.2',
     date: '19 Juli 2026',
     changes: [
