@@ -47,6 +47,8 @@ Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter
 
 ## User preferences
 
+- **Wajib update memory** setiap kali ada perubahan di repo — fitur baru, refactor, file baru/dihapus, arsitektur berubah, parameter DSP berubah, channel baru, apapun. Update harus dilakukan di akhir pengerjaan sebelum selesai, agar `.agents/memory/` selalu sinkron dengan kondisi repo terkini. Tidak boleh skip meski perubahannya kecil.
+
 - **Wajib search web** jika ada informasi, API, library, behavior, atau apapun yang berada di luar batas pengetahuan atau yang mungkin sudah berubah/usang — jangan berasumsi, jangan asal kasih jawaban/patch/saran sebelum verifikasi via web search. Ini berlaku di semua sesi.
 
 - Setelah selesai pengerjaan, jalankan `flutter analyze` dan Restart App saja ketika build otomatis sudah selesai — **jangan rebuild web (`flutter build web`)** kecuali ada perintah eksplisit dari user.
