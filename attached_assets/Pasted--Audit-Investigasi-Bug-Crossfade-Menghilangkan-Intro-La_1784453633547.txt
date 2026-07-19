@@ -1,0 +1,282 @@
+# Audit Investigasi: Bug Crossfade Menghilangkan Intro Lagu Setelah Prewarm
+
+## Latar Belakang
+
+Saat ini implementasi crossfade menggunakan mekanisme **prewarm**:
+
+```
+prewarmStandby()
+    ↓
+standby.play() (volume = 0)
+    ↓
+AudioTrack + decoder + DSP warm
+    ↓
+beginCrossfade()
+    ↓
+fade dimulai
+```
+
+Tujuannya adalah menghilangkan latency saat lagu berikutnya mulai fade-in.
+
+Namun muncul bug:
+
+> Intro lagu berikutnya terdengar sudah terpotong sekitar ±1 detik ketika crossfade dimulai.
+
+Saya sempat mencoba solusi:
+
+```
+standby.seekTo(0L)
+```
+
+tepat sebelum:
+
+```
+runEqualPowerFade(...)
+```
+
+Bug intro memang hilang, tetapi muncul bug baru:
+
+- fade hilang
+- perpindahan terasa seperti hard cut
+- overlap antar player tidak lagi berjalan mulus
+
+Artinya solusi tersebut bukan root cause yang benar.
+
+---
+
+# Hasil Analisis Log
+
+Log menunjukkan urutan berikut:
+
+```
+Prewarm
+↓
+
+standby.play()
+
+↓
+
+standby berjalan diam-diam
+(volume = 0)
+
+↓
+
+beginCrossfade()
+
+↓
+
+standby sudah berada di posisi ±1034 ms
+
+↓
+
+seekTo(0)
+
+↓
+
+Equal-power fade dimulai
+```
+
+Potongan log:
+
+```
+beginCrossfade: standby READY
+pos=1013ms
+```
+
+kemudian:
+
+```
+seek discontinuity
+1034ms → 0ms
+```
+
+baru setelah itu:
+
+```
+Equal-power fade started
+```
+
+---
+
+# Temuan Penting
+
+Posisi standby saat crossfade dimulai bukan 0 ms.
+
+Sudah:
+
+```
+1013 ms
+```
+
+Padahal lagu belum pernah terdengar.
+
+Artinya media clock memang terus berjalan sejak:
+
+```
+prewarmStandby()
+
+↓
+
+standby.play()
+```
+
+meskipun volume = 0.
+
+Selisih waktu juga hampir identik.
+
+Contoh:
+
+```
+Prewarm:
+16:27:54.394
+
+Crossfade:
+16:27:55.658
+```
+
+≈ 1260 ms
+
+Sedangkan posisi standby:
+
+```
+1034 ms
+```
+
+Ini sangat kuat mengindikasikan bahwa playback memang berjalan selama fase prewarm.
+
+---
+
+# Kenapa seekTo(0) Merusak Fade
+
+Saat ini urutannya menjadi:
+
+```
+standby READY
+
+↓
+
+standby.play()
+
+↓
+
+standby menjadi active player
+
+↓
+
+seekTo(0)
+
+↓
+
+Equal-power fade
+```
+
+Karena seek dilakukan pada player yang sudah PLAYING, ExoPlayer melakukan:
+
+- seek discontinuity
+- decoder flush
+- renderer flush
+- timeline reset
+
+Akibatnya overlap audio hilang sehingga terdengar seperti hard cut.
+
+Dengan kata lain:
+
+```
+seekTo(0)
+```
+
+tidak memperbaiki desain.
+
+Ia hanya memindahkan masalah ke tahap berikutnya.
+
+---
+
+# Dugaan Root Cause
+
+Kemungkinan besar root cause bukan berada di:
+
+```
+beginCrossfade()
+```
+
+melainkan di:
+
+```
+prewarmStandby()
+```
+
+Implementasi sekarang menggunakan:
+
+```
+standby.play()
+```
+
+untuk melakukan warming.
+
+Akibatnya:
+
+```
+decoder warm
+✔
+
+AudioTrack warm
+✔
+
+media clock ikut berjalan
+✘
+```
+
+Yang seharusnya dicapai adalah:
+
+```
+decoder READY
+
+AudioTrack READY
+
+renderer READY
+
+position = 0 ms
+```
+
+bukan:
+
+```
+decoder READY
+
+AudioTrack READY
+
+renderer READY
+
+position = 1034 ms
+```
+
+---
+
+# Yang Perlu Diaudit
+
+Tolong lakukan investigasi menyeluruh terhadap implementasi prewarm.
+
+Fokus audit:
+
+1. Mengapa `prewarmStandby()` menggunakan `standby.play()`?
+
+2. Apakah memang tidak ada cara lain untuk memanaskan:
+   - decoder
+   - AudioTrack
+   - DSP
+   - renderer
+
+   tanpa membuat playback position ikut berjalan?
+
+3. Apakah Media3 memang mengharuskan playback dimulai agar AudioTrack tetap aktif?
+
+4. Apakah ada API Media3 atau ExoPlayer yang memungkinkan:
+   - decoder tetap warm
+   - AudioTrack tetap hidup
+   - playback clock dibekukan
+
+5. Jika memang playback harus berjalan selama prewarm, apakah ada pendekatan yang lebih tepat dibanding melakukan `seekTo(0)` tepat sebelum fade dimulai?
+
+6. Telusuri seluruh alur:
+   - `prewarmStandby()`
+   - `beginCross

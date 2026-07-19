@@ -311,16 +311,6 @@ class CrossfadeController(
         emitAll()
         refreshNotification()
 
-        // Reset prewarm drift: prewarmStandby() calls play() at volume=0 so the
-        // AudioTrack pipeline is warm, but the position advances for the full
-        // PREWARM_LEAD_MS (~1.5 s) before we get here.  seekTo(0) resets the
-        // position back to the start while keeping the AudioTrack alive (ExoPlayer
-        // flushes its write buffer but does not release the OS AudioFlinger slot),
-        // so zero-latency fade-in is preserved and the intro of the track is not skipped.
-        CrossfadeTimelineLogger.stamp("beginCrossfade: standby.seekTo(0) — prewarm drift reset", standby)
-        standby.seekTo(0L)
-        CrossfadeTimelineLogger.stamp("beginCrossfade: standby.seekTo(0) DONE", standby)
-
         runEqualPowerFade(
         standby,
         current,

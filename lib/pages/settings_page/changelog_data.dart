@@ -23,7 +23,7 @@ const List<_ChangelogEntry> _changelogEntries = [
     version: '1.3.3',
     date: '19 Juli 2026',
     changes: [
-      'Fix crossfade prewarm: intro lagu berikutnya tidak lagi terskip ~1 detik — seekTo(0) direset setelah pipeline warm sebelum fade-in dimulai.',
+      'Fix crossfade prewarm: intro lagu berikutnya tidak lagi terskip ~1 detik — prewarm tidak lagi memanggil play() yang membuat posisi maju diam-diam; standby cukup di-prepare() saja, play() dipanggil oleh beginCrossfade() dari posisi 0.',
     ],
   ),
   _ChangelogEntry(

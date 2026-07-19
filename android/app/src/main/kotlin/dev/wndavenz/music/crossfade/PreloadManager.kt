@@ -130,12 +130,20 @@ class PreloadManager(
             }
         }
 
-        CrossfadeTimelineLogger.stamp("prewarmStandby: standby.play() START", standby)
-        standby.play()
-        CrossfadeTimelineLogger.stamp("prewarmStandby: standby.play() DONE (pipeline warming)", standby)
-
+        // Do NOT call standby.play() here.
+        // Calling play() during prewarm causes the media clock to advance for the full
+        // PREWARM_LEAD_MS window, so by the time beginCrossfade() fires the standby is
+        // already ~1 s into the track and the intro is silently skipped.
+        // A subsequent seekTo(0) to correct this triggers a decoder/renderer flush on a
+        // playing player, which destroys the audio overlap and produces a hard cut instead
+        // of a smooth crossfade.
+        //
+        // prepare() alone is sufficient to warm the decoder and fill ExoPlayer's
+        // LoadControl buffer (STATE_READY). The AudioTrack OS object is created on the
+        // first play() call in beginCrossfade(), which takes ~20 ms — imperceptible at
+        // the near-zero volume of the first fade step on any crossfade >= 1 s.
         isPrewarmed = true
-        log("prewarmStandby: standby audio pipeline warming (volume=0)")
+        log("prewarmStandby: standby decoder buffered at pos=0, waiting for beginCrossfade()")
     }
 
     /** Stops and clears the standby player's queue without releasing it. */
