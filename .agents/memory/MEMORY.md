@@ -6,6 +6,14 @@
 - [Lyrics Service Deep](lyrics-service-deep.md) — every file in lyrics_service/; full fetch pipeline; provider list; LRC parsing rules; quality ranking.
 - [Audio Services Deep](audio-services-deep.md) — PlaybackManager ownership; all channel names; AudioEffectsService DSP params; NativeModuleRegistry modules; pubspec deps.
 - [Settings Page Deep](settings-page-deep.md) — every settings file/widget; mutual exclusion rules (Bit-Perfect/EQ/ReplayGain/LN); ThemeController sub-toggles.
+- [App Init & Navigation](app-init-navigation.md) — full main.dart init sequence (10 steps); app_state.dart lifecycle; routing (onGenerateRoute, ZoomFadeRoute, bottom nav).
+- [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, PlayerSheet, SyncedLyricsView, progress, transport, fog shader, home sections.
+- [Theme, Assets & UI](theme-assets-ui.md) — ThemeController 10 toggles; fluid.frag shader; assets tree (SF Pro Text fonts, webp images); PaletteExtractor; lib/utils/.
+- [DSP Processor Params](dsp-processor-params.md) — full param ranges for all 7 processors: comp, limiter, loudness, crossfeed, replaygain, biquad, soft clipper.
+- [Android Build Config](android-build-config.md) — Manifest permissions/services; build.gradle SDK/NDK/CMake; CMakeLists targets; ProGuard keeps.
+- [Pages Browse Search Detail](pages-browse-search-detail.md) — BrowsePage, RadioPage, PlaylistPage, SearchPage, AlbumPage, ArtistPage, all detail section widgets.
+- [Native Runtime Internals](native-runtime-internals.md) — build hook; Dart FFI bindings; pipeline C internals; NarAudioBuffer layout; all JNI functions; NEON kernels.
+- [ReplayGain Service Full](replaygain-service-full.md) — ReplayGainService scan flow; LoudnessSourceResolver priority; LoudnessData model; Kotlin JNI layer; libebur128 vs real-time.
 - [Phase 8C Lyrics Architecture](lyrics-phase8c.md) — single cache (LyricsCacheManager only); isEmbedded typed flag; 429 centralized di ProviderHttp.
 - [Phase 8.5 Loudness Normalization](dsp-phase8-5.md) — EBU R128 IIR real-time normalizer at slot 2; slots renumbered (peq=3…soft_clipper=7); 3s smoothing tau; absolute gate −70 LUFS; NativeLoudnessNorm facade.
 - [Loudness quality fixes](loudness-quality-fixes.md) — sample rate propagation to DSP; asymmetric attack/release tau; relative gate; ReplayGain/LN mutual exclusion; system LE disabled when native norm is on.
