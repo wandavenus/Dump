@@ -45,6 +45,12 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
 
+  // Tracks the in-flight drag value so the thumb moves smoothly during a
+  // drag gesture. Set on onChanged, cleared on onChangeEnd. The expensive
+  // callback (widget.onChanged) is only called once on release — avoids
+  // firing async I/O (SharedPreferences, native audio calls) every frame.
+  double? _dragValue;
+
   @override
   void initState() {
     super.initState();
@@ -76,11 +82,15 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
         ),
         child: Slider(
-          value: widget.value.clamp(widget.min, widget.max).toDouble(),
+          value: (_dragValue ?? widget.value).clamp(widget.min, widget.max).toDouble(),
           min: widget.min,
           max: widget.max,
           divisions: widget.divisions,
-          onChanged: widget.onChanged,
+          onChanged: (v) => setState(() => _dragValue = v),
+          onChangeEnd: (v) {
+            setState(() => _dragValue = null);
+            widget.onChanged(v);
+          },
         ),
       );
 

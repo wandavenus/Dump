@@ -73,7 +73,7 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
               // can safely respond to swipe-to-dismiss drags.
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.75,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
