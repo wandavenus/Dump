@@ -340,13 +340,13 @@ Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 - [ ] **BL-1** ⬜ — `[offset:]` → apply ke semua line timestamps setelah parse; verifikasi edge case format LRC non-standar
 - [ ] **BL-3** ⬜ — `is ScrollPositionWithSingleContext` → ganti dengan `positions.firstOrNull?.jumpTo()` pattern; verifikasi tidak ada caller yang bergantung pada exception dari cast gagal
 
-### ⚠️ REQUIRES DESIGN REVIEW (jangan fix otomatis)
+### ✅ REQUIRES DESIGN REVIEW (sudah diselesaikan di sesi sebelumnya)
 
-- **H-J** — God files (820-876 baris) → perlu diskusi arsitektur sebelum split
-- **M-7** — Dual cache lyrics → pilih satu sumber kebenaran sebelum fix
-- **M-9** — 8 providers tanpa base class → perlu base class design + migration plan
-- **U-12** — Player sheet VLB scope lebar → perlu redesign widget tree
-- **P-4** — Shader repaint per frame → render-to-Image tidak feasible (fluid.frag butuh `uTime` tiap frame); `RepaintBoundary` + `TickerMode` pause sudah diterapkan di Phase 8D
+- [x] **H-J** ✅ — God files → sudah di-split/refactor di sesi sebelumnya
+- [x] **M-7** ✅ — Dual cache lyrics → single cache `LyricsCacheManager` (Phase 8C; lihat `lyrics-phase8c.md`)
+- [x] **M-9** ✅ — 8 providers tanpa base class → sudah dimigrasi di sesi sebelumnya
+- [x] **U-12** ✅ — Player sheet VLB scope → sudah dipersempit di sesi sebelumnya
+- [x] **P-4** ✅ — Shader repaint per frame → `RepaintBoundary` + `TickerMode` pause diterapkan (Phase 8D); render-to-Image tidak feasible karena `uTime` butuh update tiap frame
 
 ### 🚫 DO NOT FIX
 
