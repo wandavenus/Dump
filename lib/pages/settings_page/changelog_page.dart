@@ -14,7 +14,7 @@ class ChangelogPage extends StatefulWidget {
 
 class _ChangelogPageState extends State<ChangelogPage> {
   final _scroll = ScrollController();
-  double _offset = 0;
+  final _offsetNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -24,8 +24,8 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
   void _onScroll() {
     final offset = _scroll.offset;
-    if ((offset - _offset).abs() > 0.5) {
-      setState(() => _offset = offset);
+    if ((offset - _offsetNotifier.value).abs() > 0.5) {
+      _offsetNotifier.value = offset;
     }
   }
 
@@ -33,6 +33,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -42,7 +43,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Changelog',
-        scrollOffset: _offset,
+        scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).maybePop(),

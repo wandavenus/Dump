@@ -35,7 +35,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
   List<LocalSong> _songs = [];
   bool _loading = true;
   final _scroll = ScrollController();
-  double _offset = 0;
+  final _offsetNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -51,7 +51,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   void _onScroll() {
     final o = _scroll.offset;
-    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
   }
 
   @override
@@ -59,6 +59,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     MediaStoreService.rescanNotifier.removeListener(_onRescan);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -227,7 +228,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: widget.name,
-        scrollOffset: _offset,
+        scrollOffsetListenable: _offsetNotifier,
         actions: [
           if (isUserPlaylist) ...[
             IconButton(

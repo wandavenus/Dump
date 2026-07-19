@@ -12,7 +12,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  double _scrollOffset = 0;
+  final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
   final _scroll = ScrollController();
 
   @override
@@ -35,8 +35,8 @@ class _HomePageState extends State<HomePage> {
     if (notification is ScrollUpdateNotification &&
         notification.metrics.axis == Axis.vertical) {
       final nextOffset = notification.metrics.pixels;
-      if ((nextOffset - _scrollOffset).abs() >= 1.0) {
-        setState(() => _scrollOffset = nextOffset);
+      if ((nextOffset - _scrollOffsetNotifier.value).abs() >= 1.0) {
+        _scrollOffsetNotifier.value = nextOffset;
       }
     }
     return false;
@@ -46,6 +46,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     ScrollToTopService.signal(0).removeListener(_onScrollToTop);
     _scroll.dispose();
+    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -62,7 +63,7 @@ class _HomePageState extends State<HomePage> {
           extendBodyBehindAppBar: isGlass,
           appBar: FadingTitleAppBar(
             title: 'Beranda',
-            scrollOffset: _scrollOffset,
+            scrollOffsetListenable: _scrollOffsetNotifier,
           ),
           body: PrimaryScrollController(
             controller: _scroll,

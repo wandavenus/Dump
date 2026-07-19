@@ -9,7 +9,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _scroll = ScrollController();
-  double _offset = 0;
+  final _offsetNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -19,8 +19,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _onScroll() {
     final offset = _scroll.offset;
-    if ((offset - _offset).abs() > 0.5) {
-      setState(() => _offset = offset);
+    if ((offset - _offsetNotifier.value).abs() > 0.5) {
+      _offsetNotifier.value = offset;
     }
   }
 
@@ -28,6 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -37,7 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Pengaturan',
-        scrollOffset: _offset,
+        scrollOffsetListenable: _offsetNotifier,
         actions: const [],
       ),
       body: SingleChildScrollView(

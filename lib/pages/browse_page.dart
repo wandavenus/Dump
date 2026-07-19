@@ -12,7 +12,7 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage> {
-  double _scrollOffset = 0;
+  final _scrollOffsetNotifier = ValueNotifier<double>(0.0);
   final _scroll = ScrollController();
 
   @override
@@ -34,7 +34,7 @@ class _BrowsePageState extends State<BrowsePage> {
   bool _handleScroll(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification &&
         notification.metrics.axis == Axis.vertical) {
-      setState(() => _scrollOffset = notification.metrics.pixels);
+      _scrollOffsetNotifier.value = notification.metrics.pixels;
     }
     return false;
   }
@@ -43,6 +43,7 @@ class _BrowsePageState extends State<BrowsePage> {
   void dispose() {
     ScrollToTopService.signal(1).removeListener(_onScrollToTop);
     _scroll.dispose();
+    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -59,7 +60,7 @@ class _BrowsePageState extends State<BrowsePage> {
           extendBodyBehindAppBar: isGlass,
           appBar: FadingTitleAppBar(
             title: 'Baru',
-            scrollOffset: _scrollOffset,
+            scrollOffsetListenable: _scrollOffsetNotifier,
           ),
           body: PrimaryScrollController(
             controller: _scroll,

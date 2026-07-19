@@ -16,7 +16,7 @@ class AboutAppPage extends StatefulWidget {
 
 class _AboutAppPageState extends State<AboutAppPage> {
   final _scroll = ScrollController();
-  double _offset = 0;
+  final _offsetNotifier = ValueNotifier<double>(0.0);
 
   // Year is constant for the lifetime of the widget — computed once so
   // build() never allocates a DateTime on every frame.
@@ -76,13 +76,14 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
   void _onScroll() {
     final o = _scroll.offset;
-    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
   }
 
   @override
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -95,7 +96,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Tentang App',
-        scrollOffset: _offset,
+        scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).maybePop(),

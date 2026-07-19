@@ -13,7 +13,7 @@ class ArtistList extends StatefulWidget {
 
 class _ArtistListState extends State<ArtistList> {
   final _scroll = ScrollController();
-  double _offset = 0;
+  final _offsetNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -23,13 +23,14 @@ class _ArtistListState extends State<ArtistList> {
 
   void _onScroll() {
     final o = _scroll.offset;
-    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
   }
 
   @override
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -39,7 +40,7 @@ class _ArtistListState extends State<ArtistList> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Artis Favorit',
-        scrollOffset: _offset,
+        scrollOffsetListenable: _offsetNotifier,
         actions: const [CommonActions()],
       ),
       body: ArtistListContent(scrollController: _scroll),

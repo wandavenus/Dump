@@ -30,7 +30,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   final _scroll            = ScrollController();
   final _searchController  = TextEditingController();
   final _searchFocus       = FocusNode();
-  double _offset = 0;
+  final _offsetNotifier    = ValueNotifier<double>(0.0);
   String _filter = '';
 
   @override
@@ -84,7 +84,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   void _onScroll() {
     final o = _scroll.offset;
-    if ((o - _offset).abs() > 0.5) setState(() => _offset = o);
+    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
   }
 
   void _onSearch() {
@@ -100,6 +100,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     _searchController.removeListener(_onSearch);
     _searchController.dispose();
     _searchFocus.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
@@ -126,9 +127,9 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
-        title:       _title,
-        scrollOffset: _offset,
-        actions:     const [CommonActions()],
+        title:                  _title,
+        scrollOffsetListenable: _offsetNotifier,
+        actions:                const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
