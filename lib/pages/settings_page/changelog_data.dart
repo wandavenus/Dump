@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.4',
+    date: '19 Juli 2026',
+    changes: [
+      'Phase 1 native perf: limiter & compressor stereo fast-path — unroll inner channel loops (delay write, peak detect, output multiply) untuk eliminasi loop overhead di path stereo.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.3',
     date: '19 Juli 2026',
     changes: [

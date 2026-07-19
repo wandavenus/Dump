@@ -237,8 +237,14 @@ static int32_t _comp_process(void* self, NarAudioBuffer* buffer, int32_t stream_
     if (!isfinite(gain_linear)) gain_linear = 1.0f;  // defensive fail-open
 
     // 6. Scale all channels — stereo-linked (same gain on L+R preserves image).
-    for (int32_t c = 0; c < channels; c++) {
-      data[base + c] *= gain_linear;
+    // Stereo fast-path: unroll the 2-channel case to eliminate loop overhead.
+    if (channels == 2) {
+      data[base]     *= gain_linear;
+      data[base + 1] *= gain_linear;
+    } else {
+      for (int32_t c = 0; c < channels; c++) {
+        data[base + c] *= gain_linear;
+      }
     }
   }
 

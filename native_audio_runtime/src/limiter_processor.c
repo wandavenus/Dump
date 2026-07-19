@@ -161,20 +161,38 @@ static int32_t _lim_process(void* self, NarAudioBuffer* buffer, int32_t stream_s
     //    per-channel delay buffers — a NaN/Inf sample must never enter the
     //    look-ahead history (it would keep corrupting output for the next
     //    63 frames even after the source recovers).
-    for (int32_t c = 0; c < del_ch; c++) {
-      float x = data[base + c];
-      if (!isfinite(x)) { x = 0.0f; data[base + c] = 0.0f; }
-      _lim.delay_buf[s][c][write_pos] = x;
-    }
-    for (int32_t c = del_ch; c < channels; c++) {
-      if (!isfinite(data[base + c])) data[base + c] = 0.0f;
+    //    Stereo fast-path: unroll the 2-channel case to eliminate loop overhead.
+    if (del_ch == 2 && channels == 2) {
+      float x0 = data[base];
+      float x1 = data[base + 1];
+      if (!isfinite(x0)) { x0 = 0.0f; data[base]     = 0.0f; }
+      if (!isfinite(x1)) { x1 = 0.0f; data[base + 1] = 0.0f; }
+      _lim.delay_buf[s][0][write_pos] = x0;
+      _lim.delay_buf[s][1][write_pos] = x1;
+    } else {
+      for (int32_t c = 0; c < del_ch; c++) {
+        float x = data[base + c];
+        if (!isfinite(x)) { x = 0.0f; data[base + c] = 0.0f; }
+        _lim.delay_buf[s][c][write_pos] = x;
+      }
+      for (int32_t c = del_ch; c < channels; c++) {
+        if (!isfinite(data[base + c])) data[base + c] = 0.0f;
+      }
     }
 
     // 2. Find peak absolute value across ALL channels (inter-channel linking).
-    float peak = 0.0f;
-    for (int32_t c = 0; c < channels; c++) {
-      const float abs_s = fabsf(data[base + c]);
-      if (abs_s > peak) peak = abs_s;
+    //    Stereo fast-path: unroll 2-channel comparison to eliminate loop overhead.
+    float peak;
+    if (channels == 2) {
+      const float a0 = fabsf(data[base]);
+      const float a1 = fabsf(data[base + 1]);
+      peak = a0 > a1 ? a0 : a1;
+    } else {
+      peak = 0.0f;
+      for (int32_t c = 0; c < channels; c++) {
+        const float abs_s = fabsf(data[base + c]);
+        if (abs_s > peak) peak = abs_s;
+      }
     }
 
     // 3. Compute desired gain: bring peak to exactly the threshold, or unity.
@@ -197,14 +215,20 @@ static int32_t _lim_process(void* self, NarAudioBuffer* buffer, int32_t stream_s
 
     // 5. Read the look-ahead delayed output.
     //    read_pos points to the sample written 63 frames ago (LOOKAHEAD_FRAMES − 1).
+    //    Stereo fast-path: unroll the 2-channel case to eliminate loop overhead.
     const int32_t read_pos = (write_pos + 1) & LA_MASK;
-    for (int32_t c = 0; c < del_ch; c++) {
-      data[base + c] = _lim.delay_buf[s][c][read_pos] * gain;
-    }
-    // For extra channels beyond NAR_LIMITER_MAX_CHANNELS (never in practice):
-    // apply same gain without delay (minor phase mismatch — acceptable).
-    for (int32_t c = del_ch; c < channels; c++) {
-      data[base + c] *= gain;
+    if (del_ch == 2 && channels == 2) {
+      data[base]     = _lim.delay_buf[s][0][read_pos] * gain;
+      data[base + 1] = _lim.delay_buf[s][1][read_pos] * gain;
+    } else {
+      for (int32_t c = 0; c < del_ch; c++) {
+        data[base + c] = _lim.delay_buf[s][c][read_pos] * gain;
+      }
+      // For extra channels beyond NAR_LIMITER_MAX_CHANNELS (never in practice):
+      // apply same gain without delay (minor phase mismatch — acceptable).
+      for (int32_t c = del_ch; c < channels; c++) {
+        data[base + c] *= gain;
+      }
     }
 
     write_pos = (write_pos + 1) & LA_MASK;
