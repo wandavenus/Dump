@@ -1,0 +1,385 @@
+# Native Performance Audit (Assembly / C++ Candidate)
+
+## Objective
+
+Perform a **comprehensive performance audit** across the entire repository (Flutter + Dart + Kotlin + Java + Native C/C++).
+
+The goal is to identify every section of code that would benefit from being migrated to **Native C/C++ (JNI/NDK)** so it can be optimized by **Clang/LLVM** into highly efficient **ARM64 / NEON / Assembly** instructions.
+
+---
+
+# IMPORTANT
+
+This is **NOT** a refactor.
+
+Do **NOT** modify any code.
+
+Do **NOT** generate a Pull Request.
+
+Do **NOT** rewrite implementations.
+
+Only perform a deep technical audit and produce a detailed report.
+
+---
+
+# What to Search
+
+Search every module, package, file, and function for CPU-intensive workloads.
+
+## 1. Heavy Math
+
+Look for:
+
+- Large loops
+- Nested loops
+- Float / Double intensive computation
+- sin()
+- cos()
+- atan()
+- sqrt()
+- pow()
+- exp()
+- log()
+- matrix multiplication
+- vector math
+
+---
+
+## 2. Audio DSP
+
+Search for:
+
+- PCM processing
+- Sample processing
+- Mixing
+- Crossfade
+- Gain calculation
+- Equal-power curves
+- Volume interpolation
+- ReplayGain
+- Loudness
+- RMS
+- Peak detection
+- FFT
+- FIR
+- IIR
+- Resampling
+- Time Stretch
+- Pitch Shift
+- Convolution
+- Limiter
+- Compressor
+- EQ
+
+---
+
+## 3. Image Processing
+
+Search for:
+
+- Bitmap manipulation
+- Pixel loops
+- Blur
+- Gaussian blur
+- Image scaling
+- Color conversion
+- Histogram
+- Palette extraction
+
+---
+
+## 4. Signal Processing
+
+Search for:
+
+- Interpolation
+- Vector processing
+- Noise generation
+- Filters
+- Mathematical transforms
+
+---
+
+## 5. Memory Intensive Code
+
+Look for:
+
+- Frequent object allocation
+- ByteArray copies
+- FloatArray copies
+- ShortArray copies
+- IntArray copies
+- ByteBuffer copies
+- Buffer resizing
+- Array cloning
+
+especially inside loops.
+
+---
+
+## 6. Codec Helpers
+
+Search for:
+
+- Decoder helpers
+- Encoder helpers
+- Metadata parsing
+- Binary parsing
+- Bitstream readers
+
+---
+
+## 7. Background Workers
+
+Search for:
+
+- Long-running coroutines
+- High-frequency timers
+- Worker threads
+- Polling loops
+- Continuous processing
+
+---
+
+## 8. Animation Math
+
+Search for:
+
+- Noise generation
+- Flow field
+- Particle math
+- Physics simulation
+- Blur calculation
+- Shader helper math
+
+---
+
+## 9. Cache Algorithms
+
+Search for:
+
+- Compression
+- Hashing
+- Lookup tables
+- Custom cache algorithms
+
+---
+
+## 10. Anything CPU-Bound
+
+Anything that spends significant CPU time every second.
+
+---
+
+# Ignore These
+
+Do NOT recommend migrating:
+
+- Activity
+- Fragment
+- Service lifecycle
+- MediaSession
+- Notification
+- Audio Focus
+- BroadcastReceiver
+- Android Framework API
+- Jetpack Compose
+- Flutter UI
+- Dart UI
+- ViewModel
+- Lifecycle components
+
+unless they contain CPU-heavy computation.
+
+---
+
+# For Every Candidate
+
+Report:
+
+## File
+
+```
+path/to/file.kt
+```
+
+## Function
+
+```
+functionName()
+```
+
+## Line Number
+
+```
+123-184
+```
+
+## Category
+
+Example:
+
+- Audio DSP
+- Math
+- Animation
+- Image Processing
+- Memory
+- Signal Processing
+
+---
+
+## Why It Is Expensive
+
+Explain technically.
+
+---
+
+## Estimated CPU Cost
+
+Example:
+
+- Low
+- Medium
+- High
+- Very High
+
+---
+
+## Call Frequency
+
+Example:
+
+- Once
+- Per frame
+- Per audio buffer
+- Every playback tick
+- Continuous
+
+---
+
+## Native Suitability
+
+Would this benefit from C++?
+
+- Yes
+- No
+
+Explain why.
+
+---
+
+## Possible Native Optimizations
+
+Examples:
+
+- ARM64
+- NEON SIMD
+- Loop unrolling
+- LLVM auto-vectorization
+- Cache-friendly memory layout
+- Branch optimization
+- Register optimization
+
+---
+
+## Estimated Speedup
+
+Example:
+
+- Negligible
+- 1.2x
+- 2x
+- 5x
+- 10x+
+
+---
+
+## Migration Complexity
+
+- Low
+- Medium
+- High
+
+---
+
+## Risk
+
+Explain:
+
+- JNI overhead
+- Thread safety
+- Memory ownership
+- Audio synchronization
+- Platform compatibility
+
+---
+
+## Priority
+
+One of:
+
+- Critical
+- High
+- Medium
+- Low
+
+---
+
+# Final Summary
+
+Produce:
+
+# Native Migration Summary
+
+## Critical
+
+- ...
+
+## High
+
+- ...
+
+## Medium
+
+- ...
+
+## Low
+
+- ...
+
+---
+
+# Migration Roadmap
+
+Recommend the safest migration order.
+
+Example:
+
+Phase 1
+
+- ReplayGain
+- Loudness
+- RMS
+
+Phase 2
+
+- Crossfade Math
+- Gain Curves
+
+Phase 3
+
+- Animation Math
+
+Phase 4
+
+- Remaining Optimizations
+
+---
+
+# Final Goal
+
+Identify every realistic opportunity where migrating Kotlin/Java/Dart code to Native C/C++ would provide measurable performance improvements through ARM64/NEON/LLVM/Assembly optimization.
+
+Only recommend migrations that provide **real-world performance gains**.
+
+Do not recommend native migration for code that is primarily Android framework logic or UI management.
