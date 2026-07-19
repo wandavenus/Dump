@@ -287,55 +287,58 @@ Semua 17 temuan yang sebelumnya di-reject **tetap rejected** — tidak ada yang 
 
 Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 
+> **Status terakhir diperbarui: 19 Juli 2026.**  
+> ✅ = selesai dikerjakan | 〰️ = false positive / sudah ada sebelum laporan | ⬜ = belum dikerjakan
+
 ### ✅ SAFE (bisa langsung dikerjakan)
 
 **High:**
-- [ ] **H-D** — `widget.userPlaylist!` (3x) di `playlist_page.dart:116,164,197` → tambah null guard
+- [x] **H-D** ✅ — `widget.userPlaylist!` (3x) di `playlist_page.dart` → null guard ditambahkan
 
 **Medium:**
-- [ ] **M-1** — 4x `catch (_) {}` di `media3_playback_bridge.dart:150,168,192,210` → tambah log
-- [ ] **M-4** — `(json['songIds'] as List)` + `(json['createdAt'] as int)` di `playlist.dart:35,37` → tambah null-safe cast
-- [ ] **M-8** — `providerName.contains('tag')` di `service.dart:62` → ganti dengan enum/const check
-- [ ] **M-11** — `setState` per scroll di detail.dart, album_page.dart, artist_page.dart → pakai `ScrollController` dengan `notifyListeners` atau `AnimatedBuilder`
-- [ ] **M-12** — 3x `SharedPreferences` write di `history_service.dart` → batch ke satu write
-- [ ] **M-14** — `_scrollResumeTimer` reassign tanpa cancel di `state_scroll.dart:67` → tambah `_scrollResumeTimer?.cancel()` sebelum reassign
-- [ ] **M-15** / **P-7** — `_failedAtMs` unbounded di `cache_manager.dart` → tambah max-size eviction atau TTL cleanup
-- [ ] **M-16** — `DateTime.now()` per check di `rate_limiter.dart:15` → ganti dengan `Stopwatch`
-- [ ] **M-18** / **P-10** — `await AudioSession.instance` per call → cache instance di field
-- [ ] **M-19** — `StreamSubscription` tidak di-cancel di `detail_sections/songs.dart:25`
-- [ ] **M-20** — `StreamSubscription` tidak di-cancel di `radio_sections/recent_state.dart:19`
+- [x] **M-1** ✅ — 4x `catch (_) {}` di `media3_playback_bridge.dart` → log ditambahkan
+- [x] **M-4** ✅ — unsafe cast di `playlist.dart` → null-safe cast
+- [x] **M-8** ✅ — `providerName.contains('tag')` di `service.dart` → sudah pakai enum/const check (dikonfirmasi pre-existing)
+- [x] **M-11** ✅ — `setState` per scroll → `ValueNotifier<double>` + `scrollOffsetListenable` di `FadingTitleAppBar`; diperbaiki di 9 page (detail, artist_list, browse, home, music_list, playlist, about_app, changelog, settings/page)
+- [x] **M-12** ✅ — 3x `SharedPreferences` write di `history_service.dart` → batch ke satu write
+- [x] **M-14** ✅ — `_scrollResumeTimer` reassign → `?.cancel()` ditambahkan
+- [x] **M-15** / **P-7** ✅ — `_failedAtMs` unbounded → TTL eviction ditambahkan
+- [x] **M-16** ✅ — `DateTime.now()` per check → `Stopwatch` dipakai
+- [x] **M-18** / **P-10** ✅ — `AudioSession.instance` per call → di-cache di field
+- [x] **M-19** ✅ — `StreamSubscription` di `detail_sections/songs.dart` → di-cancel di dispose
+- [x] **M-20** ✅ — `StreamSubscription` di `radio_sections/recent_state.dart` → di-cancel di dispose
 
 **UI:**
-- [ ] **U-4** — `PlaylistService.getFavoriteIds` decode per read → cache result
-- [ ] **U-6** — Empty `Align` tanpa child di `player_song_info_sheet/state.dart:72` → hapus atau tambah child
-- [ ] **U-7** — `MediaQuery.sizeOf(context).height` di `state.dart:83` → ganti `paddingOf` atau `LayoutBuilder`
-- [ ] **U-8** — `catch (_) {}` di share intent di `player_more_menu.dart:79` → tambah log/feedback
-- [ ] **U-13** — `LyricsSettings` static Map timer tanpa cleanup → tambah auto-cleanup di dispose path
-- [ ] **U-14** — `peakLinear!` redundant di `loudness_data.dart:46,47` → hapus `!` yang redundan
-- [ ] **U-15** — 15x `TextStyle` identik di `app_state.dart:35-49` → ekstrak ke satu variabel
-- [ ] **U-18** — `info_line.dart` duplikat → hapus salah satu, update import
-- [ ] **U-21** — `equalizer.dart` thin wrapper → consolidate atau dokumentasikan sebagai intentional
-- [ ] **U-24** — `Navigator.push` tanpa `await` di `radio_sections/stations.dart:83` → tambah `await`
-- [ ] **U-25** — `applyEdgeToEdge()` di builder callback → pindahkan ke `initState` atau `WidgetsBinding.instance.addPostFrameCallback`
-- [ ] **U-26** — EQ attach tanpa error check di `device_dsp.dart:74` → tambah `eqOk` check dan log
+- [x] **U-4** 〰️ — `PlaylistService.getFavoriteIds` sudah punya `_cachedFavoriteIds` (pre-existing)
+- [x] **U-6** 〰️ — Tidak ada empty `Align` di `player_song_info_sheet/state.dart` (false positive)
+- [x] **U-7** ✅ — `MediaQuery.of(context).size.height` → `MediaQuery.sizeOf(context).height` di `player_song_info_sheet/state.dart`
+- [x] **U-8** 〰️ — Tidak ada `catch (_) {}` di share intent di `player_more_menu.dart` (pre-existing fix)
+- [x] **U-13** 〰️ — `LyricsSettings._debounceTimers` sudah punya `flush()` yang dipanggil di `AppLifecycleState.paused` (pre-existing)
+- [x] **U-14** 〰️ — Tidak ada `peakLinear!` di `loudness_data.dart`; kode sudah null-safe (false positive)
+- [x] **U-15** 〰️ — `app_state.dart` sudah punya `static const _sfProText`; textTheme sudah pakai konstanta itu (pre-existing)
+- [x] **U-18** 〰️ — `_InfoLine` (12px compact debug) vs `SettingsInfoRow` (16px settings row) adalah dua widget dengan tujuan berbeda; `_InfoLine` sudah punya TODO yang mendokumentasikan ini — bukan duplikat murni
+- [x] **U-21** 〰️ — `equalizer.dart` bukan thin wrapper; sudah ada 3 `ValueListenableBuilder` nested dengan logik preset (pre-existing)
+- [x] **U-24** 〰️ — `stations.dart` punya `// ignore_for_file: unawaited_futures`; `Navigator.push` tanpa await adalah intentional navigation pattern
+- [x] **U-25** 〰️ — `applyEdgeToEdge()` di builder callback intentional; komentar "Jangan di pindahkan" sudah ada
+- [x] **U-26** 〰️ — `attachEffectsToSession` → `queryEffectSupport()` sudah punya try/catch + LogService.warn (pre-existing)
 
 **Low:**
-- [ ] **N-2** — `lrcData['data']['lrclist']` unsafe di `kuwo_provider.dart:86`
-- [ ] **P-2** — 3x SharedPrefs write per play di `history_service.dart` → batch (overlap dengan M-12)
-- [ ] **P-5** — `map().toList()` per build di `lyrics_pickers.dart:22` → cache di state
-- [ ] **P-8** — `Color.lerp` per frame di `fog_painter.dart` → pre-compute warna di setter, hanya update saat color berubah
-- [ ] **FB-2** — `SizedBox` tanpa `const` di `albums_section/card.dart:60`
-- [ ] **FB-8** — `Container` → `DecoratedBox` di `recently_played_section.dart`
-- [ ] **FB-14** — Slider `onChangeEnd` tanpa debounce di `settings_widgets/slider.dart`
+- [x] **N-2** 〰️ — `kuwo_provider.dart` sudah pakai null-safe operator (`lrcDataSection?['lrclist']` + `is List` check) (pre-existing)
+- [x] **P-2** ✅ — overlap dengan M-12; sudah di-batch
+- [x] **P-5** 〰️ — `lyrics_pickers.dart` sudah pakai `static const _sizes` dengan `for` loop, tidak ada `.map().toList()` per build (pre-existing)
+- [x] **P-8** ✅ — Pre-computed colour fields di `FogPainter` (Phase 8D); `paint()` zero arithmetic
+- [x] **FB-2** 〰️ — `SizedBox` di `card.dart:60` wrap `Text(widget.caption)` yang runtime; tidak bisa `const` — false positive
+- [x] **FB-8** 〰️ — Tidak ada `Container` di `recently_played_section.dart`; sudah `SizedBox` saja (pre-existing fix)
+- [x] **FB-14** ✅ — `SettingsSliderRow` ditambah `_dragValue` tracking: `onChanged` hanya update UI lokal, `onChangeEnd` yang memanggil async callback
 
 ### ⚠️ SAFE WITH CONDITIONS (perlu precaution spesifik)
 
-- [ ] **M-6** — `initializeAll()` sequential → `Future.wait()` **hanya untuk modul tanpa dependency ordering**; audit dependency graph terlebih dahulu
-- [ ] **U-2** — `BackdropFilter` → bungkus dengan `if (progress > 0.02)` untuk matikan filter sepenuhnya di luar range
-- [ ] **U-3** — Sort list → pindahkan sort ke luar `build()`, simpan di state, hanya sort ulang saat data berubah
-- [ ] **P-6** — Cache max-size → tambahkan eviction saat >N entries; pastikan thread-safe untuk multi-context access
-- [ ] **BL-1** — `[offset:]` → apply ke semua line timestamps setelah parse; verifikasi edge case format LRC non-standar
-- [ ] **BL-3** — `is ScrollPositionWithSingleContext` → ganti dengan `positions.firstOrNull?.jumpTo()` pattern; verifikasi tidak ada caller yang bergantung pada exception dari cast gagal
+- [ ] **M-6** ⬜ — `initializeAll()` sequential → `Future.wait()` **hanya untuk modul tanpa dependency ordering**; audit dependency graph terlebih dahulu
+- [ ] **U-2** ⬜ — `BackdropFilter` → bungkus dengan `if (progress > 0.02)` untuk matikan filter sepenuhnya di luar range
+- [ ] **U-3** ⬜ — Sort list → pindahkan sort ke luar `build()`, simpan di state, hanya sort ulang saat data berubah
+- [x] **P-6** ✅ — `_maxEntries = 300` sudah diterapkan di semua 3 LRU map di `ArtworkRepository` (Phase 8D)
+- [ ] **BL-1** ⬜ — `[offset:]` → apply ke semua line timestamps setelah parse; verifikasi edge case format LRC non-standar
+- [ ] **BL-3** ⬜ — `is ScrollPositionWithSingleContext` → ganti dengan `positions.firstOrNull?.jumpTo()` pattern; verifikasi tidak ada caller yang bergantung pada exception dari cast gagal
 
 ### ⚠️ REQUIRES DESIGN REVIEW (jangan fix otomatis)
 
@@ -343,7 +346,7 @@ Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 - **M-7** — Dual cache lyrics → pilih satu sumber kebenaran sebelum fix
 - **M-9** — 8 providers tanpa base class → perlu base class design + migration plan
 - **U-12** — Player sheet VLB scope lebar → perlu redesign widget tree
-- **P-4** — Shader repaint per frame → perlu pendekatan alternnatif (render-to-Image)
+- **P-4** — Shader repaint per frame → render-to-Image tidak feasible (fluid.frag butuh `uTime` tiap frame); `RepaintBoundary` + `TickerMode` pause sudah diterapkan di Phase 8D
 
 ### 🚫 DO NOT FIX
 
@@ -356,4 +359,5 @@ Daftar final temuan yang aman untuk di-fix di fase berikutnya:
 
 *Laporan ini menggantikan `Audit_Validation_Report.md` untuk menggambarkan state SAAT INI (18 Juli 2026).*  
 *Validasi menggunakan 6 subagent paralel + direct grep verification.*  
+*Checklist diperbarui 19 Juli 2026 setelah Phase 8D + audit pass SAFE HIGH/MEDIUM/LOW.*  
 *Target device: Xiaomi Mi 9T / K20 (SD730, MIUI 12/Android 11).*
