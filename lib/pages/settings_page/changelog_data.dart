@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.2',
+    date: '19 Juli 2026',
+    changes: [
+      'Fix DP-1: activeQueueIndex sekarang diperbarui sebelum standby.prepare()/play() — UI dan notifikasi tidak lagi menampilkan lagu yang salah saat crossfade dimulai.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.1',
     date: '19 Juli 2026',
     changes: [

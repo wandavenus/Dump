@@ -222,12 +222,10 @@ class CrossfadeController(
         // Notify AudioOffloadManager BEFORE the first Handler tick so offload
         // scheduling is disabled before the 16 ms volume-fade runnable starts.
         onCrossfadeStarting()
-        // K-02: Do NOT call setActiveQueueIndex here (before the fade starts).
-        // Calling it at this point causes track A to be cut short (~200 ms) the moment
-        // the index advances, because ExoPlayer treats the index change as an implicit
-        // seek/stop signal while both players are still outputting audio simultaneously.
-        // The correct call sites are: inside runEqualPowerFade after promotion (line ~304)
-        // and inside onCrossfadeComplete (line ~363), where A is already silent.
+        // K-02 (historical): an earlier version of setActiveQueueIndex called seekTo() on
+        // ExoPlayer which caused a ~200 ms audio cut.  The current implementation is a pure
+        // integer assignment in QueueManager with no ExoPlayer side effects, so it is now
+        // called immediately after setActivePlayer() — see DP-1 fix below.
 
         // Isolate the old player to exactly the current item so it cannot
         // auto-advance to any other queue position during the fade.
@@ -270,6 +268,12 @@ class CrossfadeController(
         standby.volume = 0f
         CrossfadeTimelineLogger.stamp("beginCrossfade: setActivePlayer(standby)", standby)
         setActivePlayer(standby)
+        // DP-1 fix: update activeQueueIndex immediately after promoting standby so that
+        // any callbacks fired by prepare()/play() below (onPlaybackStateChanged,
+        // onIsPlayingChanged → emitAll) read the correct incoming track index rather than
+        // the stale outgoing one.  setActiveQueueIndex is a pure integer assignment with
+        // no ExoPlayer side effects (see Media3PlaybackService setActiveQueueIndex lambda).
+        setActiveQueueIndex(nextIndex)
 
         // Belt-and-suspenders: disable repeat on the old player AFTER promotion.
         // Doing this here (after setActivePlayer) ensures the listener's
@@ -302,12 +306,6 @@ class CrossfadeController(
         } else {
             CrossfadeTimelineLogger.stamp("beginCrossfade: WARN no audio focus — standby.play() skipped", standby)
         }
-
-        // Update activeQueueIndex ke lagu B sekarang — sebelum emitAll() — supaya
-        // TrackMapper.currentTrackMap() langsung membaca metadata lagu B saat fade dimulai,
-        // bukan menunggu hingga volume B mencapai 1.0 di akhir fade.
-        // (setActiveQueueIndex hanya mengubah integer, tidak ada efek ke ExoPlayer.)
-        setActiveQueueIndex(nextIndex)
 
         log("Promotion complete → [$nextIndex] '${queue[nextIndex]["title"]}' (fade=${actualFadeMs}ms)")
         emitAll()
