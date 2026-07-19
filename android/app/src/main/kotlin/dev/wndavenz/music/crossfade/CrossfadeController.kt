@@ -106,6 +106,7 @@ class CrossfadeController(
         val dur = p.duration
         if (dur <= 0L || dur == C.TIME_UNSET) return
         if (!p.hasNextMediaItem() && p.repeatMode == Player.REPEAT_MODE_OFF) return
+        if (p.repeatMode == Player.REPEAT_MODE_ONE) return  // let ExoPlayer loop natively
 
         // Ensure next track is ready in standby
         preloadManager.preloadNextTrack()

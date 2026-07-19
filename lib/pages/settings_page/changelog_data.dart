@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.1',
+    date: '19 Juli 2026',
+    changes: [
+      'Fix bug Repeat ONE + Crossfade memutar lagu berikutnya — crossfade sekarang tidak aktif saat Repeat ONE, biarkan ExoPlayer loop secara native.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.0',
     date: '19 Juli 2026',
     changes: [
