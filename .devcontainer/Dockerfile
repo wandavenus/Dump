@@ -26,7 +26,7 @@ RUN flutter config --no-analytics --no-cli-animations
 RUN flutter --version
 
 RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
-    curl -fsSL "https://dl.google.com/android/repository/commandline-tools-linux-11076708_latest.zip" -o /tmp/cmdline.zip && \
+    curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o /tmp/cmdline.zip && \
     unzip -q /tmp/cmdline.zip -d /tmp/cmdline && \
     mv /tmp/cmdline/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
     rm -rf /tmp/cmdline.zip /tmp/cmdline
