@@ -1,0 +1,110 @@
+{
+    // ─────────────────────────────────────────────────────────────────────────
+    // Dev Container — Flutter Android (GitHub Codespaces)
+    // Flutter 3.44.5 · Java 21 · Android SDK (platform-35, NDK 28.2, CMake 3.22.1)
+    // ─────────────────────────────────────────────────────────────────────────
+    "name": "Flutter Android",
+
+    // ── Build ─────────────────────────────────────────────────────────────────
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+
+    // ── Codespaces user (injected automatically by GitHub) ────────────────────
+    "remoteUser": "vscode",
+
+    // ── Environment variables available in every terminal and process ─────────
+    "remoteEnv": {
+        "FLUTTER_HOME": "/opt/flutter",
+        "ANDROID_HOME": "/opt/android-sdk",
+        "ANDROID_SDK_ROOT": "/opt/android-sdk",
+        "PUB_CACHE": "/opt/pub-cache",
+        "CCACHE_DIR": "/home/vscode/.ccache",
+        "GRADLE_USER_HOME": "/home/vscode/.gradle",
+        "JAVA_HOME": "/usr/lib/jvm/java-21-openjdk-amd64",
+        // Extend the container PATH (Flutter, Dart, Android tools, ccache)
+        "PATH": "/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/build-tools/36.0.0:/usr/lib/jvm/java-21-openjdk-amd64/bin:/usr/lib/ccache:${containerEnv:PATH}"
+    },
+
+    // ── Persistent cache volumes ───────────────────────────────────────────────
+    // Named volumes survive container rebuilds, preventing full re-downloads of
+    // Gradle deps, Dart packages, and ccache data on every `gh cs rebuild`.
+    "mounts": [
+        // Gradle distribution + dependency cache (~1-3 GB after first build)
+        {
+            "source": "musicplayer-gradle-cache",
+            "target": "/home/vscode/.gradle",
+            "type": "volume"
+        },
+        // ccache compiled-object cache (speeds up NDK/C++ rebuilds)
+        {
+            "source": "musicplayer-ccache",
+            "target": "/home/vscode/.ccache",
+            "type": "volume"
+        }
+    ],
+
+    // ── Post-creation setup ────────────────────────────────────────────────────
+    // Runs once after the container is created (not on every start).
+    "postCreateCommand": "bash .devcontainer/postCreate.sh",
+
+    // ── VS Code customizations ────────────────────────────────────────────────
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                // Flutter / Dart
+                "Dart-Code.flutter",
+                "Dart-Code.dart-code",
+                // Kotlin
+                "fwcd.kotlin",
+                // C/C++ (JNI / native DSP)
+                "ms-vscode.cpptools",
+                "ms-vscode.cpptools-extension-pack",
+                // CMake
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                // General helpers
+                "streetsidesoftware.code-spell-checker",
+                "EditorConfig.EditorConfig"
+            ],
+            "settings": {
+                // Flutter & Dart SDK paths
+                "dart.flutterSdkPath": "/opt/flutter",
+                "dart.sdkPath": "/opt/flutter/bin/cache/dart-sdk",
+
+                // Java
+                "java.home": "/usr/lib/jvm/java-21-openjdk-amd64",
+
+                // Android SDK
+                "android.sdk.path": "/opt/android-sdk",
+
+                // CMake
+                "cmake.configureOnOpen": false,
+
+                // Editor
+                "editor.formatOnSave": true,
+                "editor.rulers": [100],
+                "files.trimTrailingWhitespace": true,
+
+                // C/C++ IntelliSense (points at NDK clang headers)
+                "C_Cpp.default.compilerPath": "/opt/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang",
+                "C_Cpp.default.cStandard": "c11",
+                "C_Cpp.default.cppStandard": "c++17"
+            }
+        }
+    },
+
+    // ── Codespaces-specific settings ──────────────────────────────────────────
+    "features": {},
+
+    // Forward no ports by default; Codespaces forwards on demand
+    "forwardPorts": [],
+
+    // Reasonable machine size for Android/NDK builds
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "16gb",
+        "storage": "32gb"
+    }
+}
