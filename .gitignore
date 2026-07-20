@@ -51,3 +51,29 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter / Gradle build
+build/
+**/build/
+
+# Android native build
+.cxx/
+**/.cxx/
+
+.gradle/
+**/.gradle/
+
+# CMake / Ninja
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Native build artifacts
+*.o
+*.obj
+*.so
+*.a
+*.ninja
+*.ninja_deps
+*.ninja_log
