@@ -1,0 +1,146 @@
+# ReplayGain Write Tag — Final Fix Pass
+
+Lakukan **implementasi perbaikan**, bukan audit.
+
+Gunakan hasil audit sebelumnya sebagai referensi.
+
+Targetnya adalah membuat implementasi ReplayGain Write Tag siap production.
+
+---
+
+# 1. FIX WAJIB
+
+## HIGH-1 — File Descriptor Leak
+
+Perbaiki fd leak pada seluruh fungsi berikut:
+
+- `WriteReplayGainTagsFd()`
+- `RemoveReplayGainTagsFd()`
+- `RestoreMetadataRegionFd()`
+
+Kasus yang harus diperbaiki:
+
+```cpp
+TagLib::FileStream stream(fd, ...);
+
+if (!stream.isOpen()) {
+    ...
+}
+```
+
+Pastikan apabila `TagLib::FileStream` gagal mengambil ownership fd (`fdopen()` gagal), fd asli tetap ditutup sehingga tidak terjadi file descriptor leak.
+
+Pastikan solusi tidak menyebabkan:
+
+- double close
+- double fsync
+- ownership conflict
+
+Gunakan solusi yang paling aman sesuai lifecycle TagLib.
+
+---
+
+# 2. Logging
+
+Perbaiki:
+
+`openReplayGainWriteFd()`
+
+Jangan swallow exception.
+
+Tambahkan logging yang jelas ketika:
+
+- SecurityException
+- FileNotFoundException
+- IOException
+- exception lain
+
+Tetapi tetap jangan sampai crash.
+
+---
+
+# 3. Double Write Permission Check
+
+Optimalkan flow batch scan.
+
+Saat write access sudah diberikan melalui:
+
+```
+MediaStore.createWriteRequest(...)
+```
+
+atau
+
+```
+requestReplayGainWriteAccessBatch(...)
+```
+
+jangan melakukan pengecekan write permission lagi untuk setiap lagu.
+
+Hilangkan overhead yang tidak diperlukan tanpa mengurangi keamanan.
+
+---
+
+# 4. Dead Code Cleanup
+
+Audit ulang jalur berikut:
+
+- writeReplayGain(path)
+- removeReplayGain(path)
+
+Jika memang sudah tidak digunakan lagi oleh seluruh codebase:
+
+- hapus implementasi Kotlin
+- hapus JNI
+- hapus implementasi native C++
+- hapus deklarasi header
+- hapus export yang tidak diperlukan
+
+Tetapi JANGAN menghapus apabila masih digunakan oleh test, benchmark, atau tool internal.
+
+---
+
+# 5. JANGAN UBAH
+
+Jangan mengubah:
+
+- algoritma ReplayGain
+- loudness calculation
+- libebur128
+- TagLib behavior
+- metadata format
+- ReplayGain value
+- R128 implementation
+- DSP
+- audio processing
+
+Fokus hanya pada perbaikan bug dan cleanup.
+
+---
+
+# 6. Validasi
+
+Setelah seluruh perubahan selesai:
+
+- pastikan project masih build
+- pastikan seluruh JNI signature tetap cocok
+- pastikan tidak ada warning baru
+- pastikan tidak ada leak baru
+- pastikan Scoped Storage tetap kompatibel
+
+---
+
+# Output
+
+Berikan laporan akhir berisi:
+
+- file yang diubah
+- alasan perubahan
+- patch summary
+- kemungkinan efek samping (jika ada)
+- hasil build
+- hasil validasi
+
+Jangan hanya menjelaskan.
+
+Lakukan implementasi langsung pada source code repository.

@@ -142,63 +142,6 @@ object ReplayGainService {
         }
     }
 
-    // ── Tag writing ────────────────────────────────────────────────────────────
-
-    /**
-     * Writes REPLAYGAIN_TRACK_* (and, for Opus, R128_TRACK_GAIN) tags into
-     * the file at [path], preserving all other metadata. Pass [albumGainDb]
-     * / [albumPeakLinear] together when writing as part of an album batch
-     * so REPLAYGAIN_ALBUM_* / R128_ALBUM_GAIN are written too.
-     *
-     * Returns [ReplayGainError.NONE] on success, or a specific error
-     * otherwise. [ReplayGainError.UNSUPPORTED_FORMAT] is returned for
-     * formats with no registered tag writer (e.g. M4A/AAC — read-only via
-     * ExoMetadataReader, see [TagFormat.fromPath]).
-     */
-    fun writeReplayGain(
-        path: String,
-        trackGainDb: Double,
-        trackPeakLinear: Double,
-        trackIntegratedLufs: Double,
-        albumGainDb: Double? = null,
-        albumPeakLinear: Double? = null,
-        albumIntegratedLufs: Double? = null,
-    ): ReplayGainError {
-        if (!nativeAvailable) return ReplayGainError.UNKNOWN
-        val format = TagFormat.fromPath(path) ?: return ReplayGainError.UNSUPPORTED_FORMAT
-
-        val r128Track = ReplayGainNative.nativeLufsToR128Q7x8(trackIntegratedLufs)
-        val hasR128Album = albumIntegratedLufs != null
-        val r128Album = if (albumIntegratedLufs != null) {
-            ReplayGainNative.nativeLufsToR128Q7x8(albumIntegratedLufs)
-        } else 0
-
-        val code = ReplayGainNative.nativeWriteReplayGainTags(
-            path,
-            format.nativeValue,
-            trackGainDb,
-            trackPeakLinear,
-            albumGainDb != null,
-            albumGainDb ?: 0.0,
-            albumPeakLinear ?: 0.0,
-            r128Track,
-            hasR128Album,
-            r128Album,
-        )
-        return ReplayGainError.fromNative(code)
-    }
-
-    /**
- * Strips REPLAYGAIN_* and R128_* tags from [path],
- * leaving all other metadata intact.
- */
-    fun removeReplayGain(path: String): ReplayGainError {
-        if (!nativeAvailable) return ReplayGainError.UNKNOWN
-        if (TagFormat.fromPath(path) == null) return ReplayGainError.UNSUPPORTED_FORMAT
-        val code = ReplayGainNative.nativeRemoveReplayGainTags(path)
-        return ReplayGainError.fromNative(code)
-    }
-
     // ── Scoped-storage-safe fd-based tag writing ────────────────────────────────
     //
     // These operate on a single already-open fd and do not know about

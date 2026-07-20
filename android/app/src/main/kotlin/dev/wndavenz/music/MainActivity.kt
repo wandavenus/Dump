@@ -82,6 +82,10 @@ class MainActivity : FlutterActivity() {
     // MediaStoreWriteGate for the full API-level matrix. Its own pending
     // callback is resolved from onActivityResult below.
     private val replayGainWriteGate = MediaStoreWriteGate()
+    // Song IDs pre-authorized by requestReplayGainWriteAccessBatch; individual
+    // writeReplayGain / removeReplayGain calls consume these to skip the per-file
+    // grant check. Accessed only on the main thread (MethodChannel callbacks).
+    private val batchPreAuthorizedSongIds = mutableSetOf<Int>()
 
     // ── Open-file intent plumbing ────────────────────────────────────────────
     // Stores the URI from ACTION_VIEW intents that arrive before Dart is ready.
@@ -634,6 +638,12 @@ class MainActivity : FlutterActivity() {
                             result.success(emptyMap<String, Boolean>())
                         } else {
                             requestReplayGainWriteAccessBatch(songIds) { grantedById ->
+                                // Pre-populate the authorized IDs set so individual
+                                // writeReplayGain / removeReplayGain calls can skip
+                                // their per-file grant check for already-granted songs.
+                                grantedById.forEach { (id, granted) ->
+                                    if (granted) batchPreAuthorizedSongIds.add(id)
+                                }
                                 result.success(grantedById.mapKeys { (id, _) -> id.toString() })
                             }
                         }
@@ -657,11 +667,7 @@ class MainActivity : FlutterActivity() {
                         if (songId == null) {
                             result.error("invalid_args", "songId required", null)
                         } else {
-                            requestReplayGainWriteAccess(songId) { granted ->
-                                if (!granted) {
-                                    result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
-                                    return@requestReplayGainWriteAccess
-                                }
+                            fun submitWrite() {
                                 submitBackground(
                                     metadataExecutor,
                                     onRejected = {
@@ -680,6 +686,19 @@ class MainActivity : FlutterActivity() {
                                     }
                                 }
                             }
+                            if (batchPreAuthorizedSongIds.remove(songId)) {
+                                // Access pre-authorized via requestReplayGainWriteAccessBatch —
+                                // skip the per-file grant check; the grant is already held.
+                                submitWrite()
+                            } else {
+                                requestReplayGainWriteAccess(songId) { granted ->
+                                    if (!granted) {
+                                        result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
+                                        return@requestReplayGainWriteAccess
+                                    }
+                                    submitWrite()
+                                }
+                            }
                         }
                     }
 
@@ -691,11 +710,7 @@ class MainActivity : FlutterActivity() {
                         if (songId == null) {
                             result.error("invalid_args", "songId required", null)
                         } else {
-                            requestReplayGainWriteAccess(songId) { granted ->
-                                if (!granted) {
-                                    result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
-                                    return@requestReplayGainWriteAccess
-                                }
+                            fun submitRemove() {
                                 submitBackground(
                                     metadataExecutor,
                                     onRejected = {
@@ -712,6 +727,17 @@ class MainActivity : FlutterActivity() {
                                             result.error("remove_error", e.message, null)
                                         }
                                     }
+                                }
+                            }
+                            if (batchPreAuthorizedSongIds.remove(songId)) {
+                                submitRemove()
+                            } else {
+                                requestReplayGainWriteAccess(songId) { granted ->
+                                    if (!granted) {
+                                        result.success(mapOf("success" to false, "error" to "WRITE_ACCESS_DENIED"))
+                                        return@requestReplayGainWriteAccess
+                                    }
+                                    submitRemove()
                                 }
                             }
                         }
@@ -886,7 +912,17 @@ class MainActivity : FlutterActivity() {
         )
         return try {
             contentResolver.openFileDescriptor(contentUri, "rw")
+        } catch (e: SecurityException) {
+            Log.w("MainActivity", "openReplayGainWriteFd($songId): SecurityException — ${e.message}")
+            null
+        } catch (e: java.io.FileNotFoundException) {
+            Log.w("MainActivity", "openReplayGainWriteFd($songId): file not found — ${e.message}")
+            null
+        } catch (e: java.io.IOException) {
+            Log.w("MainActivity", "openReplayGainWriteFd($songId): I/O error — ${e.message}")
+            null
         } catch (e: Exception) {
+            Log.w("MainActivity", "openReplayGainWriteFd($songId): ${e.javaClass.simpleName} — ${e.message}")
             null
         }
     }

@@ -234,38 +234,6 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeComputeAlbumLoudness(
     return result;
 }
 
-// ── Tag writing ───────────────────────────────────────────────────────────────
-
-JNIEXPORT jint JNICALL
-Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeWriteReplayGainTags(
-    JNIEnv* env, jobject /*thiz*/, jstring path, jint format, jdouble track_gain_db,
-    jdouble track_peak_linear, jboolean has_album, jdouble album_gain_db,
-    jdouble album_peak_linear, jint r128_track_q7_8, jboolean has_r128_album,
-    jint r128_album_q7_8) {
-    WriteRequest req;
-    req.path              = replaygain::JStringToStd(env, path);
-    req.format             = static_cast<TagFormat>(format);
-    req.track_gain_db       = track_gain_db;
-    req.track_peak_linear   = track_peak_linear;
-    req.has_album           = (has_album == JNI_TRUE);
-    req.album_gain_db       = album_gain_db;
-    req.album_peak_linear   = album_peak_linear;
-    req.r128_track_q7_8     = r128_track_q7_8;
-    req.has_r128_album      = (has_r128_album == JNI_TRUE);
-    req.r128_album_q7_8     = r128_album_q7_8;
-
-    const WriteResult result = replaygain::WriteReplayGainTags(req);
-    return static_cast<jint>(result);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeRemoveReplayGainTags(
-    JNIEnv* env, jobject /*thiz*/, jstring path) {
-    const std::string p = replaygain::JStringToStd(env, path);
-    const WriteResult result = replaygain::RemoveReplayGainTags(p);
-    return static_cast<jint>(result);
-}
-
 // ── Scoped-storage-safe fd-based tag writing ─────────────────────────────────
 // See tag_writer.h for the full write→close→reopen→verify→(restore) protocol
 // these entry points implement pieces of. `fd` is a raw file descriptor

@@ -79,25 +79,6 @@ object ReplayGainNative {
      */
     external fun nativeComputeAlbumLoudness(handles: LongArray): Double
 
-    // ── Tag writing ─────────────────────────────────────────────────────────
-
-    /** Returns a [ReplayGainError] ordinal (see [ReplayGainError.fromNative]). */
-    external fun nativeWriteReplayGainTags(
-        path: String,
-        format: Int,
-        trackGainDb: Double,
-        trackPeakLinear: Double,
-        hasAlbum: Boolean,
-        albumGainDb: Double,
-        albumPeakLinear: Double,
-        r128TrackQ7x8: Int,
-        hasR128Album: Boolean,
-        r128AlbumQ7x8: Int,
-    ): Int
-
-    /** Returns a [ReplayGainError] ordinal. */
-    external fun nativeRemoveReplayGainTags(path: String): Int
-
     /** Converts LUFS (relative to -23 LUFS reference) to Opus R128 Q7.8 fixed point. */
     external fun nativeLufsToR128Q7x8(integratedLufs: Double): Int
 
