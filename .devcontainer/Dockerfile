@@ -26,7 +26,7 @@ RUN flutter config --no-analytics --no-cli-animations
 RUN flutter --version
 
 RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
-    curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o /tmp/cmdline.zip && \
+    curl -fsSL "https://dl.google.com/android/repository/commandline-tools-linux-11076708_latest.zip" -o /tmp/cmdline.zip && \
     unzip -q /tmp/cmdline.zip -d /tmp/cmdline && \
     mv /tmp/cmdline/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
     rm -rf /tmp/cmdline.zip /tmp/cmdline
@@ -35,8 +35,9 @@ RUN yes | sdkmanager --licenses >/dev/null 2>&1 || true && \
     sdkmanager \
     "platform-tools" \
     "platforms;android-35" \
+    "platforms;android-36" \
     "build-tools;36.0.0" \
     "cmake;3.22.1" \
     "ndk;28.2.13676358"
 
-RUN mkdir -p /opt/pub-cache /opt/ccache && chmod -R 777 /opt/pub-cache /opt/ccache /opt/flutter /opt/android-sdk
+RUN mkdir -p /opt/pub-cache /opt/ccache && chmod -R 777 /opt/pub-cache /opt/ccache
