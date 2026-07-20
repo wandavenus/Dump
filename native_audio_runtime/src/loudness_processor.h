@@ -109,14 +109,32 @@ FFI_PLUGIN_EXPORT float nar_loudness_get_measured_lufs(void);
 /// Returns 0.0 when bypassed.
 FFI_PLUGIN_EXPORT float nar_loudness_get_applied_gain_db(void);
 
-/// Reset the loudness analyzer: clear K-weighting filter state, the sub-block
-/// gating ring buffer, the gated cumulative accumulators, and smooth gain
-/// back to unity. Gain target is reset to unity.
+/// Reset the loudness analyzer for stream 0: clear K-weighting filter state,
+/// the sub-block gating ring buffer, the gated cumulative accumulators, and
+/// smooth gain back to unity. Gain target is reset to unity.
 ///
 /// Call on every track change so the new track is measured fresh.
 /// Thread-safe: internally uses a transient bypass to prevent the audio
 /// thread from reading stale state.
+///
+/// Note: scoped to stream 0 ONLY to avoid clobbering a concurrently
+/// preloading standby stream's gating history. See nar_loudness_reset_stream()
+/// for per-stream control once the crossfade code tracks stream assignment.
 FFI_PLUGIN_EXPORT void nar_loudness_reset(void);
+
+/// FIX NAR-5: Reset the loudness analyzer for a specific stream slot.
+///
+/// Identical to nar_loudness_reset() but targets the specified stream.
+/// Use this when the crossfade code (Media3PlaybackService.kt / Dart
+/// PlaybackManager) knows which DSP stream slot a new track is assigned to,
+/// so each stream's gating history is reset independently without affecting
+/// the other stream.
+///
+/// [stream_slot] : 0 = primary player, 1 = standby/crossfade player.
+///                 Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0.
+///
+/// Thread-safe: same transient-bypass pattern as nar_loudness_reset().
+FFI_PLUGIN_EXPORT void nar_loudness_reset_stream(int32_t stream_slot);
 
 #ifdef __cplusplus
 }

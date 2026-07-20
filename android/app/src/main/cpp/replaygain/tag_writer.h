@@ -18,7 +18,11 @@ enum class TagFormat : int32_t {
 };
 
 struct WriteRequest {
-    std::string path;
+    // FIX Temuan #9 (LOW): `path` was a dead field — the fd-based API
+    // (WriteReplayGainTagsFd et al.) ignores it entirely, and the
+    // path-based API was removed. Deleted to remove maintenance debt and
+    // prevent any future caller from accidentally filling it under the
+    // false impression it does something.
     TagFormat   format = TagFormat::kMp3;
 
     // Track-level, always required.

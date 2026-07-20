@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include <fileref.h>
 #include <flacfile.h>
@@ -219,17 +220,28 @@ WriteResult BackupRegion(int fd, TagFormat format, RegionBackup* out_region) {
 // close→reopen→verify step, widening the crash window.
 class FsyncGuard {
 public:
-    explicit FsyncGuard(int original_fd) : dup_fd_(::dup(original_fd)) {}
+    // FIX Temuan #4 (LOW): log dup() failure so rare hardware-level EMFILE /
+    // ENFILE errors on MIUI are visible in logcat (stderr → logcat on Android).
+    explicit FsyncGuard(int original_fd) : dup_fd_(::dup(original_fd)) {
+        if (dup_fd_ < 0) {
+            std::fprintf(stderr,
+                         "[ReplayGainTagWriter] FsyncGuard: dup(%d) failed — "
+                         "fsync and post-write verify will be skipped\n",
+                         original_fd);
+        }
+    }
     ~FsyncGuard() {
         if (dup_fd_ >= 0) ::close(dup_fd_);
     }
     // Flushes pending writes to storage. Best-effort: a failure here doesn't
     // change the overall WriteResult (the tag data is still correct in the
-    // page cache and will reach disk eventually), but is logged-worthy at
-    // the call site if ever wired to a logger.
+    // page cache and will reach disk eventually).
     void Sync() {
         if (dup_fd_ >= 0) ::fsync(dup_fd_);
     }
+    // FIX Temuan #2 (MEDIUM): expose dup'd fd for post-insert header check.
+    // Returns -1 if dup() failed at construction time.
+    int Fd() const { return dup_fd_; }
 
 private:
     int dup_fd_;
@@ -531,6 +543,34 @@ WriteResult RestoreMetadataRegionFd(int fd, TagFormat format, const RegionBackup
     // correctly un-shifts the audio data regardless of which direction the
     // failed write resized things.
     stream.insert(data, /*start=*/0, /*replace=*/static_cast<size_t>(*current_size));
+
+    // FIX Temuan #2 (MEDIUM): verify the insert actually wrote the expected
+    // content. TagLib::FileStream::insert() has no error return value; a
+    // silent I/O failure (e.g. storage full mid-write) would otherwise cause
+    // RestoreMetadataRegionFd to return kOk even when the file is still in
+    // an inconsistent state.
+    //
+    // After insert() returns, TagLib has internally flushed its stdio buffer
+    // (its FileStream::flush() calls fflush()), so pread() on the dup'd fd
+    // (which shares the same kernel inode / page cache as the TagLib fd)
+    // reflects the post-insert file contents. We read back only the first
+    // min(4, backup.bytes.size()) bytes — enough to detect a complete no-op
+    // I/O failure without re-reading the potentially-large whole backup region.
+    if (fsync_guard.Fd() >= 0 && !backup.bytes.empty()) {
+        const size_t check_len =
+            std::min(backup.bytes.size(), static_cast<size_t>(4));
+        unsigned char head[4] = {};
+        const ssize_t nread = ::pread(fsync_guard.Fd(), head, check_len, 0);
+        if (nread < 0 || static_cast<size_t>(nread) != check_len ||
+            std::memcmp(head, backup.bytes.data(), check_len) != 0) {
+            // Restore appears to have failed or written wrong data.
+            // Do not fsync a potentially inconsistent state; surface failure
+            // so Kotlin can report a more severe error than a normal
+            // verification mismatch.
+            return WriteResult::kWriteFailure;
+        }
+    }
+
     fsync_guard.Sync();
     return WriteResult::kOk;
 }

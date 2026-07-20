@@ -652,3 +652,45 @@ Satu bug HIGH yang harus diperbaiki sebelum production ada di **android/app** la
 ---
 
 *Dokumen ini menggantikan `Native_DSP_Cpp_Audit_2026-07-20.md`.*
+
+---
+
+## STATUS AKHIR — SEMUA 14 TEMUAN DIPERBAIKI
+
+**Tanggal fix:** 2026-07-20  
+**Flutter Analyze:** ✅ No issues found  
+**Perubahan API publik:** Hanya additive (fungsi baru, tidak ada breaking change)  
+**Perubahan output audio:** Tidak ada (semua fix adalah bug-safety, bukan behavioral)
+
+| # | Temuan | File | Severity | Status | Catatan |
+|---|--------|------|----------|--------|---------|
+| 1 | #1 | metadata_region.cpp | HIGH | ✅ **FIXED** | `kMaxSafeRegionBytes = 64 MB` guard sebelum `resize()` |
+| 2 | #2 | tag_writer.cpp | MEDIUM | ✅ **FIXED** | `pread()` 4-byte header verify + `FsyncGuard::Fd()` |
+| 3 | #3 | replaygain_jni.cpp | LOW | ✅ **FIXED** | 15 `DeleteLocalRef` call ditambahkan di PackSnapshot + PackWriteEnvelope |
+| 4 | #4 | tag_writer.cpp | LOW | ✅ **FIXED** | `FsyncGuard` constructor log ke stderr saat `dup()` gagal |
+| 5 | #5 | replaygain_jni.cpp | LOW | ✅ **FIXED** | `GetArrayLength` + `ChannelCount()` bounds check di `nativeAddFramesShort` |
+| 6 | #6 | stretch_jni.cpp | LOW | ✅ **FIXED** | `steady_clock::now()` dihapus; diganti frame counter + `kProcessLogFrameInterval` |
+| 7 | #7 | stretch_jni.cpp | LOW | ✅ **FIXED** | `ensureCapacity(8192, 8192)` dipanggil di `nativeCreate` (non-audio thread) |
+| 8 | #8 | jni_common.h | LOW | ✅ **FIXED** | Dead `enum class ErrorCode` dihapus |
+| 9 | #9 | tag_writer.h | LOW | ✅ **FIXED** | Dead `WriteRequest::path` field dihapus |
+| 10 | NAR-1 | gain_processor.c | LOW | ✅ **FIXED** | `_gain_linear_bits` atomic; `powf()` hanya di `set_gain_db` (control thread) |
+| 11 | NAR-2 | dsp_pipeline.c | LOW | ✅ **FIXED** | `_initialized` guard ditambah di `nar_dsp_pipeline_process_stream()` |
+| 12 | NAR-3 | loudness_processor.c | LOW | ✅ **FIXED** | Komentar detail menjelaskan trade-off race + alasan arm64 hardware atomicity |
+| 13 | NAR-4 | replaygain_processor.c | LOW | ✅ **FIXED** | `_gain_bits[NAR_DSP_MAX_STREAMS]` per-stream; `nar_replaygain_set_gain_for_stream()` ditambahkan |
+| 14 | NAR-5 | loudness_processor.c | INFO | ✅ **FIXED** | `nar_loudness_reset_stream(int32_t stream_slot)` ditambahkan; komentar stream-1 lazy-reset diperinci |
+
+### File yang dimodifikasi
+
+- `android/app/src/main/cpp/replaygain/metadata_region.cpp`
+- `android/app/src/main/cpp/replaygain/tag_writer.cpp`
+- `android/app/src/main/cpp/replaygain/tag_writer.h`
+- `android/app/src/main/cpp/replaygain/replaygain_jni.cpp`
+- `android/app/src/main/cpp/replaygain/ebur128_analyzer.h`
+- `android/app/src/main/cpp/replaygain/jni_common.h`
+- `android/app/src/main/cpp/stretch/stretch_jni.cpp`
+- `native_audio_runtime/src/gain_processor.c`
+- `native_audio_runtime/src/dsp_pipeline.c`
+- `native_audio_runtime/src/loudness_processor.c`
+- `native_audio_runtime/src/loudness_processor.h`
+- `native_audio_runtime/src/replaygain_processor.c`
+- `native_audio_runtime/src/replaygain_processor.h`

@@ -42,7 +42,12 @@ constexpr int kSnapshotFieldCount = 9;
 
 jobjectArray PackSnapshot(JNIEnv* env, const TagSnapshot& snap) {
     jclass string_class = env->FindClass("java/lang/String");
+    if (string_class == nullptr) return nullptr;
     jobjectArray arr = env->NewObjectArray(kSnapshotFieldCount, string_class, nullptr);
+    // FIX Temuan #3 (LOW): delete string_class local ref immediately after use —
+    // NewObjectArray holds its own internal reference to the class; the caller's
+    // local ref is no longer needed and must be released.
+    env->DeleteLocalRef(string_class);
     if (arr == nullptr) return nullptr;
     const std::optional<std::string>* fields[kSnapshotFieldCount] = {
         &snap.track_gain, &snap.track_peak, &snap.album_gain, &snap.album_peak,
@@ -51,7 +56,12 @@ jobjectArray PackSnapshot(JNIEnv* env, const TagSnapshot& snap) {
     };
     for (int i = 0; i < kSnapshotFieldCount; i++) {
         if (fields[i]->has_value()) {
-            env->SetObjectArrayElement(arr, i, replaygain::StdToJString(env, **fields[i]));
+            // FIX Temuan #3 (LOW): capture the jstring local ref so it can be
+            // deleted after SetObjectArrayElement — the array holds its own ref,
+            // so the caller's local ref is redundant and must be released here.
+            jstring jstr = replaygain::StdToJString(env, **fields[i]);
+            env->SetObjectArrayElement(arr, i, jstr);
+            if (jstr != nullptr) env->DeleteLocalRef(jstr);
         }
     }
     return arr;
@@ -95,25 +105,42 @@ WriteRequest BuildWriteRequest(TagFormat format, jdouble track_gain_db,
 
 // Result envelope for the fd-based write/remove calls: Object[3] =
 // [0] Integer resultCode, [1] String[9]? priorSnapshot, [2] byte[]? region.
+// FIX Temuan #3 (LOW): all local refs created inside this function and
+// PackSnapshot() are now explicitly deleted after they are no longer needed.
+// Rule: every jobject/jclass/jstring/jarray returned by a New*/Find* call is a
+// local ref that must be released by the caller before control leaves the
+// JNI frame — or it leaks from the local ref table for the lifetime of the
+// call stack frame, potentially exhausting the 512-slot JNI local ref table
+// for callers that invoke this function in a tight loop (e.g. batch tag scans).
 jobjectArray PackWriteEnvelope(JNIEnv* env, WriteResult result, const TagSnapshot& snap,
                                 const RegionBackup& region, bool include_payload) {
     jclass object_class = env->FindClass("java/lang/Object");
+    if (object_class == nullptr) return nullptr;
     jobjectArray envelope = env->NewObjectArray(3, object_class, nullptr);
+    env->DeleteLocalRef(object_class);  // no longer needed
     if (envelope == nullptr) return nullptr;
 
     jclass integer_class = env->FindClass("java/lang/Integer");
+    if (integer_class == nullptr) return nullptr;
     jmethodID ctor = env->GetMethodID(integer_class, "<init>", "(I)V");
     jobject code_obj = env->NewObject(integer_class, ctor, static_cast<jint>(result));
+    env->DeleteLocalRef(integer_class);  // no longer needed
     env->SetObjectArrayElement(envelope, 0, code_obj);
+    if (code_obj != nullptr) env->DeleteLocalRef(code_obj);  // no longer needed
 
     if (include_payload) {
-        env->SetObjectArrayElement(envelope, 1, PackSnapshot(env, snap));
+        // Capture the inner array ref so it can be deleted after storing.
+        jobjectArray snap_arr = PackSnapshot(env, snap);
+        env->SetObjectArrayElement(envelope, 1, snap_arr);
+        if (snap_arr != nullptr) env->DeleteLocalRef(snap_arr);  // no longer needed
+
         jbyteArray region_bytes = env->NewByteArray(static_cast<jsize>(region.bytes.size()));
         if (region_bytes != nullptr && !region.bytes.empty()) {
             env->SetByteArrayRegion(region_bytes, 0, static_cast<jsize>(region.bytes.size()),
                                      reinterpret_cast<const jbyte*>(region.bytes.data()));
         }
         env->SetObjectArrayElement(envelope, 2, region_bytes);
+        if (region_bytes != nullptr) env->DeleteLocalRef(region_bytes);  // no longer needed
     }
     return envelope;
 }
@@ -163,7 +190,20 @@ JNIEXPORT jboolean JNICALL
 Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeAddFramesShort(
     JNIEnv* env, jobject /*thiz*/, jlong handle, jshortArray buf, jint frame_count) {
     EburAnalyzer* analyzer = LookupAnalyzer(handle);
-    if (analyzer == nullptr || frame_count <= 0) return JNI_FALSE;
+    if (analyzer == nullptr || frame_count <= 0 || buf == nullptr) return JNI_FALSE;
+
+    // FIX Temuan #5 (LOW): validate that frame_count × channel_count samples
+    // actually fit within the array Kotlin passed. Without this check, a stale
+    // or corrupt frame_count could cause AddFramesShort() to read past the end
+    // of the JNI array — undefined behaviour in C++ and a potential SIGSEGV
+    // (even though GetShortArrayElements returns a copy, AddFramesShort indexes
+    // into it with frame_count × channels as the total element count).
+    const jsize array_len = env->GetArrayLength(buf);
+    const jsize channel_count = static_cast<jsize>(analyzer->ChannelCount());
+    if (channel_count <= 0 ||
+        frame_count > array_len / channel_count) {  // integer division; safe
+        return JNI_FALSE;
+    }
 
     jshort* elems = env->GetShortArrayElements(buf, nullptr);
     if (elems == nullptr) return JNI_FALSE;

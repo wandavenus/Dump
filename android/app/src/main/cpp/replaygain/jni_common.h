@@ -14,22 +14,12 @@
 
 namespace replaygain {
 
-// Mirrors dev.wndavenz.music.replaygain.ReplayGainError (Kotlin sealed class).
-// Keep the integer values in sync — Kotlin maps them positionally.
-enum class ErrorCode : int32_t {
-    kOk                 = 0,
-    kUnsupportedFormat  = 1,
-    kCorruptedFile      = 2,
-    kWriteFailure       = 3,
-    kPermissionFailure  = 4,
-    kFileNotFound       = 5,
-    kInvalidArgument    = 6,
-    kUnknown            = 7,
-    // Appended — never renumber the values above. Returned by the fd-based
-    // post-write verification step (see tag_writer.h) when a just-written
-    // value doesn't read back as expected, or other metadata changed.
-    kVerificationFailed = 8,
-};
+// FIX Temuan #8 (LOW): ErrorCode was a dead duplicate of WriteResult (both
+// defined the same integer constants with the same semantics). Every JNI
+// entry point was already using WriteResult directly; ErrorCode was never
+// referenced anywhere in the codebase. Removed to eliminate maintenance
+// debt — if the Kotlin sealed class ever evolves, only WriteResult needs
+// to stay in sync.
 
 // Converts a jstring to a std::string. Returns empty string on null/OOM.
 inline std::string JStringToStd(JNIEnv* env, jstring jstr) {

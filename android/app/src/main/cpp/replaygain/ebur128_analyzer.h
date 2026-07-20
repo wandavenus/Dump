@@ -59,6 +59,11 @@ public:
     // Exposes the raw handle for album-level multi-track aggregation.
     ebur128_state* raw_state() const { return state_.get(); }
 
+    // FIX Temuan #5 (LOW): expose the channel count so JNI callers can
+    // validate that a supplied frame_count doesn't cause AddFramesShort()
+    // to read past the end of the provided array.
+    uint32_t ChannelCount() const { return channels_; }
+
 private:
     explicit EburAnalyzer(ebur128_state* state, uint32_t channels);
 

@@ -33,7 +33,7 @@ extern "C" {
 /// NATIVE_RUNTIME_ERROR_DUPLICATE_MODULE if already registered.
 FFI_PLUGIN_EXPORT int32_t nar_replaygain_processor_register_internal(void);
 
-/// Set the ReplayGain gain.
+/// Set the ReplayGain gain for BOTH streams simultaneously.
 ///
 /// [gain_db]              : Gain in dBFS from metadata (e.g. −6.0 attenuates
 ///                          by 6 dB, +1.5 boosts by 1.5 dB).
@@ -46,9 +46,34 @@ FFI_PLUGIN_EXPORT int32_t nar_replaygain_processor_register_internal(void);
 /// Effective gain is computed and stored atomically — audio thread picks up
 /// the new value on its next render cycle without blocking.
 /// Returns NATIVE_RUNTIME_OK (0).
+///
+/// Note: sets the gain for BOTH crossfade streams. For per-stream control
+/// during crossfade (different RG values for two concurrently playing tracks)
+/// use nar_replaygain_set_gain_for_stream() instead.
 FFI_PLUGIN_EXPORT int32_t nar_replaygain_set_gain(float gain_db,
                                                     float peak_linear,
                                                     int32_t use_clipping_protection);
+
+/// FIX NAR-4: Set the ReplayGain gain for a SPECIFIC stream slot.
+///
+/// During crossfade, two ExoPlayer instances play concurrently with potentially
+/// different ReplayGain metadata. This function sets the pre-computed linear
+/// gain for one stream independently so each stream applies its own track's
+/// correct gain, preventing the "last-written wins" artifact of the shared-knob
+/// design.
+///
+/// [stream_slot] : 0 = primary player, 1 = standby/crossfade player.
+///                 Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0.
+///
+/// Dart's _applyReplayGain() should be updated to call this instead of
+/// nar_replaygain_set_gain() once the crossfade code tracks which stream each
+/// track is assigned to.
+///
+/// Returns NATIVE_RUNTIME_OK (0).
+FFI_PLUGIN_EXPORT int32_t nar_replaygain_set_gain_for_stream(int32_t stream_slot,
+                                                               float gain_db,
+                                                               float peak_linear,
+                                                               int32_t use_clipping_protection);
 
 /// Enable (bypass=0) or bypass (bypass=1) the ReplayGain processor.
 /// Thread-safe atomic store.

@@ -41,7 +41,6 @@
 #include <jni.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -133,19 +132,23 @@ void slog(JNIEnv *env, const char *level, const std::string &msg) {
 // allocation from a malformed AudioFormat.
 constexpr int kMaxChannels = 8;
 
-// nativeProcess() logging (RMS + call summary) is throttled to at most once
-// every 2 seconds per handle (rule 6) — see StretchHandle::lastProcessLogTime.
-constexpr auto kProcessLogInterval = std::chrono::milliseconds(2000);
+// FIX Temuan #6 (LOW): log throttle is now frame-counter based, not
+// steady_clock based. steady_clock::now() is a syscall (clock_gettime) that
+// adds non-deterministic latency to every audio callback; a simple cumulative
+// frame counter costs one integer add and one integer comparison per buffer —
+// indistinguishable from zero overhead. The effective interval is ~2 seconds
+// at the sample rate stored in StretchHandle::sampleRate.
+constexpr uint64_t kProcessLogFrameInterval = 96000;  // fallback when sampleRate==0
 
 struct StretchHandle {
     signalsmith::stretch::SignalsmithStretch<float> stretch;
     int channels = 0;
 
-    // Diagnostics only — last time nativeProcess() emitted its throttled
-    // RMS/summary log. Default-constructed to the clock epoch so the very
-    // first call always logs. Never read/written outside the single audio
-    // thread that owns this handle (see class doc in the .kt file).
-    std::chrono::steady_clock::time_point lastProcessLogTime{};
+    // FIX Temuan #6 (LOW): replaces steady_clock::now() throttle with a
+    // frame counter. No syscall overhead on the audio thread.
+    float    sampleRate = 48000.0f;         // stored from nativeCreate
+    uint64_t totalFramesProcessed = 0;      // cumulative input frames since create
+    uint64_t lastLoggedAtFrame    = 0;      // totalFramesProcessed at last log emission
 
     // Flat planar scratch storage, reused (grow-only) across calls.
     // inPtrs[c]/outPtrs[c] are recomputed on every call from the CURRENT
@@ -194,7 +197,8 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
         slog(env, "error", "nativeCreate allocation failed");
         return 0;
     }
-    handle->channels = channels;
+    handle->channels    = channels;
+    handle->sampleRate  = static_cast<float>(sampleRate);
     try {
         // presetDefault(): ~120ms block / ~30ms interval — the library's
         // general-purpose preset, a good default for full-range music.
@@ -205,6 +209,14 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeCreate(
         delete handle;
         return 0;
     }
+    // FIX Temuan #7 (LOW): pre-warm scratch buffers on the non-audio creation
+    // thread. ExoPlayer's typical render buffer is ≤ 4096 frames; pre-allocating
+    // 8192 frames ensures ensureCapacity() finds sufficient capacity on every
+    // subsequent audio-thread call and never triggers a heap allocation there.
+    // The cost is ~channels × 2 × 8192 × 4 bytes (≈ 128 KB stereo) at create
+    // time — negligible for a one-time setup call.
+    constexpr int kPreallocFrames = 8192;
+    handle->ensureCapacity(kPreallocFrames, kPreallocFrames);
     const jlong ptr = static_cast<jlong>(reinterpret_cast<intptr_t>(handle));
     slog(env, "info", "nativeCreate succeeded pointer=" + ptrToHex(ptr));
     return ptr;
@@ -294,8 +306,13 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         return -1;
     }
 
-    const auto now = std::chrono::steady_clock::now();
-    const bool shouldLog = (now - h->lastProcessLogTime) >= kProcessLogInterval;
+    // FIX Temuan #6 (LOW): frame-counter throttle — no syscall on audio thread.
+    h->totalFramesProcessed += static_cast<uint64_t>(inputFrames > 0 ? inputFrames : 0);
+    const uint64_t logIntervalFrames = h->sampleRate > 0.0f
+        ? static_cast<uint64_t>(h->sampleRate * 2.0f)
+        : kProcessLogFrameInterval;
+    const bool shouldLog =
+        (h->totalFramesProcessed - h->lastLoggedAtFrame) >= logIntervalFrames;
 
     try {
         h->ensureCapacity(inputFrames, outputFrames);
@@ -358,7 +375,7 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
             slog(env, "info",
                  "nativeProcess actualFramesWritten=" + std::to_string(outputFrames) +
                      " returnValue=0 pointer=" + ptrToHex(handlePtr));
-            h->lastProcessLogTime = now;
+            h->lastLoggedAtFrame = h->totalFramesProcessed;
         }
     } catch (...) {
         slog(env, "error", "nativeProcess exception during process() pointer=" + ptrToHex(handlePtr) +

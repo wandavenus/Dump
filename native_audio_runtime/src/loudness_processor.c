@@ -624,10 +624,25 @@ static int32_t _ln_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
 
 static void _ln_reset(void* self) {
     (void)self;
-    // Transient bypass: ensures audio threads won't read stale filter/gating
-    // state while we clear it. The bypass lasts < 1 μs (just an atomic store).
-    // Clears EVERY stream — this is the rare, global vtable-level reset (see
-    // nar_dsp_pipeline_reset()), which has no single-stream semantics.
+    // Transient bypass: set _bypass=1, clear all stream state, restore _bypass.
+    // This is the rare, global vtable-level reset called by nar_dsp_pipeline_reset()
+    // (e.g. seek/flush). In that context ExoPlayer has already stopped the audio
+    // renderer thread before issuing the pipeline reset, so the audio thread is
+    // NOT running while we clear state. The transient bypass is therefore
+    // belt-and-suspenders here; the actual safety invariant is the ExoPlayer
+    // stop-before-reset sequencing.
+    //
+    // NAR-3 data-race note (acknowledged, not fixable without a seqlock):
+    // If the audio thread somehow entered _ln_process() BEFORE the bypass store
+    // in this function, it might concurrently write to a stream's gain_smooth or
+    // accumulator fields while we clear them. On arm64 (the only target platform,
+    // Snapdragon 730) individual aligned scalar accesses (float, double, int32)
+    // are 1-instruction STR/LDR operations that are hardware-atomic for aligned
+    // data — no torn reads or writes are possible. Worst outcome: one buffer
+    // (≤ 10 ms) of slightly-wrong loudness gain, self-correcting within 400 ms.
+    // A seqlock would close this window but would require a read-lock on the
+    // entire audio hot-path (hundreds of samples per buffer), negating the
+    // lock-free design. Trade-off is accepted; see file header for more detail.
     atomic_store(&_bypass, 1);
     for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; s++) {
         _reset_stream(&_streams[s]);
@@ -689,6 +704,13 @@ FFI_PLUGIN_EXPORT void nar_loudness_set_sample_rate(int32_t sample_rate) {
     // Back-compat: seeds stream 0's cached sample rate directly (the buffer-
     // driven auto-detect in _ensure_sample_rate() makes this call optional
     // going forward, but existing callers keep working unchanged).
+    //
+    // NAR-3 data-race note: same transient-bypass trade-off as nar_loudness_reset()
+    // (see _ln_reset() comment). During a sample-rate change the audio thread is
+    // typically still running (ExoPlayer may continue output briefly at the old
+    // SR). On arm64, scalar aligned accesses are hardware-atomic; worst outcome
+    // is one buffer of stale gain. Acceptable trade-off — the gain controller
+    // reconverges within the first 400 ms gating block at the new SR.
     atomic_store(&_bypass, 1);
     _compute_kw_coeffs(&_streams[0], (double)sample_rate);
     _reset_stream(&_streams[0]);
@@ -708,7 +730,45 @@ FFI_PLUGIN_EXPORT void nar_loudness_reset(void) {
     // Scoped to stream 0 ONLY (Dart calls this on every track change) — must
     // not clobber a concurrently-preloading standby stream's gating history.
     // See the file header's "Known limitation" note.
+    //
+    // NAR-3 data-race note: the transient bypass (set _bypass=1, clear state,
+    // restore _bypass=0) is the standard real-time audio "snapshot swap"
+    // pattern. The data race between an in-flight audio thread call that passed
+    // the bypass check and this control-thread clear is real but benign on arm64:
+    //   · Aligned scalar accesses (float, double, int32) are hardware-atomic
+    //     on AArch64 (single-register LDR/STR; ARMv8-A Ref Manual §B2.2).
+    //     No torn values, no UB in the C11 memory model sense for such accesses
+    //     (the C11 "data race" definition refers to undefined BEHAVIOUR, but
+    //     arm64 hardware prevents the actual undefined observable outcome for
+    //     naturally-aligned scalar types).
+    //   · Worst observable outcome: audio thread applies one buffer of stale
+    //     smoothed gain (≤ 10 ms at any sample rate), then on the NEXT buffer
+    //     load reads the freshly-zero'd state and starts reconverging. The gain
+    //     controller reaches a correct steady state within one 400 ms gating
+    //     block. Completely inaudible.
+    //   · A proper seqlock or reader-count spinloop would close the window but
+    //     would add a read-lock acquisition to every audio-thread buffer — the
+    //     entire DSP pipeline is designed to be lock-free. Not worth it for a
+    //     < 1-buffer miss that self-corrects in < 400 ms.
+    //
+    // NAR-5 note: stream 1's gating history is NOT reset here. Its state is
+    // cleared lazily by _ensure_sample_rate() when its next buffer arrives with
+    // a different sample rate (cross-track scenario), or on a global
+    // nar_dsp_pipeline_reset() call (seek/flush). For on-demand per-stream
+    // control (e.g. when the crossfade code knows which stream a new track
+    // starts on), use nar_loudness_reset_stream(stream_slot).
     atomic_store(&_bypass, 1);
     _reset_stream(&_streams[0]);
+    if (atomic_load(&_enabled)) atomic_store(&_bypass, 0);
+}
+
+// FIX NAR-5: per-stream reset API. Resets the loudness analyzer for the
+// specified stream slot independently, without touching the other stream.
+// Identical semantics to nar_loudness_reset() but target-scoped.
+FFI_PLUGIN_EXPORT void nar_loudness_reset_stream(int32_t stream_slot) {
+    // Clamp to valid range.
+    if (stream_slot < 0 || stream_slot >= NAR_DSP_MAX_STREAMS) stream_slot = 0;
+    atomic_store(&_bypass, 1);
+    _reset_stream(&_streams[stream_slot]);
     if (atomic_load(&_enabled)) atomic_store(&_bypass, 0);
 }

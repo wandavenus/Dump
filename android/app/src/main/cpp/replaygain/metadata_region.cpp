@@ -203,6 +203,15 @@ bool ReadRegion(int fd, int64_t size, std::string* out) {
         out->clear();
         return true;
     }
+    // FIX Temuan #1 (HIGH): cap allocation to prevent OOM from a malformed or
+    // adversarial file that reports a giant metadata region (e.g. a corrupt
+    // ID3v2 header with a 256 MB size field, or a FLAC with thousands of
+    // PICTURE blocks totalling gigabytes). 64 MB covers any realistic embedded
+    // image scenario — a music file with legitimate metadata never approaches
+    // this limit. Returning false causes BackupRegion() → WriteResult::kUnknown,
+    // which the caller (Kotlin) treats as "can't safely write; skip this file".
+    constexpr int64_t kMaxSafeRegionBytes = 64LL * 1024 * 1024;  // 64 MB
+    if (size > kMaxSafeRegionBytes) return false;
     out->resize(static_cast<size_t>(size));
     return PreadExact(fd, 0, out->data(), static_cast<size_t>(size));
 }

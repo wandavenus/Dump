@@ -175,6 +175,19 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_stream(
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
+  // FIX NAR-2: defensive _initialized guard. nar_dsp_pipeline_dispose()
+  // sets _initialized=0 BEFORE zeroing vtable pointers. Checking here
+  // (in addition to the existing check in process_raw_stream()) ensures
+  // that if the audio thread slips past the outer guard and enters this
+  // function after dispose() has started, it fails-open instead of
+  // dereferencing a zeroed vtable pointer. In practice the architectural
+  // invariant (ExoPlayer audio thread stopped before dispose is called)
+  // prevents this scenario, but the explicit check makes it crash-safe
+  // even if that invariant is ever violated by a future refactor.
+  if (!atomic_load(&_initialized)) {
+    nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_NOT_INITIALIZED);
+    return NATIVE_RUNTIME_ERROR_NOT_INITIALIZED;
+  }
   const int32_t slot = nar_dsp_clamp_stream(stream_slot);
   int32_t count = atomic_load(&_count);
   int32_t first_error = NATIVE_RUNTIME_OK;

@@ -30,8 +30,9 @@
 // targets (arm64-v8a, x86_64 host). A plain _Atomic float is legal C11 but
 // may use a mutex on rare ABIs; the bit-pattern trick avoids that.
 
-static _Atomic int32_t _gain_db_bits;  // IEEE 754 float bits for gain_db
-static _Atomic int32_t _bypass;        // 0 = apply gain, 1 = zero-copy bypass
+static _Atomic int32_t _gain_db_bits;      // IEEE 754 float bits for gain_db
+static _Atomic int32_t _gain_linear_bits;  // FIX NAR-1: pre-computed linear gain (avoids powf on audio thread)
+static _Atomic int32_t _bypass;            // 0 = apply gain, 1 = zero-copy bypass
 
 #define GAIN_DB_DEFAULT  0.0f   //  0 dBFS = unity gain
 #define GAIN_DB_MIN    (-96.0f)
@@ -59,7 +60,10 @@ static float _clamp_gain(float db) {
 
 static int32_t _gain_init(void* self) {
   (void)self;  // All state is in the module-level atomics above.
-  atomic_store(&_gain_db_bits, _float_to_bits(GAIN_DB_DEFAULT));
+  atomic_store(&_gain_db_bits,     _float_to_bits(GAIN_DB_DEFAULT));
+  // FIX NAR-1: pre-compute linear gain at init so _gain_process() never calls
+  // powf() on the audio thread. GAIN_DB_DEFAULT = 0 dB → linear = 1.0 exactly.
+  atomic_store(&_gain_linear_bits, _float_to_bits(1.0f));
   atomic_store(&_bypass, 0);
   return NATIVE_RUNTIME_OK;
 }
@@ -83,9 +87,10 @@ static int32_t _gain_process(void* self, NarAudioBuffer* buffer, int32_t stream_
   int32_t channels = nar_audio_buffer_channel_count(buffer);
   int32_t samples  = frames * channels;
 
-  // Convert dBFS → linear once, outside the hot loop.
-  float gain_db     = _bits_to_float(atomic_load(&_gain_db_bits));
-  float gain_linear = powf(10.0f, gain_db / 20.0f);
+  // FIX NAR-1: load the pre-computed linear gain. The conversion powf(10, db/20)
+  // is now done ONLY on the control thread (in nar_gain_processor_set_gain_db),
+  // not here. Audio thread only performs one atomic load + isfinite guard.
+  float gain_linear = _bits_to_float(atomic_load(&_gain_linear_bits));
   if (!isfinite(gain_linear)) gain_linear = 1.0f;  // defensive fail-open
 
   // Hot loop — scale every sample by gain_linear.
@@ -151,7 +156,14 @@ FFI_PLUGIN_EXPORT int32_t nar_gain_processor_register_internal(void) {
 // ── Public knobs ──────────────────────────────────────────────────────────────
 
 FFI_PLUGIN_EXPORT void nar_gain_processor_set_gain_db(float gain_db) {
-  atomic_store(&_gain_db_bits, _float_to_bits(_clamp_gain(gain_db)));
+  gain_db = _clamp_gain(gain_db);
+  // FIX NAR-1: compute powf() HERE on the control thread, store the result.
+  // Audio thread reads _gain_linear_bits directly — zero transcendentals on
+  // the hot path, consistent with every other processor (comp/limiter/RG).
+  float gain_linear = powf(10.0f, gain_db / 20.0f);
+  if (!isfinite(gain_linear)) gain_linear = 1.0f;
+  atomic_store(&_gain_db_bits,     _float_to_bits(gain_db));
+  atomic_store(&_gain_linear_bits, _float_to_bits(gain_linear));
 }
 
 FFI_PLUGIN_EXPORT void nar_gain_set_db(float gain_db) {
