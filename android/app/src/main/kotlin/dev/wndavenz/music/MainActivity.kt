@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
 import dev.wndavenz.music.events.ServiceReadyGate
