@@ -1,0 +1,294 @@
+# Audit Menyeluruh Fitur ReplayGain Write Tag
+
+Lakukan audit menyeluruh terhadap implementasi fitur **ReplayGain Write Tag** di seluruh repository.
+
+> **Fokus audit hanya pada fitur penulisan tag ReplayGain**, bukan playback, DSP, maupun loudness analysis.
+
+---
+
+# 1. Audit Arsitektur & Flow
+
+Telusuri seluruh alur eksekusi mulai dari:
+
+```
+UI
+↓
+Flutter Service
+↓
+Platform Channel / JNI
+↓
+Native C/C++
+↓
+TagLib
+↓
+Metadata ditulis ke file audio
+```
+
+Untuk setiap tahap, jelaskan:
+
+- file
+- class
+- function
+- siapa yang memanggil
+- siapa yang dipanggil
+- apakah seluruh flow benar-benar tersambung
+
+---
+
+# 2. Reachability
+
+Pastikan fitur benar-benar dapat dijalankan pada runtime.
+
+Cari:
+
+- dead code
+- unreachable code
+- function yang tidak pernah dipanggil
+- callback yang tidak pernah terhubung
+- fitur yang hanya selesai secara implementasi tetapi tidak pernah dieksekusi
+
+---
+
+# 3. Android Scoped Storage
+
+Audit implementasi Android 10+.
+
+Pastikan:
+
+- tidak menggunakan path filesystem lama
+- tidak mengandalkan `MediaStore.Audio.Media.DATA`
+- kompatibel dengan Scoped Storage
+- menggunakan `MediaStore` dengan benar
+- menggunakan `ParcelFileDescriptor` bila diperlukan
+- permission sudah benar
+
+Cari semua kemungkinan kegagalan pada Android modern.
+
+---
+
+# 4. JNI Audit
+
+Audit seluruh JNI bridge.
+
+Periksa:
+
+- signature mismatch
+- null pointer
+- local reference leak
+- global reference leak
+- file descriptor leak
+- memory leak
+- unchecked exception
+- exception propagation
+- thread safety
+- resource cleanup
+
+Pastikan seluruh resource selalu dilepas.
+
+---
+
+# 5. Native C/C++ Audit
+
+Audit seluruh kode native ReplayGain.
+
+Cari:
+
+- memory leak
+- use-after-free
+- double free
+- race condition
+- buffer overflow
+- integer overflow
+- undefined behavior
+- dangling pointer
+- resource leak
+- fd leak
+- error handling buruk
+- unchecked return value
+- null dereference
+
+Lakukan audit manual, bukan hanya compiler warning.
+
+---
+
+# 6. TagLib Audit
+
+Audit seluruh penggunaan TagLib.
+
+Pastikan implementasi sesuai API terbaru.
+
+Periksa:
+
+- open file
+- fd handling
+- save()
+- flush()
+- close()
+- cleanup
+- rollback bila gagal
+- exception handling
+
+Cari kemungkinan file corrupt apabila proses berhenti di tengah penulisan.
+
+---
+
+# 7. Metadata Validation
+
+Pastikan seluruh metadata ReplayGain ditulis sesuai spesifikasi.
+
+Audit:
+
+## MP3
+
+- ID3v2 TXXX
+- nama field
+- format value
+
+## FLAC
+
+- Vorbis Comment
+
+## OGG Vorbis
+
+- ReplayGain tags
+
+## Opus
+
+Pastikan implementasi:
+
+- R128_TRACK_GAIN
+- R128_ALBUM_GAIN
+
+Pastikan seluruh format value sesuai spesifikasi.
+
+Cari typo maupun penulisan field yang salah.
+
+---
+
+# 8. Error Handling
+
+Pastikan seluruh error ditangani dengan baik.
+
+Contoh:
+
+- permission denied
+- save gagal
+- metadata corrupt
+- file tidak ditemukan
+- ParcelFileDescriptor gagal dibuka
+- JNI exception
+- native exception
+- TagLib gagal menyimpan
+
+Pastikan tidak ada silent failure.
+
+---
+
+# 9. Threading
+
+Pastikan proses write:
+
+- tidak berjalan di UI Thread
+- aman apabila banyak lagu diproses bersamaan
+- bebas race condition
+
+Audit seluruh sinkronisasi thread.
+
+---
+
+# 10. Logging
+
+Audit logging.
+
+Pastikan:
+
+- cukup informatif
+- tidak spam
+- mudah dipakai debugging
+- tidak membocorkan informasi sensitif
+
+---
+
+# 11. Performance
+
+Cari bottleneck.
+
+Audit:
+
+- copy file yang tidak perlu
+- alokasi memori besar
+- object yang dibuat berulang
+- operasi blocking
+- operasi I/O berlebihan
+
+Berikan saran optimasi apabila ditemukan.
+
+---
+
+# 12. Security
+
+Cari kemungkinan:
+
+- arbitrary path access
+- path traversal
+- invalid file descriptor
+- unchecked input
+- malformed metadata
+- injection melalui metadata
+
+---
+
+# 13. Production Readiness
+
+Jawab secara eksplisit:
+
+- Apakah fitur ReplayGain Write Tag sudah production-ready?
+- Jika belum, apa saja yang masih kurang?
+- Risiko apa yang masih tersisa?
+- Apa saja blocker sebelum fitur dapat dirilis?
+
+---
+
+# Output Laporan
+
+Untuk **setiap temuan**, gunakan format berikut:
+
+## Severity
+
+- Critical
+- High
+- Medium
+- Low
+
+## Lokasi
+
+- File
+- Function
+- Line Number
+
+## Penjelasan
+
+Jelaskan secara teknis:
+
+- penyebab
+- dampak
+- risiko
+
+## Solusi
+
+Berikan solusi yang benar secara arsitektur.
+
+## Patch
+
+Apabila memungkinkan, sertakan contoh patch atau potongan kode yang tepat.
+
+---
+
+# Ketentuan Audit
+
+- Jangan hanya menjalankan analyzer atau linter.
+- Lakukan pembacaan source code secara manual.
+- Audit seluruh repository yang berkaitan dengan ReplayGain Write Tag.
+- Jangan melewatkan file native C/C++, Kotlin, JNI, maupun Flutter.
+- Laporkan seluruh temuan, termasuk temuan dengan severity rendah.
+- Jika tidak menemukan masalah pada suatu bagian, jelaskan alasan teknis mengapa implementasi tersebut dinilai aman.
