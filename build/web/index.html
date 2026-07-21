@@ -33,21 +33,6 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script>
-    // Prevent v0 runtime from using Flutter hash routes (e.g. #/firstpage) as CSS selectors.
-    (function () {
-      var _qs = Document.prototype.querySelector;
-      Document.prototype.querySelector = function (sel) {
-        if (typeof sel === 'string' && /^#\//.test(sel)) return null;
-        return _qs.apply(this, arguments);
-      };
-      var _qsa = Document.prototype.querySelectorAll;
-      Document.prototype.querySelectorAll = function (sel) {
-        if (typeof sel === 'string' && /^#\//.test(sel)) return document.createDocumentFragment().childNodes;
-        return _qsa.apply(this, arguments);
-      };
-    })();
-  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
