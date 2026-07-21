@@ -87,3 +87,4 @@
 - [Audit output convention](audit-output-convention.md) — setiap sesi audit harus menghasilkan file .md di root repo; jangan output isi lengkap ke chat, cukup nama file + ringkasan singkat.
 - [Native Audit Fixes 2026-07-20](native-audit-fixes-2026-07-20.md) — semua 14 temuan dari Native_Audit_Merged_2026-07-20.md diperbaiki: per-stream RG gain, loudness reset_stream API, arm64 race pattern, JNI LocalRef, steady_clock→frame counter.
 - [Target device single](target-device.md) — app HANYA untuk Xiaomi Mi 9T/K20 (SD730, 6GB RAM, MIUI 12/Android 11); abaikan device lain, jangan buat workaround/compat untuk perangkat lain.
+- [Notification artwork fix](notification-artwork-fix.md) — loadBitmap() dua tahap: ContentResolver → ArtworkCacheManager; noArtworkUris diganti TTL 30s; cache key = artUri ?: "song:$songId".

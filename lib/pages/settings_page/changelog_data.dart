@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.5',
+    date: '21 Juli 2026',
+    changes: [
+      'Fix artwork notifikasi: notifikasi kini pakai pipeline yang sama dengan Full Player — fallback ke ArtworkCacheManager (embedded art + disk cache) jika MediaStore album art URI gagal.',
+      'Fix blacklist artwork permanen: no-artwork cache sekarang TTL 30 detik, bukan permanen — lagu yang gagal saat cold start otomatis di-retry tanpa perlu restart app.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.4',
     date: '19 Juli 2026',
     changes: [

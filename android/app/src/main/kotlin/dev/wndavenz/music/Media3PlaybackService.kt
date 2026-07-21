@@ -113,6 +113,8 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var playPauseFadeController: PlayPauseFadeController
     private lateinit var offloadManager:       AudioOffloadManager
     private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
+    // ART-01: artwork cache shared between notification and full-player pipelines.
+    private lateinit var serviceArtworkCache:  ArtworkCacheManager
 
     // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
     // Shut down in onDestroy() so tasks don't outlive the service.
@@ -293,6 +295,11 @@ class Media3PlaybackService : MediaSessionService() {
                 .build(),
         ))
 
+        // ART-01: initialise artwork cache for notification fallback pipeline.
+        // Shares the same on-disk WebP cache ({filesDir}/artwork/) as MainActivity's
+        // ArtworkCacheManager so cache hits from Full Player warm-up are reused here.
+        serviceArtworkCache = ArtworkCacheManager(this)
+
         // Wire feature modules ────────────────────────────────────────────────
 
         audioFocusManager = AudioFocusManager(
@@ -315,12 +322,14 @@ class Media3PlaybackService : MediaSessionService() {
         )
 
         notificationManager = PlaybackNotificationManager(
-            service         = this,
-            handler         = handler,
-            getSession      = { session },
-            getIsPlaying    = { activePlayer?.isPlaying ?: false },
-            getCurrentTrack = { transportState.currentTrackMap() },
-            serviceClass    = Media3PlaybackService::class.java,
+            service              = this,
+            handler              = handler,
+            getSession           = { session },
+            getIsPlaying         = { activePlayer?.isPlaying ?: false },
+            getCurrentTrack      = { transportState.currentTrackMap() },
+            serviceClass         = Media3PlaybackService::class.java,
+            // ART-01: inject shared artwork cache so notification uses same pipeline as Full Player.
+            artworkCacheManager  = serviceArtworkCache,
         )
         notificationManager.ensureChannel()
 

@@ -8,14 +8,15 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.LruCache
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
+import dev.wndavenz.music.ArtworkCacheManager
 import dev.wndavenz.music.Media3PlaybackService
 import dev.wndavenz.music.R
 import dev.wndavenz.music.events.NativeLogger
@@ -37,6 +38,15 @@ import java.util.concurrent.Executors
  *        first without artwork, then update once the bitmap is ready. A generation
  *        counter prevents stale async results from overwriting a newer notification.
  * NS-04: launchPendingIntent is cached as a lazy val — no rebuild on every refresh.
+ * ART-01: loadBitmap() now has a two-stage fallback pipeline:
+ *         1. ContentResolver (MediaStore album art URI)
+ *         2. ArtworkCacheManager.getOrExtract(songId) — same pipeline as Full Player
+ *        This ensures Notification, Lock Screen, Bluetooth, and Android Auto all draw
+ *        artwork from the same source as the in-app Full Player and Mini Player.
+ * ART-02: noArtworkUris replaced with a TTL-based map (30 s). Transient failures
+ *         (e.g. MediaStore not yet ready on cold start) are retried after expiry
+ *         instead of being permanently blocked until app restart.
+ * ART-03: songId (existing "id" field) used for fallback — no new fields added.
  */
 @UnstableApi
 class PlaybackNotificationManager(
@@ -46,6 +56,10 @@ class PlaybackNotificationManager(
     private val getIsPlaying: () -> Boolean,
     private val getCurrentTrack: () -> Map<String, Any?>?,
     private val serviceClass: Class<*> = Media3PlaybackService::class.java,
+    /** Same ArtworkCacheManager instance used by the Full Player (passed from the service).
+     *  Provides embedded-art extraction + persistent WebP disk cache as a fallback when
+     *  the MediaStore album-art URI cannot be resolved. */
+    private val artworkCacheManager: ArtworkCacheManager? = null,
 ) {
     var isForeground = false
         private set
@@ -65,16 +79,14 @@ class PlaybackNotificationManager(
     }
 
     // LRU bitmap cache (max 10 entries) — evicts least-recently-used album art automatically.
-    // LruCache does not accept null values, so we track "tried but no artwork" URIs separately.
-    // LOW-02 fix: noArtworkUris is now a bounded LinkedHashSet (max 64 entries) that evicts
-    // the oldest entry when full, preventing unbounded growth during long listening sessions.
-    private val artworkCache  = LruCache<String, Bitmap>(10)
-    private val noArtworkUris: MutableSet<String> = object : java.util.LinkedHashSet<String>(64) {
-        override fun add(element: String): Boolean {
-            if (size >= 64) remove(iterator().next())
-            return super.add(element)
-        }
-    }
+    // Key is artUri when available, or "song:{songId}" for embedded-only tracks.
+    private val bitmapCache = android.util.LruCache<String, Bitmap>(10)
+
+    // ART-02 fix: TTL-based no-artwork map. Entries expire after NO_ARTWORK_TTL_MS so
+    // transient failures (MediaStore not ready on cold start) can be retried automatically.
+    // Bounded to 64 entries to prevent unbounded growth during long sessions.
+    private val noArtworkTimestamps = HashMap<String, Long>(64)
+
     private var artworkLoadGeneration = 0L
 
     // LOW-04 fix: single daemon thread reused for all artwork loads instead of spawning
@@ -140,15 +152,21 @@ class PlaybackNotificationManager(
         val track     = getCurrentTrack()
         val isPlaying = getIsPlaying()
         val artUri    = track?.get("artworkUri") as? String
+        val songId    = (track?.get("id") as? Number)?.toInt() ?: 0
+
+        // Combined cache key: prefer artUri; fall back to song-id key for embedded-only tracks.
+        val cacheKey  = artUri ?: if (songId > 0) "song:$songId" else null
 
         // Post immediately with cached artwork (null if not yet loaded)
-        val cached    = artUri?.let { artworkCache.get(it) }
-        val hasCached = artUri == null || artworkCache.get(artUri) != null || artUri in noArtworkUris
+        val cached    = cacheKey?.let { bitmapCache.get(it) }
+        val hasCached = cacheKey == null
+                || bitmapCache.get(cacheKey) != null
+                || isInNoArtworkCache(cacheKey)
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
         // If not cached yet, load async and update
-        if (!hasCached && artUri != null) {
-            refreshAsync(artUri, track, isPlaying)
+        if (!hasCached && cacheKey != null) {
+            refreshAsync(artUri, songId, track, isPlaying)
         }
     }
 
@@ -161,17 +179,20 @@ class PlaybackNotificationManager(
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private fun refreshAsync(
-        artUri: String? = getCurrentTrack()?.get("artworkUri") as? String,
+        artUri: String?       = getCurrentTrack()?.get("artworkUri") as? String,
+        songId: Int           = (getCurrentTrack()?.get("id") as? Number)?.toInt() ?: 0,
         track: Map<String, Any?>? = getCurrentTrack(),
-        isPlaying: Boolean = getIsPlaying(),
+        isPlaying: Boolean    = getIsPlaying(),
     ) {
-        if (artUri == null) return
+        val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
+        if (cacheKey == null) return
+
         val generation = ++artworkLoadGeneration
         artworkExecutor.execute {
-            val bmp = loadBitmap(artUri)
+            val bmp = loadBitmap(artUri, songId)
             handler.post {
                 if (generation != artworkLoadGeneration) return@post  // superseded
-                if (bmp != null) artworkCache.put(artUri, bmp) else noArtworkUris.add(artUri)
+                if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
                 try {
                     postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
@@ -252,17 +273,59 @@ class PlaybackNotificationManager(
     }
 
     /**
-     * Loads and scales album artwork for use in the notification.
+     * ART-01: Two-stage artwork loading pipeline — mirrors the Full Player's artwork strategy.
+     *
+     * Stage 1 — ContentResolver (fast path):
+     *   Opens the MediaStore album-art URI directly via ContentResolver with a two-pass
+     *   BitmapFactory decode (bounds first, then scaled to NOTIF_ART_PX). Works for songs
+     *   whose artwork MediaStore has already indexed.
+     *
+     * Stage 2 — ArtworkCacheManager (fallback):
+     *   Delegates to the same ArtworkCacheManager used by the Full Player.
+     *   It first checks a persistent WebP disk cache ({filesDir}/artwork/{songId}.webp),
+     *   then extracts embedded artwork via MediaMetadataRetriever as a last resort.
+     *   This covers songs in non-standard directories and cold-start scenarios where
+     *   MediaStore hasn't indexed artwork yet.
+     *
+     * Returns null only after both stages have been exhausted.
+     */
+    private fun loadBitmap(artUri: String?, songId: Int): Bitmap? {
+        // Stage 1: ContentResolver
+        val fromUri = tryUri(artUri)
+        if (fromUri != null) return fromUri
+
+        // Stage 2: ArtworkCacheManager — same pipeline as Full Player / Mini Player
+        if (artworkCacheManager != null && songId > 0) {
+            try {
+                val path = artworkCacheManager.getOrExtract(songId)
+                if (path != null) {
+                    val bmp = BitmapFactory.decodeFile(path)
+                    if (bmp != null) {
+                        NativeLogger.emit("debug", "Notification",
+                            "artwork loaded via cache fallback for songId=$songId")
+                        return bmp
+                    }
+                }
+            } catch (e: Exception) {
+                NativeLogger.emit("warn", "Notification",
+                    "ArtworkCacheManager fallback failed for songId=$songId: ${e.message}")
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Stage 1 of loadBitmap: tries the MediaStore album-art URI via ContentResolver.
      *
      * Two-pass decode: first read bounds only (no pixel allocation), compute
      * the power-of-two inSampleSize that fits within NOTIF_ART_PX, then decode
-     * at the reduced size. Content URIs (MediaStore) can be opened twice — each
-     * openInputStream call returns an independent stream.
+     * at the reduced size.
      *
      * Before: large album art (3000×3000 JPEG) → ~34 MB Bitmap for a 128dp slot.
      * After:  same art decoded at 512×512 → ~1 MB Bitmap.
      */
-    private fun loadBitmap(artUri: String?): Bitmap? {
+    private fun tryUri(artUri: String?): Bitmap? {
         if (artUri.isNullOrBlank()) return null
         return try {
             val uri = Uri.parse(artUri)
@@ -274,6 +337,8 @@ class PlaybackNotificationManager(
             service.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, boundsOpts)
             }
+            // URI content was not a decodable image (e.g. MediaStore not yet indexed)
+            if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
 
             // Pass 2: scaled decode
             val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, NOTIF_ART_PX)
@@ -282,6 +347,37 @@ class PlaybackNotificationManager(
                 BitmapFactory.decodeStream(it, null, decodeOpts)
             }
         } catch (_: Exception) { null }
+    }
+
+    // ── noArtwork TTL helpers ─────────────────────────────────────────────────
+
+    /**
+     * ART-02: Returns true if [key] is in the no-artwork cache AND the entry hasn't
+     * expired yet. Expired entries are removed so the next lookup triggers a fresh attempt.
+     *
+     * All accesses are on the main/Handler thread (refreshAsync posts back via handler.post),
+     * so no additional synchronization is needed.
+     */
+    private fun isInNoArtworkCache(key: String): Boolean {
+        val ts = noArtworkTimestamps[key] ?: return false
+        if (SystemClock.elapsedRealtime() - ts > NO_ARTWORK_TTL_MS) {
+            noArtworkTimestamps.remove(key)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Records [key] as confirmed-no-artwork with the current elapsed-realtime timestamp.
+     * Evicts the oldest entry when the map reaches 64 entries to keep memory bounded.
+     */
+    private fun markNoArtwork(key: String) {
+        if (noArtworkTimestamps.size >= 64) {
+            // Remove one arbitrary entry (oldest in insertion order via LinkedHashMap would be
+            // ideal, but HashMap.keys.first() is O(bucket scan) and acceptable at 64 entries).
+            noArtworkTimestamps.keys.firstOrNull()?.let { noArtworkTimestamps.remove(it) }
+        }
+        noArtworkTimestamps[key] = SystemClock.elapsedRealtime()
     }
 
     /** Smallest power-of-two sample size so that neither dimension exceeds [maxPx]. */
@@ -301,5 +397,12 @@ class PlaybackNotificationManager(
 
         /** Target long edge for notification artwork in pixels. 512 px is crisp at 3× density. */
         private const val NOTIF_ART_PX = 512
+
+        /**
+         * ART-02: TTL for the no-artwork cache. Entries older than this are retried.
+         * 30 seconds covers typical MediaStore indexing delays on cold start while
+         * still preventing tight retry loops during a playback session.
+         */
+        private const val NO_ARTWORK_TTL_MS = 30_000L
     }
 }
