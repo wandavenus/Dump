@@ -89,6 +89,14 @@ class PlaybackNotificationManager(
 
     private var artworkLoadGeneration = 0L
 
+    // Patch A (RC-2 fix): tracks the cacheKey of the currently-enqueued async load.
+    // refreshAsync() bails out early if the same key is already pending — prevents the
+    // 3 redundant loadBitmap() calls that fire within ~1 ms at crossfade start
+    // (onIsPlayingChanged + onPlaybackStateChanged + refreshNotification all trigger
+    // refresh() in quick succession for the same incoming track).
+    // Accessed only on the main/Handler thread — no synchronisation needed.
+    private var pendingAsyncCacheKey: String? = null
+
     // LOW-04 fix: single daemon thread reused for all artwork loads instead of spawning
     // a new thread per refresh() call. Prevents thread explosion during rapid track changes.
     private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
@@ -178,6 +186,43 @@ class PlaybackNotificationManager(
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
+    /**
+     * Pre-loads artwork for the next track into [bitmapCache] during Phase 1 prewarm
+     * (~1500 ms before crossfade starts), so [refresh] at Phase 2 finds a cache hit
+     * and posts the notification synchronously with artwork — no blank-artwork window.
+     *
+     * RC-3 fix: previously the 1500 ms prewarm window only warmed the audio pipeline;
+     * [artworkExecutor] was idle the whole time.  This call starts the artwork load
+     * during that idle window so it's ready (or nearly ready) by the time
+     * [beginCrossfade] triggers [refresh].
+     *
+     * Callers: [CrossfadeController.maybeCrossfadeOut] Phase 1 block.
+     */
+    fun prewarmArtwork(nextSongId: Int, nextArtUri: String?) {
+        val cacheKey = nextArtUri ?: if (nextSongId > 0) "song:$nextSongId" else null
+        if (cacheKey == null) return
+        // Already in bitmapCache or confirmed no-artwork — nothing to do
+        if (bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)) return
+        // Same key already loading — don't double-enqueue
+        if (cacheKey == pendingAsyncCacheKey) return
+
+        pendingAsyncCacheKey = cacheKey
+        val generation = ++artworkLoadGeneration
+        artworkExecutor.execute {
+            val bmp = loadBitmap(nextArtUri, nextSongId)
+            handler.post {
+                pendingAsyncCacheKey = null
+                if (generation != artworkLoadGeneration) return@post
+                // Populate cache only — do NOT post a notification here.
+                // The refresh() that fires at crossfade start will find the hit and post.
+                if (bmp != null) bitmapCache.put(cacheKey, bmp)
+                else markNoArtwork(cacheKey)
+                NativeLogger.emit("debug", "Notification",
+                    "prewarmArtwork done: cacheKey=$cacheKey bmp=${bmp != null}")
+            }
+        }
+    }
+
     private fun refreshAsync(
         artUri: String?       = getCurrentTrack()?.get("artworkUri") as? String,
         songId: Int           = (getCurrentTrack()?.get("id") as? Number)?.toInt() ?: 0,
@@ -187,10 +232,18 @@ class PlaybackNotificationManager(
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         if (cacheKey == null) return
 
+        // Patch A (RC-2 fix): if the same cacheKey is already loading, skip enqueue.
+        // This collapses the 3 back-to-back refreshAsync() calls that happen within ~1 ms
+        // at crossfade start (onIsPlayingChanged + onPlaybackStateChanged + refreshNotification)
+        // into a single loadBitmap() call, reducing worst-case artwork latency by ~3×.
+        if (cacheKey == pendingAsyncCacheKey) return
+        pendingAsyncCacheKey = cacheKey
+
         val generation = ++artworkLoadGeneration
         artworkExecutor.execute {
             val bmp = loadBitmap(artUri, songId)
             handler.post {
+                pendingAsyncCacheKey = null  // reset: this key's load is complete
                 if (generation != artworkLoadGeneration) return@post  // superseded
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post

@@ -455,6 +455,11 @@ class Media3PlaybackService : MediaSessionService() {
             // Disable offload scheduling before the first 16 ms Handler tick so the
             // equal-power fade runs with reliable timing on the main looper.
             onCrossfadeStarting = { offloadManager.onCrossfadeStarting() },
+            // Patch B (RC-3): pre-load next track's artwork during the 1500 ms Phase 1
+            // prewarm window so refresh() at crossfade start finds a bitmapCache hit.
+            prewarmNotificationArtwork = { songId, artUri ->
+                notificationManager.prewarmArtwork(songId, artUri)
+            },
         )
 
         effectsManager = AudioEffectsManager(handler)

@@ -88,3 +88,4 @@
 - [Native Audit Fixes 2026-07-20](native-audit-fixes-2026-07-20.md) — semua 14 temuan dari Native_Audit_Merged_2026-07-20.md diperbaiki: per-stream RG gain, loudness reset_stream API, arm64 race pattern, JNI LocalRef, steady_clock→frame counter.
 - [Target device single](target-device.md) — app HANYA untuk Xiaomi Mi 9T/K20 (SD730, 6GB RAM, MIUI 12/Android 11); abaikan device lain, jangan buat workaround/compat untuk perangkat lain.
 - [Notification artwork fix](notification-artwork-fix.md) — loadBitmap() dua tahap: ContentResolver → ArtworkCacheManager; noArtworkUris diganti TTL 30s; cache key = artUri ?: "song:$songId".
+- [Notification artwork crossfade fix](notification-artwork-crossfade-fix.md) — Patch A: pendingAsyncCacheKey dedup guard (3 refreshAsync→1); Patch B: prewarmArtwork() dipanggil Phase 1 PREWARM_LEAD_MS, CrossfadeController punya lambda prewarmNotificationArtwork.

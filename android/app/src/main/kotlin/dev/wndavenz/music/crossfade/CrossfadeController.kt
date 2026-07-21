@@ -62,6 +62,11 @@ class CrossfadeController(
     // Called at the very start of beginCrossfade() so offload scheduling can be
     // disabled before the first 16 ms Handler tick fires.
     private val onCrossfadeStarting:  () -> Unit = {},
+    // Patch B (RC-3 fix): called during Phase 1 prewarm to pre-load the next track's
+    // artwork into the notification bitmap cache.  The 1500 ms prewarm window is otherwise
+    // idle for artwork, so this moves the load earlier and eliminates the blank-artwork
+    // window at crossfade start.  Nullable to keep the parameter optional/backward-compat.
+    private val prewarmNotificationArtwork: ((songId: Int, artUri: String?) -> Unit)? = null,
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -121,6 +126,22 @@ class CrossfadeController(
             prewarmTriggered = true
             preloadManager.prewarmStandby()
             log("Pre-warm triggered @ remaining=${remaining}ms (crossMs=${crossMs}ms)")
+
+            // Patch B (RC-3 fix): pre-load notification artwork during the idle prewarm
+            // window so bitmapCache already has the next track's artwork by the time
+            // beginCrossfade() calls refreshNotification().  artworkExecutor is otherwise
+            // idle here; starting the load ~1500 ms early eliminates the blank-artwork
+            // window that previously lasted 150–900 ms into the fade.
+            if (prewarmNotificationArtwork != null) {
+                val nextTrack = getQueue().getOrNull(preloadManager.preloadedQueueIndex)
+                if (nextTrack != null) {
+                    val songId = (nextTrack["id"] as? Number)?.toInt() ?: 0
+                    val artUri = nextTrack["artworkUri"] as? String
+                    prewarmNotificationArtwork.invoke(songId, artUri)
+                    log("prewarmNotificationArtwork triggered for [${ preloadManager.preloadedQueueIndex }] " +
+                        "'${nextTrack["title"]}' artUri=${artUri != null}")
+                }
+            }
         }
 
         // ── Phase 2: crossfade ────────────────────────────────────────────────

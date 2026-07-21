@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.6',
+    date: '21 Juli 2026',
+    changes: [
+      'Fix artwork notifikasi saat crossfade: artwork tidak lagi kosong/terlambat muncul di notifikasi saat lagu berganti — artwork dimuat 1500 ms lebih awal di window prewarm sebelum fade dimulai.',
+      'Fix duplikasi pemuatan artwork: 3 panggilan loadBitmap() beruntun dalam ~1 ms saat crossfade mulai kini diciutkan menjadi 1 — latency artwork berkurang hingga 3× di worst case.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.5',
     date: '21 Juli 2026',
     changes: [
