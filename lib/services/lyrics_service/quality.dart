@@ -16,16 +16,14 @@ extension LyricsQualityX on LyricsQuality {
   bool get isEnhanced => index <= LyricsQuality.charTimedLrc.index;
   bool get isWordTimed => this == LyricsQuality.wordTimedLrc;
 
-  String get displayName {
-    switch (this) {
-      case LyricsQuality.wordTimedLrc:   return 'Word-timed LRC';
-      case LyricsQuality.charTimedLrc:   return 'Char-timed LRC';
-      case LyricsQuality.lineTimedLrc:   return 'Synced LRC';
-      case LyricsQuality.plainLrc:       return 'Plain LRC';
-      case LyricsQuality.unsyncedLyrics: return 'Unsynced';
-      case LyricsQuality.none:           return 'None';
-    }
-  }
+  String get displayName => switch (this) {
+    LyricsQuality.wordTimedLrc   => 'Word-timed LRC',
+    LyricsQuality.charTimedLrc   => 'Char-timed LRC',
+    LyricsQuality.lineTimedLrc   => 'Synced LRC',
+    LyricsQuality.plainLrc       => 'Plain LRC',
+    LyricsQuality.unsyncedLyrics => 'Unsynced',
+    LyricsQuality.none           => 'None',
+  };
 
   /// Serialisasi untuk cache disk.
   String toJson() => name;

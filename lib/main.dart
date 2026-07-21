@@ -26,8 +26,6 @@ import 'package:musicplayer/services/watermark_service.dart';
 import 'package:musicplayer/services/open_file_service.dart';
 import 'package:musicplayer/services/boot_trace.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'utils/zoom_fade_route.dart';
-
 part 'main/main.dart';
 part 'main/edge.dart';
 part 'main/scroll_behavior.dart';
