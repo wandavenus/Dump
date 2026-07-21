@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/pages/settings_page.dart';
+import 'package:musicplayer/utils/zoom_fade_route.dart';
 
 import '../services/media_store_service.dart';
 
@@ -75,8 +77,9 @@ class _CommonActionsState extends State<CommonActions> {
             ),
             onSelected: (value) {
               if (value == 'settings') {
-                Navigator.of(context, rootNavigator: true)
-                    .pushNamed('/settings');
+                Navigator.of(context, rootNavigator: true).push(
+                  ZoomFadeRoute(page: const SettingsPage()),
+                );
               } else if (value == 'rescan') {
                 _rescan();
               }

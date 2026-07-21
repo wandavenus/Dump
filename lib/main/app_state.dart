@@ -146,26 +146,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // every time the widget tree rebuilds.
       theme: _appTheme,
       debugShowCheckedModeBanner: false,
-      initialRoute: '/firstpage',
-      onGenerateRoute: (settings) {
-        // Detail routes (/album, /artist, etc.) are now handled by each tab's
-        // inner Navigator inside FirstPage, so they won't reach here.
-        // Only the app shell and settings are handled at the root level.
-        switch (settings.name) {
-          case '/firstpage':
-            return ZoomFadeRoute(
-              page: const WebView(child: FirstPage()),
-              settings: settings,
-            );
-          case '/settings':
-            return ZoomFadeRoute(
-              page: const SettingsPage(),
-              settings: settings,
-            );
-          default:
-            return null;
-        }
-      },
+      home: const WebView(child: FirstPage()),
     );
   }
 }
