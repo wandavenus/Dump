@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/media_store_service.dart';
@@ -68,7 +69,7 @@ class _CommonActionsState extends State<CommonActions> {
           offset: const Offset(0, 0),
           child: PopupMenuButton<String>(
             icon: const Icon(
-              Icons.more_vert,
+              CupertinoIcons.ellipsis_vertical,
               color: Color(0xFFF92D48),
               size: 24,
             ),

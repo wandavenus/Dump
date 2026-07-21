@@ -24,7 +24,7 @@ class DetailTopBar extends StatelessWidget {
               SizedBox(width: 20),
               Icon(Icons.add, size: 22, color: Color(0xFFF92D48)),
               SizedBox(width: 20),
-              Icon(Icons.more_vert, size: 22, color: Color(0xFFF92D48)),
+              Icon(CupertinoIcons.ellipsis_vertical, size: 22, color: Color(0xFFF92D48)),
             ],
           ),
         ],

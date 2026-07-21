@@ -79,7 +79,7 @@ class SongListRow extends StatelessWidget {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(Icons.more_vert, size: 20, color: Color(0xFF8E8E93)),
+                    child: Icon(CupertinoIcons.ellipsis_vertical, size: 20, color: Color(0xFF8E8E93)),
                   ),
                 ),
               ],

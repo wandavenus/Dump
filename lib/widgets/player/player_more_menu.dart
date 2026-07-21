@@ -84,7 +84,7 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
           color: Color.fromARGB(90, 100, 100, 100),
         ),
         child: const Icon(
-          Icons.more_vert_rounded,
+          CupertinoIcons.ellipsis_vertical,
           color: Colors.white,
           size: 20,
         ),
