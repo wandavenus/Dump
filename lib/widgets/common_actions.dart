@@ -33,7 +33,7 @@ class _CommonActionsState extends State<CommonActions> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gagal scan lagu'),
+            content: Text('Gagal memindai lagu'),
             duration: Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Color(0xFF1C1C1E),
@@ -71,7 +71,7 @@ class _CommonActionsState extends State<CommonActions> {
             icon: const Icon(
               CupertinoIcons.ellipsis_vertical,
               color: Color(0xFFF92D48),
-              size: 24,
+              size: 23,
             ),
             onSelected: (value) {
               if (value == 'settings') {
