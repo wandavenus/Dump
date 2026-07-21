@@ -7,6 +7,9 @@ analyzer:
     # workspace-level `flutter analyze` to avoid spurious uri_does_not_exist
     # errors. Run `dart test` inside native_audio_runtime/ to exercise those files.
     - native_audio_runtime/test/**
+    # ffigen.dart is a codegen tool script, not part of the app; ffigen package
+    # is a dev-dependency of native_audio_runtime, not the workspace root.
+    - native_audio_runtime/tool/**
   errors:
     invalid_annotation_target: ignore
 

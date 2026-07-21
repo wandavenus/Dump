@@ -238,7 +238,9 @@ class Media3PlaybackService : MediaSessionService() {
         // LOW-07 fix: track the initial offload listener so it can be removed before
         // adding a new one on crossfade completion (prevents listener accumulation).
         activeOffloadListener = offloadManager.makeOffloadListener()
-        primaryPlayer!!.addAudioOffloadListener(activeOffloadListener!!)
+        val initialPlayer   = primaryPlayer   ?: return
+        val offloadListener = activeOffloadListener ?: return
+        initialPlayer.addAudioOffloadListener(offloadListener)
 
         // Build MediaSession
         // CRIT-01 fix: MediaSession always uses activePlayerProxy — never replaced by a raw
@@ -247,7 +249,7 @@ class Media3PlaybackService : MediaSessionService() {
         // transportCommands is lateinit but fully initialised before any external controller
         // can connect (connections only happen after onCreate() returns).
         activePlayerProxy = ActivePlayerProxy(
-            initialPlayer = primaryPlayer!!,
+            initialPlayer = initialPlayer,
             onPlay        = { transportCommands.playNative() },
             onPause       = { transportCommands.pauseNative() },
             onSkipNext    = { transportCommands.skipNextNative() },
@@ -564,7 +566,7 @@ class Media3PlaybackService : MediaSessionService() {
         EventEmitter.setOnSubscribeCallback { transportState.emitAll(emitQueue = true) }
 
         // Attach listener to primary player
-        attachPlayerListener(primaryPlayer!!)
+        primaryPlayer?.let { attachPlayerListener(it) }
 
         registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
 

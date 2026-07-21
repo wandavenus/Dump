@@ -594,8 +594,7 @@ class MainActivity : FlutterActivity() {
                     // Computes per-track loudness AND the shared album gain
                     // (EBU Tech 3341 album mode) across every path passed in.
                     "scanAlbum" -> {
-                        @Suppress("UNCHECKED_CAST")
-                        val paths = (call.argument<List<String>>("paths")) ?: emptyList()
+                        val paths = call.argument<List<String>>("paths") ?: emptyList()
                         submitBackground(
                             replayGainScanExecutor,
                             onRejected = {
@@ -631,8 +630,7 @@ class MainActivity : FlutterActivity() {
                     // MethodChannel map keys round-trip cleanly as strings) to
                     // whether that song is now writable.
                     "requestReplayGainWriteAccessBatch" -> {
-                        @Suppress("UNCHECKED_CAST")
-                        val songIds = (call.argument<List<Any?>>("songIds"))
+                        val songIds = call.argument<List<Any?>>("songIds")
                             ?.mapNotNull { (it as? Number)?.toInt() }
                             ?: emptyList()
                         if (songIds.isEmpty()) {

@@ -138,7 +138,6 @@ class TransportCommands(
 
             "setQueue" -> {
                 sleepTimerManager.cancel()
-                @Suppress("UNCHECKED_CAST")
                 val items = call.argument<List<Map<String, Any?>>>("queue") ?: emptyList()
                 val index = call.argument<Number>("index")?.toInt() ?: 0
 
