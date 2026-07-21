@@ -45,7 +45,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
         title: 'Changelog',
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).maybePop(),
           child: const Icon(
             CupertinoIcons.arrow_left,
