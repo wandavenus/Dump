@@ -23,11 +23,11 @@ class LyricsResult {
 
   String get sourceLabel {
     if (providerName.isNotEmpty) return providerName;
-    switch (source) {
-      case LyricsSource.embedded:  return 'Dari tag file';
-      case LyricsSource.localFile: return 'Dari file .lrc';
-      case LyricsSource.internet:  return 'Dari internet';
-      case LyricsSource.none:      return '';
-    }
+    return switch (source) {
+      LyricsSource.embedded  => 'Dari tag file',
+      LyricsSource.localFile => 'Dari file .lrc',
+      LyricsSource.internet  => 'Dari internet',
+      LyricsSource.none      => '',
+    };
   }
 }

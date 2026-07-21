@@ -131,19 +131,15 @@ class LyricsSettings {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  static TextAlign get resolvedTextAlign {
-    switch (textAlign.value) {
-      case 'center': return TextAlign.center;
-      case 'right':  return TextAlign.right;
-      default:       return TextAlign.left;
-    }
-  }
+  static TextAlign get resolvedTextAlign => switch (textAlign.value) {
+    'center' => TextAlign.center,
+    'right'  => TextAlign.right,
+    _        => TextAlign.left,
+  };
 
-  static Color get resolvedActiveColor {
-    switch (activeColor.value) {
-      case 'accent': return const Color(0xFFF92D48);
-      case 'yellow': return const Color(0xFFFFD60A);
-      default:       return Colors.white;
-    }
-  }
+  static Color get resolvedActiveColor => switch (activeColor.value) {
+    'accent' => const Color(0xFFF92D48),
+    'yellow' => const Color(0xFFFFD60A),
+    _        => Colors.white,
+  };
 }
