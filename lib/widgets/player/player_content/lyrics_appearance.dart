@@ -45,37 +45,37 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
     // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return SwipeToDismissSheet(
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
-        child: ColoredBox(
-          color: Colors.black,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+      child: Material(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Tampilan Lirik',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Tampilan Lirik',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
                   const SizedBox(height: 20),
                   _buildLabel('Ukuran Teks'),
                   const SizedBox(height: 8),
