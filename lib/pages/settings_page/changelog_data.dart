@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.7',
+    date: '21 Juli 2026',
+    changes: [
+      'Fix judul & artis notifikasi terlambat berganti saat crossfade: MediaSession kini diperbarui secara sinkron saat pergantian player, sehingga MIUI media widget dan lock screen langsung menampilkan lagu baru.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.6',
     date: '21 Juli 2026',
     changes: [

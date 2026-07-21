@@ -66,6 +66,27 @@ internal class ActivePlayerProxy(
      * Migrate all registered listeners from the current wrapped player to [newPlayer].
      * Must be called on the main thread. Invoked by the switchSessionPlayer lambda
      * in CrossfadeController when crossfade begins and when promotion completes.
+     *
+     * TITLE-ARTIST FIX (Crossfade):
+     * After migrating listeners we immediately fire synthetic [Player.Listener.onMediaItemTransition]
+     * and [Player.Listener.onMediaMetadataChanged] events to every registered listener.
+     * The primary target is Media3's internal MediaSessionImpl.PlayerListener, which in turn
+     * calls MediaSessionCompat.setMetadata() — the IPC broadcast that the system (and MIUI 12's
+     * media widget / lock screen) reads for title & artist.
+     *
+     * Without this, Media3 only learns about the new track when ExoPlayer posts its own async
+     * callbacks after switchTo() returns (typically ~16 ms via Handler.post).  On MIUI 12,
+     * the media notification layout can read title/artist from MediaSessionCompat.metadata
+     * rather than the notification's setContentTitle/setContentText, so even though our custom
+     * buildNotification() already has the correct title/artist, MIUI renders the stale cached
+     * value until the MediaSession broadcast arrives.  Firing the synthetic events here —
+     * synchronously, before the caller posts the notification — eliminates that window.
+     *
+     * Safety: [registeredListeners] only contains listeners registered via
+     * [ActivePlayerProxy.addListener] (i.e. Media3's own internal listeners and any external
+     * MediaController clients).  Our per-ExoPlayer listeners (registered directly on the
+     * ExoPlayer instance via attachPlayerListener) are NOT in this list, so the synthetic
+     * events do NOT re-trigger our onMediaItemTransition handler in Media3PlaybackService.
      */
     fun switchTo(newPlayer: ExoPlayer) {
         if (newPlayer === _current) return
@@ -73,8 +94,21 @@ internal class ActivePlayerProxy(
         snapshot.forEach { _current.removeListener(it) }
         _current = newPlayer
         snapshot.forEach { _current.addListener(it) }
+
+        // Synchronously notify the Media3 MediaSession listener (and any other registered
+        // listener) that the track has changed, so MediaSessionCompat.setMetadata() is
+        // broadcast to the system before refreshNotification() posts the notification.
+        val newItem = newPlayer.currentMediaItem
+        val newMeta = newPlayer.mediaMetadata
+        snapshot.forEach { l ->
+            try { l.onMediaItemTransition(newItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) }
+            catch (_: Exception) {}
+            try { l.onMediaMetadataChanged(newMeta) }
+            catch (_: Exception) {}
+        }
+
         NativeLogger.emit("info", "Media3",
-            "ActivePlayerProxy.switchTo: migrated ${snapshot.size} listener(s)")
+            "ActivePlayerProxy.switchTo: migrated ${snapshot.size} listener(s) + notified metadata")
     }
 
     override fun addListener(listener: Player.Listener) {

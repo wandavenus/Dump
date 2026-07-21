@@ -89,3 +89,4 @@
 - [Target device single](target-device.md) — app HANYA untuk Xiaomi Mi 9T/K20 (SD730, 6GB RAM, MIUI 12/Android 11); abaikan device lain, jangan buat workaround/compat untuk perangkat lain.
 - [Notification artwork fix](notification-artwork-fix.md) — loadBitmap() dua tahap: ContentResolver → ArtworkCacheManager; noArtworkUris diganti TTL 30s; cache key = artUri ?: "song:$songId".
 - [Notification artwork crossfade fix](notification-artwork-crossfade-fix.md) — Patch A: pendingAsyncCacheKey dedup guard (3 refreshAsync→1); Patch B: prewarmArtwork() dipanggil Phase 1 PREWARM_LEAD_MS, CrossfadeController punya lambda prewarmNotificationArtwork.
+- [MediaSession metadata sync on crossfade](mediasession-metadata-sync.md) — switchTo() harus fire onMediaItemTransition+onMediaMetadataChanged ke registeredListeners secara sinkron agar MIUI media widget tidak lag.
