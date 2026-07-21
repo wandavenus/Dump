@@ -134,7 +134,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
               const SizedBox(height: 24),
             ],
             const Padding(
-              padding: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: 5),
               child: Text(
                 'PILIH DURASI',
                 style: TextStyle(
@@ -145,7 +145,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
                 ),
               ),
             ),
-            const _PresetList(dismissOnSelect: true),
+            const _PresetList(dismissOnSelect: false),
           ],
         );
       },
