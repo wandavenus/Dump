@@ -33,25 +33,6 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script>
-    // Prevent v0 runtime from using hash-based URLs as CSS selectors
-    (function() {
-      var _origQS = Document.prototype.querySelector;
-      Document.prototype.querySelector = function(selector) {
-        if (typeof selector === 'string' && selector.startsWith('#/')) {
-          return null;
-        }
-        return _origQS.apply(this, arguments);
-      };
-      var _origQSA = Document.prototype.querySelectorAll;
-      Document.prototype.querySelectorAll = function(selector) {
-        if (typeof selector === 'string' && selector.startsWith('#/')) {
-          return document.createDocumentFragment().querySelectorAll('*'); // empty NodeList
-        }
-        return _origQSA.apply(this, arguments);
-      };
-    })();
-  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
