@@ -15,9 +15,6 @@ class AboutAppPage extends StatefulWidget {
 }
 
 class _AboutAppPageState extends State<AboutAppPage> {
-  final _scroll = ScrollController();
-  final _offsetNotifier = ValueNotifier<double>(0.0);
-
   // Year is constant for the lifetime of the widget — computed once so
   // build() never allocates a DateTime on every frame.
   static final int _currentYear = DateTime.now().year;
@@ -69,25 +66,6 @@ class _AboutAppPageState extends State<AboutAppPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    final o = _scroll.offset;
-    if ((o - _offsetNotifier.value).abs() > 0.5) _offsetNotifier.value = o;
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    _offsetNotifier.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final year = _currentYear;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -96,7 +74,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
       backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Tentang App',
-        scrollOffsetListenable: _offsetNotifier,
+        scrollOffset: 100,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).maybePop(),
@@ -112,7 +90,6 @@ class _AboutAppPageState extends State<AboutAppPage> {
         children: [
           // ── Konten ──────────────────────────────────────────────────────
           CustomScrollView(
-            controller: _scroll,
             physics: const ClampingScrollPhysics(),
             slivers: [
               SliverFillRemaining(
