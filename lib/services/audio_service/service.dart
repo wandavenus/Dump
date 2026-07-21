@@ -219,8 +219,8 @@ class AudioService {
     final song = currentSong;
     if (song != null) {
       // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
-      _applyReplayGain(song).catchError((Object e) {
-        LogService.warn('AudioService', '_applyReplayGain (setting change) error: $e');
+      _ReplayGainApplicator.apply(song).catchError((Object e) {
+        LogService.warn('AudioService', '_ReplayGainApplicator.apply (setting change) error: $e');
       });
     }
   }
@@ -362,8 +362,8 @@ class AudioService {
     }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
-    _applyReplayGain(song, prevSong: prevSong).catchError((Object e) {
-      LogService.warn('AudioService', '_applyReplayGain error: $e');
+    _ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((Object e) {
+      LogService.warn('AudioService', '_ReplayGainApplicator.apply error: $e');
     });
   }
 
@@ -408,7 +408,7 @@ class AudioService {
 
       // Kirim playlist ke engine aktif.
       await PlaybackManager.setQueue(immutable, index);
-      await _applyReplayGain(selectedSong);
+      await _ReplayGainApplicator.apply(selectedSong);
       if (autoplay) await PlaybackManager.play();
 
       LogService.log(
@@ -484,7 +484,7 @@ class AudioService {
     await PlaybackManager.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
-    unawaited(_applyReplayGain(song));
+    unawaited(_ReplayGainApplicator.apply(song));
     LogService.log('AudioService', 'Queue jump → [${index + 1}]: "${song.title}"');
   }
 
@@ -590,98 +590,6 @@ class AudioService {
     MediaStoreService.startMetadataPrescanner();
   }
 
-  // ── ReplayGain ───────────────────────────────────────────────────────────[...]
-
-  /// ARCH-01 fix: accepts [prevSong] to avoid reading the already-overwritten
-  /// [_previousSong] static field from inside an async call. Callers that have
-  /// already advanced [_previousSong] should pass the captured predecessor here.
-  /// Callers that haven't yet overwritten [_previousSong] can omit this param.
-  ///
-  /// Fail-open contract: ReplayGain is a purely cosmetic loudness adjustment.
-  /// Every native call inside is already guarded by
-  /// [PlaybackManager]'s `_dspGuard` and cannot throw, but this method also
-  /// wraps its entire body in a try/catch as a second line of defense — a
-  /// resolver I/O error or any other unexpected failure here must never
-  /// propagate to [playSongAt], which would otherwise skip
-  /// `PlaybackManager.play()` entirely (see playSongAt's regression history).
-  static Future<void> _applyReplayGain(LocalSong song, {LocalSong? prevSong}) async {
-    try {
-      final mode = AudioEffectsService.replayGainMode.value;
-      if (mode == ReplayGainMode.off) {
-        // Bypass the native DSP slot — audio passes through unmodified.
-        PlaybackManager.setNativeReplayGainBypass(true);
-        return;
-      }
-
-      // If native loudness normalisation is active it serves as the dynamic
-      // gain authority.  Applying both would cause the EBU R128 loop to
-      // continuously re-normalise an already ReplayGain-adjusted signal,
-      // producing an unstable, oscillating gain.  In this case, only the
-      // user's ReplayGain preamp offset (if non-zero) is forwarded so the
-      // normaliser sees the user's intentional level preference.
-      if (AudioEffectsService.loudnessNormEnabled.value) {
-        final preamp = AudioEffectsService.replayGainPreamp.value;
-        if (preamp != 0.0) {
-          PlaybackManager.setNativeReplayGain(
-            gainDb: preamp,
-            peakLinear: 0.0,
-            useClippingProtection: false,
-          );
-          PlaybackManager.setNativeReplayGainBypass(false);
-        } else {
-          PlaybackManager.setNativeReplayGainBypass(true);
-        }
-        LogService.verbose(
-          'AudioService',
-          'ReplayGain deferred to Loudness Norm'
-          ' (preamp: ${preamp.toStringAsFixed(1)} dB)',
-        );
-        return;
-      }
-
-      final data = await LoudnessSourceResolver.resolve(
-        song:         song,
-        mode:         mode,
-        previousSong: prevSong ?? _previousSong,
-      );
-      if (!data.hasData) {
-        // No metadata found — bypass so audio is not silently attenuated.
-        PlaybackManager.setNativeReplayGainBypass(true);
-        LogService.verbose('AudioService', 'No ReplayGain metadata for "${song.title}" — bypass');
-        return;
-      }
-
-      final preamp  = AudioEffectsService.replayGainPreamp.value;
-      final useClip = AudioEffectsService.clippingProtection.value;
-      // Pass raw gain + preamp to native so the C layer handles dB→linear
-      // conversion and optional clipping protection in one atomic step.
-      // Clamped to [−24, +24] dB in the C processor — no Dart-side clamping needed.
-      final gainDb     = data.gainDb + preamp;
-      final peakLinear = data.peakLinear ?? 0.0;
-
-      PlaybackManager.setNativeReplayGain(
-        gainDb: gainDb,
-        peakLinear: peakLinear,
-        useClippingProtection: useClip,
-      );
-      PlaybackManager.setNativeReplayGainBypass(false);
-
-      LogService.verbose(
-        'AudioService',
-        'ReplayGain "${song.title}": ${gainDb.toStringAsFixed(2)} dB '
-        '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
-        'clip=$useClip, src=${data.source.label})',
-      );
-    } catch (e, st) {
-      // Fail-open: never let a ReplayGain failure block playback.
-      LogService.error(
-        'AudioService',
-        'ReplayGain skipped (fail-open): $e',
-        stackTrace: st.toString(),
-      );
-    }
-  }
-
   // ── State sync (app resume) ───────────────────────────────────────────────
 
   /// Re-sync Dart state dari engine yang sedang aktif.
@@ -783,7 +691,7 @@ class AudioService {
 
       // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
       try {
-        await _applyReplayGain(song).timeout(
+        await _ReplayGainApplicator.apply(song).timeout(
           const Duration(seconds: 2),
           onTimeout: () {
             LogService.verbose(

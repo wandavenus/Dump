@@ -24,3 +24,4 @@ import 'loudness_source_resolver.dart';
 import 'boot_trace.dart';
 
 part 'audio_service/service.dart';
+part 'audio_service/replay_gain_applicator.dart';
