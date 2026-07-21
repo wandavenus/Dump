@@ -45,14 +45,16 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
     // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
     return SwipeToDismissSheet(
-      child: Material(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-        clipBehavior: Clip.antiAlias,
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
