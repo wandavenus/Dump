@@ -10,9 +10,14 @@ class SleepTimerPage extends StatelessWidget {
       appBar: FadingTitleAppBar(
         title: 'Sleep Timer',
         scrollOffset: 100,
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back, color: Colors.white),
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
         ),
         actions: [
           ValueListenableBuilder<bool>(

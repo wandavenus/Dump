@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/services/log_service.dart';
@@ -190,7 +191,15 @@ class _LogPageState extends State<LogPage> {
       surfaceTintColor: Colors.transparent,
       elevation:    0,
       titleSpacing: 0,
-      leading: const BackButton(),
+      leading: CupertinoButton(
+        padding: const EdgeInsets.only(left: 8),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Icon(
+          CupertinoIcons.arrow_left,
+          color: Color(0xFFF92D48),
+          size: 28,
+        ),
+      ),
       title: Row(
         children: [
           const Text('Log',

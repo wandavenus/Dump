@@ -39,6 +39,15 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: FadingTitleAppBar(
         title: 'Pengaturan',
         scrollOffsetListenable: _offsetNotifier,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
         actions: const [],
       ),
       body: SingleChildScrollView(

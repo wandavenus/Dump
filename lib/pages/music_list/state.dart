@@ -49,6 +49,15 @@ class _MusicListState extends State<MusicList> {
       appBar: FadingTitleAppBar(
         title: 'Recently Played',
         scrollOffsetListenable: _offsetNotifier,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
         actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(

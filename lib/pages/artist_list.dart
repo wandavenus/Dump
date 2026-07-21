@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/common/scrolling_page_chrome.dart';
@@ -45,6 +46,15 @@ class _ArtistListState extends State<ArtistList> {
       appBar: FadingTitleAppBar(
         title: 'Artis Favorit',
         scrollOffsetListenable: _offsetNotifier,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
+        ),
         actions: const [CommonActions()],
       ),
       body: ArtistListContent(scrollController: _scroll),
