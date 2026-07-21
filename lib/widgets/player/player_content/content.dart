@@ -647,7 +647,7 @@ class _PlayerContentState extends State<PlayerContent> {
                             padding: const EdgeInsets.only(bottom: 14),
                             child: Container(
                               width: double.infinity,
-                              height: 0.8,
+                              height: 0.75,
                               color: Colors.white.withValues(alpha: 0.13),
                             ),
                           ),
