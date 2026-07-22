@@ -17,6 +17,7 @@ import 'package:musicplayer/services/sleep_timer_service.dart';
 import 'package:musicplayer/services/media_capabilities_service.dart';
 import 'package:musicplayer/webView/web_view_container.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/themes/app_themes.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/models/lyrics_settings.dart';
 import 'package:musicplayer/services/lyrics_service.dart';

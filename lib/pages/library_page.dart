@@ -49,8 +49,8 @@ class _LibraryPageState extends State<LibraryPage> {
         title: const SizedBox.shrink(),
         centerTitle: false,
         actions: const [CommonActions()],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(0.5),
           child: Divider(
             height: 0.9,
             color: Colors.transparent,
