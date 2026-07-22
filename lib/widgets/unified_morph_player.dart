@@ -517,9 +517,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final finalTop    = lerpDouble(artTop,    smallTop,    effectiveOverlayT)!;
     final finalSize   = lerpDouble(artSize,   smallSize,   effectiveOverlayT)!;
     final finalRadius = lerpDouble(artRadius, smallRadius, effectiveOverlayT)!;
-    final shadowAlpha = lerpDouble(0.0,       0.30,        effectiveOverlayT)!;
-    final shadowBlur  = lerpDouble(0.0,       40.0,        effectiveOverlayT)!;
-    final shadowOff   = lerpDouble(0.0,       15.0,        effectiveOverlayT)!;
+    // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
+    final shadowBase  = t * (1.0 - effectiveOverlayT);
+    final shadowAlpha = 0.30 * shadowBase;
+    final shadowBlur  = 40.0 * shadowBase;
+    final shadowOff   = 15.0 * shadowBase;
 
     // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
     // only lifts once the overlay animation itself has fully reversed, not
