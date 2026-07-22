@@ -21,7 +21,7 @@ class GlassNavBar extends StatelessWidget {
                 // Keep the backdrop radius modest: this filter is recomputed
                 // while content scrolls behind the navbar. A large sigma is
                 // disproportionately expensive on the target Snapdragon 730.
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
                 blendMode: BlendMode.srcOver,
                 child: Container(color: c.glassNavTint),
               ),

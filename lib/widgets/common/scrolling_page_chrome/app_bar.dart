@@ -67,7 +67,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: BackdropFilter(
                   // App bars are redrawn over scrolling content. Keep the
                   // blur radius low enough to avoid frame-time spikes.
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
                   blendMode: BlendMode.srcOver,
                   child: Container(color: c.glassNavTint),
                 ),

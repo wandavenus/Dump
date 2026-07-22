@@ -417,8 +417,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                 child: ClipRect(
                                   child: BackdropFilter(
                                     filter: ImageFilter.blur(
-                                      sigmaX: 12,
-                                      sigmaY: 12,
+                                      sigmaX: 32,
+                                      sigmaY: 32,
                                     ),
                                     blendMode: BlendMode.srcOver,
                                     child: ColoredBox(color: c.glassNavTint),
