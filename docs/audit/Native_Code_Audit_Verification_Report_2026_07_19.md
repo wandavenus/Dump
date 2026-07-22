@@ -1,7 +1,7 @@
 # Native Code Audit — Independent Verification Report
 
 **Date:** 2026-07-19  
-**Source audit:** `Audit/Native_code_audit.md` (dated 2026-07-18)  
+**Source audit:** `docs/Audit/Native_code_audit.md` (dated 2026-07-18)
 **Method:** Every finding verified directly against current codebase; no assumption that the audit is correct.  
 **Scope of new-pass scan:** All C files in `native_audio_runtime/src/`, JNI glue (`native_dsp_jni.c`, `jni_common.h`), and Kotlin spot-checks (`PreloadManager`, `AudioEffectsManager`, `QueueManager`, `ArtworkCacheManager`).
 

@@ -4,9 +4,9 @@
 **Metode:** Validasi individual per temuan via grep/shell langsung + 25 subagent paralel  
 **Cakupan:** Semua CRITICAL + HIGH + MEDIUM + LOW dari 3 file audit  
 **Audit files:**
-- `Audit/dart_audit_report.md` (Laporan 1)
-- `Audit/dart_audit_deep_report.md` (Laporan 2)  
-- `Audit/Native_code_audit.md` (Laporan 3)
+- `docs/Audit/dart_audit_report.md` (Laporan 1)
+- `docs/Audit/dart_audit_deep_report.md` (Laporan 2)
+- `docs/Audit/Native_code_audit.md` (Laporan 3)
 
 **Legenda:** ✅ Valid · ❌ Rejected (false positive) · ⚠ Needs Manual Verification
 

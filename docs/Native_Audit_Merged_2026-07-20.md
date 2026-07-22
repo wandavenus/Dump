@@ -651,7 +651,7 @@ Satu bug HIGH yang harus diperbaiki sebelum production ada di **android/app** la
 
 ---
 
-*Dokumen ini menggantikan `Native_DSP_Cpp_Audit_2026-07-20.md`.*
+*Dokumen ini menggantikan `docs/Native_DSP_Cpp_Audit_2026-07-20.md`.*
 
 ---
 

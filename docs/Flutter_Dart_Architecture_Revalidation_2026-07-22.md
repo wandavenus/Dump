@@ -5,7 +5,7 @@ Skills yang digunakan untuk revalidasi ini:
 - `alinaqi/claude-bootstrap@android-kotlin` (Kotlin coroutines & anti-patterns)
 - SDK target: `>=3.12.2` — semua fitur Dart 3.0–3.7 tersedia penuh
 
-> Ini adalah revalidasi dari `Flutter_Dart_Architecture_Audit_2026-07-22.md`.
+> Ini adalah revalidasi dari `docs/Flutter_Dart_Architecture_Audit_2026-07-22.md`.
 > Status temuan lama dikonfirmasi ulang, dan temuan baru dari skill ditambahkan.
 
 ---
