@@ -22,18 +22,19 @@ class _BarBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final Color fg = !enabled
-        ? const Color(0xFF2C2C2E)
+        ? c.surface3           // barely visible on the code-bg surface
         : destructive
             ? const Color(0xFFF92D48)
-            : const Color(0xFF8E8E93);
+            : c.secondaryLabel;
 
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color:        const Color(0xFF1C1C1E),
+          color:        c.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(

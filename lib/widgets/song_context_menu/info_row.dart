@@ -11,6 +11,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -20,13 +21,13 @@ class _InfoRow extends StatelessWidget {
             width: 56,
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+              style: TextStyle(color: c.secondaryLabel, fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: c.primaryLabel, fontSize: 13),
             ),
           ),
         ],

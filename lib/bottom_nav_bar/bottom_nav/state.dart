@@ -108,6 +108,7 @@ class _FirstPageState extends State<FirstPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
+        final c = AppColors.of(context);
         final navBar = Theme(
           data: Theme.of(context).copyWith(
             splashColor: Colors.transparent,
@@ -140,13 +141,12 @@ class _FirstPageState extends State<FirstPage> {
               ),
             ],
             elevation: 0,
-            selectedLabelStyle: const TextStyle(color: Colors.white),
             selectedItemColor: const Color(0xFFF92D48),
-            unselectedItemColor: Colors.grey,
+            unselectedItemColor: c.secondaryLabel,
             showUnselectedLabels: true,
             backgroundColor: isGlass
                 ? Colors.transparent
-                : const Color(0xFF1C1C1E),
+                : c.surface,
             unselectedFontSize: 11.0,
             selectedFontSize: 11.0,
           ),
@@ -190,7 +190,7 @@ class _FirstPageState extends State<FirstPage> {
                             if (!isGlass)
                               Container(
                                 height: 1.5,
-                                color: const Color(0xFF38383A),
+                                color: c.subtleSeparator,
                               ),
                             SizedBox(height: 70, child: navBar),
                           ],

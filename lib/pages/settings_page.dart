@@ -13,6 +13,7 @@ import 'package:musicplayer/services/replay_gain_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/services/media_capabilities_service.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
 import 'settings/settings_widgets.dart';

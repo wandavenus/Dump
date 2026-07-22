@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:musicplayer/services/log_service.dart';
+import 'package:musicplayer/theme/app_colors.dart';
+import 'package:musicplayer/themes/app_theme_extension.dart';
 
 part 'log_page/bar_btn.dart';
 part 'log_page/app_bar_badge.dart';
@@ -71,7 +73,7 @@ class _LogPageState extends State<LogPage> {
         LogLevel.error   => const Color(0xFFF92D48),
         LogLevel.warning => const Color(0xFFFF9F0A),
         LogLevel.info    => const Color(0xFF30D158),
-        LogLevel.verbose => const Color(0xFF636366),
+        LogLevel.verbose => AppColors.of(context).tertiaryLabel,
       };
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -90,10 +92,11 @@ class _LogPageState extends State<LogPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
+    final c = AppColors.of(context);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg,
           style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: c.surface,
       behavior:        SnackBarBehavior.floating,
       duration:        const Duration(seconds: 2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -115,23 +118,26 @@ class _LogPageState extends State<LogPage> {
   void _clearLogs() {
     showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text('Hapus semua log?',
-            style: TextStyle(color: Colors.white, fontSize: 15)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal',
-                style: TextStyle(color: Color(0xFF636366))),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus',
-                style: TextStyle(color: Color(0xFFF92D48))),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final dc = AppColors.of(ctx);
+        return AlertDialog(
+          backgroundColor: dc.surface,
+          title: Text('Hapus semua log?',
+              style: TextStyle(color: dc.primaryLabel, fontSize: 15)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Batal',
+                  style: TextStyle(color: dc.tertiaryLabel)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Hapus',
+                  style: TextStyle(color: Color(0xFFF92D48))),
+            ),
+          ],
+        );
+      },
     ).then((confirmed) {
       if (!mounted) return;
       if (confirmed == true) {
@@ -148,10 +154,11 @@ class _LogPageState extends State<LogPage> {
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final entries    = _filtered;
     final categories = LogService.getCategories();
+    final c          = AppColors.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: _buildAppBar(entries),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: _buildAppBar(entries, c),
       body: Column(
         children: [
           _LogFilterBar(
@@ -166,28 +173,28 @@ class _LogPageState extends State<LogPage> {
               _levelFilter = l;
               _expanded.clear();
             }),
-            onCategoryChanged: (c) => setState(() {
-              _categoryFilter = c;
+            onCategoryChanged: (cat) => setState(() {
+              _categoryFilter = cat;
               _expanded.clear();
             }),
             onSearchChanged: () => setState(_expanded.clear),
           ),
-          Expanded(child: _buildList(entries)),
+          Expanded(child: _buildList(entries, c)),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(entries, safeBottom),
+      bottomNavigationBar: _buildBottomBar(entries, safeBottom, c),
     );
   }
 
   // ── AppBar ──────────────────────────────────────────────────────────────────
 
-  PreferredSizeWidget _buildAppBar(List<LogEntry> entries) {
+  PreferredSizeWidget _buildAppBar(List<LogEntry> entries, AppThemeExtension c) {
     final errCount  = _countLevel(LogLevel.error);
     final warnCount = _countLevel(LogLevel.warning);
 
     return AppBar(
-      backgroundColor:  Colors.black,
-      foregroundColor:  Colors.white,
+      backgroundColor:  Theme.of(context).scaffoldBackgroundColor,
+      foregroundColor:  c.primaryLabel,
       surfaceTintColor: Colors.transparent,
       elevation:    0,
       titleSpacing: 0,
@@ -207,8 +214,8 @@ class _LogPageState extends State<LogPage> {
                   fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
           const SizedBox(width: 8),
           Text('${entries.length}',
-              style: const TextStyle(
-                  color: Color(0xFF48484A), fontSize: 12, fontFamily: 'monospace')),
+              style: TextStyle(
+                  color: c.quaternaryLabel, fontSize: 12, fontFamily: 'monospace')),
           const SizedBox(width: 10),
           if (errCount > 0)
             _AppBarBadge(count: errCount,  color: const Color(0xFFF92D48)),
@@ -230,7 +237,7 @@ class _LogPageState extends State<LogPage> {
               decoration: BoxDecoration(
                 color: _liveTail
                     ? const Color(0xFF30D158).withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.06),
+                    : c.dimLabel.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(5),
               ),
               child: Row(
@@ -240,13 +247,13 @@ class _LogPageState extends State<LogPage> {
                       size: 7,
                       color: _liveTail
                           ? const Color(0xFF30D158)
-                          : const Color(0xFF48484A)),
+                          : c.quaternaryLabel),
                   const SizedBox(width: 4),
                   Text('LIVE',
                       style: TextStyle(
                         color: _liveTail
                             ? const Color(0xFF30D158)
-                            : const Color(0xFF48484A),
+                            : c.quaternaryLabel,
                         fontSize:   10,
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w700,
@@ -263,14 +270,14 @@ class _LogPageState extends State<LogPage> {
 
   // ── Log list ────────────────────────────────────────────────────────────────
 
-  Widget _buildList(List<LogEntry> entries) {
+  Widget _buildList(List<LogEntry> entries, AppThemeExtension c) {
     if (entries.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.terminal_rounded,
-                color: Color(0xFF2C2C2E), size: 36),
+            Icon(Icons.terminal_rounded,
+                color: c.surface2, size: 36),
             const SizedBox(height: 12),
             Text(
               _searchCtrl.text.isNotEmpty ||
@@ -278,8 +285,8 @@ class _LogPageState extends State<LogPage> {
                       _categoryFilter != null
                   ? 'tidak ada hasil'
                   : 'belum ada log',
-              style: const TextStyle(
-                color:      Color(0xFF3A3A3C),
+              style: TextStyle(
+                color:      c.surface3,
                 fontSize:   12,
                 fontFamily: 'monospace',
               ),
@@ -317,9 +324,10 @@ class _LogPageState extends State<LogPage> {
 
   // ── Bottom action bar ───────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(List<LogEntry> entries, double safeBottom) =>
+  Widget _buildBottomBar(List<LogEntry> entries, double safeBottom,
+      AppThemeExtension c) =>
       Container(
-        color:   const Color(0xFF0A0A0A),
+        color:   c.codeBackground,
         padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + safeBottom),
         child: Row(
           children: [

@@ -16,7 +16,10 @@ class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(color: Colors.black, child: child);
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: child,
+    );
   }
 
   @override
@@ -42,6 +45,7 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 10),
       child: GestureDetector(
@@ -50,7 +54,7 @@ class _SearchBar extends StatelessWidget {
         child: Container(
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
+            color: c.surface,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -61,15 +65,14 @@ class _SearchBar extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   autofocus: false,   // Never autofocus on page load
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 16),
                   cursorColor: const Color(0xFFF92D48),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Artis, Lagu, Album, dan lainnya',
-                    hintStyle:
-                        TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                    hintStyle: TextStyle(color: c.secondaryLabel, fontSize: 15),
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => focusNode.unfocus(),
@@ -77,24 +80,23 @@ class _SearchBar extends StatelessWidget {
                 ),
               ),
               if (loading)
-                const Padding(
-                  padding: EdgeInsets.only(right: 10),
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
                   child: SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF8E8E93),
+                      color: c.secondaryLabel,
                     ),
                   ),
                 )
               else if (isSearching)
                 GestureDetector(
                   onTap: onClear,
-                  child: const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child:
-                        Icon(Icons.cancel, color: Color(0xFF8E8E93), size: 18),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(Icons.cancel, color: c.secondaryLabel, size: 18),
                   ),
                 ),
             ],

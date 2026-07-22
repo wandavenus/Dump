@@ -24,6 +24,7 @@ class _LogEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasStack = (entry.stackTrace ?? '').isNotEmpty;
     final color    = levelColor(entry.level);
+    final c        = AppColors.of(context);
 
     return GestureDetector(
       behavior:    HitTestBehavior.opaque,
@@ -82,8 +83,8 @@ class _LogEntryTile extends StatelessWidget {
                             const Spacer(),
                             Text(
                               entry.formattedTime,
-                              style: const TextStyle(
-                                color:      Color(0xFF3A3A3C),
+                              style: TextStyle(
+                                color:      c.dimLabel,
                                 fontSize:   9.5,
                                 fontFamily: 'monospace',
                               ),
@@ -94,7 +95,7 @@ class _LogEntryTile extends StatelessWidget {
                                 expanded
                                     ? Icons.keyboard_arrow_up_rounded
                                     : Icons.keyboard_arrow_down_rounded,
-                                color: const Color(0xFF3A3A3C),
+                                color: c.dimLabel,
                                 size:  14,
                               ),
                             ],
@@ -110,8 +111,8 @@ class _LogEntryTile extends StatelessWidget {
                                   .withValues(alpha: 0.9),
                               LogLevel.warning => const Color(0xFFFF9F0A)
                                   .withValues(alpha: 0.9),
-                              LogLevel.verbose => const Color(0xFF48484A),
-                              _                => const Color(0xFFAEAEB2),
+                              LogLevel.verbose => c.quaternaryLabel,
+                              _                => c.secondaryLabel,
                             },
                             fontSize:   12,
                             fontFamily: 'monospace',
@@ -131,7 +132,7 @@ class _LogEntryTile extends StatelessWidget {
               margin:  const EdgeInsets.fromLTRB(13, 0, 12, 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color:        const Color(0xFF0A0A0A),
+                color:        c.codeBackground,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                     color: color.withValues(alpha: 0.15), width: 0.5),
@@ -140,8 +141,8 @@ class _LogEntryTile extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 child: SelectableText(
                   entry.stackTrace!,
-                  style: const TextStyle(
-                    color:      Color(0xFF636366),
+                  style: TextStyle(
+                    color:      c.tertiaryLabel,
                     fontSize:   9.5,
                     fontFamily: 'monospace',
                     height:     1.65,
@@ -149,7 +150,7 @@ class _LogEntryTile extends StatelessWidget {
                 ),
               ),
             ),
-          Container(height: 0.5, color: const Color(0xFF111111)),
+          Container(height: 0.5, color: c.hairlineSeparator),
         ],
       ),
     );

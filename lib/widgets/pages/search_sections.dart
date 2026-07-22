@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import '../../services/media_store_service.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/sample_music_data.dart';
 import '../song_artwork.dart';
 

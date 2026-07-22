@@ -6,6 +6,7 @@ import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/history_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/playlist_service.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common_actions.dart';
 import 'package:musicplayer/widgets/song_artwork.dart';
@@ -123,45 +124,48 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   Future<void> _rename() async {
     if (widget.userPlaylist == null) return;
+    final c = AppColors.of(context);
     final controller = TextEditingController(text: widget.name);
     final result = await showDialog<String>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1C1C1E),
-            title: const Text(
-              'Ganti Nama',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'Nama playlist',
-                hintStyle: TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                child: const Text(
-                  'Simpan',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+      builder: (ctx) {
+        final dc = AppColors.of(ctx);
+        return AlertDialog(
+          backgroundColor: dc.surface,
+          title: Text(
+            'Ganti Nama',
+            style: TextStyle(color: dc.primaryLabel),
           ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: dc.primaryLabel),
+            decoration: InputDecoration(
+              hintText: 'Nama playlist',
+              hintStyle: TextStyle(color: dc.secondaryLabel),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: dc.separator),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: dc.primaryLabel),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: Text(
+                'Simpan',
+                style: TextStyle(color: c.primaryLabel),
+              ),
+            ),
+          ],
+        );
+      },
     );
     controller.dispose();
     if (result != null && result.isNotEmpty && mounted) {
@@ -176,28 +180,30 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (widget.userPlaylist == null) return;
     final ok = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1C1C1E),
-            title: const Text(
-              'Hapus Playlist?',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              'Playlist "${widget.name}" akan dihapus permanen.',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Hapus', style: TextStyle(color: Color(0xFFF92D48))),
-              ),
-            ],
+      builder: (ctx) {
+        final dc = AppColors.of(ctx);
+        return AlertDialog(
+          backgroundColor: dc.surface,
+          title: Text(
+            'Hapus Playlist?',
+            style: TextStyle(color: dc.primaryLabel),
           ),
+          content: Text(
+            'Playlist "${widget.name}" akan dihapus permanen.',
+            style: TextStyle(color: dc.secondaryLabel),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus', style: TextStyle(color: Color(0xFFF92D48))),
+            ),
+          ],
+        );
+      },
     );
     if ((ok ?? false) && mounted) {
       final playlist = widget.userPlaylist;
@@ -225,9 +231,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
   @override
   Widget build(BuildContext context) {
     final isUserPlaylist = widget.userPlaylist != null;
+    final c = AppColors.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: widget.name,
         scrollOffsetListenable: _offsetNotifier,
@@ -267,10 +274,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
               itemCount: _songs.length + 1,
               separatorBuilder: (ctx, i) => i == 0
                   ? const SizedBox.shrink()
-                  : const Divider(
+                  : Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Color(0xFF48484A),
+                      color: c.separator,
                       indent: 80,
                       endIndent: 16,
                     ),
@@ -301,33 +308,33 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   ),
                   title: Text(
                     song.title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: c.primaryLabel,
                       fontSize: 15,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     song.artist,
-                    style: const TextStyle(
-                      color: Colors.grey,
+                    style: TextStyle(
+                      color: c.secondaryLabel,
                       fontSize: 13,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: isUserPlaylist
                       ? IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.remove_circle_outline,
-                            color: Colors.grey,
+                            color: c.secondaryLabel,
                             size: 20,
                           ),
                           onPressed: () => _removeSong(song.id),
                         )
                       : Text(
                           _fmt(song.duration),
-                          style: const TextStyle(
-                            color: Colors.grey,
+                          style: TextStyle(
+                            color: c.secondaryLabel,
                             fontSize: 12,
                           ),
                         ),
@@ -346,13 +353,15 @@ class _PlayAllButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
           Text(
             '$count lagu',
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
+            style: TextStyle(color: c.secondaryLabel, fontSize: 14),
           ),
           const Spacer(),
           GestureDetector(
@@ -360,17 +369,19 @@ class _PlayAllButton extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                // primaryLabel: white in dark, dark text in light — inverts
+                // nicely against the scaffold background.
+                color: c.primaryLabel,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.play_arrow, color: Colors.black, size: 18),
-                  SizedBox(width: 4),
+                  Icon(Icons.play_arrow, color: scaffoldBg, size: 18),
+                  const SizedBox(width: 4),
                   Text(
                     'Putar Semua',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: scaffoldBg,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -390,10 +401,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         'Belum ada lagu',
-        style: TextStyle(color: Colors.grey, fontSize: 16),
+        style: TextStyle(
+          color: AppColors.of(context).secondaryLabel,
+          fontSize: 16,
+        ),
       ),
     );
   }

@@ -14,6 +14,7 @@ class SongListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
@@ -26,8 +27,8 @@ class SongListRow extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Divider(
-            color: Color(0xFF38383A),
+          Divider(
+            color: c.subtleSeparator,
             thickness: 0.4,
             height: 1,
             indent: 44,
@@ -43,9 +44,9 @@ class SongListRow extends StatelessWidget {
                   child: Text(
                     '${index + 1}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: Color(0xFF8E8E93),
+                      color: c.secondaryLabel,
                     ),
                   ),
                 ),
@@ -58,9 +59,9 @@ class SongListRow extends StatelessWidget {
                         child: Text(
                           song.title,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
-                            color: Colors.white,
+                            color: c.primaryLabel,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -77,9 +78,13 @@ class SongListRow extends StatelessWidget {
                     playlist: playlist,
                     index: index,
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(CupertinoIcons.ellipsis_vertical, size: 20, color: Color(0xFF8E8E93)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(
+                      CupertinoIcons.ellipsis_vertical,
+                      size: 20,
+                      color: c.secondaryLabel,
+                    ),
                   ),
                 ),
               ],

@@ -28,9 +28,10 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Material(
-        color: const Color(0xFF1C1C1E),
+        color: c.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
@@ -42,19 +43,19 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: c.dragHandle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Tambah ke Daftar Putar',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: c.primaryLabel,
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),
@@ -62,10 +63,10 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Divider(
+              Divider(
                   height: 1,
                   thickness: 0.5,
-                  color: Color(0xFF48484A),
+                  color: c.separator,
                   indent: 52),
               // Buat baru
               InkWell(
@@ -99,11 +100,11 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                   final playlists = snap.data ?? [];
                   if (playlists.isEmpty &&
                       snap.connectionState == ConnectionState.done) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Text(
                         'Belum ada daftar putar',
-                        style: TextStyle(color: Color(0xFF8E8E93)),
+                        style: TextStyle(color: c.secondaryLabel),
                       ),
                     );
                   }
@@ -111,10 +112,10 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: playlists.length,
-                    separatorBuilder: (_, _) => const Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Color(0xFF48484A),
+                      color: c.separator,
                       indent: 52,
                     ),
                     itemBuilder: (context, i) {
@@ -141,15 +142,15 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                                   children: [
                                     Text(
                                       pl.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: c.primaryLabel,
                                         fontSize: 15,
                                       ),
                                     ),
                                     Text(
                                       '${pl.songIds.length} lagu',
-                                      style: const TextStyle(
-                                        color: Color(0xFF8E8E93),
+                                      style: TextStyle(
+                                        color: c.secondaryLabel,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -173,6 +174,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
   }
 
   Future<void> _addToExisting(BuildContext context, Playlist pl) async {
+    final c = AppColors.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     await PlaylistService.addSong(pl.id, widget.song.id);
@@ -182,59 +184,63 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     messenger.showSnackBar(
       SnackBar(
         content: Text('Ditambahkan ke ${pl.name}'),
-        backgroundColor: const Color(0xFF2C2C2E),
+        backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   Future<void> _createNew(BuildContext context) async {
+    final c = AppColors.of(context);
     final nameController = TextEditingController();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final result = await showDialog<String>(
       context: context,
       useRootNavigator: true,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text(
-          'Daftar Putar Baru',
-          style: TextStyle(color: Colors.white, fontSize: 17),
-        ),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Nama Daftar Putar',
-            hintStyle: TextStyle(color: Color(0xFF8E8E93)),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFF48484A)),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFF92D48)),
-            ),
+      builder: (dialogCtx) {
+        final dc = AppColors.of(dialogCtx);
+        return AlertDialog(
+          backgroundColor: dc.surface,
+          title: Text(
+            'Daftar Putar Baru',
+            style: TextStyle(color: dc.primaryLabel, fontSize: 17),
           ),
-          onSubmitted: (v) => Navigator.pop(context, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Color(0xFF8E8E93)),
+          content: TextField(
+            controller: nameController,
+            autofocus: true,
+            style: TextStyle(color: dc.primaryLabel),
+            decoration: InputDecoration(
+              hintText: 'Nama Daftar Putar',
+              hintStyle: TextStyle(color: dc.secondaryLabel),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: dc.separator),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFFF92D48)),
+              ),
             ),
+            onSubmitted: (v) => Navigator.pop(dialogCtx, v.trim()),
           ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(context, nameController.text.trim()),
-            child: const Text(
-              'Buat',
-              style: TextStyle(color: Color(0xFFF92D48)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: dc.secondaryLabel),
+              ),
             ),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogCtx, nameController.text.trim()),
+              child: const Text(
+                'Buat',
+                style: TextStyle(color: Color(0xFFF92D48)),
+              ),
+            ),
+          ],
+        );
+      },
     );
     nameController.dispose();
     if (result == null || result.isEmpty) return;
@@ -246,7 +252,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     messenger.showSnackBar(
       SnackBar(
         content: Text('Ditambahkan ke $result'),
-        backgroundColor: const Color(0xFF2C2C2E),
+        backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),
     );

@@ -16,17 +16,18 @@ class _GlassSubToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ValueListenableBuilder<bool>(
       valueListenable: notifier,
       builder: (_, value, _) => Padding(
         padding: const EdgeInsets.only(left: 36, right: 16, top: 10, bottom: 10),
         child: Row(
           children: [
-            const Icon(Icons.blur_on, size: 16, color: Color(0xFF8E8E93)),
+            Icon(Icons.blur_on, size: 16, color: c.secondaryLabel),
             const SizedBox(width: 8),
             Expanded(
               child: Text(label,
-                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 15)),
             ),
             CupertinoSwitch(
               value: value,

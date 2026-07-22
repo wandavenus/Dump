@@ -8,17 +8,18 @@ class _LibraryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'Perpustakaan',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: c.primaryLabel,
             ),
           ),
           Padding(
@@ -28,10 +29,9 @@ class _LibraryHeader extends StatelessWidget {
               child: Text(
                 editMode ? 'Selesai' : 'Edit',
                 style: TextStyle(
-                  color:
-                      editMode
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : const Color(0xFFF92D48),
+                  color: editMode
+                      ? c.primaryLabel.withValues(alpha: 0.7)
+                      : const Color(0xFFF92D48),
                   fontSize: 17,
                 ),
               ),

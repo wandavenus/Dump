@@ -25,7 +25,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: 'Equalizer',
         scrollOffset: 100,
@@ -162,9 +162,6 @@ class _AdvancedAudioControls extends StatelessWidget {
         const _SectionDivider(),
 
         // ── Native Preamp ─────────────────────────────────────────────────────
-        //
-        // Manual gain trim applied first in the native DSP pipeline (before
-        // EQ/dynamics). 0 dB (center of range) = off, no separate switch.
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.nativePreampDb,
           builder: (_, v, _) => SettingsSliderRow(
@@ -184,9 +181,6 @@ class _AdvancedAudioControls extends StatelessWidget {
         const _SectionDivider(),
 
         // ── Compressor ────────────────────────────────────────────────────────
-        //
-        // Ratio drives on/off directly: 1:1 = no compression (off). No
-        // separate switch — moving the slider above 1:1 engages it.
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.compressorRatio,
           builder: (_, ratio, _) => Column(
@@ -280,9 +274,6 @@ class _AdvancedAudioControls extends StatelessWidget {
         const _SectionDivider(),
 
         // ── Limiter ───────────────────────────────────────────────────────────
-        //
-        // Ceiling drives on/off directly: 0 dB (top of range) = off. No
-        // separate switch — moving the slider below 0 engages it.
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.limiterThreshold,
           builder: (_, v, _) => Column(
@@ -324,9 +315,6 @@ class _AdvancedAudioControls extends StatelessWidget {
         const _SectionDivider(),
 
         // ── Soft Clipper ──────────────────────────────────────────────────────
-        //
-        // Threshold drives on/off directly: 0 dB (top of range) = off. No
-        // separate switch — moving the slider below 0 engages it.
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.softClipperThreshold,
           builder: (_, v, _) => SettingsSliderRow(
@@ -355,9 +343,9 @@ class _SectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Divider(color: Color(0xFF2C2C2E), height: 1),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Divider(color: AppColors.of(context).surface2, height: 1),
     );
   }
 }
@@ -372,14 +360,15 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Row(
         children: [
           Text(
             text,
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
+            style: TextStyle(
+              color: c.secondaryLabel,
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.6,

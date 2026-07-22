@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/audio/audio_effects_service.dart';
 import '../../services/audio/device_dsp.dart';
 import '../../services/audio/media3/media3_playback_bridge.dart';
+import '../../theme/app_colors.dart';
 import '../../widgets/common/scrolling_page_chrome.dart';
 import 'settings_widgets.dart';
 

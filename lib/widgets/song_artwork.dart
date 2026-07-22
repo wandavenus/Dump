@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/artwork_repository.dart';
+import '../theme/app_colors.dart';
 
 /// Hairline border overlaid on every piece of artwork (mirrors Apple Music
 /// Android's thin white stroke around covers), so artwork never visually
@@ -129,13 +130,6 @@ class _SongArtworkState extends State<SongArtwork> {
       return;
     }
     // Re-load when size crosses the full-res threshold (250 px).
-    // The morphing artwork widget starts at mini-player size (~46 px) and grows
-    // to full-player size (~350 px) during the open animation.  Because _load
-    // bakes targetSizePx from widget.size at call time, a provider obtained at
-    // mini-player size is a ResizeImage(FileImage, ~139, ~139) — permanently
-    // blurry when stretched to full-player dimensions.  Detecting the threshold
-    // crossing here forces a reload with targetSizePx: null so the full-res
-    // FileImage is used for the full player.
     final wasSmall = old.size < 250;
     final isLarge  = widget.size >= 250;
     if (wasSmall && isLarge) _load(widget.songId);
@@ -146,12 +140,9 @@ class _SongArtworkState extends State<SongArtwork> {
     if (_loading) return; // running loop will pick up the new _requestedId
 
     _loading = true;
-    // Loop so a changed _requestedId is always served (covers fast scrolling).
     try {
       while (mounted) {
         final targetId = _requestedId;
-
-        // Read pixel ratio before the await (safe on the UI isolate).
         final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
 
         final provider = await ArtworkRepository.instance.getProvider(
@@ -162,23 +153,13 @@ class _SongArtworkState extends State<SongArtwork> {
         if (!mounted) break;
 
         if (_requestedId == targetId) {
-          // Only rebuild if the provider actually changed.  getProviderSync may
-          // have already set _provider to an equivalent provider — avoid an
-          // unnecessary setState → widget rebuild → visual flicker.
-          //
-          // NOTE: FileImage has correct value equality (compares path + scale),
-          // but ResizeImage does NOT override == and falls back to object
-          // identity.  _providersEqual() handles both cases explicitly.
           if (!_providersEqual(provider, _provider)) {
             setState(() => _provider = provider);
           }
           break;
         }
-        // _requestedId changed while we were awaiting — loop for the new ID.
       }
     } finally {
-      // Always reset, even if getProvider() throws, so future loads are not
-      // permanently suppressed by a stuck _loading flag.
       _loading = false;
     }
   }
@@ -196,7 +177,7 @@ class _SongArtworkState extends State<SongArtwork> {
           fit: widget.fit,
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) => _fallback(),
+          errorBuilder: (_, _, _) => _fallback(context),
         ),
       );
       if (!widget.showBorder) return image;
@@ -205,16 +186,17 @@ class _SongArtworkState extends State<SongArtwork> {
         child: image,
       );
     }
-    return _fallback();
+    return _fallback(context);
   }
 
-  Widget _fallback() {
+  Widget _fallback(BuildContext context) {
+    final bgColor = AppColors.of(context).surface3;
     final placeholder = Container(
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
         borderRadius: widget.borderRadius,
-        color: Colors.grey.shade900,
+        color: bgColor,
       ),
     );
     if (!widget.showBorder) return placeholder;

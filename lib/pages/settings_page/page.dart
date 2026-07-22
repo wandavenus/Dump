@@ -35,7 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: 'Pengaturan',
         scrollOffsetListenable: _offsetNotifier,

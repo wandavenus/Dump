@@ -52,6 +52,7 @@ class _PresetChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = AudioEffectsService.eqPresets[index]['name'] as String;
+    final c = AppColors.of(context);
 
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.equalizerEnabled,
@@ -73,15 +74,15 @@ class _PresetChip extends StatelessWidget {
                   color: isSelected
                       ? const Color(0xFFF92D48)
                       : enabled
-                          ? Colors.white.withValues(alpha: 0.09)
-                          : Colors.white.withValues(alpha: 0.04),
+                          ? c.primaryLabel.withValues(alpha: 0.09)
+                          : c.primaryLabel.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected
                         ? const Color(0xFFF92D48)
                         : enabled
-                            ? Colors.white.withValues(alpha: 0.12)
-                            : Colors.white.withValues(alpha: 0.05),
+                            ? c.primaryLabel.withValues(alpha: 0.12)
+                            : c.primaryLabel.withValues(alpha: 0.05),
                     width: 1.0,
                   ),
                 ),
@@ -91,8 +92,8 @@ class _PresetChip extends StatelessWidget {
                     color: isSelected
                         ? Colors.white
                         : enabled
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : Colors.white.withValues(alpha: 0.35),
+                            ? c.primaryLabel.withValues(alpha: 0.85)
+                            : c.primaryLabel.withValues(alpha: 0.35),
                     fontSize: 13,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.w400,

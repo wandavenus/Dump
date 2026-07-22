@@ -41,9 +41,10 @@ class _LogLevelSelector extends StatelessWidget {
   // ── Bottom sheet ───────────────────────────────────────────────────────────
 
   void _showSheet(BuildContext context) {
+    final c = AppColors.of(context);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: c.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
@@ -59,12 +60,12 @@ class _LogLevelSelector extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                 child: Text(
                   'Level Log',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: c.primaryLabel,
                       fontSize: 15,
                       fontWeight: FontWeight.w600),
                 ),
@@ -74,6 +75,9 @@ class _LogLevelSelector extends StatelessWidget {
                 subtitle: 'Logging dimatikan',
                 selected: !LogService.loggingEnabled.value,
                 onTap:    () => LogService.setLoggingEnabled(false),
+                primaryLabel:   c.primaryLabel,
+                secondaryLabel: c.secondaryLabel,
+                tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
                 title:    'Error & Peringatan Saja',
@@ -84,6 +88,9 @@ class _LogLevelSelector extends StatelessWidget {
                   await LogService.setLoggingEnabled(true);
                   await LogService.setErrorsOnly(true);
                 },
+                primaryLabel:   c.primaryLabel,
+                secondaryLabel: c.secondaryLabel,
+                tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
                 title:    'Normal',
@@ -96,6 +103,9 @@ class _LogLevelSelector extends StatelessWidget {
                   await LogService.setErrorsOnly(false);
                   await LogService.setVerboseEnabled(false);
                 },
+                primaryLabel:   c.primaryLabel,
+                secondaryLabel: c.secondaryLabel,
+                tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
                 title:    'Log Verbose',
@@ -108,6 +118,9 @@ class _LogLevelSelector extends StatelessWidget {
                   await LogService.setErrorsOnly(false);
                   await LogService.setVerboseEnabled(true);
                 },
+                primaryLabel:   c.primaryLabel,
+                secondaryLabel: c.secondaryLabel,
+                tertiaryLabel:  c.tertiaryLabel,
               ),
               const SizedBox(height: 6),
             ],
@@ -118,10 +131,13 @@ class _LogLevelSelector extends StatelessWidget {
   }
 
   static Widget _option({
-    required String      title,
-    required String      subtitle,
-    required bool        selected,
+    required String       title,
+    required String       subtitle,
+    required bool         selected,
     required VoidCallback onTap,
+    required Color        primaryLabel,
+    required Color        secondaryLabel,
+    required Color        tertiaryLabel,
   }) {
     return InkWell(
       onTap: onTap,
@@ -136,15 +152,15 @@ class _LogLevelSelector extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color:      selected ? Colors.white : const Color(0xFFAEAEB2),
+                      color:      selected ? primaryLabel : secondaryLabel,
                       fontSize:   14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(
-                          color: Color(0xFF636366), fontSize: 12)),
+                      style: TextStyle(
+                          color: tertiaryLabel, fontSize: 12)),
                 ],
               ),
             ),

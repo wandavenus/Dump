@@ -13,6 +13,7 @@ import '../services/media_store_service.dart';
 import '../services/playlist_service.dart';
 import '../services/replay_gain_service.dart';
 import '../services/song_metadata_service.dart';
+import '../theme/app_colors.dart';
 import '../utils/zoom_fade_route.dart';
 import 'common/swipe_to_dismiss_sheet.dart';
 import 'song_artwork.dart';
@@ -80,9 +81,10 @@ class _SongContextMenuState extends State<SongContextMenu> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Material(
-        color: const Color(0xFF1C1C1E),
+        color: c.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
         clipBehavior: Clip.antiAlias,
         child: SafeArea(
@@ -91,162 +93,162 @@ class _SongContextMenuState extends State<SongContextMenu> {
             children: [
               // ── Drag handle ──────────────────────────────────────────────
               const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.dragHandle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // ── Song header ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  SongArtwork(
-                    songId: widget.song.id,
-                    size: 48,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.song.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          widget.song.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+              // ── Song header ──────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    SongArtwork(
+                      songId: widget.song.id,
+                      size: 48,
+                      borderRadius: BorderRadius.circular(3),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.song.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.primaryLabel,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            widget.song.artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.secondaryLabel,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            // ── Grup 1: Pemutaran ─────────────────────────────────────────
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.play_fill,
-              label: 'Putar Sekarang',
-              onTap: () async {
-                Navigator.pop(context);
-                await AudioService.playSongAt(
-                  playlist: widget.playlist,
-                  index: widget.index,
-                );
-              },
-            ),
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.forward_end_fill,
-              label: 'Putar Selanjutnya',
-              onTap: () {
-                Navigator.pop(context);
-                AudioService.addToQueueNext(widget.song);
-              },
-            ),
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.text_badge_plus,
-              label: 'Tambah ke Antrian',
-              onTap: () {
-                Navigator.pop(context);
-                AudioService.addToQueue(widget.song);
-              },
-            ),
+              // ── Grup 1: Pemutaran ─────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.play_fill,
+                label: 'Putar Sekarang',
+                onTap: () async {
+                  Navigator.pop(context);
+                  await AudioService.playSongAt(
+                    playlist: widget.playlist,
+                    index: widget.index,
+                  );
+                },
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.forward_end_fill,
+                label: 'Putar Selanjutnya',
+                onTap: () {
+                  Navigator.pop(context);
+                  AudioService.addToQueueNext(widget.song);
+                },
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.text_badge_plus,
+                label: 'Tambah ke Antrian',
+                onTap: () {
+                  Navigator.pop(context);
+                  AudioService.addToQueue(widget.song);
+                },
+              ),
 
-            // ── Grup 2: Library ───────────────────────────────────────────
-            _insetDivider,
-            _MenuItem(
-              icon: _isFavorite
-                  ? CupertinoIcons.heart_fill
-                  : CupertinoIcons.heart,
-              iconColor: const Color(0xFFF92D48),
-              label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
-              onTap: _favLoaded
-                  ? () async {
-                      final navigator = Navigator.of(context);
-                      final nowFav =
-                          await PlaylistService.toggleFavorite(widget.song.id);
-                      if (!mounted) return;
-                      setState(() => _isFavorite = nowFav);
-                      navigator.pop();
-                    }
-                  : () {},
-            ),
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.music_note_list,
-              label: 'Tambah ke Daftar Putar',
-              onTap: () => _showAddToPlaylist(context),
-            ),
+              // ── Grup 2: Library ───────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: _isFavorite
+                    ? CupertinoIcons.heart_fill
+                    : CupertinoIcons.heart,
+                iconColor: const Color(0xFFF92D48),
+                label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
+                onTap: _favLoaded
+                    ? () async {
+                        final navigator = Navigator.of(context);
+                        final nowFav =
+                            await PlaylistService.toggleFavorite(widget.song.id);
+                        if (!mounted) return;
+                        setState(() => _isFavorite = nowFav);
+                        navigator.pop();
+                      }
+                    : () {},
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.music_note_list,
+                label: 'Tambah ke Daftar Putar',
+                onTap: () => _showAddToPlaylist(context),
+              ),
 
-            // ── Grup 3: Navigasi ──────────────────────────────────────────
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.music_albums_fill,
-              label: 'Buka Album',
-              onTap: _openAlbum,
-            ),
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.person_fill,
-              label: 'Buka Artis',
-              onTap: _openArtist,
-            ),
+              // ── Grup 3: Navigasi ──────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.music_albums_fill,
+                label: 'Buka Album',
+                onTap: _openAlbum,
+              ),
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.person_fill,
+                label: 'Buka Artis',
+                onTap: _openArtist,
+              ),
 
-            // ── Grup 4: Informasi ─────────────────────────────────────────
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.info_circle,
-              label: 'Informasi Lagu',
-              onTap: () {
-                Navigator.pop(context);
-                _showSongInfo(context);
-              },
-            ),
+              // ── Grup 4: Informasi ─────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.info_circle,
+                label: 'Informasi Lagu',
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSongInfo(context);
+                },
+              ),
 
-            // ── Grup 5: Hapus ─────────────────────────────────────────────
-            _insetDivider,
-            _MenuItem(
-              icon: CupertinoIcons.trash,
-              iconColor: const Color(0xFFF92D48),
-              labelColor: const Color(0xFFF92D48),
-              label: 'Hapus dari Perangkat',
-              onTap: () => _confirmDelete(context),
-            ),
-            const SizedBox(height: 8),
-          ],
+              // ── Grup 5: Hapus ─────────────────────────────────────────────
+              _insetDivider(c),
+              _MenuItem(
+                icon: CupertinoIcons.trash,
+                iconColor: const Color(0xFFF92D48),
+                labelColor: const Color(0xFFF92D48),
+                label: 'Hapus dari Perangkat',
+                onTap: () => _confirmDelete(context),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
-  static const _insetDivider = Divider(
+  static Widget _insetDivider(AppThemeExtension c) => Divider(
     height: 1,
     thickness: 0.5,
-    color: Color(0xFF48484A),
+    color: c.separator,
     indent: 52,
   );
 
@@ -259,6 +261,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
 
     navigator.pop();
 
+    final c = AppColors.of(context);
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
       MediaStoreService.clearSongsCache();
@@ -266,17 +269,17 @@ class _SongContextMenuState extends State<SongContextMenu> {
       SongMetadataService.invalidate(widget.song.id);
       unawaited(ReplayGainService.invalidate(widget.song.id));
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Lagu berhasil dihapus'),
-          backgroundColor: Color(0xFF2C2C2E),
+        SnackBar(
+          content: const Text('Lagu berhasil dihapus'),
+          backgroundColor: c.surface2,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } else {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Gagal menghapus lagu'),
-          backgroundColor: Color(0xFF2C2C2E),
+        SnackBar(
+          content: const Text('Gagal menghapus lagu'),
+          backgroundColor: c.surface2,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -339,14 +342,15 @@ class _SongContextMenuState extends State<SongContextMenu> {
   // ── Informasi Lagu ─────────────────────────────────────────────────────────
 
   void _showSongInfo(BuildContext context) {
+    final c = AppColors.of(context);
     showDialog(
       context: context,
       useRootNavigator: true,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text(
+        backgroundColor: c.surface,
+        title: Text(
           'Informasi Lagu',
-          style: TextStyle(color: Colors.white, fontSize: 17),
+          style: TextStyle(color: c.primaryLabel, fontSize: 17),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -363,10 +367,6 @@ class _SongContextMenuState extends State<SongContextMenu> {
         ),
         actions: [
           TextButton(
-            // Pakai context dialog sendiri (bukan context sheet lama yang
-            // sudah di-pop di _MenuItem.onTap), kalau tidak tombol ini
-            // memanggil Navigator.pop() dengan BuildContext yang sudah
-            // deactivated sehingga dialog gagal tertutup.
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text(
               'Tutup',

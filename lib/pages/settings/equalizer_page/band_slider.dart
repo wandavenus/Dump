@@ -292,8 +292,9 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
 
   @override
   Widget build(BuildContext context) {
-    final isActive = widget.gain.abs() > 0.1;
+    final isActive   = widget.gain.abs() > 0.1;
     final isDragging = _activePointer != null;
+    final c          = AppColors.of(context);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -306,7 +307,7 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
             style: TextStyle(
               color: isDragging || isActive
                   ? const Color(0xFFF92D48)
-                  : const Color(0xFF636366),
+                  : c.tertiaryLabel,
               fontSize: 10,
               fontWeight:
                   isDragging || isActive ? FontWeight.w600 : FontWeight.normal,
@@ -336,6 +337,9 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
                     max: widget.max,
                     pressAmount: _pressCtrl.value,
                     enabled: widget.enabled,
+                    trackBg: c.eqTrackBg,
+                    centerTickColor: c.eqCenterTick,
+                    disabledAccentColor: c.eqDisabledColor,
                   ),
                 ),
               ),
@@ -350,8 +354,8 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
           height: 16,
           child: Text(
             widget.freqLabel,
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
+            style: TextStyle(
+              color: c.secondaryLabel,
               fontSize: 10,
             ),
             textAlign: TextAlign.center,
@@ -378,6 +382,9 @@ class _BandTrackPainter extends CustomPainter {
     required this.max,
     required this.pressAmount,
     required this.enabled,
+    required this.trackBg,
+    required this.centerTickColor,
+    required this.disabledAccentColor,
   });
 
   final double gain;
@@ -385,6 +392,9 @@ class _BandTrackPainter extends CustomPainter {
   final double max;
   final double pressAmount;
   final bool enabled;
+  final Color trackBg;
+  final Color centerTickColor;
+  final Color disabledAccentColor;
 
   static const _trackW = 3.0;
   static const _thumbBaseR = 7.0;
@@ -403,15 +413,13 @@ class _BandTrackPainter extends CustomPainter {
     final centerY = size.height * (1.0 - zeroFraction);
 
     // ── Colours ──────────────────────────────────────────────────────────────
-    const trackBg = Color(0xFF3A3A3C);
-    const centerTick = Color(0xFF636366);
     final accentColor = enabled
         ? Color.lerp(
             const Color(0xFF888888),
             const Color(0xFFF92D48),
             (gain.abs() / (range / 2)).clamp(0.0, 1.0),
           )!
-        : const Color(0xFF3A3A3C);
+        : disabledAccentColor;
     final thumbColor = enabled
         ? Color.lerp(const Color(0xFF8A8A8E), const Color(0xFFF92D48),
             (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 + pressAmount * 0.2)!
@@ -439,7 +447,7 @@ class _BandTrackPainter extends CustomPainter {
 
     // ── Center tick (0 dB reference) ─────────────────────────────────────────
     final centerPaint = Paint()
-      ..color = centerTick
+      ..color = centerTickColor
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(
@@ -481,7 +489,10 @@ class _BandTrackPainter extends CustomPainter {
       old.pressAmount != pressAmount ||
       old.enabled != enabled ||
       old.min != min ||
-      old.max != max;
+      old.max != max ||
+      old.trackBg != trackBg ||
+      old.centerTickColor != centerTickColor ||
+      old.disabledAccentColor != disabledAccentColor;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

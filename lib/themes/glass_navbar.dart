@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 
 class GlassNavBar extends StatelessWidget {
   final Widget child;
@@ -11,6 +12,7 @@ class GlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Stack(
       children: [
         // RepaintBoundary isolates the BackdropFilter so it is not
@@ -21,7 +23,7 @@ class GlassNavBar extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
-                  color: Colors.white.withValues(alpha: 0.035),
+                  color: c.glassNavTint,
                 ),
               ),
             ),
@@ -32,7 +34,7 @@ class GlassNavBar extends StatelessWidget {
           left: 0,
           right: 0,
           height: 0.5,
-          child: Container(color: Colors.white.withValues(alpha: 0.18)),
+          child: Container(color: c.glassBorderTint),
         ),
         child,
       ],

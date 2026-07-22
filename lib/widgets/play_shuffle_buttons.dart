@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/log_service.dart';
+import '../theme/app_colors.dart';
 
 /// Shared "Putar" / "Acak" action buttons — used consistently across
 /// Song List, Album List (Library), Album Detail, and Artist Detail.
@@ -72,6 +73,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -80,7 +82,7 @@ class _ActionButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            color: const Color(0xFF1C1C1E),
+            color: c.surface,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

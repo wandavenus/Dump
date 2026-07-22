@@ -23,6 +23,7 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -33,7 +34,10 @@ class _MenuItem extends StatelessWidget {
             const SizedBox(width: 14),
             Text(
               label,
-              style: TextStyle(color: labelColor ?? Colors.white, fontSize: 15),
+              style: TextStyle(
+                color: labelColor ?? c.primaryLabel,
+                fontSize: 15,
+              ),
             ),
           ],
         ),

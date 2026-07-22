@@ -16,6 +16,7 @@ class LocalSongCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: () async {
         try {
@@ -43,10 +44,10 @@ class LocalSongCard extends StatelessWidget {
                 song.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 15,
-                  color: Colors.white,
+                  color: c.primaryLabel,
                 ),
               ),
             ),
@@ -56,10 +57,10 @@ class LocalSongCard extends StatelessWidget {
                 song.artist,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 12,
-                  color: Colors.grey,
+                  color: c.secondaryLabel,
                 ),
               ),
             ),

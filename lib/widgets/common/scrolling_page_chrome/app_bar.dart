@@ -38,19 +38,21 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (notifier != null) {
           return ValueListenableBuilder<double>(
             valueListenable: notifier,
-            builder: (context, offset, _) => _buildBar(isGlass, offset),
+            builder: (context, offset, _) => _buildBar(context, isGlass, offset),
           );
         }
-        return _buildBar(isGlass, scrollOffset);
+        return _buildBar(context, isGlass, scrollOffset);
       },
     );
   }
 
-  Widget _buildBar(bool isGlass, double offset) {
+  Widget _buildBar(BuildContext context, bool isGlass, double offset) {
+    final c          = AppColors.of(context);
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return AppBar(
       automaticallyImplyLeading: automaticallyImplyLeading,
       leading: leading,
-      backgroundColor: isGlass ? Colors.transparent : Colors.black,
+      backgroundColor: isGlass ? Colors.transparent : scaffoldBg,
       surfaceTintColor: Colors.transparent,
       flexibleSpace:
           isGlass
@@ -59,7 +61,7 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                     child: Container(
-                      color: Colors.white.withValues(alpha: 0.055),
+                      color: c.glassNavTint,
                     ),
                   ),
                 ),
@@ -88,13 +90,13 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
             isGlass
                 ? Container(
                   height: 0.5,
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: c.glassBorderTint,
                 )
                 : Opacity(
                   opacity: (offset / 140).clamp(0.0, 1.0).toDouble(),
                   child: Container(
                     height: 0.9,
-                    color: const Color(0xFF48484A),
+                    color: c.separator,
                   ),
                 ),
       ),
