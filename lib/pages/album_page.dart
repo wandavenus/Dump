@@ -12,19 +12,19 @@ class AlbumPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final route = ModalRoute.of(context);
+    final theme = Theme.of(context);
     if (route == null) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: theme.scaffoldBackgroundColor,
       );
     }
     final args = route.settings.arguments as Map<String, dynamic>;
 
     final album = args['album'] as LocalSong;
     final songs = args['songs'] as List<LocalSong>;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         scrollOffset: 100,
         leading: CupertinoButton(

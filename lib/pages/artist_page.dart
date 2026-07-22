@@ -12,16 +12,16 @@ class ArtistPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final route = ModalRoute.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     if (route == null) {
-      return Scaffold(backgroundColor: colorScheme.surface);
+      return Scaffold(backgroundColor: theme.scaffoldBackgroundColor);
     }
 
     final songs = route.settings.arguments as List<LocalSong>;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         scrollOffset: 100,
         leading: CupertinoButton(
