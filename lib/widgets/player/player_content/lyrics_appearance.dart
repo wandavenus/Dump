@@ -42,13 +42,12 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // BackdropFilter dihapus — container sudah 0.75 alpha hitam di atas
-    // latar gelap full-player, blur di baliknya tidak terlihat secara visual.
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: SafeArea(
@@ -64,30 +63,30 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: c.dragHandle,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Tampilan Lirik',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: c.primaryLabel,
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 20),
-                _buildLabel('Ukuran Teks'),
+                _buildLabel(c, 'Ukuran Teks'),
                 const SizedBox(height: 8),
                 const _FontSizePicker(),
                 const SizedBox(height: 16),
-                _buildLabel('Rata Teks'),
+                _buildLabel(c, 'Rata Teks'),
                 const SizedBox(height: 8),
                 const _AlignPicker(),
                 const SizedBox(height: 16),
-                _buildLabel('Warna Aktif'),
+                _buildLabel(c, 'Warna Aktif'),
                 const SizedBox(height: 8),
                 const _ColorPicker(),
                 const SizedBox(height: 12),
@@ -111,10 +110,10 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
     );
   }
 
-  static Widget _buildLabel(String text) => Text(
+  static Widget _buildLabel(AppThemeExtension c, String text) => Text(
     text,
-    style: const TextStyle(
-      color: Color(0xFF8E8E93),
+    style: TextStyle(
+      color: c.secondaryLabel,
       fontSize: 12,
       fontWeight: FontWeight.w500,
     ),
@@ -138,40 +137,40 @@ class _ToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ValueListenableBuilder<bool>(
       valueListenable: notifier,
-      builder:
-          (_, v, _) => Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        subtitle!,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
+      builder: (_, v, _) => Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 ),
-              ),
-              CupertinoSwitch(
-                value: v,
-                onChanged: onChanged,
-                activeTrackColor: const Color(0xFFF92D48),
-              ),
-            ],
+                if (subtitle != null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      color: c.secondaryLabel,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
+          CupertinoSwitch(
+            value: v,
+            onChanged: onChanged,
+            activeTrackColor: const Color(0xFFF92D48),
+          ),
+        ],
+      ),
     );
   }
 }

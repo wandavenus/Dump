@@ -12,6 +12,7 @@ import '../../models/lyrics_settings.dart';
 import '../../services/audio_playback_state.dart';
 import '../../services/audio_service.dart';
 import '../../services/lyrics_service.dart';
+import '../../theme/app_colors.dart';
 import '../common/swipe_to_dismiss_sheet.dart';
 import '../song_artwork.dart';
 import 'player_progress_section.dart';

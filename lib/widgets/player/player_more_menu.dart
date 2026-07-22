@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../../theme/app_colors.dart';
 import '../../pages/settings/sleep_timer_page.dart';
 import '../../services/audio_playback_state.dart';
 import '../../services/sleep_timer_service.dart';
@@ -9,14 +10,6 @@ import '../../services/audio_service.dart';
 import 'player_song_info_sheet.dart';
 
 // ─── PlayerMoreMenu ────────────────────────────────────────────────────────────
-//
-// Custom overlay menu yang TIDAK menutup otomatis saat item ditekan.
-// Hanya menutup jika:
-//   • user tap di luar menu (barrier)
-//   • aksi navigasi (Song Info / Sleep Timer) dipanggil
-//
-// Implementasi: OverlayEntry + GlobalKey untuk posisi; StatefulWidget agar
-// state overlay bisa dikontrol manual.
 
 class PlayerMoreMenu extends StatefulWidget {
   final LocalSong song;
@@ -37,18 +30,18 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
-    final pos    = box.localToGlobal(Offset.zero);
-    final size   = box.size;
-    const menuW  = 220.0;
-    final left   = (pos.dx + size.width - menuW).clamp(8.0, double.infinity);
-    final top    = pos.dy + size.height + 8;
+    final pos   = box.localToGlobal(Offset.zero);
+    final size  = box.size;
+    const menuW = 220.0;
+    final left  = (pos.dx + size.width - menuW).clamp(8.0, double.infinity);
+    final top   = pos.dy + size.height + 8;
 
     _entry = OverlayEntry(builder: (_) => _MoreMenuOverlay(
-      left:   left,
-      top:    top,
-      width:  menuW,
-      song:   widget.song,
-      onClose: _close,
+      left:       left,
+      top:        top,
+      width:      menuW,
+      song:       widget.song,
+      onClose:    _close,
       onNavigate: _closeAndNavigate,
     ));
 
@@ -117,7 +110,6 @@ class _MoreMenuOverlay extends StatefulWidget {
 }
 
 class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
-  // Rebuild saat state audio berubah
   void _refresh() {
     if (mounted) setState(() {});
   }
@@ -140,8 +132,9 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final state   = AudioService.playbackState.value;
-    final active  = SleepTimerService.isActive.value;
+    final c         = AppColors.of(context);
+    final state     = AudioService.playbackState.value;
+    final active    = SleepTimerService.isActive.value;
     final remaining = SleepTimerService.remaining.value;
 
     String? sleepLabel;
@@ -175,57 +168,50 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
             color: Colors.transparent,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color:        const Color(0xFF242426),
+                color:        c.surface2,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color:         Colors.black.withValues(alpha: 0.5),
-                    blurRadius:    20,
-                    offset:        const Offset(0, 6),
+                    color:      Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 20,
+                    offset:     const Offset(0, 6),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Shuffle
                   _MenuItem(
                     icon:   CupertinoIcons.shuffle,
                     label:  state.shuffleEnabled ? 'Shuffle On' : 'Shuffle Off',
                     active: state.shuffleEnabled,
                     onTap:  AudioService.toggleShuffle,
                   ),
-                  _Divider(),
-
-                  // Loop
+                  _Divider(c: c),
                   _MenuItem(
                     icon:   _loopIcon(state.loopMode),
                     label:  'Loop ${_loopLabel(state.loopMode)}',
                     active: state.loopMode != LoopMode.off,
                     onTap:  AudioService.cycleLoopMode,
                   ),
-                  _Divider(),
-
-                  // Song Info — menutup menu lalu navigasi
+                  _Divider(c: c),
                   _MenuItem(
                     icon:  CupertinoIcons.info,
                     label: 'Song Info',
                     onTap: () => widget.onNavigate(
                       () => showModalBottomSheet<void>(
-                        context:          context,
+                        context:            context,
                         isScrollControlled: true,
-                        useSafeArea:      true,
-                        backgroundColor:  Colors.transparent,
+                        useSafeArea:        true,
+                        backgroundColor:    Colors.transparent,
                         builder: (_) => PlayerSongInfoSheet(song: widget.song),
                       ),
                     ),
                   ),
-                  _Divider(),
-
-                  // Sleep Timer — menutup menu lalu navigasi
+                  _Divider(c: c),
                   _SleepTimerItem(
-                    active:      active,
-                    sleepLabel:  sleepLabel,
+                    active:     active,
+                    sleepLabel: sleepLabel,
                     onTap: () => widget.onNavigate(
                       () => showSleepTimerSheet(context),
                     ),
@@ -266,7 +252,10 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFFF92D48) : Colors.white;
+    final c           = AppColors.of(context);
+    final accent      = Theme.of(context).colorScheme.primary;
+    final labelColor  = active ? accent : c.primaryLabel;
+    final iconColor   = active ? accent : c.secondaryLabel;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -274,12 +263,12 @@ class _MenuItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
-            Icon(icon, color: active ? const Color(0xFFF92D48) : Colors.white70, size: 20),
+            Icon(icon, color: iconColor, size: 20),
             const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
-                color:      color,
+                color:      labelColor,
                 fontWeight: FontWeight.w600,
                 fontSize:   15,
               ),
@@ -304,6 +293,8 @@ class _SleepTimerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c      = AppColors.of(context);
+    final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -313,7 +304,7 @@ class _SleepTimerItem extends StatelessWidget {
           children: [
             Icon(
               CupertinoIcons.time,
-              color: active ? const Color(0xFFF92D48) : Colors.white70,
+              color: active ? accent : c.secondaryLabel,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -324,7 +315,7 @@ class _SleepTimerItem extends StatelessWidget {
                 Text(
                   'Sleep Timer',
                   style: TextStyle(
-                    color:      active ? const Color(0xFFF92D48) : Colors.white,
+                    color:      active ? accent : c.primaryLabel,
                     fontWeight: FontWeight.w600,
                     fontSize:   15,
                   ),
@@ -332,8 +323,8 @@ class _SleepTimerItem extends StatelessWidget {
                 if (sleepLabel != null)
                   Text(
                     sleepLabel!,
-                    style: const TextStyle(
-                      color:    Color(0xFF8E8E93),
+                    style: TextStyle(
+                      color:    c.secondaryLabel,
                       fontSize: 12,
                     ),
                   ),
@@ -347,7 +338,10 @@ class _SleepTimerItem extends StatelessWidget {
 }
 
 class _Divider extends StatelessWidget {
+  final AppThemeExtension c;
+  const _Divider({required this.c});
+
   @override
   Widget build(BuildContext context) =>
-      Container(height: 0.5, color: Colors.white.withValues(alpha: 0.1));
+      Container(height: 0.5, color: c.subtleSeparator);
 }
