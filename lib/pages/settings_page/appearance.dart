@@ -10,6 +10,45 @@ class _AppearanceSection extends StatelessWidget {
       children: [
         const SettingsSectionHeader('TAMPILAN'),
         const SizedBox(height: 6),
+        // ── Tema ──────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.brightness_6_outlined, size: 20),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('Tema', style: TextStyle(fontSize: 16)),
+              ),
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: ThemeController.mode,
+                builder: (context, current, _) {
+                  return CupertinoSlidingSegmentedControl<ThemeMode>(
+                    groupValue: current,
+                    onValueChanged: (v) {
+                      if (v != null) ThemeController.setMode(v);
+                    },
+                    children: const {
+                      ThemeMode.light:  Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('Terang', style: TextStyle(fontSize: 13)),
+                      ),
+                      ThemeMode.system: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('Otomatis', style: TextStyle(fontSize: 13)),
+                      ),
+                      ThemeMode.dark:   Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('Gelap', style: TextStyle(fontSize: 13)),
+                      ),
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SettingsDivider(),
         ValueListenableBuilder<bool>(
           valueListenable: UpNextSettings.showUpNextCard,
           builder: (_, show, _) => SettingsToggleRow(
