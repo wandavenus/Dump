@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:music/theme/app_theme_extension.dart';
+import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'player_hero_tags.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
