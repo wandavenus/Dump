@@ -1,0 +1,105 @@
+name: "CodeQL Advanced"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  packages: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+
+          - language: c-cpp
+            build-mode: manual
+
+          - language: java-kotlin
+            build-mode: manual
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      ##################################################
+      # Environment Setup
+      ##################################################
+
+      - name: Setup Java 17
+        if: matrix.build-mode == 'manual'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Flutter
+        if: matrix.build-mode == 'manual'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.5
+          cache: true
+
+      - name: Setup Android SDK
+        if: matrix.build-mode == 'manual'
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        if: matrix.build-mode == 'manual'
+        uses: gradle/actions/setup-gradle@v4
+
+
+      ##################################################
+      # CodeQL Initialization
+      ##################################################
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended,security-and-quality
+
+
+      ##################################################
+      # Build Project
+      ##################################################
+
+      - name: Install Flutter dependencies
+        if: matrix.build-mode == 'manual'
+        run: |
+          flutter pub get
+
+
+      - name: Build Android Debug
+        if: matrix.language == 'java-kotlin'
+        run: |
+          flutter build apk --debug
+
+
+      - name: Build Native C++
+        if: matrix.language == 'c-cpp'
+        run: |
+          flutter pub get
+          flutter build apk --debug
+
+
+      ##################################################
+      # Analysis
+      ##################################################
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
