@@ -412,12 +412,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                     final useGlass =
                         masterGlass && compGlass && progress < 0.02;
                     if (useGlass) {
+                      final c = AppColors.of(context);
                       return RepaintBoundary(
                         child: ClipRect(
                           child: BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                             child: ColoredBox(
-                              color: Colors.black.withValues(alpha: 0.0),
+                              color: c.glassNavTint,
                             ),
                           ),
                         ),

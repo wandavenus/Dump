@@ -109986,11 +109986,11 @@ o=A.a1(p,55,r)
 o.toString
 n=A.a1(i.r,3,r)
 n.toString
-m=A.a1(0.3,0,r)
+m=A.a1(0,0.3,r)
 m.toString
-l=A.a1(40,0,r)
+l=A.a1(0,40,r)
 l.toString
-k=A.a1(15,0,r)
+k=A.a1(0,15,r)
 k.toString
 if(s>0.5)j=1
 else j=g.CW?1:0.96
