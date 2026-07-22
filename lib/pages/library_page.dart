@@ -39,17 +39,19 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.black,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         title: const SizedBox.shrink(),
         centerTitle: false,
         actions: const [CommonActions()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(
+          child: Divider(
             height: 0.9,
             color: Colors.transparent,
           ),
