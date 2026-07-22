@@ -88,19 +88,14 @@ class _FirstPageState extends State<FirstPage> {
     }
 
     // Detail routes yang di-push dari dalam tab manapun.
-    Widget? page;
-    switch (settings.name) {
-      case '/album':
-        page = const WebView(child: AlbumPage());
-      case '/artist':
-        page = const WebView(child: ArtistPage());
-      case '/artistlist':
-        page = const WebView(child: ArtistList());
-      case '/musiclist':
-        page = const WebView(child: MusicList());
-      default:
-        return null;
-    }
+    final Widget? page = switch (settings.name) {
+      '/album'      => const WebView(child: AlbumPage()),
+      '/artist'     => const WebView(child: ArtistPage()),
+      '/artistlist' => const WebView(child: ArtistList()),
+      '/musiclist'  => const WebView(child: MusicList()),
+      _             => null,
+    };
+    if (page == null) return null;
     return ZoomFadeRoute(page: page, settings: settings);
   }
 

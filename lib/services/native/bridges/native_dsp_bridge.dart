@@ -97,13 +97,11 @@ class NativeDspBridge implements NativeModule {
 
       final regStatus =
           NativeAudioRuntime.instance.registerModule(_moduleId);
-      switch (regStatus) {
-        case NativeRuntimeStatus.ok:
-        case NativeRuntimeStatus.duplicateModule:
-          _status = NativeModuleStatus.available;
-        default:
-          _status = NativeModuleStatus.unavailable;
-      }
+      _status = switch (regStatus) {
+        NativeRuntimeStatus.ok || NativeRuntimeStatus.duplicateModule =>
+            NativeModuleStatus.available,
+        _ => NativeModuleStatus.unavailable,
+      };
       BootTrace.log('EXIT  NativeDspBridge.initialize() — status=$_status');
     } catch (e, st) {
       BootTrace.log('EXCEPTION in NativeDspBridge.initialize(): $e\n$st');

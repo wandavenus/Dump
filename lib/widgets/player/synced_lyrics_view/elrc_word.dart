@@ -76,7 +76,7 @@ class ElrcWordExtractor {
 
       for (final ts in timestamps) {
         final adjusted = Duration(
-          milliseconds: (ts.inMilliseconds + offsetMs).clamp(0, 9999999),
+          milliseconds: (ts.inMilliseconds + offsetMs).clamp(0, 9_999_999),
         );
         entries.add((adjusted, words));
       }
@@ -111,7 +111,7 @@ class ElrcWordExtractor {
       final sec    = double.tryParse(secStr) ?? 0.0;
       final startMs = ((min * 60 + sec) * 1000).round() + offsetMs;
       final wordStart = Duration(
-        milliseconds: startMs.clamp(0, 9999999),
+        milliseconds: startMs.clamp(0, 9_999_999),
       );
 
       final textEnd   = i + 1 < matches.length ? matches[i + 1].start : rest.length;

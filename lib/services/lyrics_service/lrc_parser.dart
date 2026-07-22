@@ -142,7 +142,7 @@ class LrcParser {
 
       for (final ts in timestamps) {
         final adjusted = Duration(
-          milliseconds: (ts.inMilliseconds + offsetMs).clamp(0, 9999999),
+          milliseconds: (ts.inMilliseconds + offsetMs).clamp(0, 9_999_999),
         );
         result.add(LyricLine(timestamp: adjusted, text: rawText));
       }

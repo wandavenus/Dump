@@ -60,7 +60,7 @@ class MetadataCacheDb private constructor(context: Context)
             var h = -3750763034362895579L   // FNV-1a 64-bit offset basis
             for (c in path) {
                 h = h xor c.code.toLong()
-                h *= 1099511628211L          // FNV-1a 64-bit prime
+                h *= 1_099_511_628_211L      // FNV-1a 64-bit prime
             }
             return h
         }

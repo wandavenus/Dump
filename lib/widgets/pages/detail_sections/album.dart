@@ -9,7 +9,7 @@ class AlbumHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final metaParts = <String>[
       if (album.genre != null && album.genre!.isNotEmpty) album.genre!,
-      if (album.year != null) album.year.toString(),
+      ?album.year?.toString(),
     ];
 
     return Padding(
