@@ -1,50 +1,34 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Global glass-theme controller — all state is static, no instances.
-///
-/// ## Design note: all-static pattern
-/// [ThemeController] uses a private constructor (`ThemeController._()`) to
-/// prevent accidental instantiation while keeping all public members static.
-/// This is intentional: the glass theme is a true singleton at the process
-/// level and is accessed from multiple unrelated widget subtrees.  A proper
-/// InheritedWidget or ChangeNotifier approach would require threading the
-/// controller through the entire widget tree — unnecessary complexity for a
-/// small, stable set of ten boolean toggles.
-///
-/// ## Lifecycle
-/// Call [init()] once during app startup (after [WidgetsFlutterBinding]).
-/// All setters are safe to call from any widget after [init()] completes.
 class ThemeController {
   ThemeController._();
 
-  // Cached after init() — avoids a SharedPreferences.getInstance() round-trip
-  // on every toggle.  Falls back to a fresh getInstance() if init() was skipped
-  // (e.g. tests or web preview).
   static SharedPreferences? _prefs;
 
-  // ─── Master toggle ──────────────────────────────────────────────────────────
-  static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
+  static final ValueNotifier<ThemeMode> mode =
+      ValueNotifier(ThemeMode.system);
 
-  // ─── Per-komponen glass (hanya aktif jika master ON) ────────────────────────
-  // Player UI
+  static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
   static final ValueNotifier<bool> glassNavBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<bool> glassPlayerSheet = ValueNotifier(true);
-  // Library & Cards
   static final ValueNotifier<bool> glassAlbumCard = ValueNotifier(true);
   static final ValueNotifier<bool> glassArtistCard = ValueNotifier(true);
   static final ValueNotifier<bool> glassLibraryBar = ValueNotifier(true);
-  // Search
   static final ValueNotifier<bool> glassSearchBar = ValueNotifier(true);
-  // Settings
   static final ValueNotifier<bool> glassSettings = ValueNotifier(false);
 
-  // ─── Init ───────────────────────────────────────────────────────────────────
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     final prefs = _prefs!;
+
+    mode.value = ThemeMode.values[
+      prefs.getInt('theme_mode') ?? ThemeMode.system.index
+    ];
+
     glassTheme.value = prefs.getBool('glass_theme') ?? false;
     glassNavBar.value = prefs.getBool('glass_navbar') ?? true;
     glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
@@ -57,11 +41,14 @@ class ThemeController {
     glassSettings.value = prefs.getBool('glass_settings') ?? false;
   }
 
-  // ─── Helper ─────────────────────────────────────────────────────────────────
+  static Future<void> setMode(ThemeMode value) async {
+    mode.value = value;
+    await _save('theme_mode', value.index);
+  }
+
   static bool isGlass(ValueNotifier<bool> component) =>
       glassTheme.value && component.value;
 
-  // ─── Setters ────────────────────────────────────────────────────────────────
   static Future<void> setGlassTheme(bool enabled) async {
     glassTheme.value = enabled;
     await _save('glass_theme', enabled);
@@ -112,10 +99,12 @@ class ThemeController {
     await _save('glass_settings', enabled);
   }
 
-  static Future<void> _save(String key, bool value) async {
-    // Re-use the cached instance from init(); fall back to getInstance() in
-    // the unlikely case that _save() is called before init() completes.
+  static Future<void> _save(String key, Object value) async {
     final prefs = _prefs ?? await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+    if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is int) {
+      await prefs.setInt(key, value);
+    }
   }
 }
