@@ -12,12 +12,12 @@ class _FilePathSection extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 18),
         childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-        iconColor: Colors.white70,
-        collapsedIconColor: Colors.white54,
-        title: const Text(
+        iconColor: AppColors.of(context).secondaryLabel,
+        collapsedIconColor: AppColors.of(context).tertiaryLabel,
+        title: Text(
           'File Path',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.of(context).primaryLabel,
             fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
@@ -27,8 +27,8 @@ class _FilePathSection extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: SelectableText(
               filePath,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: AppColors.of(context).secondaryLabel,
                 fontSize: 13,
                 height: 1.35,
               ),

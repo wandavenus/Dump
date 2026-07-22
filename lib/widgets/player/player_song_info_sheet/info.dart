@@ -18,8 +18,8 @@ class _InfoSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFFF92D48),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.1,
@@ -58,12 +58,12 @@ class _CollapsibleSection extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
         childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-        iconColor: const Color(0xFFF92D48),
-        collapsedIconColor: Colors.white38,
+        iconColor: Theme.of(context).colorScheme.primary,
+        collapsedIconColor: AppColors.of(context).tertiaryLabel,
         title: Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFFF92D48),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
             fontSize: 12,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.1,

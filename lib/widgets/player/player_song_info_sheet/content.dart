@@ -43,8 +43,8 @@ class _SongInfoContent extends StatelessWidget {
                   textAlign: TextAlign.left,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.of(context).primaryLabel,
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
@@ -56,8 +56,8 @@ class _SongInfoContent extends StatelessWidget {
                   textAlign: TextAlign.left,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AppColors.of(context).secondaryLabel,
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),

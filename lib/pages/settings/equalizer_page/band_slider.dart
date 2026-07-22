@@ -133,12 +133,12 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
               trailing: enabled
                   ? GestureDetector(
                       onTap: _resetAll,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         child: Text(
                           'Reset',
                           style: TextStyle(
-                            color: Color(0xFFF92D48),
+                            color: Theme.of(context).colorScheme.primary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -306,7 +306,7 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
             duration: const Duration(milliseconds: 150),
             style: TextStyle(
               color: isDragging || isActive
-                  ? const Color(0xFFF92D48)
+                  ? Theme.of(context).colorScheme.primary
                   : c.tertiaryLabel,
               fontSize: 10,
               fontWeight:
@@ -340,6 +340,8 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
                     trackBg: c.eqTrackBg,
                     centerTickColor: c.eqCenterTick,
                     disabledAccentColor: c.eqDisabledColor,
+                    accentColor: Theme.of(context).colorScheme.primary,
+                    neutralTrackColor: c.tertiaryLabel,
                   ),
                 ),
               ),
@@ -385,6 +387,8 @@ class _BandTrackPainter extends CustomPainter {
     required this.trackBg,
     required this.centerTickColor,
     required this.disabledAccentColor,
+    required this.accentColor,
+    required this.neutralTrackColor,
   });
 
   final double gain;
@@ -395,6 +399,8 @@ class _BandTrackPainter extends CustomPainter {
   final Color trackBg;
   final Color centerTickColor;
   final Color disabledAccentColor;
+  final Color accentColor;
+  final Color neutralTrackColor;
 
   static const _trackW = 3.0;
   static const _thumbBaseR = 7.0;
@@ -413,17 +419,17 @@ class _BandTrackPainter extends CustomPainter {
     final centerY = size.height * (1.0 - zeroFraction);
 
     // ── Colours ──────────────────────────────────────────────────────────────
-    final accentColor = enabled
+    final activeColor = enabled
         ? Color.lerp(
-            const Color(0xFF888888),
-            const Color(0xFFF92D48),
+            neutralTrackColor,
+            accentColor,
             (gain.abs() / (range / 2)).clamp(0.0, 1.0),
           )!
         : disabledAccentColor;
     final thumbColor = enabled
-        ? Color.lerp(const Color(0xFF8A8A8E), const Color(0xFFF92D48),
+        ? Color.lerp(neutralTrackColor, accentColor,
             (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 + pressAmount * 0.2)!
-        : const Color(0xFF5A5A5E);
+        : disabledAccentColor;
 
     // ── Background track ─────────────────────────────────────────────────────
     final bgPaint = Paint()
@@ -435,7 +441,7 @@ class _BandTrackPainter extends CustomPainter {
     // ── Active fill (center → thumb) ─────────────────────────────────────────
     if (gain.abs() > 0.05) {
       final activePaint = Paint()
-        ..color = accentColor
+        ..color = activeColor
         ..strokeWidth = _trackW + pressAmount
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(
@@ -461,7 +467,7 @@ class _BandTrackPainter extends CustomPainter {
         (gain.abs() > 0.1 ? 0.08 : 0.0));
     if (glowOpacity > 0 && enabled) {
       final glowPaint = Paint()
-        ..color = const Color(0xFFF92D48).withValues(alpha: glowOpacity)
+        ..color = accentColor.withValues(alpha: glowOpacity)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(
         Offset(cx, thumbY),

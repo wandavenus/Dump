@@ -141,7 +141,7 @@ class _FirstPageState extends State<FirstPage> {
               ),
             ],
             elevation: 0,
-            selectedItemColor: const Color(0xFFF92D48),
+            selectedItemColor: Theme.of(context).colorScheme.primary,
             unselectedItemColor: c.secondaryLabel,
             showUnselectedLabels: true,
             backgroundColor: isGlass

@@ -49,7 +49,7 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: SafeArea(
@@ -62,7 +62,7 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: AppColors.of(context).dragHandle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

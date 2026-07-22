@@ -71,21 +71,21 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
               // Buat baru
               InkWell(
                 onTap: () => _createNew(context),
-                child: const Padding(
+                child: Padding(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
                       Icon(
                         CupertinoIcons.plus_circle,
-                        color: Color(0xFFF92D48),
+                        color: Theme.of(context).colorScheme.primary,
                         size: 22,
                       ),
-                      SizedBox(width: 14),
+                      const SizedBox(width: 14),
                       Text(
                         'Buat Daftar Putar Baru',
                         style: TextStyle(
-                          color: Color(0xFFF92D48),
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 15,
                         ),
                       ),
@@ -129,9 +129,9 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 CupertinoIcons.music_note,
-                                color: Color(0xFFF92D48),
+                                color: Theme.of(context).colorScheme.primary,
                                 size: 22,
                               ),
                               const SizedBox(width: 14),
@@ -216,8 +216,8 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: dc.separator),
               ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFF92D48)),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(dialogCtx).colorScheme.primary),
               ),
             ),
             onSubmitted: (v) => Navigator.pop(dialogCtx, v.trim()),
@@ -233,9 +233,9 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
             TextButton(
               onPressed: () =>
                   Navigator.pop(dialogCtx, nameController.text.trim()),
-              child: const Text(
+              child: Text(
                 'Buat',
-                style: TextStyle(color: Color(0xFFF92D48)),
+                style: TextStyle(color: Theme.of(dialogCtx).colorScheme.primary),
               ),
             ),
           ],

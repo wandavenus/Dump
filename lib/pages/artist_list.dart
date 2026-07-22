@@ -42,16 +42,15 @@ class _ArtistListState extends State<ArtistList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: FadingTitleAppBar(
         title: 'Artis Favorit',
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: Theme.of(context).colorScheme.primary,
             size: 28,
           ),
         ),

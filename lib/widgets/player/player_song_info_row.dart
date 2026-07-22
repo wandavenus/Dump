@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colors.dart';
+
 class PlayerSongInfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -20,8 +22,8 @@ class PlayerSongInfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: AppColors.of(context).tertiaryLabel,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -33,8 +35,8 @@ class PlayerSongInfoRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.of(context).primaryLabel,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),

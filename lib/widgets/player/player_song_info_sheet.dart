@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 import '../../models/local_song.dart';
 import '../../models/song_info.dart';
 import '../../services/audio/playback_manager.dart';

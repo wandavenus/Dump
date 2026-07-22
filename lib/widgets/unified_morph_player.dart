@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../models/local_song.dart';
+import '../theme/app_colors.dart';
 import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
 import '../services/player_sheet_controller.dart';
@@ -422,7 +423,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                         ),
                       );
                     }
-                    return const ColoredBox(color: Color(0xFF1C1C1E));
+                    return ColoredBox(color: AppColors.of(context).surface);
                   },
                 ),
               ),
@@ -583,6 +584,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                   child: IgnorePointer(
                     ignoring: progress > 0.08,
                     child: _buildMiniOverlay(
+                    context,
                     song,
                     progress,
                     ),
@@ -609,6 +611,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   // Uses _isPlaying field instead of AudioPlaybackState parameter —
   // only rebuilt on song/isPlaying changes, not on position ticks.
   Widget _buildMiniOverlay(
+  BuildContext context,
   LocalSong song,
   double progress,
 ) {
@@ -648,8 +651,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
               song.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.of(context).primaryLabel,
                 fontSize: 15,
               ),
             ),
@@ -676,15 +679,15 @@ Transform.translate(
                 ? CupertinoIcons.pause_fill
                 : CupertinoIcons.play_fill,
             size: 31,
-            color: Colors.white,
+            color: AppColors.of(context).primaryLabel,
           ),
         ),
-        const IconButton(
+        IconButton(
           onPressed: AudioService.skipNext,
           icon: Icon(
             CupertinoIcons.forward_fill,
             size: 30,
-            color: Colors.white,
+            color: AppColors.of(context).primaryLabel,
           ),
         ),
       ],

@@ -14,6 +14,7 @@ import '../services/playlist_service.dart';
 import '../services/replay_gain_service.dart';
 import '../services/song_metadata_service.dart';
 import '../theme/app_colors.dart';
+import '../themes/app_theme_extension.dart';
 import '../utils/zoom_fade_route.dart';
 import 'common/swipe_to_dismiss_sheet.dart';
 import 'song_artwork.dart';
@@ -183,7 +184,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 icon: _isFavorite
                     ? CupertinoIcons.heart_fill
                     : CupertinoIcons.heart,
-                iconColor: const Color(0xFFF92D48),
+                iconColor: Theme.of(context).colorScheme.primary,
                 label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
                 onTap: _favLoaded
                     ? () async {
@@ -232,8 +233,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.trash,
-                iconColor: const Color(0xFFF92D48),
-                labelColor: const Color(0xFFF92D48),
+                iconColor: Theme.of(context).colorScheme.primary,
+                labelColor: Theme.of(context).colorScheme.primary,
                 label: 'Hapus dari Perangkat',
                 onTap: () => _confirmDelete(context),
               ),
@@ -368,9 +369,9 @@ class _SongContextMenuState extends State<SongContextMenu> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(
+            child: Text(
               'Tutup',
-              style: TextStyle(color: Color(0xFFF92D48)),
+              style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary),
             ),
           ),
         ],

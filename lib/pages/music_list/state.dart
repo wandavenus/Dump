@@ -52,9 +52,9 @@ class _MusicListState extends State<MusicList> {
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: Theme.of(context).colorScheme.primary,
             size: 28,
           ),
         ),
@@ -74,16 +74,16 @@ class _MusicListState extends State<MusicList> {
               child: ListView(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  LargePageTitle(title: 'Recently Played'),
-                  HeaderDivider(),
-                  SizedBox(height: 160),
-                  Icon(Icons.music_note, size: 56, color: Colors.white38),
-                  SizedBox(height: 12),
+                children: [
+                  const LargePageTitle(title: 'Recently Played'),
+                  const HeaderDivider(),
+                  const SizedBox(height: 160),
+                  Icon(Icons.music_note, size: 56, color: AppColors.of(context).tertiaryLabel),
+                  const SizedBox(height: 12),
                   Center(
                     child: Text(
                       'Tidak ada lagu lokal ditemukan',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: AppColors.of(context).secondaryLabel),
                     ),
                   ),
                 ],
@@ -100,10 +100,10 @@ class _MusicListState extends State<MusicList> {
               itemCount: songs.length + 1,
               separatorBuilder: (context, index) => index == 0
                   ? const SizedBox.shrink()
-                  : const Divider(
+                  : Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Color(0xFF48484A),
+                      color: AppColors.of(context).separator,
                       indent: 87,
                       endIndent: 16,
                     ),
@@ -156,7 +156,7 @@ class _MusicListState extends State<MusicList> {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFF8E8E93)),
+                    style: TextStyle(color: AppColors.of(context).secondaryLabel),
                   ),
                 );
               },

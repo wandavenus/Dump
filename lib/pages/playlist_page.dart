@@ -199,7 +199,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Hapus', style: TextStyle(color: Color(0xFFF92D48))),
+              child: Text('Hapus', style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
             ),
           ],
         );
@@ -241,23 +241,23 @@ class _PlaylistPageState extends State<PlaylistPage> {
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: Theme.of(context).colorScheme.primary,
             size: 28,
           ),
         ),
         actions: [
           if (isUserPlaylist) ...[
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 CupertinoIcons.pencil,
-                color: Color(0xFFF92D48),
+                color: Theme.of(context).colorScheme.primary,
               ),
               onPressed: _rename,
             ),
             IconButton(
-              icon: const Icon(CupertinoIcons.trash, color: Color(0xFFF92D48)),
+              icon: Icon(CupertinoIcons.trash, color: Theme.of(context).colorScheme.primary),
               onPressed: _delete,
             ),
           ],
