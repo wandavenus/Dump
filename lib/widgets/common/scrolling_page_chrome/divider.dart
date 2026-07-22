@@ -5,9 +5,9 @@ class HeaderDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Divider(color: Color(0xFF48484A), thickness: 0.5, height: 0),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Divider(color: AppColors.of(context).separator, thickness: 0.5, height: 0),
     );
   }
 }

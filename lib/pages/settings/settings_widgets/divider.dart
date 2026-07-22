@@ -10,7 +10,7 @@ class SettingsDivider extends StatelessWidget {
     return Divider(
       height: 0.5,
       thickness: 0.5,
-      color: const Color(0xFF38383A),
+      color: AppColors.of(context).separator,
       indent: indent,
       endIndent: endIndent,
     );

@@ -58,8 +58,8 @@ class _AlbumsListView extends StatelessWidget {
                     '${album.artist} • ${albumSongs.length} lagu',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 13),
+                    style: TextStyle(
+                        color: AppColors.of(context).secondaryLabel, fontSize: 13),
                   ),
                   onTap: () => Navigator.pushNamed(
                     context,
@@ -71,10 +71,10 @@ class _AlbumsListView extends StatelessWidget {
                 return Column(
                   children: [
                     tile,
-                    const Divider(
+                    Divider(
                       height:    1,
                       thickness: 0.5,
-                      color:     Color(0xFF48484A),
+                      color:     AppColors.of(context).separator,
                       indent:    87,
                       endIndent: 16,
                     ),

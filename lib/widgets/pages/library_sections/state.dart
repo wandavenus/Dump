@@ -57,7 +57,7 @@ class _LibraryContentState extends State<LibraryContent> {
               editMode: _editMode,
               onToggleEdit: () => setState(() => _editMode = !_editMode),
             ),
-            const Divider(color: Color(0xFF48484A), thickness: 0.5, height: 0),
+            Divider(color: AppColors.of(context).separator, thickness: 0.5, height: 0),
             const SizedBox(height: 9),
             _editMode ? _buildReorderable() : _buildStaticList(),
             SizedBox(height: bottomClearance),

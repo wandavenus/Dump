@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/pages/settings_page.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/utils/zoom_fade_route.dart';
 
 import '../services/media_store_service.dart';
@@ -27,18 +28,18 @@ class _CommonActionsState extends State<CommonActions> {
             content: Text('Ditemukan ${songs.length} lagu'),
             duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF1C1C1E),
+            backgroundColor: AppColors.of(context).surface,
           ),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memindai lagu'),
-            duration: Duration(seconds: 1),
+          SnackBar(
+            content: const Text('Gagal memindai lagu'),
+            duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFF1C1C1E),
+            backgroundColor: AppColors.of(context).surface,
           ),
         );
       }

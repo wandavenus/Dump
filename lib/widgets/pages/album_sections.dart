@@ -72,17 +72,17 @@ class _AlbumFooter extends StatelessWidget {
         children: [
           Text(
             _formatDate(),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
           Text(
             '${songs.length} lagu, ${_formatTotalDuration()}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
           Text(
             '℗ $year $artistName',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
         ],
       ),

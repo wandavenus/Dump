@@ -13,12 +13,12 @@ class _SleepTimerBody extends StatelessWidget {
               const _ActiveTimerCard(),
               const SizedBox(height: 24),
             ],
-            const Padding(
-              padding: EdgeInsets.only(left: 0, bottom: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 0, bottom: 8),
               child: Text(
                 'PILIH DURASI',
                 style: TextStyle(
-                  color: Color(0xFF8E8E93),
+                  color: AppColors.of(context).secondaryLabel,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.5,

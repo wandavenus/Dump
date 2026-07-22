@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
+import '../../theme/app_colors.dart';
 import 'detail_sections.dart';
 
 class ArtistPageContent extends StatelessWidget {
@@ -51,17 +52,17 @@ class _ArtistFooter extends StatelessWidget {
         children: [
           Text(
             artistName,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
           Text(
             '${songs.length} lagu • $albumCount album',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
           Text(
             _formatTotalDuration(),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
         ],
       ),

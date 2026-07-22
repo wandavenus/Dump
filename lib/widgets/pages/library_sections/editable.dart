@@ -8,6 +8,7 @@ class _EditableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Column(
       children: [
         Padding(
@@ -15,21 +16,21 @@ class _EditableRow extends StatelessWidget {
           child: Row(
             children: [
               // Drag handle
-              const Icon(Icons.drag_handle, color: Color(0xFF8E8E93), size: 22),
+              Icon(Icons.drag_handle, color: c.secondaryLabel, size: 22),
               const SizedBox(width: 6),
               Icon(icon, color: const Color(0xFFF92D48), size: 28),
               const SizedBox(width: 11),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 18),
                 ),
               ),
             ],
           ),
         ),
-        const Divider(
-          color: Color(0xFF48484A),
+        Divider(
+          color: c.separator,
           thickness: 0.5,
           indent: 38,
           endIndent: 0,

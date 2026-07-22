@@ -58,11 +58,11 @@ class _AboutFooter extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Made by Wndavenznchole',
               textAlign: TextAlign.left,
               style: TextStyle(
-                color: Color(0xFF8E8E93),
+                color: AppColors.of(context).secondaryLabel,
                 fontSize: 13,
               ),
             ),
@@ -70,8 +70,8 @@ class _AboutFooter extends StatelessWidget {
             Text(
               '© $year Flutter Music App with Media3 Exoplayer',
               textAlign: TextAlign.left,
-              style: const TextStyle(
-                color: Color(0xFF8E8E93),
+              style: TextStyle(
+                color: AppColors.of(context).secondaryLabel,
                 fontSize: 13,
               ),
             ),

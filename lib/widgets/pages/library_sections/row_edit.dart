@@ -16,6 +16,7 @@ class _LibraryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final row = Column(
       children: [
         Padding(
@@ -27,14 +28,14 @@ class _LibraryRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 18),
                 ),
               ),
             ],
           ),
         ),
-        const Divider(
-          color: Color(0xFF48484A),
+        Divider(
+          color: c.separator,
           thickness: 0.5,
           indent: 38,
           endIndent: 0,

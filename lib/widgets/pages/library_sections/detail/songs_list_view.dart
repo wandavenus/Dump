@@ -69,8 +69,8 @@ class _SongsListView extends StatelessWidget {
                   subtitle: Text(song.artist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Color(0xFF8E8E93), fontSize: 13)),
+                      style: TextStyle(
+                          color: AppColors.of(context).secondaryLabel, fontSize: 13)),
                   onTap:       () => onPlay(songs, songIndex),
                   onLongPress: () =>
                       onLongPress(context, song, songs, songIndex),
@@ -79,10 +79,10 @@ class _SongsListView extends StatelessWidget {
                 return Column(
                   children: [
                     tile,
-                    const Divider(
+                    Divider(
                       height:    1,
                       thickness: 0.5,
-                      color:     Color(0xFF48484A),
+                      color:     AppColors.of(context).separator,
                       indent:    87,
                       endIndent: 17,
                     ),

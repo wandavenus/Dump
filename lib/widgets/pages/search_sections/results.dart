@@ -19,12 +19,11 @@ class _SearchResultsSliver extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.search_off, color: Color(0xFF48484A), size: 48),
+              Icon(Icons.search_off, color: AppColors.of(context).tertiaryLabel, size: 48),
               const SizedBox(height: 12),
               Text(
                 'Tidak ada hasil untuk "$query"',
-                style:
-                    const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                style: TextStyle(color: AppColors.of(context).secondaryLabel, fontSize: 15),
               ),
             ],
           ),
@@ -36,10 +35,10 @@ class _SearchResultsSliver extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, i) {
           if (i.isOdd) {
-            return const Divider(
+            return Divider(
               height: 1,
               thickness: 0.5,
-              color: Color(0xFF48484A),
+              color: AppColors.of(context).separator,
               indent: 76,
               endIndent: 16,
             );

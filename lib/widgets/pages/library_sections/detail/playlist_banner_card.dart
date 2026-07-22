@@ -42,8 +42,8 @@ class _PlaylistBannerCard extends StatelessWidget {
               song.title,
               maxLines:  2,
               overflow:  TextOverflow.ellipsis,
-              style: const TextStyle(
-                color:      Colors.white,
+              style: TextStyle(
+                color:      AppColors.of(context).primaryLabel,
                 fontSize:   15,
                 fontWeight: FontWeight.w600,
                 height:     1.3,
@@ -57,8 +57,8 @@ class _PlaylistBannerCard extends StatelessWidget {
                   : song.artist,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color:    Color(0xFF8E8E93),
+              style: TextStyle(
+                color:    AppColors.of(context).secondaryLabel,
                 fontSize: 13,
               ),
             ),

@@ -21,7 +21,7 @@ class _StickyLibraryControlsDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(color: Colors.black, child: child);
+    return ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: child);
   }
 
   @override
