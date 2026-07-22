@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
+import '../services/log_service.dart';
 
 /// Shared "Putar" / "Acak" action buttons — used consistently across
 /// Song List, Album List (Library), Album Detail, and Artist Detail.
@@ -27,7 +28,11 @@ class PlayShuffleButtons extends StatelessWidget {
             label: 'Putar',
             onTap: () async {
               if (songs.isEmpty) return;
-              await AudioService.playSongAt(playlist: songs, index: 0);
+              try {
+                await AudioService.playSongAt(playlist: songs, index: 0);
+              } catch (e) {
+                LogService.error('PlayShuffleButtons', 'play error: $e');
+              }
             },
           ),
           const SizedBox(width: 8),
@@ -36,11 +41,16 @@ class PlayShuffleButtons extends StatelessWidget {
             label: 'Acak',
             onTap: () async {
               if (songs.isEmpty) return;
-              if (!AudioService.shuffleEnabled) {
-                await AudioService.toggleShuffle();
+              try {
+                if (!AudioService.shuffleEnabled) {
+                  await AudioService.toggleShuffle();
+                }
+                final randomIndex = Random().nextInt(songs.length);
+                await AudioService.playSongAt(
+                    playlist: songs, index: randomIndex);
+              } catch (e) {
+                LogService.error('PlayShuffleButtons', 'shuffle error: $e');
               }
-              final randomIndex = Random().nextInt(songs.length);
-              await AudioService.playSongAt(playlist: songs, index: randomIndex);
             },
           ),
         ],

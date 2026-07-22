@@ -18,7 +18,11 @@ class LocalSongCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () async {
-        await AudioService.playSongAt(playlist: playlist, index: index);
+        try {
+          await AudioService.playSongAt(playlist: playlist, index: index);
+        } catch (e) {
+          LogService.error('LocalSongCard', 'playSongAt error: $e');
+        }
       },
       onLongPress: () => _showContextMenu(context),
       child: Container(
@@ -47,18 +51,18 @@ class LocalSongCard extends StatelessWidget {
               ),
             ),
             SizedBox(
-  width: 165,
-  child: Text(
-    song.artist,
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    style: const TextStyle(
-      fontWeight: FontWeight.normal,
-      fontSize: 12,
-      color: Colors.grey,
-    ),
-  ),
-),
+              width: 165,
+              child: Text(
+                song.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
           ],
         ),
       ),
