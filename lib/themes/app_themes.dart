@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/themes/app_theme_extension.dart';
 
 class AppThemes {
   static const _font = 'SF Pro Text';
@@ -12,6 +13,13 @@ class AppThemes {
     ),
     scaffoldBackgroundColor: Colors.black,
     fontFamily: _font,
+    extensions: const [
+      AppThemeExtension(
+        glassColor: Colors.white,
+        glassOpacity: 0.08,
+        artworkOverlay: Color(0x99000000),
+      ),
+    ],
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -27,8 +35,15 @@ class AppThemes {
       surface: Color(0xFFFFFFFF),
       onSurface: Color(0xFF111111),
     ),
-    scaffoldBackgroundColor: Color(0xFFF7F7F7),
+    scaffoldBackgroundColor: const Color(0xFFF7F7F7),
     fontFamily: _font,
+    extensions: const [
+      AppThemeExtension(
+        glassColor: Colors.white,
+        glassOpacity: 0.55,
+        artworkOverlay: Color(0x99FFFFFF),
+      ),
+    ],
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
