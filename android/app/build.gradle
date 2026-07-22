@@ -4,7 +4,7 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 def localProperties = new Properties()
@@ -36,7 +36,7 @@ if (flutterVersionName == null) {
 android {
     namespace "dev.wndavenz.music"
     compileSdk 36
-    ndkVersion flutter.ndkVersion
+    ndkVersion "28.2.13676358"
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'

@@ -98,8 +98,8 @@ internal class ActivePlayerProxy(
         // Synchronously notify the Media3 MediaSession listener (and any other registered
         // listener) that the track has changed, so MediaSessionCompat.setMetadata() is
         // broadcast to the system before refreshNotification() posts the notification.
-        val newItem = newPlayer.currentMediaItem
-        val newMeta = newPlayer.mediaMetadata
+        val newItem = runCatching { newPlayer.currentMediaItem }.getOrNull()
+        val newMeta = runCatching { newPlayer.mediaMetadata }.getOrNull() ?: MediaMetadata.EMPTY
         snapshot.forEach { l ->
             try { l.onMediaItemTransition(newItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) }
             catch (_: Exception) {}
