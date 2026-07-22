@@ -8,9 +8,10 @@ class _PresetList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -33,28 +34,28 @@ class _PresetList extends StatelessWidget {
                         preset.duration == null
                             ? Icons.music_note
                             : Icons.timer,
-                        color: const Color(0xFF8E8E93),
+                        color: c.secondaryLabel,
                         size: 20,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
                           preset.label,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
+                          style: TextStyle(
+                              color: c.primaryLabel, fontSize: 16),
                         ),
                       ),
-                      const Icon(Icons.chevron_right,
-                          color: Color(0xFF48484A), size: 20),
+                      Icon(Icons.chevron_right,
+                          color: c.separator, size: 20),
                     ],
                   ),
                 ),
               ),
               if (!isLast)
-                const Divider(
+                Divider(
                   height: 0.5,
                   thickness: 0.5,
-                  color: Color(0xFF38383A),
+                  color: c.subtleSeparator,
                   indent: 50,
                 ),
             ],
@@ -78,15 +79,16 @@ class _PresetList extends StatelessWidget {
       return;
     }
 
+    final c = AppColors.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           preset.duration == null
               ? 'Timer: berhenti setelah lagu ini'
               : 'Timer: ${preset.label}',
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: c.primaryLabel),
         ),
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: c.surface,
         behavior: SnackBarBehavior.floating,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

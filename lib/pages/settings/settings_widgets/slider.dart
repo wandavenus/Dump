@@ -72,11 +72,11 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
     _expanded ? _ctrl.forward() : _ctrl.reverse();
   }
 
-  Widget _buildSlider() => SliderTheme(
+  Widget _buildSlider(AppThemeExtension c) => SliderTheme(
         data: SliderTheme.of(context).copyWith(
           activeTrackColor: const Color(0xFFF92D48),
-          thumbColor: Colors.white,
-          inactiveTrackColor: const Color(0xFF48484A),
+          thumbColor: c.primaryLabel,
+          inactiveTrackColor: c.separator,
           overlayColor: const Color(0x29F92D48),
           trackHeight: 3,
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -96,6 +96,8 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+
     // ── Non-expandable: layout asli ──────────────────────────────────────────
     if (!widget.expandable) {
       return Padding(
@@ -107,7 +109,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               children: [
                 Expanded(
                   child: Text(widget.title,
-                      style: const TextStyle(color: Colors.white, fontSize: 16)),
+                      style: TextStyle(color: c.primaryLabel, fontSize: 16)),
                 ),
                 if (widget.showReset && widget.onReset != null)
                   GestureDetector(
@@ -119,14 +121,14 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
             ),
             const SizedBox(height: 2),
             Text(widget.subtitle,
-                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12)),
-            _buildSlider(),
+                style: TextStyle(color: c.secondaryLabel, fontSize: 12)),
+            _buildSlider(c),
             if (widget.description != null) ...[
               const SizedBox(height: 2),
               Text(
                 widget.description!,
-                style: const TextStyle(
-                  color: Color(0xFF6D6D72),
+                style: TextStyle(
+                  color: c.tertiaryLabel,
                   fontSize: 11,
                   fontStyle: FontStyle.normal,
                   height: 1.3,
@@ -155,17 +157,17 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                   Expanded(
                     child: Text(widget.title,
                         style:
-                            const TextStyle(color: Colors.white, fontSize: 16)),
+                            TextStyle(color: c.primaryLabel, fontSize: 16)),
                   ),
                   Text(widget.subtitle,
-                      style: const TextStyle(
-                          color: Color(0xFF8E8E93), fontSize: 13)),
+                      style: TextStyle(
+                          color: c.secondaryLabel, fontSize: 13)),
                   const SizedBox(width: 6),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 220),
-                    child: const Icon(Icons.keyboard_arrow_down,
-                        color: Colors.white38, size: 18),
+                    child: Icon(Icons.keyboard_arrow_down,
+                        color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
                   ),
                 ],
               ),
@@ -191,14 +193,14 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                                 color: Color(0xFFF92D48), fontSize: 13)),
                       ),
                     ),
-                  _buildSlider(),
+                  _buildSlider(c),
                   if (widget.description != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
                         widget.description!,
-                        style: const TextStyle(
-                          color: Color(0xFF6D6D72),
+                        style: TextStyle(
+                          color: c.tertiaryLabel,
                           fontSize: 11,
                           fontStyle: FontStyle.normal,
                           height: 1.3,

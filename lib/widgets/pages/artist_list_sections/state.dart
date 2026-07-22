@@ -40,12 +40,14 @@ class _ArtistListContentState extends State<ArtistListContent> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_artists.isEmpty) {
-      return const Center(
-        child: Text('Tidak ada artis ditemukan', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text('Tidak ada artis ditemukan',
+            style: TextStyle(color: c.secondaryLabel)),
       );
     }
 

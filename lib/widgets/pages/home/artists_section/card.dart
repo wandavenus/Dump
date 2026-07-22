@@ -30,10 +30,10 @@ class _ArtistCard extends StatelessWidget {
                 artist.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 15,
-                  color: Colors.white,
+                  color: AppColors.of(context).primaryLabel,
                 ),
               ),
             ),
@@ -41,10 +41,10 @@ class _ArtistCard extends StatelessWidget {
               '${artist.songs.length} lagu',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.normal,
                 fontSize: 12,
-                color: Colors.grey,
+                color: AppColors.of(context).secondaryLabel,
               ),
             ),
           ],

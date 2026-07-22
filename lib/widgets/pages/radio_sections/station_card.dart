@@ -96,8 +96,9 @@ class _ArtworkGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (songIds.isEmpty) {
-      return const ColoredBox(color: Color(0xFF1C1C1E));
+      return ColoredBox(color: c.surface);
     }
 
     final ids = songIds.take(4).toList();
@@ -108,7 +109,7 @@ class _ArtworkGrid extends StatelessWidget {
 
     final cells = List.generate(4, (i) {
       if (i < ids.length) return _GridCell(songId: ids[i]);
-      return const ColoredBox(color: Color(0xFF2C2C2E));
+      return ColoredBox(color: c.surface2);
     });
 
     return Column(
@@ -164,7 +165,7 @@ class _GridCellState extends State<_GridCell> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const ColoredBox(color: Color(0xFF2C2C2E));
+      return ColoredBox(color: AppColors.of(context).surface2);
     }
     return Image(
       image: p,

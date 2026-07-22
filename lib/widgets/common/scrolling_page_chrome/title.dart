@@ -10,10 +10,10 @@ class LargePageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 34,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: AppColors.of(context).primaryLabel,
       ),
     );
 

@@ -12,12 +12,13 @@ class BugReportPage extends StatelessWidget {
     );
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
+        final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak bisa membuka aplikasi email'),
-            backgroundColor: Color(0xFF1C1C1E),
+          SnackBar(
+            content: const Text('Tidak bisa membuka aplikasi email'),
+            backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -26,10 +27,11 @@ class BugReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         leading: CupertinoButton(
@@ -41,27 +43,27 @@ class BugReportPage extends StatelessWidget {
             size: 28,
           ),
         ),
-        title: const Text(
+        title: Text(
           'Laporkan Bug',
           style: TextStyle(
-            color: Colors.white,
+            color: c.primaryLabel,
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: const Color(0xFF48484A)),
+          child: Container(height: 0.5, color: c.separator),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
           // ── Paragraf 1 ───────────────────────────────────────────────────
-          const Text(
+          Text(
             'Kalau kamu menemukan bug, error, crash, atau ada fitur yang tidak bekerja sebagaimana mestinya, mohon laporkan agar bisa segera diperbaiki.',
             style: TextStyle(
-              color: Color(0xFFEBEBF0),
+              color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
               height: 1.6,
             ),
@@ -69,10 +71,10 @@ class BugReportPage extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── Paragraf 2 ───────────────────────────────────────────────────
-          const Text(
+          Text(
             'Kamu juga bisa mengirimkan saran, masukan, atau permintaan fitur baru. Setiap laporan sangat membantu dalam meningkatkan kualitas aplikasi.',
             style: TextStyle(
-              color: Color(0xFFEBEBF0),
+              color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
               height: 1.6,
             ),
@@ -80,10 +82,10 @@ class BugReportPage extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── Terima kasih ─────────────────────────────────────────────────
-          const Text(
+          Text(
             'Terima kasih atas dukunganmu.',
             style: TextStyle(
-              color: Color(0xFFEBEBF0),
+              color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
               height: 1.6,
             ),
@@ -93,8 +95,8 @@ class BugReportPage extends StatelessWidget {
           // ── Kirim laporan ────────────────────────────────────────────────
           RichText(
             text: TextSpan(
-              style: const TextStyle(
-                color: Color(0xFF8E8E93),
+              style: TextStyle(
+                color: c.secondaryLabel,
                 fontSize: 15,
                 height: 1.6,
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 

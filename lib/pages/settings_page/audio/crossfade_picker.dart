@@ -41,6 +41,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ValueListenableBuilder<double>(
       valueListenable: AudioEffectsService.crossfadeDuration,
       builder: (_, current, _) {
@@ -57,23 +58,23 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   child: Row(
                     children: [
-                      const Text('Crossfade',
-                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                      Text('Crossfade',
+                          style: TextStyle(color: c.primaryLabel, fontSize: 16)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           current == 0
                               ? 'Nonaktif'
                               : '${current.toStringAsFixed(0)} detik',
-                          style: const TextStyle(
-                              color: Color(0xFF8E8E93), fontSize: 13),
+                          style: TextStyle(
+                              color: c.secondaryLabel, fontSize: 13),
                         ),
                       ),
                       AnimatedRotation(
                         turns:    _expanded ? 0.5 : 0.0,
                         duration: const Duration(milliseconds: 220),
-                        child: const Icon(Icons.keyboard_arrow_down,
-                            color: Colors.white38, size: 18),
+                        child: Icon(Icons.keyboard_arrow_down,
+                            color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
                       ),
                     ],
                   ),
@@ -104,7 +105,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                               decoration: BoxDecoration(
                                 color: active
                                     ? const Color(0xFFF92D48)
-                                    : Colors.white.withValues(alpha: 0.08),
+                                    : c.primaryLabel.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               alignment: Alignment.center,
@@ -113,7 +114,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                                 style: TextStyle(
                                   color: active
                                       ? Colors.white
-                                      : Colors.white54,
+                                      : c.primaryLabel.withValues(alpha: 0.54),
                                   fontWeight: active
                                       ? FontWeight.w600
                                       : FontWeight.w400,

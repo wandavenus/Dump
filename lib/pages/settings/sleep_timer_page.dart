@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 
@@ -35,11 +36,12 @@ class _SleepTimerSheetWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: SafeArea(
@@ -52,7 +54,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: c.dragHandle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -61,10 +63,10 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'Sleep Timer',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: c.primaryLabel,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -122,6 +124,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ValueListenableBuilder<bool>(
       valueListenable: SleepTimerService.isActive,
       builder: (_, active, _) {
@@ -133,12 +136,12 @@ class _SleepTimerSheetBody extends StatelessWidget {
               const _ActiveTimerCard(),
               const SizedBox(height: 24),
             ],
-            const Padding(
-              padding: EdgeInsets.only(bottom: 5),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
               child: Text(
                 'PILIH DURASI',
                 style: TextStyle(
-                  color: Color(0xFF8E8E93),
+                  color: c.secondaryLabel,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.5,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
+import '../../theme/app_colors.dart';
 import '../song_artwork.dart';
 import 'detail_sections.dart';
 
@@ -177,16 +178,16 @@ class _MoreByArtistState extends State<_MoreByArtist> {
                   children: [
                     Text(
                       'More by $artistName',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppColors.of(context).primaryLabel,
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right_rounded,
-                      color: Color(0xFF8E8E93),
+                      color: AppColors.of(context).secondaryLabel,
                       size: 22,
                     ),
                   ],
@@ -263,8 +264,8 @@ class _SmallAlbumCard extends StatelessWidget {
               album.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.of(context).primaryLabel,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 height: 1.3,
@@ -277,8 +278,8 @@ class _SmallAlbumCard extends StatelessWidget {
               album.songs.first.albumArtist ?? album.songs.first.artist,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF8E8E93),
+              style: TextStyle(
+                color: AppColors.of(context).secondaryLabel,
                 fontSize: 11,
               ),
             ),

@@ -16,12 +16,12 @@ class SongListSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showHeader)
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 20, bottom: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 20, bottom: 4),
             child: Text(
               'Top Songs',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.of(context).primaryLabel,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),

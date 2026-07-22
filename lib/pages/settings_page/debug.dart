@@ -96,6 +96,7 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final report = _report;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -106,9 +107,9 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Cek AAudio Exclusive/MMAP',
-                  style: TextStyle(color: Colors.white, fontSize: 15),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -117,7 +118,7 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
                       : _describe(report),
                   style: TextStyle(
                     color: report == null
-                        ? const Color(0xFF636366)
+                        ? c.tertiaryLabel
                         : report.isExclusiveLowLatency
                             ? const Color(0xFF30D158)
                             : const Color(0xFFFF9F0A),
@@ -196,5 +197,3 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
     });
   }
 }
-
-

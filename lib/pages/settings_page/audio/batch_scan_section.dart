@@ -64,10 +64,11 @@ class _ScanIdleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       onTap: onTap,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Expanded(
@@ -75,17 +76,17 @@ class _ScanIdleRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Scan Library',
-                      style: TextStyle(color: Colors.white, fontSize: 15)),
-                  SizedBox(height: 2),
+                      style: TextStyle(color: c.primaryLabel, fontSize: 15)),
+                  const SizedBox(height: 2),
                   Text(
                     'Hitung ReplayGain untuk lagu yang belum punya data',
-                    style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                   ),
                 ],
               ),
             ),
             Icon(Icons.graphic_eq_rounded,
-                color: Colors.white38, size: 18),
+                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
           ],
         ),
       ),
@@ -101,6 +102,7 @@ class _ScanProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final pct = progress.total > 0
         ? (progress.done / progress.total).clamp(0.0, 1.0)
         : 0.0;
@@ -117,7 +119,7 @@ class _ScanProgressRow extends StatelessWidget {
                   progress.currentTitle.isEmpty
                       ? 'Mempersiapkan...'
                       : progress.currentTitle,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 14),
                   maxLines:  1,
                   overflow:  TextOverflow.ellipsis,
                 ),
@@ -125,8 +127,8 @@ class _ScanProgressRow extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '${progress.done} / ${progress.total}',
-                style: const TextStyle(
-                    color: Color(0xFF8E8E93), fontSize: 12),
+                style: TextStyle(
+                    color: c.secondaryLabel, fontSize: 12),
               ),
             ],
           ),
@@ -135,7 +137,7 @@ class _ScanProgressRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value:      pct,
-              backgroundColor: Colors.white12,
+              backgroundColor: c.primaryLabel.withValues(alpha: 0.12),
               valueColor: const AlwaysStoppedAnimation<Color>(
                   Color(0xFFF92D48)),
               minHeight: 4,
@@ -165,6 +167,7 @@ class _ScanResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final String subtitle;
     if (progress.cancelled) {
       subtitle = 'Dibatalkan · ${progress.succeeded} lagu berhasil';
@@ -184,18 +187,17 @@ class _ScanResultRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Scan Library',
-                      style:
-                          TextStyle(color: Colors.white, fontSize: 15)),
+                  Text('Scan Library',
+                      style: TextStyle(color: c.primaryLabel, fontSize: 15)),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(
-                          color: Color(0xFF8E8E93), fontSize: 12)),
+                      style: TextStyle(
+                          color: c.secondaryLabel, fontSize: 12)),
                 ],
               ),
             ),
-            const Icon(Icons.replay_rounded,
-                color: Colors.white38, size: 18),
+            Icon(Icons.replay_rounded,
+                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
           ],
         ),
       ),

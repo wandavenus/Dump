@@ -127,7 +127,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title:                  _title,
         scrollOffsetListenable: _offsetNotifier,
@@ -149,7 +149,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             return const Center(child: CircularProgressIndicator());
           }
           final songs = snapshot.data ?? const <LocalSong>[];
-          if (songs.isEmpty) return _empty();
+          if (songs.isEmpty) return _empty(context);
 
           final bottomClearance =
               MediaQuery.paddingOf(context).bottom + 64.5;
@@ -202,12 +202,15 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   // ── Shared chrome builders ─────────────────────────────────────────────────
 
-  Widget _empty() => const Center(
-        child: Text(
-          'Tidak ada lagu lokal ditemukan',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
+  Widget _empty(BuildContext context) {
+    final c = AppColors.of(context);
+    return Center(
+      child: Text(
+        'Tidak ada lagu lokal ditemukan',
+        style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.70)),
+      ),
+    );
+  }
 
   /// Judul + divider saja — scrolls with content, no pinning.
   Widget _titleHeader() {
@@ -243,12 +246,13 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ─── Search bar ────────────────────────────────────────────────────────────
 
   Widget _searchBar() {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color:        const Color(0xFF1C1C1E),
+          color:        c.surface,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -259,12 +263,12 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 controller:  _searchController,
                 focusNode:   _searchFocus,
                 autofocus:   false,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
+                style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 cursorColor: const Color(0xFFF92D48),
                 decoration: InputDecoration(
                   hintText:  _hintText,
-                  hintStyle: const TextStyle(
-                      color: Color(0xFF8E8E93), fontSize: 15),
+                  hintStyle: TextStyle(
+                      color: c.secondaryLabel, fontSize: 15),
                   border:         InputBorder.none,
                   isDense:        true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -280,10 +284,10 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                   _searchController.clear();
                   _searchFocus.unfocus();
                 },
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 8),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
                   child: Icon(Icons.cancel,
-                      color: Color(0xFF8E8E93), size: 18),
+                      color: c.secondaryLabel, size: 18),
                 ),
               ),
           ],

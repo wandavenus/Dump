@@ -72,12 +72,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       );
     }
     if (_songs.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 250,
         child: Center(
           child: Text(
-            'No recently played songs',
-            style: TextStyle(color: Colors.grey),
+            'Belum ada lagu yang diputar',
+            style: TextStyle(color: AppColors.of(context).secondaryLabel),
           ),
         ),
       );

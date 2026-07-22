@@ -11,8 +11,9 @@ class _EmptyPlaceholderPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: title,
         scrollOffset: 100,
@@ -27,10 +28,10 @@ class _EmptyPlaceholderPage extends StatelessWidget {
         ),
         actions: const [],
       ),
-      body: const Center(
+      body: Center(
         child: Text(
           'Belum ada konten',
-          style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+          style: TextStyle(color: c.secondaryLabel, fontSize: 15),
         ),
       ),
     );

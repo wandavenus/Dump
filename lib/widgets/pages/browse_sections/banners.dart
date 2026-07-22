@@ -30,29 +30,29 @@ class BrowseBannerCarousel extends StatelessWidget {
                 children: [
                   Text(
                     song.artist.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+                      color: AppColors.of(context).secondaryLabel,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     song.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.normal,
-                      color: Colors.white,
+                      color: AppColors.of(context).primaryLabel,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 0.5), 
                   Text(
                     song.album,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.normal,
-                      color: Colors.grey,
+                      color: AppColors.of(context).secondaryLabel,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -128,7 +128,7 @@ class _BannerArtworkState extends State<_BannerArtwork> {
       return Container(
         width: widget.width,
         height: widget.height,
-        color: const Color(0xFF1C1C1E),
+        color: AppColors.of(context).surface,
       );
     }
     return Image(

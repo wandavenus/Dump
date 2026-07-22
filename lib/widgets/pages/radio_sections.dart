@@ -9,6 +9,7 @@ import '../../services/artwork_repository.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
 import '../../services/playlist_service.dart';
+import '../../theme/app_colors.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../common/swipe_to_dismiss_sheet.dart';
 import '../local_song_carousel.dart';

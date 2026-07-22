@@ -40,7 +40,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: 'Changelog',
         scrollOffsetListenable: _offsetNotifier,
@@ -56,10 +56,11 @@ class _ChangelogPageState extends State<ChangelogPage> {
         actions: const [],
       ),
       body: _changelogEntries.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'Belum ada perubahan tercatat',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                style: TextStyle(
+                    color: AppColors.of(context).secondaryLabel, fontSize: 15),
               ),
             )
           : SingleChildScrollView(
@@ -88,6 +89,7 @@ class _ChangelogEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
@@ -98,8 +100,8 @@ class _ChangelogEntryTile extends StatelessWidget {
             children: [
               Text(
                 'v${entry.version}',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: c.primaryLabel,
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                 ),
@@ -107,8 +109,8 @@ class _ChangelogEntryTile extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 entry.date,
-                style: const TextStyle(
-                  color: Color(0xFF8E8E93),
+                style: TextStyle(
+                  color: c.secondaryLabel,
                   fontSize: 14,
                 ),
               ),
@@ -121,15 +123,15 @@ class _ChangelogEntryTile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '•  ',
-                    style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 15),
                   ),
                   Expanded(
                     child: Text(
                       change,
-                      style: const TextStyle(
-                        color: Color(0xFFEBEBF0),
+                      style: TextStyle(
+                        color: c.primaryLabel.withValues(alpha: 0.87),
                         fontSize: 15,
                         height: 1.35,
                       ),

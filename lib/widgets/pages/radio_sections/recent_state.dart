@@ -45,12 +45,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       );
     }
     if (_songs.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 250,
         child: Center(
           child: Text(
             'Tidak ada lagu yang diputar baru-baru ini',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AppColors.of(context).secondaryLabel),
           ),
         ),
       );

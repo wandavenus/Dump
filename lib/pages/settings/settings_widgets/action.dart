@@ -16,6 +16,7 @@ class SettingsActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -30,7 +31,7 @@ class SettingsActionRow extends StatelessWidget {
                 style: TextStyle(
                   color: isDestructive
                       ? const Color(0xFFF92D48)
-                      : Colors.white,
+                      : c.primaryLabel,
                   fontSize: 16,
                 ),
               ),
@@ -38,8 +39,8 @@ class SettingsActionRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
-                  style: const TextStyle(
-                    color: Color(0xFF8E8E93),
+                  style: TextStyle(
+                    color: c.secondaryLabel,
                     fontSize: 13,
                   ),
                 ),

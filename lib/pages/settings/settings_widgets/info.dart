@@ -12,6 +12,7 @@ class SettingsInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
@@ -19,12 +20,12 @@ class SettingsInfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: c.primaryLabel, fontSize: 16),
             ),
           ),
           Text(
             trailing,
-            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+            style: TextStyle(color: c.secondaryLabel, fontSize: 15),
           ),
         ],
       ),

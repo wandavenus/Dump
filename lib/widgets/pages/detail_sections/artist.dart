@@ -51,10 +51,10 @@ class ArtistHero extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.of(context).primaryLabel,
             ),
           ),
           const SizedBox(height: 8),
@@ -63,9 +63,9 @@ class ArtistHero extends StatelessWidget {
           Text(
             _buildMetadata(),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF8E8E93),
+              color: AppColors.of(context).secondaryLabel,
             ),
           ),
         ],

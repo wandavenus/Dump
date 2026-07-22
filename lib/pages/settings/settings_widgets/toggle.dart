@@ -16,6 +16,7 @@ class SettingsToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       child: Row(
@@ -26,14 +27,14 @@ class SettingsToggleRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(color: c.primaryLabel, fontSize: 16),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 12),
+                    style: TextStyle(
+                        color: c.secondaryLabel, fontSize: 12),
                   ),
                 ],
               ],

@@ -7,6 +7,7 @@ class ArtistListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final songCount = artist.songs.length;
     final subtitle = '$songCount ${songCount == 1 ? 'lagu' : 'lagu'}';
 
@@ -29,14 +30,14 @@ class ArtistListRow extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          // Nama artis — putih, bold
+          // Nama artis
           Text(
             artist.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,  
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: c.primaryLabel,
               fontSize: 13,
               fontWeight: FontWeight.w600,
               height: 1.3,
@@ -50,8 +51,8 @@ class ArtistListRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,  
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
+            style: TextStyle(
+              color: c.secondaryLabel,
               fontSize: 12,
             ),
           ),

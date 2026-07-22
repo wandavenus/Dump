@@ -141,39 +141,39 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void _onLongPress() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => SwipeToDismissSheet(
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade700,
-                  borderRadius: BorderRadius.circular(2),
+        child: ColoredBox(
+          color: AppColors.of(ctx).surface,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.of(ctx).dragHandle,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
-                title: const Text(
-                  'Hapus Playlist',
-                  style: TextStyle(color: Color(0xFFF92D48)),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
+                  title: const Text(
+                    'Hapus Playlist',
+                    style: TextStyle(color: Color(0xFFF92D48)),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await PlaylistService.deletePlaylist(widget.playlist.id);
+                    widget.onDeleted();
+                  },
                 ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await PlaylistService.deletePlaylist(widget.playlist.id);
-                  widget.onDeleted();
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
@@ -220,42 +220,45 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text(
-          'Playlist Baru',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Nama playlist',
-            hintStyle: TextStyle(color: Colors.grey),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
+      builder: (ctx) {
+        final cc = AppColors.of(ctx);
+        return AlertDialog(
+          backgroundColor: cc.surface,
+          title: Text(
+            'Playlist Baru',
+            style: TextStyle(color: cc.primaryLabel),
           ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text(
-              'Buat',
-              style: TextStyle(color: Colors.white),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: TextStyle(color: cc.primaryLabel),
+            decoration: InputDecoration(
+              hintText: 'Nama playlist',
+              hintStyle: TextStyle(color: cc.secondaryLabel),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: cc.separator),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: cc.primaryLabel),
+              ),
             ),
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Batal', style: TextStyle(color: cc.secondaryLabel)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: Text(
+                'Buat',
+                style: TextStyle(color: cc.primaryLabel),
+              ),
+            ),
+          ],
+        );
+      },
     );
     controller.dispose();
     if (name != null && name.isNotEmpty) {
@@ -266,6 +269,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -273,10 +277,10 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 16, kPageLeftPadding, 4),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Playlist Saya',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: c.primaryLabel,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -288,16 +292,16 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2C2C2E),
+                    color: c.surface2,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.add, color: Colors.white, size: 16),
-                      SizedBox(width: 4),
+                      Icon(Icons.add, color: c.primaryLabel, size: 16),
+                      const SizedBox(width: 4),
                       Text(
                         'Buat',
-                        style: TextStyle(color: Colors.white, fontSize: 13),
+                        style: TextStyle(color: c.primaryLabel, fontSize: 13),
                       ),
                     ],
                   ),
@@ -307,12 +311,12 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           ),
         ),
         if (_playlists.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
                 'Belum ada playlist',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+                style: TextStyle(color: c.secondaryLabel, fontSize: 14),
               ),
             ),
           )

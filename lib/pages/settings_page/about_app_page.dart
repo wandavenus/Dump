@@ -37,12 +37,13 @@ class _AboutAppPageState extends State<AboutAppPage> {
       _firstTap = null;
       if (!_DebugState.enabled.value) {
         _DebugState.enabled.value = true;
+        final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mode Debug aktif'),
-            backgroundColor: Color(0xFF1C1C1E),
+          SnackBar(
+            content: const Text('Mode Debug aktif'),
+            backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -53,12 +54,13 @@ class _AboutAppPageState extends State<AboutAppPage> {
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
+        final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tidak bisa membuka link'),
-            backgroundColor: Color(0xFF1C1C1E),
+          SnackBar(
+            content: const Text('Tidak bisa membuka link'),
+            backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -67,11 +69,12 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final year = _currentYear;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: 'Tentang App',
         scrollOffset: 100,
@@ -101,10 +104,10 @@ class _AboutAppPageState extends State<AboutAppPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Nama app
-                        const Text(
+                        Text(
                           'Music Player',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: c.primaryLabel,
                             fontSize: 32,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
@@ -112,7 +115,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Versi — tap 5× untuk mode debug
+                        // Versi — tap 3× untuk mode debug
                         ValueListenableBuilder<bool>(
                           valueListenable: _DebugState.enabled,
                           builder: (_, debug, _) => GestureDetector(
@@ -128,7 +131,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                                 style: TextStyle(
                                   color: debug
                                       ? const Color(0xFFF92D48)
-                                      : const Color(0xFF8E8E93),
+                                      : c.secondaryLabel,
                                   fontSize: 15,
                                 ),
                               ),
@@ -141,23 +144,23 @@ class _AboutAppPageState extends State<AboutAppPage> {
                         Container(
                           width: 48,
                           height: 1,
-                          color: const Color(0xFF3A3A3C),
+                          color: c.subtleSeparator,
                         ),
                         const SizedBox(height: 28),
 
                         // Dibuat oleh
-                        const Text(
+                        Text(
                           'Dibuat dengan dedikasi oleh',
                           style: TextStyle(
-                            color: Color(0xFFEBEBF0),
+                            color: c.primaryLabel.withValues(alpha: 0.87),
                             fontSize: 15,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Wndavenznchole',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: c.primaryLabel,
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                           ),
@@ -165,11 +168,11 @@ class _AboutAppPageState extends State<AboutAppPage> {
                         const SizedBox(height: 28),
 
                         // ── Deskripsi singkat ──────────────────────────
-                        const Text(
+                        Text(
                           'Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF8E8E93),
+                            color: c.secondaryLabel,
                             fontSize: 13,
                             height: 1.5,
                           ),
@@ -220,8 +223,8 @@ class _AboutAppPageState extends State<AboutAppPage> {
             child: Text(
               '© $year Flutter Music App with Media3 Exoplayer',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF636366),
+              style: TextStyle(
+                color: c.tertiaryLabel,
                 fontSize: 13,
               ),
             ),
@@ -247,18 +250,19 @@ class _SocialRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FaIcon(icon, color: Colors.white, size: 18),
+          FaIcon(icon, color: c.primaryLabel, size: 18),
           const SizedBox(width: 10),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: c.primaryLabel,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),

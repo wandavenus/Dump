@@ -5,24 +5,25 @@ class _ActiveTimerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFF92D48).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.bedtime, color: Color(0xFFF92D48), size: 18),
-              SizedBox(width: 8),
+              const Icon(Icons.bedtime, color: Color(0xFFF92D48), size: 18),
+              const SizedBox(width: 8),
               Text(
                 'Sleep Timer Aktif',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: c.primaryLabel,
                     fontSize: 16,
                     fontWeight: FontWeight.w600),
               ),
@@ -33,10 +34,10 @@ class _ActiveTimerCard extends StatelessWidget {
             valueListenable: SleepTimerService.remaining,
             builder: (_, remaining, _) {
               if (remaining == null) {
-                return const Text(
+                return Text(
                   'Berhenti setelah lagu ini selesai',
                   style: TextStyle(
-                      color: Color(0xFF8E8E93), fontSize: 14),
+                      color: c.secondaryLabel, fontSize: 14),
                 );
               }
               final h = remaining.inHours;
@@ -57,9 +58,9 @@ class _ActiveTimerCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Musik akan fade out perlahan saat timer habis',
-            style: TextStyle(color: Color(0xFF636366), fontSize: 12),
+            style: TextStyle(color: c.tertiaryLabel, fontSize: 12),
           ),
         ],
       ),

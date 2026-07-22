@@ -46,6 +46,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ValueListenableBuilder<ReplayGainMode>(
       valueListenable: AudioEffectsService.replayGainMode,
       builder: (context, mode, _) {
@@ -60,23 +61,23 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'Audio Normalize',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(color: c.primaryLabel, fontSize: 16),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         mode.label,
-                        style: const TextStyle(
-                            color: Color(0xFF8E8E93), fontSize: 13),
+                        style: TextStyle(
+                            color: c.secondaryLabel, fontSize: 13),
                       ),
                     ),
                     AnimatedRotation(
                       turns:    _expanded ? 0.5 : 0.0,
                       duration: const Duration(milliseconds: 220),
-                      child: const Icon(Icons.keyboard_arrow_down,
-                          color: Colors.white38, size: 18),
+                      child: Icon(Icons.keyboard_arrow_down,
+                          color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
                     ),
                   ],
                 ),
@@ -103,19 +104,19 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Mode',
+                                  Text('Mode',
                                       style: TextStyle(
-                                          color: Colors.white, fontSize: 15)),
+                                          color: c.primaryLabel, fontSize: 15)),
                                   const SizedBox(height: 2),
                                   Text(mode.label,
-                                      style: const TextStyle(
-                                          color: Color(0xFF8E8E93),
+                                      style: TextStyle(
+                                          color: c.secondaryLabel,
                                           fontSize: 12)),
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right,
-                                color: Colors.white38, size: 18),
+                            Icon(Icons.chevron_right,
+                                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
                           ],
                         ),
                       ),
@@ -126,8 +127,9 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                         padding: const EdgeInsets.only(left: 16, bottom: 6),
                         child: Text(
                           mode.description,
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 12),
+                          style: TextStyle(
+                              color: c.primaryLabel.withValues(alpha: 0.38),
+                              fontSize: 12),
                         ),
                       ),
                     // Preamp slider + clipping protection — only when active
@@ -180,18 +182,19 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final active = mode != ReplayGainMode.off;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: active
             ? const Color(0xFFF92D48).withAlpha(30)
-            : Colors.white.withAlpha(15),
+            : c.primaryLabel.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active
               ? const Color(0xFFF92D48).withAlpha(120)
-              : Colors.white.withAlpha(30),
+              : c.primaryLabel.withValues(alpha: 0.12),
           width: 0.8,
         ),
       ),
@@ -199,7 +202,7 @@ class _ModeChip extends StatelessWidget {
         mode.label,
         style: TextStyle(
           fontSize:   12,
-          color:      active ? const Color(0xFFF92D48) : Colors.white60,
+          color:      active ? const Color(0xFFF92D48) : c.primaryLabel.withValues(alpha: 0.60),
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -213,11 +216,12 @@ class _ReplayGainModePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:        const Color(0xFF1C1C1E),
+          color:        c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -228,19 +232,19 @@ class _ReplayGainModePicker extends StatelessWidget {
               width:  36,
               height: 4,
               decoration: BoxDecoration(
-                color:        Colors.white24,
+                color:        c.dragHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Mode Audio Normalize',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: c.primaryLabel,
                       fontSize: 16,
                       fontWeight: FontWeight.w600),
                 ),
@@ -265,6 +269,7 @@ class _ModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
       leading: Container(
@@ -273,7 +278,7 @@ class _ModeOption extends StatelessWidget {
         decoration: BoxDecoration(
           shape:  BoxShape.circle,
           border: Border.all(
-            color: selected ? const Color(0xFFF92D48) : Colors.white30,
+            color: selected ? const Color(0xFFF92D48) : c.primaryLabel.withValues(alpha: 0.30),
             width: 2,
           ),
           color: selected ? const Color(0xFFF92D48) : Colors.transparent,
@@ -285,14 +290,14 @@ class _ModeOption extends StatelessWidget {
       title: Text(
         mode.label,
         style: TextStyle(
-          color:      selected ? const Color(0xFFF92D48) : Colors.white,
+          color:      selected ? const Color(0xFFF92D48) : c.primaryLabel,
           fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           fontSize:   15,
         ),
       ),
       subtitle: Text(
         mode.description,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.54), fontSize: 12),
       ),
       onTap: () {
         AudioEffectsService.setReplayGainMode(mode);

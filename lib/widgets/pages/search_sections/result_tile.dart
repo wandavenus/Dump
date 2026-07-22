@@ -13,6 +13,7 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       onTap: () async {
         await AudioService.playSongAt(playlist: playlist, index: index);
@@ -35,8 +36,8 @@ class _SearchResultTile extends StatelessWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: c.primaryLabel,
                         fontSize: 15,
                         fontWeight: FontWeight.w500),
                   ),
@@ -44,13 +45,13 @@ class _SearchResultTile extends StatelessWidget {
                     '${song.artist} · ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xFF8E8E93), fontSize: 13),
+                    style: TextStyle(
+                        color: c.secondaryLabel, fontSize: 13),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.play_arrow, color: Color(0xFF48484A), size: 20),
+            Icon(Icons.play_arrow, color: c.separator, size: 20),
           ],
         ),
       ),

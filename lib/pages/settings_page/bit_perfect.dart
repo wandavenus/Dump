@@ -22,6 +22,7 @@ class _BitPerfectSection extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.bitPerfectMode,
       builder: (context, enabled, _) {
+        final c = AppColors.of(context);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -45,7 +46,7 @@ class _BitPerfectSection extends StatelessWidget {
                         'sebelumnya akan dikembalikan saat dinonaktifkan.'
                     : 'Saat aktif, semua fitur yang mengubah sinyal audio di '
                         'seluruh aplikasi akan dipaksa Nonaktif.',
-                style: const TextStyle(color: Color(0xFF636366), fontSize: 12),
+                style: TextStyle(color: c.tertiaryLabel, fontSize: 12),
               ),
             ),
             const SettingsDivider(),
@@ -76,11 +77,12 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -91,19 +93,19 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: c.dragHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Aktifkan Mode Bit-Perfect?',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: c.primaryLabel,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -111,8 +113,8 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -120,7 +122,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
                   'dinonaktifkan paksa. Pengaturan '
                   'yang sedang aktif akan disimpan dan dikembalikan otomatis '
                   'saat mode ini dimatikan lagi.',
-                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                  style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                 ),
               ),
             ),
@@ -132,11 +134,11 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
                   Expanded(
                     child: CupertinoButton(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      color: const Color(0xFF2C2C2E),
+                      color: c.surface2,
                       borderRadius: BorderRadius.circular(12),
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Batal',
-                          style: TextStyle(color: Colors.white)),
+                      child: Text('Batal',
+                          style: TextStyle(color: c.primaryLabel)),
                     ),
                   ),
                   const SizedBox(width: 12),

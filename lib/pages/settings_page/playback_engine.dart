@@ -21,11 +21,12 @@ class _PlaybackStatsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
@@ -36,19 +37,19 @@ class _PlaybackStatsSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: c.dragHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Statistik Sesi Pemutaran',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: c.primaryLabel,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -56,13 +57,13 @@ class _PlaybackStatsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Engine: Native Media3',
-                  style: TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                  style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                 ),
               ),
             ),
@@ -93,11 +94,14 @@ class _PlaybackStatsSheet extends StatelessWidget {
                 icon: Icons.error_outline_rounded,
               ),
             ] else
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Text(
                   'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                  style: TextStyle(
+                    color: c.primaryLabel.withValues(alpha: 0.54),
+                    fontSize: 14,
+                  ),
                 ),
               ),
             const SizedBox(height: 24),
@@ -132,22 +136,26 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFF8E8E93)),
+          Icon(icon, size: 20, color: c.secondaryLabel),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(
+                color: c.primaryLabel.withValues(alpha: 0.70),
+                fontSize: 14,
+              ),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: c.primaryLabel,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
