@@ -5,7 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.ServiceInfo
+import android.graphics.Color
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -294,7 +296,12 @@ class PlaybackNotificationManager(
         val artist = track?.get("artist") as? String ?: ""
 
         val builder = NotificationCompat.Builder(service, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            // A notification small icon must be monochrome. MIUI 12 applies
+            // the notification accent to this alpha mask in the status bar;
+            // selecting the accent from uiMode keeps it readable in both
+            // light and dark system themes.
+            .setSmallIcon(R.drawable.ic_overlay_music_note)
+            .setColor(notificationIconColor())
             .setContentTitle(title)
             .setContentText(artist)
             .setOngoing(isPlaying)
@@ -323,6 +330,16 @@ class PlaybackNotificationManager(
                 )
         }
         return builder.build()
+    }
+
+    private fun notificationIconColor(): Int {
+        val nightMode = service.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK
+        return if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+            Color.WHITE
+        } else {
+            Color.BLACK
+        }
     }
 
     /**
