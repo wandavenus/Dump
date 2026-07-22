@@ -29,7 +29,7 @@ class ArtistPage extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
           child: Icon(
             CupertinoIcons.arrow_left,
-            color: colorScheme.primary,
+            color: theme.colorScheme.primary,
             size: 28,
           ),
         ),
