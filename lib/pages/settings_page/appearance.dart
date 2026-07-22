@@ -13,13 +13,11 @@ class _AppearanceSection extends StatelessWidget {
         // ── Tema ──────────────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.brightness_6_outlined, size: 20),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text('Tema', style: TextStyle(fontSize: 16)),
-              ),
+              const Text('Tema', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
               ValueListenableBuilder<ThemeMode>(
                 valueListenable: ThemeController.mode,
                 builder: (context, current, _) {
