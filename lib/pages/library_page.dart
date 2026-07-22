@@ -44,7 +44,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: Colors.black,
         surfaceTintColor: Colors.transparent,
         title: const SizedBox.shrink(),
         centerTitle: false,
