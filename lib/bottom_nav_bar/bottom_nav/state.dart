@@ -89,11 +89,11 @@ class _FirstPageState extends State<FirstPage> {
 
     // Detail routes yang di-push dari dalam tab manapun.
     final Widget? page = switch (settings.name) {
-      '/album'      => const WebView(child: AlbumPage()),
-      '/artist'     => const WebView(child: ArtistPage()),
+      '/album' => const WebView(child: AlbumPage()),
+      '/artist' => const WebView(child: ArtistPage()),
       '/artistlist' => const WebView(child: ArtistList()),
-      '/musiclist'  => const WebView(child: MusicList()),
-      _             => null,
+      '/musiclist' => const WebView(child: MusicList()),
+      _ => null,
     };
     if (page == null) return null;
     return ZoomFadeRoute(page: page, settings: settings);
@@ -109,104 +109,110 @@ class _FirstPageState extends State<FirstPage> {
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
         final c = AppColors.of(context);
-        final navBar = Theme(
-          data: Theme.of(context).copyWith(
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-          ),
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            currentIndex: _selectedIndex,
-            onTap: _navgateBottomBar,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_filled, size: 26),
-                label: 'Beranda',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.grid_view_rounded, size: 26),
-                label: 'Baru',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.sensors, size: 26),
-                label: 'Radio',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.subscriptions_rounded, size: 26),
-                label: 'Perpustakaan',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.search, size: 26),
-                label: 'Cari',
-              ),
-            ],
-            elevation: 0,
-            selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: c.secondaryLabel,
-            showUnselectedLabels: true,
-            backgroundColor: isGlass
-                ? Colors.transparent
-                : c.surface,
-            unselectedFontSize: 11.0,
-            selectedFontSize: 11.0,
-          ),
-        );
-
         return ValueListenableBuilder<bool>(
-          valueListenable: PlayerSheetController.expanded,
-          builder: (context, expanded, _) {
-            return PopScope(
-              // canPop akurat karena observer rebuild saat inner nav berubah.
-              canPop: !expanded && !_innerCanPop,
-              onPopInvokedWithResult: (didPop, _) {
-                if (didPop) return;
-                if (expanded) {
-                  PlayerSheetController.close();
-                } else {
-                  _tabNavKeys[_selectedIndex].currentState?.maybePop();
-                }
-              },
-              child: Stack(
-                children: [
-                  Scaffold(
-                    extendBody: isGlass,
-                    body: IndexedStack(
-                      index: _selectedIndex,
-                      children: List.generate(
-                        5,
-                        (i) => Navigator(
-                          key: _tabNavKeys[i],
-                          observers: [_tabObservers[i]],
-                          onGenerateRoute: (s) => _tabRoute(i, s),
+          valueListenable: ThemeController.glassNavBar,
+          builder: (context, navBarGlass, _) {
+            final useGlassNavBar = isGlass && navBarGlass;
+            final navBar = Theme(
+              data: Theme.of(context).copyWith(
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+              ),
+              child: BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                currentIndex: _selectedIndex,
+                onTap: _navgateBottomBar,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home_filled, size: 26),
+                    label: 'Beranda',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.grid_view_rounded, size: 26),
+                    label: 'Baru',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.sensors, size: 26),
+                    label: 'Radio',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.subscriptions_rounded, size: 26),
+                    label: 'Perpustakaan',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.search, size: 26),
+                    label: 'Cari',
+                  ),
+                ],
+                elevation: 0,
+                selectedItemColor: Theme.of(context).colorScheme.primary,
+                unselectedItemColor: c.secondaryLabel,
+                showUnselectedLabels: true,
+                backgroundColor:
+                    useGlassNavBar ? Colors.transparent : c.surface,
+                unselectedFontSize: 11.0,
+                selectedFontSize: 11.0,
+              ),
+            );
+            return ValueListenableBuilder<bool>(
+              valueListenable: PlayerSheetController.expanded,
+              builder: (context, expanded, _) {
+                return PopScope(
+                  // canPop akurat karena observer rebuild saat inner nav berubah.
+                  canPop: !expanded && !_innerCanPop,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (didPop) return;
+                    if (expanded) {
+                      PlayerSheetController.close();
+                    } else {
+                      _tabNavKeys[_selectedIndex].currentState?.maybePop();
+                    }
+                  },
+                  child: Stack(
+                    children: [
+                      Scaffold(
+                        extendBody: useGlassNavBar,
+                        body: IndexedStack(
+                          index: _selectedIndex,
+                          children: List.generate(
+                            5,
+                            (i) => Navigator(
+                              key: _tabNavKeys[i],
+                              observers: [_tabObservers[i]],
+                              onGenerateRoute: (s) => _tabRoute(i, s),
+                            ),
+                          ),
+                        ),
+                        bottomNavigationBar: ValueListenableBuilder<double>(
+                          valueListenable: PlayerSheetController.progress,
+                          builder: (context, progress, _) {
+                            final column = Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!useGlassNavBar)
+                                  Container(
+                                    height: 1.5,
+                                    color: c.subtleSeparator,
+                                  ),
+                                SizedBox(height: 70, child: navBar),
+                              ],
+                            );
+
+                            return Transform.translate(
+                              offset: Offset(0, 70 * progress),
+                              child: useGlassNavBar
+                                  ? GlassNavBar(child: column)
+                                  : column,
+                            );
+                          },
                         ),
                       ),
-                    ),
-                    bottomNavigationBar: ValueListenableBuilder<double>(
-                      valueListenable: PlayerSheetController.progress,
-                      builder: (context, progress, _) {
-                        final column = Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!isGlass)
-                              Container(
-                                height: 1.5,
-                                color: c.subtleSeparator,
-                              ),
-                            SizedBox(height: 70, child: navBar),
-                          ],
-                        );
-
-                        return Transform.translate(
-                          offset: Offset(0, 70 * progress),
-                          child: isGlass ? GlassNavBar(child: column) : column,
-                        );
-                      },
-                    ),
+                      // Unified morph player: handles both mini and full-player.
+                      const UnifiedMorphPlayer(),
+                    ],
                   ),
-                  // Unified morph player: handles both mini and full-player.
-                  const UnifiedMorphPlayer(),
-                ],
-              ),
+                );
+              },
             );
           },
         );

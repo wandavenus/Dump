@@ -5,10 +5,7 @@ import 'package:musicplayer/theme/app_colors.dart';
 class GlassNavBar extends StatelessWidget {
   final Widget child;
 
-  const GlassNavBar({
-    super.key,
-    required this.child,
-  });
+  const GlassNavBar({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +18,12 @@ class GlassNavBar extends StatelessWidget {
           child: RepaintBoundary(
             child: ClipRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  color: c.glassNavTint,
-                ),
+                // Keep the backdrop radius modest: this filter is recomputed
+                // while content scrolls behind the navbar. A large sigma is
+                // disproportionately expensive on the target Snapdragon 730.
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                blendMode: BlendMode.srcOver,
+                child: Container(color: c.glassNavTint),
               ),
             ),
           ),

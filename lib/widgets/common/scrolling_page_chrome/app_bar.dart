@@ -33,40 +33,47 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
-      builder: (context, isGlass, _) {
-        final notifier = scrollOffsetListenable;
-        if (notifier != null) {
-          return ValueListenableBuilder<double>(
-            valueListenable: notifier,
-            builder: (context, offset, _) => _buildBar(context, isGlass, offset),
-          );
-        }
-        return _buildBar(context, isGlass, scrollOffset);
+      builder: (context, masterGlass, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: ThemeController.glassAppBar,
+          builder: (context, appBarGlass, _) {
+            final isGlass = masterGlass && appBarGlass;
+            final notifier = scrollOffsetListenable;
+            if (notifier != null) {
+              return ValueListenableBuilder<double>(
+                valueListenable: notifier,
+                builder: (context, offset, _) =>
+                    _buildBar(context, isGlass, offset),
+              );
+            }
+            return _buildBar(context, isGlass, scrollOffset);
+          },
+        );
       },
     );
   }
 
   Widget _buildBar(BuildContext context, bool isGlass, double offset) {
-    final c          = AppColors.of(context);
+    final c = AppColors.of(context);
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return AppBar(
       automaticallyImplyLeading: automaticallyImplyLeading,
       leading: leading,
       backgroundColor: isGlass ? Colors.transparent : scaffoldBg,
       surfaceTintColor: Colors.transparent,
-      flexibleSpace:
-          isGlass
-              ? RepaintBoundary(
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                    child: Container(
-                      color: c.glassNavTint,
-                    ),
-                  ),
+      flexibleSpace: isGlass
+          ? RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter(
+                  // App bars are redrawn over scrolling content. Keep the
+                  // blur radius low enough to avoid frame-time spikes.
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  blendMode: BlendMode.srcOver,
+                  child: Container(color: c.glassNavTint),
                 ),
-              )
-              : null,
+              ),
+            )
+          : null,
       title: title != null
           ? Transform.translate(
               offset: Offset(
@@ -86,19 +93,12 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: actions,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(0.5),
-        child:
-            isGlass
-                ? Container(
-                  height: 0.5,
-                  color: c.glassBorderTint,
-                )
-                : Opacity(
-                  opacity: (offset / 140).clamp(0.0, 1.0).toDouble(),
-                  child: Container(
-                    height: 0.9,
-                    color: c.separator,
-                  ),
-                ),
+        child: isGlass
+            ? Container(height: 0.5, color: c.glassBorderTint)
+            : Opacity(
+                opacity: (offset / 140).clamp(0.0, 1.0).toDouble(),
+                child: Container(height: 0.9, color: c.separator),
+              ),
       ),
     );
   }
