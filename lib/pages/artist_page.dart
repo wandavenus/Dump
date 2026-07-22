@@ -12,19 +12,24 @@ class ArtistPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final route = ModalRoute.of(context);
-    if (route == null) return const Scaffold(backgroundColor: Colors.black);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (route == null) {
+      return Scaffold(backgroundColor: colorScheme.surface);
+    }
+
     final songs = route.settings.arguments as List<LocalSong>;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: colorScheme.surface,
       appBar: FadingTitleAppBar(
         scrollOffset: 100,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(
+          child: Icon(
             CupertinoIcons.arrow_left,
-            color: Color(0xFFF92D48),
+            color: colorScheme.primary,
             size: 28,
           ),
         ),
