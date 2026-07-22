@@ -33,6 +33,7 @@ jobs:
         with:
           fetch-depth: 0
 
+
       ##################################################
       # Environment Setup
       ##################################################
@@ -73,7 +74,7 @@ jobs:
 
 
       ##################################################
-      # Build Project
+      # Flutter Dependencies
       ##################################################
 
       - name: Install Flutter dependencies
@@ -82,21 +83,28 @@ jobs:
           flutter pub get
 
 
-      - name: Build Android Debug
+      ##################################################
+      # Manual Build
+      ##################################################
+
+      - name: Build Kotlin / Java Android Code
         if: matrix.language == 'java-kotlin'
         run: |
-          flutter build apk --debug
+          chmod +x android/gradlew
+          cd android
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
 
 
-      - name: Build Native C++
+      - name: Build Native C++ Code
         if: matrix.language == 'c-cpp'
         run: |
-          flutter pub get
-          flutter build apk --debug
+          chmod +x android/gradlew
+          cd android
+          ./gradlew clean externalNativeBuildDebug --no-daemon --stacktrace
 
 
       ##################################################
-      # Analysis
+      # CodeQL Analysis
       ##################################################
 
       - name: Perform CodeQL Analysis
