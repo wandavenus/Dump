@@ -6,9 +6,9 @@ class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
   static const _sizes = [
-    (label: 'S', value: 23.0),
-    (label: 'M', value: 34.0),
-    (label: 'L', value: 48.0),
+    (label: 'S',  value: 23.0),
+    (label: 'M',  value: 34.0),
+    (label: 'L',  value: 48.0),
     (label: 'XL', value: 55.0),
   ];
 
@@ -16,39 +16,28 @@ class _FontSizePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: LyricsSettings.fontSize,
-      builder:
-          (_, cur, _) => Row(
-            children: [
+      builder: (_, cur, _) {
+        final snapped = _sizes
+            .reduce((a, b) =>
+                (cur - a.value).abs() <= (cur - b.value).abs() ? a : b)
+            .value;
+        return SizedBox(
+          width: double.infinity,
+          child: CupertinoSlidingSegmentedControl<double>(
+            groupValue: snapped,
+            onValueChanged: (v) {
+              if (v != null) LyricsSettings.setFontSize(v);
+            },
+            children: {
               for (final s in _sizes)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => LyricsSettings.setFontSize(s.value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(right: 8),
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: cur == s.value
-                            ? const Color(0xFFF92D48)
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        s.label,
-                        style: TextStyle(
-                          color: cur == s.value ? Colors.white : Colors.white54,
-                          fontWeight: cur == s.value
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
+                s.value: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(s.label, style: const TextStyle(fontSize: 13)),
                 ),
-            ],
+            },
           ),
+        );
+      },
     );
   }
 }
@@ -59,43 +48,33 @@ class _AlignPicker extends StatelessWidget {
   const _AlignPicker();
 
   static const _opts = [
-    (label: 'Kiri', icon: Icons.format_align_left, value: 'left'),
-    (label: 'Tengah', icon: Icons.format_align_center, value: 'center'),
-    (label: 'Kanan', icon: Icons.format_align_right, value: 'right'),
+    (icon: Icons.format_align_left,   value: 'left'),
+    (icon: Icons.format_align_center, value: 'center'),
+    (icon: Icons.format_align_right,  value: 'right'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.textAlign,
-      builder:
-          (_, cur, _) => Row(
-            children: [
+      builder: (_, cur, _) {
+        return SizedBox(
+          width: double.infinity,
+          child: CupertinoSlidingSegmentedControl<String>(
+            groupValue: cur,
+            onValueChanged: (v) {
+              if (v != null) LyricsSettings.setTextAlign(v);
+            },
+            children: {
               for (final o in _opts)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => LyricsSettings.setTextAlign(o.value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(right: 8),
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: cur == o.value
-                            ? const Color(0xFFF92D48)
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        o.icon,
-                        color: cur == o.value ? Colors.white : Colors.white54,
-                        size: 20,
-                      ),
-                    ),
-                  ),
+                o.value: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(o.icon, size: 18),
                 ),
-            ],
+            },
           ),
+        );
+      },
     );
   }
 }
@@ -106,54 +85,47 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih', color: Colors.white, value: 'white'),
-    (label: 'Merah', color: Color(0xFFF92D48), value: 'accent'),
-    (label: 'Kuning', color: Color(0xFFFFD60A), value: 'yellow'),
+    (label: 'Putih',  dot: Colors.white,          value: 'white'),
+    (label: 'Merah',  dot: Color(0xFFF92D48),     value: 'accent'),
+    (label: 'Kuning', dot: Color(0xFFFFD60A),     value: 'yellow'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.activeColor,
-      builder:
-          (_, cur, _) => Row(
-            children: [
+      builder: (_, cur, _) {
+        return SizedBox(
+          width: double.infinity,
+          child: CupertinoSlidingSegmentedControl<String>(
+            groupValue: cur,
+            onValueChanged: (v) {
+              if (v != null) LyricsSettings.setActiveColor(v);
+            },
+            children: {
               for (final o in _opts)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => LyricsSettings.setActiveColor(o.value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(right: 8),
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: cur == o.value
-                            ? o.color
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: cur == o.value
-                            ? null
-                            : Border.all(
-                                color: o.color.withValues(alpha: 0.4),
-                                width: 1,
-                              ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        o.label,
-                        style: TextStyle(
-                          color: cur == o.value ? Colors.white : Colors.white54,
-                          fontSize: 13,
-                          fontWeight: cur == o.value
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                o.value: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: o.dot,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 5),
+                      Text(o.label, style: const TextStyle(fontSize: 12)),
+                    ],
                   ),
                 ),
-            ],
+            },
           ),
+        );
+      },
     );
   }
 }
