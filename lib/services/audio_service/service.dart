@@ -314,10 +314,10 @@ class AudioService {
       return;
     }
 
-    _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext);
+    unawaited(_syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext));
   }
 
-  static void _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) {
+  static Future<void> _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) async {
     final song      = _playlist[index];
     final prevIndex = _currentIndex;
     _currentIndex   = index;
@@ -327,6 +327,28 @@ class AudioService {
     // correct predecessor into the async resolve call.
     final prevSong  = _previousSong;
     _previousSong   = song;
+
+    // ARTWORK-FIX: Pre-warm ImageCache for mini player artwork BEFORE setState.
+    // Without this, the native EventChannel path (_syncCurrentTrackFromNative)
+    // calls _setState immediately, causing SongArtwork to rebuild before
+    // ImageCache has a decoded frame → visible blank/placeholder on cold start
+    // and on app resume. syncFromNative() already awaits prewarm; this mirrors
+    // that pattern for the EventChannel-triggered path.
+    // Short 500 ms timeout — best-effort head-start, never blocks playback.
+    if (!kIsWeb) {
+      final miniPx = ArtworkRepository.instance.resolveTargetPx(46.3);
+      try {
+        await ArtworkRepository.instance.prewarmImageCache(
+          [song.id],
+          targetSizePx: miniPx,
+        ).timeout(const Duration(milliseconds: 500), onTimeout: () {});
+      } catch (e) {
+        LogService.verbose(
+          'AudioService',
+          '_syncCurrentTrackFromNative: artwork prewarm error: $e',
+        );
+      }
+    }
 
     _setState(playbackState.value.copyWith(
       currentSong:         song,
@@ -362,9 +384,9 @@ class AudioService {
     }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
-    _ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((Object e) {
+    unawaited(_ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((Object e) {
       LogService.warn('AudioService', '_ReplayGainApplicator.apply error: $e');
-    });
+    }));
   }
 
   // ── Playback ──────────────────────────────────────────────────────────[...]
