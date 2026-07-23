@@ -75,6 +75,36 @@ else
 fi
 
 # ──────────────────────────────────────────────────
+# 2b. Flutter release metadata — archive installs have no .git directory.
+#      Flutter run/devices/DevTools require Git and a matching release tag.
+#      Keep this local metadata minimal so cache contents are not rebuilt.
+# ──────────────────────────────────────────────────
+if ! git -C "$FLUTTER_WS" rev-parse --verify HEAD >/dev/null 2>&1 || \
+   ! git -C "$FLUTTER_WS" describe --tags --exact-match HEAD >/dev/null 2>&1; then
+  if [ ! -x "$FLUTTER_WS/bin/cache/dart-sdk/bin/dart" ]; then
+    echo "✗ Flutter Dart SDK cache tidak lengkap; tidak aman membuat metadata Git."
+    exit 1
+  fi
+  echo "▶ Menyiapkan metadata Git lokal Flutter $FLUTTER_VERSION..."
+  rm -rf "$FLUTTER_WS/.git"
+  git -C "$FLUTTER_WS" init -q -b stable
+  git -C "$FLUTTER_WS" config user.email "flutter-sdk@localhost"
+  git -C "$FLUTTER_WS" config user.name "Flutter SDK"
+  git -C "$FLUTTER_WS" add -f \
+    DEPS \
+    bin/internal/engine.version \
+    bin/internal/release-candidate-branch.version
+  GIT_AUTHOR_DATE='2026-07-06T21:50:00Z' \
+    GIT_COMMITTER_DATE='2026-07-06T21:50:00Z' \
+    git -C "$FLUTTER_WS" commit -q -m "Flutter $FLUTTER_VERSION release metadata"
+  git -C "$FLUTTER_WS" tag -f "$FLUTTER_VERSION" >/dev/null
+  # Discard stale "0.0.0-unknown" metadata so Flutter regenerates it from
+  # the release tag above on its next invocation.
+  rm -f "$FLUTTER_WS/bin/cache/flutter.version.json" "$FLUTTER_WS/version"
+  echo "✓ Metadata Git Flutter siap: $(git -C "$FLUTTER_WS" describe --tags --exact-match HEAD)"
+fi
+
+# ──────────────────────────────────────────────────
 # 3. JDK 17 Temurin (x64 Linux) — /home/runner/workspace/jdk17/
 # ──────────────────────────────────────────────────
 JDK_DIR="/home/runner/workspace/jdk17"

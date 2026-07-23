@@ -22,6 +22,7 @@ args = "Start application"
 task = "workflow.run"
 args = "Watch & Rebuild Web"
 
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -77,6 +78,30 @@ args = "bash setup-flutter.sh && bash build-apk.sh"
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Flutter Debug Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter run -d web-server --web-hostname 0.0.0.0 --web-port 5173"
+waitForPort = 5173
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Flutter DevTools"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && dart devtools --no-launch-browser --host 0.0.0.0 --port 9100"
+waitForPort = 9100
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 3000
 externalPort = 3001
@@ -84,6 +109,14 @@ externalPort = 3001
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+[[ports]]
+localPort = 9100
+externalPort = 3002
 
 [[ports]]
 localPort = 23636
