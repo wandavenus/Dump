@@ -23,7 +23,8 @@
 - [Phase 6 Dynamics Processing](dsp-phase6.md) — compressor/limiter/soft_clipper fully wired; pipeline now has 5 slots; total latency = 63 frames (limiter look-ahead); tests updated accordingly.
 - [Phase 4 DSP Core](dsp-phase4.md) — new processor = new .c file + register_internal(); atomic float trick; analysis_options exclude native_audio_runtime/test/**.
 - [Phase 5 Parametric EQ](peq-phase5.md) — dsp.peq is slot 1 (after dsp.gain); dirty-flag acquire/release for thread-safe param updates; coeff computation (sinf/cosf) on control thread only; Dart API via PlaybackManager only.
-- [Flutter 3.44.5 manual install](flutter-manual-install.md) — Nix hanya sediakan 3.32.0; 3.44.5 diinstall manual ke /home/runner/flutter/; PATH di semua workflow harus prefix; kalau hilang jalankan setup-flutter.sh.
+- [Flutter 3.44.5 manual install](flutter-manual-install.md) — Nix hanya sediakan 3.32.0; setup memakai copy workspace atomik agar cache Flutter bisa ditulis.
+- [Replit APK build](apk-build-replit.md) — APK perlu JDK 17, Android SDK/NDK/CMake, dan Ninja yang ditautkan ke folder CMake; setup harus terserialisasi.
 - [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
 - [Artwork cache storage location](artwork-cache-storage.md) — cache di filesDir/supportDir bukan cacheDir; getProviderSync pakai _diskCachedIds pre-scan, bukan statSync per call; _paths hanya diisi setelah async validation.
 - [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.

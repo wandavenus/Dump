@@ -18,3 +18,9 @@ id = "l_Vmb_lpWkYEq98pdPrdO"
 uri = "file://device_aaudio_offload_feasibility_report.md"
 type = "text"
 title = "AAudio/Offload Feasibility — Mi 9T/K20 (Snapdragon 730, MIUI 12)"
+
+[[outputs]]
+id = "Weqwr5panchz394_SSs8J"
+uri = "file://build/app/outputs/flutter-apk/app-debug.apk"
+type = "unspecified"
+title = "Music Player debug APK"

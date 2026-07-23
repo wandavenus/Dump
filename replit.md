@@ -19,22 +19,29 @@ node server.js
 
 To rebuild the web output after Dart/Flutter changes:
 ```
-export PATH="/home/runner/flutter/bin:$PATH"
+export PATH="/home/runner/workspace/flutter-ws/flutter/bin:$PATH"
 flutter build web --release --base-href /
 ```
 
-The Android APK is the primary target — build with Android Studio or `flutter build apk`.
+The Android APK is the primary target. Build the debug APK from the Replit workflow:
+```
+bash setup-flutter.sh && bash build-apk.sh
+```
+The output is `build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Flutter SDK (Replit)
 
-Flutter **3.44.5** diinstall manual di `/home/runner/flutter/` karena Nix hanya menyediakan 3.32.0.
-Semua workflow sudah dikonfigurasi dengan `export PATH="/home/runner/flutter/bin:$PATH"`.
+Flutter **3.44.5** disiapkan manual. Workflow memakai salinan workspace
+`/home/runner/workspace/flutter-ws/flutter` supaya cache SDK dapat ditulis.
+Semua workflow sudah menjalankan `setup-flutter.sh` sebelum memakai Flutter.
 
 Kalau SDK hilang (environment reset), jalankan:
 ```
 bash setup-flutter.sh
 ```
 Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter/`.
+Jika salinan workspace rusak atau belum ada, script membuatnya ulang secara atomik.
+Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 17 tervalidasi, dan Ninja.
 
 ## Project structure
 

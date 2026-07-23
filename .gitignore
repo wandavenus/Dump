@@ -71,6 +71,7 @@ build/
 
 .gradle/
 **/.gradle/
+.kotlin/daemon/
 
 # CMake / Ninja
 CMakeFiles/

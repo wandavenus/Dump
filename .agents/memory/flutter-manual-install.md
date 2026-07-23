@@ -12,12 +12,12 @@ export PATH="/home/runner/flutter/bin:$PATH"
 ```
 karena Nix default masih 3.32.0, dan `/home/runner/flutter/bin` harus di depan PATH.
 
-**Why:** Replit Nix channel `stable-25_05` hanya menyediakan Flutter 3.32.0 via `pkgs.flutter`. Tidak ada module Flutter lain yang bisa dipilih lewat `listAvailableModules`. SDK 3.44.5 diinstall manual ke `/home/runner/flutter/`.
+**Why:** Replit Nix channel `stable-25_05` hanya menyediakan Flutter 3.32.0 via `pkgs.flutter`. Tidak ada module Flutter lain yang bisa dipilih lewat `listAvailableModules`. SDK 3.44.5 disiapkan manual, lalu salinan workspace dipakai agar cache SDK dapat ditulis.
 
 **How to apply:**
 - Workflow `.replit`: setiap flutter command diawali `bash setup-flutter.sh && export PATH=...`
-- `rebuild-web.js`: pakai `FLUTTER_BIN = '/home/runner/flutter/bin/flutter'` + env PATH di spawn options.
-- `watch-rebuild.js`: pakai `FLUTTER_BIN` hardcoded + env PATH di exec options.
+- Build APK memakai `/home/runner/workspace/flutter-ws/flutter`, salinan yang dibuat atomik oleh setup script.
+- `rebuild-web.js` dan `watch-rebuild.js` harus memakai path SDK yang sudah dikonfigurasi project.
 - `.replit` deployment build command: sudah pakai prefix PATH.
 
 ## Recovery kalau SDK hilang (OTOMATIS)

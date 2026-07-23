@@ -52,7 +52,7 @@ author = 61865488
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter analyze"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter analyze lib test"
 
 [[workflows.workflow]]
 name = "Rebuild Web"

@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.8',
+    date: '23 Juli 2026',
+    changes: [
+      'Perbaikan proses build APK di Replit agar setup Flutter, Java, dan Android SDK berjalan stabil.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.7',
     date: '21 Juli 2026',
     changes: [
