@@ -43,6 +43,13 @@ android/local.properties
 # Node.js
 node_modules/
 
+# Installed build tools (downloaded by setup-flutter.sh / build-apk.sh, not source)
+jdk17/
+ndk/
+cmake-*/
+flutter-ws/
+tmp/
+
 # Symbolication related
 app.*.symbols
 
