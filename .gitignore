@@ -1,97 +1,105 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-migrate_working_dir/
+# =========================
+# Local environment
+# =========================
+
 android/local.properties
 
-# Ignore local SDK / build directories
 .android/
-.dart-tool/
+.dart_tool/
 .kotlin/
-build/
+
 android-sdk/
 flutter-ws/
 jdk17/
+ndk/
+cmake-*/
+tmp/
 
-# IntelliJ related
+# =========================
+# IDE
+# =========================
+
+.idea/
 *.iml
 *.ipr
 *.iws
-.idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
 #.vscode/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
+# =========================
+# Flutter / Dart
+# =========================
+
 .flutter-plugins
 .flutter-plugins-dependencies
-.pub-cache/
 .pub/
+.pub-cache/
 
-# Keep build/web (served by the Node.js server)
-/build/android
-/build/ios
-/build/linux
-/build/macos
-/build/windows
-/build/app
+**/doc/api/
+**/ios/Flutter/.last_build_id
 
-# Node.js
-node_modules/
+build/
+**/build/
 
-# Installed build tools (downloaded by setup-flutter.sh / build-apk.sh, not source)
-jdk17/
-ndk/
-cmake-*/
-flutter-ws/
-tmp/
+# =========================
+# Android / Gradle
+# =========================
 
-# Symbolication related
-app.*.symbols
+.gradle/
+**/.gradle/
 
-# Obfuscation related
-app.*.map.json
+.cxx/
+**/.cxx/
 
-# Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
 
-# Flutter / Gradle build
-build/
-**/build/
+# =========================
+# CMake / Native
+# =========================
 
-# Android native build
-.cxx/
-**/.cxx/
-
-.gradle/
-**/.gradle/
-.kotlin/daemon/
-
-# CMake / Ninja
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 compile_commands.json
 
-# Native build artifacts
 *.o
 *.obj
-*.so
 *.a
+*.so
+
 *.ninja
 *.ninja_deps
 *.ninja_log
+
+# =========================
+# Symbolication / Obfuscation
+# =========================
+
+app.*.symbols
+app.*.map.json
+
+# =========================
+# Node.js
+# =========================
+
+node_modules/
+
+# =========================
+# Miscellaneous
+# =========================
+
+*.class
+*.log
+*.pyc
+*.swp
+
+.DS_Store
+
+.atom/
+.buildlog/
+.history
+.svn/
+
+migrate_working_dir/
