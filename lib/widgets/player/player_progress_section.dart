@@ -60,39 +60,26 @@ class AppleMusicSliderTrackShape extends SliderTrackShape {
       isDiscrete: isDiscrete,
     );
 
-    final inactivePaint = Paint()
-      ..color = sliderTheme.inactiveTrackColor!;
+    final radius = Radius.circular(trackRect.height / 2);
 
-    final activePaint = Paint()
-      ..color = sliderTheme.activeTrackColor!;
+// gambar full track dulu
+canvas.drawRRect(
+  RRect.fromRectAndRadius(trackRect, radius),
+  Paint()..color = sliderTheme.inactiveTrackColor!,
+);
 
-    final left = trackRect.left;
-    final right = trackRect.right;
-    final center = thumbCenter.dx.clamp(left, right);
+// gambar progress aktif di atasnya
+final activeRect = Rect.fromLTRB(
+  trackRect.left,
+  trackRect.top,
+  thumbCenter.dx.clamp(trackRect.left, trackRect.right),
+  trackRect.bottom,
+);
 
-    final activeRect = Rect.fromLTRB(
-      left,
-      trackRect.top,
-      center,
-      trackRect.bottom,
-    );
-
-    final inactiveRect = Rect.fromLTRB(
-      center,
-      trackRect.top,
-      right,
-      trackRect.bottom,
-    );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(activeRect, _radius),
-      activePaint,
-    );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(inactiveRect, _radius),
-      inactivePaint,
-    );
+canvas.drawRRect(
+  RRect.fromRectAndRadius(activeRect, radius),
+  Paint()..color = sliderTheme.activeTrackColor!,
+);
   }
 }
 
@@ -112,7 +99,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   // Shared SliderThemeData — computed once instead of on every ~50 ms
   // playback-state rebuild.  All values are const so this is safe to cache.
   static final _sliderTheme = SliderThemeData(
-    trackHeight: 6,
+    trackHeight: 8,
     trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white,
     inactiveTrackColor: const Color(0xFF8D8D8D),
@@ -248,7 +235,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     ),
   ),
 ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 0.1),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
