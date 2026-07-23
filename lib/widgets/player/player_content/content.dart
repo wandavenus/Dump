@@ -268,11 +268,7 @@ class _PlayerContentState extends State<PlayerContent> {
                             child: IgnorePointer(
                               ignoring: showOverlay,
                               child: Transform.translate(
-                                // Slide in from below: starts 55 px down, eases to final pos
-                                offset: Offset(
-                                  0,
-                                  55 * (1 - Curves.easeOutCubic.transform(progress)),
-                                ),
+                                offset: Offset(0, 20 * (1 - progress)),
                                 child: Opacity(
                                   opacity: ((progress - 0.15) / 0.85).clamp(
                                     0.0,
@@ -598,18 +594,7 @@ class _PlayerContentState extends State<PlayerContent> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Transform.translate(
-                            // Restore original rest offset (-20) + add from-below slide.
-                            // At progress=1: 0-20 = -20  (identical to original rest pos).
-                            // At progress=0: 70-20 = +50  (starts 50 px below).
-                            offset: Offset(
-                              0,
-                              -20.0 +
-                                  70 *
-                                      (1 -
-                                          Curves.easeOutCubic.transform(
-                                            progress,
-                                          )),
-                            ),
+                            offset: Offset(0, 40 * (1 - progress) - 20),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: _playerHorizontalPadding,
