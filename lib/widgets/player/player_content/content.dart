@@ -606,7 +606,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                     formatTime: widget.formatTime,
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 30),
                                 Opacity(
                                   opacity: ((progress - 0.35) / 0.65).clamp(
                                     0.0,
@@ -616,7 +616,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                     playbackState: widget.playbackState,
                                   ),
                                 ),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 34),
                                 Opacity(
                                   opacity: progress,
                                   child: PlayerSecondaryControls(
@@ -627,7 +627,7 @@ class _PlayerContentState extends State<PlayerContent> {
                                     onQueueToggle: widget.onQueueToggle,
                                   ),
                                 ),
-                                const SizedBox(height: 15),
+                                const SizedBox(height: 25),
                               ],
                             ),
                           ),
