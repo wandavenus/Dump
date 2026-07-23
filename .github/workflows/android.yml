@@ -56,10 +56,23 @@ jobs:
           mv build/app/outputs/flutter-apk/app-release.apk \
              build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
 
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "message<<EOF" >> "$GITHUB_OUTPUT"
+          git log -1 --pretty=%B >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Upload APK to Draft Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Android Build #${{ github.run_number }}
+          name: "Android Build #${{ github.run_number }}"
           draft: true
+          body: |
+            Run: #${{ github.run_number }}
+            Commit: ${{ steps.commit.outputs.sha }}
+
+            ${{ steps.commit.outputs.message }}
           files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
