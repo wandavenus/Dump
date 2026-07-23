@@ -546,7 +546,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           )!;
                           // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
                           final shadowBase = t * (1.0 - effectiveOverlayT);
-                          final shadowAlpha = 0.30 * shadowBase;
+                          final shadowAlpha = 0.15 * shadowBase;
                           final shadowBlur = 20.0 * shadowBase;
                           final shadowOff = 15.0 * shadowBase;
 
@@ -570,7 +570,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               child: Container(
                                 // Shadow in background so it renders behind the artwork.
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(4),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(
