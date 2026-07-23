@@ -546,9 +546,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           )!;
                           // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
                           final shadowBase = t * (1.0 - effectiveOverlayT);
-                          final shadowAlpha = 0.15 * shadowBase;
+                          final shadowAlpha = 0.20 * shadowBase;
                           final shadowBlur = 20.0 * shadowBase;
-                          final shadowOff = 15.0 * shadowBase;
+                          final shadowOff = 10.0 * shadowBase;
 
                           // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
                           // only lifts once the overlay animation itself has fully reversed, not
