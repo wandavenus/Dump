@@ -1,38 +1,38 @@
 #!/usr/bin/env bash
-# build-apk.sh — Setup Android env + download cmake 3.22.1 + flutter build apk
+# build-apk.sh — Setup Android env lengkap + flutter build apk
 # Jalankan via workflow: bash setup-flutter.sh && bash build-apk.sh
 #
-# Requires (sudah ada atau di-install oleh setup-flutter.sh):
-#   - /home/runner/flutter/             (Flutter 3.44.5)
-#   - /home/runner/workspace/jdk17/     (JDK 17 Temurin x64)
-#   - /home/runner/android-sdk/         (Android SDK, NDK 28.2.13676358, build-tools 36.0.0)
+# Yang di-install otomatis jika belum ada:
+#   - /home/runner/workspace/jdk17/              (JDK 17 Temurin x64)  ← oleh setup-flutter.sh
+#   - /home/runner/workspace/android-sdk/        (Android SDK: platform-36, build-tools 36.0.0, platform-tools)
+#   - /home/runner/workspace/ndk/28.2.13676358/  (NDK r28c — includes clang arm64)
+#   - /home/runner/workspace/cmake-3.22.1/       (CMake + Ninja prebuilt)
 
 set -e
 
-# Redirect HOME ke workspace — /home/runner/ quota penuh, Dart tools
-# mencoba tulis ke $HOME/.dart-tool/, $HOME/.config/flutter/, $HOME/.gradle/
-# yang semuanya ada di /home/runner/ dan tidak bisa ditulis.
-# PUB_CACHE tetap ke /home/runner/.pub-cache/ agar packages tidak re-download.
+# ──────────────────────────────────────────────────
+# 0. Redirect HOME & tmp → workspace
+#    /home/runner/ quota penuh; Dart/Gradle/JVM
+#    semuanya mencoba tulis ke $HOME.
+# ──────────────────────────────────────────────────
 export HOME="/home/runner/workspace"
 export PUB_CACHE="/home/runner/.pub-cache"
 export GRADLE_USER_HOME="/home/runner/workspace/.gradle"
 export FLUTTER_SUPPRESS_ANALYTICS=true
 export DART_SUPPRESS_ANALYTICS=true
-# /tmp hanya 4MB — redirect semua temp files ke workspace
 mkdir -p "/home/runner/workspace/tmp"
 export TMPDIR="/home/runner/workspace/tmp"
 export TEMP="/home/runner/workspace/tmp"
 export TMP="/home/runner/workspace/tmp"
-# JVM juga perlu diarahkan ke workspace tmp
 export _JAVA_OPTIONS="-Djava.io.tmpdir=/home/runner/workspace/tmp -Duser.home=/home/runner/workspace"
 
-ANDROID_HOME_DIR="/home/runner/android-sdk"
-FLUTTER_DIR="/home/runner/workspace/flutter-ws/flutter"   # workspace copy — bisa tulis ke bin/cache/
+ANDROID_SDK_DIR="/home/runner/workspace/android-sdk"
+FLUTTER_DIR="/home/runner/flutter"   # original git clone — git repo valid, 29GB free di /home/runner
 JDK_DIR="/home/runner/workspace/jdk17"
 NDK_VERSION="28.2.13676358"
+NDK_DIR="/home/runner/workspace/ndk/$NDK_VERSION"   # definisikan di atas agar export tersedia lebih awal
 CMAKE_VERSION="3.22.1"
 CMAKE_DIR="/home/runner/workspace/cmake-$CMAKE_VERSION"
-# cmake.org prebuilt tarball — berisi bin/cmake + bin/ninja
 CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz"
 LOCAL_PROPS="$(dirname "$0")/android/local.properties"
 
@@ -53,106 +53,155 @@ fi
 export JAVA_HOME="$JDK_DIR"
 export PATH="$JAVA_HOME/bin:$PATH"
 echo "✓ Java: $(java -version 2>&1 | head -1)"
-echo "  JAVA_HOME=$JAVA_HOME"
 
 # ──────────────────────────────────────────────────
-# 3. Android SDK / NDK PATH
+# 3. Android SDK — cmdline-tools + komponen
 # ──────────────────────────────────────────────────
-export ANDROID_HOME="$ANDROID_HOME_DIR"
-export ANDROID_SDK_ROOT="$ANDROID_HOME_DIR"
-export PATH="$ANDROID_HOME_DIR/cmdline-tools/latest/bin:$ANDROID_HOME_DIR/platform-tools:$PATH"
-echo "✓ ANDROID_HOME=$ANDROID_HOME"
-echo "✓ NDK: $NDK_VERSION $([ -d "$ANDROID_HOME_DIR/ndk/$NDK_VERSION" ] && echo '(ada)' || echo '(TIDAK ADA!)')"
+CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+SDKMANAGER="$ANDROID_SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+
+if [ -f "$SDKMANAGER" ]; then
+  echo "✓ Android cmdline-tools sudah ada"
+else
+  echo "▶ Mengunduh Android cmdline-tools (~135 MB)..."
+  mkdir -p "$ANDROID_SDK_DIR/cmdline-tools"
+  cd /home/runner/workspace
+  curl -# -L "$CMDLINE_TOOLS_URL" -o cmdline_tools.zip
+  echo "Extracting cmdline-tools..."
+  unzip -q cmdline_tools.zip -d "$ANDROID_SDK_DIR/cmdline-tools"
+  # Google mengemas sebagai 'cmdline-tools/', sdkmanager butuh dir bernama 'latest'
+  mv "$ANDROID_SDK_DIR/cmdline-tools/cmdline-tools" "$ANDROID_SDK_DIR/cmdline-tools/latest"
+  rm cmdline_tools.zip
+  echo "✓ Android cmdline-tools berhasil diinstall"
+fi
+
+export ANDROID_HOME="$ANDROID_SDK_DIR"
+export ANDROID_SDK_ROOT="$ANDROID_SDK_DIR"
+export PATH="$ANDROID_SDK_DIR/cmdline-tools/latest/bin:$ANDROID_SDK_DIR/platform-tools:$PATH"
+
+# Install SDK components yang belum ada
+NEED_INSTALL=false
+[ ! -d "$ANDROID_SDK_DIR/platforms/android-36" ]      && NEED_INSTALL=true
+[ ! -d "$ANDROID_SDK_DIR/build-tools/36.0.0" ]        && NEED_INSTALL=true
+[ ! -f "$ANDROID_SDK_DIR/platform-tools/adb" ]        && NEED_INSTALL=true
+
+if [ "$NEED_INSTALL" = "true" ]; then
+  echo "▶ Menerima lisensi Android SDK..."
+  yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_DIR" --licenses > /dev/null 2>&1 || true
+
+  echo "▶ Menginstall: platform-tools, platforms;android-36, build-tools;36.0.0"
+  echo "  (download ~300 MB, harap tunggu...)"
+  "$SDKMANAGER" --sdk_root="$ANDROID_SDK_DIR" \
+    "platform-tools" \
+    "platforms;android-36" \
+    "build-tools;36.0.0"
+  echo "✓ Android SDK components berhasil diinstall"
+else
+  echo "✓ Android SDK components sudah ada (platform-36, build-tools 36.0.0, platform-tools)"
+fi
 
 # ──────────────────────────────────────────────────
-# 4a. NDK 28.2.13676358 (r28c) — download ke workspace
-#     NDK di /home/runner/android-sdk/ndk/28.2.13676358 kosong (tidak terdownload).
-#     /home/runner/ quota penuh, jadi download ke workspace.
-#     Gradle diarahkan via ndk.dir di local.properties.
+# 4. NDK 28.2.13676358 (r28c) — clang arm64 ada di dalamnya
 # ──────────────────────────────────────────────────
-NDK_VERSION="28.2.13676358"
 NDK_DIR="/home/runner/workspace/ndk/$NDK_VERSION"
 NDK_URL="https://dl.google.com/android/repository/android-ndk-r28c-linux.zip"
 
 if [ -f "$NDK_DIR/source.properties" ]; then
-  echo "✓ NDK $NDK_VERSION sudah ada di workspace"
+  echo "✓ NDK $NDK_VERSION sudah ada"
 else
-  echo "▶ Mengunduh NDK r28c ($NDK_VERSION) ke workspace (~1.3GB)..."
+  echo "▶ Mengunduh NDK r28c (~1.3 GB)..."
   mkdir -p /home/runner/workspace/ndk
   cd /home/runner/workspace/ndk
   curl -# -L "$NDK_URL" -o ndk_r28c.zip
-  echo "Extracting NDK..."
+  echo "Extracting NDK (besar, ~2 menit)..."
   unzip -q ndk_r28c.zip
   rm ndk_r28c.zip
-  # Folder hasil extract biasanya android-ndk-r28c
   NDK_EXTRACTED=$(ls -d /home/runner/workspace/ndk/android-ndk-r28c 2>/dev/null | head -1)
   if [ -n "$NDK_EXTRACTED" ]; then
     mv "$NDK_EXTRACTED" "$NDK_DIR"
-    echo "✓ NDK r28c berhasil diinstall di $NDK_DIR"
-    echo "  $(cat "$NDK_DIR/source.properties" | grep Pkg.Revision)"
+    echo "✓ NDK r28c berhasil diinstall"
+    echo "  clang: $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
   else
     echo "✗ Gagal extract NDK" && exit 1
   fi
 fi
 
-# Arahkan Gradle ke NDK workspace via local.properties
+# NDK env vars — dibutuhkan oleh Dart native_toolchain_c (hook/build.dart).
+# Didefinisikan SETELAH NDK terverifikasi/terdownload agar nilainya pasti valid.
+# native_toolchain_c mencari NDK via ANDROID_HOME (Glob ndk/*/),
+# lalu ANDROID_NDK / ANDROID_NDK_HOME / ANDROID_NDK_ROOT sebagai fallback.
+export ANDROID_NDK_ROOT="$NDK_DIR"
+export ANDROID_NDK_HOME="$NDK_DIR"
+export ANDROID_NDK="$NDK_DIR"
+# Symlink NDK ke dalam android-sdk/ndk/ agar lookup via ANDROID_HOME juga work
+mkdir -p "$ANDROID_SDK_DIR/ndk"
+[ -L "$ANDROID_SDK_DIR/ndk/$NDK_VERSION" ] || \
+  ln -sf "$NDK_DIR" "$ANDROID_SDK_DIR/ndk/$NDK_VERSION"
+echo "✓ NDK env: ANDROID_NDK_ROOT=$NDK_DIR"
+
+# Pastikan local.properties ada sebelum ditulis
+mkdir -p "$(dirname "$LOCAL_PROPS")"
+touch "$LOCAL_PROPS"
+
+# Arahkan Gradle ke NDK via local.properties
 if grep -q "^ndk.dir=" "$LOCAL_PROPS" 2>/dev/null; then
   sed -i "s|^ndk.dir=.*|ndk.dir=$NDK_DIR|" "$LOCAL_PROPS"
 else
   echo "ndk.dir=$NDK_DIR" >> "$LOCAL_PROPS"
 fi
-echo "✓ local.properties: ndk.dir=$NDK_DIR"
 
 # ──────────────────────────────────────────────────
-# 4b. cmake 3.22.1 — download langsung dari cmake.org ke workspace
-#    (sdkmanager tidak bisa dipakai: SDK XML v4 + /home/runner/ quota penuh)
-#    Gradle diarahkan via cmake.dir di local.properties
+# 5. CMake 3.22.1 + Ninja (prebuilt dari cmake.org)
 # ──────────────────────────────────────────────────
 if [ -f "$CMAKE_DIR/bin/cmake" ]; then
-  echo "✓ cmake $CMAKE_VERSION sudah ada di $CMAKE_DIR"
+  echo "✓ CMake $CMAKE_VERSION sudah ada"
 else
-  echo "▶ Mengunduh cmake $CMAKE_VERSION dari cmake.org..."
+  echo "▶ Mengunduh CMake $CMAKE_VERSION (~50 MB)..."
   cd /home/runner/workspace
   curl -# -L "$CMAKE_URL" -o cmake_tmp.tar.gz
-  echo "Extracting..."
+  echo "Extracting CMake..."
   tar -xzf cmake_tmp.tar.gz
   rm cmake_tmp.tar.gz
   EXTRACTED=$(ls -d /home/runner/workspace/cmake-${CMAKE_VERSION}-linux-x86_64 2>/dev/null | head -1)
   if [ -n "$EXTRACTED" ]; then
     mv "$EXTRACTED" "$CMAKE_DIR"
-    echo "✓ cmake $CMAKE_VERSION berhasil diinstall di $CMAKE_DIR"
+    echo "✓ CMake $CMAKE_VERSION berhasil diinstall"
   else
-    echo "✗ Gagal extract cmake — folder tidak ditemukan" && exit 1
+    echo "✗ Gagal extract CMake" && exit 1
   fi
 fi
 export PATH="$CMAKE_DIR/bin:$PATH"
 
-# ──────────────────────────────────────────────────
-# 5. Arahkan Gradle ke cmake via local.properties
-# ──────────────────────────────────────────────────
+# Arahkan Gradle ke CMake + SDK via local.properties
 if grep -q "^cmake.dir=" "$LOCAL_PROPS" 2>/dev/null; then
-  # Update nilai yang sudah ada
   sed -i "s|^cmake.dir=.*|cmake.dir=$CMAKE_DIR|" "$LOCAL_PROPS"
 else
   echo "cmake.dir=$CMAKE_DIR" >> "$LOCAL_PROPS"
 fi
-echo "✓ local.properties: cmake.dir=$CMAKE_DIR"
+if grep -q "^sdk.dir=" "$LOCAL_PROPS" 2>/dev/null; then
+  sed -i "s|^sdk.dir=.*|sdk.dir=$ANDROID_SDK_DIR|" "$LOCAL_PROPS"
+else
+  echo "sdk.dir=$ANDROID_SDK_DIR" >> "$LOCAL_PROPS"
+fi
 
 # ──────────────────────────────────────────────────
-# 6. Ringkasan env sebelum build
+# 6. Ringkasan environment
 # ──────────────────────────────────────────────────
 echo ""
 echo "══════════════════════════════════════════════"
 echo " Environment check"
 echo "══════════════════════════════════════════════"
-echo "  flutter : $(which flutter)"
-echo "  java    : $(which java)"
-echo "  cmake   : $CMAKE_DIR/bin/cmake [$(cmake --version 2>/dev/null | head -1)]"
-echo "  ninja   : $CMAKE_DIR/bin/ninja"
+echo "  flutter  : $(which flutter)"
+echo "  java     : $(which java)"
+echo "  cmake    : $CMAKE_DIR/bin/cmake [$(cmake --version 2>/dev/null | head -1)]"
+echo "  ninja    : $CMAKE_DIR/bin/ninja"
+echo "  clang    : $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+echo "  ndk.dir  : $NDK_DIR"
+echo "  sdk.dir  : $ANDROID_SDK_DIR"
 echo ""
 
 # ──────────────────────────────────────────────────
-# 7. flutter doctor (singkat)
+# 7. flutter doctor
 # ──────────────────────────────────────────────────
 echo "══════════════════════════════════════════════"
 echo " flutter doctor"
