@@ -73,7 +73,7 @@ void main() {
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
   // Darkens the perimeter slightly so the centre feels like the light source.
-  float vig = 1.0 - length(uv - 0.5) * 0.5;
+  float vig = 1.0 - length(uv - 0.5) * 0.3;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Animated film grain ────────────────────────────────────────────
