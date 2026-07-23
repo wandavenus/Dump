@@ -14,6 +14,87 @@ import '../../utils/safe_num.dart';
 //                    maks 2×; tidak disimpan ke prefs
 //
 // UI/visual identik dengan versi sebelumnya — tidak ada perubahan tampilan.
+class AppleMusicSliderTrackShape extends SliderTrackShape {
+  const AppleMusicSliderTrackShape();
+
+  static const Radius _radius = Radius.circular(3);
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final trackHeight = sliderTheme.trackHeight ?? 6;
+
+    return Rect.fromLTWH(
+      offset.dx,
+      offset.dy + (parentBox.size.height - trackHeight) / 2,
+      parentBox.size.width,
+      trackHeight,
+    );
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+    Offset? secondaryOffset,
+  }) {
+    final canvas = context.canvas;
+
+    final trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    final inactivePaint = Paint()
+      ..color = sliderTheme.inactiveTrackColor!;
+
+    final activePaint = Paint()
+      ..color = sliderTheme.activeTrackColor!;
+
+    final left = trackRect.left;
+    final right = trackRect.right;
+    final center = thumbCenter.dx.clamp(left, right);
+
+    final activeRect = Rect.fromLTRB(
+      left,
+      trackRect.top,
+      center,
+      trackRect.bottom,
+    );
+
+    final inactiveRect = Rect.fromLTRB(
+      center,
+      trackRect.top,
+      right,
+      trackRect.bottom,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(activeRect, _radius),
+      activePaint,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(inactiveRect, _radius),
+      inactivePaint,
+    );
+  }
+}
 
 class PlayerProgressSection extends StatefulWidget {
   final String Function(Duration duration) formatTime;
@@ -32,6 +113,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   // playback-state rebuild.  All values are const so this is safe to cache.
   static final _sliderTheme = SliderThemeData(
     trackHeight: 6,
+    trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white,
     inactiveTrackColor: const Color(0xFF8D8D8D),
     thumbShape:
@@ -166,7 +248,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     ),
   ),
 ),
-            const SizedBox(height: 11),
+            const SizedBox(height: 5),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
