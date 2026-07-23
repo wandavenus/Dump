@@ -1,0 +1,71 @@
+part of '../sleep_timer_page.dart';
+
+class _ActiveTimerCard extends StatelessWidget {
+  const _ActiveTimerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF92D48).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.bedtime, color: Color(0xFFF92D48), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Sleep Timer Aktif',
+                style: TextStyle(
+                    color: c.primaryLabel,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<Duration?>(
+            valueListenable: SleepTimerService.remaining,
+            builder: (_, remaining, _) {
+              if (remaining == null) {
+                return Text(
+                  'Berhenti setelah lagu ini selesai',
+                  style: TextStyle(
+                      color: c.secondaryLabel, fontSize: 14),
+                );
+              }
+              final h = remaining.inHours;
+              final m = remaining.inMinutes % 60;
+              final s = remaining.inSeconds % 60;
+              final label = h > 0
+                  ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+                  : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+              return Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFFF92D48),
+                  fontSize: 40,
+                  fontWeight: FontWeight.w200,
+                  letterSpacing: 2,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Musik akan fade out perlahan saat timer habis',
+            style: TextStyle(color: c.tertiaryLabel, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Preset list ──────────────────────────────────────────────────────────────

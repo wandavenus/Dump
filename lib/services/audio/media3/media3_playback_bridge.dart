@@ -1,0 +1,455 @@
+import 'package:flutter/services.dart';
+
+import '../../../models/local_song.dart';
+import '../../../utils/safe_num.dart';
+import '../../log_service.dart';
+
+// ── Equalizer types ────────────────────────────────────────────────────────────
+// Defined here rather than in the legacy media3_audio_player.dart so that the
+// bridge owns its own type definitions without importing dead-code files.
+
+class AndroidEqualizerParameters {
+  final double minDecibels;
+  final double maxDecibels;
+  final List<AndroidEqualizerBand> bands;
+
+  const AndroidEqualizerParameters({
+    required this.minDecibels,
+    required this.maxDecibels,
+    required this.bands,
+  });
+}
+
+class AndroidEqualizerBand {
+  final int index;
+
+  /// Center frequency of this band in Hz, as reported by
+  /// `android.media.audiofx.Equalizer.getCenterFreq(band)`.
+  /// Falls back to 0 when not available (e.g., before first audio session).
+  final int centerFrequencyHz;
+
+  const AndroidEqualizerBand(this.index, {this.centerFrequencyHz = 0});
+
+  Future<void> setGain(double gainDb) =>
+      Media3PlaybackBridge.setEqualizerBandGain(index, gainDb);
+}
+
+/// Flutter ↔ Android Media3 bridge.
+///
+/// All DSP, buffering, playback scheduling, and audio processing is handled
+/// natively inside `Media3PlaybackService.kt`. This class is the sole
+/// MethodChannel / EventChannel edge. The UI talks to `AudioService`; this
+/// class is an implementation detail.
+class Media3PlaybackBridge {
+  Media3PlaybackBridge._();
+
+  static const MethodChannel _commands = MethodChannel(
+    'musicplayer/media3_playback',
+  );
+
+  // ── EventChannels ──────────────────────────────────────────────────────────
+
+  static const EventChannel _playbackStateEvents  = EventChannel('musicplayer/media3_playbackState');
+  static const EventChannel _positionEvents        = EventChannel('musicplayer/media3_position');
+  static const EventChannel _durationEvents        = EventChannel('musicplayer/media3_duration');
+  static const EventChannel _currentTrackEvents    = EventChannel('musicplayer/media3_currentTrack');
+  static const EventChannel _queueEvents           = EventChannel('musicplayer/media3_queue');
+  static const EventChannel _bufferingStateEvents  = EventChannel('musicplayer/media3_bufferingState');
+  static const EventChannel _audioSessionIdEvents  = EventChannel('musicplayer/media3_audioSessionId');
+  static const EventChannel _shuffleModeEvents     = EventChannel('musicplayer/media3_shuffleMode');
+  static const EventChannel _repeatModeEvents      = EventChannel('musicplayer/media3_repeatMode');
+  static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
+  static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
+  static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
+  static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
+  // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
+  // Media3PlaybackService.onCreate() has fully finished wiring; replays
+  // immediately to a listener that subscribes after that already happened.
+  static const EventChannel _serviceReadyEvents     = EventChannel('musicplayer/media3_serviceReady');
+
+  // Keep deprecated public refs for callers that use them directly.
+  static const EventChannel playbackStateEvents   = _playbackStateEvents;
+  static const EventChannel positionEvents         = _positionEvents;
+  static const EventChannel durationEvents         = _durationEvents;
+  static const EventChannel currentTrackEvents     = _currentTrackEvents;
+  static const EventChannel queueEvents            = _queueEvents;
+  static const EventChannel bufferingStateEvents   = _bufferingStateEvents;
+  static const EventChannel audioSessionIdEvents   = _audioSessionIdEvents;
+
+  // ── Streams ────────────────────────────────────────────────────────────────
+
+  static final Stream<Map<dynamic, dynamic>> playbackStateStream =
+    _playbackStateEvents
+        .receiveBroadcastStream()
+        .where((e) => e is Map)
+        .cast<Map<dynamic, dynamic>>()
+        .asBroadcastStream();
+
+  /// Stream of offload state snapshots emitted by [AudioOffloadManager].
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with one boolean key:
+  ///   `osGranted` — whether the OS has granted hardware offload on the active
+  ///                 player at this moment.
+  ///
+  /// NOTE (Media3 1.10.1): The former `scheduling` key has been removed.
+  /// `experimentalSetOffloadSchedulingEnabled` no longer exists; Media3 now
+  /// manages CPU scheduling internally when the OS grants offload.
+  static final Stream<Map<dynamic, dynamic>> offloadStateStream =
+      _offloadStateEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
+
+// A bad tick here (e.g. a native-side ratio computed with a zero
+// denominator) must never crash the whole position/duration pipeline —
+// `toIntOrElse` falls back to 0 ms instead of throwing "Infinity or NaN
+// toInt" out of this stream's map callback.
+static final Stream<Duration> positionStream = _positionEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
+    .asBroadcastStream();
+
+static final Stream<Duration> durationStream = _durationEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
+    .asBroadcastStream();
+
+static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
+    _currentTrackEvents
+        .receiveBroadcastStream()
+        .where((e) => e == null || e is Map)
+        .cast<Map<dynamic, dynamic>?>()
+        .asBroadcastStream();
+
+static final Stream<List<dynamic>> queueStream = _queueEvents
+    .receiveBroadcastStream()
+    .where((e) => e is List)
+    .cast<List<dynamic>>()
+    .asBroadcastStream();
+
+static final Stream<bool> bufferingStateStream = _bufferingStateEvents
+    .receiveBroadcastStream()
+    .where((e) => e is bool)
+    .cast<bool>()
+    .asBroadcastStream();
+
+static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
+    .receiveBroadcastStream()
+    .where((e) => e is num)
+    .map((e) => (e as num).toIntOrElse(-1))
+    .asBroadcastStream();
+
+static final Stream<bool> shuffleModeStream = _shuffleModeEvents
+    .receiveBroadcastStream()
+    .where((e) => e is bool)
+    .cast<bool>()
+    .asBroadcastStream();
+
+static final Stream<String> repeatModeStream = _repeatModeEvents
+    .receiveBroadcastStream()
+    .where((e) => e is String)
+    .cast<String>()
+    .asBroadcastStream();
+
+static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
+    _sleepTimerEvents
+        .receiveBroadcastStream()
+        .where((e) => e is Map)
+        .cast<Map<dynamic, dynamic>>()
+        .asBroadcastStream();
+
+  /// Live audio format emitted by ExoPlayer's [onTracksChanged] listener.
+  ///
+  /// Each event is a `Map<String, dynamic>` with fields:
+  ///   `sampleRate`   — Hz (int), e.g. 44100, 48000, 96000. 0 when unavailable.
+  ///   `channelCount` — int: 1 = Mono, 2 = Stereo, 6 = 5.1, etc.
+  ///   `bitrate`      — bits/s (int). 0 for lossless formats (FLAC, WAV, ALAC).
+  ///   `mimeType`     — MIME type string, e.g. "audio/flac", "audio/mpeg".
+  ///   `codecs`       — codec-specific string from the container (may be empty).
+  ///   `pcmEncoding`  — Android AudioFormat.ENCODING_* int. 0 = compressed.
+  ///
+  /// Fires on every track change. Use [getAudioFormat] for a one-shot read.
+  static final Stream<Map<dynamic, dynamic>> audioFormatStream =
+      _audioFormatEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
+
+  /// Live stereo-widening state — emitted after [StereoWidthManager] applies
+  /// the matrix to all live [ChannelMixingAudioProcessor] instances.
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with two keys:
+  ///   `enabled`  — bool: whether widening is active.
+  ///   `strength` — double: width factor in [0.0, 1.0].
+  static final Stream<Map<dynamic, dynamic>> stereoWideningStream =
+      _stereoWideningEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
+
+  /// Cold-start race fix (see ServiceReadyGate.kt / MainActivity.kt).
+  /// Emits `true` once — either immediately (service already finished
+  /// `onCreate()` from an earlier launch in this process) or whenever the
+  /// currently-starting service finishes wiring. Callers that need to push
+  /// settings into the native engine before any transport command has run
+  /// (e.g. persisted bass boost / EQ / skip-silence at startup) should await
+  /// this instead of firing immediately and relying on `not_ready` retries.
+  static final Stream<bool> serviceReadyStream = _serviceReadyEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>()
+      .asBroadcastStream();
+
+  // ── Internal invoke with retry ─────────────────────────────────────────────
+  //
+  // MIUI 12 / Android 11: the native service starts asynchronously.
+  // Back-off: 200 ms → 400 ms → 800 ms → 1600 ms (5 attempts total).
+
+  static Future<T?> _invoke<T>(
+    String method, [
+    Map<String, Object?>? arguments,
+  ]) async {
+    for (var attempt = 0; attempt < 5; attempt++) {
+      try {
+        return await _commands.invokeMethod<T>(method, arguments);
+      } on PlatformException catch (error) {
+        if (error.code != 'not_ready' || attempt == 4) rethrow;
+        await Future<void>.delayed(
+            Duration(milliseconds: 200 * (1 << attempt)));
+      }
+    }
+    return null;
+  }
+
+  // ── Playback transport ─────────────────────────────────────────────────────
+
+  static Future<void> play()           => _invoke<void>('play');
+  static Future<void> pause()          => _invoke<void>('pause');
+  static Future<void> stop()           => _invoke<void>('stop');
+
+  /// Performs a complete Media3 service teardown.
+  ///
+  /// Unlike [stop] (which transitions ExoPlayer to STATE_IDLE and abandons
+  /// audio focus but leaves all resources allocated), [release] initiates a
+  /// full native shutdown:
+  ///   • Cancels crossfade and sleep timer.
+  ///   • Abandons audio focus.
+  ///   • Removes the playback notification / exits foreground.
+  ///   • Calls Service.stopSelf() → triggers onDestroy():
+  ///       primaryPlayer.release() + secondaryPlayer.release()
+  ///       session.release()
+  ///       effectsManager.releaseEffects()
+  ///       all BroadcastReceivers unregistered
+  ///
+  /// Use this when switching away from the Media3 engine permanently.
+  /// Use [stop] for transient pause-and-idle while keeping the service ready.
+  static Future<void> release()        => _invoke<void>('release');
+  static Future<void> seek(Duration position) =>
+      _invoke<void>('seek', {'position': position.inMilliseconds});
+  static Future<void> skipNext()       => _invoke<void>('skipNext');
+  static Future<void> skipPrevious()   => _invoke<void>('skipPrevious');
+  static Future<void> setTrack(int index) =>
+      _invoke<void>('setTrack', {'index': index});
+  static Future<void> setQueue(List<LocalSong> queue, int index) =>
+      _invoke<void>('setQueue', {
+        'queue': queue.map((s) => s.toMap()).toList(),
+        'index': index,
+      });
+  static Future<void> setRepeatMode(String mode) =>
+      _invoke<void>('setRepeatMode', {'mode': mode});
+  static Future<void> setShuffleMode(bool enabled) =>
+      _invoke<void>('setShuffleMode', {'enabled': enabled});
+  static Future<void> setVolume(double volume) =>
+      _invoke<void>('setVolume', {'volume': volume});
+
+  // ── Queue mutations (native owns the queue) ────────────────────────────────
+
+  /// Insert [song] immediately after the currently playing track.
+  static Future<void> insertNext(LocalSong song) =>
+      _invoke<void>('insertNext', {'song': song.toMap()});
+
+  /// Append [song] at the end of the queue.
+  static Future<void> appendToQueue(LocalSong song) =>
+      _invoke<void>('appendToQueue', {'song': song.toMap()});
+
+  /// Remove the item at [index] from the queue.
+  static Future<void> removeFromQueue(int index) =>
+      _invoke<void>('removeFromQueue', {'index': index});
+
+  /// Move the item at [oldIndex] to [newIndex].
+  static Future<void> reorderQueue(int oldIndex, int newIndex) =>
+      _invoke<void>('reorderQueue', {
+        'oldIndex': oldIndex,
+        'newIndex': newIndex,
+      });
+
+  // ── Playback parameters ────────────────────────────────────────────────────
+
+  static Future<void> setSpeed(double speed) =>
+      _invoke<void>('setSpeed', {'speed': speed});
+  static Future<void> setPitch(double pitch) =>
+      _invoke<void>('setPitch', {'pitch': pitch});
+
+  // ── Equalizer ─────────────────────────────────────────────────────────────
+
+  static Future<void> setEqualizerEnabled(bool enabled) =>
+      _invoke<void>('setEqualizerEnabled', {'enabled': enabled});
+  static Future<void> setEqualizerBandGain(int band, double gainDb) =>
+      _invoke<void>('setEqualizerBandGain', {'band': band, 'gainDb': gainDb});
+
+  static Future<AndroidEqualizerParameters> getEqualizerParameters() async {
+    final rawDynamic = await _invoke<Map<dynamic, dynamic>>(
+      'getEqualizerParameters',
+    );
+    final raw = rawDynamic?.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+    final bandIndices =
+        (raw?['bands'] as List<dynamic>? ?? const [0, 1, 2, 3, 4])
+            .map((b) => (b as num).toInt())
+            .toList();
+    final freqList = (raw?['frequencies'] as List<dynamic>?)
+        ?.map((f) => (f as num).toInt())
+        .toList();
+    final bands = List<AndroidEqualizerBand>.generate(bandIndices.length, (i) {
+      final freqHz = (freqList != null && i < freqList.length) ? freqList[i] : 0;
+      return AndroidEqualizerBand(bandIndices[i], centerFrequencyHz: freqHz);
+    });
+    return AndroidEqualizerParameters(
+      minDecibels: (raw?['minDecibels'] as num?)?.toDouble() ?? -15.0,
+      maxDecibels: (raw?['maxDecibels'] as num?)?.toDouble() ?? 15.0,
+      bands: bands,
+    );
+  }
+
+  // ── Loudness / ReplayGain ─────────────────────────────────────────────────
+
+  static Future<void> setLoudnessTargetGain(double gainMb) =>
+      _invoke<void>('setLoudnessTargetGain', {'gainMb': gainMb});
+  static Future<void> setLoudnessEnabled(bool enabled) =>
+      _invoke<void>('setLoudnessEnabled', {'enabled': enabled});
+
+  /// Send a pre-computed ReplayGain value to native.
+  /// [gainDb] is in dB; native converts to millibels and applies via LoudnessEnhancer.
+  static Future<void> setTrackGain({
+    required bool enabled,
+    required double gainDb,
+  }) =>
+      _invoke<void>('setTrackGain', {'enabled': enabled, 'gainDb': gainDb});
+
+  // ── Bass Boost ─────────────────────────────────────────────────────────────
+
+  static Future<void> setBassBoostEnabled(bool enabled) =>
+      _invoke<void>('setBassBoostEnabled', {'enabled': enabled});
+  static Future<void> setBassBoostStrength(int strength) =>
+      _invoke<void>('setBassBoostStrength', {'strength': strength});
+
+  // ── Stereo widening (Item 8) ──────────────────────────────────────────────
+
+  static Future<void> setStereoWidening({
+    required bool enabled,
+    required double strength,
+  }) =>
+      _invoke<void>('setStereoWidening', {
+        'enabled': enabled,
+        'strength': strength,
+      });
+
+  // ── Playback stats (Item 6) ───────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getPlaybackStats() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackStats');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getPlaybackStats failed: $e');
+      return null;
+    }
+  }
+
+  // ── Audio Offload ─────────────────────────────────────────────────────────
+
+  /// Send the user's "Audio Offload Scheduling" preference to native.
+  ///
+  /// NOTE (Media3 1.10.1): `experimentalSetOffloadSchedulingEnabled` was removed
+  /// from ExoPlayer. The native handler acknowledges this call as a no-op and
+  /// logs a diagnostic message. The method is retained here so the Dart settings
+  /// toggle continues to work without a MethodChannel removal.
+  static Future<void> setOffloadSchedulingEnabled(bool enabled) =>
+      _invoke<void>('setOffloadSchedulingEnabled', {'enabled': enabled});
+
+  // ── Crossfade ─────────────────────────────────────────────────────────────
+
+  static Future<void> setCrossfadeDuration(double seconds) =>
+      _invoke<void>('setCrossfadeDuration', {'duration': seconds});
+
+  // ── Bit-Perfect Mode ───────────────────────────────────────────────────────
+
+  /// Switches native playback onto (or off) a dedicated processing-free
+  /// ExoPlayer instance with no custom AudioProcessors and no attached
+  /// AudioEffects — see Media3PlaybackService.setBitPerfectMode(). Never runs
+  /// concurrently with the dual-player crossfade pipeline.
+  static Future<void> setBitPerfectMode(bool enabled) =>
+      _invoke<void>('setBitPerfectMode', {'enabled': enabled});
+
+  // ── Sleep timer ────────────────────────────────────────────────────────────
+
+  /// Start a duration-based sleep timer. [durationMs] in milliseconds.
+  static Future<void> setSleepTimer(int durationMs) =>
+      _invoke<void>('setSleepTimer', {'durationMs': durationMs});
+
+  /// Start end-of-song sleep timer — pauses after the current track ends.
+  static Future<void> setSleepTimerEndOfSong() =>
+      _invoke<void>('setSleepTimerEndOfSong');
+
+  /// Cancel any active sleep timer.
+  static Future<void> cancelSleepTimer() =>
+      _invoke<void>('cancelSleepTimer');
+
+  // ── Audio format query ─────────────────────────────────────────────────────
+
+  /// One-shot read of the currently active audio format from Media3's track
+  /// selection.  Returns null when the player is idle or no audio track is
+  /// selected.  The returned map has the same keys as [audioFormatStream]
+  /// events: sampleRate, channelCount, bitrate, mimeType, codecs, pcmEncoding.
+  static Future<Map<String, dynamic>?> getAudioFormat() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getAudioFormat');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getAudioFormat failed: $e');
+      return null;
+    }
+  }
+
+  // ── Effect support query ───────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getEffectSupport() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getEffectSupport');
+      return raw?.map((k, v) => MapEntry(k.toString(), v));
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getEffectSupport failed: $e');
+      return null;
+    }
+  }
+
+  // ── State snapshot ─────────────────────────────────────────────────────────
+
+  /// Pull a complete playback snapshot from the running native service.
+  static Future<Map<String, dynamic>?> getPlaybackSnapshot() async {
+    try {
+      final raw = await _invoke<Map<dynamic, dynamic>>('getPlaybackSnapshot');
+      if (raw == null) return null;
+      return raw.map((k, v) => MapEntry(k.toString(), v));
+    } catch (e) {
+      LogService.verbose('Media3Bridge', 'getPlaybackSnapshot failed: $e');
+      return null;
+    }
+  }
+}

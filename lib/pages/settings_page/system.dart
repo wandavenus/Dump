@@ -1,0 +1,36 @@
+part of '../settings_page.dart';
+
+class _SystemSection extends StatelessWidget {
+  const _SystemSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SettingsSectionHeader('SISTEM'),
+        const SizedBox(height: 6),
+        ValueListenableBuilder<int>(
+          valueListenable: LogService.logCount,
+          builder: (_, count, _) => SettingsActionRow(
+            title: 'Log Aktivitas',
+            subtitle: '$count entri',
+            onTap: () => _showLogs(context),
+          ),
+        ),
+        const SettingsDivider(),
+      ],
+    );
+  }
+
+  void _showLogs(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LogPage(),
+      ),
+    );
+  }
+}
+
+// Log viewer dipindah ke lib/pages/log_page.dart

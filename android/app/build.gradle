@@ -1,0 +1,160 @@
+plugins {
+    id "com.android.application"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+// Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
+// androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
+// maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
+// Maven Central that includes prebuilt libffmpegJNI.so for all ABIs (including
+// arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
+// media3 deps so Gradle resolves everything to our pinned 1.10.1 versions.
+// License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
+
+android {
+    namespace "dev.wndavenz.music"
+    compileSdk 36
+    ndkVersion "28.2.13676358"
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+    }
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = false // Tetep pasang false ya beb biar gak sensitif error lint-nya
+        warningsAsErrors = false
+        checkDependencies = false
+        xmlReport = true
+        htmlReport = true
+    }
+
+    testOptions {
+        unitTests {
+            returnDefaultValues = true
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        applicationId "dev.wndavenz.music"
+        minSdk 29
+        targetSdk 36
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+
+        ndk {
+            abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
+        }
+
+        // Jellyfin AAR is always on the classpath via Maven Central.
+        buildConfigField "boolean", "MEDIA3_FFMPEG_DECODER_LINKED", "true"
+
+        // Native ReplayGain module (libebur128 + TagLib, fetched via CMake
+        // FetchContent — see src/main/cpp/CMakeLists.txt). No prebuilt .so
+        // shipped in-tree; the NDK toolchain compiles it from source on
+        // first build. Requires a real Android SDK/NDK + CMake install —
+        // this cannot be compiled inside the Replit sandbox, only in
+        // Android Studio or CI (see .github/workflows/android.yml).
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_static"
+                cppFlags "-std=c++17"
+                abiFilters "arm64-v8a"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += [
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/DEPENDENCIES",
+                "META-INF/*.version",
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1"
+            ]
+        }
+        // 🌟 Biar file .so dari v7a atau x86 punya media-kit gak ikut disuntik ke dalem APK lu
+        jniLibs {
+            excludes += [
+                'lib/armeabi-v7a/**',
+                'lib/x86/**',
+                'lib/x86_64/**'
+            ]
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            crunchPngs true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation 'androidx.media3:media3-exoplayer:1.10.1'
+    implementation 'androidx.media3:media3-session:1.10.1'
+    implementation 'androidx.media3:media3-ui:1.10.1'
+    implementation 'androidx.media3:media3-extractor:1.10.1'
+    implementation 'androidx.media3:media3-container:1.10.1'
+
+    // Phase 9 — Jellyfin prebuilt FFmpeg decoder (ALAC + other formats).
+    // Excludes Jellyfin's transitive media3 deps (1.9.0) so Gradle resolves
+    // everything to our pinned 1.10.1. The arm64-v8a .so is extracted
+    // automatically from the AAR; other ABIs are stripped by abiFilters above.
+    implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
+        exclude group: 'androidx.media3', module: 'media3-decoder'
+        exclude group: 'androidx.media3', module: 'media3-exoplayer'
+    }
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'
+    testImplementation 'org.mockito:mockito-core:5.3.1'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
+}

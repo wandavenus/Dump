@@ -1,0 +1,105 @@
+# =========================
+# Local environment
+# =========================
+
+android/local.properties
+
+.android/
+.dart_tool/
+.kotlin/
+
+android-sdk/
+flutter-ws/
+jdk17/
+ndk/
+cmake-*/
+tmp/
+
+# =========================
+# IDE
+# =========================
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+#.vscode/
+
+# =========================
+# Flutter / Dart
+# =========================
+
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+build/
+**/build/
+
+# =========================
+# Android / Gradle
+# =========================
+
+.gradle/
+**/.gradle/
+
+.cxx/
+**/.cxx/
+
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# =========================
+# CMake / Native
+# =========================
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+*.o
+*.obj
+*.a
+*.so
+
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# =========================
+# Symbolication / Obfuscation
+# =========================
+
+app.*.symbols
+app.*.map.json
+
+# =========================
+# Node.js
+# =========================
+
+node_modules/
+
+# =========================
+# Miscellaneous
+# =========================
+
+*.class
+*.log
+*.pyc
+*.swp
+
+.DS_Store
+
+.atom/
+.buildlog/
+.history
+.svn/
+
+migrate_working_dir/

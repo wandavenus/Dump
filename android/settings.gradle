@@ -1,0 +1,49 @@
+pluginManagement {
+    def flutterSdkPath = {
+        def properties = new Properties()
+        def localPropertiesFile = file("local.properties")
+
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.withInputStream {
+                properties.load(it)
+            }
+        }
+
+        def flutterSdkPath = properties.getProperty("flutter.sdk")
+
+        if (flutterSdkPath == null || flutterSdkPath.trim().isEmpty()) {
+            flutterSdkPath = System.getenv("FLUTTER_ROOT")
+        }
+
+        if (flutterSdkPath == null || flutterSdkPath.trim().isEmpty()) {
+            flutterSdkPath = System.getenv("FLUTTER_HOME")
+        }
+
+        assert flutterSdkPath != null && !flutterSdkPath.trim().isEmpty() :
+                "Flutter SDK not found. Set flutter.sdk in android/local.properties or define FLUTTER_ROOT/FLUTTER_HOME."
+
+        return flutterSdkPath
+    }
+
+    settings.ext.flutterSdkPath = flutterSdkPath()
+
+    includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    id "com.android.application" version "9.0.1" apply false
+    id "org.jetbrains.kotlin.android" version "2.3.20" apply false
+}
+
+include ":app"
+
+// Phase 9 — FFmpeg decoder is now sourced from Jellyfin's prebuilt AAR on
+// Maven Central (org.jellyfin.media3:media3-ffmpeg-decoder). No local
+// :decoder-ffmpeg sub-module is needed. See app/build.gradle dependencies.
