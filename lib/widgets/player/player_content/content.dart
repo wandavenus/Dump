@@ -267,15 +267,12 @@ class _PlayerContentState extends State<PlayerContent> {
                             opacity: showOverlay ? 0.0 : 1.0,
                             child: IgnorePointer(
                               ignoring: showOverlay,
-                              child: Transform.translate(
-                                offset: Offset(0, 20 * (1 - progress)),
-                                child: Opacity(
-                                  opacity: ((progress - 0.15) / 0.85).clamp(
-                                    0.0,
-                                    1.0,
-                                  ),
-                                  child: PlayerSongHeader(song: widget.song),
+                              child: Opacity(
+                                opacity: ((progress - 0.15) / 0.85).clamp(
+                                  0.0,
+                                  1.0,
                                 ),
+                                child: PlayerSongHeader(song: widget.song),
                               ),
                             ),
                           ),
@@ -593,54 +590,45 @@ class _PlayerContentState extends State<PlayerContent> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Transform.translate(
-                            offset: Offset(0, 40 * (1 - progress) - 20),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: _playerHorizontalPadding,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Opacity(
-                                    opacity: ((progress - 0.2) / 0.8).clamp(
-                                      0.0,
-                                      1.0,
-                                    ),
-                                    child: Transform.translate(
-                                      offset: const Offset(0, -15),
-                                      child: PlayerProgressSection(
-                                        formatTime: widget.formatTime,
-                                      ),
-                                    ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: _playerHorizontalPadding,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Opacity(
+                                  opacity: ((progress - 0.2) / 0.8).clamp(
+                                    0.0,
+                                    1.0,
                                   ),
-                                  const SizedBox(height: 20),
-                                  Opacity(
-                                    opacity: ((progress - 0.35) / 0.65).clamp(
-                                      0.0,
-                                      1.0,
-                                    ),
-                                    child: Transform.scale(
-                                      scale: 0.85 + (0.15 * progress),
-                                      child: PlayerTransportControls(
-                                        playbackState: widget.playbackState,
-                                      ),
-                                    ),
+                                  child: PlayerProgressSection(
+                                    formatTime: widget.formatTime,
                                   ),
-                                  const SizedBox(height: 24),
-                                  Opacity(
-                                    opacity: progress,
-                                    child: PlayerSecondaryControls(
-                                      song: widget.song,
-                                      showLyrics: showLyrics,
-                                      onLyricsToggle: widget.onLyricsToggle,
-                                      showQueue: showQueue,
-                                      onQueueToggle: widget.onQueueToggle,
-                                    ),
+                                ),
+                                const SizedBox(height: 20),
+                                Opacity(
+                                  opacity: ((progress - 0.35) / 0.65).clamp(
+                                    0.0,
+                                    1.0,
                                   ),
-                                  const SizedBox(height: 15),
-                                ],
-                              ),
+                                  child: PlayerTransportControls(
+                                    playbackState: widget.playbackState,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Opacity(
+                                  opacity: progress,
+                                  child: PlayerSecondaryControls(
+                                    song: widget.song,
+                                    showLyrics: showLyrics,
+                                    onLyricsToggle: widget.onLyricsToggle,
+                                    showQueue: showQueue,
+                                    onQueueToggle: widget.onQueueToggle,
+                                  ),
+                                ),
+                                const SizedBox(height: 15),
+                              ],
                             ),
                           ),
                           Padding(

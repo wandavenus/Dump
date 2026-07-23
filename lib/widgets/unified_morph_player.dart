@@ -473,29 +473,34 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
-                      // ── Full player content (fades in) ─────────────────────────────
-                      // _PlaybackContent has its own ValueListenableBuilder on
-                      // AudioService.playbackState, so only this subtree rebuilds on
-                      // position ticks — the morph layout above is unaffected.
+                      // ── Full player content (slides up from bottom + fades in) ──────
+                      // All UI elements (except the morphing artwork above) enter as a
+                      // single unit: they slide up from the bottom of the screen to their
+                      // final positions as the sheet expands. The translation is driven by
+                      // the same eased `t` used for the rest of the morph so the motion
+                      // stays perfectly in sync with the gesture.
                       if (fullAlpha > 0)
-                        Opacity(
-                          opacity: fullAlpha,
-                          child: IgnorePointer(
-                            ignoring: progress < 0.45,
-                            child: SafeArea(
-                              bottom: false,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: _PlaybackContent(
-                                  song: song,
-                                  formatTime: _formatTime,
-                                  showLyrics: _showLyrics,
-                                  onLyricsToggle: _toggleLyrics,
-                                  showQueue: _showQueue,
-                                  onQueueToggle: _toggleQueue,
-                                  // Unified player owns the artwork for all states;
-                                  // PlayerContent always hides its own artwork widget.
-                                  hideArtwork: true,
+                        Transform.translate(
+                          offset: Offset(0, screenH * (1.0 - t)),
+                          child: Opacity(
+                            opacity: fullAlpha,
+                            child: IgnorePointer(
+                              ignoring: progress < 0.45,
+                              child: SafeArea(
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _PlaybackContent(
+                                    song: song,
+                                    formatTime: _formatTime,
+                                    showLyrics: _showLyrics,
+                                    onLyricsToggle: _toggleLyrics,
+                                    showQueue: _showQueue,
+                                    onQueueToggle: _toggleQueue,
+                                    // Unified player owns the artwork for all states;
+                                    // PlayerContent always hides its own artwork widget.
+                                    hideArtwork: true,
+                                  ),
                                 ),
                               ),
                             ),
