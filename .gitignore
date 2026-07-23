@@ -11,6 +11,14 @@
 migrate_working_dir/
 android/local.properties
 
+# Ignore local SDK / build directories
+.android/
+.dart-tool/
+.kotlin/
+build/
+android-sdk/
+flutter-ws/
+jdk17/
 
 # IntelliJ related
 *.iml
