@@ -258,7 +258,7 @@ class _PlayerContentState extends State<PlayerContent> {
                         // ── Song info — fades out when any overlay is active ──────
                         Positioned(
                           key: const ValueKey('songInfo'),
-                          bottom: 35,
+                          bottom: 32,
                           left: _playerHorizontalPadding,
                           right: _playerHorizontalPadding,
                           child: AnimatedOpacity(
