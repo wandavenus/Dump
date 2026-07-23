@@ -150,18 +150,23 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
 
         return Column(
           children: [
-            SliderTheme(
-              data: _sliderTheme,
-              child: Slider(
-                min: 0,
-                max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
-                value: displayValue,
-                onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
-                onChanged:     durationSeconds == 0 ? null : _onChanged,
-                onChangeEnd:   durationSeconds == 0 ? null : _onChangeEnd,
-              ),
-            ),
-            const SizedBox(height: 10),
+            SizedBox(
+  height: 32,
+  child: Center(
+    child: SliderTheme(
+      data: _sliderTheme,
+      child: Slider(
+        min: 0,
+        max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
+        value: displayValue,
+        onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
+        onChanged: durationSeconds == 0 ? null : _onChanged,
+        onChangeEnd: durationSeconds == 0 ? null : _onChangeEnd,
+      ),
+    ),
+  ),
+),
+            const SizedBox(height: 11),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
