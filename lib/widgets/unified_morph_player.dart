@@ -570,7 +570,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               child: Container(
                                 // Shadow in background so it renders behind the artwork.
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(3)
+                                  borderRadius: BorderRadius.circular(3),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(
