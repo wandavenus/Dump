@@ -7,14 +7,14 @@
 
 const { spawn } = require('child_process');
 
-const FLUTTER_BIN = '/home/runner/flutter/bin/flutter';
+const FLUTTER_BIN = '/home/runner/workspace/flutter-ws/flutter/bin/flutter';
 const start = Date.now();
 console.log('[rebuild] Memulai flutter build web...\n');
 
 const proc = spawn(FLUTTER_BIN, ['build', 'web', '--release', '--base-href', '/', '--no-tree-shake-icons'], {
   stdio: 'inherit',
   shell: false,
-  env: { ...process.env, PATH: `/home/runner/flutter/bin:${process.env.PATH}` },
+  env: { ...process.env, PATH: `/home/runner/workspace/flutter-ws/flutter/bin:${process.env.PATH}` },
 });
 
 proc.on('close', (code) => {

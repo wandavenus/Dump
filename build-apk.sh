@@ -27,7 +27,7 @@ export TMP="/home/runner/workspace/tmp"
 export _JAVA_OPTIONS="-Djava.io.tmpdir=/home/runner/workspace/tmp -Duser.home=/home/runner/workspace"
 
 ANDROID_HOME_DIR="/home/runner/android-sdk"
-FLUTTER_DIR="/home/runner/workspace/flutter-ws"   # workspace copy — bisa tulis ke bin/cache/
+FLUTTER_DIR="/home/runner/workspace/flutter-ws/flutter"   # workspace copy — bisa tulis ke bin/cache/
 JDK_DIR="/home/runner/workspace/jdk17"
 NDK_VERSION="28.2.13676358"
 CMAKE_VERSION="3.22.1"

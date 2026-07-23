@@ -35,14 +35,15 @@ fi
 #    Salinan di workspace bisa tulis ke cache-nya sendiri.
 #    Dibuat sekali (~1.5GB, cp -a, ±1 menit pertama kali).
 # ──────────────────────────────────────────────────
-FLUTTER_WS="/home/runner/workspace/flutter-ws"
+FLUTTER_WS="/home/runner/workspace/flutter-ws/flutter"
 FLUTTER_WS_BIN="$FLUTTER_WS/bin/flutter"
 
 if [ -f "$FLUTTER_WS_BIN" ]; then
   echo "✓ Flutter workspace copy ada: $FLUTTER_WS"
 else
   echo "▶ Membuat salinan Flutter di workspace (setup 1x, ~1.5GB)..."
-  cp -a "$FLUTTER_SRC" "$FLUTTER_WS"
+  mkdir -p "/home/runner/workspace/flutter-ws"
+  cp -a "$FLUTTER_SRC" "/home/runner/workspace/flutter-ws/flutter"
   echo "✓ Salinan Flutter berhasil dibuat di $FLUTTER_WS"
   echo "  Versi: $("$FLUTTER_WS_BIN" --version 2>/dev/null | head -1)"
 fi

@@ -9,7 +9,7 @@ const { watch } = require('fs');
 const { exec } = require('child_process');
 
 const WATCH_TARGETS = ['lib', 'assets', 'pubspec.yaml'];
-const FLUTTER_BIN = '/home/runner/flutter/bin/flutter';
+const FLUTTER_BIN = '/home/runner/workspace/flutter-ws/flutter/bin/flutter';
 const BUILD_CMD = `"${FLUTTER_BIN}" build web --release --base-href / --no-tree-shake-icons`;
 const DEBOUNCE_MS = 1500; // wait 1.5s after last change before building
 
@@ -26,7 +26,7 @@ function runBuild() {
   pendingAfterBuild = false;
   const start = Date.now();
   console.log(`\n[watch] Perubahan terdeteksi — memulai rebuild web...`);
-  exec(BUILD_CMD, { env: { ...process.env, PATH: `/home/runner/flutter/bin:${process.env.PATH}` } }, (err, stdout, stderr) => {
+  exec(BUILD_CMD, { env: { ...process.env, PATH: `/home/runner/workspace/flutter-ws/flutter/bin:${process.env.PATH}` } }, (err, stdout, stderr) => {
     building = false;
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     if (err) {
