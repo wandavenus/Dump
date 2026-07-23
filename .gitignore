@@ -90,6 +90,8 @@ node_modules/
 # Miscellaneous
 # =========================
 
+attached_assets/
+
 *.class
 *.log
 *.pyc
