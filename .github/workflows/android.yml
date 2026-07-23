@@ -10,6 +10,9 @@ concurrency:
   group: android-build
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,7 +35,7 @@ jobs:
           flutter-version: '3.44.5'
           cache: true
 
-      - name: cache pub
+      - name: Cache pub
         uses: actions/cache@v6
         with:
           path: ~/.pub-cache
@@ -42,13 +45,23 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/debug-info --no-pub
+      - run: >
+          flutter build apk
+          --release
+          --target-platform android-arm64
+          --obfuscate
+          --split-debug-info=build/debug-info
+          --no-pub
 
-      - name: upload artifact apk
-        uses: actions/upload-artifact@v7
+      - name: Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
+
+      - name: Upload APK to Draft Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          compression-level: 0
-          archive: false
+          tag_name: build-${{ github.run_number }}
+          name: Android Build #${{ github.run_number }}
+          draft: true
+          files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
