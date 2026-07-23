@@ -22,6 +22,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK and CMake
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmake;3.22.1" "ndk;28.2.13676358"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -41,7 +48,6 @@ jobs:
             ${{ runner.os }}-pub-
 
       - run: flutter pub get
-
       - run: flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/debug-info --no-pub
 
       - name: upload artifact apk
