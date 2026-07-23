@@ -268,7 +268,11 @@ class _PlayerContentState extends State<PlayerContent> {
                             child: IgnorePointer(
                               ignoring: showOverlay,
                               child: Transform.translate(
-                                offset: Offset(0, 20 * (1 - progress)),
+                                // Slide in from below: starts 55 px down, eases to final pos
+                                offset: Offset(
+                                  0,
+                                  55 * (1 - Curves.easeOutCubic.transform(progress)),
+                                ),
                                 child: Opacity(
                                   opacity: ((progress - 0.15) / 0.85).clamp(
                                     0.0,
@@ -593,29 +597,37 @@ class _PlayerContentState extends State<PlayerContent> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Transform.translate(
-                            offset: Offset(0, 40 * (1 - progress) - 20),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: _playerHorizontalPadding,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Opacity(
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: _playerHorizontalPadding,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // ── Progress bar + duration ─ slides from 65 px below ──
+                                Transform.translate(
+                                  offset: Offset(
+                                    0,
+                                    65 * (1 - Curves.easeOutCubic.transform(progress)),
+                                  ),
+                                  child: Opacity(
                                     opacity: ((progress - 0.2) / 0.8).clamp(
                                       0.0,
                                       1.0,
                                     ),
-                                    child: Transform.translate(
-                                      offset: const Offset(0, -15),
-                                      child: PlayerProgressSection(
-                                        formatTime: widget.formatTime,
-                                      ),
+                                    child: PlayerProgressSection(
+                                      formatTime: widget.formatTime,
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
-                                  Opacity(
+                                ),
+                                const SizedBox(height: 20),
+                                // ── Transport controls ─ slides from 80 px below ────────
+                                Transform.translate(
+                                  offset: Offset(
+                                    0,
+                                    80 * (1 - Curves.easeOutCubic.transform(progress)),
+                                  ),
+                                  child: Opacity(
                                     opacity: ((progress - 0.35) / 0.65).clamp(
                                       0.0,
                                       1.0,
@@ -627,8 +639,15 @@ class _PlayerContentState extends State<PlayerContent> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
-                                  Opacity(
+                                ),
+                                const SizedBox(height: 24),
+                                // ── Secondary controls ─ slides from 95 px below ─────────
+                                Transform.translate(
+                                  offset: Offset(
+                                    0,
+                                    95 * (1 - Curves.easeOutCubic.transform(progress)),
+                                  ),
+                                  child: Opacity(
                                     opacity: progress,
                                     child: PlayerSecondaryControls(
                                       song: widget.song,
@@ -638,9 +657,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                       onQueueToggle: widget.onQueueToggle,
                                     ),
                                   ),
-                                  const SizedBox(height: 15),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 15),
+                              ],
                             ),
                           ),
                           Padding(
