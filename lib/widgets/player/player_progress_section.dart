@@ -161,7 +161,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                 onChangeEnd:   durationSeconds == 0 ? null : _onChangeEnd,
               ),
             ),
-            const SizedBox(height: 9),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -170,7 +170,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white70,
+                    color: Colors.white60,
                   ),
                 ),
                 Text(
@@ -178,7 +178,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white70,
+                    color: Colors.white60,
                   ),
                 ),
               ],
