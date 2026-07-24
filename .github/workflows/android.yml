@@ -4,6 +4,25 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'lib/**'
+      - 'assets/**'
+      - 'android/**'
+      - 'native_android_runtime/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lib/**'
+      - 'assets/**'
+      - 'android/**'
+      - 'native_android_runtime/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+       
   workflow_dispatch:
 
 concurrency:
