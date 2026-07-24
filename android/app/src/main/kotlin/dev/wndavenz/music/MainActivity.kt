@@ -43,6 +43,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
     private lateinit var replayGainBridge: ReplayGainBridge
+    private lateinit var nativePaletteBridge: NativePaletteBridge
 
     // Snapdragon 730 / 6 GB RAM friendly pools: bounded queues avoid unbounded
     // thread creation and keep artwork/metadata scans from competing with audio
@@ -116,6 +117,7 @@ class MainActivity : FlutterActivity() {
         replayGainBridge    = ReplayGainBridge(metadataCacheDb) { songId ->
             openReplayGainWriteFd(songId)
         }
+        nativePaletteBridge = NativePaletteBridge(artworkCacheManager, artworkExecutor)
 
         // Prune stale cache entries older than 90 days on a bounded background
         // queue instead of spawning an extra ad-hoc thread during startup.
@@ -129,6 +131,7 @@ class MainActivity : FlutterActivity() {
         setupMedia3PlaybackChannels(flutterEngine)
         setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
+        setupNativePaletteChannel(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -186,6 +189,18 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    // ── Native palette channel ─────────────────────────────────────────────────
+    //
+    // Replaces `palette_generator_plus` (Dart-side MMCQ) with a native
+    // Android extraction pipeline — see [NativePaletteBridge] for the full
+    // algorithm documentation.
+    private fun setupNativePaletteChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NativePaletteBridge.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                nativePaletteBridge.handleCall(call.method, call.arguments, result)
+            }
     }
 
 

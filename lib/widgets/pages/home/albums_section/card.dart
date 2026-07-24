@@ -30,17 +30,15 @@ class _AlbumCardState extends State<_AlbumCard> {
   Future<void> _loadPaletteColor() async {
     final songId = widget.album.coverSongId;
 
-    final cached = PaletteExtractor.getSync(songId);
+    final cached = NativePaletteService.getSync(songId);
     if (cached != null) {
       if (mounted) setState(() => _bgColor = cached.length > 2 ? cached[2] : _fallbackColor);
       return;
     }
 
-    final bytes = await ArtworkRepository.instance.getBytes(songId);
-    if (bytes == null || !mounted) return;
-
-    final colors = await PaletteExtractor.get(songId, bytes);
-    if (mounted) setState(() => _bgColor = colors.length > 2 ? colors[2] : _fallbackColor);
+    final colors = await NativePaletteService.get(songId);
+    if (!mounted) return;
+    setState(() => _bgColor = colors.length > 2 ? colors[2] : _fallbackColor);
   }
 
   @override

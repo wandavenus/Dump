@@ -153,6 +153,10 @@ dependencies {
         exclude group: 'androidx.media3', module: 'media3-exoplayer'
     }
 
+    // Native palette extraction — MMCQ quantization via Android's Palette library.
+    // Replaces palette_generator_plus (Dart-side extraction).
+    implementation 'androidx.palette:palette:1.0.0'
+
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.9.23'
     testImplementation 'org.mockito:mockito-core:5.3.1'

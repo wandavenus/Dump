@@ -24,7 +24,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       unawaited(OpenFileService.onResume());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      PaletteExtractor.clearMemoryCache();
+      NativePaletteService.clearMemoryCache();
       unawaited(LyricsSettings.flush().catchError(
         (e) => LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
       ));
