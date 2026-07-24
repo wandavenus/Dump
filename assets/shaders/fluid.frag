@@ -92,11 +92,11 @@ void main() {
 
   // Layer 4: Shadow — gentle depth in dark valleys.
   float hDark = clamp(0.47 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
-  col = mix(col, uShadow, hDark * 0.24);
+  col = mix(col, uShadow, hDark * 0.34);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
   // Darkens the perimeter slightly so the centre feels like the light source.
-  float vig = 1.0 - length(uv - 0.5) * 0.3;
+  float vig = 1.0 - length(uv - 0.5) * 0.4;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Animated film grain ────────────────────────────────────────────
