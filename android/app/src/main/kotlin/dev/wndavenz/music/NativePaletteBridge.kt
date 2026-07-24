@@ -95,10 +95,14 @@ class NativePaletteBridge(
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
          * shadow candidate may have before being rejected in favour of a
-         * derived tone.  Keeps the gradient visually coherent with the
-         * palette's dominant hue family.
+         * derived tone.
+         *
+         * Raised 60° → 120° so highlight/shadow can draw from a third of the
+         * colour wheel rather than being locked to the primary's hue family.
+         * This prevents all 5 palette slots collapsing to near-monochromatic
+         * tones (e.g. five shades of pink) when the artwork has a dominant hue.
          */
-        private const val HUE_ANCHOR_THRESHOLD = 60f
+        private const val HUE_ANCHOR_THRESHOLD = 120f
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())

@@ -71,24 +71,29 @@ void main() {
 
 
   // ── Palette blend ──────────────────────────────────────────────────────────
-  // Layer 1-3: primary/secondary/accent blend (unchanged weights).
-  // Layered mix() calls fold all three colours together.  The weights (0.55,
-  // 0.25) keep the dominant colour prominent while the other two add richness.
-  vec3 col = mix(uColor0, uColor1, f0);
-  col      = mix(col,     uColor2, f1 * 0.75);
-  
+  // Layer 1: Primary ↔ Secondary.
+  //   Remap f0 from its natural [0.05, 0.75] range to full [0, 1] so each
+  //   color owns clear, distinct territory instead of always mixing ~60/40.
+  //   Before this fix the primary dominated ≈60% of every pixel.
+  float b01 = clamp((f0 - 0.05) / 0.70, 0.0, 1.0);
+  vec3 col = mix(uColor0, uColor1, b01);
 
-  // Layer 4: Highlight — blends into bright ridge regions where f0 and f2
-  // both peak (the glow centres).  Max influence ≈ 0.22 so highlight never
-  // dominates; clamped to produce a smooth, soft glow rather than a hard edge.
+  // Layer 2: Accent via f2 (circular glow field, range [0.05, 0.75]).
+  //   Using f2 instead of f1 places accent in distinct circular patches
+  //   rather than diffuse horizontal bands.  Max weight 0.85 lets accent
+  //   fully dominate its glow centres, making artwork colors visually pop.
+  float b2 = clamp((f2 - 0.05) / 0.70 * 0.85, 0.0, 0.85);
+  col = mix(col, uColor2, b2);
+
+  // Layer 3: Highlight — bright ridges where both glow fields peak.
+  //   Weight raised 0.22 → 0.30 so highlight hue is more visible.
   float hBright = clamp((f0 + f2) * 0.5 - 0.37, 0.0, 1.0);
-  col = mix(col, uHighlight, hBright * 0.22);
+  col = mix(col, uHighlight, hBright * 0.30);
 
-  // Layer 5: Shadow — blends into dark valley regions where the average field
-  // drops below the natural midpoint.  Max influence ≈ 0.20, adding depth
-  // without flattening the palette.
+  // Layer 4: Shadow — dark valleys where the average field dips low.
+  //   Weight raised 0.20 → 0.28 so depth color reads clearly.
   float hDark = clamp(0.47 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
-  col = mix(col, uShadow, hDark * 0.20);
+  col = mix(col, uShadow, hDark * 0.28);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
   // Darkens the perimeter slightly so the centre feels like the light source.
