@@ -143,13 +143,13 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [Colors.white, Colors.white, Colors.transparent],
-                    stops: [0.0, 0.60, 1.0],
+                    stops: [0.0, 0.70, 1.0],
                   ).createShader(rect);
                 },
                 blendMode: BlendMode.dstIn,
                 child: ReorderableListView.builder(
                   scrollController: widget.scrollController,
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: 1),
                   dragStartBehavior: DragStartBehavior.down,
                   itemCount: playlist.length,
                   // onReorderItem sudah adjust newIndex; reverse-adjust sebelum
