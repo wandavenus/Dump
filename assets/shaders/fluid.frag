@@ -76,18 +76,18 @@ void main() {
   // 0.25) keep the dominant colour prominent while the other two add richness.
   vec3 col = mix(uColor0, uColor1, f0);
   col      = mix(col,     uColor2, f1 * 0.55);
-  col      = mix(col,     uColor0, f2 * 0.25);
+  col      = mix(col,     uColor0, f2 * 0.10);
 
   // Layer 4: Highlight — blends into bright ridge regions where f0 and f2
   // both peak (the glow centres).  Max influence ≈ 0.22 so highlight never
   // dominates; clamped to produce a smooth, soft glow rather than a hard edge.
-  float hBright = clamp((f0 + f2) * 0.5 - 0.42, 0.0, 1.0);
+  float hBright = clamp((f0 + f2) * 0.5 - 0.37, 0.0, 1.0);
   col = mix(col, uHighlight, hBright * 0.22);
 
   // Layer 5: Shadow — blends into dark valley regions where the average field
   // drops below the natural midpoint.  Max influence ≈ 0.20, adding depth
   // without flattening the palette.
-  float hDark = clamp(0.42 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
+  float hDark = clamp(0.47 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
   col = mix(col, uShadow, hDark * 0.20);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
