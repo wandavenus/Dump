@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.0',
+    date: '24 Juli 2026',
+    changes: [
+      'Ganti engine ekstraksi warna album dari palette_generator_plus (Dart) ke engine native Android (androidx.palette) dengan algoritma pemilihan warna perceptual.',
+      'Warna palette kini lebih vibrant, lebih beragam, dan lebih konsisten untuk semua jenis artwork.',
+      'Hapus dependency palette_generator_plus dari pubspec.',
+      'Hilangkan pemicu lyrics sheet ke half mode saat user swipe di area tombol kontrol.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.9',
     date: '24 Juli 2026',
     changes: [

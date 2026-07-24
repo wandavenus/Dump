@@ -1,4 +1,5 @@
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
+- [Native Palette Engine](native-palette-engine.md) — androidx.palette MMCQ + perceptual scoring replaces palette_generator_plus; NativePaletteService = drop-in for PaletteExtractor.
 - [Morph Player 60 FPS](morph-player-60fps.md) — larangan implicit animation di jalur morph; albumCover pakai Positioned+Transform; PlayerSheetController pakai Ticker bukan Timer.
 - [Repo Architecture Overview](repo-architecture.md) — layer stack, top-level folders, key invariants (single engine, native queue ownership, target device).
 - [Dart Layer Map](dart-layer-map.md) — every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ with class + role; init order.

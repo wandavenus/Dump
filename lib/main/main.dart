@@ -29,7 +29,7 @@ Future<void> main() async {
       // paralel untuk mempercepat waktu ke first frame.
       BootTrace.log('BEFORE Future.wait([ThemeController.init, LogService.init, '
           'LyricsSettings.init, UpNextSettings.init, WatermarkService.init, '
-          'ArtworkRepository.warmUp, PaletteExtractor.warmUp, '
+          'ArtworkRepository.warmUp, NativePaletteService.warmUp, '
           'MediaStoreService.warmUp, HistoryService.warmUp])');
       await Future.wait([
         BootTrace.step('ThemeController.init', ThemeController.init),
@@ -46,7 +46,7 @@ Future<void> main() async {
         // Persisted palette colours (album card backgrounds, player background
         // shader) so they render instantly on cold start too, matching the
         // artwork image's own instant-render behaviour above.
-        BootTrace.step('PaletteExtractor.warmUp', PaletteExtractor.warmUp),
+        BootTrace.step('NativePaletteService.warmUp', NativePaletteService.warmUp),
         // Hydrates the last-known song list from disk so the very first frame
         // can render the full library (and each song's cached artwork)
         // immediately instead of a spinner while MediaStore re-enumerates.
