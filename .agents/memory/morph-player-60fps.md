@@ -6,6 +6,7 @@ description: Penggantian semua implicit animation di jalur morph mini→full pla
 ## Aturan
 
 - **Jangan pernah pakai `AnimatedPositioned`, `AnimatedContainer`, `AnimatedOpacity`, `AnimatedScale`, `AnimatedPadding`, `AnimatedAlign` di jalur morph** (di dalam `content.dart`). Semua transisi visual harus pakai nilai langsung dari `PlayerSheetController.progress` + `lerpDouble`.
+- **Overlay fade (showLyrics, showQueue, showOverlay, _lyricsExpand)** boleh memakai `TweenAnimationBuilder<double>` — ini explicit animation, bukan implicit. Polanya: `tween: Tween<double>(end: condition ? 1.0 : 0.0)` + `builder: (_, value, child) => Opacity(opacity: value, child: child)`. Duration/curve bebas sesuai kebutuhan visual.
 - **Album cover** selalu pakai `Positioned` (fixed di posisi full-player) + `Transform.translate` + `Transform.scale` agar tidak ada relayout per frame. Layout size `largeCoverSize` konstan; transform menangani posisi visual.
 - **`PlayerSheetController._animateTo()`** harus pakai `Ticker` (bukan `Timer.periodic`). `Ticker` di-create langsung: `Ticker(_onTick)`. Dispose wajib sebelum create baru + saat cancel. API publik tidak berubah: `setProgress()`, `open()`, `close()`, `toggle()`, `cancelAnimation()`.
 - **Artwork** selalu decode di `largeCoverSize` — jangan pernah ganti `cacheWidth`/`size` saat drag.
