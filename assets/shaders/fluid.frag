@@ -6,23 +6,29 @@
 // Uniforms (bound in order by Dart FragmentShader.setFloat):
 //   0-1  : uSize      vec2   canvas size in logical pixels
 //   2    : uTime      float  monotonically increasing time (seconds)
-//   3-5  : uColor0    vec3   dominant colour  (RGB 0-1)
-//   6-8  : uColor1    vec3   vibrant colour   (RGB 0-1)
-//   9-11 : uColor2    vec3   muted colour     (RGB 0-1)
+//   3-5  : uColor0    vec3   primary colour    (RGB 0-1)  — dominant mood
+//   6-8  : uColor1    vec3   secondary colour  (RGB 0-1)  — supporting
+//   9-11 : uColor2    vec3   accent colour     (RGB 0-1)  — vibrant pop
+//   12-14: uHighlight vec3   highlight colour  (RGB 0-1)  — bright ridges
+//   15-17: uShadow    vec3   shadow colour     (RGB 0-1)  — dark depth
 //
 // Design principles:
 //   • No loops, no heavy math chains.
 //   • Two-axis domain warp (4 sin/cos calls) distorts the UV grid organically.
 //   • Three scalar fields (5 sin/cos calls) each drive one colour transition.
-//   • mix() blends the three palette colours without branching.
+//   • mix() blends the five palette colours without branching.
+//   • Highlight/Shadow are blended at low weight using existing f0/f1/f2 as
+//     natural bright/dark masks — zero additional trig calls.
 //   • Total ~9 trig calls/pixel — fast on Adreno 618 at 256×512 render size.
 // ─────────────────────────────────────────────────────────────────────────────
 
 uniform vec2  uSize;
 uniform float uTime;
-uniform vec3  uColor0;   // dominant
-uniform vec3  uColor1;   // vibrant
-uniform vec3  uColor2;   // muted
+uniform vec3  uColor0;     // primary   — dominant mood
+uniform vec3  uColor1;     // secondary — supporting
+uniform vec3  uColor2;     // accent    — vibrant pop
+uniform vec3  uHighlight;  // highlight — bright ridges / glow peaks
+uniform vec3  uShadow;     // shadow    — dark depth / valleys
 
 out vec4 fragColor;
 
@@ -65,11 +71,24 @@ void main() {
 
 
   // ── Palette blend ──────────────────────────────────────────────────────────
+  // Layer 1-3: primary/secondary/accent blend (unchanged weights).
   // Layered mix() calls fold all three colours together.  The weights (0.55,
   // 0.25) keep the dominant colour prominent while the other two add richness.
   vec3 col = mix(uColor0, uColor1, f0);
   col      = mix(col,     uColor2, f1 * 0.55);
   col      = mix(col,     uColor0, f2 * 0.25);
+
+  // Layer 4: Highlight — blends into bright ridge regions where f0 and f2
+  // both peak (the glow centres).  Max influence ≈ 0.22 so highlight never
+  // dominates; clamped to produce a smooth, soft glow rather than a hard edge.
+  float hBright = clamp((f0 + f2) * 0.5 - 0.42, 0.0, 1.0);
+  col = mix(col, uHighlight, hBright * 0.22);
+
+  // Layer 5: Shadow — blends into dark valley regions where the average field
+  // drops below the natural midpoint.  Max influence ≈ 0.20, adding depth
+  // without flattening the palette.
+  float hDark = clamp(0.42 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
+  col = mix(col, uShadow, hDark * 0.20);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
   // Darkens the perimeter slightly so the centre feels like the light source.
