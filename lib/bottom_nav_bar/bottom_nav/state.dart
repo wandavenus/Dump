@@ -206,7 +206,7 @@ class _FirstPageState extends State<FirstPage> {
                             // Kurva deselerasi: f(p) = p − 0.5p²
                             // → f'(0)=1 (kecepatan penuh), f'(0.5)=0.5 (turun 50%).
                             final curved = progress - 0.5 * progress * progress;
-                            final slide = (curved * sh * 0.22).clamp(0.0, navH);
+                            final slide = (curved * sh * 0.30).clamp(0.0, navH);
                             return Transform.translate(
                               offset: Offset(0, slide),
                               child: useGlassNavBar
