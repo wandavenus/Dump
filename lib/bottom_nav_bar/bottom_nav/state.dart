@@ -203,7 +203,7 @@ class _FirstPageState extends State<FirstPage> {
                             // Clamp ke tinggi navbar agar tidak melewati bawah layar.
                             final navH = useGlassNavBar ? 70.0 : 71.5;
                             final sh   = MediaQuery.sizeOf(context).height;
-                            final slide = (progress * sh * 0.55).clamp(0.0, navH);
+                            final slide = (progress * sh * 0.275).clamp(0.0, navH);
                             return Transform.translate(
                               offset: Offset(0, slide),
                               child: useGlassNavBar
