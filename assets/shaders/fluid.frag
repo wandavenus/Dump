@@ -59,14 +59,14 @@ void main() {
 
   // Pusat 1: Glow gede banget
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
-  float f0 = sin(dist1 * 1.5 - t * 0.15) * 0.35 + 0.4; // Halus range-nya
+  float f0 = sin(dist1 * 1.7 - t * 0.15) * 0.35 + 0.4; 
 
   // Pusat 2: Interferensi tipis-tipis aja
   float f1 = sin(uvd.x * 1.8 + t * 0.08) * cos(uvd.y * 2.0 - t * 0.11) * 0.30 + 0.35;
 
   // Pusat 3: Glow kedua buat ngeramein blend
   float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
-  float f2 = cos(dist2 * 1.8 + t * 0.2) * 0.35 + 0.4;
+  float f2 = cos(dist2 * 2.0 + t * 0.2) * 0.35 + 0.4;
 
 
 
@@ -75,7 +75,7 @@ void main() {
   // Layered mix() calls fold all three colours together.  The weights (0.55,
   // 0.25) keep the dominant colour prominent while the other two add richness.
   vec3 col = mix(uColor0, uColor1, f0);
-  col      = mix(col,     uColor2, f1 * 0.55);
+  col      = mix(col,     uColor2, f1 * 0.75);
   col      = mix(col,     uColor0, f2 * 0.10);
 
   // Layer 4: Highlight — blends into bright ridge regions where f0 and f2
