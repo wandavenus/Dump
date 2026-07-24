@@ -91,6 +91,14 @@ class NativePaletteBridge(
 
         /** Maximum candidates fed into the harmony triplet search. */
         private const val TOP_N = 12
+
+        /**
+         * Maximum hue distance (degrees) from primary that a highlight or
+         * shadow candidate may have before being rejected in favour of a
+         * derived tone.  Keeps the gradient visually coherent with the
+         * palette's dominant hue family.
+         */
+        private const val HUE_ANCHOR_THRESHOLD = 60f
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -204,17 +212,25 @@ class NativePaletteBridge(
         val secondary = primarySecondary.getOrNull(1) ?: bestTriplet[1]
 
         // Step 6: Highlight + Shadow from remaining candidates.
+        // Candidates must be hue-coherent with the primary color (within
+        // HUE_ANCHOR_THRESHOLD degrees) to avoid visually unrelated tones
+        // contaminating the palette gradient.  If no coherent candidate
+        // exists, derivation from primary's hue is used as fallback.
         val usedRgbs = setOf(primary.rgb, secondary.rgb, accent.rgb)
         val rest     = candidates.filter { it.rgb !in usedRgbs }
+        val primaryHue = primary.hsl[0]
 
         val highlightSwatch = rest.filter { sw ->
-            val hsl = sw.hsl; hsl[2] > 0.55f && hsl[1] > 0.10f
+            val hsl = sw.hsl
+            hsl[2] > 0.55f && hsl[1] > 0.10f &&
+                hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
         }.maxByOrNull { it.hsl[2] }
         val highlightColor = highlightSwatch?.rgb ?: deriveHighlight(primary.rgb)
 
         val shadowSwatch = rest.filter { sw ->
-            sw.rgb != highlightSwatch?.rgb
-            val hsl = sw.hsl; hsl[2] < 0.45f && hsl[1] > 0.08f
+            val hsl = sw.hsl
+            sw.rgb != highlightSwatch?.rgb && hsl[2] < 0.45f && hsl[1] > 0.08f &&
+                hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
         }.minByOrNull { it.hsl[2] }
         val shadowColor = shadowSwatch?.rgb ?: deriveShadow(primary.rgb)
 
@@ -317,18 +333,59 @@ class NativePaletteBridge(
     }
 
     /**
-     * Returns true if [rgb1] and [rgb2] are perceptually close
-     * (Euclidean RGB distance < 80, ≈ one "step" in a 3-band gradient).
+     * Returns true if [rgb1] and [rgb2] are perceptually close, using the
+     * OKLab color space for a uniform perceptual distance metric.
+     *
+     * OKLab is lightweight (two 3×3 matrix multiplications + cube-root) and
+     * self-contained — no extra dependencies needed.  It is far more reliable
+     * than RGB Euclidean distance for hue-similar-but-brightness-different
+     * pairs (e.g. dark purple vs bright purple) that mislead RGB matching.
+     *
+     * Threshold 0.15 ≈ a "clearly similar" perceptual step in OKLab's
+     * normalised [0, 1] lightness range.
      */
-    private fun colorSimilar(rgb1: Int, rgb2: Int): Boolean {
-        val r1 = (rgb1 shr 16) and 0xFF; val r2 = (rgb2 shr 16) and 0xFF
-        val g1 = (rgb1 shr 8) and 0xFF;  val g2 = (rgb2 shr 8) and 0xFF
-        val b1 = rgb1 and 0xFF;           val b2 = rgb2 and 0xFF
-        val dSq = (r1 - r2).let { it * it } +
-                  (g1 - g2).let { it * it } +
-                  (b1 - b2).let { it * it }
-        return dSq < 80 * 80
+    private fun colorSimilar(rgb1: Int, rgb2: Int, threshold: Float = 0.15f): Boolean {
+        val (l1, a1, b1) = rgbToOklab(rgb1)
+        val (l2, a2, b2) = rgbToOklab(rgb2)
+        val dSq = (l1 - l2) * (l1 - l2) + (a1 - a2) * (a1 - a2) + (b1 - b2) * (b1 - b2)
+        return dSq < threshold * threshold
     }
+
+    /**
+     * Converts an ARGB integer to OKLab (L, a, b).
+     *
+     * Pipeline: sRGB → linear RGB (gamma expand) → LMS (via M1) → LMS^(1/3) → Lab (via M2).
+     * Coefficients from https://bottosson.github.io/posts/oklab/
+     */
+    private fun rgbToOklab(rgb: Int): Triple<Float, Float, Float> {
+        // sRGB channels in [0, 1]
+        val r = srgbToLinear(((rgb shr 16) and 0xFF) / 255f)
+        val g = srgbToLinear(((rgb shr 8) and 0xFF) / 255f)
+        val b = srgbToLinear((rgb and 0xFF) / 255f)
+
+        // M1: linear sRGB → LMS
+        val l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b
+        val m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b
+        val s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b
+
+        // Cube root
+        val lc = cbrt(l); val mc = cbrt(m); val sc = cbrt(s)
+
+        // M2: LMS^(1/3) → OKLab
+        return Triple(
+            0.2104542553f * lc + 0.7936177850f * mc - 0.0040720468f * sc,
+            1.9779984951f * lc - 2.4285922050f * mc + 0.4505937099f * sc,
+            0.0259040371f * lc + 0.7827717662f * mc - 0.8086757660f * sc,
+        )
+    }
+
+    /** Expands sRGB gamma ([0,1] → linear). */
+    private fun srgbToLinear(c: Float): Float =
+        if (c <= 0.04045f) c / 12.92f else ((c + 0.055f) / 1.055f).pow(2.4f)
+
+    /** Cube root that handles negative values correctly. */
+    private fun cbrt(x: Float): Float =
+        if (x >= 0f) x.pow(1f / 3f) else -(-x).pow(1f / 3f)
 
     // ── Derived highlight / shadow ────────────────────────────────────────────
 
