@@ -11,9 +11,10 @@ description: Singleton untuk pengaturan tampilan halaman lirik; harus di-init di
 - `activeColor`: String ('white'/'accent'/'yellow')
 - `showSource`: bool — tampilkan badge sumber lirik
 - `karaokeMode`: bool — reserved untuk karaoke highlight
+- `lineSpacing`: double — jarak vertikal tiap baris lirik; dikendalikan programmatically, bukan dari UI
 
 ## SharedPreferences keys
-Semua keys prefixed dengan `lyr_`: `lyr_fontSize`, `lyr_textAlign`, `lyr_bgDim`, `lyr_blur`, `lyr_activeColor`, `lyr_showSource`, `lyr_karaoke`.
+Semua keys prefixed dengan `lyr_`: `lyr_fontSize`, `lyr_lineSpacing`, `lyr_textAlign`, `lyr_bgDim`, `lyr_blur`, `lyr_activeColor`, `lyr_showSource`, `lyr_karaoke`.
 
 ## Init order in main()
 ```dart
@@ -28,3 +29,5 @@ await AudioEngine.initialize();
 - `LyricsSettings.resolvedActiveColor` → Color
 
 **Why:** LyricsSettings harus dipisah dari AudioEffectsService agar tidak ada circular dependency antara LyricsService (yang import AudioEffectsService.lyricsPath) dan settings.
+
+**Why:** Jarak antarbaris perlu dapat dikontrol oleh renderer tanpa menambah kontrol baru ke UI tampilan lirik.

@@ -6,9 +6,9 @@ class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
   static const _sizes = [
-    (label: 'S',  value: 23.0),
-    (label: 'M',  value: 34.0),
-    (label: 'L',  value: 48.0),
+    (label: 'S', value: 23.0),
+    (label: 'M', value: 34.0),
+    (label: 'L', value: 48.0),
     (label: 'XL', value: 55.0),
   ];
 
@@ -18,8 +18,9 @@ class _FontSizePicker extends StatelessWidget {
       valueListenable: LyricsSettings.fontSize,
       builder: (_, cur, _) {
         final snapped = _sizes
-            .reduce((a, b) =>
-                (cur - a.value).abs() <= (cur - b.value).abs() ? a : b)
+            .reduce(
+              (a, b) => (cur - a.value).abs() <= (cur - b.value).abs() ? a : b,
+            )
             .value;
         return SizedBox(
           width: double.infinity,
@@ -48,9 +49,9 @@ class _AlignPicker extends StatelessWidget {
   const _AlignPicker();
 
   static const _opts = [
-    (icon: Icons.format_align_left,   value: 'left'),
+    (icon: Icons.format_align_left, value: 'left'),
     (icon: Icons.format_align_center, value: 'center'),
-    (icon: Icons.format_align_right,  value: 'right'),
+    (icon: Icons.format_align_right, value: 'right'),
   ];
 
   @override
@@ -85,9 +86,9 @@ class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
   static const _opts = [
-    (label: 'Putih',  dot: Colors.white,          value: 'white'),
-    (label: 'Merah',  dot: Color(0xFFF92D48),     value: 'accent'),
-    (label: 'Kuning', dot: Color(0xFFFFD60A),     value: 'yellow'),
+    (label: 'Putih', dot: Colors.white, value: 'white'),
+    (label: 'Merah', dot: Color(0xFFF92D48), value: 'accent'),
+    (label: 'Kuning', dot: Color(0xFFFFD60A), value: 'yellow'),
   ];
 
   @override

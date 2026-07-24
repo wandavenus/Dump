@@ -38,6 +38,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
     _settingsListenable = Listenable.merge([
       LyricsSettings.fontSize,
+      LyricsSettings.lineSpacing,
       LyricsSettings.textAlign,
       LyricsSettings.activeColor,
       LyricsSettings.karaokeMode,
