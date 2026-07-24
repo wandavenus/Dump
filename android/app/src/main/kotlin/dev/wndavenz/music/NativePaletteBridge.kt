@@ -176,19 +176,44 @@ class NativePaletteBridge(
         if (candidates.isEmpty()) return buildFallbackFromPalette(palette)
 
         // Step 3: Score each candidate.
+        //
+        // Scoring philosophy (updated):
+        //   Population is the PRIMARY driver — colors that cover large areas of
+        //   the artwork should win, representing the overall mood/atmosphere.
+        //   Saturation is a SECONDARY boost — vibrant colors get a moderate lift
+        //   but can no longer overpower a dominant background with 24x advantage.
+        //
+        // Key changes from the old formula (sat^1.4 * lightFactor_steep):
+        //   • Score = 65% population + 35% vibrancy(sat^0.8)
+        //     → isolated saturated elements (hair, logo) no longer overwhelm
+        //       large background areas (lavender, teal, cream)
+        //   • lightFactor peak shifted 0.45→0.50, falloff reduced 1.6→0.9
+        //     → lighter background tones (L≈0.65-0.80) are no longer heavily
+        //       penalised — they now contribute meaningfully to the palette
+        //   • centerBoost reduced 1.4→1.15
+        //     → center subjects still get a small lift but can't dominate alone
         val maxPop = candidates.maxOf { it.population }.toDouble().coerceAtLeast(1.0)
 
         data class Scored(val swatch: Palette.Swatch, val score: Double)
 
         val scored = candidates.map { sw ->
-            val hsl   = sw.hsl
-            val sat   = hsl[1].toDouble()
-            val light = hsl[2].toDouble()
-            val lightFactor = (1.0 - abs(light - 0.45) * 1.6).coerceAtLeast(0.05)
+            val hsl     = sw.hsl
+            val sat     = hsl[1].toDouble()
+            val light   = hsl[2].toDouble()
+            // Wider lightness window: peak at L=0.50, gentle falloff.
+            // Old: peak 0.45, falloff ×1.6 → heavily penalised light backgrounds.
+            // New: peak 0.50, falloff ×0.9 → light/mid/dark all compete fairly.
+            val lightFactor = (1.0 - abs(light - 0.50) * 0.9).coerceAtLeast(0.05)
             val popFactor   = log10(sw.population + 1.0) / log10(maxPop + 1.0)
-            // Center boost: subjects prominent near the image center score higher.
-            val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.4 else 1.0
-            val score = sat.pow(1.4) * lightFactor * (0.35 + 0.65 * popFactor) * centerBoost
+            // Softer saturation power: sat^0.8 reduces the gap between
+            // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
+            val vibrancy    = sat.pow(0.8)
+            // Blended score: dominant area (65%) + vibrancy (35%).
+            val baseScore   = popFactor * 0.65 + vibrancy * 0.35
+            // Reduced center boost: still rewards centered subjects, but not
+            // enough to let a single isolated element overwhelm the background.
+            val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.15 else 1.0
+            val score       = baseScore * lightFactor * centerBoost
             Scored(sw, score)
         }.sortedByDescending { it.score }
 
