@@ -17,8 +17,6 @@ import '../../utils/safe_num.dart';
 class AppleMusicSliderTrackShape extends SliderTrackShape {
   const AppleMusicSliderTrackShape();
 
-  static const Radius _radius = Radius.circular(3);
-
   @override
   Rect getPreferredRect({
     required RenderBox parentBox,
