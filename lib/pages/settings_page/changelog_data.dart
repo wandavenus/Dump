@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.3.9',
+    date: '24 Juli 2026',
+    changes: [
+      'Optimasi 60 FPS Morph Player: hilangkan semua implicit animation (AnimatedPositioned, AnimatedContainer, AnimatedOpacity) dari jalur drag mini→full player.',
+      'Album cover kini pakai Positioned + Transform (translate+scale) agar tidak ada relayout setiap frame saat drag.',
+      'PlayerSheetController: ganti Timer.periodic dengan Ticker vsync-driven (SchedulerBinding) agar animasi sync dengan refresh rate display.',
+      'Artwork selalu decode di resolusi besar selama morph — tidak ada re-decode saat transisi.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.8',
     date: '23 Juli 2026',
     changes: [

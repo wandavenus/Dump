@@ -52,8 +52,6 @@ class _PlayerContentState extends State<PlayerContent> {
   Timer? _marqueeTimer;
 
   double _lyricsExpand = 0.0;
-  static const _animDuration = Duration(milliseconds: 400);
-  static const _animCurve = Curves.easeInOutCubic;
 
   Future<LyricsResult>? _lyricsFuture;
   int? _lastFetchedSongId;
@@ -261,9 +259,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           bottom: 15,
                           left: _playerHorizontalPadding,
                           right: _playerHorizontalPadding,
-                          child: AnimatedOpacity(
-                            duration: _animDuration,
-                            curve: _animCurve,
+                          child: Opacity(
                             opacity: showOverlay ? 0.0 : 1.0,
                             child: IgnorePointer(
                               ignoring: showOverlay,
@@ -279,17 +275,13 @@ class _PlayerContentState extends State<PlayerContent> {
                         ),
 
                         // ── Lyrics area — fades in in lyrics mode ─────────────────
-                        AnimatedPositioned(
+                        Positioned(
                           key: const ValueKey('lyricsArea'),
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeOut,
                           top: overlayTop,
                           left: 7,
                           right: 7,
-                          bottom: _lyricsExpand > 0 ? -200 : 30,
-                          child: AnimatedOpacity(
-                            duration: _animDuration,
-                            curve: _animCurve,
+                          bottom: _lyricsExpand > 0 ? -200.0 : 30.0,
+                          child: Opacity(
                             opacity: showLyrics ? 1.0 : 0.0,
                             child: IgnorePointer(
                               ignoring: !showLyrics,
@@ -305,9 +297,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           left: 15.7,
                           right: 15.7,
                           bottom: controlsHeight,
-                          child: AnimatedOpacity(
-                            duration: _animDuration,
-                            curve: _animCurve,
+                          child: Opacity(
                             opacity: showQueue ? 1.0 : 0.0,
                             child: IgnorePointer(
                               ignoring: !showQueue,
@@ -359,9 +349,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           key: const ValueKey('appearanceButton'),
                           top: 10,
                           right: 27,
-                          child: AnimatedOpacity(
-                            duration: _animDuration,
-                            curve: _animCurve,
+                          child: Opacity(
                             opacity: showLyrics ? 1.0 : 0.0,
                             child: IgnorePointer(
                               ignoring: !showLyrics,
@@ -376,9 +364,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           top: 4,
                           left: 16 + _smallCoverSize + 25,
 
-                          child: AnimatedOpacity(
-                            duration: _animDuration,
-                            curve: _animCurve,
+                          child: Opacity(
                             opacity: showOverlay ? 1.0 : 0.0,
                             child: IgnorePointer(
                               ignoring: !showOverlay,
@@ -457,86 +443,93 @@ class _PlayerContentState extends State<PlayerContent> {
                           ),
                         ),
 
-                        // ── Album cover — AnimatedPositioned + AnimatedContainer ───
-                        AnimatedPositioned(
+                        // ── Album cover — Positioned + Transform (no relayout per frame) ───
+                        // Layout is always fixed at the full-player position
+                        // (coverTop, coverLeft) with the full large size.
+                        // Transform.translate + Transform.scale handle the
+                        // visual repositioning every frame without a layout pass,
+                        // keeping frame time within the 16 ms budget during drag.
+                        // The artwork child is always decoded at largeCoverSize so
+                        // there is no re-decode during the transition.
+                        Positioned(
                           key: const ValueKey('albumCover'),
-                          duration: _animDuration,
-                          curve: _animCurve,
-                          top:
-                              showOverlay
-                                  ? -0.5
-                                  : lerpDouble(sh - 140, coverTop, progress)!,
-                          left:
-                              showOverlay
-                                  ? 16
-                                  : lerpDouble(22.0, coverLeft, progress)!,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 120),
+                          top: coverTop,
+                          left: coverLeft,
+                          child: Opacity(
                             opacity: widget.hideArtwork ? 0.0 : 1.0,
-                            child: AnimatedContainer(
-                              duration: _animDuration,
-                              curve: _animCurve,
-                              width:
-                                  showOverlay
-                                      ? _smallCoverSize
-                                      : lerpDouble(
-                                        70,
-                                        largeCoverSize,
-                                        progress,
-                                      )!,
-
-                              height:
-                                  showOverlay
-                                      ? _smallCoverSize
-                                      : lerpDouble(
-                                        70,
-                                        largeCoverSize,
-                                        progress,
-                                      )!,
-                              clipBehavior: Clip.hardEdge,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(
-                                  showOverlay ? 3 : lerpDouble(3, 3, progress)!,
-                                ),
-                                color: Colors.black,
-                                // Hairline stroke on the visible bounding box —
-                                // must live here (not inside SongArtwork) since
-                                // the inner image is cropped by FittedBox/cover
-                                // and would clip a border drawn on its own edge.
-                                border: Border.all(
-                                  color: kArtworkHairlineColor,
-                                  width: kArtworkHairlineWidth,
-                                  // Inset alignment — stays crisp instead of
-                                  // blurring outward as the cover scales
-                                  // from mini (70) to full (largeCoverSize).
-                                  strokeAlign: BorderSide.strokeAlignInside,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(
-                                      alpha: 0.0 + (0.10 * progress),
-                                    ),
-                                    blurRadius: 0.0 + (1 * progress),
-                                    spreadRadius: 0.0 + (0.1 * progress),
-                                    offset: Offset(0, 0 + (1 * progress)),
-                                  ),
-                                ],
+                            child: Transform.translate(
+                              offset: Offset(
+                                showOverlay
+                                    ? (16.0 - coverLeft)
+                                    : lerpDouble(
+                                      22.0 - coverLeft,
+                                      0.0,
+                                      progress,
+                                    )!,
+                                showOverlay
+                                    ? (-0.5 - coverTop)
+                                    : lerpDouble(
+                                      sh - 140 - coverTop,
+                                      0.0,
+                                      progress,
+                                    )!,
                               ),
-                              child: FittedBox(
-                                fit: BoxFit.cover,
-                                child: SizedBox(
+                              child: Transform.scale(
+                                scale: showOverlay
+                                    ? (_smallCoverSize / largeCoverSize)
+                                    : lerpDouble(
+                                      70.0 / largeCoverSize,
+                                      1.0,
+                                      progress,
+                                    )!,
+                                alignment: Alignment.topLeft,
+                                child: Container(
                                   width: largeCoverSize,
                                   height: largeCoverSize,
-                                  child: Hero(
-                                    tag: PlayerHeroTags.artwork(widget.song),
-                                    child: SongArtwork(
-                                      songId: widget.song.id,
-                                      size: largeCoverSize,
-                                      borderRadius: BorderRadius.zero,
-                                      // Hairline already drawn on the outer
-                                      // AnimatedContainer above — avoids a
-                                      // doubled/mismatched stroke here.
-                                      showBorder: false,
+                                  clipBehavior: Clip.hardEdge,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(3),
+                                    color: Colors.black,
+                                    // Hairline stroke on the visible bounding
+                                    // box — must live here (not inside
+                                    // SongArtwork) since the inner image is
+                                    // cropped by FittedBox/cover and would
+                                    // clip a border drawn on its own edge.
+                                    border: Border.all(
+                                      color: kArtworkHairlineColor,
+                                      width: kArtworkHairlineWidth,
+                                      // Inset alignment — stays crisp as
+                                      // the Transform scales it.
+                                      strokeAlign: BorderSide.strokeAlignInside,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.0 + (0.10 * progress),
+                                        ),
+                                        blurRadius: 0.0 + (1 * progress),
+                                        spreadRadius: 0.0 + (0.1 * progress),
+                                        offset: Offset(0, 0 + (1 * progress)),
+                                      ),
+                                    ],
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.cover,
+                                    child: SizedBox(
+                                      width: largeCoverSize,
+                                      height: largeCoverSize,
+                                      child: Hero(
+                                        tag: PlayerHeroTags.artwork(widget.song),
+                                        child: SongArtwork(
+                                          songId: widget.song.id,
+                                          size: largeCoverSize,
+                                          borderRadius: BorderRadius.zero,
+                                          // Hairline already drawn on the
+                                          // outer Container above — avoids
+                                          // a doubled/mismatched stroke here.
+                                          showBorder: false,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -580,8 +573,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           );
                         }
                         : null,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
+                child: Opacity(
                   opacity: 1.0 - _lyricsExpand,
                   child: IgnorePointer(
                     ignoring: _lyricsExpand > 0.0,

@@ -1,4 +1,5 @@
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
+- [Morph Player 60 FPS](morph-player-60fps.md) — larangan implicit animation di jalur morph; albumCover pakai Positioned+Transform; PlayerSheetController pakai Ticker bukan Timer.
 - [Repo Architecture Overview](repo-architecture.md) — layer stack, top-level folders, key invariants (single engine, native queue ownership, target device).
 - [Dart Layer Map](dart-layer-map.md) — every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ with class + role; init order.
 - [Native C DSP Layer Map](native-c-layer-map.md) — every .c/.h in native_audio_runtime/src/; DSP pipeline slot assignments; NEON kernels; CMake targets.

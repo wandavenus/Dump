@@ -1,0 +1,15 @@
+---
+name: Morph Player 60 FPS optimization
+description: Penggantian semua implicit animation di jalur morph mini→full player; Ticker vsync di PlayerSheetController.
+---
+
+## Aturan
+
+- **Jangan pernah pakai `AnimatedPositioned`, `AnimatedContainer`, `AnimatedOpacity`, `AnimatedScale`, `AnimatedPadding`, `AnimatedAlign` di jalur morph** (di dalam `content.dart`). Semua transisi visual harus pakai nilai langsung dari `PlayerSheetController.progress` + `lerpDouble`.
+- **Album cover** selalu pakai `Positioned` (fixed di posisi full-player) + `Transform.translate` + `Transform.scale` agar tidak ada relayout per frame. Layout size `largeCoverSize` konstan; transform menangani posisi visual.
+- **`PlayerSheetController._animateTo()`** harus pakai `Ticker` (bukan `Timer.periodic`). `Ticker` di-create langsung: `Ticker(_onTick)`. Dispose wajib sebelum create baru + saat cancel. API publik tidak berubah: `setProgress()`, `open()`, `close()`, `toggle()`, `cancelAnimation()`.
+- **Artwork** selalu decode di `largeCoverSize` — jangan pernah ganti `cacheWidth`/`size` saat drag.
+
+**Why:** `AnimatedPositioned`/`AnimatedContainer` menambah 400ms implicit animation di atas nilai yang sudah dihitung dari progress → lag parah saat drag. `Timer.periodic` tidak sync vsync → frame drift. Transform menghindari layout pass per frame.
+
+**How to apply:** Setiap kali ada perubahan di `content.dart` atau `player_sheet_controller.dart`, pastikan invariant di atas tetap terjaga.
