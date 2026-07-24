@@ -66,4 +66,13 @@ class LyricsDragHandle {
   /// [scrollByDelta]'s sign convention.
   void flingByVelocity(double primaryVelocity) =>
       _state?._flingByVelocity(-primaryVelocity);
+
+  /// Tells the live lyrics list that its viewport is about to change size.
+  ///
+  /// The expand/collapse design intentionally changes the parent layout in
+  /// one step. Saving the current pixel offset before that layout pass lets
+  /// the list restore the same visible lyric afterwards instead of appearing
+  /// to jump when the bottom controls fade away.
+  void preservePositionForViewportResize() =>
+      _state?._prepareForViewportResize();
 }

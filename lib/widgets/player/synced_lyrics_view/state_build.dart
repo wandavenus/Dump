@@ -94,4 +94,5 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
       ),
     );
   }
+
 }
