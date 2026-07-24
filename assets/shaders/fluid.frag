@@ -76,7 +76,7 @@ void main() {
   // 0.25) keep the dominant colour prominent while the other two add richness.
   vec3 col = mix(uColor0, uColor1, f0);
   col      = mix(col,     uColor2, f1 * 0.75);
-  col      = mix(col,     uColor0, f2 * 0.10);
+  
 
   // Layer 4: Highlight — blends into bright ridge regions where f0 and f2
   // both peak (the glow centres).  Max influence ≈ 0.22 so highlight never
