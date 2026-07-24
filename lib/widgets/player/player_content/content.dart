@@ -286,7 +286,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           top: overlayTop,
                           left: 7,
                           right: 7,
-                          bottom: _lyricsExpand > 0 ? -200.0 : 30.0,
+                          bottom: _lyricsExpand > 0 ? -230.0 : 2.0,
                           child: TweenAnimationBuilder<double>(
                             tween: Tween<double>(
                               end: showLyrics ? 1.0 : 0.0,
