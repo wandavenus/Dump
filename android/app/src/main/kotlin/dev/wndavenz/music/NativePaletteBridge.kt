@@ -90,7 +90,7 @@ class NativePaletteBridge(
         private const val CENTER_MARGIN = 0.20f
 
         /** Maximum candidates fed into the harmony triplet search. */
-        private const val TOP_N = 12
+        private const val TOP_N = 16
 
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
@@ -175,7 +175,7 @@ class NativePaletteBridge(
         // Step 2: Filter achromatic swatches.
         val candidates = all.filter { sw ->
             val hsl = sw.hsl
-            hsl[1] >= 0.10f && hsl[2] in 0.08f..0.93f
+            hsl[1] >= 0.10f && hsl[2] in 0.06f..0.93f
         }
         if (candidates.isEmpty()) return buildFallbackFromPalette(palette)
 
@@ -213,11 +213,14 @@ class NativePaletteBridge(
             // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
             val vibrancy    = sat.pow(0.8)
             // Blended score: dominant area (65%) + vibrancy (35%).
-            val baseScore   = popFactor * 0.65 + vibrancy * 0.35
+            val baseScore   = popFactor * 0.70 + vibrancy * 0.30
             // Reduced center boost: still rewards centered subjects, but not
             // enough to let a single isolated element overwhelm the background.
             val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.15 else 1.0
-            val score       = baseScore * lightFactor * centerBoost
+            val darkBonus =
+            if (light < 0.25) 1.20
+            else 1.0
+            val score = baseScore * lightFactor * centerBoost * darkBonus
             Scored(sw, score)
         }.sortedByDescending { it.score }
 
