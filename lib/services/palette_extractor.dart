@@ -181,25 +181,45 @@ class PaletteExtractor {
         runInIsolate: true,
       );
 
-      final dominant = generator.dominantColor?.color ?? _kFallback[0];
+      final swatches = generator.paletteColors.where((swatch) {
+  final hsl = HSLColor.fromColor(swatch.color);
 
-      // Fallback chain: vibrant → lightVibrant → fallback.
-      // lightVibrant preferred over darkVibrant as secondary because the
-      // fluid shader (domain warping) needs high chroma/saturation input —
-      // darkVibrant tends to be too dim to drive vivid colour blobs.
-      final vibrant = generator.vibrantColor?.color
-                   ?? generator.lightVibrantColor?.color
-                   ?? _kFallback[1];
+  // Buang warna hampir hitam/putih/abu.
+  return hsl.saturation >= 0.20 &&
+         hsl.lightness >= 0.12 &&
+         hsl.lightness <= 0.90;
+}).toList();
 
-      // Fallback chain: muted → darkMuted → fallback.
-      final muted = generator.mutedColor?.color
-                 ?? generator.darkMutedColor?.color
-                 ?? _kFallback[2];
+if (swatches.length >= 3) {
+  final colors = [
+    swatches[0].color,
+    swatches[1].color,
+    swatches[2].color,
+  ];
 
-      final colors = [dominant, vibrant, muted];
-      _cache.put(songId, colors);
-      _schedulePersist();
-      return colors;
+  _cache.put(songId, colors);
+  _schedulePersist();
+  return colors;
+}
+
+// Fallback kalau hasil filter kurang dari 3 warna.
+final dominant = generator.dominantColor?.color ?? _kFallback[0];
+
+final vibrant =
+    generator.vibrantColor?.color ??
+    generator.lightVibrantColor?.color ??
+    _kFallback[1];
+
+final muted =
+    generator.mutedColor?.color ??
+    generator.darkMutedColor?.color ??
+    _kFallback[2];
+
+final colors = [dominant, vibrant, muted];
+
+_cache.put(songId, colors);
+_schedulePersist();
+return colors;
     } catch (_) {
       _cache.put(songId, _kFallback);
       return _kFallback;
