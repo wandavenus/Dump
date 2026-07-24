@@ -12,6 +12,9 @@ class LyricsSettings {
   /// Ukuran font teks lirik aktif (14 / 18 / 22 / 26).
   static final ValueNotifier<double> fontSize = ValueNotifier(45.0);
 
+  /// Jarak vertikal di atas dan di bawah setiap baris lirik dalam logical px.
+  static final ValueNotifier<double> lineSpacing = ValueNotifier(10.0);
+
   /// Rata teks: 'left' / 'center' / 'right'.
   static final ValueNotifier<String> textAlign = ValueNotifier('left');
 
@@ -34,13 +37,14 @@ class LyricsSettings {
 
   static Future<void> init() async {
     final p = await SharedPreferences.getInstance();
-    fontSize.value     = p.getDouble('lyr_fontSize')    ?? 45.0;
-    textAlign.value    = p.getString('lyr_textAlign')   ?? 'left';
-    bgDim.value        = p.getDouble('lyr_bgDim')       ?? 0.0;
-    blurStrength.value = p.getDouble('lyr_blur')        ?? 0.0;
-    activeColor.value  = p.getString('lyr_activeColor') ?? 'white';
-    showSource.value   = p.getBool('lyr_showSource')    ?? false;
-    karaokeMode.value  = p.getBool('lyr_karaoke')       ?? true;
+    fontSize.value = p.getDouble('lyr_fontSize') ?? 45.0;
+    lineSpacing.value = p.getDouble('lyr_lineSpacing') ?? 10.0;
+    textAlign.value = p.getString('lyr_textAlign') ?? 'left';
+    bgDim.value = p.getDouble('lyr_bgDim') ?? 0.0;
+    blurStrength.value = p.getDouble('lyr_blur') ?? 0.0;
+    activeColor.value = p.getString('lyr_activeColor') ?? 'white';
+    showSource.value = p.getBool('lyr_showSource') ?? false;
+    karaokeMode.value = p.getBool('lyr_karaoke') ?? true;
   }
 
   // ── Setters ─────────────────────────────────────────────────────────────────
@@ -57,7 +61,9 @@ class LyricsSettings {
     _debounceTimers[key]?.cancel();
     _debounceTimers[key] = Timer(_debounceDelay, () {
       _debounceTimers.remove(key);
-      write().catchError((_) {/* SharedPreferences write failed — ignored */});
+      write().catchError((_) {
+        /* SharedPreferences write failed — ignored */
+      });
     });
   }
 
@@ -72,6 +78,7 @@ class LyricsSettings {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('lyr_fontSize', fontSize.value);
+    await prefs.setDouble('lyr_lineSpacing', lineSpacing.value);
     await prefs.setString('lyr_textAlign', textAlign.value);
     await prefs.setDouble('lyr_bgDim', bgDim.value);
     await prefs.setDouble('lyr_blur', blurStrength.value);
@@ -83,14 +90,30 @@ class LyricsSettings {
   static void setFontSize(double v) {
     fontSize.value = v;
     _persistDebounced('lyr_fontSize', () async {
-      await (await SharedPreferences.getInstance()).setDouble('lyr_fontSize', v);
+      await (await SharedPreferences.getInstance()).setDouble(
+        'lyr_fontSize',
+        v,
+      );
+    });
+  }
+
+  static void setLineSpacing(double v) {
+    lineSpacing.value = v;
+    _persistDebounced('lyr_lineSpacing', () async {
+      await (await SharedPreferences.getInstance()).setDouble(
+        'lyr_lineSpacing',
+        v,
+      );
     });
   }
 
   static void setTextAlign(String v) {
     textAlign.value = v;
     _persistDebounced('lyr_textAlign', () async {
-      await (await SharedPreferences.getInstance()).setString('lyr_textAlign', v);
+      await (await SharedPreferences.getInstance()).setString(
+        'lyr_textAlign',
+        v,
+      );
     });
   }
 
@@ -111,14 +134,20 @@ class LyricsSettings {
   static void setActiveColor(String v) {
     activeColor.value = v;
     _persistDebounced('lyr_activeColor', () async {
-      await (await SharedPreferences.getInstance()).setString('lyr_activeColor', v);
+      await (await SharedPreferences.getInstance()).setString(
+        'lyr_activeColor',
+        v,
+      );
     });
   }
 
   static void setShowSource(bool v) {
     showSource.value = v;
     _persistDebounced('lyr_showSource', () async {
-      await (await SharedPreferences.getInstance()).setBool('lyr_showSource', v);
+      await (await SharedPreferences.getInstance()).setBool(
+        'lyr_showSource',
+        v,
+      );
     });
   }
 
@@ -133,13 +162,13 @@ class LyricsSettings {
 
   static TextAlign get resolvedTextAlign => switch (textAlign.value) {
     'center' => TextAlign.center,
-    'right'  => TextAlign.right,
-    _        => TextAlign.left,
+    'right' => TextAlign.right,
+    _ => TextAlign.left,
   };
 
   static Color get resolvedActiveColor => switch (activeColor.value) {
     'accent' => const Color(0xFFF92D48),
     'yellow' => const Color(0xFFFFD60A),
-    _        => Colors.white,
+    _ => Colors.white,
   };
 }

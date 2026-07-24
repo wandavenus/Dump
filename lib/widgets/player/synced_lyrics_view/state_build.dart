@@ -26,6 +26,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         listenable: _settingsListenable,
         builder: (context, _) {
           final double fs = LyricsSettings.fontSize.value;
+          final double lineSpacing = LyricsSettings.lineSpacing.value;
           final Color active = LyricsSettings.resolvedActiveColor;
           final TextAlign align = LyricsSettings.resolvedTextAlign;
           final bool karaokeOn = LyricsSettings.karaokeMode.value;
@@ -58,7 +59,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   AudioService.seek(targetPos);
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: EdgeInsets.symmetric(vertical: lineSpacing),
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 380),
                     curve: Curves.easeOutCubic,
