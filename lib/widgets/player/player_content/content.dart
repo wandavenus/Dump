@@ -709,6 +709,7 @@ class _PlayerContentState extends State<PlayerContent> {
           isVisible: widget.showLyrics,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
+            _lyricsDragHandle.preservePositionForViewportResize();
             setState(() {
               _lyricsExpand = expanded ? 1.0 : 0.0;
             });

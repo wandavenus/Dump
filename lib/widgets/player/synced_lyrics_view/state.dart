@@ -29,6 +29,43 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
 
+  // When the parent switches between the compact and full lyrics viewport,
+  // keep the currently visible content anchored to the same pixel offset.
+  double? _pendingViewportRestorePixels;
+  bool _viewportRestoreScheduled = false;
+
+  void _prepareForViewportResize() {
+    final ctx = liveScrollContext;
+    if (ctx == null || !ctx.mounted) return;
+    final position = Scrollable.maybeOf(ctx)?.position;
+    if (position == null || !position.hasPixels) return;
+    _pendingViewportRestorePixels = position.pixels;
+    if (_viewportRestoreScheduled) return;
+
+    _viewportRestoreScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportRestoreScheduled = false;
+      if (!mounted) return;
+
+      final targetPixels = _pendingViewportRestorePixels;
+      _pendingViewportRestorePixels = null;
+      if (targetPixels == null) return;
+
+      final currentContext = liveScrollContext;
+      if (currentContext == null || !currentContext.mounted) return;
+      final currentPosition = Scrollable.maybeOf(currentContext)?.position;
+      if (currentPosition == null || !currentPosition.hasPixels) return;
+
+      final target = targetPixels.clamp(
+        currentPosition.minScrollExtent,
+        currentPosition.maxScrollExtent,
+      );
+      if ((currentPosition.pixels - target).abs() > 0.5) {
+        currentPosition.jumpTo(target);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
