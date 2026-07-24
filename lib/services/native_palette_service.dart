@@ -74,7 +74,9 @@ class NativePaletteService {
   static Future<void> warmUp() async {
     try {
       final dir = await getApplicationCacheDirectory();
-      _cacheFilePath = '${dir.path}/artwork/palette_cache.json';
+      // v2: bumped when HUE_ANCHOR_THRESHOLD widened 60°→120° so all cached
+      // palettes re-extract with the new, more colour-diverse logic.
+      _cacheFilePath = '${dir.path}/artwork/palette_cache_v2.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 
