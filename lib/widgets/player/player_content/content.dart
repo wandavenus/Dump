@@ -139,14 +139,6 @@ class _PlayerContentState extends State<PlayerContent> {
     required double velocity,
   }) {
     if (showLyrics) {
-      // Swipe-down on the controls area while in full-view collapses back to
-      // half-view immediately, without waiting for the list offset to drop
-      // below 50. Threshold 200 filters out tiny accidental movements.
-      if (_lyricsExpand > 0 && velocity > 200) {
-        setState(() => _lyricsExpand = 0.0);
-        _lyricsDragHandle.isExternalDragActive = false;
-        return;
-      }
       _lyricsDragHandle.flingByVelocity(velocity);
       _lyricsDragHandle.isExternalDragActive = false;
       return;
