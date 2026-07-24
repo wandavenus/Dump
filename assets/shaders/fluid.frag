@@ -78,22 +78,21 @@ void main() {
   float b01 = clamp((f0 - 0.05) / 0.70, 0.0, 1.0);
   vec3 col = mix(uColor0, uColor1, b01);
 
-  // Layer 2: Accent via f2 (circular glow field, range [0.05, 0.75]).
-  //   Using f2 instead of f1 places accent in distinct circular patches
-  //   rather than diffuse horizontal bands.  Max weight 0.85 lets accent
-  //   fully dominate its glow centres, making artwork colors visually pop.
-  float b2 = clamp((f2 - 0.05) / 0.70 * 0.85, 0.0, 0.85);
-  col = mix(col, uColor2, b2);
+  // Layer 2: Accent — mix of f1 (sin×cos interference, non-radial) and f2
+  //   (circular field) so the colour spreads atmospherically instead of
+  //   forming a distinct circular blob (orb).
+  //   f1 breaks up the circle shape; f2 adds positional variation.
+  //   Max weight 0.48 keeps accent as a visible tint, not a dominant patch.
+  float bAccent = clamp(f1 * 0.28 + (f2 - 0.05) / 0.70 * 0.28, 0.0, 0.48);
+  col = mix(col, uColor2, bAccent);
 
-  // Layer 3: Highlight — bright ridges where both glow fields peak.
-  //   Weight raised 0.22 → 0.30 so highlight hue is more visible.
+  // Layer 3: Highlight — soft glow at bright ridge peaks, no orb.
   float hBright = clamp((f0 + f2) * 0.5 - 0.37, 0.0, 1.0);
-  col = mix(col, uHighlight, hBright * 0.30);
+  col = mix(col, uHighlight, hBright * 0.24);
 
-  // Layer 4: Shadow — dark valleys where the average field dips low.
-  //   Weight raised 0.20 → 0.28 so depth color reads clearly.
+  // Layer 4: Shadow — gentle depth in dark valleys.
   float hDark = clamp(0.47 - (f0 + f1 + f2) / 3.0, 0.0, 1.0);
-  col = mix(col, uShadow, hDark * 0.28);
+  col = mix(col, uShadow, hDark * 0.24);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
   // Darkens the perimeter slightly so the centre feels like the light source.
