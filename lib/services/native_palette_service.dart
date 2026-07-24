@@ -13,20 +13,29 @@ import 'package:path_provider/path_provider.dart';
 // Drop-in replacement for the old `PaletteExtractor` / `palette_generator_plus`
 // pipeline.  Delegates color extraction to [NativePaletteBridge.kt] on the
 // Android side, which uses Android's `androidx.palette:palette` library
-// (MMCQ quantization) + a custom perceptual vibrancy-scoring and
-// hue-diversity selection algorithm.
+// (MMCQ quantization) + subject-weighted scoring, harmony-driven triplet
+// selection, and an extended 5-color output:
 //
-// Public API is identical to the old PaletteExtractor so callers need only
-// change the class name:
+//   index 0 → primary   (main mood color)
+//   index 1 → secondary (supporting color)
+//   index 2 → accent    (strongest vibrant color)
+//   index 3 → highlight (bright/highlight tone)
+//   index 4 → shadow    (dark depth tone)
 //
+// Existing callers that only read indices [0], [1], [2] continue to work
+// without any changes.
+//
+// Public API (unchanged):
 //   getSync(songId)  → List<Color>?        synchronous LRU cache lookup
 //   get(songId)      → Future<List<Color>> async extract + cache
 //   warmUp()         → Future<void>        load persisted cache from disk
 //   clearMemoryCache()                     free RAM; disk cache intact
 //
-// Cache behaviour is preserved verbatim:
+// Cache behaviour:
 //   • 256-entry LRU in memory
-//   • Debounced disk persistence (palette_cache.json — same path/format)
+//   • Debounced disk persistence (palette_cache.json)
+//   • Old 3-color entries are padded to 5 with derived fallback tones and
+//     will be refreshed on next extraction automatically
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,13 +43,17 @@ import 'package:path_provider/path_provider.dart';
 class NativePaletteService {
   NativePaletteService._();
 
-  // Fallback palette when extraction fails or artwork is absent.
-  // Identical to the old PaletteExtractor._kFallback so the persisted
-  // palette_cache.json remains fully forward-compatible.
+  /// 5-color fallback palette:
+  ///   [0] primary, [1] secondary, [2] accent, [3] highlight, [4] shadow.
+  /// First 3 entries are identical to the old 3-color fallback so any
+  /// palette_cache.json entries written by the previous version remain
+  /// compatible when loaded and padded.
   static const List<Color> _kFallback = [
-    Color(0xFF2B313A),
-    Color(0xFF4E657D),
-    Color(0xFF7B8794),
+    Color(0xFF2B313A), // primary
+    Color(0xFF4E657D), // secondary
+    Color(0xFF7B8794), // accent
+    Color(0xFFABBED4), // highlight
+    Color(0xFF121821), // shadow
   ];
 
   static const _channel = MethodChannel('dev.wndavenz.music/native_palette');
@@ -48,15 +61,16 @@ class NativePaletteService {
   static final _cache = _LruCache<int, List<Color>>(256);
 
   // ── Disk persistence ────────────────────────────────────────────────────────
-  // Same path / format as the old PaletteExtractor so existing cached palettes
-  // survive the migration without any data loss.
   static String? _cacheFilePath;
   static bool _dirty = false;
   static Timer? _saveDebounce;
 
   /// Loads the persisted palette cache from disk.  Call once during app startup
-  /// (awaited, before `runApp`) alongside `ArtworkRepository.warmUp` so
-  /// `getSync` can serve previously-computed palettes on the very first frame.
+  /// (awaited, before `runApp`) so `getSync` can serve previously-computed
+  /// palettes on the very first frame.
+  ///
+  /// Handles both old 3-color entries (padded to 5 with fallback tones) and
+  /// new 5-color entries transparently — no data loss or migration needed.
   static Future<void> warmUp() async {
     try {
       final dir = await getApplicationCacheDirectory();
@@ -69,16 +83,31 @@ class NativePaletteService {
       for (final entry in decoded.entries) {
         final songId = int.tryParse(entry.key);
         final values = entry.value;
-        if (songId == null || values is! List || values.length != 3) continue;
-        _cache.put(songId, values.map((v) => Color(v as int)).toList());
+        // Accept both old (3-color) and new (5-color) formats.
+        if (songId == null || values is! List || values.length < 3) continue;
+        final colors = List<Color>.generate(
+          values.length,
+          (i) => Color(values[i] as int),
+        );
+        // Pad old 3-color entries to 5 so callers relying on indices 3/4
+        // get something reasonable until the next real extraction.
+        _cache.put(songId, _padToFive(colors));
       }
     } catch (_) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
     }
   }
 
-  /// Debounced persistence: batches rapid extractions (prefetch waves) into a
-  /// single disk write instead of one write per song.
+  /// Pads a list to 5 colors using the fallback palette for missing slots.
+  static List<Color> _padToFive(List<Color> colors) {
+    if (colors.length >= 5) return colors;
+    return [
+      ...colors,
+      for (int i = colors.length; i < 5; i++) _kFallback[i],
+    ];
+  }
+
+  /// Debounced persistence: batches rapid extractions into a single disk write.
   static void _schedulePersist() {
     _dirty = true;
     _saveDebounce?.cancel();
@@ -110,26 +139,30 @@ class NativePaletteService {
     }
   }
 
-  // In-flight dedup: concurrent callers for the same songId share one Future
-  // instead of each independently running the full extraction pipeline.
+  // In-flight dedup: concurrent callers for the same songId share one Future.
   static final Map<int, Future<List<Color>>> _pending = {};
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// Returns the cached palette for [songId], or null if not yet extracted.
+  ///
+  /// The returned list has 5 entries:
+  ///   [0] primary, [1] secondary, [2] accent, [3] highlight, [4] shadow.
   static List<Color>? getSync(int songId) => _cache.get(songId);
 
-  /// Clears the in-memory LRU cache to free RAM.  Disk cache remains intact
-  /// and will be re-hydrated on demand by [get].
+  /// Clears the in-memory LRU cache to free RAM.  Disk cache remains intact.
   static void clearMemoryCache() => _cache.clear();
 
   /// Extracts and caches the palette for [songId].
   /// Returns the cached result immediately if already available.
   /// Concurrent calls for the same [songId] share a single in-flight future.
   ///
+  /// The returned list has 5 entries:
+  ///   [0] primary, [1] secondary, [2] accent, [3] highlight, [4] shadow.
+  ///
   /// The [artwork] parameter is accepted for API compatibility with old
   /// call sites but is intentionally ignored — the native bridge reads artwork
-  /// directly from ArtworkCacheManager, so no bytes need to cross the channel.
+  /// directly from ArtworkCacheManager.
   static Future<List<Color>> get(int songId, [Uint8List? artwork]) {
     final cached = _cache.get(songId);
     if (cached != null) return Future.value(cached);
@@ -154,12 +187,13 @@ class NativePaletteService {
         songId,
       );
 
+      // Need at least 3 values; bridge normally returns 5.
       if (raw == null || raw.length < 3) {
         _cache.put(songId, _kFallback);
         return _kFallback;
       }
 
-      final colors = raw.map(Color.new).toList(growable: false);
+      final colors = _padToFive(raw.map(Color.new).toList(growable: false));
       _cache.put(songId, colors);
       _schedulePersist();
       return colors;
@@ -168,7 +202,7 @@ class NativePaletteService {
       return _kFallback;
     } finally {
       // ignore: unawaited_futures
-      _pending.remove(songId); // Map.remove() returns the value — not awaited intentionally
+      _pending.remove(songId);
     }
   }
 }
