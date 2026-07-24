@@ -259,8 +259,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           bottom: 15,
                           left: _playerHorizontalPadding,
                           right: _playerHorizontalPadding,
-                          child: Opacity(
-                            opacity: showOverlay ? 0.0 : 1.0,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              end: showOverlay ? 0.0 : 1.0,
+                            ),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            builder: (context, value, child) =>
+                                Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: showOverlay,
                               child: Opacity(
@@ -281,8 +287,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           left: 7,
                           right: 7,
                           bottom: _lyricsExpand > 0 ? -200.0 : 30.0,
-                          child: Opacity(
-                            opacity: showLyrics ? 1.0 : 0.0,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              end: showLyrics ? 1.0 : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            builder: (context, value, child) =>
+                                Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: !showLyrics,
                               child: _buildLyricsContent(),
@@ -297,8 +309,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           left: 15.7,
                           right: 15.7,
                           bottom: controlsHeight,
-                          child: Opacity(
-                            opacity: showQueue ? 1.0 : 0.0,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              end: showQueue ? 1.0 : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            builder: (context, value, child) =>
+                                Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: !showQueue,
                               child: _QueueOverlayBody(
@@ -349,8 +367,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           key: const ValueKey('appearanceButton'),
                           top: 10,
                           right: 27,
-                          child: Opacity(
-                            opacity: showLyrics ? 1.0 : 0.0,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              end: showLyrics ? 1.0 : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            builder: (context, value, child) =>
+                                Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: !showLyrics,
                               child: const _AppearanceButton(),
@@ -364,8 +388,14 @@ class _PlayerContentState extends State<PlayerContent> {
                           top: 4,
                           left: 16 + _smallCoverSize + 25,
 
-                          child: Opacity(
-                            opacity: showOverlay ? 1.0 : 0.0,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              end: showOverlay ? 1.0 : 0.0,
+                            ),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            builder: (context, value, child) =>
+                                Opacity(opacity: value, child: child),
                             child: IgnorePointer(
                               ignoring: !showOverlay,
                               child: Column(
@@ -573,8 +603,12 @@ class _PlayerContentState extends State<PlayerContent> {
                           );
                         }
                         : null,
-                child: Opacity(
-                  opacity: 1.0 - _lyricsExpand,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: 1.0 - _lyricsExpand),
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                  builder: (context, value, child) =>
+                      Opacity(opacity: value, child: child),
                   child: IgnorePointer(
                     ignoring: _lyricsExpand > 0.0,
                     child: Opacity(
