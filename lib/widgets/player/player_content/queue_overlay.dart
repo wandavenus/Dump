@@ -143,7 +143,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [Colors.white, Colors.white, Colors.transparent],
-                    stops: [0.0, 0.70, 1.0],
+                    stops: [0.0, 0.80, 1.0],
                   ).createShader(rect);
                 },
                 blendMode: BlendMode.dstIn,
