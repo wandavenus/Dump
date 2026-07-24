@@ -13,7 +13,7 @@ class LyricsSettings {
   static final ValueNotifier<double> fontSize = ValueNotifier(45.0);
 
   /// Jarak vertikal di atas dan di bawah setiap baris lirik dalam logical px.
-  static final ValueNotifier<double> lineSpacing = ValueNotifier(10.0);
+  static final ValueNotifier<double> lineSpacing = ValueNotifier(50.0);
 
   /// Rata teks: 'left' / 'center' / 'right'.
   static final ValueNotifier<String> textAlign = ValueNotifier('left');
