@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 /// Thin adapter that drives the player bottom sheet open/close animation.
 ///
@@ -9,22 +9,24 @@ import 'package:flutter/foundation.dart';
 ///   mini-player opacity, and full-player slide-up transition.
 ///
 /// All writes go through [setProgress] or the convenience helpers [open],
-/// [close], [toggle]. The easeOutCubic timer in [_animateTo] handles smooth
+/// [close], [toggle]. The easeOutCubic Ticker in [_animateTo] handles smooth
 /// programmatic transitions (e.g. tapping the mini-player).
 ///
-/// This class sits on top of [PlayerSheetController] (the legacy controller
-/// that owns the draggable sheet) and is the sole public API for the rest of
-/// the app; the underlying sheet widget subscribes directly to [progress].
+/// Uses [SchedulerBinding.createTicker] so the animation fires in sync with
+/// the display vsync — no drift between animation frames and screen refresh,
+/// and it auto-pauses when the app is backgrounded.
 class PlayerSheetController {
   PlayerSheetController._();
 
-  static final ValueNotifier<bool> expanded =
-      ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> expanded = ValueNotifier<bool>(false);
 
-  static final ValueNotifier<double> progress =
-      ValueNotifier<double>(0.0);
+  static final ValueNotifier<double> progress = ValueNotifier<double>(0.0);
 
-  static Timer? _timer;
+  // Vsync-driven ticker replaces the old Timer.periodic approach.
+  static Ticker? _ticker;
+  static double _animStart = 0.0;
+  static double _animTarget = 0.0;
+  static int _animDurationMs = 300;
 
   static void setProgress(double value) {
     final clamped = value.clamp(0.0, 1.0).toDouble();
@@ -37,34 +39,38 @@ class PlayerSheetController {
   }
 
   static void cancelAnimation() {
-    _timer?.cancel();
-    _timer = null;
+    _ticker?.dispose();
+    _ticker = null;
+  }
+
+  static void _onTick(Duration elapsed) {
+    final rawT =
+        (elapsed.inMilliseconds / _animDurationMs).clamp(0.0, 1.0);
+
+    // easeOutCubic: 1 - (1-t)^3
+    final u = 1.0 - rawT;
+    final eased = 1.0 - u * u * u;
+
+    setProgress(_animStart + (_animTarget - _animStart) * eased);
+
+    if (rawT >= 1.0) {
+      setProgress(_animTarget);
+      _ticker?.dispose();
+      _ticker = null;
+    }
   }
 
   static void _animateTo(double target) {
-    _timer?.cancel();
+    _ticker?.dispose();
+    _ticker = null;
 
-    final startValue = progress.value;
-    final startMs = DateTime.now().millisecondsSinceEpoch;
-    final distance = (target - startValue).abs();
-    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    _animStart = progress.value;
+    _animTarget = target;
+    final distance = (_animTarget - _animStart).abs();
+    _animDurationMs = (distance * 400).clamp(80.0, 400.0).toInt();
 
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      final elapsed = DateTime.now().millisecondsSinceEpoch - startMs;
-      final rawT = (elapsed / durationMs).clamp(0.0, 1.0);
-
-      // easeOutCubic: 1 - (1-t)^3
-      final u = 1.0 - rawT;
-      final eased = 1.0 - u * u * u;
-
-      setProgress(startValue + (target - startValue) * eased);
-
-      if (rawT >= 1.0) {
-        setProgress(target);
-        timer.cancel();
-        _timer = null;
-      }
-    });
+    _ticker = Ticker(_onTick);
+    _ticker!.start();
   }
 
   static void open() {
