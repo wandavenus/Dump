@@ -605,8 +605,8 @@ class _PlayerContentState extends State<PlayerContent> {
                         : null,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(end: 1.0 - _lyricsExpand),
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
                   builder: (context, value, child) =>
                       Opacity(opacity: value, child: child),
                   child: IgnorePointer(
