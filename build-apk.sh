@@ -3,7 +3,7 @@
 # Jalankan via workflow: bash setup-flutter.sh && bash build-apk.sh
 #
 # Yang di-install otomatis jika belum ada:
-#   - /home/runner/workspace/jdk17/              (JDK 17 Temurin x64)  ← oleh setup-flutter.sh
+#   - /home/runner/workspace/jdk21/              (JDK 21 Temurin x64)  ← oleh setup-flutter.sh
 #   - /home/runner/workspace/android-sdk/        (Android SDK: platform-36, build-tools 36.0.0, platform-tools)
 #   - /home/runner/workspace/ndk/28.2.13676358/  (NDK r28c — includes clang arm64)
 #   - /home/runner/workspace/cmake-3.22.1/       (CMake + Ninja prebuilt)
@@ -31,7 +31,7 @@ export _JAVA_OPTIONS="-Djava.io.tmpdir=/home/runner/workspace/tmp -Duser.home=/h
 
 ANDROID_SDK_DIR="/home/runner/workspace/android-sdk"
 FLUTTER_DIR="/home/runner/workspace/flutter-ws/flutter"
-JDK_DIR="/home/runner/workspace/jdk17"
+JDK_DIR="/home/runner/workspace/jdk21"
 NDK_VERSION="28.2.13676358"
 NDK_DIR="/home/runner/workspace/ndk/$NDK_VERSION"   # definisikan di atas agar export tersedia lebih awal
 CMAKE_VERSION="3.22.1"
@@ -51,7 +51,7 @@ fi
 echo "✓ Flutter: $("$FLUTTER_DIR/bin/flutter" --version 2>/dev/null | head -1)"
 
 # ──────────────────────────────────────────────────
-# 2. Java — JDK 17 Temurin
+# 2. Java — JDK 21 Temurin
 # ──────────────────────────────────────────────────
 if [ ! -x "$JDK_DIR/bin/java" ] || [ ! -f "$JDK_DIR/lib/jli/libjli.so" ] || ! "$JDK_DIR/bin/java" -version >/dev/null 2>&1; then
   JDK_CANDIDATE="/nix/store/bk2hgshkd3a9v4hrs9gjmxfkzvflgydx-openjdk-17.0.15+6"
