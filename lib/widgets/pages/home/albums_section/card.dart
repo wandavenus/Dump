@@ -27,6 +27,14 @@ class _AlbumCardState extends State<_AlbumCard> {
     _loadPaletteColor();
   }
 
+  @override
+  void didUpdateWidget(_AlbumCard old) {
+    super.didUpdateWidget(old);
+    if (old.album.coverSongId != widget.album.coverSongId) {
+      _loadPaletteColor();
+    }
+  }
+
   Future<void> _loadPaletteColor() async {
     final songId = widget.album.coverSongId;
 

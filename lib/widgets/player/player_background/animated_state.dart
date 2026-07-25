@@ -21,7 +21,9 @@ class _AnimatedBlurredPlayerBackgroundState
 
   Future<void> _loadPalette(int id) async {
     if (id <= 0) {
-      if (mounted) setState(() { _songId = id; });
+      // Clear palette so PlayerFallbackBackground is shown, not stale colors
+      // from the previously-playing song.
+      if (mounted) setState(() { _songId = id; _palette = const []; });
       return;
     }
 
