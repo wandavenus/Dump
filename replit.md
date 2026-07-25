@@ -31,7 +31,7 @@ The output is `build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Flutter SDK (Replit)
 
-Flutter **3.44.5** disiapkan manual. Workflow memakai salinan workspace
+Flutter **latest stable** disiapkan manual. Workflow memakai salinan workspace
 `/home/runner/workspace/flutter-ws/flutter` supaya cache SDK dapat ditulis.
 Semua workflow sudah menjalankan `setup-flutter.sh` sebelum memakai Flutter.
 
@@ -39,9 +39,9 @@ Kalau SDK hilang (environment reset), jalankan:
 ```
 bash setup-flutter.sh
 ```
-Script ini otomatis download dan install Flutter 3.44.5 ke `/home/runner/flutter/`.
+Script ini otomatis download dan install Flutter latest stable ke `/home/runner/flutter/`.
 Jika salinan workspace rusak atau belum ada, script membuatnya ulang secara atomik.
-Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 17 tervalidasi, dan Ninja.
+Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 21 tervalidasi, dan Ninja.
 
 ## Project structure
 
