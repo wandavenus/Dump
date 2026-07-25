@@ -118,12 +118,14 @@ class _ShaderPainter extends CustomPainter {
     _old3r = _c3r; _old3g = _c3g; _old3b = _c3b;
     _old4r = _c4r; _old4g = _c4g; _old4b = _c4b;
 
-    // Set new target colours (palette now provides 5 entries).
-    final c0 = colors[0]; // primary
-    final c1 = colors[1]; // secondary
-    final c2 = colors[2]; // accent
-    final c3 = colors.length > 3 ? colors[3] : colors[0]; // highlight
-    final c4 = colors.length > 4 ? colors[4] : colors[0]; // shadow
+    // Set new target colours — NativePaletteService._padToFive() guarantees
+    // exactly 5 entries; guard all indices defensively with semantically correct
+    // fallback tones (not colors[0]) in case the contract is ever violated.
+    final c0 = colors.isNotEmpty ? colors[0] : const Color(0xFF2B313A); // primary
+    final c1 = colors.length > 1 ? colors[1] : const Color(0xFF4E657D); // secondary
+    final c2 = colors.length > 2 ? colors[2] : const Color(0xFF7B8794); // accent
+    final c3 = colors.length > 3 ? colors[3] : const Color(0xFFABBED4); // highlight
+    final c4 = colors.length > 4 ? colors[4] : const Color(0xFF121821); // shadow
     _cur0r = c0.r; _cur0g = c0.g; _cur0b = c0.b;
     _cur1r = c1.r; _cur1g = c1.g; _cur1b = c1.b;
     _cur2r = c2.r; _cur2g = c2.g; _cur2b = c2.b;

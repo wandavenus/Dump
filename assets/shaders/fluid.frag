@@ -33,20 +33,23 @@ uniform vec3  uShadow;     // shadow    — dark depth / valleys
 out vec4 fragColor;
 
 void main() {
+  // Cache fragment coordinate — used for both UV and grain to avoid computing
+  // FlutterFragCoord() twice per pixel.
+  vec2 fragCoord = FlutterFragCoord().xy;
+
   // Normalised UV in [0, 1].
-  vec2 uv = FlutterFragCoord().xy / uSize;
+  vec2 uv = fragCoord / uSize;
   float t = uTime;
 
-      // ── Domain warp (Softened for seamless blending) ─────────────────────────
-  // Kita gedeein range blur-nya (sin * 0.25) biar warnanya keseret lebih jauh,
-  // dan kecilin frekuensi-nya (y * 2.0) biar kerasa lebih adem.
-  
-  float wX1 = sin(uv.y * 2.0 + uv.x * 1.0 + t * 0.180) * 0.25; // Lebih lebar
-  float wY1 = cos(uv.x * 2.2 + uv.y * 1.2 + t * 0.145) * 0.22; // Lebih lebar
+  // ── Domain warp (softened for seamless blending) ──────────────────────────
+  // Wider blur range (sin * 0.25) pulls colours farther; lower frequency
+  // (y * 2.0) keeps the motion feeling calm.
+  float wX1 = sin(uv.y * 2.0 + uv.x * 1.0 + t * 0.180) * 0.25;
+  float wY1 = cos(uv.x * 2.2 + uv.y * 1.2 + t * 0.145) * 0.22;
 
-  // Layer 2 kita bikin super subtle aja buat hancurin pola garis
-  float wX2 = cos((uv.x + wX1) * 3.0 - t * 0.212) * 0.05; // Lebih halus
-  float wY2 = sin((uv.y + wY1) * 2.8 + t * 0.145) * 0.04; // Lebih halus
+  // Layer 2: very subtle, breaks up repeating stripe artefacts.
+  float wX2 = cos((uv.x + wX1) * 3.0 - t * 0.212) * 0.05;
+  float wY2 = sin((uv.y + wY1) * 2.8 + t * 0.145) * 0.04;
 
   vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
 
@@ -103,7 +106,7 @@ void main() {
   // Hash function maps pixel position + time to a pseudo-random value in [0,1].
   // Multiplying uTime by a large prime shifts the hash pattern every frame so
   // the grain is always animated (no static texture repeating across frames).
-  vec2 grainUV = FlutterFragCoord().xy + mod(uTime, 1.0) * 82.2;
+  vec2 grainUV = fragCoord + mod(uTime, 1.0) * 82.2;
   float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
   col = mix(col, vec3(grain), 0.02);
 
