@@ -44,7 +44,6 @@ import kotlin.math.pow
  *      - sat                = HSL saturation
  *      - lightness_factor   = max(0.05, 1 − |lightness − 0.50| × 0.9)
  *      - dark_bonus         = 1.20 when lightness < 0.25, otherwise 1.0
- *      - pop_factor         = log(population+1) / log(maxPop+1)
  *      - center_boost       = 1.15 if color is prominent in center crop, else 1.0
  *
  * 6. **Harmony-driven triplet selection** — from the top-24 scored candidates,
@@ -101,6 +100,13 @@ class NativePaletteBridge(
 
         /** Maximum candidates fed into the harmony triplet search. */
         private const val TOP_N = 24
+
+        /**
+         * Palette algorithm version — bump whenever the scoring / selection
+         * logic changes so callers can invalidate stale cached results.
+         * v4: TOP_N raised 16 → 24, changes triplet search candidates.
+         */
+        const val CACHE_VERSION = 4
 
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
@@ -344,7 +350,11 @@ class NativePaletteBridge(
         scores: List<Double>,
     ): List<Palette.Swatch> {
         val n = swatches.size
-        if (n < 3) return swatches
+        // Fewer than 3 chromatic swatches → cannot form a meaningful triplet.
+        // Return emptyList() so the caller falls back to buildFallbackFromPalette()
+        // instead of receiving a 1- or 2-element list and collapsing all three
+        // roles onto the same swatch (the original bestTriplet[1] crash source).
+        if (n < 3) return emptyList()
 
         var bestCombo  = emptyList<Palette.Swatch>()
         var bestScore  = -1.0
@@ -420,7 +430,8 @@ class NativePaletteBridge(
             val p = Palette.from(center).maximumColorCount(8).clearFilters().generate()
             center.recycle()
             p.swatches.sortedByDescending { it.population }.take(4).map { it.rgb }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.d(TAG, "Center crop extraction failed, spatial weighting disabled", e)
             emptyList()
         }
     }
