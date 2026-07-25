@@ -240,26 +240,56 @@ class NativePaletteBridge(
         val sortedBySat = bestTriplet.sortedByDescending { it.hsl[1] }
         val accent = sortedBySat[0]
         val primarySecondary = sortedBySat.drop(1).sortedByDescending { it.population }
-        val primary   = primarySecondary.getOrNull(0) ?: bestTriplet[0]
+        var primary   = primarySecondary.getOrNull(0) ?: bestTriplet[0]
         val secondary = primarySecondary.getOrNull(1) ?: bestTriplet[1]
+
+        // Step 5b: Neutral-dominance correction.
+        //
+        // The saturation filter (S ≥ 0.10) above intentionally discards near-
+        // achromatic pixels so they don't pollute the chromatic triplet.  But
+        // for artwork whose BACKGROUND is white, gray, or another near-neutral
+        // tone (e.g. an album cover with a bright logo on a white/gray canvas),
+        // those background pixels are the majority of the image — yet they were
+        // all filtered out, leaving only the small saturated logo to dominate.
+        //
+        // Fix: after the chromatic triplet is chosen, find the most-populated
+        // neutral swatch (S < 0.12, L in 0.08..0.92).  If it covers
+        // significantly more of the image than the chromatic primary, it IS the
+        // mood/background colour — promote it to primary so the player BG
+        // reflects the actual artwork atmosphere instead of a tiny accent.
+        val dominantNeutral = all
+            .filter { sw ->
+                val hsl = sw.hsl
+                hsl[1] < 0.12f && hsl[2] in 0.08f..0.92f
+            }
+            .maxByOrNull { it.population }
+
+        if (dominantNeutral != null &&
+            dominantNeutral.population > primary.population * 2.0) {
+            // Neutral background dominates — use it as the mood colour.
+            primary = dominantNeutral
+        }
 
         // Step 6: Highlight + Shadow from remaining candidates.
         // Candidates must be hue-coherent with the primary color (within
         // HUE_ANCHOR_THRESHOLD degrees) to avoid visually unrelated tones
         // contaminating the palette gradient.  If no coherent candidate
         // exists, derivation from primary's hue is used as fallback.
+        // For neutral primaries (S < 0.12) skip the hue-coherence check —
+        // achromatic hue is arbitrary in HSL; derive directly from primary.
         val usedRgbs = setOf(primary.rgb, secondary.rgb, accent.rgb)
         val rest     = candidates.filter { it.rgb !in usedRgbs }
         val primaryHue = primary.hsl[0]
+        val primaryIsNeutral = primary.hsl[1] < 0.12f
 
-        val highlightSwatch = rest.filter { sw ->
+        val highlightSwatch = if (primaryIsNeutral) null else rest.filter { sw ->
             val hsl = sw.hsl
             hsl[2] > 0.55f && hsl[1] > 0.10f &&
                 hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
         }.maxByOrNull { it.hsl[2] }
         val highlightColor = highlightSwatch?.rgb ?: deriveHighlight(primary.rgb)
 
-        val shadowSwatch = rest.filter { sw ->
+        val shadowSwatch = if (primaryIsNeutral) null else rest.filter { sw ->
             val hsl = sw.hsl
             sw.rgb != highlightSwatch?.rgb && hsl[2] < 0.45f && hsl[1] > 0.08f &&
                 hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
