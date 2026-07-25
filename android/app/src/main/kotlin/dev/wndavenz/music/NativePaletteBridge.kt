@@ -4,9 +4,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.palette.graphics.Palette
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.RejectedExecutionException
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.pow
@@ -23,25 +25,29 @@ import kotlin.math.pow
  *
  * 2. **Image decode** — two-pass [BitmapFactory.decodeFile]: bounds-only first to
  *    compute the minimum power-of-two [inSampleSize] that keeps the decoded
- *    bitmap ≤ [PALETTE_TARGET_SIZE] px on each side.  Decoded as RGB_565.
+ *    bitmap ≤ [PALETTE_TARGET_SIZE] px on each side.  Decoded as ARGB_8888 so
+ *    soft artwork gradients do not acquire avoidable RGB_565 banding.
  *
  * 3. **MMCQ quantization** — [Palette.from] with [maximumColorCount] = 32 and
  *    no colour filters.
  *
  * 4. **Spatial / subject weighting** — a center-crop (inner 60 % of each axis)
- *    is analysed independently.  Colors prominent in the center receive a ×1.4
- *    score boost, ensuring visually important subjects (characters, objects)
- *    win over large flat backgrounds.
+ *    is analysed independently.  Colors prominent in the center receive a
+ *    ×1.15 score boost, ensuring visually important subjects (characters,
+ *    objects) receive a small lift without overwhelming the overall mood.
  *
  * 5. **Perceptual scoring** — each swatch is scored:
- *      score = sat^1.4 × lightness_factor × (0.35 + 0.65 × pop_factor) × center_boost
+ *      score = (0.70 × pop_factor + 0.30 × sat^0.8)
+ *              × lightness_factor × center_boost × dark_bonus
  *    where:
- *      - sat                = HSL saturation
- *      - lightness_factor   = 1 − |lightness − 0.45| × 1.6
  *      - pop_factor         = log(population+1) / log(maxPop+1)
- *      - center_boost       = 1.4 if color is prominent in center crop, else 1.0
+ *      - sat                = HSL saturation
+ *      - lightness_factor   = max(0.05, 1 − |lightness − 0.50| × 0.9)
+ *      - dark_bonus         = 1.20 when lightness < 0.25, otherwise 1.0
+ *      - pop_factor         = log(population+1) / log(maxPop+1)
+ *      - center_boost       = 1.15 if color is prominent in center crop, else 1.0
  *
- * 6. **Harmony-driven triplet selection** — from the top-12 scored candidates,
+ * 6. **Harmony-driven triplet selection** — from the top-24 scored candidates,
  *    all triplet combinations are evaluated.  Each triplet's score is:
  *      triplet_score = sum_of_individual_scores × (1 + 0.5 × harmony_score)
  *    Harmony rewards triadic (≈120° hue spacing), complementary (≈180°), and
@@ -61,7 +67,10 @@ import kotlin.math.pow
  *    Existing callers that only read index 0/1/2 remain fully compatible.
  *
  * # Performance
- * Center-crop secondary palette adds ≈1–2 ms.  Total ≈4–10 ms on SD730.
+ * The palette pass is intentionally bounded to a small bitmap and at most
+ * C(24,3)=2024 triplets.  Timings depend on whether artwork is already cached:
+ * cache hits avoid MediaStore extraction, while cache misses include artwork
+ * extraction and WebP encoding in [ArtworkCacheManager].
  */
 class NativePaletteBridge(
     private val artworkCacheManager: ArtworkCacheManager,
@@ -69,6 +78,7 @@ class NativePaletteBridge(
 ) {
 
     companion object {
+        private const val TAG = "NativePaletteBridge"
         const val CHANNEL = "dev.wndavenz.music/native_palette"
 
         /**
@@ -114,15 +124,31 @@ class NativePaletteBridge(
             result.notImplemented()
             return
         }
-        val songId = (args as? Int) ?: run { result.success(FALLBACK); return }
+        val songId = (args as? Int)
+        if (songId == null || songId <= 0) {
+            result.error("invalid_song_id", "extractPalette requires a positive Int songId", null)
+            return
+        }
 
         try {
             executor.execute {
-                val colors = runCatching { extractColors(songId) }.getOrDefault(FALLBACK)
-                mainHandler.post { result.success(colors) }
+                try {
+                    val colors = extractColors(songId)
+                    mainHandler.post { result.success(colors) }
+                } catch (error: Exception) {
+                    Log.w(TAG, "Palette extraction failed for songId=$songId", error)
+                    mainHandler.post {
+                        result.error(
+                            "palette_extraction_failed",
+                            error.message ?: "Palette extraction failed",
+                            null,
+                        )
+                    }
+                }
             }
-        } catch (_: Exception) {
-            result.success(FALLBACK)
+        } catch (error: RejectedExecutionException) {
+            Log.w(TAG, "Palette queue rejected songId=$songId", error)
+            result.error("palette_busy", "Palette extraction queue is busy", null)
         }
     }
 
@@ -143,7 +169,7 @@ class NativePaletteBridge(
 
         val bitmap = BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
             inSampleSize = sampleSize
-            inPreferredConfig = Bitmap.Config.RGB_565
+            inPreferredConfig = Bitmap.Config.ARGB_8888
         }) ?: return FALLBACK
 
         return try {
@@ -188,7 +214,7 @@ class NativePaletteBridge(
         //   but can no longer overpower a dominant background with 24x advantage.
         //
         // Key changes from the old formula (sat^1.4 * lightFactor_steep):
-        //   • Score = 65% population + 35% vibrancy(sat^0.8)
+        //   • Score = 70% population + 30% vibrancy(sat^0.8)
         //     → isolated saturated elements (hair, logo) no longer overwhelm
         //       large background areas (lavender, teal, cream)
         //   • lightFactor peak shifted 0.45→0.50, falloff reduced 1.6→0.9
@@ -212,14 +238,12 @@ class NativePaletteBridge(
             // Softer saturation power: sat^0.8 reduces the gap between
             // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
             val vibrancy    = sat.pow(0.8)
-            // Blended score: dominant area (65%) + vibrancy (35%).
+            // Blended score: dominant area (70%) + vibrancy (30%).
             val baseScore   = popFactor * 0.70 + vibrancy * 0.30
             // Reduced center boost: still rewards centered subjects, but not
             // enough to let a single isolated element overwhelm the background.
             val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.15 else 1.0
-            val darkBonus =
-            if (light < 0.25) 1.20
-            else 1.0
+            val darkBonus = if (light < 0.25) 1.20 else 1.0
             val score = baseScore * lightFactor * centerBoost * darkBonus
             Scored(sw, score)
         }.sortedByDescending { it.score }
@@ -235,13 +259,19 @@ class NativePaletteBridge(
 
         // Step 5: Assign roles within the triplet.
         //   accent    = most saturated (vibrant pop)
-        //   primary   = highest population (main mood)
-        //   secondary = remainder
-        val sortedBySat = bestTriplet.sortedByDescending { it.hsl[1] }
-        val accent = sortedBySat[0]
-        val primarySecondary = sortedBySat.drop(1).sortedByDescending { it.population }
-        var primary   = primarySecondary.getOrNull(0) ?: bestTriplet[0]
-        val secondary = primarySecondary.getOrNull(1) ?: bestTriplet[1]
+        //   primary   = highest population among the remaining swatches
+        //   secondary = the remaining swatch
+        //
+        // Palette can legitimately return only one or two chromatic swatches
+        // (for example, a nearly monochrome cover).  Keep the role assignment
+        // total in those cases instead of indexing bestTriplet[1].
+        val accent = bestTriplet.maxByOrNull { it.hsl[1] } ?: return buildFallbackFromPalette(palette)
+        val remaining = bestTriplet.filter { it.rgb != accent.rgb }
+        var primary = remaining.maxByOrNull { it.population } ?: accent
+        val secondary = remaining
+            .filter { it.rgb != primary.rgb }
+            .maxByOrNull { it.population }
+            ?: primary
 
         // Step 5b: Neutral-dominance correction.
         //
@@ -306,7 +336,8 @@ class NativePaletteBridge(
      * combinations of 3 and returns the triplet that maximises:
      *   sum_of_individual_scores × (1 + 0.5 × harmony_score)
      *
-     * At most [TOP_N] swatches → at most C(12,3)=220 combinations: negligible.
+     * At most [TOP_N] swatches → at most C(24,3)=2024 combinations: negligible
+     * on the already downsampled palette bitmap.
      */
     private fun selectHarmoniousTriplet(
         swatches: List<Palette.Swatch>,

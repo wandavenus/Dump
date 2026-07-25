@@ -33,9 +33,8 @@ import 'package:path_provider/path_provider.dart';
 //
 // Cache behaviour:
 //   • 256-entry LRU in memory
-//   • Debounced disk persistence (palette_cache.json)
-//   • Old 3-color entries are padded to 5 with derived fallback tones and
-//     will be refreshed on next extraction automatically
+//   • Debounced disk persistence (palette_cache_v4.json)
+//   • Old 3-color entries are padded to 5 with fallback tones when loaded
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,9 +44,7 @@ class NativePaletteService {
 
   /// 5-color fallback palette:
   ///   [0] primary, [1] secondary, [2] accent, [3] highlight, [4] shadow.
-  /// First 3 entries are identical to the old 3-color fallback so any
-  /// palette_cache.json entries written by the previous version remain
-  /// compatible when loaded and padded.
+  /// First 3 entries are identical to the old 3-color fallback.
   static const List<Color> _kFallback = [
     Color(0xFF2B313A), // primary
     Color(0xFF4E657D), // secondary
@@ -74,9 +71,9 @@ class NativePaletteService {
   static Future<void> warmUp() async {
     try {
       final dir = await getApplicationCacheDirectory();
-      // v2: bumped when HUE_ANCHOR_THRESHOLD widened 60°→120° so all cached
-      // palettes re-extract with the new, more colour-diverse logic.
-      _cacheFilePath = '${dir.path}/artwork/palette_cache_v3.json';
+      // v4: invalidates v3 because the native candidate search widened from
+      // TOP_N=16 to TOP_N=24 and the bitmap decode changed to ARGB_8888.
+      _cacheFilePath = '${dir.path}/artwork/palette_cache_v4.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 
@@ -85,7 +82,9 @@ class NativePaletteService {
       for (final entry in decoded.entries) {
         final songId = int.tryParse(entry.key);
         final values = entry.value;
-        // Accept both old (3-color) and new (5-color) formats.
+        // Accept both old (3-color) and new (5-color) formats in this cache
+        // file, while the v4 filename ensures results from the old algorithm
+        // are not reused.
         if (songId == null || values is! List || values.length < 3) continue;
         final colors = List<Color>.generate(
           values.length,
@@ -179,8 +178,10 @@ class NativePaletteService {
 
   static Future<List<Color>> _extract(int songId) async {
     try {
-      // Non-Android / web: return fallback immediately (no MethodChannel).
+      // Non-Android / web: return and cache fallback immediately (no
+      // MethodChannel is available there).
       if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+        _cache.put(songId, _kFallback);
         return _kFallback;
       }
 
@@ -191,7 +192,6 @@ class NativePaletteService {
 
       // Need at least 3 values; bridge normally returns 5.
       if (raw == null || raw.length < 3) {
-        _cache.put(songId, _kFallback);
         return _kFallback;
       }
 
@@ -200,7 +200,9 @@ class NativePaletteService {
       _schedulePersist();
       return colors;
     } catch (_) {
-      _cache.put(songId, _kFallback);
+      // Do not cache fallback for a native/channel failure.  Queue saturation,
+      // a transient engine teardown, or a temporary decode failure must be
+      // retryable on the next call rather than persisted forever.
       return _kFallback;
     } finally {
       // ignore: unawaited_futures
