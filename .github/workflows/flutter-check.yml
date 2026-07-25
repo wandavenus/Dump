@@ -36,6 +36,16 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Lint url_launcher_android
+        working-directory: android
+        env:
+         LINT_PRINT_STACKTRACE: "true"
+        run: |
+         ./gradlew \
+         :url_launcher_android:lintVitalAnalyzeRelease \
+         --stacktrace \
+         --info
+
       - name: Assemble Debug
         working-directory: android
         run: ./gradlew assembleDebug
