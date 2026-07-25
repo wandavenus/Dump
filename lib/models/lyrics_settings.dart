@@ -10,10 +10,10 @@ class LyricsSettings {
   // ── Value notifiers ─────────────────────────────────────────────────────────
 
   /// Ukuran font teks lirik aktif (14 / 18 / 22 / 26).
-  static final ValueNotifier<double> fontSize = ValueNotifier(45.0);
+  static final ValueNotifier<double> fontSize = ValueNotifier(46.0);
 
   /// Jarak vertikal di atas dan di bawah setiap baris lirik dalam logical px.
-  static final ValueNotifier<double> lineSpacing = ValueNotifier(50.0);
+  static final ValueNotifier<double> lineSpacing = ValueNotifier(20.0);
 
   /// Rata teks: 'left' / 'center' / 'right'.
   static final ValueNotifier<String> textAlign = ValueNotifier('left');
@@ -37,8 +37,8 @@ class LyricsSettings {
 
   static Future<void> init() async {
     final p = await SharedPreferences.getInstance();
-    fontSize.value = p.getDouble('lyr_fontSize') ?? 45.0;
-    lineSpacing.value = p.getDouble('lyr_lineSpacing') ?? 10.0;
+    fontSize.value = p.getDouble('lyr_fontSize') ?? 46.0;
+    lineSpacing.value = p.getDouble('lyr_lineSpacing') ?? 20.0;
     textAlign.value = p.getString('lyr_textAlign') ?? 'left';
     bgDim.value = p.getDouble('lyr_bgDim') ?? 0.0;
     blurStrength.value = p.getDouble('lyr_blur') ?? 0.0;
