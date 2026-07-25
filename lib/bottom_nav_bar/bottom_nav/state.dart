@@ -214,7 +214,7 @@ class _FirstPageState extends State<FirstPage> {
                               final e = progress - 0.75;
                               curved = _b75 + 0.25 * e - 0.4 * e * e;
                             }
-                            final slide = (curved * sh * 0.18).clamp(0.0, navH);
+                            final slide = (curved * sh * 0.17).clamp(0.0, navH);
                             return Transform.translate(
                               offset: Offset(0, slide),
                               child: useGlassNavBar
