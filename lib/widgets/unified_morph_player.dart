@@ -152,7 +152,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     }
 
     // Duration proportional to remaining travel — feels natural on flings
-    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    // ×1.5 vs original: hero artwork 50% lebih lambat.
+    final durationMs = (distance * 600).clamp(120.0, 600.0).toInt();
     _releaseAnim.duration = Duration(milliseconds: durationMs);
     _releaseAnim.value = 0.0;
     _releaseAnim.animateTo(1.0, curve: Curves.linear);

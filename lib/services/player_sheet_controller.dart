@@ -67,7 +67,7 @@ class PlayerSheetController {
     _animStart = progress.value;
     _animTarget = target;
     final distance = (_animTarget - _animStart).abs();
-    _animDurationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    _animDurationMs = (distance * 600).clamp(120.0, 600.0).toInt();
 
     _ticker = Ticker(_onTick);
     _ticker!.start();
