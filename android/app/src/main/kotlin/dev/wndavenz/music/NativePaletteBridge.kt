@@ -90,7 +90,7 @@ class NativePaletteBridge(
         private const val CENTER_MARGIN = 0.20f
 
         /** Maximum candidates fed into the harmony triplet search. */
-        private const val TOP_N = 16
+        private const val TOP_N = 24
 
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
