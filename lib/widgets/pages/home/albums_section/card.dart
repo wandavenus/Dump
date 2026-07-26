@@ -40,13 +40,13 @@ class _AlbumCardState extends State<_AlbumCard> {
 
     final cached = NativePaletteService.getSync(songId);
     if (cached != null) {
-      if (mounted) setState(() => _bgColor = cached.length > 2 ? cached[2] : _fallbackColor);
+      if (mounted) setState(() => _bgColor = cached.isNotEmpty ? cached[0] : _fallbackColor;
       return;
     }
 
     final colors = await NativePaletteService.get(songId);
     if (!mounted) return;
-    setState(() => _bgColor = colors.length > 2 ? colors[2] : _fallbackColor);
+    setState(() => _bgColor = colors.isNotEmpty ? colors[0] : _fallbackColor;
   }
 
   @override
