@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../extensions/localization_extension.dart';
+
 import '../models/local_song.dart';
 import '../models/playlist.dart';
 import '../pages/album_page.dart';
@@ -150,7 +152,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.play_fill,
-                label: 'Putar Sekarang',
+                label: context.l10n.playNow,
                 onTap: () async {
                   Navigator.pop(context);
                   await AudioService.playSongAt(
@@ -162,7 +164,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.forward_end_fill,
-                label: 'Putar Selanjutnya',
+                label: context.l10n.playNext,
                 onTap: () {
                   Navigator.pop(context);
                   AudioService.addToQueueNext(widget.song);
@@ -171,7 +173,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.text_badge_plus,
-                label: 'Tambah ke Antrian',
+                label: context.l10n.addToQueue,
                 onTap: () {
                   Navigator.pop(context);
                   AudioService.addToQueue(widget.song);
@@ -185,7 +187,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
                     ? CupertinoIcons.heart_fill
                     : CupertinoIcons.heart,
                 iconColor: Theme.of(context).colorScheme.primary,
-                label: _isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
+                label: _isFavorite ? context.l10n.removeFromFavorites : context.l10n.addToFavorites,
                 onTap: _favLoaded
                     ? () async {
                         final navigator = Navigator.of(context);
@@ -200,7 +202,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.music_note_list,
-                label: 'Tambah ke Daftar Putar',
+                label: context.l10n.addToPlaylistMenu,
                 onTap: () => _showAddToPlaylist(context),
               ),
 
@@ -208,13 +210,13 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.music_albums_fill,
-                label: 'Buka Album',
+                label: context.l10n.openAlbum,
                 onTap: _openAlbum,
               ),
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.person_fill,
-                label: 'Buka Artis',
+                label: context.l10n.openArtist,
                 onTap: _openArtist,
               ),
 
@@ -222,7 +224,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.info_circle,
-                label: 'Informasi Lagu',
+                label: context.l10n.songInformation,
                 onTap: () {
                   Navigator.pop(context);
                   _showSongInfo(context);
@@ -235,7 +237,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 icon: CupertinoIcons.trash,
                 iconColor: Theme.of(context).colorScheme.primary,
                 labelColor: Theme.of(context).colorScheme.primary,
-                label: 'Hapus dari Perangkat',
+                label: context.l10n.deleteFromDevice,
                 onTap: () => _confirmDelete(context),
               ),
               const SizedBox(height: 8),
@@ -263,6 +265,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     navigator.pop();
 
     final c = AppColors.of(context);
+    final l = context.l10n;
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
       MediaStoreService.clearSongsCache();
@@ -271,7 +274,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
       unawaited(ReplayGainService.invalidate(widget.song.id));
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Lagu berhasil dihapus'),
+          content: Text(l.songDeletedMsg),
           backgroundColor: c.surface2,
           behavior: SnackBarBehavior.floating,
         ),
@@ -279,7 +282,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     } else {
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Gagal menghapus lagu'),
+          content: Text(l.songDeleteFailedMsg),
           backgroundColor: c.surface2,
           behavior: SnackBarBehavior.floating,
         ),
@@ -344,24 +347,25 @@ class _SongContextMenuState extends State<SongContextMenu> {
 
   void _showSongInfo(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     showDialog(
       context: context,
       useRootNavigator: true,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: c.surface,
         title: Text(
-          'Informasi Lagu',
+          l.songInformation,
           style: TextStyle(color: c.primaryLabel, fontSize: 17),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _InfoRow(label: 'Judul', value: widget.song.title),
-            _InfoRow(label: 'Artis', value: widget.song.artist),
-            _InfoRow(label: 'Album', value: widget.song.album),
+            _InfoRow(label: l.fieldTitle, value: widget.song.title),
+            _InfoRow(label: l.fieldArtist, value: widget.song.artist),
+            _InfoRow(label: l.fieldAlbum, value: widget.song.album),
             _InfoRow(
-              label: 'Durasi',
+              label: l.fieldDuration,
               value: _formatDuration(widget.song.duration),
             ),
           ],
@@ -370,7 +374,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(
-              'Tutup',
+              l.close,
               style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary),
             ),
           ),

@@ -55,7 +55,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
         if (state.currentPlaylist.isEmpty) {
           return Center(
             child: Text(
-              'Antrian kosong',
+              context.l10n.queueEmpty,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 15,
@@ -114,9 +114,9 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Lanjutkan Memutar',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.continuePlaying,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w500,
@@ -124,7 +124,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                   ),
                   const SizedBox(height: 0.5),
                   Text(
-                    'Memutar otomatis musik serupa',
+                    context.l10n.autoplayDescription,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.55),
                       fontSize: 14,

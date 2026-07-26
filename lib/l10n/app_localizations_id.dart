@@ -689,4 +689,161 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get goToSettings => 'Pengaturan';
+
+  @override
+  String deletePlaylistBody(String name) {
+    return 'Playlist \"$name\" akan dihapus permanen.';
+  }
+
+  @override
+  String get timerEndOfSong => 'Akhir lagu';
+
+  @override
+  String get sectionDetails => 'DETAIL';
+
+  @override
+  String get sectionAudioQuality => 'KUALITAS AUDIO';
+
+  @override
+  String get sectionLoudness => 'KENYARINGAN';
+
+  @override
+  String get sectionEmbedded => 'KONTEN TERSEMAT';
+
+  @override
+  String get sectionStatistics => 'STATISTIK';
+
+  @override
+  String get sectionFile => 'FILE';
+
+  @override
+  String get sectionAdditionalInfo => 'INFO TAMBAHAN';
+
+  @override
+  String get fieldAlbumArtist => 'Artis Album';
+
+  @override
+  String get fieldGenre => 'Genre';
+
+  @override
+  String get fieldYear => 'Tahun';
+
+  @override
+  String get fieldTrack => 'Track';
+
+  @override
+  String trackDiscValue(String track, String disc) {
+    return '$track (Disc $disc)';
+  }
+
+  @override
+  String get fieldFormat => 'Format';
+
+  @override
+  String get fieldBitDepth => 'Bit Depth';
+
+  @override
+  String get fieldSampleRate => 'Sample Rate';
+
+  @override
+  String get fieldChannels => 'Saluran';
+
+  @override
+  String get fieldBitrate => 'Bitrate';
+
+  @override
+  String get fieldEncoder => 'Encoder';
+
+  @override
+  String get fieldFileSize => 'Ukuran File';
+
+  @override
+  String get fieldAppliedGain => 'Gain Diterapkan';
+
+  @override
+  String get fieldLoudnessSource => 'Sumber';
+
+  @override
+  String get fieldLyrics => 'Lirik';
+
+  @override
+  String get fieldPlayCount => 'Jumlah Putar';
+
+  @override
+  String get fieldFileName => 'Nama File';
+
+  @override
+  String get fieldFolder => 'Folder';
+
+  @override
+  String get fieldDateAdded => 'Tanggal Ditambahkan';
+
+  @override
+  String get fieldModified => 'Dimodifikasi';
+
+  @override
+  String get fieldComposer => 'Komposer';
+
+  @override
+  String get fieldPublisher => 'Penerbit';
+
+  @override
+  String get fieldCopyright => 'Hak Cipta';
+
+  @override
+  String get fieldIsrc => 'ISRC';
+
+  @override
+  String get fieldComment => 'Komentar';
+
+  @override
+  String get fieldRgTrackGain => 'RG Track Gain';
+
+  @override
+  String get fieldRgTrackPeak => 'RG Track Peak';
+
+  @override
+  String get fieldRgAlbumGain => 'RG Album Gain';
+
+  @override
+  String get fieldRgAlbumPeak => 'RG Album Peak';
+
+  @override
+  String get fieldR128TrackGain => 'R128 Track Gain';
+
+  @override
+  String get fieldR128AlbumGain => 'R128 Album Gain';
+
+  @override
+  String get channelMono => 'Mono';
+
+  @override
+  String get channelStereo => 'Stereo';
+
+  @override
+  String get channelQuad => 'Quad';
+
+  @override
+  String get channel51Surround => '5.1 Surround';
+
+  @override
+  String get channel71Surround => '7.1 Surround';
+
+  @override
+  String get bitrateUnknownLossless => 'Lossless';
+
+  @override
+  String get glassToggleNavBar => 'NavBar';
+
+  @override
+  String get glassToggleAppBar => 'AppBar';
+
+  @override
+  String get glassToggleMiniPlayer => 'Mini Player';
+
+  @override
+  String get glassTogglePlayerSheet => 'Player Sheet';
+
+  @override
+  String get glassToggleAlbumCard => 'Album Card';
 }
