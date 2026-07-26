@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_playback_state.dart';
 import 'package:musicplayer/models/local_song.dart';
@@ -99,7 +100,7 @@ class _UpNextCardContent extends StatelessWidget {
     Padding(
       padding: const EdgeInsets.only(top: 2),
       child: Text(
-        'UP NEXT',
+        context.l10n.upNextLabel,
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.45),
           fontSize: 10,

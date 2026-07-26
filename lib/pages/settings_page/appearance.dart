@@ -74,27 +74,27 @@ class _AppearanceSection extends StatelessWidget {
               const SettingsDivider(),
               if (isGlass) ...[
                 _GlassSubToggle(
-                    label: 'NavBar',
+                    label: l.glassToggleNavBar,
                     notifier: ThemeController.glassNavBar,
                     onChanged: ThemeController.setGlassNavBar),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: 'AppBar',
+                    label: l.glassToggleAppBar,
                     notifier: ThemeController.glassAppBar,
                     onChanged: ThemeController.setGlassAppBar),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: 'Mini Player',
+                    label: l.glassToggleMiniPlayer,
                     notifier: ThemeController.glassMiniPlayer,
                     onChanged: ThemeController.setGlassMiniPlayer),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: 'Player Sheet',
+                    label: l.glassTogglePlayerSheet,
                     notifier: ThemeController.glassPlayerSheet,
                     onChanged: ThemeController.setGlassPlayerSheet),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: 'Album Card',
+                    label: l.glassToggleAlbumCard,
                     notifier: ThemeController.glassAlbumCard,
                     onChanged: ThemeController.setGlassAlbumCard),
                 const SettingsDivider(indent: 52),

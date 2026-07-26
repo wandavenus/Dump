@@ -688,4 +688,161 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get goToSettings => 'Settings';
+
+  @override
+  String deletePlaylistBody(String name) {
+    return 'Playlist \"$name\" will be permanently deleted.';
+  }
+
+  @override
+  String get timerEndOfSong => 'End of song';
+
+  @override
+  String get sectionDetails => 'DETAILS';
+
+  @override
+  String get sectionAudioQuality => 'AUDIO QUALITY';
+
+  @override
+  String get sectionLoudness => 'LOUDNESS';
+
+  @override
+  String get sectionEmbedded => 'EMBEDDED CONTENT';
+
+  @override
+  String get sectionStatistics => 'STATISTICS';
+
+  @override
+  String get sectionFile => 'FILE';
+
+  @override
+  String get sectionAdditionalInfo => 'ADDITIONAL INFO';
+
+  @override
+  String get fieldAlbumArtist => 'Album Artist';
+
+  @override
+  String get fieldGenre => 'Genre';
+
+  @override
+  String get fieldYear => 'Year';
+
+  @override
+  String get fieldTrack => 'Track';
+
+  @override
+  String trackDiscValue(String track, String disc) {
+    return '$track (Disc $disc)';
+  }
+
+  @override
+  String get fieldFormat => 'Format';
+
+  @override
+  String get fieldBitDepth => 'Bit Depth';
+
+  @override
+  String get fieldSampleRate => 'Sample Rate';
+
+  @override
+  String get fieldChannels => 'Channels';
+
+  @override
+  String get fieldBitrate => 'Bitrate';
+
+  @override
+  String get fieldEncoder => 'Encoder';
+
+  @override
+  String get fieldFileSize => 'File Size';
+
+  @override
+  String get fieldAppliedGain => 'Applied Gain';
+
+  @override
+  String get fieldLoudnessSource => 'Source';
+
+  @override
+  String get fieldLyrics => 'Lyrics';
+
+  @override
+  String get fieldPlayCount => 'Play Count';
+
+  @override
+  String get fieldFileName => 'File Name';
+
+  @override
+  String get fieldFolder => 'Folder';
+
+  @override
+  String get fieldDateAdded => 'Date Added';
+
+  @override
+  String get fieldModified => 'Modified';
+
+  @override
+  String get fieldComposer => 'Composer';
+
+  @override
+  String get fieldPublisher => 'Publisher';
+
+  @override
+  String get fieldCopyright => 'Copyright';
+
+  @override
+  String get fieldIsrc => 'ISRC';
+
+  @override
+  String get fieldComment => 'Comment';
+
+  @override
+  String get fieldRgTrackGain => 'RG Track Gain';
+
+  @override
+  String get fieldRgTrackPeak => 'RG Track Peak';
+
+  @override
+  String get fieldRgAlbumGain => 'RG Album Gain';
+
+  @override
+  String get fieldRgAlbumPeak => 'RG Album Peak';
+
+  @override
+  String get fieldR128TrackGain => 'R128 Track Gain';
+
+  @override
+  String get fieldR128AlbumGain => 'R128 Album Gain';
+
+  @override
+  String get channelMono => 'Mono';
+
+  @override
+  String get channelStereo => 'Stereo';
+
+  @override
+  String get channelQuad => 'Quad';
+
+  @override
+  String get channel51Surround => '5.1 Surround';
+
+  @override
+  String get channel71Surround => '7.1 Surround';
+
+  @override
+  String get bitrateUnknownLossless => 'Lossless';
+
+  @override
+  String get glassToggleNavBar => 'NavBar';
+
+  @override
+  String get glassToggleAppBar => 'AppBar';
+
+  @override
+  String get glassToggleMiniPlayer => 'Mini Player';
+
+  @override
+  String get glassTogglePlayerSheet => 'Player Sheet';
+
+  @override
+  String get glassToggleAlbumCard => 'Album Card';
 }

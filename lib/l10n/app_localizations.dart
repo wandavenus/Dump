@@ -1381,6 +1381,312 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get goToSettings;
+
+  /// No description provided for @deletePlaylistBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist \"{name}\" will be permanently deleted.'**
+  String deletePlaylistBody(String name);
+
+  /// No description provided for @timerEndOfSong.
+  ///
+  /// In en, this message translates to:
+  /// **'End of song'**
+  String get timerEndOfSong;
+
+  /// No description provided for @sectionDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'DETAILS'**
+  String get sectionDetails;
+
+  /// No description provided for @sectionAudioQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'AUDIO QUALITY'**
+  String get sectionAudioQuality;
+
+  /// No description provided for @sectionLoudness.
+  ///
+  /// In en, this message translates to:
+  /// **'LOUDNESS'**
+  String get sectionLoudness;
+
+  /// No description provided for @sectionEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'EMBEDDED CONTENT'**
+  String get sectionEmbedded;
+
+  /// No description provided for @sectionStatistics.
+  ///
+  /// In en, this message translates to:
+  /// **'STATISTICS'**
+  String get sectionStatistics;
+
+  /// No description provided for @sectionFile.
+  ///
+  /// In en, this message translates to:
+  /// **'FILE'**
+  String get sectionFile;
+
+  /// No description provided for @sectionAdditionalInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'ADDITIONAL INFO'**
+  String get sectionAdditionalInfo;
+
+  /// No description provided for @fieldAlbumArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Album Artist'**
+  String get fieldAlbumArtist;
+
+  /// No description provided for @fieldGenre.
+  ///
+  /// In en, this message translates to:
+  /// **'Genre'**
+  String get fieldGenre;
+
+  /// No description provided for @fieldYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get fieldYear;
+
+  /// No description provided for @fieldTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'Track'**
+  String get fieldTrack;
+
+  /// No description provided for @trackDiscValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{track} (Disc {disc})'**
+  String trackDiscValue(String track, String disc);
+
+  /// No description provided for @fieldFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get fieldFormat;
+
+  /// No description provided for @fieldBitDepth.
+  ///
+  /// In en, this message translates to:
+  /// **'Bit Depth'**
+  String get fieldBitDepth;
+
+  /// No description provided for @fieldSampleRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample Rate'**
+  String get fieldSampleRate;
+
+  /// No description provided for @fieldChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get fieldChannels;
+
+  /// No description provided for @fieldBitrate.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitrate'**
+  String get fieldBitrate;
+
+  /// No description provided for @fieldEncoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Encoder'**
+  String get fieldEncoder;
+
+  /// No description provided for @fieldFileSize.
+  ///
+  /// In en, this message translates to:
+  /// **'File Size'**
+  String get fieldFileSize;
+
+  /// No description provided for @fieldAppliedGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied Gain'**
+  String get fieldAppliedGain;
+
+  /// No description provided for @fieldLoudnessSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get fieldLoudnessSource;
+
+  /// No description provided for @fieldLyrics.
+  ///
+  /// In en, this message translates to:
+  /// **'Lyrics'**
+  String get fieldLyrics;
+
+  /// No description provided for @fieldPlayCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Play Count'**
+  String get fieldPlayCount;
+
+  /// No description provided for @fieldFileName.
+  ///
+  /// In en, this message translates to:
+  /// **'File Name'**
+  String get fieldFileName;
+
+  /// No description provided for @fieldFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder'**
+  String get fieldFolder;
+
+  /// No description provided for @fieldDateAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Date Added'**
+  String get fieldDateAdded;
+
+  /// No description provided for @fieldModified.
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get fieldModified;
+
+  /// No description provided for @fieldComposer.
+  ///
+  /// In en, this message translates to:
+  /// **'Composer'**
+  String get fieldComposer;
+
+  /// No description provided for @fieldPublisher.
+  ///
+  /// In en, this message translates to:
+  /// **'Publisher'**
+  String get fieldPublisher;
+
+  /// No description provided for @fieldCopyright.
+  ///
+  /// In en, this message translates to:
+  /// **'Copyright'**
+  String get fieldCopyright;
+
+  /// No description provided for @fieldIsrc.
+  ///
+  /// In en, this message translates to:
+  /// **'ISRC'**
+  String get fieldIsrc;
+
+  /// No description provided for @fieldComment.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment'**
+  String get fieldComment;
+
+  /// No description provided for @fieldRgTrackGain.
+  ///
+  /// In en, this message translates to:
+  /// **'RG Track Gain'**
+  String get fieldRgTrackGain;
+
+  /// No description provided for @fieldRgTrackPeak.
+  ///
+  /// In en, this message translates to:
+  /// **'RG Track Peak'**
+  String get fieldRgTrackPeak;
+
+  /// No description provided for @fieldRgAlbumGain.
+  ///
+  /// In en, this message translates to:
+  /// **'RG Album Gain'**
+  String get fieldRgAlbumGain;
+
+  /// No description provided for @fieldRgAlbumPeak.
+  ///
+  /// In en, this message translates to:
+  /// **'RG Album Peak'**
+  String get fieldRgAlbumPeak;
+
+  /// No description provided for @fieldR128TrackGain.
+  ///
+  /// In en, this message translates to:
+  /// **'R128 Track Gain'**
+  String get fieldR128TrackGain;
+
+  /// No description provided for @fieldR128AlbumGain.
+  ///
+  /// In en, this message translates to:
+  /// **'R128 Album Gain'**
+  String get fieldR128AlbumGain;
+
+  /// No description provided for @channelMono.
+  ///
+  /// In en, this message translates to:
+  /// **'Mono'**
+  String get channelMono;
+
+  /// No description provided for @channelStereo.
+  ///
+  /// In en, this message translates to:
+  /// **'Stereo'**
+  String get channelStereo;
+
+  /// No description provided for @channelQuad.
+  ///
+  /// In en, this message translates to:
+  /// **'Quad'**
+  String get channelQuad;
+
+  /// No description provided for @channel51Surround.
+  ///
+  /// In en, this message translates to:
+  /// **'5.1 Surround'**
+  String get channel51Surround;
+
+  /// No description provided for @channel71Surround.
+  ///
+  /// In en, this message translates to:
+  /// **'7.1 Surround'**
+  String get channel71Surround;
+
+  /// No description provided for @bitrateUnknownLossless.
+  ///
+  /// In en, this message translates to:
+  /// **'Lossless'**
+  String get bitrateUnknownLossless;
+
+  /// No description provided for @glassToggleNavBar.
+  ///
+  /// In en, this message translates to:
+  /// **'NavBar'**
+  String get glassToggleNavBar;
+
+  /// No description provided for @glassToggleAppBar.
+  ///
+  /// In en, this message translates to:
+  /// **'AppBar'**
+  String get glassToggleAppBar;
+
+  /// No description provided for @glassToggleMiniPlayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini Player'**
+  String get glassToggleMiniPlayer;
+
+  /// No description provided for @glassTogglePlayerSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Player Sheet'**
+  String get glassTogglePlayerSheet;
+
+  /// No description provided for @glassToggleAlbumCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Album Card'**
+  String get glassToggleAlbumCard;
 }
 
 class _AppLocalizationsDelegate
