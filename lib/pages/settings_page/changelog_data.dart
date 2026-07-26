@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.1',
+    date: '26 Juli 2026',
+    changes: [
+      'Upgrade flutter_cache_manager 3.4.1 → 3.4.2: fix bug removeFile() yang menghapus dari path salah (potensi storage leak di artwork cache).',
+      'Upgrade synchronized 3.4.1 → 3.4.1+1: kompatibilitas Dart 3.12.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.0',
     date: '24 Juli 2026',
     changes: [
