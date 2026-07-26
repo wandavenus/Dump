@@ -64,7 +64,9 @@ class _LyricsToggleButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.quote_bubble,
           size: 24,
-          color: active ? const Color(0xFFFFFFFF) : Colors.white60,
+          color: active
+          ? const Color(0xFFFFFFFF)
+         : Colors.white.withValues(alpha: 0.6),
         ),
       ),
     );
@@ -97,7 +99,9 @@ class _QueueToggleButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.list_bullet,
           size: 24,
-          color: active ? const Color(0xFFFFFFFF) : Colors.white60,
+          color: active
+          ? const Color(0xFFFFFFFF)
+          : Colors.white.withValues(alpha: 0.6),
         ),
       ),
     );
