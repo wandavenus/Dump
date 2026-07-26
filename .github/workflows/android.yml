@@ -54,8 +54,6 @@ jobs:
           channel : stable
           cache: true
 
-      - run: flutter --version
-
       - name: Cache pub
         uses: actions/cache@v6
         with:
