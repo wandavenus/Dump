@@ -89,7 +89,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   Widget build(BuildContext context) {
     return PlaylistCard(
       name: _smartCards[widget.index].name,
-      subtitle: _count == 0 ? 'Belum ada lagu' : '$_count lagu',
+      subtitle: _count == 0 ? context.l10n.noSongsYet : context.l10n.songCount(_count),
       artworkIds: _artworkIds,
       onTap: _open,
     );
@@ -155,9 +155,9 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
-                  title: const Text(
-                    'Hapus Playlist',
-                    style: TextStyle(color: Color(0xFFF92D48)),
+                  title: Text(
+                    ctx.l10n.deletePlaylist,
+                    style: const TextStyle(color: Color(0xFFF92D48)),
                   ),
                   onTap: () async {
                     Navigator.pop(ctx);

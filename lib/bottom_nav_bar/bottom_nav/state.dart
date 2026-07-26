@@ -122,26 +122,26 @@ class _FirstPageState extends State<FirstPage> {
                 type: BottomNavigationBarType.fixed,
                 currentIndex: _selectedIndex,
                 onTap: _navgateBottomBar,
-                items: const [
+                items: [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.home_filled, size: 26),
-                    label: 'Beranda',
+                    icon: const Icon(Icons.home_filled, size: 26),
+                    label: context.l10n.navHome,
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.grid_view_rounded, size: 26),
-                    label: 'Baru',
+                    icon: const Icon(Icons.grid_view_rounded, size: 26),
+                    label: context.l10n.navBrowse,
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.sensors, size: 26),
-                    label: 'Radio',
+                    icon: const Icon(Icons.sensors, size: 26),
+                    label: context.l10n.navRadio,
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.subscriptions_rounded, size: 26),
-                    label: 'Perpustakaan',
+                    icon: const Icon(Icons.subscriptions_rounded, size: 26),
+                    label: context.l10n.navLibrary,
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.search, size: 26),
-                    label: 'Cari',
+                    icon: const Icon(Icons.search, size: 26),
+                    label: context.l10n.navSearch,
                   ),
                 ],
                 elevation: 0,

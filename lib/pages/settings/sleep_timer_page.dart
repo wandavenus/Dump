@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';

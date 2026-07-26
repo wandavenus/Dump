@@ -9,7 +9,7 @@ class _AudioSessionInfo extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Info Audio Engine',
+          Text(context.l10n.audioEngineInfo,
               style: TextStyle(color: c.primaryLabel, fontSize: 15)),
           const SizedBox(height: 6),
           _InfoLine('DSP Pipeline',

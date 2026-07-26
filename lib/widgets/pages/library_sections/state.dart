@@ -59,7 +59,7 @@ class _LibraryContentState extends State<LibraryContent> {
             ),
             Divider(color: AppColors.of(context).separator, thickness: 0.5, height: 0),
             const SizedBox(height: 9),
-            _editMode ? _buildReorderable() : _buildStaticList(),
+            _editMode ? _buildReorderable(context) : _buildStaticList(context),
             SizedBox(height: bottomClearance),
           ],
         ),
@@ -67,7 +67,19 @@ class _LibraryContentState extends State<LibraryContent> {
     );
   }
 
-  Widget _buildStaticList() {
+  String _resolveItemTitle(BuildContext context, String id) {
+    final l = context.l10n;
+    return switch (id) {
+      'playlist' => l.playlists,
+      'artist'   => l.artists,
+      'album'    => l.albums,
+      'songs'    => l.songs,
+      'tv'       => l.tvAndFilm,
+      _          => id,
+    };
+  }
+
+  Widget _buildStaticList(BuildContext context) {
     return Column(
       children:
           _items
@@ -75,7 +87,7 @@ class _LibraryContentState extends State<LibraryContent> {
                 (item) => _LibraryRow(
                   key: ValueKey(item.id),
                   icon: item.icon,
-                  title: item.title,
+                  title: _resolveItemTitle(context, item.id),
                   destination: item.destination,
                 ),
               )
@@ -83,7 +95,7 @@ class _LibraryContentState extends State<LibraryContent> {
     );
   }
 
-  Widget _buildReorderable() {
+  Widget _buildReorderable(BuildContext context) {
     return ReorderableListView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -107,7 +119,7 @@ class _LibraryContentState extends State<LibraryContent> {
                 (item) => _EditableRow(
                   key: ValueKey(item.id),
                   icon: item.icon,
-                  title: item.title,
+                  title: _resolveItemTitle(context, item.id),
                 ),
               )
               .toList(),

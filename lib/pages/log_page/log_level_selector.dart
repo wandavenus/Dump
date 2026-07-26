@@ -42,6 +42,7 @@ class _LogLevelSelector extends StatelessWidget {
 
   void _showSheet(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: c.surface,
@@ -63,7 +64,7 @@ class _LogLevelSelector extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                 child: Text(
-                  'Level Log',
+                  l.logLevelTitle,
                   style: TextStyle(
                       color: c.primaryLabel,
                       fontSize: 15,
@@ -71,8 +72,8 @@ class _LogLevelSelector extends StatelessWidget {
                 ),
               ),
               _option(
-                title:    'Nonaktif',
-                subtitle: 'Logging dimatikan',
+                title:    l.logLevelOff,
+                subtitle: l.logLevelOffDesc,
                 selected: !LogService.loggingEnabled.value,
                 onTap:    () => LogService.setLoggingEnabled(false),
                 primaryLabel:   c.primaryLabel,
@@ -80,8 +81,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Error & Peringatan Saja',
-                subtitle: 'Sembunyikan log info & verbose',
+                title:    l.logLevelErrorsOnly,
+                subtitle: l.logLevelErrorsOnlyDesc,
                 selected: LogService.loggingEnabled.value &&
                     LogService.errorsOnly.value,
                 onTap: () async {
@@ -93,8 +94,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Normal',
-                subtitle: 'Log info, error & peringatan',
+                title:    l.logLevelNormal,
+                subtitle: l.logLevelNormalDesc,
                 selected: LogService.loggingEnabled.value &&
                     !LogService.errorsOnly.value &&
                     !LogService.verboseEnabled.value,
@@ -108,8 +109,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Log Verbose',
-                subtitle: 'Tampilkan log detail',
+                title:    l.logLevelVerbose,
+                subtitle: l.logLevelVerboseDesc,
                 selected: LogService.loggingEnabled.value &&
                     !LogService.errorsOnly.value &&
                     LogService.verboseEnabled.value,

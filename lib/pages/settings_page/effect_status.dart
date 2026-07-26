@@ -9,7 +9,7 @@ class _EffectStatusRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Status Efek Aktif',
+          Text(context.l10n.activeEffectsStatus,
               style: TextStyle(color: c.primaryLabel, fontSize: 15)),
           const SizedBox(height: 6),
           ValueListenableBuilder<ReplayGainMode>(

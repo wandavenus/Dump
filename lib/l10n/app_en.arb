@@ -337,5 +337,67 @@
   "glassToggleAppBar": "AppBar",
   "glassToggleMiniPlayer": "Mini Player",
   "glassTogglePlayerSheet": "Player Sheet",
-  "glassToggleAlbumCard": "Album Card"
+  "glassToggleAlbumCard": "Album Card",
+
+  "logLevelTitle": "Log Level",
+  "logLevelOff": "Off",
+  "logLevelOffDesc": "Logging disabled",
+  "logLevelErrorsOnly": "Errors & Warnings Only",
+  "logLevelErrorsOnlyDesc": "Hide info & verbose logs",
+  "logLevelNormal": "Normal",
+  "logLevelNormalDesc": "Log info, errors & warnings",
+  "logLevelVerbose": "Verbose Log",
+  "logLevelVerboseDesc": "Show detailed logs",
+  "clearLogsConfirm": "Clear all logs?",
+  "logScrollTop": "Top",
+  "logScrollBottom": "Bottom",
+  "logCopyAll": "Copy all",
+  "logNoResults": "no results",
+  "logEmpty": "no logs yet",
+  "logCopiedEntries": "{count} entries copied",
+  "@logCopiedEntries": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "logCopiedEntry": "Entry copied",
+
+  "songsFoundMsg": "Found {count} songs",
+  "@songsFoundMsg": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rescanSongs": "Rescan Songs",
+  "cantOpenEmail": "Cannot open email app",
+  "audioEngineInfo": "Audio Engine Info",
+  "activeEffectsStatus": "Active Effects Status",
+
+  "weRecommend": "We Recommend",
+  "newMusicSection": "New Music",
+  "dailyTop100": "Daily Top 100",
+  "tvAndFilm": "TV & Film",
+
+  "reset": "Reset",
+  "normal": "Normal",
+  "notSupportedDevice": "Not supported on this device",
+  "hardKnee": "Hard knee",
+  "noPlaylists": "No playlists yet",
+
+  "bugReportParagraph1": "If you find a bug, error, crash, or something not working as expected, please report it so it can be fixed quickly.",
+  "bugReportParagraph2": "You can also send suggestions, feedback, or new feature requests. Every report helps improve the app quality.",
+
+  "speedDesc": "Adjusts song playback speed. Below 1x slows down, above 1x speeds up, without changing pitch.",
+  "pitchDesc": "Raises or lowers the song pitch in semitones, without changing playback speed.",
+  "bassBoostDesc": "Boosts bass frequencies for a deeper, thicker low-end sound. Higher percentage = stronger effect.",
+  "preampDesc": "Adjusts the base volume before EQ and other effects are processed. Slide right to raise, left to lower.",
+  "compressorDesc": "Reduces the volume difference between quiet and loud sounds. Higher ratio = more aggressive compression. 1:1 means off.",
+  "compressorThresholdTitle": "Compressor Threshold",
+  "compressorThresholdDesc": "The volume level where compression kicks in. Lower value = more audio compressed.",
+  "compressorAttackTitle": "Compressor Attack",
+  "compressorAttackDesc": "How quickly the compressor reacts when audio exceeds the threshold. Faster = more responsive to sudden sounds.",
+  "compressorReleaseTitle": "Compressor Release",
+  "compressorReleaseDesc": "How quickly volume returns to normal after compression. Too fast can sound 'pumpy'.",
+  "compressorKneeTitle": "Compressor Knee",
+  "compressorKneeDesc": "Softens the transition into compression around the threshold. 0 dB = hard knee.",
+  "limiterDesc": "Prevents audio from exceeding a set volume level to avoid clipping/distortion. Slide below 0 dB to activate.",
+  "limiterReleaseTitle": "Limiter Release",
+  "limiterReleaseDesc": "How quickly the limiter releases after capping a peak. Too fast can sound unnatural.",
+  "softClipperDesc": "Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter."
 }

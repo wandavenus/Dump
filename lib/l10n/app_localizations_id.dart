@@ -846,4 +846,172 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get glassToggleAlbumCard => 'Album Card';
+
+  @override
+  String get logLevelTitle => 'Level Log';
+
+  @override
+  String get logLevelOff => 'Nonaktif';
+
+  @override
+  String get logLevelOffDesc => 'Logging dimatikan';
+
+  @override
+  String get logLevelErrorsOnly => 'Error & Peringatan Saja';
+
+  @override
+  String get logLevelErrorsOnlyDesc => 'Sembunyikan log info & verbose';
+
+  @override
+  String get logLevelNormal => 'Normal';
+
+  @override
+  String get logLevelNormalDesc => 'Log info, error & peringatan';
+
+  @override
+  String get logLevelVerbose => 'Log Verbose';
+
+  @override
+  String get logLevelVerboseDesc => 'Tampilkan log detail';
+
+  @override
+  String get clearLogsConfirm => 'Hapus semua log?';
+
+  @override
+  String get logScrollTop => 'Atas';
+
+  @override
+  String get logScrollBottom => 'Bawah';
+
+  @override
+  String get logCopyAll => 'Salin semua';
+
+  @override
+  String get logNoResults => 'tidak ada hasil';
+
+  @override
+  String get logEmpty => 'belum ada log';
+
+  @override
+  String logCopiedEntries(int count) {
+    return '$count entri disalin';
+  }
+
+  @override
+  String get logCopiedEntry => 'Entri disalin';
+
+  @override
+  String songsFoundMsg(int count) {
+    return 'Ditemukan $count lagu';
+  }
+
+  @override
+  String get rescanSongs => 'Scan Ulang Lagu';
+
+  @override
+  String get cantOpenEmail => 'Tidak bisa membuka aplikasi email';
+
+  @override
+  String get audioEngineInfo => 'Info Audio Engine';
+
+  @override
+  String get activeEffectsStatus => 'Status Efek Aktif';
+
+  @override
+  String get weRecommend => 'Kami Rekomendasikan';
+
+  @override
+  String get newMusicSection => 'Musik Baru';
+
+  @override
+  String get dailyTop100 => 'Top 100 Harian';
+
+  @override
+  String get tvAndFilm => 'TV & Film';
+
+  @override
+  String get reset => 'Reset';
+
+  @override
+  String get normal => 'Normal';
+
+  @override
+  String get notSupportedDevice => 'Tidak didukung perangkat ini';
+
+  @override
+  String get hardKnee => 'Hard knee';
+
+  @override
+  String get noPlaylists => 'Belum ada playlist';
+
+  @override
+  String get bugReportParagraph1 =>
+      'Kalau kamu menemukan bug, error, crash, atau ada fitur yang tidak bekerja sebagaimana mestinya, mohon laporkan agar bisa segera diperbaiki.';
+
+  @override
+  String get bugReportParagraph2 =>
+      'Kamu juga bisa mengirimkan saran, masukan, atau permintaan fitur baru. Setiap laporan sangat membantu dalam meningkatkan kualitas aplikasi.';
+
+  @override
+  String get speedDesc =>
+      'Mengatur kecepatan pemutaran lagu. Nilai di bawah 1x memperlambat, di atas 1x mempercepat, tanpa mengubah pitch suara.';
+
+  @override
+  String get pitchDesc =>
+      'Menaikkan atau menurunkan nada lagu dalam satuan semitone, tanpa mengubah kecepatan putar.';
+
+  @override
+  String get bassBoostDesc =>
+      'Menguatkan frekuensi bass agar suara dentum/rendah terasa lebih tebal. Semakin besar persentase, semakin kuat efeknya.';
+
+  @override
+  String get preampDesc =>
+      'Menyesuaikan volume dasar sebelum EQ dan efek lain diproses. Geser ke kanan untuk menaikkan, ke kiri untuk menurunkan.';
+
+  @override
+  String get compressorDesc =>
+      'Menekan perbedaan volume antara suara pelan dan keras. Rasio lebih tinggi = kompresi lebih agresif. 1:1 berarti nonaktif.';
+
+  @override
+  String get compressorThresholdTitle => 'Compressor Threshold';
+
+  @override
+  String get compressorThresholdDesc =>
+      'Ambang batas volume tempat compressor mulai bekerja. Semakin rendah nilainya, semakin banyak bagian suara yang dikompres.';
+
+  @override
+  String get compressorAttackTitle => 'Compressor Attack';
+
+  @override
+  String get compressorAttackDesc =>
+      'Seberapa cepat compressor bereaksi saat suara melewati threshold. Lebih cepat = lebih responsif terhadap suara mendadak.';
+
+  @override
+  String get compressorReleaseTitle => 'Compressor Release';
+
+  @override
+  String get compressorReleaseDesc =>
+      'Seberapa cepat volume kembali normal setelah kompresi. Terlalu cepat bisa terdengar \"berpompa\".';
+
+  @override
+  String get compressorKneeTitle => 'Compressor Knee';
+
+  @override
+  String get compressorKneeDesc =>
+      'Melembutkan transisi masuk ke kompresi di sekitar threshold. 0 dB = transisi tegas (hard knee).';
+
+  @override
+  String get limiterDesc =>
+      'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.';
+
+  @override
+  String get limiterReleaseTitle => 'Limiter Release';
+
+  @override
+  String get limiterReleaseDesc =>
+      'Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.';
+
+  @override
+  String get softClipperDesc =>
+      'Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.';
 }

@@ -1687,6 +1687,306 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Album Card'**
   String get glassToggleAlbumCard;
+
+  /// No description provided for @logLevelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Level'**
+  String get logLevelTitle;
+
+  /// No description provided for @logLevelOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get logLevelOff;
+
+  /// No description provided for @logLevelOffDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Logging disabled'**
+  String get logLevelOffDesc;
+
+  /// No description provided for @logLevelErrorsOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors & Warnings Only'**
+  String get logLevelErrorsOnly;
+
+  /// No description provided for @logLevelErrorsOnlyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide info & verbose logs'**
+  String get logLevelErrorsOnlyDesc;
+
+  /// No description provided for @logLevelNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get logLevelNormal;
+
+  /// No description provided for @logLevelNormalDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Log info, errors & warnings'**
+  String get logLevelNormalDesc;
+
+  /// No description provided for @logLevelVerbose.
+  ///
+  /// In en, this message translates to:
+  /// **'Verbose Log'**
+  String get logLevelVerbose;
+
+  /// No description provided for @logLevelVerboseDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show detailed logs'**
+  String get logLevelVerboseDesc;
+
+  /// No description provided for @clearLogsConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all logs?'**
+  String get clearLogsConfirm;
+
+  /// No description provided for @logScrollTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get logScrollTop;
+
+  /// No description provided for @logScrollBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get logScrollBottom;
+
+  /// No description provided for @logCopyAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy all'**
+  String get logCopyAll;
+
+  /// No description provided for @logNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'no results'**
+  String get logNoResults;
+
+  /// No description provided for @logEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'no logs yet'**
+  String get logEmpty;
+
+  /// No description provided for @logCopiedEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries copied'**
+  String logCopiedEntries(int count);
+
+  /// No description provided for @logCopiedEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry copied'**
+  String get logCopiedEntry;
+
+  /// No description provided for @songsFoundMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {count} songs'**
+  String songsFoundMsg(int count);
+
+  /// No description provided for @rescanSongs.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescan Songs'**
+  String get rescanSongs;
+
+  /// No description provided for @cantOpenEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot open email app'**
+  String get cantOpenEmail;
+
+  /// No description provided for @audioEngineInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio Engine Info'**
+  String get audioEngineInfo;
+
+  /// No description provided for @activeEffectsStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Effects Status'**
+  String get activeEffectsStatus;
+
+  /// No description provided for @weRecommend.
+  ///
+  /// In en, this message translates to:
+  /// **'We Recommend'**
+  String get weRecommend;
+
+  /// No description provided for @newMusicSection.
+  ///
+  /// In en, this message translates to:
+  /// **'New Music'**
+  String get newMusicSection;
+
+  /// No description provided for @dailyTop100.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Top 100'**
+  String get dailyTop100;
+
+  /// No description provided for @tvAndFilm.
+  ///
+  /// In en, this message translates to:
+  /// **'TV & Film'**
+  String get tvAndFilm;
+
+  /// No description provided for @reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get reset;
+
+  /// No description provided for @normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get normal;
+
+  /// No description provided for @notSupportedDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Not supported on this device'**
+  String get notSupportedDevice;
+
+  /// No description provided for @hardKnee.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard knee'**
+  String get hardKnee;
+
+  /// No description provided for @noPlaylists.
+  ///
+  /// In en, this message translates to:
+  /// **'No playlists yet'**
+  String get noPlaylists;
+
+  /// No description provided for @bugReportParagraph1.
+  ///
+  /// In en, this message translates to:
+  /// **'If you find a bug, error, crash, or something not working as expected, please report it so it can be fixed quickly.'**
+  String get bugReportParagraph1;
+
+  /// No description provided for @bugReportParagraph2.
+  ///
+  /// In en, this message translates to:
+  /// **'You can also send suggestions, feedback, or new feature requests. Every report helps improve the app quality.'**
+  String get bugReportParagraph2;
+
+  /// No description provided for @speedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusts song playback speed. Below 1x slows down, above 1x speeds up, without changing pitch.'**
+  String get speedDesc;
+
+  /// No description provided for @pitchDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Raises or lowers the song pitch in semitones, without changing playback speed.'**
+  String get pitchDesc;
+
+  /// No description provided for @bassBoostDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Boosts bass frequencies for a deeper, thicker low-end sound. Higher percentage = stronger effect.'**
+  String get bassBoostDesc;
+
+  /// No description provided for @preampDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusts the base volume before EQ and other effects are processed. Slide right to raise, left to lower.'**
+  String get preampDesc;
+
+  /// No description provided for @compressorDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduces the volume difference between quiet and loud sounds. Higher ratio = more aggressive compression. 1:1 means off.'**
+  String get compressorDesc;
+
+  /// No description provided for @compressorThresholdTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressor Threshold'**
+  String get compressorThresholdTitle;
+
+  /// No description provided for @compressorThresholdDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The volume level where compression kicks in. Lower value = more audio compressed.'**
+  String get compressorThresholdDesc;
+
+  /// No description provided for @compressorAttackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressor Attack'**
+  String get compressorAttackTitle;
+
+  /// No description provided for @compressorAttackDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How quickly the compressor reacts when audio exceeds the threshold. Faster = more responsive to sudden sounds.'**
+  String get compressorAttackDesc;
+
+  /// No description provided for @compressorReleaseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressor Release'**
+  String get compressorReleaseTitle;
+
+  /// No description provided for @compressorReleaseDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How quickly volume returns to normal after compression. Too fast can sound \'pumpy\'.'**
+  String get compressorReleaseDesc;
+
+  /// No description provided for @compressorKneeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressor Knee'**
+  String get compressorKneeTitle;
+
+  /// No description provided for @compressorKneeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Softens the transition into compression around the threshold. 0 dB = hard knee.'**
+  String get compressorKneeDesc;
+
+  /// No description provided for @limiterDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Prevents audio from exceeding a set volume level to avoid clipping/distortion. Slide below 0 dB to activate.'**
+  String get limiterDesc;
+
+  /// No description provided for @limiterReleaseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Limiter Release'**
+  String get limiterReleaseTitle;
+
+  /// No description provided for @limiterReleaseDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How quickly the limiter releases after capping a peak. Too fast can sound unnatural.'**
+  String get limiterReleaseDesc;
+
+  /// No description provided for @softClipperDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.'**
+  String get softClipperDesc;
 }
 
 class _AppLocalizationsDelegate

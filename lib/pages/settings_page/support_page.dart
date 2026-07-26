@@ -8,6 +8,6 @@ class SupportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _EmptyPlaceholderPage(title: 'Dukungan');
+    return _EmptyPlaceholderPage(title: context.l10n.support);
   }
 }
