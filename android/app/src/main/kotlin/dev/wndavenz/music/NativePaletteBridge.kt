@@ -106,13 +106,13 @@ class NativePaletteBridge(
             0xFF121821.toInt(),  // shadow
         )
 
-        private const val PALETTE_TARGET_SIZE = 100
+        private const val PALETTE_TARGET_SIZE = 128
 
         /** Center-crop fraction: inner (1 - 2×margin) of each axis. */
-        private const val CENTER_MARGIN = 0.20f
+        private const val CENTER_MARGIN = 0.10f
 
         /** Maximum candidates fed into the harmony triplet search. */
-        private const val TOP_N = 24
+        private const val TOP_N = 32
 
         /**
          * Palette algorithm version — bump whenever the scoring / selection
