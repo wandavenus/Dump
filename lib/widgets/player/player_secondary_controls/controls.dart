@@ -27,7 +27,7 @@ class PlayerSecondaryControls extends StatelessWidget {
             active: showLyrics,
             onTap: onLyricsToggle,
           ),
-          const SizedBox(width: 140),
+          const SizedBox(width: 142),
           _QueueToggleButton(
             active: showQueue,
             onTap: onQueueToggle,
@@ -64,7 +64,7 @@ class _LyricsToggleButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.quote_bubble,
           size: 24,
-          color: active ? const Color(0xFFFFFFFF) : Colors.white70,
+          color: active ? const Color(0xFFFFFFFF) : Colors.white60,
         ),
       ),
     );
@@ -97,7 +97,7 @@ class _QueueToggleButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.list_bullet,
           size: 24,
-          color: active ? const Color(0xFFFFFFFF) : Colors.white70,
+          color: active ? const Color(0xFFFFFFFF) : Colors.white60,
         ),
       ),
     );
