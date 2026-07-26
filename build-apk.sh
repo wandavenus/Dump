@@ -3,7 +3,7 @@
 # Jalankan via workflow: bash setup-flutter.sh && bash build-apk.sh
 #
 # Yang di-install otomatis jika belum ada:
-#   - /home/runner/workspace/jdk21/              (JDK 21 Temurin x64)  ← oleh setup-flutter.sh
+#   - JDK 21 dari replit.nix
 #   - /home/runner/workspace/android-sdk/        (Android SDK: platform-36, build-tools 36.0.0, platform-tools)
 #   - /home/runner/workspace/ndk/28.2.13676358/  (NDK r28c — includes clang arm64)
 #   - /home/runner/workspace/cmake-3.22.1/       (CMake + Ninja prebuilt)
@@ -31,7 +31,6 @@ export _JAVA_OPTIONS="-Djava.io.tmpdir=/home/runner/workspace/tmp -Duser.home=/h
 
 ANDROID_SDK_DIR="/home/runner/workspace/android-sdk"
 FLUTTER_DIR="/home/runner/workspace/flutter-ws/flutter"
-JDK_DIR="/home/runner/workspace/jdk21"
 NDK_VERSION="28.2.13676358"
 NDK_DIR="/home/runner/workspace/ndk/$NDK_VERSION"   # definisikan di atas agar export tersedia lebih awal
 CMAKE_VERSION="3.22.1"
@@ -53,22 +52,20 @@ echo "✓ Flutter: $("$FLUTTER_DIR/bin/flutter" --version 2>/dev/null | head -1)
 # ──────────────────────────────────────────────────
 # 2. Java — JDK 21 Temurin
 # ──────────────────────────────────────────────────
-if [ ! -x "$JDK_DIR/bin/java" ] || [ ! -f "$JDK_DIR/lib/jli/libjli.so" ] || ! "$JDK_DIR/bin/java" -version >/dev/null 2>&1; then
-  JDK_CANDIDATE="/nix/store/bk2hgshkd3a9v4hrs9gjmxfkzvflgydx-openjdk-17.0.15+6"
-  if [ -z "$JDK_CANDIDATE" ]; then
-    echo "✗ ERROR: JDK 17 tervalidasi tidak ditemukan."
-    exit 1
-  fi
-  if [ ! -x "$JDK_CANDIDATE/bin/java" ] || ! "$JDK_CANDIDATE/bin/java" -version >/dev/null 2>&1; then
-    echo "✗ ERROR: JDK fallback tidak bisa dijalankan: $JDK_CANDIDATE"
-    exit 1
-  fi
-  JDK_DIR="$JDK_CANDIDATE"
-  echo "⚠ Memakai JDK fallback: $JDK_DIR"
+JAVA_BIN="$(command -v java || true)"
+if [ -z "$JAVA_BIN" ] || [ ! -x "$JAVA_BIN" ]; then
+  echo "✗ ERROR: JDK 21 tidak ditemukan. Pastikan pkgs.jdk21 tersedia di replit.nix."
+  exit 1
 fi
-export JAVA_HOME="$JDK_DIR"
+JAVA_MAJOR="$("$JAVA_BIN" -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
+if [ "$JAVA_MAJOR" != "21" ]; then
+  echo "✗ ERROR: Java $JAVA_MAJOR terdeteksi; Build APK wajib memakai Java 21."
+  exit 1
+fi
+JAVA_HOME="$(cd "$(dirname "$(readlink -f "$JAVA_BIN")")/.." && pwd)"
+export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
-echo "✓ Java: $(java -version 2>&1 | head -1)"
+echo "✓ Java 21: $JAVA_HOME ($(java -version 2>&1 | head -1))"
 
 # ──────────────────────────────────────────────────
 # 3. Android SDK — cmdline-tools + komponen

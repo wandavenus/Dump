@@ -5,6 +5,7 @@
 android/local.properties
 
 .android/
+.dart-tool/
 .dart_tool/
 .kotlin/
 
