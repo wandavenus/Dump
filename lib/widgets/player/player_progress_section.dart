@@ -242,7 +242,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white40,
+                    color: Colors.white38,
                   ),
                 ),
                 Text(
@@ -250,7 +250,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white40,
+                    color: Colors.white38,
                   ),
                 ),
               ],
