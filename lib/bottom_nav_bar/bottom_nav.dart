@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/unified_morph_player.dart';
 import 'package:musicplayer/services/player_sheet_controller.dart';

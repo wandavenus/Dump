@@ -22,6 +22,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
@@ -47,7 +48,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Statistik Sesi Pemutaran',
+                  l.playbackStatsTitle,
                   style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 16,
@@ -62,7 +63,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Engine: Native Media3',
+                  l.playbackStatsEngine,
                   style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                 ),
               ),
@@ -70,34 +71,34 @@ class _PlaybackStatsSheet extends StatelessWidget {
             const SizedBox(height: 20),
             if (stats case final s?) ...[
               _StatRow(
-                label: 'Waktu Putar',
+                label: l.playTimeLabel,
                 value: _fmtMs(
                     (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.play_circle_outline_rounded,
               ),
               _StatRow(
-                label: 'Waktu Buffering',
+                label: l.bufferingTimeLabel,
                 value: _fmtMs(
                     (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.hourglass_bottom_rounded,
               ),
               _StatRow(
-                label: 'Rebuffer',
+                label: l.rebufferLabel,
                 value:
-                    '${(s['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+                    '${(s['totalRebufferCount'] as num?)?.toInt() ?? 0} ${l.timesUnit}',
                 icon: Icons.cached_rounded,
               ),
               _StatRow(
-                label: 'Error',
+                label: l.errorLabel,
                 value:
-                    '${(s['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+                    '${(s['totalErrorCount'] as num?)?.toInt() ?? 0} ${l.timesUnit}',
                 icon: Icons.error_outline_rounded,
               ),
             ] else
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Text(
-                  'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
+                  l.statsNotAvailable,
                   style: TextStyle(
                     color: c.primaryLabel.withValues(alpha: 0.54),
                     fontSize: 14,

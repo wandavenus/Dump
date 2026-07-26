@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
@@ -82,12 +83,12 @@ class _LogPageState extends State<LogPage> {
     final buf = StringBuffer();
     for (final e in entries) { buf.writeln(e.toString()); }
     Clipboard.setData(ClipboardData(text: buf.toString()));
-    _snack('${entries.length} entri disalin');
+    _snack(context.l10n.logCopiedEntries(entries.length));
   }
 
   void _copyEntry(LogEntry e) {
     Clipboard.setData(ClipboardData(text: e.toString()));
-    _snack('Entri disalin');
+    _snack(context.l10n.logCopiedEntry);
   }
 
   void _snack(String msg) {
@@ -122,17 +123,17 @@ class _LogPageState extends State<LogPage> {
         final dc = AppColors.of(ctx);
         return AlertDialog(
           backgroundColor: dc.surface,
-          title: Text('Hapus semua log?',
+          title: Text(ctx.l10n.clearLogsConfirm,
               style: TextStyle(color: dc.primaryLabel, fontSize: 15)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Batal',
+              child: Text(ctx.l10n.cancel,
                   style: TextStyle(color: dc.tertiaryLabel)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Hapus',
+              child: Text(ctx.l10n.delete,
                   style: TextStyle(color: Color(0xFFF92D48))),
             ),
           ],
@@ -283,8 +284,8 @@ class _LogPageState extends State<LogPage> {
               _searchCtrl.text.isNotEmpty ||
                       _levelFilter != null ||
                       _categoryFilter != null
-                  ? 'tidak ada hasil'
-                  : 'belum ada log',
+                  ? context.l10n.logNoResults
+                  : context.l10n.logEmpty,
               style: TextStyle(
                 color:      c.surface3,
                 fontSize:   12,
@@ -333,26 +334,26 @@ class _LogPageState extends State<LogPage> {
           children: [
             _BarBtn(
               icon:  Icons.keyboard_double_arrow_up_rounded,
-              label: 'Atas',
+              label: context.l10n.logScrollTop,
               onTap: _jumpTop,
             ),
             const SizedBox(width: 6),
             _BarBtn(
               icon:  Icons.keyboard_double_arrow_down_rounded,
-              label: 'Bawah',
+              label: context.l10n.logScrollBottom,
               onTap: _jumpBottom,
             ),
             const Spacer(),
             _BarBtn(
               icon:    Icons.copy_rounded,
-              label:   'Salin semua',
+              label:   context.l10n.logCopyAll,
               onTap:   () => _copyAll(entries),
               enabled: entries.isNotEmpty,
             ),
             const SizedBox(width: 6),
             _BarBtn(
               icon:        Icons.delete_outline_rounded,
-              label:       'Hapus',
+              label:       context.l10n.delete,
               onTap:       _clearLogs,
               destructive: true,
               enabled:     LogService.logCount.value > 0,

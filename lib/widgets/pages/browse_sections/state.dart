@@ -60,13 +60,13 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          const LargePageTitle(title: 'Baru'),
+          LargePageTitle(title: context.l10n.browseTitle),
           const HeaderDivider(),
           const SizedBox(height: 12),
           BrowseBannerCarousel(songs: _bannerSongs),
-          _BrowseSection(title: 'We Recommend', songs: _recommend),
-          _BrowseSection(title: 'New Music', songs: _newMusic),
-          _BrowseSection(title: 'Daily Top 100', songs: _daily),
+          _BrowseSection(title: context.l10n.weRecommend, songs: _recommend),
+          _BrowseSection(title: context.l10n.newMusicSection, songs: _newMusic),
+          _BrowseSection(title: context.l10n.dailyTop100, songs: _daily),
           SizedBox(height: bottomClearance),
         ],
       ),

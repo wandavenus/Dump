@@ -8,7 +8,7 @@ class SleepTimerPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: 'Sleep Timer',
+        title: context.l10n.sleepTimerTitle,
         scrollOffset: 100,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -29,8 +29,8 @@ class SleepTimerPage extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           onPressed: SleepTimerService.cancel,
                           child: Text(
-                            'Batalkan',
-                            style: TextStyle(
+                            context.l10n.cancelTimer,
+                            style: const TextStyle(
                               color: Color(0xFFF92D48),
                               fontSize: 15,
                             ),

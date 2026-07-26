@@ -114,8 +114,8 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                 if (widget.showReset && widget.onReset != null)
                   GestureDetector(
                     onTap: widget.onReset,
-                    child: const Text('Reset',
-                        style: TextStyle(color: Color(0xFFF92D48), fontSize: 13)),
+                    child: Text(context.l10n.reset,
+                        style: const TextStyle(color: Color(0xFFF92D48), fontSize: 13)),
                   ),
               ],
             ),
@@ -188,8 +188,8 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
                         onTap: widget.onReset,
-                        child: const Text('Reset',
-                            style: TextStyle(
+                        child: Text(context.l10n.reset,
+                            style: const TextStyle(
                                 color: Color(0xFFF92D48), fontSize: 13)),
                       ),
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 
 Future<String?> showRenamePlaylistDialog({
   required BuildContext context,
@@ -9,25 +10,26 @@ Future<String?> showRenamePlaylistDialog({
     builder: (ctx) {
       final colors = Theme.of(ctx).colorScheme;
 
+      final l = ctx.l10n;
       return AlertDialog(
-        title: const Text('Ganti Nama'),
+        title: Text(l.rename),
         content: TextField(
           controller: controller,
           autofocus: true,
           style: TextStyle(color: colors.onSurface),
           decoration: InputDecoration(
-            hintText: 'Nama playlist',
+            hintText: l.playlistNameHint,
             hintStyle: TextStyle(color: colors.onSurfaceVariant),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text(l.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Simpan'),
+            child: Text(l.save),
           ),
         ],
       );
@@ -44,21 +46,22 @@ Future<bool> showDeletePlaylistDialog({
         builder: (ctx) {
           final colors = Theme.of(ctx).colorScheme;
 
+          final l = ctx.l10n;
           return AlertDialog(
-            title: const Text('Hapus Playlist?'),
+            title: Text(l.deletePlaylistConfirm),
             content: Text(
-              'Playlist "$name" akan dihapus permanen.',
+              l.deletePlaylistBody(name),
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Batal'),
+                child: Text(l.cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 child: Text(
-                  'Hapus',
+                  l.delete,
                   style: TextStyle(color: colors.primary),
                 ),
               ),

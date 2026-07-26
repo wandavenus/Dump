@@ -42,7 +42,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: 'Changelog',
+        title: context.l10n.changelogTitle,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -58,7 +58,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
       body: _changelogEntries.isEmpty
           ? Center(
               child: Text(
-                'Belum ada perubahan tercatat',
+                context.l10n.noChangelog,
                 style: TextStyle(
                     color: AppColors.of(context).secondaryLabel, fontSize: 15),
               ),
@@ -69,7 +69,7 @@ class _ChangelogPageState extends State<ChangelogPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const LargePageTitle(title: 'Changelog'),
+                  LargePageTitle(title: context.l10n.changelogTitle),
                   const HeaderDivider(),
                   const SizedBox(height: 6),
                   for (final entry in _changelogEntries) ...[

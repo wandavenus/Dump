@@ -845,4 +845,172 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get glassToggleAlbumCard => 'Album Card';
+
+  @override
+  String get logLevelTitle => 'Log Level';
+
+  @override
+  String get logLevelOff => 'Off';
+
+  @override
+  String get logLevelOffDesc => 'Logging disabled';
+
+  @override
+  String get logLevelErrorsOnly => 'Errors & Warnings Only';
+
+  @override
+  String get logLevelErrorsOnlyDesc => 'Hide info & verbose logs';
+
+  @override
+  String get logLevelNormal => 'Normal';
+
+  @override
+  String get logLevelNormalDesc => 'Log info, errors & warnings';
+
+  @override
+  String get logLevelVerbose => 'Verbose Log';
+
+  @override
+  String get logLevelVerboseDesc => 'Show detailed logs';
+
+  @override
+  String get clearLogsConfirm => 'Clear all logs?';
+
+  @override
+  String get logScrollTop => 'Top';
+
+  @override
+  String get logScrollBottom => 'Bottom';
+
+  @override
+  String get logCopyAll => 'Copy all';
+
+  @override
+  String get logNoResults => 'no results';
+
+  @override
+  String get logEmpty => 'no logs yet';
+
+  @override
+  String logCopiedEntries(int count) {
+    return '$count entries copied';
+  }
+
+  @override
+  String get logCopiedEntry => 'Entry copied';
+
+  @override
+  String songsFoundMsg(int count) {
+    return 'Found $count songs';
+  }
+
+  @override
+  String get rescanSongs => 'Rescan Songs';
+
+  @override
+  String get cantOpenEmail => 'Cannot open email app';
+
+  @override
+  String get audioEngineInfo => 'Audio Engine Info';
+
+  @override
+  String get activeEffectsStatus => 'Active Effects Status';
+
+  @override
+  String get weRecommend => 'We Recommend';
+
+  @override
+  String get newMusicSection => 'New Music';
+
+  @override
+  String get dailyTop100 => 'Daily Top 100';
+
+  @override
+  String get tvAndFilm => 'TV & Film';
+
+  @override
+  String get reset => 'Reset';
+
+  @override
+  String get normal => 'Normal';
+
+  @override
+  String get notSupportedDevice => 'Not supported on this device';
+
+  @override
+  String get hardKnee => 'Hard knee';
+
+  @override
+  String get noPlaylists => 'No playlists yet';
+
+  @override
+  String get bugReportParagraph1 =>
+      'If you find a bug, error, crash, or something not working as expected, please report it so it can be fixed quickly.';
+
+  @override
+  String get bugReportParagraph2 =>
+      'You can also send suggestions, feedback, or new feature requests. Every report helps improve the app quality.';
+
+  @override
+  String get speedDesc =>
+      'Adjusts song playback speed. Below 1x slows down, above 1x speeds up, without changing pitch.';
+
+  @override
+  String get pitchDesc =>
+      'Raises or lowers the song pitch in semitones, without changing playback speed.';
+
+  @override
+  String get bassBoostDesc =>
+      'Boosts bass frequencies for a deeper, thicker low-end sound. Higher percentage = stronger effect.';
+
+  @override
+  String get preampDesc =>
+      'Adjusts the base volume before EQ and other effects are processed. Slide right to raise, left to lower.';
+
+  @override
+  String get compressorDesc =>
+      'Reduces the volume difference between quiet and loud sounds. Higher ratio = more aggressive compression. 1:1 means off.';
+
+  @override
+  String get compressorThresholdTitle => 'Compressor Threshold';
+
+  @override
+  String get compressorThresholdDesc =>
+      'The volume level where compression kicks in. Lower value = more audio compressed.';
+
+  @override
+  String get compressorAttackTitle => 'Compressor Attack';
+
+  @override
+  String get compressorAttackDesc =>
+      'How quickly the compressor reacts when audio exceeds the threshold. Faster = more responsive to sudden sounds.';
+
+  @override
+  String get compressorReleaseTitle => 'Compressor Release';
+
+  @override
+  String get compressorReleaseDesc =>
+      'How quickly volume returns to normal after compression. Too fast can sound \'pumpy\'.';
+
+  @override
+  String get compressorKneeTitle => 'Compressor Knee';
+
+  @override
+  String get compressorKneeDesc =>
+      'Softens the transition into compression around the threshold. 0 dB = hard knee.';
+
+  @override
+  String get limiterDesc =>
+      'Prevents audio from exceeding a set volume level to avoid clipping/distortion. Slide below 0 dB to activate.';
+
+  @override
+  String get limiterReleaseTitle => 'Limiter Release';
+
+  @override
+  String get limiterReleaseDesc =>
+      'How quickly the limiter releases after capping a peak. Too fast can sound unnatural.';
+
+  @override
+  String get softClipperDesc =>
+      'Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.';
 }

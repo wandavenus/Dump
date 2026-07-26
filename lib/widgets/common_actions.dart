@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/utils/zoom_fade_route.dart';
@@ -25,7 +26,7 @@ class _CommonActionsState extends State<CommonActions> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ditemukan ${songs.length} lagu'),
+            content: Text(context.l10n.songsFoundMsg(songs.length)),
             duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.of(context).surface,
@@ -36,7 +37,7 @@ class _CommonActionsState extends State<CommonActions> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Gagal memindai lagu'),
+            content: Text(context.l10n.scanFailed),
             duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.of(context).surface,
@@ -86,13 +87,13 @@ class _CommonActionsState extends State<CommonActions> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'rescan',
-                child: Text('Scan Ulang Lagu'),
+                child: Text(context.l10n.rescanSongs),
               ),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'settings',
-                child: Text('Pengaturan'),
+                child: Text(context.l10n.settings),
               ),
             ],
           ),

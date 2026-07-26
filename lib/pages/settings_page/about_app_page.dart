@@ -40,7 +40,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
         final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Mode Debug aktif'),
+            content: Text(context.l10n.debugModeEnabled),
             backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 1),
@@ -57,7 +57,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
         final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Tidak bisa membuka link'),
+            content: Text(context.l10n.cantOpenLink),
             backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
@@ -70,13 +70,14 @@ class _AboutAppPageState extends State<AboutAppPage> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     final year = _currentYear;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: 'Tentang App',
+        title: l.aboutTitle,
         scrollOffset: 100,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -105,7 +106,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                       children: [
                         // Nama app
                         Text(
-                          'Music Player',
+                          l.musicPlayerName,
                           style: TextStyle(
                             color: c.primaryLabel,
                             fontSize: 32,
@@ -126,8 +127,8 @@ class _AboutAppPageState extends State<AboutAppPage> {
                                   horizontal: 24, vertical: 4),
                               child: Text(
                                 debug
-                                    ? 'Versi 1.1.5 [Mode Debug Aktif]'
-                                    : 'Versi 1.1.5',
+                                    ? '${l.appVersion('1.4.1')} [${l.debugModeActiveLabel}]'
+                                    : l.appVersion('1.4.1'),
                                 style: TextStyle(
                                   color: debug
                                       ? const Color(0xFFF92D48)
@@ -150,7 +151,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
                         // Dibuat oleh
                         Text(
-                          'Dibuat dengan dedikasi oleh',
+                          l.madeBy,
                           style: TextStyle(
                             color: c.primaryLabel.withValues(alpha: 0.87),
                             fontSize: 15,
@@ -169,7 +170,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
 
                         // ── Deskripsi singkat ──────────────────────────
                         Text(
-                          'Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.',
+                          l.appDescription,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: c.secondaryLabel,
@@ -185,7 +186,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                             ZoomFadeRoute<void>(page: const ChangelogPage()),
                           ),
                           child: const Text(
-                            'Catatan Pembaruan',
+                            l.releaseNotes,
                             style: TextStyle(
                               color: Color(0xFFF92D48),
                               fontSize: 14,
