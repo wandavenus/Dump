@@ -33,7 +33,7 @@ import 'package:path_provider/path_provider.dart';
 //
 // Cache behaviour:
 //   • 256-entry LRU in memory
-//   • Debounced disk persistence (palette_cache_v4.json)
+//   • Debounced disk persistence (palette_cache_v5.json)
 //   • Old 3-color entries are padded to 5 with fallback tones when loaded
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
@@ -71,9 +71,9 @@ class NativePaletteService {
   static Future<void> warmUp() async {
     try {
       final dir = await getApplicationCacheDirectory();
-      // v4: invalidates v3 because the native candidate search widened from
-      // TOP_N=16 to TOP_N=24 and the bitmap decode changed to ARGB_8888.
-      _cacheFilePath = '${dir.path}/artwork/palette_cache_v4.json';
+      // v5: invalidates v4 because OKLab clustering now merges similar swatches
+      // before harmony selection, changing primary/secondary/accent results.
+      _cacheFilePath = '${dir.path}/artwork/palette_cache_v5.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 
@@ -83,7 +83,7 @@ class NativePaletteService {
         final songId = int.tryParse(entry.key);
         final values = entry.value;
         // Accept both old (3-color) and new (5-color) formats in this cache
-        // file, while the v4 filename ensures results from the old algorithm
+        // file, while the v5 filename ensures results from the old algorithm
         // are not reused.
         if (songId == null || values is! List || values.length < 3) continue;
         final colors = List<Color>.generate(
