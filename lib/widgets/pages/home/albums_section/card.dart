@@ -41,13 +41,13 @@ class _AlbumCardState extends State<_AlbumCard> {
     final cached = NativePaletteService.getSync(songId);
     if (cached != null) {
       if (mounted) setState(() => _bgColor = cached.isNotEmpty ? cached[0] : _fallbackColor;
-      return;
+                            ) return;
     }
 
     final colors = await NativePaletteService.get(songId);
     if (!mounted) return;
     setState(() => _bgColor = colors.isNotEmpty ? colors[0] : _fallbackColor;
-  }
+)  }
 
   @override
   Widget build(BuildContext context) {
