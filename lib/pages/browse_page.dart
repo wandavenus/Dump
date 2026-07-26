@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
@@ -59,7 +60,7 @@ class _BrowsePageState extends State<BrowsePage> {
         return Scaffold(
           extendBodyBehindAppBar: isGlass,
           appBar: FadingTitleAppBar(
-            title: 'Baru',
+            title: context.l10n.browseTitle,
             scrollOffsetListenable: _scrollOffsetNotifier,
           ),
           body: PrimaryScrollController(

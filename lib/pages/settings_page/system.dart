@@ -5,16 +5,17 @@ class _SystemSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('SISTEM'),
+        SettingsSectionHeader(l.sectionSystem),
         const SizedBox(height: 6),
         ValueListenableBuilder<int>(
           valueListenable: LogService.logCount,
           builder: (_, count, _) => SettingsActionRow(
-            title: 'Log Aktivitas',
-            subtitle: '$count entri',
+            title: l.activityLog,
+            subtitle: l.logEntryCount(count),
             onTap: () => _showLogs(context),
           ),
         ),
@@ -32,5 +33,3 @@ class _SystemSection extends StatelessWidget {
     );
   }
 }
-
-// Log viewer dipindah ke lib/pages/log_page.dart

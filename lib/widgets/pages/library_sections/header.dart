@@ -15,7 +15,7 @@ class _LibraryHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Perpustakaan',
+            context.l10n.libraryTitle,
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.bold,
@@ -27,7 +27,7 @@ class _LibraryHeader extends StatelessWidget {
             child: GestureDetector(
               onTap: onToggleEdit,
               child: Text(
-                editMode ? 'Selesai' : 'Edit',
+                editMode ? context.l10n.done : context.l10n.edit,
                 style: TextStyle(
                   color: editMode
                       ? c.primaryLabel.withValues(alpha: 0.7)

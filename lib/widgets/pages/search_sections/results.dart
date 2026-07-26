@@ -22,7 +22,7 @@ class _SearchResultsSliver extends StatelessWidget {
               Icon(Icons.search_off, color: AppColors.of(context).tertiaryLabel, size: 48),
               const SizedBox(height: 12),
               Text(
-                'Tidak ada hasil untuk "$query"',
+                context.l10n.searchNoResults(query),
                 style: TextStyle(color: AppColors.of(context).secondaryLabel, fontSize: 15),
               ),
             ],

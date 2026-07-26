@@ -32,6 +32,7 @@ Future<void> main() async {
           'ArtworkRepository.warmUp, NativePaletteService.warmUp, '
           'MediaStoreService.warmUp, HistoryService.warmUp])');
       await Future.wait([
+        BootTrace.step('LanguageManager.init', LanguageManager.instance.init),
         BootTrace.step('ThemeController.init', ThemeController.init),
         BootTrace.step('LogService.init', LogService.init),
         BootTrace.step('LyricsSettings.init', LyricsSettings.init),

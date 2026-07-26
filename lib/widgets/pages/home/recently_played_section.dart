@@ -76,7 +76,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         height: 250,
         child: Center(
           child: Text(
-            'Belum ada lagu yang diputar',
+            context.l10n.noRecentSongs,
             style: TextStyle(color: AppColors.of(context).secondaryLabel),
           ),
         ),

@@ -13,6 +13,9 @@ class _SettingsBody extends StatelessWidget {
             const _AppearanceSection(),
 
             const SizedBox(height: 32),
+            const _LanguageSection(),
+
+            const SizedBox(height: 32),
             const _BitPerfectSection(),
 
             const SizedBox(height: 32),

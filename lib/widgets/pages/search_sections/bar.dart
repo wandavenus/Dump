@@ -68,7 +68,7 @@ class _SearchBar extends StatelessWidget {
                   style: TextStyle(color: c.primaryLabel, fontSize: 16),
                   cursorColor: const Color(0xFFF92D48),
                   decoration: InputDecoration(
-                    hintText: 'Artis, Lagu, Album, dan lainnya',
+                    hintText: context.l10n.searchHint,
                     hintStyle: TextStyle(color: c.secondaryLabel, fontSize: 15),
                     border: InputBorder.none,
                     isDense: true,

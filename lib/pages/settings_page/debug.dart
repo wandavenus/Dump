@@ -5,6 +5,7 @@ class _DebugSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -29,8 +30,8 @@ class _DebugSection extends StatelessWidget {
                 color: const Color(0xFFF92D48).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('MODE AKTIF',
-                  style: TextStyle(
+              child: Text(l.debugSection,
+                  style: const TextStyle(
                       color: Color(0xFFF92D48),
                       fontSize: 9,
                       fontWeight: FontWeight.bold)),
@@ -39,30 +40,24 @@ class _DebugSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
 
-        // Audio session info
         _AudioSessionInfo(),
         const SettingsDivider(),
 
-        // Effect status
         _EffectStatusRow(),
         const SettingsDivider(),
 
-        // AAudio exclusive/MMAP probe
         const _AAudioProbeRow(),
         const SettingsDivider(),
 
-        // Statistik Sesi
         SettingsActionRow(
-          title: 'Statistik Sesi',
-          subtitle: 'Lihat',
+          title: l.sessionStats,
+          subtitle: l.view,
           onTap: () => _showStatsSheet(context),
         ),
         const SettingsDivider(),
 
-        // Exit debug
         SettingsActionRow(
-          title: 'Keluar Mode Debug',
-          
+          title: l.exitDebugMode,
           onTap: () {
             PlayerSheetController.close();
             _DebugState.enabled.value = false;
@@ -74,14 +69,6 @@ class _DebugSection extends StatelessWidget {
     );
   }
 }
-
-// ─── AAudio exclusive/MMAP probe row ───────────────────────────────────────────
-//
-// Answers a question static device info can't: when this app asks AAudio
-// for SHARING_MODE_EXCLUSIVE + PERFORMANCE_MODE_LOW_LATENCY, what does the
-// OS/HAL actually grant on this specific device? Opens a real, short-lived
-// stream via NativeAAudioProbe, reads back the actual sharing/performance
-// mode, then closes it immediately — no effect on playback.
 
 class _AAudioProbeRow extends StatefulWidget {
   const _AAudioProbeRow();
@@ -96,6 +83,7 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     final report = _report;
     return Padding(
@@ -108,14 +96,12 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Cek AAudio Exclusive/MMAP',
+                  l.checkAAudio,
                   style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  report == null
-                      ? 'Belum diuji — buka stream nyata untuk melihat mode yang benar-benar diberikan OS'
-                      : _describe(report),
+                  report == null ? l.aaudioNotTested : _describe(context, report),
                   style: TextStyle(
                     color: report == null
                         ? c.tertiaryLabel
@@ -142,49 +128,47 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
                   onPressed: _doProbe,
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF0A84FF),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Uji Sekarang', style: TextStyle(fontSize: 13)),
+                  child: Text(l.testNow, style: const TextStyle(fontSize: 13)),
                 ),
         ],
       ),
     );
   }
 
-  String _describe(AAudioProbeReport report) {
+  String _describe(BuildContext context, AAudioProbeReport report) {
+    final l = context.l10n;
     if (report.result != AAudioProbeResult.ok) {
       switch (report.result) {
         case AAudioProbeResult.unsupportedPlatform:
-          return 'Tidak tersedia di platform ini';
+          return l.aaudioNotAvailablePlatform;
         case AAudioProbeResult.libraryNotFound:
-          return 'AAudio tidak tersedia (Android < 8.1)';
+          return l.aaudioNotAvailableAndroid;
         case AAudioProbeResult.symbolMissing:
         case AAudioProbeResult.builderFailed:
         case AAudioProbeResult.openFailed:
         case AAudioProbeResult.ok:
-          return report.detail.isNotEmpty
-              ? report.detail
-              : 'Gagal menguji AAudio';
+          return report.detail.isNotEmpty ? report.detail : l.aaudioTestFailed;
       }
     }
     final sharing = switch (report.sharingMode) {
       AAudioSharingMode.exclusive => 'Exclusive',
       AAudioSharingMode.shared => 'Shared',
-      AAudioSharingMode.unknown => 'Tidak diketahui',
+      AAudioSharingMode.unknown => 'Unknown',
     };
     final perf = switch (report.performanceMode) {
       AAudioPerformanceMode.lowLatency => 'Low Latency (MMAP)',
       AAudioPerformanceMode.powerSaving => 'Power Saving',
       AAudioPerformanceMode.none => 'None',
-      AAudioPerformanceMode.unknown => 'Tidak diketahui',
+      AAudioPerformanceMode.unknown => 'Unknown',
     };
     if (report.isExclusiveLowLatency) {
-      return 'Diberikan: $sharing · $perf — jalur cepat AAudio aktif';
+      return 'Granted: $sharing · $perf — AAudio fast path active';
     }
-    return 'Diberikan: $sharing · $perf — diturunkan dari permintaan exclusive/low-latency';
+    return 'Granted: $sharing · $perf — downgraded from exclusive/low-latency';
   }
 
   Future<void> _doProbe() async {

@@ -1,7 +1,5 @@
 part of '../../settings_page.dart';
 
-// ─── Loudness Normalization section ───────────────────────────────────────────
-
 class _LoudnessNormSection extends StatelessWidget {
   const _LoudnessNormSection();
 
@@ -10,6 +8,7 @@ class _LoudnessNormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.loudnessNormEnabled,
       builder: (context, enabled, _) {
@@ -17,10 +16,10 @@ class _LoudnessNormSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SettingsToggleRow(
-              title:    'Loudness Normalization',
+              title:    l.loudnessNormalization,
               subtitle: enabled
-                  ? 'Menyamakan kenyaringan secara real-time (EBU R128)'
-                  : 'Normalisasi kenyaringan saat diputar',
+                  ? l.loudnessNormActiveSubtitle
+                  : l.loudnessNormInactiveSubtitle,
               value:     enabled,
               onChanged: AudioEffectsService.setLoudnessNormEnabled,
             ),
@@ -35,11 +34,9 @@ class _LoudnessNormSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Target: ${target.toStringAsFixed(1)} LUFS',
+                          l.loudnessTarget(target.toStringAsFixed(1)),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: 6),
@@ -47,16 +44,14 @@ class _LoudnessNormSection extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: List.generate(_lufsTargets.length, (i) {
-                              final selected =
-                                  (target - _lufsTargets[i]).abs() < 0.1;
+                              final selected = (target - _lufsTargets[i]).abs() < 0.1;
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
                                   label: Text(_lufsLabels[i]),
                                   selected: selected,
                                   onSelected: (_) {
-                                    AudioEffectsService.setLoudnessNormTarget(
-                                        _lufsTargets[i]);
+                                    AudioEffectsService.setLoudnessNormTarget(_lufsTargets[i]);
                                   },
                                 ),
                               );
@@ -65,15 +60,9 @@ class _LoudnessNormSection extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Streaming −14, Podcast −16, Broadcast −23',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant
-                                    .withAlpha(160),
+                          l.loudnessHint,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(160),
                               ),
                         ),
                       ],
