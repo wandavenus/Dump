@@ -18,18 +18,18 @@ class PlayerTransportControls extends StatelessWidget {
         IconButton(
           icon: const Icon(
             CupertinoIcons.backward_fill,
-            size: 49,
+            size: 48,
             color: Colors.white,
           ),
           onPressed: hasPlaylist ? AudioService.skipPrevious : null,
         ),
-        const SizedBox(width: 31),
+        const SizedBox(width: 33),
         IconButton(
           icon: Icon(
             playbackState.isPlaying
                 ? CupertinoIcons.pause_fill
                 : CupertinoIcons.play_fill,
-            size: 59,
+            size: 58,
             color: Colors.white,
           ),
           onPressed: () {
@@ -38,11 +38,11 @@ class PlayerTransportControls extends StatelessWidget {
                 : AudioService.play();
           },
         ),
-        const SizedBox(width: 31),
+        const SizedBox(width: 33),
         IconButton(
           icon: const Icon(
             CupertinoIcons.forward_fill,
-            size: 49,
+            size: 48,
             color: Colors.white,
           ),
           onPressed: hasPlaylist ? AudioService.skipNext : null,
