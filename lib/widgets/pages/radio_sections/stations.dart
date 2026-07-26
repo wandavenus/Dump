@@ -14,19 +14,13 @@ class _SmartCardData {
 }
 
 // Non-const because MaterialColor isn't a compile-time constant.
-final _smartCards = [
-  const _SmartCardData(
-    name: 'Favorit',
-    type: SmartPlaylistType.favorites,
-  ),
-  const _SmartCardData(
-    name: 'Diputar Terakhir',
-    type: SmartPlaylistType.recentlyPlayed,
-  ),
-  const _SmartCardData(
-    name: 'Paling Sering',
-    type: SmartPlaylistType.mostPlayed,
-  ),
+// Smart card names are resolved at build time via context.l10n — see _SmartPlaylistCardWidget.
+enum _SmartType { favorites, recentlyPlayed, mostPlayed }
+
+final _smartCardTypes = [
+  _SmartType.favorites,
+  _SmartType.recentlyPlayed,
+  _SmartType.mostPlayed,
 ];
 
 // ─── Smart playlist card (loads artwork ids async) ────────────────────────────
@@ -315,7 +309,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                'Belum ada playlist',
+                context.l10n.noPlaylists,
                 style: TextStyle(color: c.secondaryLabel, fontSize: 14),
               ),
             ),

@@ -18,7 +18,7 @@ class RadioPageContent extends StatelessWidget {
           _UserPlaylistsSection(),
           SizedBox(height: 8),
           SectionTitle(
-            title: 'Baru Dimainkan',
+            title: context.l10n.recentlyPlayed,
             routeName: '/musiclist',
             showChevron: false,
           ),

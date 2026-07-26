@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
@@ -61,7 +62,7 @@ class _SearchPageState extends State<SearchPage> {
         return Scaffold(
           extendBodyBehindAppBar: isGlass,
           appBar: FadingTitleAppBar(
-            title: 'Cari',
+            title: context.l10n.searchTitle,
             scrollOffset: _scrollOffset,
           ),
           body: PrimaryScrollController(

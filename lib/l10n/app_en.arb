@@ -1,0 +1,283 @@
+{
+  "@@locale": "en",
+
+  "appName": "Music Player",
+  "@appName": { "description": "App name" },
+
+  "navHome": "Home",
+  "navBrowse": "New",
+  "navRadio": "Radio",
+  "navLibrary": "Library",
+  "navSearch": "Search",
+
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "create": "Create",
+  "close": "Close",
+  "ok": "OK",
+  "retry": "Retry",
+  "enabled": "Active",
+  "disabled": "Inactive",
+  "off": "Off",
+  "done": "Done",
+  "edit": "Edit",
+  "rename": "Rename",
+  "activate": "Activate",
+  "view": "View",
+  "testNow": "Test Now",
+
+  "settings": "Settings",
+
+  "sectionAppearance": "APPEARANCE",
+  "themeTitle": "Theme",
+  "themeLight": "Light",
+  "themeAutomatic": "Automatic",
+  "themeDark": "Dark",
+  "showUpNext": "Show Up Next",
+  "showUpNextSubtitle": "Next song card in player",
+  "liquidGlass": "Liquid Glass",
+  "liquidGlassSubtitle": "Transparent blur effect on the entire UI",
+
+  "sectionLanguage": "LANGUAGE",
+  "languageTitle": "Language",
+  "languageSystem": "System Default",
+  "languageEnglish": "English",
+  "languageIndonesian": "Bahasa Indonesia",
+
+  "sectionAudio": "AUDIO",
+  "audioNormalize": "Audio Normalize",
+  "modeLabel": "Mode",
+  "crossfeedTitle": "Crossfeed",
+  "crossfeedActiveSubtitle": "Simulates speaker-like channel blending for headphones",
+  "crossfeedInactiveSubtitle": "Enable for more natural headphone listening",
+  "crossfeedStrength": "Strength",
+  "crossfadeTitle": "Crossfade",
+  "crossfadeSeconds": "{secs} seconds",
+  "@crossfadeSeconds": {
+    "placeholders": { "secs": { "type": "String" } }
+  },
+  "stereoWidening": "Stereo Widening",
+  "loudnessNormalization": "Loudness Normalization",
+  "loudnessNormActiveSubtitle": "Equalizes loudness in real-time (EBU R128)",
+  "loudnessNormInactiveSubtitle": "Normalize loudness during playback",
+  "loudnessTarget": "Target: {value} LUFS",
+  "@loudnessTarget": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "loudnessHint": "Streaming −14, Podcast −16, Broadcast −23",
+  "preamp": "Preamp",
+  "clippingProtection": "Clipping Protection",
+  "clippingProtectionSubtitle": "Prevent distortion when gain exceeds 0 dBFS",
+  "replayGainTitle": "Audio Normalize",
+  "replayGainModeLabel": "Mode",
+  "replayGainPreampLabel": "Preamp",
+
+  "replayGainOff": "Off",
+  "replayGainAuto": "Auto",
+  "replayGainTrack": "Track Gain",
+  "replayGainAlbum": "Album Gain",
+  "replayGainOffDesc": "No volume normalization",
+  "replayGainAutoDesc": "Use the best available loudness source",
+  "replayGainTrackDesc": "Normalize each song independently",
+  "replayGainAlbumDesc": "Maintain volume relationship between songs in an album",
+
+  "scanLibrary": "Scan Library",
+  "scanLibrarySubtitle": "Calculate ReplayGain for songs without data",
+  "scanPreparing": "Preparing...",
+  "noSongsInLibrary": "No songs found in library.",
+  "scanLibraryLoadFailed": "Failed to load library: {error}",
+  "@scanLibraryLoadFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "scanCancelled": "Cancelled · {count} songs succeeded",
+  "@scanCancelled": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "scanSuccess": "{count} songs scanned successfully",
+  "@scanSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "scanPartial": "{succeeded} succeeded, {failed} failed",
+  "@scanPartial": {
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "scanFailed": "Failed to scan songs",
+
+  "sectionEqualizer": "EQUALIZER",
+  "equalizerTitle": "Equalizer",
+  "equalizerCustom": "Custom",
+  "equalizerBitPerfect": "Bit-Perfect",
+  "playbackSpeed": "Playback Speed",
+  "pitchShift": "Pitch Shift",
+  "bassBoost": "Bass Boost",
+  "compressor": "Compressor",
+  "limiter": "Limiter",
+  "softClipper": "Soft Clipper",
+
+  "sectionBitPerfect": "BIT-PERFECT",
+  "bitPerfectMode": "Bit-Perfect Mode",
+  "bitPerfectActiveSubtitle": "Active — all audio processing disabled",
+  "bitPerfectInactiveSubtitle": "Disable all effects & audio processing",
+  "bitPerfectDescription": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
+  "bitPerfectConfirmTitle": "Activate Bit-Perfect Mode?",
+  "bitPerfectConfirmBody": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
+
+  "sectionSystem": "SYSTEM",
+  "activityLog": "Activity Log",
+  "logEntryCount": "{count} entries",
+  "@logEntryCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "sectionAbout": "ABOUT",
+  "reportBug": "Report Bug",
+  "support": "Support",
+  "aboutApp": "About App",
+  "changelogTitle": "Changelog",
+  "noChangelog": "No changes recorded yet",
+  "debugSection": "MODE ACTIVE",
+  "sessionStats": "Session Statistics",
+  "exitDebugMode": "Exit Debug Mode",
+  "checkAAudio": "Check AAudio Exclusive/MMAP",
+  "aaudioNotTested": "Not tested — open a real stream to see the mode actually granted by the OS",
+  "aaudioNotAvailablePlatform": "Not available on this platform",
+  "aaudioNotAvailableAndroid": "AAudio not available (Android < 8.1)",
+  "aaudioTestFailed": "Failed to test AAudio",
+  "debugModeEnabled": "Debug mode enabled",
+  "cantOpenLink": "Cannot open link",
+
+  "sleepTimerTitle": "Sleep Timer",
+  "cancelTimer": "Cancel",
+  "sleepTimerActive": "Sleep Timer Active",
+  "sleepAfterSong": "Stop after this song ends",
+  "sleepFadeOut": "Music will fade out slowly when the timer ends",
+  "timerAfterSong": "Timer: stop after this song",
+  "timerDuration": "Timer: {label}",
+  "@timerDuration": {
+    "placeholders": { "label": { "type": "String" } }
+  },
+
+  "upNextLabel": "UP NEXT",
+  "shuffleOn": "Shuffle On",
+  "shuffleOff": "Shuffle Off",
+  "loopOff": "Loop Off",
+  "loopAll": "Loop All",
+  "loopOne": "Loop One",
+  "songInfoLabel": "Song Info",
+  "queueEmpty": "Queue is empty",
+  "continuePlaying": "Continue Playing",
+  "autoplayDescription": "Auto-playing similar music",
+  "lyricsAppearance": "Lyrics Appearance",
+  "textSizeLabel": "Text Size",
+  "textAlignLabel": "Text Alignment",
+  "activeColorLabel": "Active Color",
+  "karaokeHighlight": "Karaoke Highlight",
+  "karaokeHighlightSubtitle": "Character-by-character animation",
+  "showLyricsSource": "Show Lyrics Source",
+
+  "playNow": "Play Now",
+  "playNext": "Play Next",
+  "addToQueue": "Add to Queue",
+  "removeFromFavorites": "Remove from Favorites",
+  "addToFavorites": "Add to Favorites",
+  "addToPlaylistMenu": "Add to Playlist",
+  "openAlbum": "Open Album",
+  "openArtist": "Open Artist",
+  "songInformation": "Song Information",
+  "deleteFromDevice": "Delete from Device",
+  "songDeletedMsg": "Song deleted successfully",
+  "songDeleteFailedMsg": "Failed to delete song",
+  "fieldTitle": "Title",
+  "fieldArtist": "Artist",
+  "fieldAlbum": "Album",
+  "fieldDuration": "Duration",
+
+  "addToPlaylistTitle": "Add to Playlist",
+  "createNewPlaylist": "Create New Playlist",
+  "noPlaylistsYet": "No playlists yet",
+  "addedToPlaylist": "Added to {name}",
+  "@addedToPlaylist": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "newPlaylistDialogTitle": "New Playlist",
+  "playlistNameHint": "Playlist name",
+  "songCount": "{count} songs",
+  "@songCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "renamePlaylist": "Rename",
+  "deletePlaylistConfirm": "Delete Playlist?",
+  "deletePlaylist": "Delete Playlist",
+
+  "radioTitle": "Radio",
+  "recentlyPlayed": "Recently Played",
+  "noSongsYet": "No songs yet",
+  "myPlaylists": "My Playlists",
+  "noPlaylistsCreated": "No playlists yet",
+  "newPlaylist": "New Playlist",
+  "favoritesLabel": "Favorites",
+  "lastPlayedLabel": "Last Played",
+  "mostPlayedLabel": "Most Played",
+
+  "libraryTitle": "Library",
+  "playlists": "Playlists",
+  "artists": "Artists",
+  "albums": "Albums",
+  "songs": "Songs",
+  "searchInPlaylists": "Search in Playlists",
+  "searchArtists": "Search Artists",
+  "searchAlbums": "Search Albums",
+  "searchSongs": "Search Songs",
+  "noLocalSongs": "No local songs found",
+  "noSongsInList": "No songs yet",
+
+  "searchTitle": "Search",
+  "searchHint": "Artists, Songs, Albums, and more",
+  "noResults": "No results for \"{query}\"",
+  "@noResults": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+
+  "browseTitle": "New",
+  "homeTitle": "Home",
+  "noRecentSongs": "No songs played yet",
+  "noArtistsFound": "No artists found",
+  "favoriteArtists": "Favorite Artists",
+  "topSongs": "Top Songs",
+
+  "play": "Play",
+  "shuffle": "Shuffle",
+  "playAll": "Play All",
+
+  "aboutTitle": "About App",
+  "musicPlayerName": "Music Player",
+  "appVersion": "Version {version}",
+  "@appVersion": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "debugModeActiveLabel": "Debug Mode Active",
+  "madeBy": "Made with dedication by",
+  "appDescription": "Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.",
+  "releaseNotes": "Release Notes",
+
+  "bugReportTitle": "Report Bug",
+  "thankYouSupport": "Thank you for your support.",
+  "sendReportGmail": "Send your report to Gmail",
+  "orSocialMedia": "or to the social media accounts on the About page.",
+
+  "playbackStatsTitle": "Playback Session Statistics",
+  "playbackStatsEngine": "Engine: Native Media3",
+  "playTimeLabel": "Play Time",
+  "bufferingTimeLabel": "Buffering Time",
+  "rebufferLabel": "Rebuffer",
+  "errorLabel": "Error",
+  "statsNotAvailable": "Data not available — start playback first.",
+  "timesUnit": "times",
+  "secondsZero": "0 sec",
+
+  "goToSettings": "Settings"
+}

@@ -46,7 +46,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
     }
     if (_artists.isEmpty) {
       return Center(
-        child: Text('Tidak ada artis ditemukan',
+        child: Text(context.l10n.noArtistsFound,
             style: TextStyle(color: c.secondaryLabel)),
       );
     }
@@ -59,7 +59,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LargePageTitle(title: 'Artis Favorit'),
+              LargePageTitle(title: context.l10n.favoriteArtists),
               HeaderDivider(),
             ],
           ),

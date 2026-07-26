@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 
 import '../../models/local_song.dart';
 import '../../utils/constants.dart';
@@ -38,7 +39,7 @@ class HomePageContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LargePageTitle(title: 'Beranda', align: false),
+          LargePageTitle(title: context.l10n.homeTitle, align: false),
           const HeaderDivider(),
           const _LocalAlbumsSection(),
           const SectionTitle(title: 'Recently Played', routeName: '/musiclist'),

@@ -1,7 +1,5 @@
 part of '../../settings_page.dart';
 
-// ─── Crossfade discrete picker ────────────────────────────────────────────────
-
 class _CrossfadePicker extends StatefulWidget {
   const _CrossfadePicker();
 
@@ -41,6 +39,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     return ValueListenableBuilder<double>(
       valueListenable: AudioEffectsService.crossfadeDuration,
@@ -53,7 +52,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               InkWell(
                 onTap:        _toggle,
                 borderRadius: BorderRadius.circular(8),
@@ -61,16 +59,15 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   child: Row(
                     children: [
-                      Text('Crossfade',
+                      Text(l.crossfadeTitle,
                           style: TextStyle(color: c.primaryLabel, fontSize: 16)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           current == 0
-                              ? 'Nonaktif'
-                              : '${current.toStringAsFixed(0)} detik',
-                          style: TextStyle(
-                              color: c.secondaryLabel, fontSize: 13),
+                              ? l.off
+                              : l.crossfadeSeconds(current.toStringAsFixed(0)),
+                          style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                         ),
                       ),
                       AnimatedRotation(
@@ -83,7 +80,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   ),
                 ),
               ),
-              // Collapsible segmented control
               SizeTransition(
                 sizeFactor: _ctrl,
                 alignment:  Alignment.topCenter,
