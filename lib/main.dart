@@ -7,7 +7,7 @@ import 'package:musicplayer/services/audio/device_dsp.dart';
 import 'package:musicplayer/services/audio/audio_effects_service.dart';
 import 'package:musicplayer/services/audio/playback_manager.dart';
 import 'package:musicplayer/services/artwork_repository.dart';
-import 'package:musicplayer/services/palette_extractor.dart';
+import 'package:musicplayer/services/native_palette_service.dart';
 import 'package:musicplayer/services/media_store_service.dart';
 import 'package:musicplayer/services/audio_service.dart';
 import 'package:musicplayer/services/audio_focus_service.dart';

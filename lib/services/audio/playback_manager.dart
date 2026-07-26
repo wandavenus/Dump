@@ -4,8 +4,7 @@ import 'dart:async';
 
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 
-import '../artwork_repository.dart';
-import '../palette_extractor.dart';
+import '../native_palette_service.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
 import '../boot_trace.dart';
@@ -824,18 +823,11 @@ class PlaybackManager {
 
       _activePrefetches++;
 
-      if (PaletteExtractor.getSync(song.id) != null) {
+      if (NativePaletteService.getSync(song.id) != null) {
         return;
       }
 
-      final bytes = await ArtworkRepository.instance.getBytes(song.id);
-      if (bytes == null) return;
-
-      if (PaletteExtractor.getSync(song.id) != null) {
-        return;
-      }
-
-      await PaletteExtractor.get(song.id, bytes);
+      await NativePaletteService.get(song.id);
     } catch (_) {
       // Ignore prefetch failures.
     } finally {

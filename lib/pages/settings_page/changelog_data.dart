@@ -20,6 +20,26 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.0',
+    date: '24 Juli 2026',
+    changes: [
+      'Ganti engine ekstraksi warna album dari palette_generator_plus (Dart) ke engine native Android (androidx.palette) dengan algoritma pemilihan warna perceptual.',
+      'Warna palette kini lebih vibrant, lebih beragam, dan lebih konsisten untuk semua jenis artwork.',
+      'Hapus dependency palette_generator_plus dari pubspec.',
+      'Hilangkan pemicu lyrics sheet ke half mode saat user swipe di area tombol kontrol.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.3.9',
+    date: '24 Juli 2026',
+    changes: [
+      'Optimasi 60 FPS Morph Player: hilangkan semua implicit animation (AnimatedPositioned, AnimatedContainer, AnimatedOpacity) dari jalur drag mini→full player.',
+      'Album cover kini pakai Positioned + Transform (translate+scale) agar tidak ada relayout setiap frame saat drag.',
+      'PlayerSheetController: ganti Timer.periodic dengan Ticker vsync-driven (SchedulerBinding) agar animasi sync dengan refresh rate display.',
+      'Artwork selalu decode di resolusi besar selama morph — tidak ada re-decode saat transisi.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.3.8',
     date: '23 Juli 2026',
     changes: [

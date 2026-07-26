@@ -198,8 +198,25 @@ class _FirstPageState extends State<FirstPage> {
                               ],
                             );
 
+                            // Ikuti jari 1:1: progress = drag_px / (sh × 0.55),
+                            // jadi drag_px ≈ progress × sh × 0.55.
+                            // Clamp ke tinggi navbar agar tidak melewati bawah layar.
+                            final navH = useGlassNavBar ? 70.0 : 71.5;
+                            final sh   = MediaQuery.sizeOf(context).height;
+                            // Kurva deselerasi dua-segmen:
+                            // [0, 0.75] : f(p) = p − 0.5p²  → f'(0)=1, f'(0.5)=0.5, f'(0.75)=0.25
+                            // [0.75, 1] : kuadratik lebih curam → f'(0.75)=0.25 turun ke 0.05 di p=1
+                            const double b75 = 0.75 - 0.5 * 0.75 * 0.75; // 0.46875
+                            final double curved;
+                            if (progress < 0.75) {
+                              curved = progress - 0.5 * progress * progress;
+                            } else {
+                              final e = progress - 0.75;
+                              curved = b75 + 0.25 * e - 0.4 * e * e;
+                            }
+                            final slide = (curved * sh * 0.17).clamp(0.0, navH);
                             return Transform.translate(
-                              offset: Offset(0, 70 * progress),
+                              offset: Offset(0, slide),
                               child: useGlassNavBar
                                   ? GlassNavBar(child: column)
                                   : column,

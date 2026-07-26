@@ -14,6 +14,72 @@ import '../../utils/safe_num.dart';
 //                    maks 2×; tidak disimpan ke prefs
 //
 // UI/visual identik dengan versi sebelumnya — tidak ada perubahan tampilan.
+class AppleMusicSliderTrackShape extends SliderTrackShape {
+  const AppleMusicSliderTrackShape();
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final trackHeight = sliderTheme.trackHeight ?? 6;
+
+    return Rect.fromLTWH(
+      offset.dx,
+      offset.dy + (parentBox.size.height - trackHeight) / 2,
+      parentBox.size.width,
+      trackHeight,
+    );
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    required TextDirection textDirection,
+    Offset? secondaryOffset,
+  }) {
+    final canvas = context.canvas;
+
+    final trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    final radius = Radius.circular(trackRect.height / 2);
+
+// gambar full track dulu
+canvas.drawRRect(
+  RRect.fromRectAndRadius(trackRect, radius),
+  Paint()..color = sliderTheme.inactiveTrackColor!,
+);
+
+// gambar progress aktif di atasnya
+final activeRect = Rect.fromLTRB(
+  trackRect.left,
+  trackRect.top,
+  thumbCenter.dx.clamp(trackRect.left, trackRect.right),
+  trackRect.bottom,
+);
+
+canvas.drawRRect(
+  RRect.fromRectAndRadius(activeRect, radius),
+  Paint()..color = sliderTheme.activeTrackColor!,
+);
+  }
+}
 
 class PlayerProgressSection extends StatefulWidget {
   final String Function(Duration duration) formatTime;
@@ -31,7 +97,8 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   // Shared SliderThemeData — computed once instead of on every ~50 ms
   // playback-state rebuild.  All values are const so this is safe to cache.
   static final _sliderTheme = SliderThemeData(
-    trackHeight: 6,
+    trackHeight: 7,
+    trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white,
     inactiveTrackColor: const Color(0xFF8D8D8D),
     thumbShape:
@@ -150,18 +217,23 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
 
         return Column(
           children: [
-            SliderTheme(
-              data: _sliderTheme,
-              child: Slider(
-                min: 0,
-                max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
-                value: displayValue,
-                onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
-                onChanged:     durationSeconds == 0 ? null : _onChanged,
-                onChangeEnd:   durationSeconds == 0 ? null : _onChangeEnd,
-              ),
-            ),
-            const SizedBox(height: 9),
+            SizedBox(
+  height: 32,
+  child: Center(
+    child: SliderTheme(
+      data: _sliderTheme,
+      child: Slider(
+        min: 0,
+        max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
+        value: displayValue,
+        onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
+        onChanged: durationSeconds == 0 ? null : _onChanged,
+        onChangeEnd: durationSeconds == 0 ? null : _onChangeEnd,
+      ),
+    ),
+  ),
+),
+            const SizedBox(height: 1),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -170,7 +242,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white70,
+                    color: Colors.white38,
                   ),
                 ),
                 Text(
@@ -178,7 +250,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
                   style: const TextStyle(
                     fontWeight: FontWeight.w400,
                     fontSize: 11,
-                    color: Colors.white70,
+                    color: Colors.white38,
                   ),
                 ),
               ],

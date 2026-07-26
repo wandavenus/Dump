@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # setup-flutter.sh
-# 1. Install Flutter 3.44.5 ke /home/runner/flutter/ kalau belum ada.
+# 1. Install Flutter stable terbaru ke /home/runner/flutter/ kalau belum ada.
 # 2. Salin Flutter ke /home/runner/workspace/flutter-ws/ agar bisa tulis ke cache
 #    (/home/runner/ quota penuh — flutter tidak bisa update engine.stamp di sana).
-# 3. Install JDK 17 Temurin ke /home/runner/workspace/jdk17/ kalau belum ada.
+# 3. Gunakan JDK 21 dari environment Nix.
 # Jalankan: bash setup-flutter.sh
 
 set -e
@@ -15,21 +15,52 @@ flock 9
 # ──────────────────────────────────────────────────
 # 1. Flutter — install ke /home/runner/flutter/ (source)
 # ──────────────────────────────────────────────────
-FLUTTER_VERSION="3.44.5"
 FLUTTER_SRC="/home/runner/flutter"
 FLUTTER_SRC_BIN="$FLUTTER_SRC/bin/flutter"
 FLUTTER_WS="/home/runner/workspace/flutter-ws/flutter"
 FLUTTER_WS_BIN="$FLUTTER_WS/bin/flutter"
-FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+FLUTTER_RELEASES_URL="https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json"
 
-if [ -x "$FLUTTER_SRC_BIN" ] && [ -f "$FLUTTER_SRC/bin/internal/shared.sh" ]; then
+# Resolve stable from Flutter's official release manifest instead of pinning
+# an old version. This keeps every workflow on the current stable channel.
+FLUTTER_RELEASE="$(curl -fsSL --max-time 30 "$FLUTTER_RELEASES_URL" | node -e '
+  let input = "";
+  process.stdin.on("data", chunk => input += chunk);
+  process.stdin.on("end", () => {
+    const manifest = JSON.parse(input);
+    const stableHash = manifest.current_release?.stable;
+    const release = manifest.releases?.find(item =>
+      item.hash === stableHash && item.channel === "stable"
+    );
+    if (!release?.version || !release?.archive) process.exit(1);
+    process.stdout.write(`${release.version}|${release.archive}`);
+  });
+')"
+if [ -z "$FLUTTER_RELEASE" ] || [[ "$FLUTTER_RELEASE" != *"|"* ]]; then
+  echo "✗ Gagal membaca stable release manifest Flutter."
+  exit 1
+fi
+FLUTTER_VERSION="${FLUTTER_RELEASE%%|*}"
+FLUTTER_ARCHIVE="${FLUTTER_RELEASE#*|}"
+FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_ARCHIVE}"
+
+flutter_version() {
+  local flutter_bin="$1"
+  "$flutter_bin" --version 2>/dev/null | sed -nE '1s/^Flutter ([^ ]+).*/\1/p'
+}
+
+if [ -x "$FLUTTER_SRC_BIN" ] &&
+   [ -f "$FLUTTER_SRC/bin/internal/shared.sh" ] &&
+   [ "$(flutter_version "$FLUTTER_SRC_BIN")" = "$FLUTTER_VERSION" ]; then
   echo "✓ Flutter source ada di $FLUTTER_SRC"
   FLUTTER_SOURCE_READY=true
-elif [ -x "$FLUTTER_WS_BIN" ] && [ -f "$FLUTTER_WS/bin/internal/shared.sh" ]; then
+elif [ -x "$FLUTTER_WS_BIN" ] &&
+     [ -f "$FLUTTER_WS/bin/internal/shared.sh" ] &&
+     [ "$(flutter_version "$FLUTTER_WS_BIN")" = "$FLUTTER_VERSION" ]; then
   echo "✓ Flutter workspace copy valid; download source dilewati"
   FLUTTER_SOURCE_READY=false
 else
-  echo "Flutter $FLUTTER_VERSION tidak ditemukan/invalid di $FLUTTER_SRC, mengunduh..."
+  echo "▶ Flutter stable $FLUTTER_VERSION tidak tersedia; mengunduh..."
   cd /home/runner
   FLUTTER_ARCHIVE="/home/runner/flutter_setup.tar.xz"
   FLUTTER_TMP="/home/runner/flutter.extract.$$"
@@ -55,7 +86,9 @@ fi
 #    Salinan di workspace bisa tulis ke cache-nya sendiri.
 #    Dibuat sekali (~1.5GB, cp -a, ±1 menit pertama kali).
 # ──────────────────────────────────────────────────
-if [ -x "$FLUTTER_WS_BIN" ] && [ -f "$FLUTTER_WS/bin/internal/shared.sh" ]; then
+if [ -x "$FLUTTER_WS_BIN" ] &&
+   [ -f "$FLUTTER_WS/bin/internal/shared.sh" ] &&
+   [ "$(flutter_version "$FLUTTER_WS_BIN")" = "$FLUTTER_VERSION" ]; then
   echo "✓ Flutter workspace copy ada: $FLUTTER_WS"
 elif [ "$FLUTTER_SOURCE_READY" = true ]; then
   echo "▶ Membuat salinan Flutter atomik di workspace (setup 1x, ~1.5GB)..."
@@ -105,27 +138,25 @@ if ! git -C "$FLUTTER_WS" rev-parse --verify HEAD >/dev/null 2>&1 || \
 fi
 
 # ──────────────────────────────────────────────────
-# 3. JDK 17 Temurin (x64 Linux) — /home/runner/workspace/jdk17/
+# 3. JDK 21 dari Nix — wajib untuk Android Gradle/url_launcher
 # ──────────────────────────────────────────────────
-JDK_DIR="/home/runner/workspace/jdk17"
-JDK_BIN="$JDK_DIR/bin/java"
-
-if [ -x "$JDK_BIN" ] && [ -f "$JDK_DIR/lib/jli/libjli.so" ] && "$JDK_BIN" -version >/dev/null 2>&1; then
-  echo "✓ JDK 17 sudah ada: $("$JDK_BIN" -version 2>&1 | head -1)"
-else
-  JDK_CANDIDATE="/nix/store/bk2hgshkd3a9v4hrs9gjmxfkzvflgydx-openjdk-17.0.15+6"
-  if [ -z "$JDK_CANDIDATE" ]; then
-    echo "✗ JDK 17 tervalidasi tidak ditemukan."
-    exit 1
-  fi
-  if [ ! -x "$JDK_CANDIDATE/bin/java" ] || ! "$JDK_CANDIDATE/bin/java" -version >/dev/null 2>&1; then
-    echo "✗ JDK fallback tidak bisa dijalankan: $JDK_CANDIDATE"
-    exit 1
-  fi
-  echo "⚠ JDK lokal tidak lengkap; build akan memakai JDK tervalidasi: $JDK_CANDIDATE"
+JAVA_BIN="$(command -v java || true)"
+if [ -z "$JAVA_BIN" ] || [ ! -x "$JAVA_BIN" ]; then
+  echo "✗ JDK 21 tidak ditemukan. Pastikan pkgs.jdk21 tersedia di replit.nix."
+  exit 1
 fi
+JAVA_MAJOR="$("$JAVA_BIN" -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
+if [ "$JAVA_MAJOR" != "21" ]; then
+  echo "✗ Java $JAVA_MAJOR terdeteksi; workflow wajib memakai Java 21."
+  exit 1
+fi
+JAVA_HOME="$(cd "$(dirname "$(readlink -f "$JAVA_BIN")")/.." && pwd)"
+export JAVA_HOME
+export PATH="$JAVA_HOME/bin:$PATH"
+echo "✓ Java 21: $JAVA_HOME"
 
 echo ""
 echo "✓ setup-flutter.sh selesai"
 echo "  Flutter WS : $FLUTTER_WS_BIN"
-echo "  Java       : $JDK_BIN"
+echo "  Flutter    : $FLUTTER_VERSION (stable)"
+echo "  Java       : $JAVA_HOME/bin/java"

@@ -152,7 +152,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     }
 
     // Duration proportional to remaining travel — feels natural on flings
-    final durationMs = (distance * 400).clamp(80.0, 400.0).toInt();
+    // ×1.5 vs original: hero artwork 50% lebih lambat.
+    final durationMs = (distance * 600).clamp(120.0, 600.0).toInt();
     _releaseAnim.duration = Duration(milliseconds: durationMs);
     _releaseAnim.value = 0.0;
     _releaseAnim.animateTo(1.0, curve: Curves.linear);
@@ -372,8 +373,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
     final artFullTop = topInset + coverTopLocal;
 
-    final artLeft = lerpDouble(miniArtLeft, artFullLeft, t)!;
-    final artTop = lerpDouble(miniArtTop, artFullTop, t)!;
+    // Quadratic Bézier arc: artwork swings right then curves up to final pos.
+    // Control point pulled right of artFullLeft so the path bulges rightward
+    // before settling — keeps the overall diagonal feel ("tetap diagonal").
+    final cpLeft = artFullLeft + screenW * 0.17; // ≈ 67 px on 393-wide screen
+    final cpTop  = lerpDouble(miniArtTop, artFullTop, 0.15)!; // low start → late lift
+    final bmt = 1.0 - t;
+    final artLeft = bmt * bmt * miniArtLeft + 2 * bmt * t * cpLeft + t * t * artFullLeft;
+    final artTop  = bmt * bmt * miniArtTop  + 2 * bmt * t * cpTop  + t * t * artFullTop;
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
     final artRadius = lerpDouble(4.0, 12.0, t)!;
 
@@ -459,37 +466,42 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Color.fromARGB(40, 0, 0, 0),
-                                  Color.fromARGB(40, 0, 0, 0),
+                                  Color.fromARGB(50, 0, 0, 0),
+                                  Color.fromARGB(50, 0, 0, 0),
                                 ],
                               ),
                             ),
                           ),
                         ),
 
-                      // ── Full player content (fades in) ─────────────────────────────
-                      // _PlaybackContent has its own ValueListenableBuilder on
-                      // AudioService.playbackState, so only this subtree rebuilds on
-                      // position ticks — the morph layout above is unaffected.
+                      // ── Full player content (slides up from bottom + fades in) ──────
+                      // All UI elements (except the morphing artwork above) enter as a
+                      // single unit: they slide up from the bottom of the screen to their
+                      // final positions as the sheet expands. The translation is driven by
+                      // the same eased `t` used for the rest of the morph so the motion
+                      // stays perfectly in sync with the gesture.
                       if (fullAlpha > 0)
-                        Opacity(
-                          opacity: fullAlpha,
-                          child: IgnorePointer(
-                            ignoring: progress < 0.45,
-                            child: SafeArea(
-                              bottom: false,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: _PlaybackContent(
-                                  song: song,
-                                  formatTime: _formatTime,
-                                  showLyrics: _showLyrics,
-                                  onLyricsToggle: _toggleLyrics,
-                                  showQueue: _showQueue,
-                                  onQueueToggle: _toggleQueue,
-                                  // Unified player owns the artwork for all states;
-                                  // PlayerContent always hides its own artwork widget.
-                                  hideArtwork: true,
+                        Transform.translate(
+                          offset: Offset(0, screenH * (1.0 - t)),
+                          child: Opacity(
+                            opacity: fullAlpha,
+                            child: IgnorePointer(
+                              ignoring: progress < 0.45,
+                              child: SafeArea(
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _PlaybackContent(
+                                    song: song,
+                                    formatTime: _formatTime,
+                                    showLyrics: _showLyrics,
+                                    onLyricsToggle: _toggleLyrics,
+                                    showQueue: _showQueue,
+                                    onQueueToggle: _toggleQueue,
+                                    // Unified player owns the artwork for all states;
+                                    // PlayerContent always hides its own artwork widget.
+                                    hideArtwork: true,
+                                  ),
                                 ),
                               ),
                             ),
@@ -546,9 +558,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           )!;
                           // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
                           final shadowBase = t * (1.0 - effectiveOverlayT);
-                          final shadowAlpha = 0.30 * shadowBase;
-                          final shadowBlur = 40.0 * shadowBase;
-                          final shadowOff = 15.0 * shadowBase;
+                          final shadowAlpha = 0.20 * shadowBase;
+                          final shadowBlur = 20.0 * shadowBase;
+                          final shadowOff = 10.0 * shadowBase;
 
                           // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
                           // only lifts once the overlay animation itself has fully reversed, not
@@ -570,9 +582,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               child: Container(
                                 // Shadow in background so it renders behind the artwork.
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(
-                                    finalRadius,
-                                  ),
+                                  borderRadius: BorderRadius.circular(4),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(

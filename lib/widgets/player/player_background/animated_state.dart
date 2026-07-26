@@ -21,27 +21,21 @@ class _AnimatedBlurredPlayerBackgroundState
 
   Future<void> _loadPalette(int id) async {
     if (id <= 0) {
-      if (mounted) setState(() { _songId = id; });
+      // Clear palette so PlayerFallbackBackground is shown, not stale colors
+      // from the previously-playing song.
+      if (mounted) setState(() { _songId = id; _palette = const []; });
       return;
     }
 
     // Fast path: already in the LRU cache — no I/O needed.
-    final cached = PaletteExtractor.getSync(id);
+    final cached = NativePaletteService.getSync(id);
     if (cached != null) {
       if (mounted) setState(() { _songId = id; _palette = cached; });
       return;
     }
 
-    // Slow path: fetch artwork bytes then run palette_generator extraction.
-    final bytes = await ArtworkRepository.instance.getBytes(id);
-    if (!mounted || widget.songId != id) return;
-
-    if (bytes == null || bytes.isEmpty) {
-      setState(() { _songId = id; });
-      return;
-    }
-
-    final colors = await PaletteExtractor.get(id, bytes);
+    // Slow path: native bridge extracts colours from ArtworkCacheManager.
+    final colors = await NativePaletteService.get(id);
     if (!mounted || widget.songId != id) return;
 
     setState(() { _songId = id; _palette = colors; });
