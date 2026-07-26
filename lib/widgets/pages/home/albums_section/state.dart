@@ -83,7 +83,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(kListLeftPadding, 2, 10, 10),
-            itemCount: _albums.length,
+            itemCount: _albums.length > 5 ? 5 : _albums.length,
             itemBuilder: (context, index) => _AlbumCard(
               album: _albums[index],
               caption: _captionFor(index),
