@@ -46,30 +46,43 @@ import kotlin.math.pow
  *      - dark_bonus         = 1.20 when lightness < 0.25, otherwise 1.0
  *      - center_boost       = 1.15 if color is prominent in center crop, else 1.0
  *
- * 6. **Harmony-driven triplet selection** — from the top-24 scored candidates,
+ * 6. **OKLab color clustering** — perceptually similar swatches are merged into
+ *    [ColorCluster] groups using the existing OKLab [colorSimilar] function
+ *    (threshold 0.15).  This corrects a fundamental weakness of MMCQ: a single
+ *    visual color family (e.g. Black + Navy + Dark Blue) is often split into
+ *    multiple Palette swatches, each covering a small fraction of the image.
+ *    Without clustering, a 28 % skin tone wins over a 48 % dark family simply
+ *    because the dark pixels are fragmented across three separate buckets.
+ *    After clustering, the merged dark family competes with its full weight.
+ *
+ * 7. **Harmony-driven triplet selection** — from the top-[TOP_N] scored clusters,
  *    all triplet combinations are evaluated.  Each triplet's score is:
- *      triplet_score = sum_of_individual_scores × (1 + 0.5 × harmony_score)
+ *      triplet_score = sum_of_cluster_scores × (1 + 0.5 × harmony_score)
  *    Harmony rewards triadic (≈120° hue spacing), complementary (≈180°), and
  *    wide hue spread; penalises near-monochromatic triplets (spread < 25°).
+ *    Hue calculations use each cluster's [ColorCluster.representativeSwatch] —
+ *    the color users actually see — not an averaged hue.
  *
- * 7. **Role assignment** — the winning triplet is sorted into:
- *      primary   = highest population (main mood)
- *      secondary = second-most-present
- *      accent    = most saturated (vibrant pop)
+ * 8. **Role assignment** — the winning triplet is sorted into:
+ *      primary   = highest totalPopulation (main mood)
+ *      secondary = second-highest totalPopulation
+ *      accent    = most saturated representative swatch (vibrant pop)
  *
- * 8. **Highlight + Shadow** — two extra colors from the remaining candidates:
- *      highlight = lightest saturated swatch (L > 0.55, S > 0.10)
- *      shadow    = darkest saturated swatch  (L < 0.45, S > 0.08)
- *    Derived from primary's hue if no suitable candidate exists.
+ * 9. **Highlight + Shadow** — two extra colors from the remaining clusters:
+ *      highlight = lightest saturated representative (L > 0.55, S > 0.10)
+ *      shadow    = darkest saturated representative  (L < 0.45, S > 0.08)
+ *    Derived from primary's hue if no suitable cluster exists.
  *
- * 9. **Output** — 5-element List<Int> [primary, secondary, accent, highlight, shadow].
- *    Existing callers that only read index 0/1/2 remain fully compatible.
+ * 10. **Output** — 5-element List<Int> [primary, secondary, accent, highlight, shadow].
+ *     Existing callers that only read index 0/1/2 remain fully compatible.
  *
  * # Performance
  * The palette pass is intentionally bounded to a small bitmap and at most
- * C(24,3)=2024 triplets.  Timings depend on whether artwork is already cached:
- * cache hits avoid MediaStore extraction, while cache misses include artwork
- * extraction and WebP encoding in [ArtworkCacheManager].
+ * C(24,3)=2024 triplets.  Clustering is an O(n²) sweep over at most a few
+ * dozen swatches — negligible; no extra bitmap decoding or Palette generation.
+ * Timings depend on whether artwork is already cached: cache hits avoid
+ * MediaStore extraction, while cache misses include artwork extraction and
+ * WebP encoding in [ArtworkCacheManager].
  */
 class NativePaletteBridge(
     private val artworkCacheManager: ArtworkCacheManager,
@@ -104,9 +117,11 @@ class NativePaletteBridge(
         /**
          * Palette algorithm version — bump whenever the scoring / selection
          * logic changes so callers can invalidate stale cached results.
-         * v4: TOP_N raised 16 → 24, changes triplet search candidates.
+         * v5: OKLab clustering inserted between scoring and harmony selection;
+         *     role assignment and neutral-dominance now operate on cluster
+         *     populations so merged color families compete with full weight.
          */
-        const val CACHE_VERSION = 4
+        const val CACHE_VERSION = 5
 
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
@@ -119,6 +134,48 @@ class NativePaletteBridge(
          * tones (e.g. five shades of pink) when the artwork has a dominant hue.
          */
         private const val HUE_ANCHOR_THRESHOLD = 120f
+    }
+
+    // ── Internal data models ─────────────────────────────────────────────────
+
+    /** A scored swatch — score is the perceptual importance of this color. */
+    private data class Scored(val swatch: Palette.Swatch, val score: Double)
+
+    /**
+     * A group of perceptually similar [Palette.Swatch] objects merged by
+     * OKLab distance.
+     *
+     * Why clustering exists:
+     *   Palette's MMCQ quantization splits visually identical or near-identical
+     *   color families (e.g. Black + Navy + Dark Blue on the same dark
+     *   background) into multiple separate swatches.  Each swatch covers only
+     *   a fraction of the true color family's area, so it scores below a
+     *   single contiguous bright region even when the dark family is actually
+     *   more dominant.  Merging them restores the correct population weight.
+     *
+     * Why representative swatches instead of RGB averages:
+     *   Averaging sRGB channels mixes gamma-encoded values, producing a color
+     *   that may not appear in the artwork and whose perceived lightness is
+     *   shifted.  The [representativeSwatch] is always a real Palette swatch —
+     *   it is visually accurate, numerically stable, and carries the correct
+     *   HSL values for downstream harmony and role-assignment calculations.
+     */
+    private data class ColorCluster(
+        val swatches: MutableList<Palette.Swatch>,
+        var totalPopulation: Int,
+        var totalScore: Double,
+    ) {
+        /**
+         * The swatch with the highest individual score within this cluster.
+         * This is the color returned to Flutter and used for hue calculations.
+         *
+         * [mergeSimilarSwatches] iterates the pre-scored list in descending
+         * score order, so the first swatch added to each cluster is always the
+         * highest-scored one — no later entry can have a higher score.
+         * The list is always non-empty by construction.
+         */
+        val representativeSwatch: Palette.Swatch
+            get() = swatches.first()
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -230,8 +287,6 @@ class NativePaletteBridge(
         //     → center subjects still get a small lift but can't dominate alone
         val maxPop = candidates.maxOf { it.population }.toDouble().coerceAtLeast(1.0)
 
-        data class Scored(val swatch: Palette.Swatch, val score: Double)
-
         val scored = candidates.map { sw ->
             val hsl     = sw.hsl
             val sat     = hsl[1].toDouble()
@@ -254,32 +309,44 @@ class NativePaletteBridge(
             Scored(sw, score)
         }.sortedByDescending { it.score }
 
-        // Step 4: Harmony-driven triplet selection from top-N candidates.
-        val top = scored.take(TOP_N)
-        val bestTriplet = selectHarmoniousTriplet(
-            top.map { it.swatch },
-            top.map { it.score }
-        )
+        // Step 4: OKLab clustering — merge swatches that are perceptually similar
+        // before harmony selection.  This corrects MMCQ fragmentation: a single
+        // dark-family background (Black + Navy + Dark Blue ≈ 48 %) would otherwise
+        // lose to a 28 % skin tone because its pixels are split across three small
+        // buckets.  After clustering, the merged family competes with its true weight.
+        //
+        // Clusters are sorted by totalScore (DESC) rather than raw population because
+        // totalScore already encodes population, saturation, lightness, center
+        // weighting, and dark bonus — preserving all the advantages of the scoring
+        // formula across the merge boundary.
+        val clusters = mergeSimilarSwatches(scored)
+            .sortedByDescending { it.totalScore }
+
+        // Step 5: Harmony-driven triplet selection from top-N clusters.
+        val top = clusters.take(TOP_N)
+        val bestTriplet = selectHarmoniousTriplet(top)
 
         if (bestTriplet.isEmpty()) return buildFallbackFromPalette(palette)
 
-        // Step 5: Assign roles within the triplet.
-        //   accent    = most saturated (vibrant pop)
-        //   primary   = highest population among the remaining swatches
-        //   secondary = the remaining swatch
+        // Step 6: Assign roles within the winning cluster triplet.
+        //   accent    = most saturated representative swatch (vibrant pop)
+        //   primary   = highest totalPopulation among the remaining clusters
+        //   secondary = the remaining cluster
         //
-        // Palette can legitimately return only one or two chromatic swatches
-        // (for example, a nearly monochrome cover).  Keep the role assignment
-        // total in those cases instead of indexing bestTriplet[1].
-        val accent = bestTriplet.maxByOrNull { it.hsl[1] } ?: return buildFallbackFromPalette(palette)
-        val remaining = bestTriplet.filter { it.rgb != accent.rgb }
-        var primary = remaining.maxByOrNull { it.population } ?: accent
-        val secondary = remaining
-            .filter { it.rgb != primary.rgb }
-            .maxByOrNull { it.population }
-            ?: primary
+        // Using representativeSwatch saturation for accent (not averaged saturation)
+        // because the representative is the color users actually see.
+        val accent = bestTriplet.maxByOrNull { it.representativeSwatch.hsl[1] }
+            ?: return buildFallbackFromPalette(palette)
+        val remaining = bestTriplet.filter {
+            it.representativeSwatch.rgb != accent.representativeSwatch.rgb
+        }
+        var primaryCluster = remaining.maxByOrNull { it.totalPopulation } ?: accent
+        val secondaryCluster = remaining
+            .filter { it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb }
+            .maxByOrNull { it.totalPopulation }
+            ?: primaryCluster
 
-        // Step 5b: Neutral-dominance correction.
+        // Step 7: Neutral-dominance correction.
         //
         // The saturation filter (S ≥ 0.10) above intentionally discards near-
         // achromatic pixels so they don't pollute the chromatic triplet.  But
@@ -289,10 +356,10 @@ class NativePaletteBridge(
         // all filtered out, leaving only the small saturated logo to dominate.
         //
         // Fix: after the chromatic triplet is chosen, find the most-populated
-        // neutral swatch (S < 0.12, L in 0.08..0.92).  If it covers
-        // significantly more of the image than the chromatic primary, it IS the
-        // mood/background colour — promote it to primary so the player BG
-        // reflects the actual artwork atmosphere instead of a tiny accent.
+        // neutral swatch (S < 0.12, L in 0.08..0.92).  Compare its population
+        // against the primary cluster's totalPopulation (which already accounts
+        // for merged chromatic swatches) so neutral backgrounds still correctly
+        // replace colorful logos when they truly are the dominant visual element.
         val dominantNeutral = all
             .filter { sw ->
                 val hsl = sw.hsl
@@ -301,77 +368,147 @@ class NativePaletteBridge(
             .maxByOrNull { it.population }
 
         if (dominantNeutral != null &&
-            dominantNeutral.population > primary.population * 2.0) {
+            dominantNeutral.population > primaryCluster.totalPopulation * 2.0) {
             // Neutral background dominates — use it as the mood colour.
-            primary = dominantNeutral
+            // Wrap it in a single-swatch cluster so the rest of the code
+            // can read .representativeSwatch uniformly.
+            primaryCluster = ColorCluster(
+                swatches = mutableListOf(dominantNeutral),
+                totalPopulation = dominantNeutral.population,
+                totalScore = 0.0,
+            )
         }
 
-        // Step 6: Highlight + Shadow from remaining candidates.
-        // Candidates must be hue-coherent with the primary color (within
+        // Step 8: Highlight + Shadow from remaining clusters.
+        //
+        // Search remaining clusters using representativeSwatch for hue,
+        // saturation, and lightness — the representative is what users see,
+        // so it drives the hue-coherence check and light/dark threshold.
+        // Candidates must be hue-coherent with the primary (within
         // HUE_ANCHOR_THRESHOLD degrees) to avoid visually unrelated tones
-        // contaminating the palette gradient.  If no coherent candidate
-        // exists, derivation from primary's hue is used as fallback.
-        // For neutral primaries (S < 0.12) skip the hue-coherence check —
-        // achromatic hue is arbitrary in HSL; derive directly from primary.
-        val usedRgbs = setOf(primary.rgb, secondary.rgb, accent.rgb)
-        val rest     = candidates.filter { it.rgb !in usedRgbs }
-        val primaryHue = primary.hsl[0]
-        val primaryIsNeutral = primary.hsl[1] < 0.12f
+        // contaminating the palette gradient.  For neutral primaries (S < 0.12)
+        // skip the hue-coherence check — achromatic hue is arbitrary in HSL;
+        // derive directly from primary.  If no cluster qualifies, fall back to
+        // deriveHighlight() / deriveShadow() unchanged.
+        val usedRgbs = setOf(
+            primaryCluster.representativeSwatch.rgb,
+            secondaryCluster.representativeSwatch.rgb,
+            accent.representativeSwatch.rgb,
+        )
+        val restClusters = clusters.filter { it.representativeSwatch.rgb !in usedRgbs }
+        val primaryHue     = primaryCluster.representativeSwatch.hsl[0]
+        val primaryIsNeutral = primaryCluster.representativeSwatch.hsl[1] < 0.12f
 
-        val highlightSwatch = if (primaryIsNeutral) null else rest.filter { sw ->
-            val hsl = sw.hsl
+        val highlightCluster = if (primaryIsNeutral) null else restClusters.filter { cl ->
+            val hsl = cl.representativeSwatch.hsl
             hsl[2] > 0.55f && hsl[1] > 0.10f &&
                 hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
-        }.maxByOrNull { it.hsl[2] }
-        val highlightColor = highlightSwatch?.rgb ?: deriveHighlight(primary.rgb)
+        }.maxByOrNull { it.representativeSwatch.hsl[2] }
+        val highlightColor = highlightCluster?.representativeSwatch?.rgb
+            ?: deriveHighlight(primaryCluster.representativeSwatch.rgb)
 
-        val shadowSwatch = if (primaryIsNeutral) null else rest.filter { sw ->
-            val hsl = sw.hsl
-            sw.rgb != highlightSwatch?.rgb && hsl[2] < 0.45f && hsl[1] > 0.08f &&
+        val shadowCluster = if (primaryIsNeutral) null else restClusters.filter { cl ->
+            val hsl = cl.representativeSwatch.hsl
+            cl.representativeSwatch.rgb != highlightCluster?.representativeSwatch?.rgb &&
+                hsl[2] < 0.45f && hsl[1] > 0.08f &&
                 hueDist(hsl[0], primaryHue) <= HUE_ANCHOR_THRESHOLD
-        }.minByOrNull { it.hsl[2] }
-        val shadowColor = shadowSwatch?.rgb ?: deriveShadow(primary.rgb)
+        }.minByOrNull { it.representativeSwatch.hsl[2] }
+        val shadowColor = shadowCluster?.representativeSwatch?.rgb
+            ?: deriveShadow(primaryCluster.representativeSwatch.rgb)
 
-        return listOf(primary.rgb, secondary.rgb, accent.rgb, highlightColor, shadowColor)
+        return listOf(
+            primaryCluster.representativeSwatch.rgb,
+            secondaryCluster.representativeSwatch.rgb,
+            accent.representativeSwatch.rgb,
+            highlightColor,
+            shadowColor,
+        )
+    }
+
+    // ── OKLab color clustering ────────────────────────────────────────────────
+
+    /**
+     * Merges perceptually similar scored swatches into [ColorCluster] groups
+     * using OKLab distance via the existing [colorSimilar] function.
+     *
+     * Algorithm: greedy O(n²) sweep — for each incoming swatch, find the first
+     * existing cluster whose [ColorCluster.representativeSwatch] is within the
+     * [colorSimilar] threshold (0.15 OKLab distance).  If found, merge into
+     * that cluster; otherwise start a new cluster.
+     *
+     * Why OKLab over HSV or RGB Euclidean distance:
+     *   OKLab's perceptual uniformity means "looks the same" corresponds to a
+     *   small distance regardless of the RGB path — RGB fails for dark-similar
+     *   (near-black navy vs near-black charcoal) and hue-similar-but-lightness-
+     *   different pairs that RGB treats as far apart.
+     *
+     * The threshold 0.15 is defined inside [colorSimilar] and is not modified
+     * here — it is the established calibration for this perceptual space.
+     *
+     * With at most [TOP_N] candidates the sweep is bounded to ≈ 576 comparisons:
+     * no extra bitmap decoding or Palette generation is required.
+     */
+    private fun mergeSimilarSwatches(scored: List<Scored>): List<ColorCluster> {
+        val clusters = mutableListOf<ColorCluster>()
+        for (item in scored) {
+            val existing = clusters.firstOrNull { cluster ->
+                colorSimilar(cluster.representativeSwatch.rgb, item.swatch.rgb)
+            }
+            if (existing != null) {
+                existing.swatches += item.swatch
+                existing.totalPopulation += item.swatch.population
+                existing.totalScore += item.score
+            } else {
+                clusters += ColorCluster(
+                    swatches = mutableListOf(item.swatch),
+                    totalPopulation = item.swatch.population,
+                    totalScore = item.score,
+                )
+            }
+        }
+        return clusters
     }
 
     // ── Harmony triplet evaluation ────────────────────────────────────────────
 
     /**
-     * From [swatches] (pre-sorted by individual score), evaluates all
-     * combinations of 3 and returns the triplet that maximises:
-     *   sum_of_individual_scores × (1 + 0.5 × harmony_score)
+     * From [clusters] (pre-sorted by totalScore), evaluates all combinations
+     * of 3 and returns the triplet that maximises:
+     *   sum_of_cluster_scores × (1 + 0.5 × harmony_score)
      *
-     * At most [TOP_N] swatches → at most C(24,3)=2024 combinations: negligible
+     * Harmony calculations use [ColorCluster.representativeSwatch].hsl rather
+     * than an averaged hue — the representative is the color users actually
+     * see, so it must drive hue matching.
+     *
+     * At most [TOP_N] clusters → at most C(24,3)=2024 combinations: negligible
      * on the already downsampled palette bitmap.
      */
-    private fun selectHarmoniousTriplet(
-        swatches: List<Palette.Swatch>,
-        scores: List<Double>,
-    ): List<Palette.Swatch> {
-        val n = swatches.size
-        // Fewer than 3 chromatic swatches → cannot form a meaningful triplet.
+    private fun selectHarmoniousTriplet(clusters: List<ColorCluster>): List<ColorCluster> {
+        val n = clusters.size
+        // Fewer than 3 chromatic clusters → cannot form a meaningful triplet.
         // Return emptyList() so the caller falls back to buildFallbackFromPalette()
         // instead of receiving a 1- or 2-element list and collapsing all three
-        // roles onto the same swatch (the original bestTriplet[1] crash source).
+        // roles onto the same cluster.
         if (n < 3) return emptyList()
 
-        var bestCombo  = emptyList<Palette.Swatch>()
-        var bestScore  = -1.0
+        var bestCombo = emptyList<ColorCluster>()
+        var bestScore = -1.0
 
         for (i in 0 until n) {
             for (j in i + 1 until n) {
                 for (k in j + 1 until n) {
-                    val indivSum = scores[i] + scores[j] + scores[k]
-                    val harmony  = harmonyScore(
-                        swatches[i].hsl[0],
-                        swatches[j].hsl[0],
-                        swatches[k].hsl[0],
+                    val indivSum = clusters[i].totalScore +
+                                  clusters[j].totalScore +
+                                  clusters[k].totalScore
+                    val harmony = harmonyScore(
+                        clusters[i].representativeSwatch.hsl[0],
+                        clusters[j].representativeSwatch.hsl[0],
+                        clusters[k].representativeSwatch.hsl[0],
                     )
                     val total = indivSum * (1.0 + 0.5 * harmony)
                     if (total > bestScore) {
                         bestScore = total
-                        bestCombo = listOf(swatches[i], swatches[j], swatches[k])
+                        bestCombo = listOf(clusters[i], clusters[j], clusters[k])
                     }
                 }
             }
