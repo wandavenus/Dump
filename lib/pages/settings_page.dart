@@ -1,4 +1,6 @@
 import 'dart:async' show unawaited;
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:gal/gal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
@@ -50,6 +52,4 @@ part 'settings_page/about_app_page.dart';
 part 'settings_page/changelog_data.dart';
 part 'settings_page/changelog_page.dart';
 part 'settings_page/bug_report_page.dart';
-part 'settings_page/support_page.dart';
-part 'settings_page/empty_placeholder_page.dart';
 part 'settings_page/language_section.dart';

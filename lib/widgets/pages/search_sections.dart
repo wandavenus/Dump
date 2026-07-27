@@ -14,7 +14,6 @@ import '../song_artwork.dart';
 
 part 'search_sections/slivers.dart';
 part 'search_sections/state.dart';
-part 'search_sections/app_bar.dart';
 part 'search_sections/title.dart';
 part 'search_sections/bar.dart';
 part 'search_sections/results.dart';
