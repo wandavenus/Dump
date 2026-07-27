@@ -13,7 +13,8 @@ analyzer:
 
   errors:
     invalid_annotation_target: ignore
-
+    unnecessary_ignore: ignore
+    
 linter:
   rules:
     # ── Async / Futures ───────────────────────────────────────────────
