@@ -51,5 +51,4 @@ part 'settings_page/changelog_data.dart';
 part 'settings_page/changelog_page.dart';
 part 'settings_page/bug_report_page.dart';
 part 'settings_page/support_page.dart';
-part 'settings_page/empty_placeholder_page.dart';
 part 'settings_page/language_section.dart';
