@@ -23,14 +23,17 @@ class _AboutSection extends StatelessWidget {
             context: context,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
-            builder: (_) => SafeArea(
+            builder: (sheetCtx) => SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'assets/images/qris_support.webp',
-                    fit: BoxFit.contain,
+                  child: GestureDetector(
+                    onTap: () => _confirmSaveQris(sheetCtx),
+                    child: Image.asset(
+                      'assets/images/qris_support.webp',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),
@@ -47,6 +50,47 @@ class _AboutSection extends StatelessWidget {
         const _AboutFooter(),
       ],
     );
+  }
+}
+
+Future<void> _confirmSaveQris(BuildContext context) async {
+  final confirmed = await showCupertinoDialog<bool>(
+    context: context,
+    builder: (_) => CupertinoAlertDialog(
+      title: const Text('Simpan QR Code'),
+      content: const Text('Simpan gambar QRIS ke galeri?'),
+      actions: [
+        CupertinoDialogAction(
+          isDestructiveAction: false,
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Batal'),
+        ),
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  try {
+    final bytes = await rootBundle.load('assets/images/qris_support.webp');
+    await Gal.putImageBytes(
+      bytes.buffer.asUint8List(),
+      name: 'qris_wndavenz',
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menyimpan gambar')),
+      );
+    }
   }
 }
 
