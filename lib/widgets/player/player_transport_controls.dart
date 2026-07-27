@@ -35,9 +35,11 @@ class PlayerTransportControls extends StatelessWidget {
             color: Colors.white,
           ),
           onPressed: () {
-            playbackState.isPlaying
-                ? AudioService.pause()
-                : AudioService.play();
+            if (playbackState.isPlaying) {
+              unawaited(AudioService.pause());
+            } else {
+              unawaited(AudioService.play());
+            }
           },
         ),
         const SizedBox(width: 35),

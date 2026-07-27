@@ -14,7 +14,7 @@ extension _SyncedLyricsViewPlaybackState on _SyncedLyricsViewState {
     _syncFromPlaybackState(s);
 
     if (_isPlaying) {
-      if (!_frameTicker.isActive) _frameTicker.start();
+      if (!_frameTicker.isActive) unawaited(_frameTicker.start());
     } else {
       if (_frameTicker.isActive) _frameTicker.stop();
       if (wasPlaying) {
@@ -40,7 +40,7 @@ extension _SyncedLyricsViewPlaybackState on _SyncedLyricsViewState {
     _anchorPos = position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-    if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
+    if (_isPlaying && !_frameTicker.isActive) unawaited(_frameTicker.start());
 
     _maybeUpdateCurrentLine(position, allowBinarySearch: true);
     _karaokeController.updatePosition(position);

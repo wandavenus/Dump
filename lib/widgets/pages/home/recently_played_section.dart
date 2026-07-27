@@ -23,12 +23,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       _songs = _buildRecent(cachedSongs, cachedIds);
       _isLoading = false;
     }
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override

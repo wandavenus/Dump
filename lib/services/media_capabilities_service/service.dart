@@ -125,7 +125,7 @@ class MediaCapabilitiesService {
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   static void dispose() {
-    _stereoWideningSub?.cancel();
+    (_stereoWideningSub?.cancel())?.ignore();
     _stereoWideningSub = null;
   }
 }

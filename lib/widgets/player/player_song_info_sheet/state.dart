@@ -30,16 +30,16 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
     // playing when the user opens Song Info, no format-changed event fires
     // while the sheet is open, so we pull a one-shot snapshot to populate
     // the UI right away.
-    PlaybackManager.getAudioFormat().then((fmt) {
+    unawaited(PlaybackManager.getAudioFormat().then((fmt) {
       if (mounted && fmt != null && _liveFormat == null) {
         setState(() => _liveFormat = fmt);
       }
-    });
+    }));
   }
 
   @override
   void dispose() {
-    _formatSub?.cancel();
+    (_formatSub?.cancel())?.ignore();
     super.dispose();
   }
 

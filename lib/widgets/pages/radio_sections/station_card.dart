@@ -151,7 +151,7 @@ class _GridCellState extends State<_GridCell> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {

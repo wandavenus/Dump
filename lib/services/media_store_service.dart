@@ -340,7 +340,7 @@ class MediaStoreService {
 
   static void _trimArtworkCache() {
     while (_artworkCache.length > _maxArtworkCacheEntries) {
-      _artworkCache.remove(_artworkCache.keys.first);
+      _artworkCache.remove(_artworkCache.keys.first)?.ignore();
     }
   }
 

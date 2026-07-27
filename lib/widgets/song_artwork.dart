@@ -121,20 +121,20 @@ class _SongArtworkState extends State<SongArtwork> {
       widget.songId,
       targetSizePx: widget.size >= 250 ? null : targetPx,
     );
-    _load(widget.songId);
+    unawaited(_load(widget.songId));
   }
 
   @override
   void didUpdateWidget(covariant SongArtwork old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      _load(widget.songId);
+      unawaited(_load(widget.songId));
       return;
     }
     // Re-load when size crosses the full-res threshold (250 px).
     final wasSmall = old.size < 250;
     final isLarge  = widget.size >= 250;
-    if (wasSmall && isLarge) _load(widget.songId);
+    if (wasSmall && isLarge) unawaited(_load(widget.songId));
   }
 
   Future<void> _load(int songId) async {

@@ -59,10 +59,11 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(minutes: 30),
-    )..repeat();
+    );
+    unawaited(_controller.repeat());
 
     _controller.addListener(_onTick);
-    _loadShader();
+    unawaited(_loadShader());
   }
 
   // ── Shader loading (once per widget lifetime) ─────────────────────────────

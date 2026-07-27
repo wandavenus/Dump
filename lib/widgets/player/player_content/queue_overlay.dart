@@ -40,11 +40,11 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
       0.0,
       widget.scrollController.position.maxScrollExtent,
     );
-    widget.scrollController.animateTo(
+    unawaited(widget.scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOut,
-    );
+    ));
   }
 
   @override
@@ -165,7 +165,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                       song: song,
                       isCurrent: isCurrent,
                       onTap: () {
-                        AudioService.playFromCurrentQueue(index);
+                        unawaited(AudioService.playFromCurrentQueue(index));
                         widget.onClose();
                       },
                     );

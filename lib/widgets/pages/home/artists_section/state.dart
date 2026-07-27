@@ -16,12 +16,12 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       _artists = _buildArtists(cachedSongs, cachedCounts ?? {});
       _isLoading = false;
     }
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
