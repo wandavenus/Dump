@@ -237,7 +237,7 @@ class LyricsFetchManager {
     await Future.any([
       allDoneCompleter.future,
       upgradeCompleter.future,
-      Future.delayed(_globalDeadline),
+      Future<void>.delayed(_globalDeadline),
     ]);
 
     upgradeTimer?.cancel();

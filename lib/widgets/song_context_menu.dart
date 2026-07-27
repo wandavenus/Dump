@@ -33,7 +33,7 @@ void showSongContextMenu(
   required int index,
 }) {
   final navigator = Navigator.of(context);
-  showModalBottomSheet(
+  unawaited(showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -44,7 +44,7 @@ void showSongContextMenu(
       index: index,
       tabNavigator: navigator,
     ),
-  );
+  ));
 }
 
 // ─── SongContextMenu ──────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
   // ── Tambah ke Daftar Putar ─────────────────────────────────────────────────
 
   void _showAddToPlaylist(BuildContext context) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -302,7 +302,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
         song: widget.song,
         tabNavigator: widget.tabNavigator,
       ),
-    );
+    ));
   }
 
   // ── Buka Album ─────────────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
   void _showSongInfo(BuildContext context) {
     final c = AppColors.of(context);
     final l = context.l10n;
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       useRootNavigator: true,
       builder: (dialogContext) => AlertDialog(
@@ -380,7 +380,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   String _formatDuration(Duration d) {

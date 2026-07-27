@@ -55,11 +55,15 @@ class QQMusicProvider implements LyricsProvider {
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final searchData = jsonDecode(searchResp.body);
-      final songs = searchData['data']?['song']?['list'];
-      if (songs == null || songs is! List || songs.isEmpty) return null;
-
-      final songmid = songs[0]['songmid']?.toString() ?? '';
+      final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
+      final data = ProviderHttp.asJsonMap(searchData?['data']);
+      final songData = ProviderHttp.asJsonMap(data?['song']);
+      final rawSongs = songData?['list'];
+      final songs =
+          rawSongs is List ? rawSongs.cast<Object?>() : const <Object?>[];
+      if (songs.isEmpty) return null;
+      final song = ProviderHttp.asJsonMap(songs.first);
+      final songmid = song?['songmid']?.toString() ?? '';
       if (songmid.isEmpty) return null;
 
       // 2. Ambil lirik
@@ -72,9 +76,9 @@ class QQMusicProvider implements LyricsProvider {
       if (lyricResp == null || lyricResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final lyricData = jsonDecode(lyricResp.body);
+      final lyricData = ProviderHttp.asJsonMap(jsonDecode(lyricResp.body));
       // QQ Music mengembalikan lirik dalam base64
-      String? b64 = lyricData['lyric'] as String?;
+      final b64 = lyricData?['lyric'] as String?;
       if (b64 == null || b64.isEmpty) return null;
 
       String raw;

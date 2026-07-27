@@ -44,7 +44,7 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
   void initState() {
     super.initState();
     AudioEffectsService.eqPreset.addListener(_onPresetChanged);
-    _loadNativeParams();
+    unawaited(_loadNativeParams());
   }
 
   @override

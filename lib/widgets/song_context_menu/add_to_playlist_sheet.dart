@@ -175,6 +175,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   Future<void> _addToExisting(BuildContext context, Playlist pl) async {
     final c = AppColors.of(context);
+    final addedMessage = context.l10n.addedToPlaylist(pl.name);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     await PlaylistService.addSong(pl.id, widget.song.id);
@@ -183,7 +184,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
-        content: Text(context.l10n.addedToPlaylist(pl.name)),
+        content: Text(addedMessage),
         backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),
@@ -247,11 +248,12 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     final pl = await PlaylistService.createPlaylist(result);
     await PlaylistService.addSong(pl.id, widget.song.id);
     if (!mounted) return;
+    final addedMessage = context.l10n.addedToPlaylist(result);
     navigator.pop(); // tutup sheet playlist
     navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
-        content: Text(context.l10n.addedToPlaylist(result)),
+        content: Text(addedMessage),
         backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),

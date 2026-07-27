@@ -18,6 +18,14 @@ class ProviderHttp {
 
   static final http.Client _client = http.Client();
 
+  /// Converts decoded JSON objects to a typed map before callers inspect them.
+  static Map<String, dynamic>? asJsonMap(Object? value) {
+    if (value is! Map) return null;
+    return value.map<String, dynamic>(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+  }
+
   /// GET dengan timeout, retry, dan cancellation.
   static Future<http.Response?> get(
     Uri uri,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // ── EqualizerPage library ─────────────────────────────────────────────────────
 //
 // Library entry point for the equalizer settings page.
