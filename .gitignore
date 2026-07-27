@@ -4,6 +4,7 @@
 
 android/local.properties
 
+.workflow/
 .android/
 .dart-tool/
 .dart_tool/
