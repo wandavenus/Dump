@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.7',
+    date: '27 Juli 2026',
+    changes: [
+      'Sederhanakan output analyzer agar hanya menampilkan error dan warning.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.6',
     date: '27 Juli 2026',
     changes: [
