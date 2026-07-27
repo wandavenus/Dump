@@ -153,6 +153,7 @@
   "changelogTitle": "Changelog",
   "noChangelog": "Belum ada perubahan tercatat",
   "debugSection": "MODE AKTIF",
+  "debugLabel": "DEBUG",
   "sessionStats": "Statistik Sesi",
   "exitDebugMode": "Keluar Mode Debug",
   "checkAAudio": "Cek AAudio Exclusive/MMAP",
@@ -312,6 +313,7 @@
   "fieldLyrics": "Lirik",
   "fieldPlayCount": "Jumlah Putar",
   "fieldFileName": "Nama File",
+  "fieldFilePath": "Lokasi File",
   "fieldFolder": "Folder",
   "fieldDateAdded": "Tanggal Ditambahkan",
   "fieldModified": "Dimodifikasi",
@@ -481,5 +483,61 @@
       "duration": { "type": "String" }
     }
   },
-  "madeByShort": "Oleh"
+  "madeByShort": "Oleh",
+
+  "@appName": { "description": "Nama aplikasi" },
+  "@crossfadeSeconds": {
+    "placeholders": { "secs": { "type": "String" } }
+  },
+  "@loudnessTarget": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "@scanLibraryLoadFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "@scanCancelled": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "@scanSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "@scanPartial": {
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "@logEntryCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "@timerDuration": {
+    "placeholders": { "label": { "type": "String" } }
+  },
+  "@addedToPlaylist": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "@songCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "@noResults": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "@appVersion": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "@deletePlaylistBody": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "@trackDiscValue": {
+    "placeholders": {
+      "track": { "type": "String" },
+      "disc": { "type": "String" }
+    }
+  },
+  "@logCopiedEntries": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "@songsFoundMsg": {
+    "placeholders": { "count": { "type": "int" } }
+  }
 }

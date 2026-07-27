@@ -29,7 +29,6 @@ import 'package:musicplayer/services/language_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:musicplayer/l10n/app_localizations.dart';
-import 'package:musicplayer/extensions/localization_extension.dart';
 part 'main/main.dart';
 part 'main/edge.dart';
 part 'main/scroll_behavior.dart';

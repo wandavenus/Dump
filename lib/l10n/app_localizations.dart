@@ -908,6 +908,12 @@ abstract class AppLocalizations {
   /// **'MODE ACTIVE'**
   String get debugSection;
 
+  /// No description provided for @debugLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'DEBUG'**
+  String get debugLabel;
+
   /// No description provided for @sessionStats.
   ///
   /// In en, this message translates to:
@@ -1747,6 +1753,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'File Name'**
   String get fieldFileName;
+
+  /// No description provided for @fieldFilePath.
+  ///
+  /// In en, this message translates to:
+  /// **'File Path'**
+  String get fieldFilePath;
 
   /// No description provided for @fieldFolder.
   ///

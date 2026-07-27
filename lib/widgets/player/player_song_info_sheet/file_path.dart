@@ -15,7 +15,7 @@ class _FilePathSection extends StatelessWidget {
         iconColor: AppColors.of(context).secondaryLabel,
         collapsedIconColor: AppColors.of(context).tertiaryLabel,
         title: Text(
-          'File Path',
+          context.l10n.fieldFilePath,
           style: TextStyle(
             color: AppColors.of(context).primaryLabel,
             fontSize: 15,

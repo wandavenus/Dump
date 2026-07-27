@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.5',
+    date: '27 Juli 2026',
+    changes: [
+      'Lengkapi integrasi lokalisasi pada label metadata file, debug, dan jumlah lagu di Library.',
+      'Sinkronkan metadata placeholder terjemahan Indonesia agar generator localization konsisten.',
+      'Perbaiki error compile pada beberapa bagian player dan halaman Log setelah migrasi lokalisasi.',
+      'Pastikan preset Sleep Timer selalu mengikuti bahasa aktif saat ditampilkan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.4',
     date: '27 Juli 2026',
     changes: [
