@@ -24,7 +24,7 @@ class PlayerMoreMenu extends StatefulWidget {
 }
 
 class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
-  final _key = GlobalKey();
+  final GlobalKey _key = GlobalKey();
   OverlayEntry? _entry;
 
   void _open() {

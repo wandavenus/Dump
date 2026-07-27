@@ -49,7 +49,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           _daily       = shuffled.skip(third * 2).toList();
         });
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Biarkan daftar tetap kosong; seksi akan tersembunyi otomatis
     }
   }

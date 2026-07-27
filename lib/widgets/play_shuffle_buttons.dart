@@ -32,7 +32,7 @@ class PlayShuffleButtons extends StatelessWidget {
               if (songs.isEmpty) return;
               try {
                 await AudioService.playSongAt(playlist: songs, index: 0);
-              } catch (e) {
+              } on Exception catch (e) {
                 LogService.error('PlayShuffleButtons', 'play error: $e');
               }
             },
@@ -50,7 +50,7 @@ class PlayShuffleButtons extends StatelessWidget {
                 final randomIndex = Random().nextInt(songs.length);
                 await AudioService.playSongAt(
                     playlist: songs, index: randomIndex);
-              } catch (e) {
+              } on Exception catch (e) {
                 LogService.error('PlayShuffleButtons', 'shuffle error: $e');
               }
             },

@@ -54,7 +54,7 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       final playCounts = await HistoryService.getArtistPlayCounts();
       final artists = _buildArtists(songs, playCounts);
       if (mounted) setState(() { _artists = artists; _isLoading = false; });
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }
   }

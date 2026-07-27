@@ -84,7 +84,7 @@ class QQMusicProvider implements LyricsProvider {
       String raw;
       try {
         raw = utf8.decode(base64Decode(b64));
-      } catch (_) {
+      } on Exception catch (_) {
         raw = b64;
       }
 
@@ -102,7 +102,7 @@ class QQMusicProvider implements LyricsProvider {
       );
     } on CancelledException {
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.verbose(name, 'Error: $e');
       return null;
     }

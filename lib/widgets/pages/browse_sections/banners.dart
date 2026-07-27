@@ -118,7 +118,7 @@ class _BannerArtworkState extends State<_BannerArtwork> {
     try {
       final p = await ArtworkRepository.instance.getProvider(widget.songId);
       if (mounted) setState(() => _provider = p);
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   @override

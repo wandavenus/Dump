@@ -56,7 +56,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           ArtworkRepository.instance.prefetch(recent.map((s) => s.id).toList()),
         );
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) {
         setState(() { _isLoading = false; });
       }

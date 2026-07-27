@@ -35,7 +35,7 @@ class _CommonActionsState extends State<CommonActions> {
           ),
         );
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

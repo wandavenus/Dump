@@ -7,7 +7,7 @@ part of '../radio_sections.dart';
 // Smart card names are resolved at build time via context.l10n — see _SmartPlaylistCardWidget.
 enum _SmartType { favorites, recentlyPlayed, mostPlayed }
 
-final _smartCardTypes = [
+final List<_SmartType> _smartCardTypes = [
   _SmartType.favorites,
   _SmartType.recentlyPlayed,
   _SmartType.mostPlayed,
@@ -74,7 +74,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
         });
         unawaited(ArtworkRepository.instance.prefetch(_artworkIds));
       }
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   void _open() {

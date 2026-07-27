@@ -95,7 +95,7 @@ class NeteaseProvider implements LyricsProvider {
       );
     } on CancelledException {
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.verbose(name, 'Error: $e');
       return null;
     }

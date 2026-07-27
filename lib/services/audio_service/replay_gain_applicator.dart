@@ -105,7 +105,7 @@ class _ReplayGainApplicator {
         '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
         'clip=$useClip, src=${data.source.label})',
       );
-    } catch (e, st) {
+    } on Object catch (e, st) {
       // Fail-open: never let a ReplayGain failure block playback.
       LogService.error(
         'ReplayGainApplicator',

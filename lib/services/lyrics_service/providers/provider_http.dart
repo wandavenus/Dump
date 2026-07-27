@@ -78,7 +78,7 @@ class ProviderHttp {
         return null;
       } on TimeoutException {
         LogService.verbose(providerName, 'Timeout attempt $attempt');
-      } catch (e) {
+      } on Exception catch (e) {
         if (cancelToken.isCancelled) return null;
         LogService.verbose(providerName, 'Connection error attempt $attempt: $e');
       }
@@ -121,7 +121,7 @@ class ProviderHttp {
         return null;
       } on TimeoutException {
         LogService.verbose(providerName, 'POST Timeout attempt $attempt');
-      } catch (e) {
+      } on Exception catch (_) {
         if (cancelToken.isCancelled) return null;
       }
     }

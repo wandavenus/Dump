@@ -104,7 +104,7 @@ class ReplayGainService {
       );
       if (result == null) return {};
       return result.map((k, v) => MapEntry(k, v?.toString()));
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.verbose('ReplayGain', 'Tag read failed for "${song.title}": $e');
       return {};
     }
@@ -119,7 +119,7 @@ class ReplayGainService {
       if (result == null) return const LoudnessData.none();
       final tags = result.map((k, v) => MapEntry(k, v?.toString()));
       return _parseTrack(tags);
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.verbose('ReplayGain', 'Native read failed for $songId: $e');
       return const LoudnessData.none();
     }
@@ -229,7 +229,7 @@ class ReplayGainService {
       // Convert: gain = 20 * log10(1000 / volume)
       final gainDb = 20.0 * _log10(1000.0 / volume);
       return LoudnessData(gainDb: gainDb, source: LoudnessSource.iTunNorm);
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -252,7 +252,7 @@ class ReplayGainService {
       final peak = double.tryParse(prefs.getString('rg_${songId}_peak') ?? '');
       final src = LoudnessSource.values[srcIdx.clamp(0, LoudnessSource.values.length - 1)];
       return LoudnessData(gainDb: gain, peakLinear: peak, source: src);
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -268,7 +268,7 @@ class ReplayGainService {
         if (data.peakLinear != null)
           prefs.setString('rg_${songId}_peak', data.peakLinear.toString()),
       ]);
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   // ── Batch library scan ────────────────────────────────────────────────────
@@ -329,7 +329,7 @@ class ReplayGainService {
       LogService.warn('ReplayGain',
           'scanOneSong "${song.title}": ${e.code} – ${e.message}');
       return null;
-    } catch (e) {
+    } on Object catch (e) {
       LogService.warn('ReplayGain', 'scanOneSong "${song.title}": $e');
       return null;
     }

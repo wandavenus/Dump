@@ -294,7 +294,7 @@ class PlaybackManager {
         centerFrequenciesHz:
             raw.bands.map((b) => b.centerFrequencyHz).toList(),
       );
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -830,7 +830,7 @@ class PlaybackManager {
       }
 
       await NativePaletteService.get(song.id);
-    } catch (_) {
+    } on Exception catch (_) {
       // Ignore prefetch failures.
     } finally {
       if (index >= 0 && index < _currentQueue.length) {

@@ -158,7 +158,7 @@ class _GridCellState extends State<_GridCell> {
     try {
       final p = await ArtworkRepository.instance.getProvider(widget.songId);
       if (mounted) setState(() => _provider = p);
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   @override

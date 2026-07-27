@@ -91,7 +91,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) {
         setState(() {
           _loading = false;
