@@ -44,7 +44,8 @@ class OpenFileService {
       if (uri != null && uri.isNotEmpty) {
         await _playUri(uri);
       }
-    } catch (e) {
+    } on Exception catch (e) {
+      // PlatformException, MissingPluginException, etc.
       LogService.error('OpenFileService', 'getInitialUri failed: $e');
     }
   }

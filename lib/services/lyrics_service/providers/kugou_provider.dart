@@ -113,7 +113,7 @@ class KugouProvider implements LyricsProvider {
       String content;
       try {
         content = utf8.decode(base64Decode(rawContent));
-      } catch (_) {
+      } on Exception catch (_) {
         content = rawContent;
       }
 
@@ -131,7 +131,8 @@ class KugouProvider implements LyricsProvider {
       );
     } on CancelledException {
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
+      // Multiple exception types possible: FormatException, IOException, etc.
       LogService.verbose(name, 'Error: $e');
       return null;
     }

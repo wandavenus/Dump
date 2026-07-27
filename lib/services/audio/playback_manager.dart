@@ -164,7 +164,9 @@ class PlaybackManager {
         'Native DSP pipeline initialized'
         ' (${NativeDspPipeline.instance.processorCount} processor(s))',
       );
-    } catch (e, st) {
+    } on Exception catch (e, st) {
+      // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
+      // MissingPluginException, or other platform-level errors — all non-fatal.
       BootTrace.log(
           'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st');
       LogService.log(

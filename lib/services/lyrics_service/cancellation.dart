@@ -31,7 +31,9 @@ class CancellationToken {
     for (final cb in _callbacks) {
       try {
         cb();
-      } catch (_) {}
+      } on Object catch (_) {
+        // Guard against arbitrary errors thrown by cancel callbacks
+      }
     }
     _callbacks.clear();
   }

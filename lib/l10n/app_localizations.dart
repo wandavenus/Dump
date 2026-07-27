@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @navBrowse.
   ///
   /// In en, this message translates to:
-  /// **'New'**
+  /// **'Browse'**
   String get navBrowse;
 
   /// No description provided for @navRadio.
@@ -1409,7 +1409,7 @@ abstract class AppLocalizations {
   /// No description provided for @browseTitle.
   ///
   /// In en, this message translates to:
-  /// **'New'**
+  /// **'Browse'**
   String get browseTitle;
 
   /// No description provided for @homeTitle.

@@ -94,8 +94,9 @@ class NativePaletteService {
         // get something reasonable until the next real extraction.
         _cache.put(songId, _padToFive(colors));
       }
-    } catch (e, st) {
+    } on Exception catch (e, st) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
+      // IOException, FormatException, etc. all extend Exception.
       debugPrint('[NativePaletteService] warmUp failed: $e\n$st');
     }
   }
@@ -136,8 +137,9 @@ class NativePaletteService {
       final tmp = File('$path.tmp');
       await tmp.writeAsString(jsonEncode(map));
       await tmp.rename(path);
-    } catch (e, st) {
+    } on Exception catch (e, st) {
       // Best-effort — a failed save just means palettes recompute next launch.
+      // IOException, FormatException, etc. all extend Exception.
       debugPrint('[NativePaletteService] persist failed: $e\n$st');
     }
   }
@@ -201,10 +203,11 @@ class NativePaletteService {
       _cache.put(songId, colors);
       _schedulePersist();
       return colors;
-    } catch (e, st) {
+    } on Exception catch (e, st) {
       // Do not cache fallback for a native/channel failure.  Queue saturation,
       // a transient engine teardown, or a temporary decode failure must be
       // retryable on the next call rather than persisted forever.
+      // PlatformException, IOException, FormatException all extend Exception.
       debugPrint('[NativePaletteService] extraction failed for songId=$songId: $e\n$st');
       return _kFallback;
     } finally {

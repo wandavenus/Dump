@@ -126,8 +126,9 @@ class LyricsFetchManager {
           // Local results tidak disimpan ke disk cache (sudah ada di disk)
           return result;
         }
-      } catch (e) {
-        if (e is CancelledException) return null;
+      } on CancelledException {
+        return null;
+      } on Exception catch (e) {
         LogService.verbose('FetchManager', '${provider.name} error: $e');
       }
     }

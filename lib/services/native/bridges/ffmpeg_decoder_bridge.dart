@@ -248,9 +248,10 @@ class FfmpegDecoderBridge implements NativeModule {
       BootTrace.log(
           'EXIT  FfmpegDecoderBridge._probeCapabilities() — status=$_status, '
           'available=${_capabilities.available}');
-    } catch (e, st) {
+    } on Object catch (e, st) {
       // Channel missing/failed/timed out (e.g. platform not Android, or the
       // native reply never arrived) — fail open, already the default above.
+      // Uses Object (not Exception) to also catch TimeoutException and Errors.
       BootTrace.log(
           'EXCEPTION/TIMEOUT in FfmpegDecoderBridge._probeCapabilities() '
           'after ${sw.elapsedMilliseconds}ms: $e\n$st');

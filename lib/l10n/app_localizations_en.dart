@@ -15,7 +15,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navHome => 'Home';
 
   @override
-  String get navBrowse => 'New';
+  String get navBrowse => 'Browse';
 
   @override
   String get navRadio => 'Radio';
@@ -702,7 +702,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get browseTitle => 'New';
+  String get browseTitle => 'Browse';
 
   @override
   String get homeTitle => 'Home';
