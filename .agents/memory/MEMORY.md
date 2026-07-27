@@ -90,6 +90,7 @@
 - [Media3 Option B format-guard processors](media3-optionb-format-guards.md) — ToFloat/ToInt16PcmAudioProcessor are public @UnstableApi, safe to bracket custom DefaultAudioProcessorChain; verified via Media3 source + androidx/media#2339.
 - [Signalsmith Stretch ↔ Media3 sync fix](stretch-sync-fix.md) — StretchAwareAudioProcessorChain overrides getMediaDuration; frame-ratio counters fix position drift; real-device verified 2026-07-15.
 - [Audit output convention](audit-output-convention.md) — setiap sesi audit harus menghasilkan file .md di root repo; jangan output isi lengkap ke chat, cukup nama file + ringkasan singkat.
+- [Project analyzer scope](project-analyzer-scope.md) — jalankan audit Dart project dengan target eksplisit `lib test`; analisis dari root ikut menyapu checkout Flutter di `flutter-ws/`.
 - [Native Audit Fixes 2026-07-20](native-audit-fixes-2026-07-20.md) — semua 14 temuan dari Native_Audit_Merged_2026-07-20.md diperbaiki: per-stream RG gain, loudness reset_stream API, arm64 race pattern, JNI LocalRef, steady_clock→frame counter.
 - [Target device single](target-device.md) — app HANYA untuk Xiaomi Mi 9T/K20 (SD730, 6GB RAM, MIUI 12/Android 11); abaikan device lain, jangan buat workaround/compat untuk perangkat lain.
 - [Notification artwork fix](notification-artwork-fix.md) — loadBitmap() dua tahap: ContentResolver → ArtworkCacheManager; noArtworkUris diganti TTL 30s; cache key = artUri ?: "song:$songId".
