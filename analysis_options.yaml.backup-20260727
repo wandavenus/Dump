@@ -1,0 +1,51 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # native_audio_runtime/test/ uses package:test which is a dev-dependency
+    # of that sub-package, not of the workspace root. Exclude it from
+    # workspace-level `flutter analyze` to avoid spurious uri_does_not_exist
+    # errors. Run `dart test` inside native_audio_runtime/ to exercise those files.
+    - native_audio_runtime/test/**
+    # ffigen.dart is a codegen tool script, not part of the app; ffigen package
+    # is a dev-dependency of native_audio_runtime, not the workspace root.
+    - native_audio_runtime/tool/**
+  errors:
+    invalid_annotation_target: ignore
+
+linter:
+  rules:
+    avoid_empty_else: true
+    avoid_print: true
+    avoid_slow_async_io: true
+    avoid_type_to_string: true
+    avoid_unnecessary_containers: true
+    avoid_void_async: true
+    cancel_subscriptions: true
+    close_sinks: true
+    comment_references: false
+    deprecated_consistency: true
+    literal_only_boolean_expressions: true
+    no_adjacent_strings_in_list: true
+    no_duplicate_case_values: true
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    prefer_null_aware_operators: true
+    prefer_spread_collections: true
+    sized_box_for_whitespace: true
+    sized_box_shrink_expand: true
+    unawaited_futures: true
+    unnecessary_await_in_return: true
+    unnecessary_breaks: true
+    unnecessary_lambdas: true
+    unnecessary_null_checks: true
+    unnecessary_raw_strings: true
+    unnecessary_statements: true
+    use_colored_box: true
+    use_decorated_box: true
+    use_enums: true
+    use_super_parameters: true
