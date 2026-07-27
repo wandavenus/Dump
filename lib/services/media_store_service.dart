@@ -73,7 +73,7 @@ class MediaStoreService {
       // Use compute to parse in a background isolate to keep the UI thread
       // free during the critical first-frame startup window.
       _songsCache = await compute(_parseSongsJson, raw);
-    } catch (_) {
+    } on Exception catch (_) {
       // Corrupt or unreadable cache — fall through to a normal live query.
     }
   }
@@ -86,7 +86,7 @@ class MediaStoreService {
       final tmp = File('$path.tmp');
       await tmp.writeAsString(jsonEncode(songs.map((s) => s.toMap()).toList()));
       await tmp.rename(path); // atomic — never leaves a half-written cache.
-    } catch (_) {
+    } on Exception catch (_) {
       // Best-effort — a failed save just means next cold start falls back
       // to waiting on a live MediaStore query, same as today.
     }
@@ -179,12 +179,12 @@ class MediaStoreService {
       // matching the fail-open convention already used for the FFmpeg probe
       // and artwork prewarm elsewhere in the startup path.
       final List<dynamic>? songs = await _channel
-          .invokeListMethod('getSongs')
+          .invokeListMethod<dynamic>('getSongs')
           .timeout(const Duration(seconds: 20));
 
       final parsedSongs = (songs ?? const <dynamic>[])
-          .map((song) =>
-              LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
+          .whereType<Map<dynamic, dynamic>>()
+          .map(LocalSong.fromMap)
           .where((song) => song.path.isNotEmpty)
           .toList(growable: false);
 
@@ -201,7 +201,7 @@ class MediaStoreService {
       LogService.error('MediaStore', 'Failed to load songs: $error', stackTrace: stackTrace.toString());
       _lastFailedReconcile = DateTime.now();
       return const <LocalSong>[];
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       LogService.error('MediaStore', 'Invalid song payload: $error', stackTrace: stackTrace.toString());
       _lastFailedReconcile = DateTime.now();
       return const <LocalSong>[];
@@ -294,7 +294,7 @@ class MediaStoreService {
   /// I/O bandwidth to ExoPlayer's audio decode pipeline.
   /// Fire-and-forget — result is not awaited.
   static void cancelMetadataPrescanner() {
-    _channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {});
+    unawaited(_channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {}));
   }
 
   /// Restarts the native background metadata pre-scanner.
@@ -305,7 +305,7 @@ class MediaStoreService {
   /// MediaStore round-trip.
   /// Fire-and-forget — result is not awaited.
   static void startMetadataPrescanner() {
-    _channel.invokeMethod<void>('startMetadataPrescanner').catchError((_) {});
+    unawaited(_channel.invokeMethod<void>('startMetadataPrescanner').catchError((_) {}));
   }
 
   static Future<Uint8List?> getArtwork(int songId) {
@@ -332,7 +332,7 @@ class MediaStoreService {
     } on PlatformException catch (error, stackTrace) {
       LogService.error('MediaStore', 'Failed to load artwork for song $songId: $error', stackTrace: stackTrace.toString());
       return null;
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       LogService.error('MediaStore', 'Invalid artwork payload for song $songId: $error', stackTrace: stackTrace.toString());
       return null;
     }
@@ -340,7 +340,7 @@ class MediaStoreService {
 
   static void _trimArtworkCache() {
     while (_artworkCache.length > _maxArtworkCacheEntries) {
-      _artworkCache.remove(_artworkCache.keys.first);
+      _artworkCache.remove(_artworkCache.keys.first)?.ignore();
     }
   }
 
@@ -363,7 +363,7 @@ class MediaStoreService {
     } on PlatformException catch (error, stackTrace) {
       LogService.error('MediaStore', 'deleteSong platform error: $error', stackTrace: stackTrace.toString());
       return false;
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       LogService.error('MediaStore', 'deleteSong unexpected error: $error', stackTrace: stackTrace.toString());
       return false;
     }
@@ -380,7 +380,7 @@ class MediaStoreService {
         'setActiveQueueIds',
         {'ids': songIds},
       );
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.error('MediaStore', 'setActiveQueueIds error: $e');
     }
   }
@@ -395,7 +395,7 @@ class MediaStoreService {
     } on PlatformException catch (e) {
       LogService.error('MediaStore', 'getArtworkPath error songId=$songId: $e');
       return null;
-    } catch (e) {
+    } on Object catch (e) {
       LogService.error('MediaStore', 'getArtworkPath unexpected error songId=$songId: $e');
       return null;
     }

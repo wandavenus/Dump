@@ -27,7 +27,7 @@ class _EqualizerPageState extends State<EqualizerPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: 'Equalizer',
+        title: context.l10n.equalizerTitle,
         scrollOffset: 100,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -102,7 +102,7 @@ class _AdvancedAudioControls extends StatelessWidget {
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.playbackSpeed,
           builder: (_, v, _) => SettingsSliderRow(
-            title: 'Kecepatan Putar',
+            title: context.l10n.playbackSpeed,
             subtitle: '${v.toStringAsFixed(2)}x',
             value: v,
             min: 0.25,
@@ -111,8 +111,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 22,
             showReset: v != 1.0,
             onReset: () => AudioEffectsService.setSpeed(1.0),
-            description:
-                'Mengatur kecepatan pemutaran lagu. Nilai di bawah 1x memperlambat, di atas 1x mempercepat, tanpa mengubah pitch suara.',
+            description: context.l10n.speedDesc,
           ),
         ),
         const _SectionDivider(),
@@ -121,10 +120,11 @@ class _AdvancedAudioControls extends StatelessWidget {
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.pitchShift,
           builder: (_, v, _) => SettingsSliderRow(
-            title: 'Pitch Shift',
+            title: context.l10n.pitchShift,
             subtitle: v == 0
-                ? 'Normal'
-                : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} semitone',
+                ? context.l10n.normal
+                : context.l10n.pitchSemitone(
+                    '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)}'),
             value: v,
             min: -6,
             max: 6,
@@ -132,8 +132,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setPitch(0),
-            description:
-                'Menaikkan atau menurunkan nada lagu dalam satuan semitone, tanpa mengubah kecepatan putar.',
+            description: context.l10n.pitchDesc,
           ),
         ),
         const _SectionDivider(),
@@ -142,12 +141,12 @@ class _AdvancedAudioControls extends StatelessWidget {
         ValueListenableBuilder<int>(
           valueListenable: AudioEffectsService.bassBoost,
           builder: (_, v, _) => SettingsSliderRow(
-            title: 'Bass Boost',
+            title: context.l10n.bassBoost,
             subtitle: v == 0
-                ? 'Nonaktif'
+                ? context.l10n.off
                 : DeviceDsp.bassBoostSupported
                     ? '${(v / 10).round()}%'
-                    : 'Tidak didukung perangkat ini',
+                    : context.l10n.notSupportedDevice,
             value: v.toDouble(),
             min: 0,
             max: 1000,
@@ -155,8 +154,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 20,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setBassBoost(0),
-            description:
-                'Menguatkan frekuensi bass agar suara dentum/rendah terasa lebih tebal. Semakin besar persentase, semakin kuat efeknya.',
+            description: context.l10n.bassBoostDesc,
           ),
         ),
         const _SectionDivider(),
@@ -165,8 +163,11 @@ class _AdvancedAudioControls extends StatelessWidget {
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.nativePreampDb,
           builder: (_, v, _) => SettingsSliderRow(
-            title: 'Preamp',
-            subtitle: v == 0.0 ? 'Nonaktif' : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} dB',
+            title: context.l10n.preamp,
+             subtitle: v == 0.0
+                 ? context.l10n.off
+                 : context.l10n.decibelValue(
+                     '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)}'),
             value: v,
             min: -24.0,
             max: 24.0,
@@ -174,8 +175,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 96,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setNativePreampDb(0.0),
-            description:
-                'Menyesuaikan volume dasar sebelum EQ dan efek lain diproses. Geser ke kanan untuk menaikkan, ke kiri untuk menurunkan.',
+            description: context.l10n.preampDesc,
           ),
         ),
         const _SectionDivider(),
@@ -187,9 +187,9 @@ class _AdvancedAudioControls extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SettingsSliderRow(
-                title: 'Compressor',
+                title: context.l10n.compressor,
                 subtitle: ratio <= 1.0
-                    ? 'Nonaktif'
+                    ? context.l10n.off
                     : '${ratio.toStringAsFixed(1)}:1',
                 value: ratio,
                 min: 1.0,
@@ -198,15 +198,14 @@ class _AdvancedAudioControls extends StatelessWidget {
                 divisions: 38,
                 showReset: ratio != 1.0,
                 onReset: () => AudioEffectsService.setCompressorRatio(1.0),
-                description:
-                    'Menekan perbedaan volume antara suara pelan dan keras. Rasio lebih tinggi = kompresi lebih agresif. 1:1 berarti nonaktif.',
+                description: context.l10n.compressorDesc,
               ),
               if (ratio > 1.0) ...[
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.compressorThreshold,
                   builder: (_, v, _) => SettingsSliderRow(
-                    title: 'Compressor Threshold',
-                    subtitle: '${v.toStringAsFixed(0)} dB',
+                    title: context.l10n.compressorThresholdTitle,
+                     subtitle: context.l10n.decibelValue(v.toStringAsFixed(0)),
                     value: v,
                     min: -60.0,
                     max: 0.0,
@@ -215,15 +214,14 @@ class _AdvancedAudioControls extends StatelessWidget {
                     showReset: v != -20.0,
                     onReset: () =>
                         AudioEffectsService.setCompressorThreshold(-20.0),
-                    description:
-                        'Ambang batas volume tempat compressor mulai bekerja. Semakin rendah nilainya, semakin banyak bagian suara yang dikompres.',
+                    description: context.l10n.compressorThresholdDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.compressorAttackMs,
                   builder: (_, v, _) => SettingsSliderRow(
-                    title: 'Compressor Attack',
-                    subtitle: '${v.toStringAsFixed(0)} ms',
+                    title: context.l10n.compressorAttackTitle,
+                     subtitle: context.l10n.millisecondsValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 0.1,
                     max: 500.0,
@@ -231,15 +229,14 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 50,
                     showReset: v != 10.0,
                     onReset: () => AudioEffectsService.setCompressorAttackMs(10.0),
-                    description:
-                        'Seberapa cepat compressor bereaksi saat suara melewati threshold. Lebih cepat = lebih responsif terhadap suara mendadak.',
+                    description: context.l10n.compressorAttackDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.compressorReleaseMs,
                   builder: (_, v, _) => SettingsSliderRow(
-                    title: 'Compressor Release',
-                    subtitle: '${v.toStringAsFixed(0)} ms',
+                    title: context.l10n.compressorReleaseTitle,
+                     subtitle: context.l10n.millisecondsValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 1.0,
                     max: 2000.0,
@@ -247,15 +244,16 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 40,
                     showReset: v != 100.0,
                     onReset: () => AudioEffectsService.setCompressorReleaseMs(100.0),
-                    description:
-                        'Seberapa cepat volume kembali normal setelah kompresi. Terlalu cepat bisa terdengar "berpompa".',
+                    description: context.l10n.compressorReleaseDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.compressorKneeDb,
                   builder: (_, v, _) => SettingsSliderRow(
-                    title: 'Compressor Knee',
-                    subtitle: v == 0.0 ? 'Hard knee' : '${v.toStringAsFixed(0)} dB',
+                    title: context.l10n.compressorKneeTitle,
+                     subtitle: v == 0.0
+                         ? context.l10n.hardKnee
+                         : context.l10n.decibelValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 0.0,
                     max: 24.0,
@@ -263,8 +261,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 24,
                     showReset: v != 6.0,
                     onReset: () => AudioEffectsService.setCompressorKneeDb(6.0),
-                    description:
-                        'Melembutkan transisi masuk ke kompresi di sekitar threshold. 0 dB = transisi tegas (hard knee).',
+                    description: context.l10n.compressorKneeDesc,
                   ),
                 ),
               ],
@@ -280,8 +277,10 @@ class _AdvancedAudioControls extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SettingsSliderRow(
-                title: 'Limiter',
-                subtitle: v >= 0.0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} dB',
+                title: context.l10n.limiter,
+                 subtitle: v >= 0.0
+                     ? context.l10n.off
+                     : context.l10n.decibelValue(v.toStringAsFixed(1)),
                 value: v,
                 min: -24.0,
                 max: 0.0,
@@ -289,15 +288,14 @@ class _AdvancedAudioControls extends StatelessWidget {
                 divisions: 48,
                 showReset: v != 0.0,
                 onReset: () => AudioEffectsService.setLimiterThreshold(0.0),
-                description:
-                    'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.',
+                description: context.l10n.limiterDesc,
               ),
               if (v < 0.0)
                 ValueListenableBuilder<double>(
                   valueListenable: AudioEffectsService.limiterReleaseMs,
                   builder: (_, r, _) => SettingsSliderRow(
-                    title: 'Limiter Release',
-                    subtitle: '${r.toStringAsFixed(0)} ms',
+                    title: context.l10n.limiterReleaseTitle,
+                     subtitle: context.l10n.millisecondsValue(r.toStringAsFixed(0)),
                     value: r,
                     min: 1.0,
                     max: 1000.0,
@@ -305,8 +303,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 50,
                     showReset: r != 50.0,
                     onReset: () => AudioEffectsService.setLimiterReleaseMs(50.0),
-                    description:
-                        'Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.',
+                    description: context.l10n.limiterReleaseDesc,
                   ),
                 ),
             ],
@@ -318,8 +315,10 @@ class _AdvancedAudioControls extends StatelessWidget {
         ValueListenableBuilder<double>(
           valueListenable: AudioEffectsService.softClipperThreshold,
           builder: (_, v, _) => SettingsSliderRow(
-            title: 'Soft Clipper',
-            subtitle: v >= 0.0 ? 'Nonaktif' : '${v.toStringAsFixed(1)} dB',
+            title: context.l10n.softClipper,
+             subtitle: v >= 0.0
+                 ? context.l10n.off
+                 : context.l10n.decibelValue(v.toStringAsFixed(1)),
             value: v,
             min: -12.0,
             max: 0.0,
@@ -327,8 +326,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setSoftClipperThreshold(0.0),
-            description:
-                'Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.',
+            description: context.l10n.softClipperDesc,
           ),
         ),
       ],

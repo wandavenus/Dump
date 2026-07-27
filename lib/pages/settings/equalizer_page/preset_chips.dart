@@ -21,7 +21,7 @@ class _EqPresetChips extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('PRESET'),
+        _SectionLabel(context.l10n.preset),
         const SizedBox(height: 10),
         SizedBox(
           height: 36,

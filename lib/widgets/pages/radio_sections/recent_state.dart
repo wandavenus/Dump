@@ -7,12 +7,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
@@ -31,7 +31,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           .map((id) => songMap[id]!)
           .toList();
       if (mounted) setState(() { _songs = recent; _isLoading = false; });
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }
   }
@@ -49,7 +49,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         height: 250,
         child: Center(
           child: Text(
-            'Tidak ada lagu yang diputar baru-baru ini',
+            context.l10n.noRecentlyPlayed,
             style: TextStyle(color: AppColors.of(context).secondaryLabel),
           ),
         ),

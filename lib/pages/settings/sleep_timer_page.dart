@@ -6,8 +6,11 @@
 // Public surface: [showSleepTimerSheet] (top-level helper used by the player
 // 3-dot menu); widget tree lives in the `sleep_timer_page/` sub-parts.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
@@ -22,13 +25,13 @@ part 'sleep_timer_page/presets.dart';
 /// Shows the sleep timer picker as a bottom sheet.
 /// Use this from the player 3-dot menu.
 void showSleepTimerSheet(BuildContext context) {
-  showModalBottomSheet<void>(
+  unawaited(showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const _SleepTimerSheetWidget(),
-  );
+  ));
 }
 
 class _SleepTimerSheetWidget extends StatelessWidget {
@@ -64,7 +67,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      'Sleep Timer',
+                       context.l10n.sleepTimerTitle,
                       style: TextStyle(
                         color: c.primaryLabel,
                         fontSize: 16,
@@ -86,8 +89,8 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                                       SleepTimerService.cancel();
                                       Navigator.of(context).pop();
                                     },
-                                    child: const Text(
-                                      'Batalkan',
+                                     child: Text(
+                                       context.l10n.cancelTimer,
                                       style: TextStyle(
                                         color: Color(0xFFF92D48),
                                         fontSize: 15,
@@ -139,7 +142,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 5),
               child: Text(
-                'PILIH DURASI',
+                 context.l10n.sleepPresetSection,
                 style: TextStyle(
                   color: c.secondaryLabel,
                   fontSize: 12,

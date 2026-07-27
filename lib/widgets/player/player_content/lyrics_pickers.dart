@@ -5,7 +5,7 @@ part of '../player_content.dart';
 class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
-  static const _sizes = [
+  static const List<({String label, double value})> _sizes = [
     (label: 'S', value: 23.0),
     (label: 'M', value: 34.0),
     (label: 'L', value: 48.0),
@@ -48,7 +48,7 @@ class _FontSizePicker extends StatelessWidget {
 class _AlignPicker extends StatelessWidget {
   const _AlignPicker();
 
-  static const _opts = [
+  static const List<({IconData icon, String value})> _opts = [
     (icon: Icons.format_align_left, value: 'left'),
     (icon: Icons.format_align_center, value: 'center'),
     (icon: Icons.format_align_right, value: 'right'),
@@ -85,14 +85,13 @@ class _AlignPicker extends StatelessWidget {
 class _ColorPicker extends StatelessWidget {
   const _ColorPicker();
 
-  static const _opts = [
-    (label: 'Putih', dot: Colors.white, value: 'white'),
-    (label: 'Merah', dot: Color(0xFFF92D48), value: 'accent'),
-    (label: 'Kuning', dot: Color(0xFFFFD60A), value: 'yellow'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final opts = [
+      (label: context.l10n.lyricsColorWhite, dot: Colors.white, value: 'white'),
+      (label: context.l10n.lyricsColorRed, dot: const Color(0xFFF92D48), value: 'accent'),
+      (label: context.l10n.lyricsColorYellow, dot: const Color(0xFFFFD60A), value: 'yellow'),
+    ];
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.activeColor,
       builder: (_, cur, _) {
@@ -104,7 +103,7 @@ class _ColorPicker extends StatelessWidget {
               if (v != null) LyricsSettings.setActiveColor(v);
             },
             children: {
-              for (final o in _opts)
+              for (final o in opts)
                 o.value: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Row(

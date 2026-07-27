@@ -164,7 +164,9 @@ class PlaybackManager {
         'Native DSP pipeline initialized'
         ' (${NativeDspPipeline.instance.processorCount} processor(s))',
       );
-    } catch (e, st) {
+    } on Exception catch (e, st) {
+      // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
+      // MissingPluginException, or other platform-level errors — all non-fatal.
       BootTrace.log(
           'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st');
       LogService.log(
@@ -195,7 +197,7 @@ class PlaybackManager {
         _queueCtrl.add(queue);
 
         _currentQueue = queue
-            .whereType<Map>()
+            .whereType<Map<dynamic, dynamic>>()
             .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
             .toList();
 
@@ -292,7 +294,7 @@ class PlaybackManager {
         centerFrequenciesHz:
             raw.bands.map((b) => b.centerFrequencyHz).toList(),
       );
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -828,7 +830,7 @@ class PlaybackManager {
       }
 
       await NativePaletteService.get(song.id);
-    } catch (_) {
+    } on Exception catch (_) {
       // Ignore prefetch failures.
     } finally {
       if (index >= 0 && index < _currentQueue.length) {

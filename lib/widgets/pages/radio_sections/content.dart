@@ -5,24 +5,24 @@ class RadioPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SingleChildScrollView(
+    return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LargePageTitle(title: 'Radio'),
-          HeaderDivider(),
-          SizedBox(height: 12),
-          _SmartPlaylistCardWidget(index: 0),
-          _SmartPlaylistCardWidget(index: 1),
-          _SmartPlaylistCardWidget(index: 2),
-          _UserPlaylistsSection(),
-          SizedBox(height: 8),
+          LargePageTitle(title: context.l10n.navRadio),
+          const HeaderDivider(),
+          const SizedBox(height: 12),
+          const _SmartPlaylistCardWidget(index: 0),
+          const _SmartPlaylistCardWidget(index: 1),
+          const _SmartPlaylistCardWidget(index: 2),
+          const _UserPlaylistsSection(),
+          const SizedBox(height: 8),
           SectionTitle(
-            title: 'Baru Dimainkan',
+            title: context.l10n.recentlyPlayed,
             routeName: '/musiclist',
             showChevron: false,
           ),
-          _RecentlyPlayedSection(),
+          const _RecentlyPlayedSection(),
         ],
       ),
     );

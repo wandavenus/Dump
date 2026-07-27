@@ -136,7 +136,7 @@ Future<String> _resolvedCacheDir() async {
         final id = int.tryParse(name.substring(0, name.length - 5));
         if (id != null && id > 0) _diskCachedIds.add(id);
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Non-fatal: if scan fails, getProviderSync falls back to async lookup.
     }
   }
@@ -267,7 +267,7 @@ Future<String> _resolvedCacheDir() async {
     }
 
     return bytes;
-  } catch (_) {
+  } on Exception catch (_) {
     // File read failed — the path is stale (e.g. native LRU evicted the file
     // while Dart still held a memory reference).  Evict all cached references
     // so the next call goes through the full resolve → re-extract path instead
@@ -364,13 +364,13 @@ Future<String> _resolvedCacheDir() async {
         try {
           // Resolve path (triggers disk check or native extraction).
           await getPath(id);
-        } catch (_) {
+        } on Exception catch (_) {
           // Never let a single failed extraction abort the batch.
         }
         // Yield back to the event loop between items so scrolling/animation
         // frames are never blocked by this low-priority background work.
         // 120ms is a safe window for mid-range devices to process other UI events.
-        await Future.delayed(const Duration(milliseconds: 120));
+        await Future<void>.delayed(const Duration(milliseconds: 120));
       }
     } finally {
       _prefetching = false;
@@ -397,7 +397,7 @@ Future<String> _resolvedCacheDir() async {
   _paths.remove(songId);
   _providers.remove(songId);
   _bytes.remove(songId);
-  _inFlight.remove(songId);
+  unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
 }
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).

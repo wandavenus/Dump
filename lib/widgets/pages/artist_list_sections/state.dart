@@ -7,12 +7,12 @@ class _ArtistListContentState extends State<ArtistListContent> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
@@ -33,7 +33,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
       if (mounted) setState(() { _artists = artists; _isLoading = false; });
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }
   }
@@ -46,7 +46,7 @@ class _ArtistListContentState extends State<ArtistListContent> {
     }
     if (_artists.isEmpty) {
       return Center(
-        child: Text('Tidak ada artis ditemukan',
+        child: Text(context.l10n.noArtistsFound,
             style: TextStyle(color: c.secondaryLabel)),
       );
     }
@@ -55,12 +55,12 @@ class _ArtistListContentState extends State<ArtistListContent> {
       controller: widget.scrollController,
       slivers: [
         // Header — judul tidak diubah
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LargePageTitle(title: 'Artis Favorit'),
-              HeaderDivider(),
+              LargePageTitle(title: context.l10n.favoriteArtists),
+              const HeaderDivider(),
             ],
           ),
         ),

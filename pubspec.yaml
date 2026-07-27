@@ -1,7 +1,7 @@
 name: musicplayer
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.4.0
+version: 1.4.8
 
 environment:
   sdk: '>=3.12.2 <4.0.0'
@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
 
   text_scroll: ^0.2.1
   cupertino_icons: ^1.0.8
@@ -42,6 +45,7 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/play_store_512.png"
 
 flutter:
+  generate: true
   uses-material-design: true
 
   assets:

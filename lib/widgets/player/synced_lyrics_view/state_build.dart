@@ -56,7 +56,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   _karaokeController.updatePosition(targetPos);
                   // ──────────────────────────────────────────────────────
 
-                  AudioService.seek(targetPos);
+                  unawaited(AudioService.seek(targetPos));
                 },
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: lineSpacing),

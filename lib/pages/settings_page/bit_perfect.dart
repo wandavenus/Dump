@@ -1,24 +1,11 @@
 part of '../settings_page.dart';
 
-// ─── Bit-Perfect Mode Section ───────────────────────────────────────────────
-//
-// Master switch that force-bypasses every audio-altering feature in the
-// app — Equalizer, Bass Boost, Compressor, Limiter, Soft Clipper,
-// Crossfeed, ReplayGain, Loudness Normalization,
-// Crossfade, Playback Speed, and Pitch Shift — as close to the untouched
-// source signal as this device allows. Lives at the top level of Settings,
-// not inside the Equalizer page, because it governs the whole app's audio
-// path, not just the equalizer.
-//
-// Turning it back off restores every setting exactly as it was before —
-// see [AudioEffectsService.setBitPerfectMode] for the snapshot/restore
-// logic.
-
 class _BitPerfectSection extends StatelessWidget {
   const _BitPerfectSection();
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.bitPerfectMode,
       builder: (context, enabled, _) {
@@ -26,26 +13,20 @@ class _BitPerfectSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SettingsSectionHeader('BIT-PERFECT'),
+            SettingsSectionHeader(l.sectionBitPerfect),
             const SizedBox(height: 6),
             SettingsToggleRow(
-              title: 'Mode Bit-Perfect',
+              title: l.bitPerfectMode,
               subtitle: enabled
-                  ? 'Aktif — semua pemrosesan audio dinonaktifkan'
-                  : 'Nonaktifkan semua efek & pemrosesan audio',
+                  ? l.bitPerfectActiveSubtitle
+                  : l.bitPerfectInactiveSubtitle,
               value: enabled,
               onChanged: (v) => _confirmAndToggle(context, v),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
               child: Text(
-                enabled
-                    ?   'Semua fitur DSP dipaksa nonaktif agar sinyal '
-                        'sedekat mungkin dengan sumber asli. Kontrol-kontrol '
-                        'tersebut dikunci selama mode ini aktif — pengaturan '
-                        'sebelumnya akan dikembalikan saat dinonaktifkan.'
-                    : 'Saat aktif, semua fitur yang mengubah sinyal audio di '
-                        'seluruh aplikasi akan dipaksa Nonaktif.',
+                l.bitPerfectDescription,
                 style: TextStyle(color: c.tertiaryLabel, fontSize: 12),
               ),
             ),
@@ -77,6 +58,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     return SwipeToDismissSheet(
       child: Container(
@@ -103,7 +85,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Aktifkan Mode Bit-Perfect?',
+                  l.bitPerfectConfirmTitle,
                   style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 16,
@@ -118,10 +100,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Semua efek dan pemrosesan audio di seluruh aplikasi akan '
-                  'dinonaktifkan paksa. Pengaturan '
-                  'yang sedang aktif akan disimpan dan dikembalikan otomatis '
-                  'saat mode ini dimatikan lagi.',
+                  l.bitPerfectConfirmBody,
                   style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                 ),
               ),
@@ -137,7 +116,7 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
                       color: c.surface2,
                       borderRadius: BorderRadius.circular(12),
                       onPressed: () => Navigator.pop(context, false),
-                      child: Text('Batal',
+                      child: Text(l.cancel,
                           style: TextStyle(color: c.primaryLabel)),
                     ),
                   ),
@@ -148,8 +127,8 @@ class _BitPerfectConfirmSheet extends StatelessWidget {
                       color: const Color(0xFFF92D48),
                       borderRadius: BorderRadius.circular(12),
                       onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Aktifkan',
-                          style: TextStyle(color: Colors.white)),
+                      child: Text(l.activate,
+                          style: const TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],

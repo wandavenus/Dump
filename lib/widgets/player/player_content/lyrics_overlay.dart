@@ -21,6 +21,15 @@ class _LyricsOverlayBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final sourceLabel = result.providerName.isNotEmpty
+        ? result.providerName
+        : switch (result.source) {
+            LyricsSource.embedded => l.lyricsSourceEmbedded,
+            LyricsSource.localFile => l.lyricsSourceLocalFile,
+            LyricsSource.internet => l.lyricsSourceInternet,
+            LyricsSource.none => '',
+          };
     return Stack(
       children: [
         // Swipe-down-to-collapse: a fast downward drag released anywhere on
@@ -138,7 +147,7 @@ class _LyricsOverlayBody extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      result.sourceLabel,
+                       sourceLabel,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
                         fontSize: 11,
@@ -176,7 +185,7 @@ class _EmptyLyricsOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Lirik tidak ditemukan',
+              context.l10n.lyricsNotFound,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 17,
@@ -194,7 +203,7 @@ class _EmptyLyricsOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Tambahkan file .lrc di folder yang sama\ndengan lagu, atau konfigurasikan folder\nlirik di Pengaturan.',
+              context.l10n.lyricsFileHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.2),

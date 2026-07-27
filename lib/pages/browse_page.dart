@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import '../widgets/common/scrolling_page_chrome.dart';
@@ -23,10 +26,12 @@ class _BrowsePageState extends State<BrowsePage> {
 
   void _onScrollToTop() {
     if (_scroll.hasClients) {
-      _scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        ),
       );
     }
   }
@@ -59,7 +64,7 @@ class _BrowsePageState extends State<BrowsePage> {
         return Scaffold(
           extendBodyBehindAppBar: isGlass,
           appBar: FadingTitleAppBar(
-            title: 'Baru',
+            title: context.l10n.browseTitle,
             scrollOffsetListenable: _scrollOffsetNotifier,
           ),
           body: PrimaryScrollController(

@@ -9,30 +9,31 @@ class _LogLevelSelector extends StatelessWidget {
 
   // ── Visual helpers ─────────────────────────────────────────────────────────
 
-  static ({String label, Color color, IconData icon}) _visual() {
+  static ({String label, Color color, IconData icon}) _visual(
+      AppLocalizations l) {
     if (!LogService.loggingEnabled.value) {
       return (
-        label: 'OFF',
+        label: l.logBadgeOff,
         color: const Color(0xFF48484A),
         icon:  Icons.tune_rounded,
       );
     }
     if (LogService.errorsOnly.value) {
       return (
-        label: 'ERR',
+        label: l.logBadgeError,
         color: const Color(0xFFFF9F0A),
         icon:  Icons.tune_rounded,
       );
     }
     if (LogService.verboseEnabled.value) {
       return (
-        label: 'VRB',
+        label: l.logBadgeVerbose,
         color: const Color(0xFF0A84FF),
         icon:  Icons.tune_rounded,
       );
     }
     return (
-      label: 'LOG',
+      label: l.logBadgeNormal,
       color: const Color(0xFF30D158),
       icon:  Icons.tune_rounded,
     );
@@ -42,7 +43,8 @@ class _LogLevelSelector extends StatelessWidget {
 
   void _showSheet(BuildContext context) {
     final c = AppColors.of(context);
-    showModalBottomSheet<void>(
+    final l = context.l10n;
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: c.surface,
       shape: const RoundedRectangleBorder(
@@ -63,7 +65,7 @@ class _LogLevelSelector extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                 child: Text(
-                  'Level Log',
+                  l.logLevelTitle,
                   style: TextStyle(
                       color: c.primaryLabel,
                       fontSize: 15,
@@ -71,8 +73,8 @@ class _LogLevelSelector extends StatelessWidget {
                 ),
               ),
               _option(
-                title:    'Nonaktif',
-                subtitle: 'Logging dimatikan',
+                title:    l.logLevelOff,
+                subtitle: l.logLevelOffDesc,
                 selected: !LogService.loggingEnabled.value,
                 onTap:    () => LogService.setLoggingEnabled(false),
                 primaryLabel:   c.primaryLabel,
@@ -80,8 +82,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Error & Peringatan Saja',
-                subtitle: 'Sembunyikan log info & verbose',
+                title:    l.logLevelErrorsOnly,
+                subtitle: l.logLevelErrorsOnlyDesc,
                 selected: LogService.loggingEnabled.value &&
                     LogService.errorsOnly.value,
                 onTap: () async {
@@ -93,8 +95,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Normal',
-                subtitle: 'Log info, error & peringatan',
+                title:    l.logLevelNormal,
+                subtitle: l.logLevelNormalDesc,
                 selected: LogService.loggingEnabled.value &&
                     !LogService.errorsOnly.value &&
                     !LogService.verboseEnabled.value,
@@ -108,8 +110,8 @@ class _LogLevelSelector extends StatelessWidget {
                 tertiaryLabel:  c.tertiaryLabel,
               ),
               _option(
-                title:    'Log Verbose',
-                subtitle: 'Tampilkan log detail',
+                title:    l.logLevelVerbose,
+                subtitle: l.logLevelVerboseDesc,
                 selected: LogService.loggingEnabled.value &&
                     !LogService.errorsOnly.value &&
                     LogService.verboseEnabled.value,
@@ -127,7 +129,7 @@ class _LogLevelSelector extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   static Widget _option({
@@ -184,7 +186,7 @@ class _LogLevelSelector extends StatelessWidget {
         LogService.verboseEnabled,
       ]),
       builder: (_, _) {
-        final v = _visual();
+        final v = _visual(context.l10n);
         return GestureDetector(
           onTap: () => _showSheet(context),
           child: Padding(

@@ -33,7 +33,7 @@ class SleepTimerService {
   // ── Initialize (subscribe to native stream) ───────────────────────────────
 
   static void initialize() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = PlaybackManager.sleepTimerStream.listen((map) {
       final active      = map['active']      as bool? ?? false;
       final endOfSong   = map['endOfSong']   as bool? ?? false;
@@ -87,19 +87,19 @@ class SleepTimerService {
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   static void dispose() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = null;
   }
 
   // ── Quick presets (unchanged from previous impl) ──────────────────────────
 
-  static const List<({String label, Duration? duration})> presets = [
-    (label: '15 menit',   duration: Duration(minutes: 15)),
-    (label: '30 menit',   duration: Duration(minutes: 30)),
-    (label: '45 menit',   duration: Duration(minutes: 45)),
-    (label: '1 jam',      duration: Duration(hours: 1)),
-    (label: '1,5 jam',    duration: Duration(minutes: 90)),
-    (label: '2 jam',      duration: Duration(hours: 2)),
-    (label: 'Akhir lagu', duration: null),
+  static const List<({Duration? duration})> presets = [
+    (duration: Duration(minutes: 15)),
+    (duration: Duration(minutes: 30)),
+    (duration: Duration(minutes: 45)),
+    (duration: Duration(hours: 1)),
+    (duration: Duration(minutes: 90)),
+    (duration: Duration(hours: 2)),
+    (duration: null),
   ];
 }

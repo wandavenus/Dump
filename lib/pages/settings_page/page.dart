@@ -34,10 +34,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: 'Pengaturan',
+        title: l.settings,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -56,7 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const LargePageTitle(title: 'Pengaturan'),
+            LargePageTitle(title: l.settings),
             const HeaderDivider(),
             _SettingsBody(),
           ],
@@ -65,5 +66,3 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
-
-// ─── AppBar ───────────────────────────────────────────────────────────────────

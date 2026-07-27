@@ -1,7 +1,5 @@
 part of '../../settings_page.dart';
 
-// ─── Crossfade discrete picker ────────────────────────────────────────────────
-
 class _CrossfadePicker extends StatefulWidget {
   const _CrossfadePicker();
 
@@ -16,8 +14,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
   late final Animation<double>   _fade;
 
   static const _steps  = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
-  static const _labels = ['Off', '1s', '2s', '4s', '6s', '8s', '12s'];
-
   @override
   void initState() {
     super.initState();
@@ -36,11 +32,12 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     return ValueListenableBuilder<double>(
       valueListenable: AudioEffectsService.crossfadeDuration,
@@ -53,7 +50,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               InkWell(
                 onTap:        _toggle,
                 borderRadius: BorderRadius.circular(8),
@@ -61,16 +57,15 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   child: Row(
                     children: [
-                      Text('Crossfade',
+                      Text(l.crossfadeTitle,
                           style: TextStyle(color: c.primaryLabel, fontSize: 16)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           current == 0
-                              ? 'Nonaktif'
-                              : '${current.toStringAsFixed(0)} detik',
-                          style: TextStyle(
-                              color: c.secondaryLabel, fontSize: 13),
+                              ? l.off
+                              : l.crossfadeSeconds(current.toStringAsFixed(0)),
+                          style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                         ),
                       ),
                       AnimatedRotation(
@@ -83,7 +78,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   ),
                 ),
               ),
-              // Collapsible segmented control
               SizeTransition(
                 sizeFactor: _ctrl,
                 alignment:  Alignment.topCenter,
@@ -94,14 +88,17 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                     child: CupertinoSlidingSegmentedControl<double>(
                       groupValue: snapped,
                       onValueChanged: (v) {
-                        if (v != null) AudioEffectsService.setCrossfade(v);
+                        if (v != null) unawaited(AudioEffectsService.setCrossfade(v));
                       },
                       children: {
                         for (var i = 0; i < _steps.length; i++)
                           _steps[i]: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
-                              _labels[i],
+                               i == 0
+                                   ? context.l10n.crossfadeOptionOff
+                                   : context.l10n.crossfadeOptionSeconds(
+                                       _steps[i].toStringAsFixed(0)),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),

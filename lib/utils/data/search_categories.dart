@@ -1,6 +1,6 @@
 // Shared demo data extracted from the original page implementation.
 
-final List searchCategories = [
+final List<Map<String, String>> searchCategories = [
     {
       "image": "assets/images/search/radio.webp",
       "title": "Apple Music Radio"

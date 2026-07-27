@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/l10n/app_localizations.dart';
 import 'package:musicplayer/services/log_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
@@ -54,8 +58,13 @@ class _LogPageState extends State<LogPage> {
     if (!mounted) return;
     setState(_expanded.clear);
     if (_liveTail && _scrollCtrl.hasClients) {
-      _scrollCtrl.animateTo(0,
-          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      unawaited(
+        _scrollCtrl.animateTo(
+          0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ),
+      );
     }
   }
 
@@ -81,13 +90,13 @@ class _LogPageState extends State<LogPage> {
   void _copyAll(List<LogEntry> entries) {
     final buf = StringBuffer();
     for (final e in entries) { buf.writeln(e.toString()); }
-    Clipboard.setData(ClipboardData(text: buf.toString()));
-    _snack('${entries.length} entri disalin');
+    unawaited(Clipboard.setData(ClipboardData(text: buf.toString())));
+    _snack(context.l10n.logCopiedEntries(entries.length));
   }
 
   void _copyEntry(LogEntry e) {
-    Clipboard.setData(ClipboardData(text: e.toString()));
-    _snack('Entri disalin');
+    unawaited(Clipboard.setData(ClipboardData(text: e.toString())));
+    _snack(context.l10n.logCopiedEntry);
   }
 
   void _snack(String msg) {
@@ -105,34 +114,44 @@ class _LogPageState extends State<LogPage> {
 
   void _jumpTop() {
     if (!_scrollCtrl.hasClients) return;
-    _scrollCtrl.animateTo(0,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    unawaited(
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _jumpBottom() {
     if (!_scrollCtrl.hasClients) return;
-    _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    unawaited(
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _clearLogs() {
-    showDialog<bool>(
+    unawaited(showDialog<bool>(
       context: context,
       builder: (ctx) {
         final dc = AppColors.of(ctx);
         return AlertDialog(
           backgroundColor: dc.surface,
-          title: Text('Hapus semua log?',
+          title: Text(ctx.l10n.clearLogsConfirm,
               style: TextStyle(color: dc.primaryLabel, fontSize: 15)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Batal',
+              child: Text(ctx.l10n.cancel,
                   style: TextStyle(color: dc.tertiaryLabel)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Hapus',
+              child: Text(ctx.l10n.delete,
                   style: TextStyle(color: Color(0xFFF92D48))),
             ),
           ],
@@ -144,7 +163,7 @@ class _LogPageState extends State<LogPage> {
         LogService.clear();
         setState(_expanded.clear);
       }
-    });
+    }));
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -209,11 +228,11 @@ class _LogPageState extends State<LogPage> {
       ),
       title: Row(
         children: [
-          const Text('Log',
+           Text(context.l10n.logTitle,
               style: TextStyle(
                   fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
           const SizedBox(width: 8),
-          Text('${entries.length}',
+          Text(context.l10n.logEntryCount(entries.length),
               style: TextStyle(
                   color: c.quaternaryLabel, fontSize: 12, fontFamily: 'monospace')),
           const SizedBox(width: 10),
@@ -249,7 +268,7 @@ class _LogPageState extends State<LogPage> {
                           ? const Color(0xFF30D158)
                           : c.quaternaryLabel),
                   const SizedBox(width: 4),
-                  Text('LIVE',
+                   Text(context.l10n.liveLabel,
                       style: TextStyle(
                         color: _liveTail
                             ? const Color(0xFF30D158)
@@ -283,8 +302,8 @@ class _LogPageState extends State<LogPage> {
               _searchCtrl.text.isNotEmpty ||
                       _levelFilter != null ||
                       _categoryFilter != null
-                  ? 'tidak ada hasil'
-                  : 'belum ada log',
+                  ? context.l10n.logNoResults
+                  : context.l10n.logEmpty,
               style: TextStyle(
                 color:      c.surface3,
                 fontSize:   12,
@@ -333,26 +352,26 @@ class _LogPageState extends State<LogPage> {
           children: [
             _BarBtn(
               icon:  Icons.keyboard_double_arrow_up_rounded,
-              label: 'Atas',
+              label: context.l10n.logScrollTop,
               onTap: _jumpTop,
             ),
             const SizedBox(width: 6),
             _BarBtn(
               icon:  Icons.keyboard_double_arrow_down_rounded,
-              label: 'Bawah',
+              label: context.l10n.logScrollBottom,
               onTap: _jumpBottom,
             ),
             const Spacer(),
             _BarBtn(
               icon:    Icons.copy_rounded,
-              label:   'Salin semua',
+              label:   context.l10n.logCopyAll,
               onTap:   () => _copyAll(entries),
               enabled: entries.isNotEmpty,
             ),
             const SizedBox(width: 6),
             _BarBtn(
               icon:        Icons.delete_outline_rounded,
-              label:       'Hapus',
+              label:       context.l10n.delete,
               onTap:       _clearLogs,
               destructive: true,
               enabled:     LogService.logCount.value > 0,

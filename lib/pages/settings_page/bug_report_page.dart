@@ -15,7 +15,7 @@ class BugReportPage extends StatelessWidget {
         final c = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Tidak bisa membuka aplikasi email'),
+            content: Text(context.l10n.cantOpenEmail),
             backgroundColor: c.surface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
@@ -44,7 +44,7 @@ class BugReportPage extends StatelessWidget {
           ),
         ),
         title: Text(
-          'Laporkan Bug',
+          context.l10n.bugReportTitle,
           style: TextStyle(
             color: c.primaryLabel,
             fontSize: 17,
@@ -61,7 +61,7 @@ class BugReportPage extends StatelessWidget {
         children: [
           // ── Paragraf 1 ───────────────────────────────────────────────────
           Text(
-            'Kalau kamu menemukan bug, error, crash, atau ada fitur yang tidak bekerja sebagaimana mestinya, mohon laporkan agar bisa segera diperbaiki.',
+            context.l10n.bugReportParagraph1,
             style: TextStyle(
               color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
@@ -72,7 +72,7 @@ class BugReportPage extends StatelessWidget {
 
           // ── Paragraf 2 ───────────────────────────────────────────────────
           Text(
-            'Kamu juga bisa mengirimkan saran, masukan, atau permintaan fitur baru. Setiap laporan sangat membantu dalam meningkatkan kualitas aplikasi.',
+            context.l10n.bugReportParagraph2,
             style: TextStyle(
               color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
@@ -83,7 +83,7 @@ class BugReportPage extends StatelessWidget {
 
           // ── Terima kasih ─────────────────────────────────────────────────
           Text(
-            'Terima kasih atas dukunganmu.',
+            context.l10n.thankYouSupport,
             style: TextStyle(
               color: c.primaryLabel.withValues(alpha: 0.87),
               fontSize: 15,
@@ -101,7 +101,7 @@ class BugReportPage extends StatelessWidget {
                 height: 1.6,
               ),
               children: [
-                const TextSpan(text: 'Kirim laporan kamu ke Gmail '),
+                TextSpan(text: '${context.l10n.sendReportGmail} '),
                 WidgetSpan(
                   alignment: PlaceholderAlignment.baseline,
                   baseline: TextBaseline.alphabetic,
@@ -117,8 +117,8 @@ class BugReportPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const TextSpan(
-                  text: ' atau ke akun sosial media di halaman Tentang.',
+                TextSpan(
+                  text: ' ${context.l10n.orSocialMedia}',
                 ),
               ],
             ),

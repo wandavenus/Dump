@@ -21,7 +21,7 @@ class _ActiveTimerCard extends StatelessWidget {
               const Icon(Icons.bedtime, color: Color(0xFFF92D48), size: 18),
               const SizedBox(width: 8),
               Text(
-                'Sleep Timer Aktif',
+                context.l10n.sleepTimerActive,
                 style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 16,
@@ -35,7 +35,7 @@ class _ActiveTimerCard extends StatelessWidget {
             builder: (_, remaining, _) {
               if (remaining == null) {
                 return Text(
-                  'Berhenti setelah lagu ini selesai',
+                  context.l10n.sleepAfterSong,
                   style: TextStyle(
                       color: c.secondaryLabel, fontSize: 14),
                 );
@@ -59,7 +59,7 @@ class _ActiveTimerCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Musik akan fade out perlahan saat timer habis',
+            context.l10n.sleepFadeOut,
             style: TextStyle(color: c.tertiaryLabel, fontSize: 12),
           ),
         ],

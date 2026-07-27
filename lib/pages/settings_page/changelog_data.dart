@@ -20,6 +20,80 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.8',
+    date: '27 Juli 2026',
+    changes: [
+      'Hapus 3 compile error (void result, syntax token, undefined function).',
+      'Bungkus semua Future fire-and-forget dengan unawaited() di ~30 file.',
+      'Ganti pola Future discarded di dispose() pakai .ignore() yang lebih aman.',
+      'Hapus import dart:async yang tidak terpakai.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.7',
+    date: '27 Juli 2026',
+    changes: [
+      'Sederhanakan output analyzer agar hanya menampilkan error dan warning.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.6',
+    date: '27 Juli 2026',
+    changes: [
+      'Perbaiki error analyzer yang bisa mengganggu build dan type safety.',
+      'Perjelas penanganan operasi async yang sengaja berjalan di background.',
+      'Perketat parsing respons provider lirik agar lebih aman saat format data berubah.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.5',
+    date: '27 Juli 2026',
+    changes: [
+      'Lengkapi integrasi lokalisasi pada label metadata file, debug, dan jumlah lagu di Library.',
+      'Sinkronkan metadata placeholder terjemahan Indonesia agar generator localization konsisten.',
+      'Perbaiki error compile pada beberapa bagian player dan halaman Log setelah migrasi lokalisasi.',
+      'Pastikan preset Sleep Timer selalu mengikuti bahasa aktif saat ditampilkan.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.4',
+    date: '27 Juli 2026',
+    changes: [
+      'Lokalisasi penuh: ganti semua string hardcoded di halaman artis, album, dan footer Settings dengan kunci terjemahan.',
+      'Tambah format durasi (jam/menit) dan jumlah lagu+durasi sebagai kunci l10n baru di EN dan ID.',
+      'Perbaiki "More by Artist" dan footer copyright di halaman album untuk mengikuti bahasa aktif.',
+      'Perbaiki versi yang tampil di halaman Tentang App.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.3',
+    date: '27 Juli 2026',
+    changes: [
+      'Lengkapi terjemahan Indonesia dan English untuk player, lirik, Home, detail artis/album, playlist, Equalizer, Log, dan status audio.',
+      'Tambahkan format terjemahan untuk durasi, jumlah lagu, metadata artis, dan nilai kontrol audio.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.2',
+    date: '27 Juli 2026',
+    changes: [
+      'Tambah dukungan multibahasa penuh (Bahasa Indonesia & English).',
+      'Semua teks UI kini bisa berganti bahasa secara instan tanpa restart app.',
+      'Pilihan bahasa tersedia di Pengaturan → Bahasa (Indonesia / English / Ikuti Sistem).',
+      'Perbaiki label navigasi bawah, halaman Log, Equalizer, Sleep Timer, About, Bug Report, Library, Browse, dan Radio agar ikut terjemahan aktif.',
+      'Perbaiki nama smart playlist (Favorit, Baru Dimainkan, Paling Sering) agar terlokalisasi.',
+      'Perbaiki versi yang ditampilkan di halaman About (1.1.5 → 1.4.2).',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.4.1',
+    date: '26 Juli 2026',
+    changes: [
+      'Upgrade flutter_cache_manager 3.4.1 → 3.4.2: fix bug removeFile() yang menghapus dari path salah (potensi storage leak di artwork cache).',
+      'Upgrade synchronized 3.4.1 → 3.4.1+1: kompatibilitas Dart 3.12.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.0',
     date: '24 Juli 2026',
     changes: [

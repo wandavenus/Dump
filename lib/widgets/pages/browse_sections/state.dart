@@ -9,12 +9,12 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
@@ -49,7 +49,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           _daily       = shuffled.skip(third * 2).toList();
         });
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Biarkan daftar tetap kosong; seksi akan tersembunyi otomatis
     }
   }
@@ -60,13 +60,13 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          const LargePageTitle(title: 'Baru'),
+          LargePageTitle(title: context.l10n.browseTitle),
           const HeaderDivider(),
           const SizedBox(height: 12),
           BrowseBannerCarousel(songs: _bannerSongs),
-          _BrowseSection(title: 'We Recommend', songs: _recommend),
-          _BrowseSection(title: 'New Music', songs: _newMusic),
-          _BrowseSection(title: 'Daily Top 100', songs: _daily),
+          _BrowseSection(title: context.l10n.weRecommend, songs: _recommend),
+          _BrowseSection(title: context.l10n.newMusicSection, songs: _newMusic),
+          _BrowseSection(title: context.l10n.dailyTop100, songs: _daily),
           SizedBox(height: bottomClearance),
         ],
       ),

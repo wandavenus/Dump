@@ -23,12 +23,12 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
       _songs = _buildRecent(cachedSongs, cachedIds);
       _isLoading = false;
     }
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
@@ -56,7 +56,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           ArtworkRepository.instance.prefetch(recent.map((s) => s.id).toList()),
         );
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) {
         setState(() { _isLoading = false; });
       }
@@ -76,7 +76,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
         height: 250,
         child: Center(
           child: Text(
-            'Belum ada lagu yang diputar',
+            context.l10n.noRecentSongs,
             style: TextStyle(color: AppColors.of(context).secondaryLabel),
           ),
         ),

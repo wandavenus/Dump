@@ -26,7 +26,7 @@ class PlaylistService {
     try {
       _cachedPlaylists = Playlist.decodeList(raw);
       return List.of(_cachedPlaylists!);
-    } catch (_) {
+    } on Exception catch (_) {
       _cachedPlaylists = [];
       return [];
     }
@@ -98,7 +98,7 @@ class PlaylistService {
       _cachedFavoriteIds =
           (jsonDecode(raw) as List).map((e) => e as int).toList();
       return List.of(_cachedFavoriteIds!);
-    } catch (_) {
+    } on Exception catch (_) {
       _cachedFavoriteIds = [];
       return [];
     }

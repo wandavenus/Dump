@@ -126,8 +126,9 @@ class LyricsFetchManager {
           // Local results tidak disimpan ke disk cache (sudah ada di disk)
           return result;
         }
-      } catch (e) {
-        if (e is CancelledException) return null;
+      } on CancelledException {
+        return null;
+      } on Exception catch (e) {
         LogService.verbose('FetchManager', '${provider.name} error: $e');
       }
     }
@@ -225,7 +226,7 @@ class LyricsFetchManager {
 
     // Jalankan semua provider secara paralel
     for (final provider in active) {
-      provider.fetch(query, token).then(onProviderResult).catchError((e) {
+      provider.fetch(query, token).then(onProviderResult).catchError((Object e) {
         if (e is! CancelledException) {
           LogService.verbose('FetchManager', '${provider.name} error: $e');
         }
@@ -237,7 +238,7 @@ class LyricsFetchManager {
     await Future.any([
       allDoneCompleter.future,
       upgradeCompleter.future,
-      Future.delayed(_globalDeadline),
+      Future<void>.delayed(_globalDeadline),
     ]);
 
     upgradeTimer?.cancel();

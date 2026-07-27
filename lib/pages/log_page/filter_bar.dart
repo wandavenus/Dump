@@ -74,7 +74,7 @@ class _LogFilterBar extends StatelessWidget {
                     fontFamily: 'monospace',
                   ),
                   decoration: InputDecoration(
-                    hintText:  'Cari pesan atau kategori…',
+                     hintText:  context.l10n.logSearchHint,
                     hintStyle: TextStyle(
                       color:      c.dimLabel,
                       fontSize:   13,
@@ -111,11 +111,11 @@ class _LogFilterBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _levelChip(null,             'ALL', totalCount, c),
-          _levelChip(LogLevel.error,   'ERR', countLevel(LogLevel.error), c),
-          _levelChip(LogLevel.warning, 'WRN', countLevel(LogLevel.warning), c),
-          _levelChip(LogLevel.info,    'INF', countLevel(LogLevel.info), c),
-          _levelChip(LogLevel.verbose, 'VRB', countLevel(LogLevel.verbose), c),
+          _levelChip(null,             context.l10n.logFilterAll, totalCount, c),
+          _levelChip(LogLevel.error,   context.l10n.logFilterError, countLevel(LogLevel.error), c),
+          _levelChip(LogLevel.warning, context.l10n.logFilterWarning, countLevel(LogLevel.warning), c),
+          _levelChip(LogLevel.info,    context.l10n.logFilterInfo, countLevel(LogLevel.info), c),
+          _levelChip(LogLevel.verbose, context.l10n.logFilterVerbose, countLevel(LogLevel.verbose), c),
           if (categories.isNotEmpty) ...[
             Center(
               child: Padding(

@@ -3,14 +3,14 @@ part of '../settings_page.dart';
 // ─── Playback Stats utility ────────────────────────────────────────────────────
 
 void _showStatsSheet(BuildContext context) {
-  MediaCapabilitiesService.getPlaybackStats().then((stats) {
+  unawaited(MediaCapabilitiesService.getPlaybackStats().then((stats) {
     if (!context.mounted) return;
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _PlaybackStatsSheet(stats: stats),
-    );
-  });
+    ));
+  }));
 }
 
 // ─── Playback Stats Bottom Sheet ──────────────────────────────────────────────
@@ -22,6 +22,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     return SwipeToDismissSheet(
       child: Container(
         margin: const EdgeInsets.all(12),
@@ -47,7 +48,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Statistik Sesi Pemutaran',
+                  l.playbackStatsTitle,
                   style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 16,
@@ -62,7 +63,7 @@ class _PlaybackStatsSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Engine: Native Media3',
+                  l.playbackStatsEngine,
                   style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                 ),
               ),
@@ -70,34 +71,36 @@ class _PlaybackStatsSheet extends StatelessWidget {
             const SizedBox(height: 20),
             if (stats case final s?) ...[
               _StatRow(
-                label: 'Waktu Putar',
-                value: _fmtMs(
+                label: l.playTimeLabel,
+                 value: _fmtMs(
+                     context,
                     (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.play_circle_outline_rounded,
               ),
               _StatRow(
-                label: 'Waktu Buffering',
-                value: _fmtMs(
+                label: l.bufferingTimeLabel,
+                 value: _fmtMs(
+                     context,
                     (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.hourglass_bottom_rounded,
               ),
               _StatRow(
-                label: 'Rebuffer',
+                label: l.rebufferLabel,
                 value:
-                    '${(s['totalRebufferCount'] as num?)?.toInt() ?? 0} kali',
+                    '${(s['totalRebufferCount'] as num?)?.toInt() ?? 0} ${l.timesUnit}',
                 icon: Icons.cached_rounded,
               ),
               _StatRow(
-                label: 'Error',
+                label: l.errorLabel,
                 value:
-                    '${(s['totalErrorCount'] as num?)?.toInt() ?? 0} kali',
+                    '${(s['totalErrorCount'] as num?)?.toInt() ?? 0} ${l.timesUnit}',
                 icon: Icons.error_outline_rounded,
               ),
             ] else
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Text(
-                  'Data tidak tersedia — mulai pemutaran terlebih dahulu.',
+                  l.statsNotAvailable,
                   style: TextStyle(
                     color: c.primaryLabel.withValues(alpha: 0.54),
                     fontSize: 14,
@@ -111,15 +114,16 @@ class _PlaybackStatsSheet extends StatelessWidget {
     );
   }
 
-  static String _fmtMs(int ms) {
-    if (ms <= 0) return '0 dtk';
+  static String _fmtMs(BuildContext context, int ms) {
+    final l = context.l10n;
+    if (ms <= 0) return l.durationSeconds(0);
     final total = Duration(milliseconds: ms);
     final h = total.inHours;
     final m = total.inMinutes.remainder(60);
     final s = total.inSeconds.remainder(60);
-    if (h > 0) return '${h}j ${m}m ${s}d';
-    if (m > 0) return '${m}m ${s}d';
-    return '${s}d';
+    if (h > 0) return l.durationHoursMinutesSeconds(h, m, s);
+    if (m > 0) return l.durationMinutesSeconds(m, s);
+    return l.durationSeconds(s);
   }
 }
 

@@ -26,12 +26,12 @@ class _AppearanceButton extends StatelessWidget {
   }
 
   void _show(BuildContext context) {
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => const _LyricsAppearanceOverlay(),
-    );
+    ));
   }
 }
 
@@ -70,7 +70,7 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Tampilan Lirik',
+                  context.l10n.lyricsAppearance,
                   style: TextStyle(
                     color: c.primaryLabel,
                     fontSize: 17,
@@ -78,27 +78,27 @@ class _LyricsAppearanceOverlay extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                _buildLabel(c, 'Ukuran Teks'),
+                _buildLabel(c, context.l10n.textSizeLabel),
                 const SizedBox(height: 8),
                 const _FontSizePicker(),
                 const SizedBox(height: 16),
-                _buildLabel(c, 'Rata Teks'),
+                _buildLabel(c, context.l10n.textAlignLabel),
                 const SizedBox(height: 8),
                 const _AlignPicker(),
                 const SizedBox(height: 16),
-                _buildLabel(c, 'Warna Aktif'),
+                _buildLabel(c, context.l10n.activeColorLabel),
                 const SizedBox(height: 8),
                 const _ColorPicker(),
                 const SizedBox(height: 12),
                 _ToggleRow(
-                  label: 'Highlight Karaoke',
-                  subtitle: 'Animasi karakter per karakter',
+                  label: context.l10n.karaokeHighlight,
+                  subtitle: context.l10n.karaokeHighlightSubtitle,
                   notifier: LyricsSettings.karaokeMode,
                   onChanged: LyricsSettings.setKaraokeMode,
                 ),
                 const SizedBox(height: 4),
                 _ToggleRow(
-                  label: 'Tampilkan Sumber Lirik',
+                  label: context.l10n.showLyricsSource,
                   notifier: LyricsSettings.showSource,
                   onChanged: LyricsSettings.setShowSource,
                 ),

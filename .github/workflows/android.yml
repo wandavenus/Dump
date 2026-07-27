@@ -66,14 +66,23 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos    
+        run: flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos
 
       - run: >
           flutter build apk
           --release
           --target-platform android-arm64
           --no-pub
-
+          --obfuscate
+          --split-debug-info=build/debug-info  
+    
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+         name: debug-symbols-${{ github.run_number }}
+         path: build/debug-info
+         if-no-files-found: error
+      
       - name: Rename APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \

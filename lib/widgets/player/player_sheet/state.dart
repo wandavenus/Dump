@@ -230,9 +230,9 @@ class _SheetBody extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: 12),
               child: currentSong == null || currentState == null
-                  ? const Center(
-                      child: Text(
-                        'No song selected',
+                  ? Center(
+                       child: Text(
+                         context.l10n.noSongSelected,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,

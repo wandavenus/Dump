@@ -1,17 +1,11 @@
 part of '../../settings_page.dart';
 
-// ─── Crossfeed section ──────────────────────────────────────────────────────
-//
-// Frequency-dependent headphone crossfeed (Phase 7, native DSP pipeline).
-// Blends a lowpass-filtered version of each channel into the opposite
-// channel — reduces the unnatural hard-panned isolation of headphone
-// listening by mimicking the acoustic crosstalk of speakers.
-
 class _CrossfeedSection extends StatelessWidget {
   const _CrossfeedSection();
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return ValueListenableBuilder<bool>(
       valueListenable: AudioEffectsService.crossfeedEnabled,
       builder: (context, enabled, _) {
@@ -19,10 +13,10 @@ class _CrossfeedSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SettingsToggleRow(
-              title:    'Crossfeed',
+              title:    l.crossfeedTitle,
               subtitle: enabled
-                  ? 'Simulasikan pencampuran kanal seperti speaker di headphone'
-                  : 'Aktifkan untuk headphone terasa lebih natural',
+                  ? l.crossfeedActiveSubtitle
+                  : l.crossfeedInactiveSubtitle,
               value:     enabled,
               onChanged: AudioEffectsService.setCrossfeedEnabled,
             ),
@@ -31,7 +25,7 @@ class _CrossfeedSection extends StatelessWidget {
               ValueListenableBuilder<double>(
                 valueListenable: AudioEffectsService.crossfeedAmount,
                 builder: (_, amount, _) => SettingsSliderRow(
-                  title:     'Kekuatan',
+                  title:     l.crossfeedStrength,
                   subtitle:  '${(amount * 100).round()}%',
                   value:     amount,
                   min:       0.0,
@@ -39,8 +33,7 @@ class _CrossfeedSection extends StatelessWidget {
                   onChanged: AudioEffectsService.setCrossfeedAmount,
                   divisions: 20,
                   showReset: amount != 0.3,
-                  onReset: () =>
-                      AudioEffectsService.setCrossfeedAmount(0.3),
+                  onReset: () => AudioEffectsService.setCrossfeedAmount(0.3),
                 ),
               ),
             ],

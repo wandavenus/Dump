@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../extensions/localization_extension.dart';
 import '../models/local_song.dart';
 import '../services/audio_service.dart';
 import '../services/log_service.dart';
@@ -26,12 +27,12 @@ class PlayShuffleButtons extends StatelessWidget {
         children: [
           _ActionButton(
             icon: CupertinoIcons.play_fill,
-            label: 'Putar',
+            label: context.l10n.play,
             onTap: () async {
               if (songs.isEmpty) return;
               try {
                 await AudioService.playSongAt(playlist: songs, index: 0);
-              } catch (e) {
+              } on Exception catch (e) {
                 LogService.error('PlayShuffleButtons', 'play error: $e');
               }
             },
@@ -39,7 +40,7 @@ class PlayShuffleButtons extends StatelessWidget {
           const SizedBox(width: 8),
           _ActionButton(
             icon: CupertinoIcons.shuffle,
-            label: 'Acak',
+            label: context.l10n.shuffle,
             onTap: () async {
               if (songs.isEmpty) return;
               try {
@@ -49,7 +50,7 @@ class PlayShuffleButtons extends StatelessWidget {
                 final randomIndex = Random().nextInt(songs.length);
                 await AudioService.playSongAt(
                     playlist: songs, index: randomIndex);
-              } catch (e) {
+              } on Exception catch (e) {
                 LogService.error('PlayShuffleButtons', 'shuffle error: $e');
               }
             },

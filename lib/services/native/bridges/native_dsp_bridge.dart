@@ -103,7 +103,8 @@ class NativeDspBridge implements NativeModule {
         _ => NativeModuleStatus.unavailable,
       };
       BootTrace.log('EXIT  NativeDspBridge.initialize() — status=$_status');
-    } catch (e, st) {
+    } on Object catch (e, st) {
+      // Catches all throwables including FFI errors and platform exceptions.
       BootTrace.log('EXCEPTION in NativeDspBridge.initialize(): $e\n$st');
       _status = NativeModuleStatus.error;
     }

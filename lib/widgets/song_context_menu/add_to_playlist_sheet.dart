@@ -53,7 +53,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Tambah ke Daftar Putar',
+                    context.l10n.addToPlaylistTitle,
                     style: TextStyle(
                       color: c.primaryLabel,
                       fontSize: 17,
@@ -83,7 +83,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                       ),
                       const SizedBox(width: 14),
                       Text(
-                        'Buat Daftar Putar Baru',
+                        context.l10n.createNewPlaylist,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontSize: 15,
@@ -103,7 +103,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                     return Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        'Belum ada daftar putar',
+                        context.l10n.noPlaylistsYet,
                         style: TextStyle(color: c.secondaryLabel),
                       ),
                     );
@@ -148,7 +148,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                                       ),
                                     ),
                                     Text(
-                                      '${pl.songIds.length} lagu',
+                                      context.l10n.songCount(pl.songIds.length),
                                       style: TextStyle(
                                         color: c.secondaryLabel,
                                         fontSize: 12,
@@ -175,6 +175,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   Future<void> _addToExisting(BuildContext context, Playlist pl) async {
     final c = AppColors.of(context);
+    final addedMessage = context.l10n.addedToPlaylist(pl.name);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     await PlaylistService.addSong(pl.id, widget.song.id);
@@ -183,7 +184,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Ditambahkan ke ${pl.name}'),
+        content: Text(addedMessage),
         backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),
@@ -192,6 +193,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   Future<void> _createNew(BuildContext context) async {
     final c = AppColors.of(context);
+    final l10n = context.l10n;
     final nameController = TextEditingController();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -203,7 +205,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
         return AlertDialog(
           backgroundColor: dc.surface,
           title: Text(
-            'Daftar Putar Baru',
+            context.l10n.newPlaylistDialogTitle,
             style: TextStyle(color: dc.primaryLabel, fontSize: 17),
           ),
           content: TextField(
@@ -211,7 +213,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
             autofocus: true,
             style: TextStyle(color: dc.primaryLabel),
             decoration: InputDecoration(
-              hintText: 'Nama Daftar Putar',
+              hintText: context.l10n.playlistNameHint,
               hintStyle: TextStyle(color: dc.secondaryLabel),
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: dc.separator),
@@ -226,7 +228,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
               child: Text(
-                'Batal',
+                context.l10n.cancel,
                 style: TextStyle(color: dc.secondaryLabel),
               ),
             ),
@@ -234,7 +236,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
               onPressed: () =>
                   Navigator.pop(dialogCtx, nameController.text.trim()),
               child: Text(
-                'Buat',
+                context.l10n.create,
                 style: TextStyle(color: Theme.of(dialogCtx).colorScheme.primary),
               ),
             ),
@@ -247,11 +249,12 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     final pl = await PlaylistService.createPlaylist(result);
     await PlaylistService.addSong(pl.id, widget.song.id);
     if (!mounted) return;
+    final addedMessage = l10n.addedToPlaylist(result);
     navigator.pop(); // tutup sheet playlist
     navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Ditambahkan ke $result'),
+        content: Text(addedMessage),
         backgroundColor: c.surface2,
         behavior: SnackBarBehavior.floating,
       ),

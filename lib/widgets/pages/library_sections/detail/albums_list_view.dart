@@ -55,7 +55,7 @@ class _AlbumsListView extends StatelessWidget {
                   title: Text(album.album,
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
-                    '${album.artist} • ${albumSongs.length} lagu',
+                    '${album.artist} • ${context.l10n.songsCount(albumSongs.length)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

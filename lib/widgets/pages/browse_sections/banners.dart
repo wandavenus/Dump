@@ -105,20 +105,20 @@ class _BannerArtworkState extends State<_BannerArtwork> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   @override
   void didUpdateWidget(covariant _BannerArtwork old) {
     super.didUpdateWidget(old);
-    if (old.songId != widget.songId) _load();
+    if (old.songId != widget.songId) unawaited(_load());
   }
 
   Future<void> _load() async {
     try {
       final p = await ArtworkRepository.instance.getProvider(widget.songId);
       if (mounted) setState(() => _provider = p);
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   @override

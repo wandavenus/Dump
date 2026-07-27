@@ -13,7 +13,7 @@ class _SearchTitle extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
         child: Text(
-          'Cari',
+          context.l10n.searchTitle,
           style: TextStyle(
               fontSize: 34, fontWeight: FontWeight.bold, color: c.primaryLabel),
         ),

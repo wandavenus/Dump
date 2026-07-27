@@ -5,6 +5,8 @@
 /// [Navigator.pushNamed] is never used at the root [MaterialApp] level.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/pages/settings_page.dart';
@@ -18,8 +20,10 @@ import 'package:musicplayer/pages/music_list.dart';
 abstract final class AppRouter {
   /// Push the Settings page on the root navigator so it overlays all tabs.
   static void pushSettings(BuildContext context) {
-    Navigator.of(context, rootNavigator: true).push(
-      ZoomFadeRoute(page: const SettingsPage()),
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        ZoomFadeRoute<void>(page: const SettingsPage()),
+      ),
     );
   }
 
@@ -29,12 +33,14 @@ abstract final class AppRouter {
     required LocalSong album,
     required List<LocalSong> songs,
   }) {
-    Navigator.of(context).push(
-      ZoomFadeRoute(
-        page: const WebView(child: AlbumPage()),
-        settings: RouteSettings(
-          name: 'album/${album.id}',
-          arguments: {'album': album, 'songs': songs},
+    unawaited(
+      Navigator.of(context).push(
+        ZoomFadeRoute<void>(
+          page: const WebView(child: AlbumPage()),
+          settings: RouteSettings(
+            name: 'album/${album.id}',
+            arguments: {'album': album, 'songs': songs},
+          ),
         ),
       ),
     );
@@ -42,12 +48,14 @@ abstract final class AppRouter {
 
   /// Push the Artist detail page on the nearest tab navigator.
   static void pushArtist(BuildContext context, List<LocalSong> songs) {
-    Navigator.of(context).push(
-      ZoomFadeRoute(
-        page: const WebView(child: ArtistPage()),
-        settings: RouteSettings(
-          name: 'artist/${songs.first.albumArtist ?? songs.first.artist}',
-          arguments: songs,
+    unawaited(
+      Navigator.of(context).push(
+        ZoomFadeRoute<void>(
+          page: const WebView(child: ArtistPage()),
+          settings: RouteSettings(
+            name: 'artist/${songs.first.albumArtist ?? songs.first.artist}',
+            arguments: songs,
+          ),
         ),
       ),
     );
@@ -55,20 +63,24 @@ abstract final class AppRouter {
 
   /// Push the Artist list page on the nearest tab navigator.
   static void pushArtistList(BuildContext context) {
-    Navigator.of(context).push(
-      ZoomFadeRoute(
-        page: const WebView(child: ArtistList()),
-        settings: const RouteSettings(name: 'artistlist'),
+    unawaited(
+      Navigator.of(context).push(
+        ZoomFadeRoute<void>(
+          page: const WebView(child: ArtistList()),
+          settings: const RouteSettings(name: 'artistlist'),
+        ),
       ),
     );
   }
 
   /// Push the Music list page on the nearest tab navigator.
   static void pushMusicList(BuildContext context) {
-    Navigator.of(context).push(
-      ZoomFadeRoute(
-        page: const WebView(child: MusicList()),
-        settings: const RouteSettings(name: 'musiclist'),
+    unawaited(
+      Navigator.of(context).push(
+        ZoomFadeRoute<void>(
+          page: const WebView(child: MusicList()),
+          settings: const RouteSettings(name: 'musiclist'),
+        ),
       ),
     );
   }

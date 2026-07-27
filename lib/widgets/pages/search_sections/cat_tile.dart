@@ -3,7 +3,7 @@ part of '../search_sections.dart';
 class _SearchCategoryTile extends StatelessWidget {
   const _SearchCategoryTile({required this.category});
 
-  final Map<String, dynamic> category;
+  final Map<String, String> category;
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +14,7 @@ class _SearchCategoryTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(category['image'], fit: BoxFit.cover),
+            Image.asset(category['image']!, fit: BoxFit.cover),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -31,7 +31,7 @@ class _SearchCategoryTile extends StatelessWidget {
               left: 10,
               bottom: 10,
               child: Text(
-                category['title'],
+                category['title']!,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,

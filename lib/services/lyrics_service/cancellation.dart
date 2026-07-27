@@ -31,7 +31,9 @@ class CancellationToken {
     for (final cb in _callbacks) {
       try {
         cb();
-      } catch (_) {}
+      } on Object catch (_) {
+        // Guard against arbitrary errors thrown by cancel callbacks
+      }
     }
     _callbacks.clear();
   }
@@ -45,11 +47,13 @@ class CancellationToken {
   Future<T> guardFuture<T>(Future<T> future) {
     if (_cancelled) return Future.error(const CancelledException());
     final completer = Completer<T>();
-    future.then((v) {
-      if (!completer.isCompleted) completer.complete(v);
-    }).catchError((e) {
-      if (!completer.isCompleted) completer.completeError(e);
-    });
+    unawaited(future.then<void>((T value) {
+      if (!completer.isCompleted) completer.complete(value);
+    }, onError: (Object error, StackTrace stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    }));
     onCancel(() {
       if (!completer.isCompleted) completer.completeError(const CancelledException());
     });

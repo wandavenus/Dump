@@ -1,12 +1,5 @@
 part of '../../settings_page.dart';
 
-// ─── Batch ReplayGain Scan section ────────────────────────────────────────────
-//
-// Sits inside the _ReplayGainSection collapsible area.
-// Shows an action row (idle), progress indicator (scanning), or a brief result
-// summary (finished). The actual scan runs as a background Future so the UI
-// stays responsive while MediaCodec decodes each file.
-
 class _BatchScanSection extends StatefulWidget {
   const _BatchScanSection();
 
@@ -16,22 +9,21 @@ class _BatchScanSection extends StatefulWidget {
 
 class _BatchScanSectionState extends State<_BatchScanSection> {
   Future<void> _startScan(BuildContext context) async {
+    final l = context.l10n;
     try {
       final songs = await MediaStoreService.getSongs();
       if (!context.mounted) return;
       if (songs.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Tidak ada lagu ditemukan di library.')),
+          SnackBar(content: Text(l.noSongsInLibrary)),
         );
         return;
       }
-      // Write tags automatically after scan — no manual confirmation needed.
       unawaited(ReplayGainService.scanLibrary(songs, writeTags: true));
-    } catch (e) {
+    } on Exception catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memuat library: $e')),
+        SnackBar(content: Text(l.scanLibraryLoadFailed(e.toString()))),
       );
     }
   }
@@ -56,14 +48,13 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
   }
 }
 
-// ── Idle state ────────────────────────────────────────────────────────────────
-
 class _ScanIdleRow extends StatelessWidget {
   const _ScanIdleRow({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     return InkWell(
       onTap: onTap,
@@ -75,11 +66,11 @@ class _ScanIdleRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Scan Library',
+                  Text(l.scanLibrary,
                       style: TextStyle(color: c.primaryLabel, fontSize: 15)),
                   const SizedBox(height: 2),
                   Text(
-                    'Hitung ReplayGain untuk lagu yang belum punya data',
+                    l.scanLibrarySubtitle,
                     style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                   ),
                 ],
@@ -94,14 +85,13 @@ class _ScanIdleRow extends StatelessWidget {
   }
 }
 
-// ── Scanning in progress ──────────────────────────────────────────────────────
-
 class _ScanProgressRow extends StatelessWidget {
   const _ScanProgressRow({required this.progress});
   final BatchScanProgress progress;
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     final pct = progress.total > 0
         ? (progress.done / progress.total).clamp(0.0, 1.0)
@@ -117,45 +107,30 @@ class _ScanProgressRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   progress.currentTitle.isEmpty
-                      ? 'Mempersiapkan...'
+                      ? l.scanPreparing
                       : progress.currentTitle,
-                  style: TextStyle(color: c.primaryLabel, fontSize: 14),
-                  maxLines:  1,
-                  overflow:  TextOverflow.ellipsis,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 ),
               ),
-              const SizedBox(width: 8),
               Text(
-                '${progress.done} / ${progress.total}',
-                style: TextStyle(
-                    color: c.secondaryLabel, fontSize: 12),
+                '${progress.done}/${progress.total}',
+                style: TextStyle(color: c.secondaryLabel, fontSize: 12),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value:      pct,
-              backgroundColor: c.primaryLabel.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFF92D48)),
-              minHeight: 4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: ReplayGainService.cancelScan,
-            child: const Text('Batalkan',
-                style: TextStyle(color: Color(0xFFF92D48), fontSize: 13)),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: pct,
+            backgroundColor: c.primaryLabel.withValues(alpha: 0.08),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF92D48)),
           ),
         ],
       ),
     );
   }
 }
-
-// ── Scan finished ─────────────────────────────────────────────────────────────
 
 class _ScanResultRow extends StatelessWidget {
   const _ScanResultRow({
@@ -167,14 +142,15 @@ class _ScanResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final c = AppColors.of(context);
     final String subtitle;
     if (progress.cancelled) {
-      subtitle = 'Dibatalkan · ${progress.succeeded} lagu berhasil';
+      subtitle = l.scanCancelled(progress.succeeded);
     } else if (progress.failed == 0) {
-      subtitle = '${progress.succeeded} lagu berhasil dipindai';
+      subtitle = l.scanSuccess(progress.succeeded);
     } else {
-      subtitle = '${progress.succeeded} berhasil, ${progress.failed} gagal';
+      subtitle = l.scanPartial(progress.succeeded, progress.failed);
     }
 
     return InkWell(
@@ -187,12 +163,11 @@ class _ScanResultRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Scan Library',
+                  Text(l.scanLibrary,
                       style: TextStyle(color: c.primaryLabel, fontSize: 15)),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: TextStyle(
-                          color: c.secondaryLabel, fontSize: 12)),
+                      style: TextStyle(color: c.secondaryLabel, fontSize: 12)),
                 ],
               ),
             ),

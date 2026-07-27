@@ -1,21 +1,15 @@
 part of '../settings_page.dart';
 
-// ── Equalizer Section ──────────────────────────────────────────────────────────
-//
-// Entry point di Settings → membuka EqualizerPage (full-screen push navigation).
-// EqualizerPage berisi:
-//   • Preset chips EQ (Flat, Rock, Pop, Jazz, Classical, dll.)
-//   • Vertical band sliders — jumlah band & frekuensi dari android.media.audiofx.Equalizer
-
 class _EqualizerSection extends StatelessWidget {
   const _EqualizerSection();
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SettingsSectionHeader('EQUALIZER'),
+        SettingsSectionHeader(l.sectionEqualizer),
         const SizedBox(height: 6),
         ValueListenableBuilder<bool>(
           valueListenable: AudioEffectsService.bitPerfectMode,
@@ -28,18 +22,17 @@ class _EqualizerSection extends StatelessWidget {
                   builder: (_, presetIdx, _) {
                     String trailing;
                     if (bitPerfect) {
-                      trailing = 'Bit-Perfect';
+                      trailing = l.equalizerBitPerfect;
                     } else if (!enabled) {
-                      trailing = 'Nonaktif';
+                      trailing = l.disabled;
                     } else if (presetIdx >= 0 &&
                         presetIdx < AudioEffectsService.eqPresets.length) {
-                      trailing = AudioEffectsService
-                          .eqPresets[presetIdx]['name'] as String;
+                      trailing = AudioEffectsService.eqPresets[presetIdx]['name'] as String;
                     } else {
-                      trailing = 'Custom';
+                      trailing = l.equalizerCustom;
                     }
                     return SettingsActionRow(
-                      title: 'Equalizer',
+                      title: l.equalizerTitle,
                       subtitle: trailing,
                       onTap: () => Navigator.of(context).push(
                         ZoomFadeRoute<void>(page: const EqualizerPage()),

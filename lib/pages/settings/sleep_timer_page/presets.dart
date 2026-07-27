@@ -40,7 +40,7 @@ class _PresetList extends StatelessWidget {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          preset.label,
+                           _localizedPresetLabel(context, preset),
                           style: TextStyle(
                               color: c.primaryLabel, fontSize: 16),
                         ),
@@ -65,9 +65,22 @@ class _PresetList extends StatelessWidget {
     );
   }
 
+  String _localizedPresetLabel(
+      BuildContext context, ({Duration? duration}) preset) {
+    final duration = preset.duration;
+    if (duration == null) return context.l10n.sleepPresetEndOfSong;
+    if (duration.inMinutes < 60) {
+      return context.l10n.sleepPresetMinutes(duration.inMinutes);
+    }
+    final hours = duration.inMinutes / 60;
+    final hourLabel = hours == hours.roundToDouble()
+        ? hours.toInt().toString()
+        : hours.toString().replaceFirst('.', ',');
+    return context.l10n.sleepPresetHour(hourLabel);
+  }
+
   void _startPreset(
-      BuildContext context,
-      ({String label, Duration? duration}) preset) {
+      BuildContext context, ({Duration? duration}) preset) {
     if (preset.duration == null) {
       SleepTimerService.startEndOfSong();
     } else {
@@ -80,12 +93,13 @@ class _PresetList extends StatelessWidget {
     }
 
     final c = AppColors.of(context);
+    final label = _localizedPresetLabel(context, preset);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           preset.duration == null
-              ? 'Timer: berhenti setelah lagu ini'
-              : 'Timer: ${preset.label}',
+              ? context.l10n.timerAfterSong
+              : context.l10n.timerDuration(label),
           style: TextStyle(color: c.primaryLabel),
         ),
         backgroundColor: c.surface,

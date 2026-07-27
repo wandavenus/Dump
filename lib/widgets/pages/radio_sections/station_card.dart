@@ -151,14 +151,14 @@ class _GridCellState extends State<_GridCell> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
     try {
       final p = await ArtworkRepository.instance.getProvider(widget.songId);
       if (mounted) setState(() => _provider = p);
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   @override

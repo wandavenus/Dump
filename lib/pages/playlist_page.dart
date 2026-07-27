@@ -1,5 +1,8 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/models/playlist.dart';
 import 'package:musicplayer/services/audio_service.dart';
@@ -41,13 +44,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     _scroll.addListener(_onScroll);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   static const double _kAnimEnd = 140.0;
@@ -88,7 +91,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) {
         setState(() {
           _loading = false;
@@ -125,6 +128,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
   Future<void> _rename() async {
     if (widget.userPlaylist == null) return;
     final c = AppColors.of(context);
+    final l = context.l10n;
     final controller = TextEditingController(text: widget.name);
     final result = await showDialog<String>(
       context: context,
@@ -133,7 +137,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
         return AlertDialog(
           backgroundColor: dc.surface,
           title: Text(
-            'Ganti Nama',
+            l.renamePlaylist,
             style: TextStyle(color: dc.primaryLabel),
           ),
           content: TextField(
@@ -141,7 +145,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             autofocus: true,
             style: TextStyle(color: dc.primaryLabel),
             decoration: InputDecoration(
-              hintText: 'Nama playlist',
+              hintText: l.playlistNameHint,
               hintStyle: TextStyle(color: dc.secondaryLabel),
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: dc.separator),
@@ -154,12 +158,12 @@ class _PlaylistPageState extends State<PlaylistPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
+              child: Text(l.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
               child: Text(
-                'Simpan',
+                l.save,
                 style: TextStyle(color: c.primaryLabel),
               ),
             ),
@@ -178,6 +182,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   Future<void> _delete() async {
     if (widget.userPlaylist == null) return;
+    final l = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -185,21 +190,21 @@ class _PlaylistPageState extends State<PlaylistPage> {
         return AlertDialog(
           backgroundColor: dc.surface,
           title: Text(
-            'Hapus Playlist?',
+            l.deletePlaylistConfirm,
             style: TextStyle(color: dc.primaryLabel),
           ),
           content: Text(
-            'Playlist "${widget.name}" akan dihapus permanen.',
+            l.deletePlaylistBody(widget.name),
             style: TextStyle(color: dc.secondaryLabel),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal'),
+              child: Text(l.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text('Hapus', style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
+              child: Text(l.delete, style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
             ),
           ],
         );
@@ -215,11 +220,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   void _playAll() {
     if (_songs.isEmpty) return;
-    AudioService.playSongAt(playlist: _songs, index: 0);
+    unawaited(AudioService.playSongAt(playlist: _songs, index: 0));
   }
 
   void _playSong(int index) {
-    AudioService.playSongAt(playlist: _songs, index: index);
+    unawaited(AudioService.playSongAt(playlist: _songs, index: index));
   }
 
   String _fmt(Duration d) {
@@ -360,7 +365,7 @@ class _PlayAllButton extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            '$count lagu',
+            context.l10n.songCount(count),
             style: TextStyle(color: c.secondaryLabel, fontSize: 14),
           ),
           const Spacer(),
@@ -379,7 +384,7 @@ class _PlayAllButton extends StatelessWidget {
                   Icon(Icons.play_arrow, color: scaffoldBg, size: 18),
                   const SizedBox(width: 4),
                   Text(
-                    'Putar Semua',
+                    context.l10n.playAll,
                     style: TextStyle(
                       color: scaffoldBg,
                       fontWeight: FontWeight.bold,
@@ -403,7 +408,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Belum ada lagu',
+        context.l10n.noSongsInList,
         style: TextStyle(
           color: AppColors.of(context).secondaryLabel,
           fontSize: 16,

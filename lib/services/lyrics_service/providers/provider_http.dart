@@ -18,6 +18,14 @@ class ProviderHttp {
 
   static final http.Client _client = http.Client();
 
+  /// Converts decoded JSON objects to a typed map before callers inspect them.
+  static Map<String, dynamic>? asJsonMap(Object? value) {
+    if (value is! Map) return null;
+    return value.map<String, dynamic>(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+  }
+
   /// GET dengan timeout, retry, dan cancellation.
   static Future<http.Response?> get(
     Uri uri,
@@ -34,7 +42,7 @@ class ProviderHttp {
         final delay = Duration(milliseconds: 1000 * attempt);
         LogService.verbose(providerName,
             'Retry $attempt/$_maxRetries setelah ${delay.inMilliseconds}ms');
-        await Future.delayed(delay);
+        await Future<void>.delayed(delay);
         if (cancelToken.isCancelled) return null;
       }
 
@@ -70,7 +78,7 @@ class ProviderHttp {
         return null;
       } on TimeoutException {
         LogService.verbose(providerName, 'Timeout attempt $attempt');
-      } catch (e) {
+      } on Exception catch (e) {
         if (cancelToken.isCancelled) return null;
         LogService.verbose(providerName, 'Connection error attempt $attempt: $e');
       }
@@ -90,7 +98,7 @@ class ProviderHttp {
       if (cancelToken.isCancelled) return null;
 
       if (attempt > 0) {
-        await Future.delayed(Duration(milliseconds: 1000 * attempt));
+        await Future<void>.delayed(Duration(milliseconds: 1000 * attempt));
         if (cancelToken.isCancelled) return null;
       }
 
@@ -113,7 +121,7 @@ class ProviderHttp {
         return null;
       } on TimeoutException {
         LogService.verbose(providerName, 'POST Timeout attempt $attempt');
-      } catch (e) {
+      } on Exception catch (_) {
         if (cancelToken.isCancelled) return null;
       }
     }

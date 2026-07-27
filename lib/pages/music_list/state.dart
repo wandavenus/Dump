@@ -47,7 +47,7 @@ class _MusicListState extends State<MusicList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: FadingTitleAppBar(
-        title: 'Recently Played',
+        title: context.l10n.recentlyPlayed,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -75,14 +75,14 @@ class _MusicListState extends State<MusicList> {
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const LargePageTitle(title: 'Recently Played'),
+                  LargePageTitle(title: context.l10n.recentlyPlayed),
                   const HeaderDivider(),
                   const SizedBox(height: 160),
                   Icon(Icons.music_note, size: 56, color: AppColors.of(context).tertiaryLabel),
                   const SizedBox(height: 12),
                   Center(
                     child: Text(
-                      'Tidak ada lagu lokal ditemukan',
+                      context.l10n.noLocalSongs,
                       style: TextStyle(color: AppColors.of(context).secondaryLabel),
                     ),
                   ),
@@ -109,11 +109,11 @@ class _MusicListState extends State<MusicList> {
                     ),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return const Column(
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LargePageTitle(title: 'Recently Played'),
-                      HeaderDivider(),
+                      LargePageTitle(title: context.l10n.recentlyPlayed),
+                      const HeaderDivider(),
                     ],
                   );
                 }

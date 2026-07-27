@@ -1,4 +1,4 @@
-modules = ["nodejs-20"]
+modules = ["python-3.12"]
 [agent]
 expertMode = true
 stack = "BEST_EFFORT_FALLBACK"
@@ -53,7 +53,7 @@ author = 61865488
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter analyze lib test"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && bash analyze-high-value.sh lib test"
 
 [[workflows.workflow]]
 name = "Rebuild Web"
@@ -125,4 +125,4 @@ externalPort = 3000
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
-build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter build web --release --base-href /"]
+build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter build web --release --base-href / --no-wasm-dry-run"]

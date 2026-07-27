@@ -54,6 +54,9 @@ Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 21 tervalidasi, dan Ninja
 
 ## User preferences
 
+- **"Set up the imported project" task harus langsung ditandai selesai tanpa bertanya** — proyek ini sudah sepenuhnya ter-setup; saat task tersebut muncul di sesi baru, skip pertanyaan dan langsung `markTaskComplete`.
+
+
 - **Wajib update memory** setiap kali ada perubahan di repo — fitur baru, refactor, file baru/dihapus, arsitektur berubah, parameter DSP berubah, channel baru, apapun. Update harus dilakukan di akhir pengerjaan sebelum selesai, agar `.agents/memory/` selalu sinkron dengan kondisi repo terkini. Tidak boleh skip meski perubahannya kecil.
 
 - **Wajib search web** jika ada informasi, API, library, behavior, atau apapun yang berada di luar batas pengetahuan atau yang mungkin sudah berubah/usang — jangan berasumsi, jangan asal kasih jawaban/patch/saran sebelum verifikasi via web search. Ini berlaku di semua sesi.
@@ -64,6 +67,7 @@ Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 21 tervalidasi, dan Ninja
 - Setelah kode selesai diubah dan analyze clean, langsung akhiri tanpa menunggu proses rebuild web selesai.
 - Gunakan **Bahasa Indonesia non-formal / gaul** untuk semua pesan progres, penjelasan, dan info pengerjaan. Pakai "aku/kamu", bukan "gue/lu".
 - Lakukan Pengerjaan dengan penuh pertimbangan supaya tidak membuat kesalahan yang tidak diingin kan dari hasil pengerjaan yang sudah di lakukan
+- **Wajib ikuti best practices** di setiap pengerjaan apapun — berlaku untuk semua bahasa dan framework yang ada di repo ini (Dart/Flutter, Kotlin, C/CMake, JavaScript, dsb.). Termasuk: penamaan yang konsisten, penanganan error yang benar, null safety, type safety, resource management, tidak ada dead code, dan konvensi idiomatik masing-masing bahasa.
 
 ## Target device (real Android testing device)
 

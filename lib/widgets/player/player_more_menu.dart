@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/l10n/app_localizations.dart';
 
 import 'package:musicplayer/themes/app_theme_extension.dart';
 import '../../theme/app_colors.dart';
@@ -22,7 +24,7 @@ class PlayerMoreMenu extends StatefulWidget {
 }
 
 class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
-  final _key = GlobalKey();
+  final GlobalKey _key = GlobalKey();
   OverlayEntry? _entry;
 
   void _open() {
@@ -138,10 +140,11 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
     final active    = SleepTimerService.isActive.value;
     final remaining = SleepTimerService.remaining.value;
 
+    final l = context.l10n;
     String? sleepLabel;
     if (active) {
       if (remaining == null) {
-        sleepLabel = 'Akhir lagu';
+        sleepLabel = l.timerEndOfSong;
       } else {
         final m = remaining.inMinutes;
         final s = (remaining.inSeconds % 60).toString().padLeft(2, '0');
@@ -184,21 +187,21 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                 children: [
                   _MenuItem(
                     icon:   CupertinoIcons.shuffle,
-                    label:  state.shuffleEnabled ? 'Shuffle On' : 'Shuffle Off',
+                    label:  state.shuffleEnabled ? l.shuffleOn : l.shuffleOff,
                     active: state.shuffleEnabled,
                     onTap:  AudioService.toggleShuffle,
                   ),
                   _Divider(c: c),
                   _MenuItem(
                     icon:   _loopIcon(state.loopMode),
-                    label:  'Loop ${_loopLabel(state.loopMode)}',
+                    label:  _loopLabelL10n(l, state.loopMode),
                     active: state.loopMode != LoopMode.off,
                     onTap:  AudioService.cycleLoopMode,
                   ),
                   _Divider(c: c),
                   _MenuItem(
                     icon:  CupertinoIcons.info,
-                    label: 'Song Info',
+                    label: l.songInfoLabel,
                     onTap: () => widget.onNavigate(
                       () => showModalBottomSheet<void>(
                         context:            context,
@@ -229,11 +232,12 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
   static IconData _loopIcon(LoopMode mode) =>
       mode == LoopMode.one ? CupertinoIcons.repeat_1 : CupertinoIcons.repeat;
 
-  static String _loopLabel(LoopMode mode) => switch (mode) {
-    LoopMode.off => 'Off',
-    LoopMode.all => 'All',
-    LoopMode.one => 'One',
-  };
+  static String _loopLabelL10n(AppLocalizations l, LoopMode mode) =>
+      switch (mode) {
+        LoopMode.off => l.loopOff,
+        LoopMode.all => l.loopAll,
+        LoopMode.one => l.loopOne,
+      };
 }
 
 // ─── Item widgets ──────────────────────────────────────────────────────────────
@@ -314,7 +318,7 @@ class _SleepTimerItem extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Sleep Timer',
+                  context.l10n.sleepTimerTitle,
                   style: TextStyle(
                     color:      active ? accent : c.primaryLabel,
                     fontWeight: FontWeight.w600,

@@ -37,7 +37,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
-    _songsFuture.then(_updateSortedCaches);
+    unawaited(_songsFuture.then(_updateSortedCaches));
     _countsFuture = HistoryService.getPlayCounts();
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
@@ -79,7 +79,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       _songsFuture  = MediaStoreService.getSongs();
       _countsFuture = HistoryService.getPlayCounts();
     });
-    _songsFuture.then(_updateSortedCaches);
+    unawaited(_songsFuture.then(_updateSortedCaches));
   }
 
   static const double _kAnimEnd = 140.0;
@@ -108,28 +108,29 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   // ── Labels ─────────────────────────────────────────────────────────────────
 
-  String get _title => switch (widget.destination) {
-        _LibraryDestination.playlist => 'Daftar Putar',
-        _LibraryDestination.artists  => 'Artis',
-        _LibraryDestination.albums   => 'Album',
-        _LibraryDestination.songs    => 'Lagu',
+  String _title(BuildContext context) => switch (widget.destination) {
+        _LibraryDestination.playlist => context.l10n.playlists,
+        _LibraryDestination.artists  => context.l10n.artists,
+        _LibraryDestination.albums   => context.l10n.albums,
+        _LibraryDestination.songs    => context.l10n.songs,
       };
 
-  String get _hintText => switch (widget.destination) {
-        _LibraryDestination.playlist => 'Cari di Daftar Putar',
-        _LibraryDestination.artists  => 'Cari Artis',
-        _LibraryDestination.albums   => 'Cari Album',
-        _LibraryDestination.songs    => 'Cari Lagu',
+  String _hintText(BuildContext context) => switch (widget.destination) {
+        _LibraryDestination.playlist => context.l10n.searchInPlaylists,
+        _LibraryDestination.artists  => context.l10n.searchArtists,
+        _LibraryDestination.albums   => context.l10n.searchAlbums,
+        _LibraryDestination.songs    => context.l10n.searchSongs,
       };
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final title = _title(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title:                  _title,
+         title:                  title,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -159,7 +160,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               songs:          songs,
               countsFuture:   _countsFuture!,
               scroll:         _scroll,
-              titleHeader:    _titleHeader(),
+               titleHeader:    _titleHeader(context),
               bottomClearance: bottomClearance,
               onPlay:         _playAt,
               onLongPress:    (ctx, song, playlist, idx) =>
@@ -170,7 +171,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               artists:         _cachedSortedArtists,
               filter:          _filter,
               scroll:          _scroll,
-              titleHeader:     _titleHeader(),
+               titleHeader:     _titleHeader(context),
               stickyControls:  _stickyControls(songs),
               bottomClearance: bottomClearance,
             ),
@@ -178,7 +179,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               albums:          _cachedSortedAlbums,
               filter:          _filter,
               scroll:          _scroll,
-              titleHeader:     _titleHeader(),
+               titleHeader:     _titleHeader(context),
               stickyControls:  _stickyControls(songs),
               bottomClearance: bottomClearance,
             ),
@@ -186,7 +187,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               songs:           songs,
               filter:          _filter,
               scroll:          _scroll,
-              titleHeader:     _titleHeader(),
+               titleHeader:     _titleHeader(context),
               stickyControls:  _stickyControls(songs),
               bottomClearance: bottomClearance,
               onPlay:          _playAt,
@@ -206,19 +207,19 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     final c = AppColors.of(context);
     return Center(
       child: Text(
-        'Tidak ada lagu lokal ditemukan',
+        context.l10n.noLocalSongs,
         style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.70)),
       ),
     );
   }
 
   /// Judul + divider saja — scrolls with content, no pinning.
-  Widget _titleHeader() {
+  Widget _titleHeader(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize:       MainAxisSize.min,
       children: [
-        LargePageTitle(title: _title),
+         LargePageTitle(title: _title(context)),
         const HeaderDivider(),
       ],
     );
@@ -266,7 +267,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 cursorColor: const Color(0xFFF92D48),
                 decoration: InputDecoration(
-                  hintText:  _hintText,
+                   hintText:  _hintText(context),
                   hintStyle: TextStyle(
                       color: c.secondaryLabel, fontSize: 15),
                   border:         InputBorder.none,

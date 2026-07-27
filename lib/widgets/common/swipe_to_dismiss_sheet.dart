@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 
 /// Wraps arbitrary bottom-sheet content with a swipe-down-to-dismiss
@@ -36,7 +38,7 @@ class _SwipeToDismissSheetState extends State<SwipeToDismissSheet> {
     final velocity = details.primaryVelocity ?? 0;
     if (_dragOffset > widget.dismissDistance ||
         velocity > widget.dismissVelocity) {
-      Navigator.of(context).maybePop();
+      unawaited(Navigator.of(context).maybePop());
       return;
     }
     setState(() => _dragOffset = 0);

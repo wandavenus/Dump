@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 
 import '../../services/audio_service.dart';
@@ -152,7 +154,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     // ── Throttled seek (timestamp-based, no Timer) ───────────────────────────
     if (nowMs - _lastSeekMs >= _throttleMs) {
       _lastSeekMs = nowMs;
-      AudioService.seek(Duration(milliseconds: (newValue * 1000).round()));
+      unawaited(AudioService.seek(Duration(milliseconds: (newValue * 1000).round())));
     }
 
     setState(() => _dragValue = newValue);
@@ -161,11 +163,11 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   void _onChangeEnd(double endValue) {
     // Restore speed if it was boosted
     if ((_currentScrubSpeed - _savedSpeed).abs() > 0.01) {
-      AudioService.clearScrubSpeed();
+      unawaited(AudioService.clearScrubSpeed());
     }
 
     // Final authoritative seek (millisecond precision)
-    AudioService.seek(Duration(milliseconds: (endValue * 1000).round()));
+    unawaited(AudioService.seek(Duration(milliseconds: (endValue * 1000).round())));
 
     setState(() {
       _isDragging = false;
@@ -186,7 +188,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
 
     if ((target - _currentScrubSpeed).abs() >= 0.2) {
       _currentScrubSpeed = target;
-      AudioService.setTemporaryScrubSpeed(target);
+      unawaited(AudioService.setTemporaryScrubSpeed(target));
     }
   }
 

@@ -16,12 +16,12 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       _artists = _buildArtists(cachedSongs, cachedCounts ?? {});
       _isLoading = false;
     }
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override
@@ -54,7 +54,7 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       final playCounts = await HistoryService.getArtistPlayCounts();
       final artists = _buildArtists(songs, playCounts);
       if (mounted) setState(() { _artists = artists; _isLoading = false; });
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }
   }

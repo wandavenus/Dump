@@ -9,6 +9,26 @@ class _ReplayGainSection extends StatefulWidget {
   State<_ReplayGainSection> createState() => _ReplayGainSectionState();
 }
 
+String _replayGainLabel(BuildContext context, ReplayGainMode mode) {
+  final l = context.l10n;
+  return switch (mode) {
+    ReplayGainMode.off => l.replayGainOff,
+    ReplayGainMode.auto => l.replayGainAuto,
+    ReplayGainMode.track => l.replayGainTrack,
+    ReplayGainMode.album => l.replayGainAlbum,
+  };
+}
+
+String _replayGainDescription(BuildContext context, ReplayGainMode mode) {
+  final l = context.l10n;
+  return switch (mode) {
+    ReplayGainMode.off => l.replayGainOffDesc,
+    ReplayGainMode.auto => l.replayGainAutoDesc,
+    ReplayGainMode.track => l.replayGainTrackDesc,
+    ReplayGainMode.album => l.replayGainAlbumDesc,
+  };
+}
+
 class _ReplayGainSectionState extends State<_ReplayGainSection>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
@@ -33,15 +53,15 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
   }
 
   void _showModePicker(BuildContext context, ReplayGainMode current) {
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ReplayGainModePicker(current: current),
-    );
+    ));
   }
 
   @override
@@ -62,13 +82,13 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                 child: Row(
                   children: [
                     Text(
-                      'Audio Normalize',
+                      context.l10n.replayGainTitle,
                       style: TextStyle(color: c.primaryLabel, fontSize: 16),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        mode.label,
+                         _replayGainLabel(context, mode),
                         style: TextStyle(
                             color: c.secondaryLabel, fontSize: 13),
                       ),
@@ -104,11 +124,11 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Mode',
+                                   Text(context.l10n.replayGainModeLabel,
                                       style: TextStyle(
                                           color: c.primaryLabel, fontSize: 15)),
                                   const SizedBox(height: 2),
-                                  Text(mode.label,
+                                  Text(_replayGainLabel(context, mode),
                                       style: TextStyle(
                                           color: c.secondaryLabel,
                                           fontSize: 12)),
@@ -126,7 +146,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       Padding(
                         padding: const EdgeInsets.only(left: 16, bottom: 6),
                         child: Text(
-                          mode.description,
+                           _replayGainDescription(context, mode),
                           style: TextStyle(
                               color: c.primaryLabel.withValues(alpha: 0.38),
                               fontSize: 12),
@@ -138,7 +158,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       ValueListenableBuilder<double>(
                         valueListenable: AudioEffectsService.replayGainPreamp,
                         builder: (_, preamp, _) => SettingsSliderRow(
-                          title: 'Preamp',
+                           title: context.l10n.replayGainPreampLabel,
                           subtitle: preamp == 0
                               ? '0 dB'
                               : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
@@ -155,8 +175,8 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       ValueListenableBuilder<bool>(
                         valueListenable: AudioEffectsService.clippingProtection,
                         builder: (_, clip, _) => SettingsToggleRow(
-                          title:     'Clipping Protection',
-                          subtitle:  'Cegah distorsi saat gain melebihi 0 dBFS',
+                           title:     context.l10n.clippingProtection,
+                           subtitle:  context.l10n.clippingProtectionSubtitle,
                           value:     clip,
                           onChanged: AudioEffectsService.setClippingProtection,
                         ),
@@ -199,7 +219,7 @@ class _ModeChip extends StatelessWidget {
         ),
       ),
       child: Text(
-        mode.label,
+         _replayGainLabel(context, mode),
         style: TextStyle(
           fontSize:   12,
           color:      active ? const Color(0xFFF92D48) : c.primaryLabel.withValues(alpha: 0.60),
@@ -242,7 +262,7 @@ class _ReplayGainModePicker extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Mode Audio Normalize',
+                   context.l10n.replayGainTitle,
                   style: TextStyle(
                       color: c.primaryLabel,
                       fontSize: 16,
@@ -288,7 +308,7 @@ class _ModeOption extends StatelessWidget {
             : null,
       ),
       title: Text(
-        mode.label,
+         _replayGainLabel(context, mode),
         style: TextStyle(
           color:      selected ? const Color(0xFFF92D48) : c.primaryLabel,
           fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
@@ -296,11 +316,11 @@ class _ModeOption extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        mode.description,
+         _replayGainDescription(context, mode),
         style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.54), fontSize: 12),
       ),
       onTap: () {
-        AudioEffectsService.setReplayGainMode(mode);
+        unawaited(AudioEffectsService.setReplayGainMode(mode));
         Navigator.pop(context);
       },
     );

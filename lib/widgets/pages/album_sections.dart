@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async' show unawaited;
 
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
 import '../../theme/app_colors.dart';
@@ -43,25 +47,23 @@ class _AlbumFooter extends StatelessWidget {
   final LocalSong album;
   final List<LocalSong> songs;
 
-  String _formatTotalDuration() {
+  String _formatTotalDuration(BuildContext context) {
+    final l = context.l10n;
     final total = songs.fold(Duration.zero, (sum, s) => sum + s.duration);
     final h = total.inHours;
     final m = total.inMinutes.remainder(60);
-    if (h > 0) return '$h jam $m menit';
-    return '$m menit';
+    if (h > 0) return l.durationHoursMinutes(h, m);
+    return l.durationOnlyMinutes(m);
   }
 
-  String _formatDate() {
-    final now = DateTime.now();
-    final months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    return '${now.day} ${months[now.month - 1]} ${now.year}';
+  String _formatDate(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    return DateFormat('d MMMM y', locale.toLanguageTag()).format(DateTime.now());
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final year = album.year?.toString() ?? DateTime.now().year.toString();
     final artistName = album.albumArtist ?? album.artist;
 
@@ -71,12 +73,12 @@ class _AlbumFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _formatDate(),
+            _formatDate(context),
             style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
           Text(
-            '${songs.length} lagu, ${_formatTotalDuration()}',
+            l.albumSongsAndDuration(songs.length, _formatTotalDuration(context)),
             style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
           ),
           const SizedBox(height: 2),
@@ -147,6 +149,7 @@ class _MoreByArtistState extends State<_MoreByArtist> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final artistName =
         widget.currentAlbum.albumArtist ?? widget.currentAlbum.artist;
 
@@ -168,16 +171,16 @@ class _MoreByArtistState extends State<_MoreByArtist> {
                   final artistSongs = albums
                       .expand((a) => a.songs)
                       .toList();
-                  Navigator.pushNamed(
+                  unawaited(Navigator.pushNamed(
                     context,
                     '/artist',
                     arguments: artistSongs,
-                  );
+                  ));
                 },
                 child: Row(
                   children: [
                     Text(
-                      'More by $artistName',
+                      l.moreFromArtist(artistName),
                       style: TextStyle(
                         color: AppColors.of(context).primaryLabel,
                         fontSize: 17,

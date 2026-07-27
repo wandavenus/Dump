@@ -50,7 +50,7 @@ class NativeModuleRegistry {
           '${m.displayName} (${m.moduleId}) — '
           '${m.isAvailable ? 'available' : 'unavailable (stub)'}',
         );
-      } catch (e, st) {
+      } on Object catch (e, st) {
         BootTrace.log(
             'EXCEPTION in ${m.moduleId}.initialize() after '
             '${sw.elapsedMilliseconds}ms: $e\n$st');
@@ -71,7 +71,7 @@ class NativeModuleRegistry {
     for (final m in _modules.reversed) {
       try {
         await m.dispose();
-      } catch (e, st) {
+      } on Object catch (e, st) {
         // Log before suppressing — silent swallowing hides bugs during shutdown.
         LogService.warn(
           'NativeModuleRegistry',
@@ -93,7 +93,7 @@ class NativeModuleRegistry {
     for (final m in _modules) {
       try {
         result[m.moduleId] = await m.queryCapabilities();
-      } catch (e) {
+      } on Object catch (e) {
         result[m.moduleId] = [
           NativeCapability(key: 'error', supported: false, version: e.toString()),
         ];

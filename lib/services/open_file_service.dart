@@ -44,7 +44,8 @@ class OpenFileService {
       if (uri != null && uri.isNotEmpty) {
         await _playUri(uri);
       }
-    } catch (e) {
+    } on Exception catch (e) {
+      // PlatformException, MissingPluginException, etc.
       LogService.error('OpenFileService', 'getInitialUri failed: $e');
     }
   }
@@ -58,7 +59,7 @@ class OpenFileService {
       if (uri != null && uri.isNotEmpty) {
         await _playUri(uri);
       }
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   // ── legacy alias kept for one-shot callers ────────────────────────────────
@@ -101,7 +102,7 @@ class OpenFileService {
 
       // Expand the player sheet so the user sees the preview player immediately.
       PlayerSheetController.open();
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.error('OpenFileService', 'Failed to play URI $uri: $e');
     }
   }

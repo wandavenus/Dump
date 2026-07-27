@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../services/audio_playback_state.dart';
@@ -33,9 +35,11 @@ class PlayerTransportControls extends StatelessWidget {
             color: Colors.white,
           ),
           onPressed: () {
-            playbackState.isPlaying
-                ? AudioService.pause()
-                : AudioService.play();
+            if (playbackState.isPlaying) {
+              unawaited(AudioService.pause());
+            } else {
+              unawaited(AudioService.play());
+            }
           },
         ),
         const SizedBox(width: 35),
