@@ -129,14 +129,14 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionLabel(
-              'BAND EQ',
+              context.l10n.bandEq,
               trailing: enabled
                   ? GestureDetector(
                       onTap: _resetAll,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         child: Text(
-                          'Reset',
+                           context.l10n.reset,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontSize: 13,

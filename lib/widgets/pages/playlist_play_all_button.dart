@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 
 class PlaylistPlayAllButton extends StatelessWidget {
   final int count;
@@ -19,7 +20,7 @@ class PlaylistPlayAllButton extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            '$count lagu',
+            context.l10n.songsCount(count),
             style: TextStyle(
               color: colors.onSurfaceVariant,
               fontSize: 14,
@@ -39,7 +40,7 @@ class PlaylistPlayAllButton extends StatelessWidget {
                   Icon(Icons.play_arrow, color: colors.surface, size: 18),
                   const SizedBox(width: 4),
                   Text(
-                    'Putar Semua',
+                    context.l10n.playAll,
                     style: TextStyle(
                       color: colors.surface,
                       fontWeight: FontWeight.bold,

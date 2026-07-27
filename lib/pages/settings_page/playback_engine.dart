@@ -72,13 +72,15 @@ class _PlaybackStatsSheet extends StatelessWidget {
             if (stats case final s?) ...[
               _StatRow(
                 label: l.playTimeLabel,
-                value: _fmtMs(
+                 value: _fmtMs(
+                     context,
                     (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.play_circle_outline_rounded,
               ),
               _StatRow(
                 label: l.bufferingTimeLabel,
-                value: _fmtMs(
+                 value: _fmtMs(
+                     context,
                     (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
                 icon: Icons.hourglass_bottom_rounded,
               ),
@@ -112,15 +114,16 @@ class _PlaybackStatsSheet extends StatelessWidget {
     );
   }
 
-  static String _fmtMs(int ms) {
-    if (ms <= 0) return '0 dtk';
+  static String _fmtMs(BuildContext context, int ms) {
+    final l = context.l10n;
+    if (ms <= 0) return l.durationSeconds(0);
     final total = Duration(milliseconds: ms);
     final h = total.inHours;
     final m = total.inMinutes.remainder(60);
     final s = total.inSeconds.remainder(60);
-    if (h > 0) return '${h}j ${m}m ${s}d';
-    if (m > 0) return '${m}m ${s}d';
-    return '${s}d';
+    if (h > 0) return l.durationHoursMinutesSeconds(h, m, s);
+    if (m > 0) return l.durationMinutesSeconds(m, s);
+    return l.durationSeconds(s);
   }
 }
 

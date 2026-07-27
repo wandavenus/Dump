@@ -9,7 +9,7 @@ class ArtistListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final songCount = artist.songs.length;
-    final subtitle = '$songCount ${songCount == 1 ? 'lagu' : 'lagu'}';
+    final subtitle = context.l10n.songsCount(songCount);
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),

@@ -222,7 +222,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
             left: 0,
             right: 0,
             child: Text(
-              '© $year Flutter Music App with Media3 Exoplayer',
+               context.l10n.copyrightFooter(year),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: c.tertiaryLabel,

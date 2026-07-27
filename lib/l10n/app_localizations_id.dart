@@ -1125,4 +1125,141 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get softClipperDesc =>
       'Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.';
+
+  @override
+  String get dspPipeline => 'DSP Pipeline';
+
+  @override
+  String get androidDsp => 'Android DSP';
+
+  @override
+  String get webFallback => 'Web / Fallback';
+
+  @override
+  String get supported => 'Didukung ✓';
+
+  @override
+  String get unavailable => 'Tidak tersedia ✗';
+
+  @override
+  String durationSeconds(int seconds) {
+    return '$seconds dtk';
+  }
+
+  @override
+  String durationMinutesSeconds(int minutes, int seconds) {
+    return '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String durationHoursMinutesSeconds(int hours, int minutes, int seconds) {
+    return '${hours}j ${minutes}m ${seconds}d';
+  }
+
+  @override
+  String get lyricsNotFound => 'Lirik tidak ditemukan';
+
+  @override
+  String get lyricsFileHint =>
+      'Tambahkan file .lrc di folder yang sama dengan lagu, atau konfigurasikan folder lirik di Pengaturan.';
+
+  @override
+  String get noSongSelected => 'Belum ada lagu yang dipilih';
+
+  @override
+  String get lockedInactive =>
+      'Kontrol dikunci — Mode Bit-Perfect sedang aktif';
+
+  @override
+  String get bandEq => 'BAND EQ';
+
+  @override
+  String get preset => 'PRESET';
+
+  @override
+  String pitchSemitone(String value) {
+    return '$value semitone';
+  }
+
+  @override
+  String decibelValue(String value) {
+    return '$value dB';
+  }
+
+  @override
+  String millisecondsValue(String value) {
+    return '$value ms';
+  }
+
+  @override
+  String get crossfadeOptionOff => 'Nonaktif';
+
+  @override
+  String crossfadeOptionSeconds(String seconds) {
+    return '${seconds}d';
+  }
+
+  @override
+  String get listenAgain => 'Dengarkan Lagi';
+
+  @override
+  String moreFromArtist(String artist) {
+    return 'Lainnya dari $artist';
+  }
+
+  @override
+  String get topPicks => 'Pilihan Teratas Untukmu';
+
+  @override
+  String songsByArtist(int songs, int albums) {
+    return '$songs lagu • $albums album';
+  }
+
+  @override
+  String get lossless => 'Lossless';
+
+  @override
+  String get contentUnavailable => 'Belum ada konten';
+
+  @override
+  String playedCount(int count) {
+    return 'Diputar ${count}x';
+  }
+
+  @override
+  String copyrightFooter(int year) {
+    return '© $year Flutter Music App dengan Media3 ExoPlayer';
+  }
+
+  @override
+  String get logFilterAll => 'SEMUA';
+
+  @override
+  String get logFilterError => 'ERR';
+
+  @override
+  String get logFilterWarning => 'WRN';
+
+  @override
+  String get logFilterInfo => 'INF';
+
+  @override
+  String get logFilterVerbose => 'VRB';
+
+  @override
+  String get logBadgeOff => 'NONAKTIF';
+
+  @override
+  String get logBadgeError => 'ERR';
+
+  @override
+  String get logBadgeVerbose => 'VRB';
+
+  @override
+  String get logBadgeNormal => 'LOG';
+
+  @override
+  String songsCount(int count) {
+    return '$count lagu';
+  }
 }

@@ -2197,6 +2197,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.'**
   String get softClipperDesc;
+
+  /// No description provided for @dspPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'DSP Pipeline'**
+  String get dspPipeline;
+
+  /// No description provided for @androidDsp.
+  ///
+  /// In en, this message translates to:
+  /// **'Android DSP'**
+  String get androidDsp;
+
+  /// No description provided for @webFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Web / Fallback'**
+  String get webFallback;
+
+  /// No description provided for @supported.
+  ///
+  /// In en, this message translates to:
+  /// **'Supported ✓'**
+  String get supported;
+
+  /// No description provided for @unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable ✗'**
+  String get unavailable;
+
+  /// No description provided for @durationSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} sec'**
+  String durationSeconds(int seconds);
+
+  /// No description provided for @durationMinutesSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m {seconds}s'**
+  String durationMinutesSeconds(int minutes, int seconds);
+
+  /// No description provided for @durationHoursMinutesSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m {seconds}s'**
+  String durationHoursMinutesSeconds(int hours, int minutes, int seconds);
+
+  /// No description provided for @lyricsNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Lyrics not found'**
+  String get lyricsNotFound;
+
+  /// No description provided for @lyricsFileHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an .lrc file in the same folder as the song, or configure the lyrics folder in Settings.'**
+  String get lyricsFileHint;
+
+  /// No description provided for @noSongSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No song selected'**
+  String get noSongSelected;
+
+  /// No description provided for @lockedInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls locked — Bit-Perfect Mode is active'**
+  String get lockedInactive;
+
+  /// No description provided for @bandEq.
+  ///
+  /// In en, this message translates to:
+  /// **'BAND EQ'**
+  String get bandEq;
+
+  /// No description provided for @preset.
+  ///
+  /// In en, this message translates to:
+  /// **'PRESET'**
+  String get preset;
+
+  /// No description provided for @pitchSemitone.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} semitone'**
+  String pitchSemitone(String value);
+
+  /// No description provided for @decibelValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} dB'**
+  String decibelValue(String value);
+
+  /// No description provided for @millisecondsValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} ms'**
+  String millisecondsValue(String value);
+
+  /// No description provided for @crossfadeOptionOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get crossfadeOptionOff;
+
+  /// No description provided for @crossfadeOptionSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s'**
+  String crossfadeOptionSeconds(String seconds);
+
+  /// No description provided for @listenAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen Again'**
+  String get listenAgain;
+
+  /// No description provided for @moreFromArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'More from {artist}'**
+  String moreFromArtist(String artist);
+
+  /// No description provided for @topPicks.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Picks For You'**
+  String get topPicks;
+
+  /// No description provided for @songsByArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'{songs} songs • {albums} albums'**
+  String songsByArtist(int songs, int albums);
+
+  /// No description provided for @lossless.
+  ///
+  /// In en, this message translates to:
+  /// **'Lossless'**
+  String get lossless;
+
+  /// No description provided for @contentUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No content yet'**
+  String get contentUnavailable;
+
+  /// No description provided for @playedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Played {count}x'**
+  String playedCount(int count);
+
+  /// No description provided for @copyrightFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'© {year} Flutter Music App with Media3 ExoPlayer'**
+  String copyrightFooter(int year);
+
+  /// No description provided for @logFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'ALL'**
+  String get logFilterAll;
+
+  /// No description provided for @logFilterError.
+  ///
+  /// In en, this message translates to:
+  /// **'ERR'**
+  String get logFilterError;
+
+  /// No description provided for @logFilterWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'WRN'**
+  String get logFilterWarning;
+
+  /// No description provided for @logFilterInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'INF'**
+  String get logFilterInfo;
+
+  /// No description provided for @logFilterVerbose.
+  ///
+  /// In en, this message translates to:
+  /// **'VRB'**
+  String get logFilterVerbose;
+
+  /// No description provided for @logBadgeOff.
+  ///
+  /// In en, this message translates to:
+  /// **'OFF'**
+  String get logBadgeOff;
+
+  /// No description provided for @logBadgeError.
+  ///
+  /// In en, this message translates to:
+  /// **'ERR'**
+  String get logBadgeError;
+
+  /// No description provided for @logBadgeVerbose.
+  ///
+  /// In en, this message translates to:
+  /// **'VRB'**
+  String get logBadgeVerbose;
+
+  /// No description provided for @logBadgeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'LOG'**
+  String get logBadgeNormal;
+
+  /// No description provided for @songsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs'**
+  String songsCount(int count);
 }
 
 class _AppLocalizationsDelegate

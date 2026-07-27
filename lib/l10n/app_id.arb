@@ -394,5 +394,72 @@
   "limiterDesc": "Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.",
   "limiterReleaseTitle": "Limiter Release",
   "limiterReleaseDesc": "Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.",
-  "softClipperDesc": "Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter."
+  "softClipperDesc": "Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.",
+
+  "dspPipeline": "DSP Pipeline",
+  "androidDsp": "Android DSP",
+  "webFallback": "Web / Fallback",
+  "bassBoost": "Bass Boost",
+  "supported": "Didukung ✓",
+  "unavailable": "Tidak tersedia ✗",
+  "durationSeconds": "{seconds} dtk",
+  "@durationSeconds": { "placeholders": { "seconds": { "type": "int" } } },
+  "durationMinutesSeconds": "{minutes}m {seconds}s",
+  "@durationMinutesSeconds": {
+    "placeholders": {
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+  "durationHoursMinutesSeconds": "{hours}j {minutes}m {seconds}d",
+  "@durationHoursMinutesSeconds": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+  "lyricsNotFound": "Lirik tidak ditemukan",
+  "lyricsFileHint": "Tambahkan file .lrc di folder yang sama dengan lagu, atau konfigurasikan folder lirik di Pengaturan.",
+  "noSongSelected": "Belum ada lagu yang dipilih",
+  "lockedInactive": "Kontrol dikunci — Mode Bit-Perfect sedang aktif",
+  "bandEq": "BAND EQ",
+  "preset": "PRESET",
+  "pitchSemitone": "{value} semitone",
+  "@pitchSemitone": { "placeholders": { "value": { "type": "String" } } },
+  "decibelValue": "{value} dB",
+  "@decibelValue": { "placeholders": { "value": { "type": "String" } } },
+  "millisecondsValue": "{value} ms",
+  "@millisecondsValue": { "placeholders": { "value": { "type": "String" } } },
+  "crossfadeOptionOff": "Nonaktif",
+  "crossfadeOptionSeconds": "{seconds}d",
+  "@crossfadeOptionSeconds": { "placeholders": { "seconds": { "type": "String" } } },
+  "listenAgain": "Dengarkan Lagi",
+  "moreFromArtist": "Lainnya dari {artist}",
+  "@moreFromArtist": { "placeholders": { "artist": { "type": "String" } } },
+  "topPicks": "Pilihan Teratas Untukmu",
+  "songsByArtist": "{songs} lagu • {albums} album",
+  "@songsByArtist": {
+    "placeholders": {
+      "songs": { "type": "int" },
+      "albums": { "type": "int" }
+    }
+  },
+  "lossless": "Lossless",
+  "contentUnavailable": "Belum ada konten",
+  "playedCount": "Diputar {count}x",
+  "@playedCount": { "placeholders": { "count": { "type": "int" } } },
+  "copyrightFooter": "© {year} Flutter Music App dengan Media3 ExoPlayer",
+  "@copyrightFooter": { "placeholders": { "year": { "type": "int" } } },
+  "logFilterAll": "SEMUA",
+  "logFilterError": "ERR",
+  "logFilterWarning": "WRN",
+  "logFilterInfo": "INF",
+  "logFilterVerbose": "VRB",
+  "logBadgeOff": "NONAKTIF",
+  "logBadgeError": "ERR",
+  "logBadgeVerbose": "VRB",
+  "logBadgeNormal": "LOG",
+  "songsCount": "{count} lagu",
+  "@songsCount": { "placeholders": { "count": { "type": "int" } } }
 }

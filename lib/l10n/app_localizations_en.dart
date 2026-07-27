@@ -1124,4 +1124,140 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get softClipperDesc =>
       'Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.';
+
+  @override
+  String get dspPipeline => 'DSP Pipeline';
+
+  @override
+  String get androidDsp => 'Android DSP';
+
+  @override
+  String get webFallback => 'Web / Fallback';
+
+  @override
+  String get supported => 'Supported ✓';
+
+  @override
+  String get unavailable => 'Unavailable ✗';
+
+  @override
+  String durationSeconds(int seconds) {
+    return '$seconds sec';
+  }
+
+  @override
+  String durationMinutesSeconds(int minutes, int seconds) {
+    return '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String durationHoursMinutesSeconds(int hours, int minutes, int seconds) {
+    return '${hours}h ${minutes}m ${seconds}s';
+  }
+
+  @override
+  String get lyricsNotFound => 'Lyrics not found';
+
+  @override
+  String get lyricsFileHint =>
+      'Add an .lrc file in the same folder as the song, or configure the lyrics folder in Settings.';
+
+  @override
+  String get noSongSelected => 'No song selected';
+
+  @override
+  String get lockedInactive => 'Controls locked — Bit-Perfect Mode is active';
+
+  @override
+  String get bandEq => 'BAND EQ';
+
+  @override
+  String get preset => 'PRESET';
+
+  @override
+  String pitchSemitone(String value) {
+    return '$value semitone';
+  }
+
+  @override
+  String decibelValue(String value) {
+    return '$value dB';
+  }
+
+  @override
+  String millisecondsValue(String value) {
+    return '$value ms';
+  }
+
+  @override
+  String get crossfadeOptionOff => 'Off';
+
+  @override
+  String crossfadeOptionSeconds(String seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String get listenAgain => 'Listen Again';
+
+  @override
+  String moreFromArtist(String artist) {
+    return 'More from $artist';
+  }
+
+  @override
+  String get topPicks => 'Top Picks For You';
+
+  @override
+  String songsByArtist(int songs, int albums) {
+    return '$songs songs • $albums albums';
+  }
+
+  @override
+  String get lossless => 'Lossless';
+
+  @override
+  String get contentUnavailable => 'No content yet';
+
+  @override
+  String playedCount(int count) {
+    return 'Played ${count}x';
+  }
+
+  @override
+  String copyrightFooter(int year) {
+    return '© $year Flutter Music App with Media3 ExoPlayer';
+  }
+
+  @override
+  String get logFilterAll => 'ALL';
+
+  @override
+  String get logFilterError => 'ERR';
+
+  @override
+  String get logFilterWarning => 'WRN';
+
+  @override
+  String get logFilterInfo => 'INF';
+
+  @override
+  String get logFilterVerbose => 'VRB';
+
+  @override
+  String get logBadgeOff => 'OFF';
+
+  @override
+  String get logBadgeError => 'ERR';
+
+  @override
+  String get logBadgeVerbose => 'VRB';
+
+  @override
+  String get logBadgeNormal => 'LOG';
+
+  @override
+  String songsCount(int count) {
+    return '$count songs';
+  }
 }

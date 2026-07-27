@@ -123,7 +123,8 @@ class _AdvancedAudioControls extends StatelessWidget {
             title: context.l10n.pitchShift,
             subtitle: v == 0
                 ? context.l10n.normal
-                : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} semitone',
+                : context.l10n.pitchSemitone(
+                    '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)}'),
             value: v,
             min: -6,
             max: 6,
@@ -163,7 +164,10 @@ class _AdvancedAudioControls extends StatelessWidget {
           valueListenable: AudioEffectsService.nativePreampDb,
           builder: (_, v, _) => SettingsSliderRow(
             title: context.l10n.preamp,
-            subtitle: v == 0.0 ? context.l10n.off : '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)} dB',
+             subtitle: v == 0.0
+                 ? context.l10n.off
+                 : context.l10n.decibelValue(
+                     '${v > 0 ? '+' : ''}${v.toStringAsFixed(1)}'),
             value: v,
             min: -24.0,
             max: 24.0,
@@ -201,7 +205,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                   valueListenable: AudioEffectsService.compressorThreshold,
                   builder: (_, v, _) => SettingsSliderRow(
                     title: context.l10n.compressorThresholdTitle,
-                    subtitle: '${v.toStringAsFixed(0)} dB',
+                     subtitle: context.l10n.decibelValue(v.toStringAsFixed(0)),
                     value: v,
                     min: -60.0,
                     max: 0.0,
@@ -217,7 +221,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                   valueListenable: AudioEffectsService.compressorAttackMs,
                   builder: (_, v, _) => SettingsSliderRow(
                     title: context.l10n.compressorAttackTitle,
-                    subtitle: '${v.toStringAsFixed(0)} ms',
+                     subtitle: context.l10n.millisecondsValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 0.1,
                     max: 500.0,
@@ -232,7 +236,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                   valueListenable: AudioEffectsService.compressorReleaseMs,
                   builder: (_, v, _) => SettingsSliderRow(
                     title: context.l10n.compressorReleaseTitle,
-                    subtitle: '${v.toStringAsFixed(0)} ms',
+                     subtitle: context.l10n.millisecondsValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 1.0,
                     max: 2000.0,
@@ -247,7 +251,9 @@ class _AdvancedAudioControls extends StatelessWidget {
                   valueListenable: AudioEffectsService.compressorKneeDb,
                   builder: (_, v, _) => SettingsSliderRow(
                     title: context.l10n.compressorKneeTitle,
-                    subtitle: v == 0.0 ? context.l10n.hardKnee : '${v.toStringAsFixed(0)} dB',
+                     subtitle: v == 0.0
+                         ? context.l10n.hardKnee
+                         : context.l10n.decibelValue(v.toStringAsFixed(0)),
                     value: v,
                     min: 0.0,
                     max: 24.0,
@@ -272,7 +278,9 @@ class _AdvancedAudioControls extends StatelessWidget {
             children: [
               SettingsSliderRow(
                 title: context.l10n.limiter,
-                subtitle: v >= 0.0 ? context.l10n.off : '${v.toStringAsFixed(1)} dB',
+                 subtitle: v >= 0.0
+                     ? context.l10n.off
+                     : context.l10n.decibelValue(v.toStringAsFixed(1)),
                 value: v,
                 min: -24.0,
                 max: 0.0,
@@ -287,7 +295,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                   valueListenable: AudioEffectsService.limiterReleaseMs,
                   builder: (_, r, _) => SettingsSliderRow(
                     title: context.l10n.limiterReleaseTitle,
-                    subtitle: '${r.toStringAsFixed(0)} ms',
+                     subtitle: context.l10n.millisecondsValue(r.toStringAsFixed(0)),
                     value: r,
                     min: 1.0,
                     max: 1000.0,
@@ -308,7 +316,9 @@ class _AdvancedAudioControls extends StatelessWidget {
           valueListenable: AudioEffectsService.softClipperThreshold,
           builder: (_, v, _) => SettingsSliderRow(
             title: context.l10n.softClipper,
-            subtitle: v >= 0.0 ? context.l10n.off : '${v.toStringAsFixed(1)} dB',
+             subtitle: v >= 0.0
+                 ? context.l10n.off
+                 : context.l10n.decibelValue(v.toStringAsFixed(1)),
             value: v,
             min: -12.0,
             max: 0.0,
