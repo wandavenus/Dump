@@ -25,7 +25,7 @@ class SleepTimerPage extends StatelessWidget {
             builder:
                 (_, active, _) =>
                     active
-                        ? const CupertinoButton(
+                        ? CupertinoButton(
                           padding: EdgeInsets.zero,
                           onPressed: SleepTimerService.cancel,
                           child: Text(

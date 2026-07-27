@@ -111,8 +111,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 22,
             showReset: v != 1.0,
             onReset: () => AudioEffectsService.setSpeed(1.0),
-            description:
-                'Mengatur kecepatan pemutaran lagu. Nilai di bawah 1x memperlambat, di atas 1x mempercepat, tanpa mengubah pitch suara.',
+            description: context.l10n.speedDesc,
           ),
         ),
         const _SectionDivider(),
@@ -132,8 +131,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setPitch(0),
-            description:
-                'Menaikkan atau menurunkan nada lagu dalam satuan semitone, tanpa mengubah kecepatan putar.',
+            description: context.l10n.pitchDesc,
           ),
         ),
         const _SectionDivider(),
@@ -155,8 +153,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 20,
             showReset: v != 0,
             onReset: () => AudioEffectsService.setBassBoost(0),
-            description:
-                'Menguatkan frekuensi bass agar suara dentum/rendah terasa lebih tebal. Semakin besar persentase, semakin kuat efeknya.',
+            description: context.l10n.bassBoostDesc,
           ),
         ),
         const _SectionDivider(),
@@ -174,8 +171,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 96,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setNativePreampDb(0.0),
-            description:
-                'Menyesuaikan volume dasar sebelum EQ dan efek lain diproses. Geser ke kanan untuk menaikkan, ke kiri untuk menurunkan.',
+            description: context.l10n.preampDesc,
           ),
         ),
         const _SectionDivider(),
@@ -198,8 +194,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                 divisions: 38,
                 showReset: ratio != 1.0,
                 onReset: () => AudioEffectsService.setCompressorRatio(1.0),
-                description:
-                    'Menekan perbedaan volume antara suara pelan dan keras. Rasio lebih tinggi = kompresi lebih agresif. 1:1 berarti nonaktif.',
+                description: context.l10n.compressorDesc,
               ),
               if (ratio > 1.0) ...[
                 ValueListenableBuilder<double>(
@@ -215,8 +210,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     showReset: v != -20.0,
                     onReset: () =>
                         AudioEffectsService.setCompressorThreshold(-20.0),
-                    description:
-                        'Ambang batas volume tempat compressor mulai bekerja. Semakin rendah nilainya, semakin banyak bagian suara yang dikompres.',
+                    description: context.l10n.compressorThresholdDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
@@ -231,8 +225,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 50,
                     showReset: v != 10.0,
                     onReset: () => AudioEffectsService.setCompressorAttackMs(10.0),
-                    description:
-                        'Seberapa cepat compressor bereaksi saat suara melewati threshold. Lebih cepat = lebih responsif terhadap suara mendadak.',
+                    description: context.l10n.compressorAttackDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
@@ -247,8 +240,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 40,
                     showReset: v != 100.0,
                     onReset: () => AudioEffectsService.setCompressorReleaseMs(100.0),
-                    description:
-                        'Seberapa cepat volume kembali normal setelah kompresi. Terlalu cepat bisa terdengar "berpompa".',
+                    description: context.l10n.compressorReleaseDesc,
                   ),
                 ),
                 ValueListenableBuilder<double>(
@@ -263,8 +255,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 24,
                     showReset: v != 6.0,
                     onReset: () => AudioEffectsService.setCompressorKneeDb(6.0),
-                    description:
-                        'Melembutkan transisi masuk ke kompresi di sekitar threshold. 0 dB = transisi tegas (hard knee).',
+                    description: context.l10n.compressorKneeDesc,
                   ),
                 ),
               ],
@@ -289,8 +280,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                 divisions: 48,
                 showReset: v != 0.0,
                 onReset: () => AudioEffectsService.setLimiterThreshold(0.0),
-                description:
-                    'Mencegah suara melewati batas volume tertentu agar tidak pecah/distorsi. Geser di bawah 0 dB untuk mengaktifkan.',
+                description: context.l10n.limiterDesc,
               ),
               if (v < 0.0)
                 ValueListenableBuilder<double>(
@@ -305,8 +295,7 @@ class _AdvancedAudioControls extends StatelessWidget {
                     divisions: 50,
                     showReset: r != 50.0,
                     onReset: () => AudioEffectsService.setLimiterReleaseMs(50.0),
-                    description:
-                        'Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.',
+                    description: context.l10n.limiterReleaseDesc,
                   ),
                 ),
             ],
@@ -327,8 +316,7 @@ class _AdvancedAudioControls extends StatelessWidget {
             divisions: 24,
             showReset: v != 0.0,
             onReset: () => AudioEffectsService.setSoftClipperThreshold(0.0),
-            description:
-                'Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.',
+            description: context.l10n.softClipperDesc,
           ),
         ),
       ],

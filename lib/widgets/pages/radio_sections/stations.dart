@@ -4,16 +4,6 @@ part of '../radio_sections.dart';
 
 // ─── Data for smart playlist cards ───────────────────────────────────────────
 
-class _SmartCardData {
-  final String name;
-  final SmartPlaylistType type;
-  const _SmartCardData({
-    required this.name,
-    required this.type,
-  });
-}
-
-// Non-const because MaterialColor isn't a compile-time constant.
 // Smart card names are resolved at build time via context.l10n — see _SmartPlaylistCardWidget.
 enum _SmartType { favorites, recentlyPlayed, mostPlayed }
 
@@ -44,11 +34,26 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     _load();
   }
 
+  SmartPlaylistType _resolveType() => switch (_smartCardTypes[widget.index]) {
+    _SmartType.favorites      => SmartPlaylistType.favorites,
+    _SmartType.recentlyPlayed => SmartPlaylistType.recentlyPlayed,
+    _SmartType.mostPlayed     => SmartPlaylistType.mostPlayed,
+  };
+
+  String _resolveName(BuildContext context) {
+    final l = context.l10n;
+    return switch (_smartCardTypes[widget.index]) {
+      _SmartType.favorites      => l.favoritesLabel,
+      _SmartType.recentlyPlayed => l.recentlyPlayed,
+      _SmartType.mostPlayed     => l.mostPlayedLabel,
+    };
+  }
+
   Future<void> _load() async {
-    final data = _smartCards[widget.index];
+    final type = _resolveType();
     try {
       List<int> ids;
-      switch (data.type) {
+      switch (type) {
         case SmartPlaylistType.favorites:
           ids = await PlaylistService.getFavoriteIds();
         case SmartPlaylistType.recentlyPlayed:
@@ -73,13 +78,12 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   }
 
   void _open() {
-    final data = _smartCards[widget.index];
     Navigator.push(
       context,
       ZoomFadeRoute(
         page: PlaylistPage.smart(
-          name: data.name,
-          type: data.type,
+          name: _resolveName(context),
+          type: _resolveType(),
         ),
       ),
     );
@@ -88,7 +92,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   @override
   Widget build(BuildContext context) {
     return PlaylistCard(
-      name: _smartCards[widget.index].name,
+      name: _resolveName(context),
       subtitle: _count == 0 ? context.l10n.noSongsYet : context.l10n.songCount(_count),
       artworkIds: _artworkIds,
       onTap: _open,
@@ -179,7 +183,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
     final count = widget.playlist.songIds.length;
     return PlaylistCard(
       name: widget.playlist.name,
-      subtitle: count == 0 ? 'Belum ada lagu' : '$count lagu',
+      subtitle: count == 0 ? context.l10n.noSongsYet : context.l10n.songCount(count),
       artworkIds: _artworkIds,
       onTap: _open,
       onLongPress: _onLongPress,
@@ -219,7 +223,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
         return AlertDialog(
           backgroundColor: cc.surface,
           title: Text(
-            'Playlist Baru',
+            ctx.l10n.newPlaylist,
             style: TextStyle(color: cc.primaryLabel),
           ),
           content: TextField(
@@ -227,7 +231,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
             autofocus: true,
             style: TextStyle(color: cc.primaryLabel),
             decoration: InputDecoration(
-              hintText: 'Nama playlist',
+              hintText: ctx.l10n.playlistNameHint,
               hintStyle: TextStyle(color: cc.secondaryLabel),
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: cc.separator),
@@ -241,12 +245,12 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Batal', style: TextStyle(color: cc.secondaryLabel)),
+              child: Text(ctx.l10n.cancel, style: TextStyle(color: cc.secondaryLabel)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
               child: Text(
-                'Buat',
+                ctx.l10n.create,
                 style: TextStyle(color: cc.primaryLabel),
               ),
             ),
@@ -272,7 +276,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           child: Row(
             children: [
               Text(
-                'Playlist Saya',
+                context.l10n.myPlaylists,
                 style: TextStyle(
                   color: c.primaryLabel,
                   fontSize: 22,
@@ -294,7 +298,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
                       Icon(Icons.add, color: c.primaryLabel, size: 16),
                       const SizedBox(width: 4),
                       Text(
-                        'Buat',
+                        context.l10n.create,
                         style: TextStyle(color: c.primaryLabel, fontSize: 13),
                       ),
                     ],

@@ -1,0 +1,51 @@
+---
+name: Full Localization Implementation
+description: Detail keputusan dan pola yang dipakai saat mengimplementasikan l10n lengkap (ID+EN) di seluruh app.
+---
+
+## Keputusan arsitektur
+
+- `flutter gen-l10n` menghasilkan `app_localizations.dart` di `lib/l10n/` — ini adalah source of truth.
+- `context.l10n` extension di `lib/extensions/localization_extension.dart` mengimpor `package:flutter_gen/gen_l10n/app_localizations.dart`.
+- `flutter analyze` **selalu** melaporkan `uri_does_not_exist` untuk `flutter_gen` — ini adalah false positive yang dikonfirmasi, bukan error nyata. Build APK dan debug web tidak terpengaruh.
+
+## Pola penggantian string
+
+- Setiap `part` file tidak butuh import tambahan — import di parent library mencukupi.
+- `const Text('...')` → `Text(l.key)` (harus hapus `const`).
+- `const SliverToBoxAdapter(child: Column(children: [LargePageTitle(title: context.l10n.x)]))` → hapus `const` dari SliverToBoxAdapter.
+- `const CupertinoButton(child: Text(context.l10n.x))` → hapus `const` dari CupertinoButton.
+- `const SingleChildScrollView(child: Column(children: [SectionTitle(title: context.l10n.x)]))` → hapus `const` dari ScrollView, pindahkan `const` ke child yang tidak pakai l10n.
+
+## Library items (library_sections/state.dart)
+
+- `_defaultItems` tetap const (untuk ordering logic by id).
+- Tambah method `_resolveItemTitle(BuildContext context, String id)` di State class dengan switch on id.
+- `_buildStaticList()` dan `_buildReorderable()` diberi parameter `BuildContext context`, dipanggil dari `build(context)`.
+- id values: 'playlist', 'artist', 'album', 'songs', 'tv'.
+
+## Smart playlist cards (radio_sections/stations.dart)
+
+- `_smartCards` sudah tidak ada — diganti `_resolveType()` dan `_resolveName(BuildContext context)` di State class.
+- `_resolveType()` maps `_SmartType` enum → `SmartPlaylistType`.
+- `_resolveName()` maps `_SmartType` enum → l10n keys: `favoritesLabel`, `recentlyPlayed`, `mostPlayedLabel`.
+
+## ARB parametrik baru
+
+- `logCopiedEntries`: `{count}` (int)
+- `songsFoundMsg`: `{count}` (int)
+- `deletePlaylistBody`: `{name}` (String) — sudah ada sebelumnya
+- `appVersion`: `{version}` (String) — sudah ada sebelumnya
+
+## Files yang butuh import ditambahkan
+
+bottom_nav_bar/bottom_nav.dart, pages/music_list.dart, pages/log_page.dart,
+widgets/common_actions.dart, pages/artist_list.dart, widgets/pages/playlist_dialogs.dart,
+pages/settings/equalizer_page.dart, pages/settings/settings_widgets.dart,
+pages/settings/sleep_timer_page.dart.
+
+**Why:** File-file ini bukan `part of` library yang sudah import l10n, jadi harus import sendiri.
+
+## Version bump
+
+Versi di pubspec.yaml + changelog_data.dart dinaikkan ke 1.4.2 saat selesai implementasi ini.

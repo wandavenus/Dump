@@ -20,6 +20,18 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.2',
+    date: '27 Juli 2026',
+    changes: [
+      'Tambah dukungan multibahasa penuh (Bahasa Indonesia & English).',
+      'Semua teks UI kini bisa berganti bahasa secara instan tanpa restart app.',
+      'Pilihan bahasa tersedia di Pengaturan → Bahasa (Indonesia / English / Ikuti Sistem).',
+      'Perbaiki label navigasi bawah, halaman Log, Equalizer, Sleep Timer, About, Bug Report, Library, Browse, dan Radio agar ikut terjemahan aktif.',
+      'Perbaiki nama smart playlist (Favorit, Baru Dimainkan, Paling Sering) agar terlokalisasi.',
+      'Perbaiki versi yang ditampilkan di halaman About (1.1.5 → 1.4.2).',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.1',
     date: '26 Juli 2026',
     changes: [
