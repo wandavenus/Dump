@@ -433,7 +433,7 @@
   "@decibelValue": { "placeholders": { "value": { "type": "String" } } },
   "millisecondsValue": "{value} ms",
   "@millisecondsValue": { "placeholders": { "value": { "type": "String" } } },
-  "crossfadeOptionOff": "Nonaktif",
+  "crossfadeOptionOff": "Mati",
   "crossfadeOptionSeconds": "{seconds}d",
   "@crossfadeOptionSeconds": { "placeholders": { "seconds": { "type": "String" } } },
   "listenAgain": "Dengarkan Lagi",
