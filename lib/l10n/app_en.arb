@@ -5,7 +5,7 @@
   "@appName": { "description": "App name" },
 
   "navHome": "Home",
-  "navBrowse": "New",
+  "navBrowse": "Browse",
   "navRadio": "Radio",
   "navLibrary": "Library",
   "navSearch": "Search",
@@ -282,7 +282,7 @@
     "placeholders": { "query": { "type": "String" } }
   },
 
-  "browseTitle": "New",
+  "browseTitle": "Browse",
   "homeTitle": "Home",
   "noRecentSongs": "No songs played yet",
   "noRecentlyPlayed": "No recently played songs",
