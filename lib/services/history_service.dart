@@ -52,7 +52,7 @@ class HistoryService {
           .toList(growable: false);
       _cachedArtistCounts =
           _decodeMap(prefs.getString(_artistPlayCountKey) ?? '{}');
-    } catch (_) {
+    } on Exception catch (_) {
       // Best-effort — failed warm-up just means the first frame falls back
       // to the async path (same behaviour as before this optimisation).
     }

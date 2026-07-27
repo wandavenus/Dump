@@ -322,7 +322,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
           page: const AlbumPage(),
         ),
       ));
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   // ── Buka Artis ─────────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
           page: const ArtistPage(),
         ),
       ));
-    } catch (_) {}
+    } on Exception catch (_) {}
   }
 
   // ── Informasi Lagu ─────────────────────────────────────────────────────────

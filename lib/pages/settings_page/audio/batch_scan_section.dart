@@ -20,7 +20,7 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         return;
       }
       unawaited(ReplayGainService.scanLibrary(songs, writeTags: true));
-    } catch (e) {
+    } on Exception catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.scanLibraryLoadFailed(e.toString()))),

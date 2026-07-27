@@ -21,7 +21,7 @@ class SongMetadataService {
   static int? _mtimeMs(String path) {
     try {
       return File(path).lastModifiedSync().millisecondsSinceEpoch;
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }
@@ -202,7 +202,7 @@ class SongMetadataService {
         {'path': song.path, 'songId': song.id},
       );
       return result ?? {};
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.log('SongMetadata', 'getAudioMetadata failed: $e', level: LogLevel.warning);
       return {};
     }
@@ -215,7 +215,7 @@ class SongMetadataService {
         {'path': song.path},
       );
       return result ?? {};
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.log('SongMetadata', 'getSongExtendedTags failed: $e', level: LogLevel.warning);
       return {};
     }
@@ -225,7 +225,7 @@ class SongMetadataService {
     try {
       final counts = await HistoryService.getPlayCounts();
       return (counts[songId.toString()] as num?)?.toInt() ?? 0;
-    } catch (_) {
+    } on Exception catch (_) {
       return 0;
     }
   }
@@ -261,7 +261,7 @@ class SongMetadataService {
     try {
       final len = File(path).lengthSync();
       return len > 0 ? len : null;
-    } catch (_) {
+    } on Exception catch (_) {
       return null;
     }
   }

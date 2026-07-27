@@ -200,7 +200,7 @@ class AudioService {
             !AudioEffectsService.loudnessNormEnabled.value);
         PlaybackManager.setNativeLoudnessNormTargetLufs(
             AudioEffectsService.loudnessNormTarget.value);
-      } catch (e, st) {
+      } on Exception catch (e, st) {
         LogService.error('AudioService',
             'Loudness Normalization sync failed despite native runtime reporting available: $e',
             stackTrace: st.toString());
@@ -255,7 +255,7 @@ class AudioService {
       // Tell the native artwork cache which songs are in the active queue so
       // those WebP files are never evicted by LRU cleanup.
       unawaited(ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList()));
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.warn('AudioService', 'onNativeQueueChanged parse error: $e');
     }
   }
@@ -342,7 +342,7 @@ class AudioService {
           [song.id],
           targetSizePx: miniPx,
         ).timeout(const Duration(milliseconds: 500), onTimeout: () {});
-      } catch (e) {
+      } on Exception catch (e) {
         LogService.verbose(
           'AudioService',
           '_syncCurrentTrackFromNative: artwork prewarm error: $e',
@@ -439,7 +439,7 @@ class AudioService {
         '"${selectedSong.title}" — ${selectedSong.artist}',
       );
       unawaited(HistoryService.trackPlay(selectedSong));
-    } catch (e, st) {
+    } on Object catch (e, st) {
       LogService.error('AudioService', 'playSongAt failed: $e', stackTrace: st.toString());
     } finally {
       _previousSong = selectedSong;
@@ -685,7 +685,7 @@ class AudioService {
             return;
           },
         );
-      } catch (e) {
+      } on Exception catch (e) {
         LogService.verbose('AudioService', 'syncFromNative: artwork prewarm error: $e');
       }
 
@@ -723,10 +723,10 @@ class AudioService {
             return;
           },
         );
-      } catch (e) {
+      } on Exception catch (e) {
         LogService.verbose('AudioService', 'syncFromNative: replay gain apply error: $e');
       }
-    } catch (e, st) {
+    } on Object catch (e, st) {
       LogService.warn('AudioService', 'syncFromNative error: $e\n$st');
     }
   }

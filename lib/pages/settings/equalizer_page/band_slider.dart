@@ -76,7 +76,7 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
         _gains = List.filled(count, 0.0);
       });
       await _restoreGainsFromPrefs(count);
-    } catch (_) {
+    } on Exception catch (_) {
       // Native unavailable — use defaults, restore from prefs
       await _restoreGainsFromPrefs(_freqLabels.length);
     }

@@ -5,7 +5,7 @@ part of '../player_content.dart';
 class _FontSizePicker extends StatelessWidget {
   const _FontSizePicker();
 
-  static const _sizes = [
+  static const List<({String label, double value})> _sizes = [
     (label: 'S', value: 23.0),
     (label: 'M', value: 34.0),
     (label: 'L', value: 48.0),
@@ -48,7 +48,7 @@ class _FontSizePicker extends StatelessWidget {
 class _AlignPicker extends StatelessWidget {
   const _AlignPicker();
 
-  static const _opts = [
+  static const List<({IconData icon, String value})> _opts = [
     (icon: Icons.format_align_left, value: 'left'),
     (icon: Icons.format_align_center, value: 'center'),
     (icon: Icons.format_align_right, value: 'right'),

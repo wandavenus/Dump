@@ -31,7 +31,7 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           .map((id) => songMap[id]!)
           .toList();
       if (mounted) setState(() { _songs = recent; _isLoading = false; });
-    } catch (_) {
+    } on Exception catch (_) {
       if (mounted) setState(() { _isLoading = false; });
     }
   }
