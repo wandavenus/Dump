@@ -50,11 +50,14 @@ class NeteaseProvider implements LyricsProvider {
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final searchData = jsonDecode(searchResp.body);
-      final songs = searchData['result']?['songs'];
-      if (songs == null || songs is! List || songs.isEmpty) return null;
-
-      final songId = songs[0]['id'];
+      final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
+      final result = ProviderHttp.asJsonMap(searchData?['result']);
+      final rawSongs = result?['songs'];
+      final songs =
+          rawSongs is List ? rawSongs.cast<Object?>() : const <Object?>[];
+      if (songs.isEmpty) return null;
+      final song = ProviderHttp.asJsonMap(songs.first);
+      final songId = song?['id'];
       if (songId == null) return null;
 
       // 2. Ambil lirik
@@ -67,11 +70,13 @@ class NeteaseProvider implements LyricsProvider {
       if (lyricResp == null || lyricResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final lyricData = jsonDecode(lyricResp.body);
+      final lyricData = ProviderHttp.asJsonMap(jsonDecode(lyricResp.body));
 
       // Pilih klyric (word-timed) → lrc (line-timed) → tlyric (terjemahan)
-      final klyric = (lyricData['klyric']?['lyric'] as String?) ?? '';
-      final lrc    = (lyricData['lrc']?['lyric']    as String?) ?? '';
+      final klyricData = ProviderHttp.asJsonMap(lyricData?['klyric']);
+      final lrcData = ProviderHttp.asJsonMap(lyricData?['lrc']);
+      final klyric = klyricData?['lyric'] as String? ?? '';
+      final lrc = lrcData?['lyric'] as String? ?? '';
 
       final raw = klyric.isNotEmpty ? klyric : lrc;
       if (raw.isEmpty) return null;

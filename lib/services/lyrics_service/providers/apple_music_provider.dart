@@ -74,9 +74,11 @@ class AppleMusicProvider implements LyricsProvider {
     if (response == null) return null;
     if (response.statusCode != 200) return null;
 
-    final data = jsonDecode(response.body);
-    final results = data['results'];
-    if (results is! List || results.isEmpty) return null;
+    final data = ProviderHttp.asJsonMap(jsonDecode(response.body));
+    final rawResults = data?['results'];
+    final results =
+        rawResults is List ? rawResults.cast<Object?>() : const <Object?>[];
+    if (results.isEmpty) return null;
 
     final wantTitle = query.title.toLowerCase().trim();
     final wantArtist = query.artist.toLowerCase().trim();
@@ -86,10 +88,13 @@ class AppleMusicProvider implements LyricsProvider {
     Map<String, dynamic>? best;
     int bestScore = -1;
     for (final entry in results) {
-      if (entry is! Map) continue;
-      final trackName = (entry['trackName'] as String? ?? '').toLowerCase();
-      final artistName = (entry['artistName'] as String? ?? '').toLowerCase();
-      final durationMs = entry['trackTimeMillis'] as int?;
+      final entryMap = ProviderHttp.asJsonMap(entry);
+      if (entryMap == null) continue;
+      final trackName =
+          (entryMap['trackName'] as String? ?? '').toLowerCase();
+      final artistName =
+          (entryMap['artistName'] as String? ?? '').toLowerCase();
+      final durationMs = entryMap['trackTimeMillis'] as int?;
 
       int score = 0;
       if (trackName == wantTitle) {
@@ -109,7 +114,7 @@ class AppleMusicProvider implements LyricsProvider {
 
       if (score > bestScore) {
         bestScore = score;
-        best = entry.cast<String, dynamic>();
+        best = entryMap;
       }
     }
 
@@ -136,30 +141,33 @@ class AppleMusicProvider implements LyricsProvider {
   // ── Parsing: JSON "Syllable"/"Line" → LyricsProviderResult ─────────────
 
   LyricsProviderResult? _parseSyllableJson(String body) {
-    final data = jsonDecode(body);
-    if (data is! Map) return null;
+    final data = ProviderHttp.asJsonMap(jsonDecode(body));
+    if (data == null) return null;
     if (data.containsKey('detail') || data.containsKey('error')) return null;
 
     final content = data['content'];
-    if (content is! List || content.isEmpty) return null;
+    final contentLines =
+        content is List ? content.cast<Object?>() : const <Object?>[];
+    if (contentLines.isEmpty) return null;
 
     final type = (data['type'] as String? ?? '').toLowerCase();
     final buf = StringBuffer();
     bool anyWordTiming = false;
 
-    for (final line in content) {
-      if (line is! Map) continue;
-      if (line['background'] == true) continue; // lewati backing vocals
+    for (final line in contentLines) {
+      final lineMap = ProviderHttp.asJsonMap(line);
+      if (lineMap == null) continue;
+      if (lineMap['background'] == true) continue; // lewati backing vocals
 
-      final startMs = (line['timestamp'] as num?)?.toInt();
+      final startMs = (lineMap['timestamp'] as num?)?.toInt();
       if (startMs == null) continue;
 
-      final words = line['text'];
+      final words = lineMap['text'];
       if (words is List && words.isNotEmpty && type == 'syllable') {
         buf.write('[${_msToTag(startMs)}]');
         for (int i = 0; i < words.length; i++) {
-          final w = words[i];
-          if (w is! Map) continue;
+          final w = ProviderHttp.asJsonMap(words[i]);
+          if (w == null) continue;
           final wordText = (w['text'] as String? ?? '');
           final wordStart = (w['timestamp'] as num?)?.toInt();
           if (wordText.isEmpty || wordStart == null) continue;
@@ -173,7 +181,8 @@ class AppleMusicProvider implements LyricsProvider {
         // Line-level saja: gabungkan seluruh teks kata jadi satu baris.
         final text = words is List
             ? words
-                .whereType<Map>()
+                .map(ProviderHttp.asJsonMap)
+                .whereType<Map<String, dynamic>>()
                 .map((w) => w['text'] as String? ?? '')
                 .where((t) => t.isNotEmpty)
                 .join(' ')
@@ -192,12 +201,15 @@ class AppleMusicProvider implements LyricsProvider {
         ? LyricsQuality.wordTimedLrc
         : LyricsQuality.lineTimedLrc;
 
-    final lines = LrcParser.parseLrc(raw);
-    if (lines.isEmpty) return null;
+    final parsedLines = LrcParser.parseLrc(raw);
+    if (parsedLines.isEmpty) return null;
 
-    LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+    LogService.verbose(
+      name,
+      '${parsedLines.length} lines [${quality.displayName}]',
+    );
     return LyricsProviderResult(
-      lines: lines,
+      lines: parsedLines,
       quality: quality,
       providerName: 'Apple Music',
       isInternet: true,

@@ -55,11 +55,14 @@ class KugouProvider implements LyricsProvider {
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final searchData = jsonDecode(searchResp.body);
-      final songs = searchData['data']?['info'];
-      if (songs == null || songs is! List || songs.isEmpty) return null;
-
-      final song = songs[0];
+      final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
+      final searchSection = ProviderHttp.asJsonMap(searchData?['data']);
+      final rawSongs = searchSection?['info'];
+      final songs =
+          rawSongs is List ? rawSongs.cast<Object?>() : const <Object?>[];
+      if (songs.isEmpty) return null;
+      final song = ProviderHttp.asJsonMap(songs.first);
+      if (song == null) return null;
       final hash = (song['hash'] as String?) ?? '';
       final duration = (song['duration'] as num?)?.toInt() ?? 0;
       if (hash.isEmpty) return null;
@@ -77,11 +80,15 @@ class KugouProvider implements LyricsProvider {
       if (lyricSearchResp == null || lyricSearchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final lyricSearchData = jsonDecode(lyricSearchResp.body);
-      final candidates = lyricSearchData['candidates'];
-      if (candidates == null || candidates is! List || candidates.isEmpty) return null;
-
-      final candidate = candidates[0];
+      final lyricSearchData =
+          ProviderHttp.asJsonMap(jsonDecode(lyricSearchResp.body));
+      final rawCandidates = lyricSearchData?['candidates'];
+      final candidates = rawCandidates is List
+          ? rawCandidates.cast<Object?>()
+          : const <Object?>[];
+      if (candidates.isEmpty) return null;
+      final candidate = ProviderHttp.asJsonMap(candidates.first);
+      if (candidate == null) return null;
       final lyricId   = '${candidate['id'] ?? ''}';
       final accessKey = '${candidate['accesskey'] ?? ''}';
       if (lyricId.isEmpty || accessKey.isEmpty) return null;
@@ -98,8 +105,8 @@ class KugouProvider implements LyricsProvider {
       if (lyricGetResp == null || lyricGetResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final lyricData = jsonDecode(lyricGetResp.body);
-      final rawContent = lyricData['content'] as String?;
+      final lyricData = ProviderHttp.asJsonMap(jsonDecode(lyricGetResp.body));
+      final rawContent = lyricData?['content'] as String?;
       if (rawContent == null || rawContent.isEmpty) return null;
 
       // Kugou mengembalikan content dalam base64

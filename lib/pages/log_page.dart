@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,8 +58,13 @@ class _LogPageState extends State<LogPage> {
     if (!mounted) return;
     setState(_expanded.clear);
     if (_liveTail && _scrollCtrl.hasClients) {
-      _scrollCtrl.animateTo(0,
-          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      unawaited(
+        _scrollCtrl.animateTo(
+          0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ),
+      );
     }
   }
 
@@ -83,12 +90,12 @@ class _LogPageState extends State<LogPage> {
   void _copyAll(List<LogEntry> entries) {
     final buf = StringBuffer();
     for (final e in entries) { buf.writeln(e.toString()); }
-    Clipboard.setData(ClipboardData(text: buf.toString()));
+    unawaited(Clipboard.setData(ClipboardData(text: buf.toString())));
     _snack(context.l10n.logCopiedEntries(entries.length));
   }
 
   void _copyEntry(LogEntry e) {
-    Clipboard.setData(ClipboardData(text: e.toString()));
+    unawaited(Clipboard.setData(ClipboardData(text: e.toString())));
     _snack(context.l10n.logCopiedEntry);
   }
 
@@ -107,18 +114,28 @@ class _LogPageState extends State<LogPage> {
 
   void _jumpTop() {
     if (!_scrollCtrl.hasClients) return;
-    _scrollCtrl.animateTo(0,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    unawaited(
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _jumpBottom() {
     if (!_scrollCtrl.hasClients) return;
-    _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    unawaited(
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _clearLogs() {
-    showDialog<bool>(
+    unawaited(showDialog<bool>(
       context: context,
       builder: (ctx) {
         final dc = AppColors.of(ctx);
@@ -146,7 +163,7 @@ class _LogPageState extends State<LogPage> {
         LogService.clear();
         setState(_expanded.clear);
       }
-    });
+    }));
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────

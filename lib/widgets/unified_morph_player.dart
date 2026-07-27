@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../models/local_song.dart';
@@ -81,7 +82,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // → bottom is negative → mini player is hidden below the screen until the next
     // playback event fires (which never comes if nothing changes).
     if (_currentSong != null) {
-      _entryAnim.forward(from: 0.0);
+      unawaited(_entryAnim.forward(from: 0.0));
     }
   }
 
@@ -106,7 +107,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // Entry animation: first song appears (was null, now non-null).
     if (_currentSong == null && song != null) {
-      _entryAnim.forward(from: 0.0);
+      unawaited(_entryAnim.forward(from: 0.0));
     }
 
     var needsRebuild = false;
@@ -156,7 +157,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final durationMs = (distance * 600).clamp(120.0, 600.0).toInt();
     _releaseAnim.duration = Duration(milliseconds: durationMs);
     _releaseAnim.value = 0.0;
-    _releaseAnim.animateTo(1.0, curve: Curves.linear);
+    unawaited(_releaseAnim.animateTo(1.0, curve: Curves.linear));
   }
 
   void _onExpandedChanged() {
@@ -186,9 +187,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     });
     final isOverlay = _showLyrics || _showQueue;
     if (!wasOverlay && isOverlay) {
-      _overlayAnim.forward();
+      unawaited(_overlayAnim.forward());
     } else if (wasOverlay && !isOverlay) {
-      _overlayAnim.reverse();
+      unawaited(_overlayAnim.reverse());
     }
   }
 
@@ -200,9 +201,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     });
     final isOverlay = _showLyrics || _showQueue;
     if (!wasOverlay && isOverlay) {
-      _overlayAnim.forward();
+      unawaited(_overlayAnim.forward());
     } else if (wasOverlay && !isOverlay) {
-      _overlayAnim.reverse();
+      unawaited(_overlayAnim.reverse());
     }
   }
 
@@ -251,9 +252,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     if (_isHorizontal && _startProgress < 0.15) {
       final vx = d.velocity.pixelsPerSecond.dx;
       if (_panDx < -80 || vx < -350) {
-        AudioService.skipNext();
+        unawaited(AudioService.skipNext());
       } else if (_panDx > 80 || vx > 350) {
-        AudioService.skipPrevious();
+        unawaited(AudioService.skipPrevious());
       }
       setState(() => _swipeOffset = 0);
     } else if (!_isHorizontal && !(_showLyrics || _showQueue)) {

@@ -370,7 +370,7 @@ Future<String> _resolvedCacheDir() async {
         // Yield back to the event loop between items so scrolling/animation
         // frames are never blocked by this low-priority background work.
         // 120ms is a safe window for mid-range devices to process other UI events.
-        await Future.delayed(const Duration(milliseconds: 120));
+        await Future<void>.delayed(const Duration(milliseconds: 120));
       }
     } finally {
       _prefetching = false;

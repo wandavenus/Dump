@@ -54,11 +54,16 @@ class KuwoProvider implements LyricsProvider {
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final searchData = jsonDecode(searchResp.body);
-      final list = searchData['data']?['list'];
-      if (list == null || list is! List || list.isEmpty) return null;
+      final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
+      final searchSection = ProviderHttp.asJsonMap(searchData?['data']);
+      final rawList = searchSection?['list'];
+      final list = rawList is List ? rawList.cast<Object?>() : const <Object?>[];
+      if (list.isEmpty) return null;
+      final firstSong = ProviderHttp.asJsonMap(list.first);
+      if (firstSong == null) return null;
 
-      final musicId = list[0]['musicrid']?.toString() ?? list[0]['rid']?.toString() ?? '';
+      final musicId =
+          firstSong['musicrid']?.toString() ?? firstSong['rid']?.toString() ?? '';
       if (musicId.isEmpty) return null;
 
       // Ambil hanya numeric ID
@@ -75,12 +80,13 @@ class KuwoProvider implements LyricsProvider {
       if (lrcResp == null || lrcResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
 
-      final lrcData = jsonDecode(lrcResp.body);
+      final lrcData = ProviderHttp.asJsonMap(jsonDecode(lrcResp.body));
       // Coba beberapa jalur response — ekstrak 'data' sekali untuk null safety
-      final lrcDataSection = lrcData['data'];
-      String? lrc = lrcDataSection?['lrclist'] is List
-          ? _buildLrcFromList(lrcDataSection?['lrclist'])
-          : (lrcDataSection?['lrc'] as String?);
+      final lrcDataSection = ProviderHttp.asJsonMap(lrcData?['data']);
+      final rawLines = lrcDataSection?['lrclist'];
+      String? lrc = rawLines is List
+          ? _buildLrcFromList(rawLines)
+          : lrcDataSection?['lrc'] as String?;
 
       if (lrc == null || lrc.trim().isEmpty) return null;
 
@@ -105,12 +111,14 @@ class KuwoProvider implements LyricsProvider {
   }
 
   /// Kuwo kadang mengembalikan lirik sebagai array [{time, lineLyric}].
-  String? _buildLrcFromList(dynamic list) {
-    if (list is! List || list.isEmpty) return null;
+  String? _buildLrcFromList(List<Object?> list) {
+    if (list.isEmpty) return null;
     final buf = StringBuffer();
     for (final item in list) {
-      final time = (item['time'] as num?)?.toDouble() ?? 0.0;
-      final text = (item['lineLyric'] as String?) ?? '';
+      final map = ProviderHttp.asJsonMap(item);
+      if (map == null) continue;
+      final time = (map['time'] as num?)?.toDouble() ?? 0.0;
+      final text = (map['lineLyric'] as String?) ?? '';
       if (text.isEmpty) continue;
       final min = (time ~/ 60).toString().padLeft(2, '0');
       final sec = (time % 60).toStringAsFixed(2).padLeft(5, '0');

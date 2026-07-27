@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.6',
+    date: '27 Juli 2026',
+    changes: [
+      'Perbaiki error analyzer yang bisa mengganggu build dan type safety.',
+      'Perjelas penanganan operasi async yang sengaja berjalan di background.',
+      'Perketat parsing respons provider lirik agar lebih aman saat format data berubah.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.5',
     date: '27 Juli 2026',
     changes: [
