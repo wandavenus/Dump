@@ -33,7 +33,7 @@ class SleepTimerService {
   // ── Initialize (subscribe to native stream) ───────────────────────────────
 
   static void initialize() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = PlaybackManager.sleepTimerStream.listen((map) {
       final active      = map['active']      as bool? ?? false;
       final endOfSong   = map['endOfSong']   as bool? ?? false;
@@ -87,7 +87,7 @@ class SleepTimerService {
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   static void dispose() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = null;
   }
 

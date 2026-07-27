@@ -31,7 +31,7 @@ class _LogEntryTile extends StatelessWidget {
       onTap:       hasStack ? onToggleExpand : null,
       onLongPress: () {
         HapticFeedback.lightImpact();
-        onCopy();
+        unawaited(onCopy());
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

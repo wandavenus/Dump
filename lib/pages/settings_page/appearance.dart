@@ -25,7 +25,7 @@ class _AppearanceSection extends StatelessWidget {
                   return CupertinoSlidingSegmentedControl<ThemeMode>(
                     groupValue: current,
                     onValueChanged: (v) {
-                      if (v != null) ThemeController.setMode(v);
+                      if (v != null) unawaited(ThemeController.setMode(v));
                     },
                     children: {
                       ThemeMode.light: Padding(

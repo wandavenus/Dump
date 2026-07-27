@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
@@ -79,11 +81,11 @@ class _CommonActionsState extends State<CommonActions> {
             ),
             onSelected: (value) {
               if (value == 'settings') {
-                Navigator.of(context, rootNavigator: true).push(
+                unawaited(Navigator.of(context, rootNavigator: true).push(
                   ZoomFadeRoute<void>(page: const SettingsPage()),
-                );
+                ));
               } else if (value == 'rescan') {
-                _rescan();
+                unawaited(_rescan());
               }
             },
             itemBuilder: (context) => [

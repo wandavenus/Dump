@@ -3,14 +3,14 @@ part of '../settings_page.dart';
 // ─── Playback Stats utility ────────────────────────────────────────────────────
 
 void _showStatsSheet(BuildContext context) {
-  MediaCapabilitiesService.getPlaybackStats().then((stats) {
+  unawaited(MediaCapabilitiesService.getPlaybackStats().then((stats) {
     if (!context.mounted) return;
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _PlaybackStatsSheet(stats: stats),
-    );
-  });
+    ));
+  }));
 }
 
 // ─── Playback Stats Bottom Sheet ──────────────────────────────────────────────

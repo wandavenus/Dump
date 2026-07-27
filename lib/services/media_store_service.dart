@@ -294,7 +294,7 @@ class MediaStoreService {
   /// I/O bandwidth to ExoPlayer's audio decode pipeline.
   /// Fire-and-forget — result is not awaited.
   static void cancelMetadataPrescanner() {
-    _channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {});
+    unawaited(_channel.invokeMethod<void>('cancelMetadataPrescanner').catchError((_) {}));
   }
 
   /// Restarts the native background metadata pre-scanner.
@@ -305,7 +305,7 @@ class MediaStoreService {
   /// MediaStore round-trip.
   /// Fire-and-forget — result is not awaited.
   static void startMetadataPrescanner() {
-    _channel.invokeMethod<void>('startMetadataPrescanner').catchError((_) {});
+    unawaited(_channel.invokeMethod<void>('startMetadataPrescanner').catchError((_) {}));
   }
 
   static Future<Uint8List?> getArtwork(int songId) {

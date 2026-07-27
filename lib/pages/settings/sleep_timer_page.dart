@@ -23,13 +23,13 @@ part 'sleep_timer_page/presets.dart';
 /// Shows the sleep timer picker as a bottom sheet.
 /// Use this from the player 3-dot menu.
 void showSleepTimerSheet(BuildContext context) {
-  showModalBottomSheet<void>(
+  unawaited(showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const _SleepTimerSheetWidget(),
-  );
+  ));
 }
 
 class _SleepTimerSheetWidget extends StatelessWidget {

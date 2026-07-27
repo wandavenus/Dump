@@ -193,6 +193,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
 
   Future<void> _createNew(BuildContext context) async {
     final c = AppColors.of(context);
+    final l10n = context.l10n;
     final nameController = TextEditingController();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -248,7 +249,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
     final pl = await PlaylistService.createPlaylist(result);
     await PlaylistService.addSong(pl.id, widget.song.id);
     if (!mounted) return;
-    final addedMessage = context.l10n.addedToPlaylist(result);
+    final addedMessage = l10n.addedToPlaylist(result);
     navigator.pop(); // tutup sheet playlist
     navigator.pop(); // tutup sheet utama
     messenger.showSnackBar(

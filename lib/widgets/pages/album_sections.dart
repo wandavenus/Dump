@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -169,11 +171,11 @@ class _MoreByArtistState extends State<_MoreByArtist> {
                   final artistSongs = albums
                       .expand((a) => a.songs)
                       .toList();
-                  Navigator.pushNamed(
+                  unawaited(Navigator.pushNamed(
                     context,
                     '/artist',
                     arguments: artistSongs,
-                  );
+                  ));
                 },
                 child: Row(
                   children: [

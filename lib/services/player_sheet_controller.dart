@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -70,7 +72,7 @@ class PlayerSheetController {
     _animDurationMs = (distance * 600).clamp(120.0, 600.0).toInt();
 
     _ticker = Ticker(_onTick);
-    _ticker!.start();
+    unawaited(_ticker!.start());
   }
 
   static void open() {

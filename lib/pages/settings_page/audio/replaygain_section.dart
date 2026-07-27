@@ -53,15 +53,15 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
   }
 
   void _showModePicker(BuildContext context, ReplayGainMode current) {
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ReplayGainModePicker(current: current),
-    );
+    ));
   }
 
   @override
@@ -320,7 +320,7 @@ class _ModeOption extends StatelessWidget {
         style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.54), fontSize: 12),
       ),
       onTap: () {
-        AudioEffectsService.setReplayGainMode(mode);
+        unawaited(AudioEffectsService.setReplayGainMode(mode));
         Navigator.pop(context);
       },
     );

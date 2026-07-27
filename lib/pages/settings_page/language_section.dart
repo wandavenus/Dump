@@ -15,7 +15,7 @@ class _LanguageSectionState extends State<_LanguageSection> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {

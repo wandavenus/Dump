@@ -69,7 +69,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
   }
 
   Widget _buildSlider(AppThemeExtension c) => SliderTheme(
@@ -89,7 +89,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           onChanged: (v) => setState(() => _dragValue = v),
           onChangeEnd: (v) {
             setState(() => _dragValue = null);
-            widget.onChanged(v);
+            unawaited(widget.onChanged(v));
           },
         ),
       );

@@ -107,14 +107,14 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
     setState(() {
       if (index < _gains.length) _gains[index] = value;
     });
-    AudioEffectsService.setEqualizerBandGain(index, value);
+    unawaited(AudioEffectsService.setEqualizerBandGain(index, value));
   }
 
   void _resetAll() {
     final count = _gains.length;
     setState(() => _gains = List.filled(count, 0.0));
     for (var i = 0; i < count; i++) {
-      AudioEffectsService.setEqualizerBandGain(i, 0.0);
+      unawaited(AudioEffectsService.setEqualizerBandGain(i, 0.0));
     }
   }
 
@@ -233,7 +233,7 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
     if (!widget.enabled || _activePointer != null) return;
     _activePointer = e.pointer;
     widget.activeTouches.value++;
-    _pressCtrl.forward();
+    unawaited(_pressCtrl.forward());
     final v = _yToValue(e.localPosition.dy, c.maxHeight);
     widget.onChanged(v);
   }
@@ -248,14 +248,14 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
     if (e.pointer != _activePointer) return;
     _activePointer = null;
     widget.activeTouches.value--;
-    _pressCtrl.reverse();
+    unawaited(_pressCtrl.reverse());
   }
 
   void _onPointerCancel(PointerCancelEvent e) {
     if (e.pointer != _activePointer) return;
     _activePointer = null;
     widget.activeTouches.value--;
-    _pressCtrl.reverse();
+    unawaited(_pressCtrl.reverse());
   }
 
   @override

@@ -51,7 +51,7 @@ class _LoudnessNormSection extends StatelessWidget {
                                   label: Text(_lufsLabels[i]),
                                   selected: selected,
                                   onSelected: (_) {
-                                    AudioEffectsService.setLoudnessNormTarget(_lufsTargets[i]);
+                                    unawaited(AudioEffectsService.setLoudnessNormTarget(_lufsTargets[i]));
                                   },
                                 ),
                               );

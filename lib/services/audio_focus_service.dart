@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'audio/audio_session_handler.dart';
 import 'log_service.dart';
 
@@ -11,7 +13,7 @@ class AudioFocusService {
   static void initialize() {
     if (_initialized) return;
     _initialized = true;
-    AudioSessionHandler.initialize();
+    unawaited(AudioSessionHandler.initialize());
     LogService.log('AudioFocus', 'Initialized');
   }
 
