@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/language_manager.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:musicplayer/l10n/app_localizations.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:musicplayer/utils/zoom_fade_route.dart';

@@ -6,8 +6,8 @@ description: Detail keputusan dan pola yang dipakai saat mengimplementasikan l10
 ## Keputusan arsitektur
 
 - `flutter gen-l10n` menghasilkan `app_localizations.dart` di `lib/l10n/` — ini adalah source of truth.
-- `context.l10n` extension di `lib/extensions/localization_extension.dart` mengimpor `package:flutter_gen/gen_l10n/app_localizations.dart`.
-- `flutter analyze` **selalu** melaporkan `uri_does_not_exist` untuk `flutter_gen` — ini adalah false positive yang dikonfirmasi, bukan error nyata. Build APK dan debug web tidak terpengaruh.
+- Flutter 3.44 tidak mengekspos hasil generate melalui `package:flutter_gen/gen_l10n`; `context.l10n` mengimpor `package:musicplayer/l10n/app_localizations.dart`.
+- Build web release pada toolchain Replit ini perlu `--no-wasm-dry-run`; tanpa opsi itu, dry-run WASM dapat gagal pada URI yang tidak dapat diterjemahkan meskipun kompilasi JS valid.
 
 ## Pola penggantian string
 
@@ -49,3 +49,7 @@ pages/settings/sleep_timer_page.dart.
 ## Version bump
 
 Versi di pubspec.yaml + changelog_data.dart dinaikkan ke 1.4.2 saat selesai implementasi ini.
+
+**Why:** Jalur `flutter_gen` dan dry-run WASM default tidak kompatibel dengan Flutter 3.44 pada workspace ini, sedangkan file generated lokal dan target JS berhasil.
+
+**How to apply:** Pertahankan import generated lokal dan gunakan `--no-wasm-dry-run` untuk build web manual, watcher, dan deployment.

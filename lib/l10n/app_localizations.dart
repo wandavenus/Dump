@@ -494,6 +494,204 @@ abstract class AppLocalizations {
   /// **'Maintain volume relationship between songs in an album'**
   String get replayGainAlbumDesc;
 
+  /// No description provided for @statusNormalize.
+  ///
+  /// In en, this message translates to:
+  /// **'Normalize'**
+  String get statusNormalize;
+
+  /// No description provided for @statusBassBoost.
+  ///
+  /// In en, this message translates to:
+  /// **'Bass Boost'**
+  String get statusBassBoost;
+
+  /// No description provided for @statusEqualizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Equalizer'**
+  String get statusEqualizer;
+
+  /// No description provided for @statusSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get statusSpeed;
+
+  /// No description provided for @yes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get yes;
+
+  /// No description provided for @logSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search messages or categories…'**
+  String get logSearchHint;
+
+  /// No description provided for @logTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Log'**
+  String get logTitle;
+
+  /// No description provided for @liveLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'LIVE'**
+  String get liveLabel;
+
+  /// No description provided for @loudnessReplayGainTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain (Track)'**
+  String get loudnessReplayGainTrack;
+
+  /// No description provided for @loudnessReplayGainAlbum.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain (Album)'**
+  String get loudnessReplayGainAlbum;
+
+  /// No description provided for @loudnessR128Track.
+  ///
+  /// In en, this message translates to:
+  /// **'R128 (Track)'**
+  String get loudnessR128Track;
+
+  /// No description provided for @loudnessR128Album.
+  ///
+  /// In en, this message translates to:
+  /// **'R128 (Album)'**
+  String get loudnessR128Album;
+
+  /// No description provided for @loudnessITunNorm.
+  ///
+  /// In en, this message translates to:
+  /// **'iTunNORM'**
+  String get loudnessITunNorm;
+
+  /// No description provided for @loudnessEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'Embedded'**
+  String get loudnessEmbedded;
+
+  /// No description provided for @loudnessNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get loudnessNone;
+
+  /// No description provided for @lyricsSourceEmbedded.
+  ///
+  /// In en, this message translates to:
+  /// **'From file tags'**
+  String get lyricsSourceEmbedded;
+
+  /// No description provided for @lyricsSourceLocalFile.
+  ///
+  /// In en, this message translates to:
+  /// **'From .lrc file'**
+  String get lyricsSourceLocalFile;
+
+  /// No description provided for @lyricsSourceInternet.
+  ///
+  /// In en, this message translates to:
+  /// **'From internet'**
+  String get lyricsSourceInternet;
+
+  /// No description provided for @lyricsTypeSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'LRC (synced)'**
+  String get lyricsTypeSynced;
+
+  /// No description provided for @lyricsTypePlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain text'**
+  String get lyricsTypePlain;
+
+  /// No description provided for @lyricsQualityWordTimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Word-timed LRC'**
+  String get lyricsQualityWordTimed;
+
+  /// No description provided for @lyricsQualityCharTimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Char-timed LRC'**
+  String get lyricsQualityCharTimed;
+
+  /// No description provided for @lyricsQualityLineTimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced LRC'**
+  String get lyricsQualityLineTimed;
+
+  /// No description provided for @lyricsQualityPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain LRC'**
+  String get lyricsQualityPlain;
+
+  /// No description provided for @lyricsQualityUnsynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsynced'**
+  String get lyricsQualityUnsynced;
+
+  /// No description provided for @lyricsQualityNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get lyricsQualityNone;
+
+  /// No description provided for @lyricsColorWhite.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get lyricsColorWhite;
+
+  /// No description provided for @lyricsColorRed.
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get lyricsColorRed;
+
+  /// No description provided for @lyricsColorYellow.
+  ///
+  /// In en, this message translates to:
+  /// **'Yellow'**
+  String get lyricsColorYellow;
+
+  /// No description provided for @sleepPresetMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} minutes'**
+  String sleepPresetMinutes(int minutes);
+
+  /// No description provided for @sleepPresetHour.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hour'**
+  String sleepPresetHour(String hours);
+
+  /// No description provided for @sleepPresetEndOfSong.
+  ///
+  /// In en, this message translates to:
+  /// **'End of song'**
+  String get sleepPresetEndOfSong;
+
+  /// No description provided for @sleepPresetSection.
+  ///
+  /// In en, this message translates to:
+  /// **'CHOOSE DURATION'**
+  String get sleepPresetSection;
+
   /// No description provided for @scanLibrary.
   ///
   /// In en, this message translates to:
@@ -1219,6 +1417,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No songs played yet'**
   String get noRecentSongs;
+
+  /// No description provided for @noRecentlyPlayed.
+  ///
+  /// In en, this message translates to:
+  /// **'No recently played songs'**
+  String get noRecentlyPlayed;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String searchNoResults(String query);
 
   /// No description provided for @noArtistsFound.
   ///

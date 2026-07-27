@@ -21,6 +21,15 @@ class _LyricsOverlayBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final sourceLabel = result.providerName.isNotEmpty
+        ? result.providerName
+        : switch (result.source) {
+            LyricsSource.embedded => l.lyricsSourceEmbedded,
+            LyricsSource.localFile => l.lyricsSourceLocalFile,
+            LyricsSource.internet => l.lyricsSourceInternet,
+            LyricsSource.none => '',
+          };
     return Stack(
       children: [
         // Swipe-down-to-collapse: a fast downward drag released anywhere on
@@ -138,7 +147,7 @@ class _LyricsOverlayBody extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      result.sourceLabel,
+                       sourceLabel,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
                         fontSize: 11,

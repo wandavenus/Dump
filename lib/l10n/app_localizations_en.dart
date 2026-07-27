@@ -217,6 +217,109 @@ class AppLocalizationsEn extends AppLocalizations {
       'Maintain volume relationship between songs in an album';
 
   @override
+  String get statusNormalize => 'Normalize';
+
+  @override
+  String get statusBassBoost => 'Bass Boost';
+
+  @override
+  String get statusEqualizer => 'Equalizer';
+
+  @override
+  String get statusSpeed => 'Speed';
+
+  @override
+  String get yes => 'Yes';
+
+  @override
+  String get logSearchHint => 'Search messages or categories…';
+
+  @override
+  String get logTitle => 'Log';
+
+  @override
+  String get liveLabel => 'LIVE';
+
+  @override
+  String get loudnessReplayGainTrack => 'ReplayGain (Track)';
+
+  @override
+  String get loudnessReplayGainAlbum => 'ReplayGain (Album)';
+
+  @override
+  String get loudnessR128Track => 'R128 (Track)';
+
+  @override
+  String get loudnessR128Album => 'R128 (Album)';
+
+  @override
+  String get loudnessITunNorm => 'iTunNORM';
+
+  @override
+  String get loudnessEmbedded => 'Embedded';
+
+  @override
+  String get loudnessNone => 'None';
+
+  @override
+  String get lyricsSourceEmbedded => 'From file tags';
+
+  @override
+  String get lyricsSourceLocalFile => 'From .lrc file';
+
+  @override
+  String get lyricsSourceInternet => 'From internet';
+
+  @override
+  String get lyricsTypeSynced => 'LRC (synced)';
+
+  @override
+  String get lyricsTypePlain => 'Plain text';
+
+  @override
+  String get lyricsQualityWordTimed => 'Word-timed LRC';
+
+  @override
+  String get lyricsQualityCharTimed => 'Char-timed LRC';
+
+  @override
+  String get lyricsQualityLineTimed => 'Synced LRC';
+
+  @override
+  String get lyricsQualityPlain => 'Plain LRC';
+
+  @override
+  String get lyricsQualityUnsynced => 'Unsynced';
+
+  @override
+  String get lyricsQualityNone => 'None';
+
+  @override
+  String get lyricsColorWhite => 'White';
+
+  @override
+  String get lyricsColorRed => 'Red';
+
+  @override
+  String get lyricsColorYellow => 'Yellow';
+
+  @override
+  String sleepPresetMinutes(int minutes) {
+    return '$minutes minutes';
+  }
+
+  @override
+  String sleepPresetHour(String hours) {
+    return '$hours hour';
+  }
+
+  @override
+  String get sleepPresetEndOfSong => 'End of song';
+
+  @override
+  String get sleepPresetSection => 'CHOOSE DURATION';
+
+  @override
   String get scanLibrary => 'Scan Library';
 
   @override
@@ -603,6 +706,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noRecentSongs => 'No songs played yet';
+
+  @override
+  String get noRecentlyPlayed => 'No recently played songs';
+
+  @override
+  String searchNoResults(String query) {
+    return 'No results for \"$query\"';
+  }
 
   @override
   String get noArtistsFound => 'No artists found';
