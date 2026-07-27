@@ -85,7 +85,7 @@ Future<void> _confirmSaveQris(BuildContext context) async {
         const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
       );
     }
-  } catch (e) {
+  } on Exception {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gagal menyimpan gambar')),
