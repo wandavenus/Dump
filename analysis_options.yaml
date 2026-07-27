@@ -15,44 +15,41 @@ analyzer:
     # is a dev-dependency of native_audio_runtime, not the workspace root.
     - native_audio_runtime/tool/**
     - flutter-ws/**
-  
+
   errors:
     invalid_annotation_target: ignore
 
-    # Suppress high-noise cosmetic/style lints so analyzer output stays focused
-    # on type-safety and bug-prevention issues.
+    # ── Cosmetic / style lints: suppressed so analyzer output stays focused
+    #    on type-safety and bug-prevention issues. ──────────────────────────
     prefer_double_quotes: ignore
     always_specify_types: ignore
-    prefer_final_parameters: ignore
-    unnecessary_final: ignore
-    specify_nonobvious_local_variable_types: ignore
     public_member_api_docs: ignore
     lines_longer_than_80_chars: ignore
     always_put_control_body_on_new_line: ignore
-    always_use_package_imports: ignore
-    prefer_relative_imports: ignore
-    prefer_single_quotes: ignore
-    prefer_int_literals: ignore
+    always_put_required_named_parameters_first: ignore
     prefer_final_locals: ignore
-    omit_local_variable_types: ignore
-    omit_obvious_local_variable_types: ignore
-    omit_obvious_property_types: ignore
+    prefer_int_literals: ignore
     sort_constructors_first: ignore
-    diagnostic_describe_all_properties: ignore
     comment_references: ignore
+    diagnostic_describe_all_properties: ignore
+    prefer_expression_function_bodies: ignore
+    directives_ordering: ignore
+    prefer_const_constructors: ignore
+    cascade_invocations: ignore
+    avoid_redundant_argument_values: ignore
+    avoid_positional_boolean_parameters: ignore
+    noop_primitive_operations: ignore
 
 linter:
   rules:
     - always_declare_return_types
     - always_put_control_body_on_new_line
     - always_put_required_named_parameters_first
-    - always_require_non_null_named_parameters
     - always_specify_types
     - always_use_package_imports
     - annotate_overrides
     - annotate_redeclares
     - avoid_annotating_with_dynamic
-    - avoid_as
     - avoid_bool_literals_in_conditional_expressions
     - avoid_catches_without_on_clauses
     - avoid_catching_errors
@@ -70,7 +67,6 @@ linter:
     - avoid_init_to_null
     - avoid_js_rounded_ints
     - avoid_multiple_declarations_per_line
-    - avoid_null_checks_in_equality_operators
     - avoid_positional_boolean_parameters
     - avoid_print
     - avoid_private_typedef_functions
@@ -78,8 +74,6 @@ linter:
     - avoid_relative_lib_imports
     - avoid_renaming_method_parameters
     - avoid_return_types_on_setters
-    - avoid_returning_null
-    - avoid_returning_null_for_future
     - avoid_returning_null_for_void
     - avoid_returning_this
     - avoid_setters_without_getters
@@ -88,9 +82,7 @@ linter:
     - avoid_slow_async_io
     - avoid_type_to_string
     - avoid_types_as_parameter_names
-    - avoid_types_on_closure_parameters
     - avoid_unnecessary_containers
-    - avoid_unstable_final_fields
     - avoid_unused_constructor_parameters
     - avoid_void_async
     - avoid_web_libraries_in_flutter
@@ -120,7 +112,6 @@ linter:
     - empty_catches
     - empty_constructor_bodies
     - empty_statements
-    - enable_null_safety
     - eol_at_end_of_file
     - exhaustive_cases
     - file_names
@@ -131,8 +122,6 @@ linter:
     - implicit_reopen
     - invalid_case_patterns
     - invalid_runtime_check_with_js_interop_types
-    - invariant_booleans
-    - iterable_contains_unrelated_type
     - join_return_with_assignment
     - leading_newlines_in_multiline_strings
     - library_annotations
@@ -140,7 +129,6 @@ linter:
     - library_prefixes
     - library_private_types_in_public_api
     - lines_longer_than_80_chars
-    - list_remove_unrelated_type
     - literal_only_boolean_expressions
     - matching_super_parameters
     - missing_code_block_language_in_doc_comment
@@ -159,20 +147,15 @@ linter:
     - noop_primitive_operations
     - null_check_on_nullable_type_parameter
     - null_closures
-    - omit_local_variable_types
-    - omit_obvious_local_variable_types
-    - omit_obvious_property_types
     - one_member_abstracts
     - only_throw_errors
     - overridden_fields
-    - package_api_docs
     - package_names
     - package_prefixed_library_names
     - parameter_assignments
     - prefer_adjacent_string_concatenation
     - prefer_asserts_in_initializer_lists
     - prefer_asserts_with_message
-    - prefer_bool_in_asserts
     - prefer_collection_literals
     - prefer_conditional_assignment
     - prefer_const_constructors
@@ -182,12 +165,10 @@ linter:
     - prefer_constructors_over_static_methods
     - prefer_contains
     - prefer_double_quotes
-    - prefer_equal_for_default_values
     - prefer_expression_function_bodies
     - prefer_final_fields
     - prefer_final_in_for_each
     - prefer_final_locals
-    - prefer_final_parameters
     - prefer_for_elements_to_map_fromIterable
     - prefer_foreach
     - prefer_function_declarations_over_variables
@@ -205,8 +186,6 @@ linter:
     - prefer_mixin
     - prefer_null_aware_method_calls
     - prefer_null_aware_operators
-    - prefer_relative_imports
-    - prefer_single_quotes
     - prefer_spread_collections
     - prefer_typing_uninitialized_variables
     - prefer_void_to_null
@@ -224,15 +203,12 @@ linter:
     - sort_constructors_first
     - sort_pub_dependencies
     - sort_unnamed_constructors_first
-    - specify_nonobvious_local_variable_types
     - specify_nonobvious_property_types
     - strict_top_level_inference
-    - super_goes_last
     - switch_on_type
     - test_types_in_equals
     - throw_in_finally
     - tighten_type_of_initializing_formals
-    - type_annotate_public_apis
     - type_init_formals
     - type_literal_in_constant_pattern
     - unawaited_futures
@@ -243,7 +219,6 @@ linter:
     - unnecessary_breaks
     - unnecessary_const
     - unnecessary_constructor_name
-    - unnecessary_final
     - unnecessary_getters_setters
     - unnecessary_ignore
     - unnecessary_lambdas
@@ -268,7 +243,6 @@ linter:
     - unnecessary_underscores
     - unreachable_from_main
     - unrelated_type_equality_checks
-    - unsafe_html
     - unsafe_variance
     - use_build_context_synchronously
     - use_colored_box
@@ -276,7 +250,6 @@ linter:
     - use_enums
     - use_full_hex_values_for_flutter_colors
     - use_function_type_syntax_for_parameters
-    - use_if_null_to_convert_nulls_to_bools
     - use_is_even_rather_than_modulo
     - use_key_in_widget_constructors
     - use_late_for_private_fields_and_variables
