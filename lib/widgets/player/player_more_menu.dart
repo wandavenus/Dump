@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/l10n/app_localizations.dart';
 
 import 'package:musicplayer/themes/app_theme_extension.dart';
 import '../../theme/app_colors.dart';
@@ -231,7 +232,7 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
   static IconData _loopIcon(LoopMode mode) =>
       mode == LoopMode.one ? CupertinoIcons.repeat_1 : CupertinoIcons.repeat;
 
-  static String _loopLabelL10n(dynamic l, LoopMode mode) =>
+  static String _loopLabelL10n(AppLocalizations l, LoopMode mode) =>
       switch (mode) {
         LoopMode.off => l.loopOff,
         LoopMode.all => l.loopAll,

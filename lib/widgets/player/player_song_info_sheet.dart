@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../extensions/localization_extension.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_colors.dart';
 
 import '../../models/local_song.dart';

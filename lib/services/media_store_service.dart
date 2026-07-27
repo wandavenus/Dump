@@ -179,12 +179,12 @@ class MediaStoreService {
       // matching the fail-open convention already used for the FFmpeg probe
       // and artwork prewarm elsewhere in the startup path.
       final List<dynamic>? songs = await _channel
-          .invokeListMethod('getSongs')
+          .invokeListMethod<dynamic>('getSongs')
           .timeout(const Duration(seconds: 20));
 
       final parsedSongs = (songs ?? const <dynamic>[])
-          .map((song) =>
-              LocalSong.fromMap(Map<dynamic, dynamic>.from(song)))
+          .whereType<Map<dynamic, dynamic>>()
+          .map(LocalSong.fromMap)
           .where((song) => song.path.isNotEmpty)
           .toList(growable: false);
 

@@ -19,7 +19,7 @@ abstract final class AppRouter {
   /// Push the Settings page on the root navigator so it overlays all tabs.
   static void pushSettings(BuildContext context) {
     Navigator.of(context, rootNavigator: true).push(
-      ZoomFadeRoute(page: const SettingsPage()),
+      ZoomFadeRoute<void>(page: const SettingsPage()),
     );
   }
 
@@ -30,7 +30,7 @@ abstract final class AppRouter {
     required List<LocalSong> songs,
   }) {
     Navigator.of(context).push(
-      ZoomFadeRoute(
+      ZoomFadeRoute<void>(
         page: const WebView(child: AlbumPage()),
         settings: RouteSettings(
           name: 'album/${album.id}',
@@ -43,7 +43,7 @@ abstract final class AppRouter {
   /// Push the Artist detail page on the nearest tab navigator.
   static void pushArtist(BuildContext context, List<LocalSong> songs) {
     Navigator.of(context).push(
-      ZoomFadeRoute(
+      ZoomFadeRoute<void>(
         page: const WebView(child: ArtistPage()),
         settings: RouteSettings(
           name: 'artist/${songs.first.albumArtist ?? songs.first.artist}',
@@ -56,7 +56,7 @@ abstract final class AppRouter {
   /// Push the Artist list page on the nearest tab navigator.
   static void pushArtistList(BuildContext context) {
     Navigator.of(context).push(
-      ZoomFadeRoute(
+      ZoomFadeRoute<void>(
         page: const WebView(child: ArtistList()),
         settings: const RouteSettings(name: 'artistlist'),
       ),
@@ -66,7 +66,7 @@ abstract final class AppRouter {
   /// Push the Music list page on the nearest tab navigator.
   static void pushMusicList(BuildContext context) {
     Navigator.of(context).push(
-      ZoomFadeRoute(
+      ZoomFadeRoute<void>(
         page: const WebView(child: MusicList()),
         settings: const RouteSettings(name: 'musiclist'),
       ),

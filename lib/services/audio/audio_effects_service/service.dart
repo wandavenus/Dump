@@ -569,7 +569,7 @@ class AudioEffectsService {
   static Future<void> setEqualizerBandGain(int bandIndex, double gainDb) async {
     try {
       unawaited(_writeEqBand(bandIndex, gainDb).catchError(
-        (e) => LogService.warn('AudioEffects', 'writeEqBand[$bandIndex] error: $e'),
+        (Object e) => LogService.warn('AudioEffects', 'writeEqBand[$bandIndex] error: $e'),
       ));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('eqBand_$bandIndex', gainDb);

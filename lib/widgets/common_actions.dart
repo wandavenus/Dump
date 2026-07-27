@@ -80,7 +80,7 @@ class _CommonActionsState extends State<CommonActions> {
             onSelected: (value) {
               if (value == 'settings') {
                 Navigator.of(context, rootNavigator: true).push(
-                  ZoomFadeRoute(page: const SettingsPage()),
+                  ZoomFadeRoute<void>(page: const SettingsPage()),
                 );
               } else if (value == 'rescan') {
                 _rescan();

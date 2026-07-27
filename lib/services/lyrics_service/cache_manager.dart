@@ -55,7 +55,9 @@ class LyricsCacheManager {
       final raw = prefs.getString('$_prefixV2$key');
       if (raw == null) return null;
 
-      final Map<String, dynamic> map = jsonDecode(raw);
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final Map<String, dynamic> map = Map<String, dynamic>.from(decoded);
       final int cachedAt = (map['cachedAt'] as num?)?.toInt() ?? 0;
       if (DateTime.now().millisecondsSinceEpoch - cachedAt > _ttlMs) {
         await prefs.remove('$_prefixV2$key');

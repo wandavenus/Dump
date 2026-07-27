@@ -19,14 +19,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       applyEdgeToEdge();
       unawaited(AudioService.syncFromNative().catchError(
-        (e) => LogService.warn('AppState', 'syncFromNative error: $e'),
+        (Object e) => LogService.warn('AppState', 'syncFromNative error: $e'),
       ));
       unawaited(OpenFileService.onResume());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       NativePaletteService.clearMemoryCache();
       unawaited(LyricsSettings.flush().catchError(
-        (e) => LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
+        (Object e) => LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
       ));
     }
   }

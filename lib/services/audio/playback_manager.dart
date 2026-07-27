@@ -195,7 +195,7 @@ class PlaybackManager {
         _queueCtrl.add(queue);
 
         _currentQueue = queue
-            .whereType<Map>()
+            .whereType<Map<dynamic, dynamic>>()
             .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
             .toList();
 

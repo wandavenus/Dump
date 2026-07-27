@@ -238,7 +238,7 @@ class AudioService {
   static void _onNativeQueueChanged(List<dynamic> rawQueue) {
     try {
       final songs = rawQueue
-          .whereType<Map>()
+          .whereType<Map<dynamic, dynamic>>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
       // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
@@ -648,7 +648,7 @@ class AudioService {
       if (queueList.isEmpty) return;
 
       final songs = queueList
-          .whereType<Map>()
+          .whereType<Map<dynamic, dynamic>>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
       if (songs.isEmpty) return;

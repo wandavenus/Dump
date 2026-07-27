@@ -225,7 +225,7 @@ class LyricsFetchManager {
 
     // Jalankan semua provider secara paralel
     for (final provider in active) {
-      provider.fetch(query, token).then(onProviderResult).catchError((e) {
+      provider.fetch(query, token).then(onProviderResult).catchError((Object e) {
         if (e is! CancelledException) {
           LogService.verbose('FetchManager', '${provider.name} error: $e');
         }
