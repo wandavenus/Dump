@@ -80,7 +80,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   void _open() {
     Navigator.push(
       context,
-      ZoomFadeRoute(
+      ZoomFadeRoute<void>(
         page: PlaylistPage.smart(
           name: _resolveName(context),
           type: _resolveType(),
@@ -129,7 +129,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void _open() {
     Navigator.push(
       context,
-      ZoomFadeRoute(page: PlaylistPage.user(playlist: widget.playlist)),
+      ZoomFadeRoute<void>(page: PlaylistPage.user(playlist: widget.playlist)),
     ).then((_) {
       // refresh after returning (songs may have been removed)
       widget.onDeleted();
@@ -137,7 +137,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   }
 
   void _onLongPress() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => SwipeToDismissSheet(

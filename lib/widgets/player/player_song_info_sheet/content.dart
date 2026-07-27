@@ -319,7 +319,7 @@ class _SongInfoContent extends StatelessWidget {
   }
 
   /// Maps a channel count to a descriptive label.
-  static String _fmtChannels(int count, dynamic l) => switch (count) {
+  static String _fmtChannels(int count, AppLocalizations l) => switch (count) {
     1 => l.channelMono,
     2 => l.channelStereo,
     4 => l.channelQuad,
@@ -331,7 +331,11 @@ class _SongInfoContent extends StatelessWidget {
   /// Formats bitrate from bits/second to "320 kbps".
   /// Returns the metadata [fallback] when [bps] is 0 (lossless), or
   /// localized "Lossless" when the fallback itself is empty / unknown.
-  static String _fmtBitrate(int bps, String fallback, dynamic l) {
+  static String _fmtBitrate(
+    int bps,
+    String fallback,
+    AppLocalizations l,
+  ) {
     if (bps > 0) return '${(bps / 1000).round()} kbps';
     if (fallback.isNotEmpty && fallback != 'Unknown') return fallback;
     return l.bitrateUnknownLossless;

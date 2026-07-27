@@ -45,11 +45,13 @@ class CancellationToken {
   Future<T> guardFuture<T>(Future<T> future) {
     if (_cancelled) return Future.error(const CancelledException());
     final completer = Completer<T>();
-    future.then((v) {
+    unawaited(future.then<void>((T value) {
       if (!completer.isCompleted) completer.complete(v);
-    }).catchError((e) {
-      if (!completer.isCompleted) completer.completeError(e);
-    });
+    }, onError: (Object error, StackTrace stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    }));
     onCancel(() {
       if (!completer.isCompleted) completer.completeError(const CancelledException());
     });
