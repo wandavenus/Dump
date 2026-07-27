@@ -461,5 +461,25 @@
   "logBadgeVerbose": "VRB",
   "logBadgeNormal": "LOG",
   "songsCount": "{count} lagu",
-  "@songsCount": { "placeholders": { "count": { "type": "int" } } }
+  "@songsCount": { "placeholders": { "count": { "type": "int" } } },
+
+  "durationHoursMinutes": "{hours} jam {minutes} menit",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+  "durationOnlyMinutes": "{minutes} menit",
+  "@durationOnlyMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "albumSongsAndDuration": "{count} lagu, {duration}",
+  "@albumSongsAndDuration": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "duration": { "type": "String" }
+    }
+  },
+  "madeByShort": "Oleh"
 }

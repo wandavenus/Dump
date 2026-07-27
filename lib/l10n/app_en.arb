@@ -510,5 +510,25 @@
   "logBadgeVerbose": "VRB",
   "logBadgeNormal": "LOG",
   "songsCount": "{count} songs",
-  "@songsCount": { "placeholders": { "count": { "type": "int" } } }
+  "@songsCount": { "placeholders": { "count": { "type": "int" } } },
+
+  "durationHoursMinutes": "{hours} hr {minutes} min",
+  "@durationHoursMinutes": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+  "durationOnlyMinutes": "{minutes} min",
+  "@durationOnlyMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "albumSongsAndDuration": "{count} songs, {duration}",
+  "@albumSongsAndDuration": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "duration": { "type": "String" }
+    }
+  },
+  "madeByShort": "Made by"
 }
