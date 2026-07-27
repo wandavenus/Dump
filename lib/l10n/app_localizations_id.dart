@@ -218,6 +218,109 @@ class AppLocalizationsId extends AppLocalizations {
       'Pertahankan hubungan volume antar lagu dalam album';
 
   @override
+  String get statusNormalize => 'Normalisasi';
+
+  @override
+  String get statusBassBoost => 'Bass Boost';
+
+  @override
+  String get statusEqualizer => 'Equalizer';
+
+  @override
+  String get statusSpeed => 'Kecepatan';
+
+  @override
+  String get yes => 'Ya';
+
+  @override
+  String get logSearchHint => 'Cari pesan atau kategori…';
+
+  @override
+  String get logTitle => 'Log';
+
+  @override
+  String get liveLabel => 'LIVE';
+
+  @override
+  String get loudnessReplayGainTrack => 'ReplayGain (Track)';
+
+  @override
+  String get loudnessReplayGainAlbum => 'ReplayGain (Album)';
+
+  @override
+  String get loudnessR128Track => 'R128 (Track)';
+
+  @override
+  String get loudnessR128Album => 'R128 (Album)';
+
+  @override
+  String get loudnessITunNorm => 'iTunNORM';
+
+  @override
+  String get loudnessEmbedded => 'Tersemat';
+
+  @override
+  String get loudnessNone => 'Tidak ada';
+
+  @override
+  String get lyricsSourceEmbedded => 'Dari tag file';
+
+  @override
+  String get lyricsSourceLocalFile => 'Dari file .lrc';
+
+  @override
+  String get lyricsSourceInternet => 'Dari internet';
+
+  @override
+  String get lyricsTypeSynced => 'LRC (tersinkronisasi)';
+
+  @override
+  String get lyricsTypePlain => 'Teks biasa';
+
+  @override
+  String get lyricsQualityWordTimed => 'LRC dengan waktu per kata';
+
+  @override
+  String get lyricsQualityCharTimed => 'LRC dengan waktu per karakter';
+
+  @override
+  String get lyricsQualityLineTimed => 'LRC tersinkronisasi';
+
+  @override
+  String get lyricsQualityPlain => 'LRC biasa';
+
+  @override
+  String get lyricsQualityUnsynced => 'Tidak tersinkronisasi';
+
+  @override
+  String get lyricsQualityNone => 'Tidak ada';
+
+  @override
+  String get lyricsColorWhite => 'Putih';
+
+  @override
+  String get lyricsColorRed => 'Merah';
+
+  @override
+  String get lyricsColorYellow => 'Kuning';
+
+  @override
+  String sleepPresetMinutes(int minutes) {
+    return '$minutes menit';
+  }
+
+  @override
+  String sleepPresetHour(String hours) {
+    return '$hours jam';
+  }
+
+  @override
+  String get sleepPresetEndOfSong => 'Akhir lagu';
+
+  @override
+  String get sleepPresetSection => 'PILIH DURASI';
+
+  @override
   String get scanLibrary => 'Scan Library';
 
   @override
@@ -604,6 +707,14 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get noRecentSongs => 'Belum ada lagu yang diputar';
+
+  @override
+  String get noRecentlyPlayed => 'Belum ada lagu yang baru diputar';
+
+  @override
+  String searchNoResults(String query) {
+    return 'Tidak ada hasil untuk \"$query\"';
+  }
 
   @override
   String get noArtistsFound => 'Tidak ada artis ditemukan';

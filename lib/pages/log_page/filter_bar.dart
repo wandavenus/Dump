@@ -74,7 +74,7 @@ class _LogFilterBar extends StatelessWidget {
                     fontFamily: 'monospace',
                   ),
                   decoration: InputDecoration(
-                    hintText:  'Cari pesan atau kategori…',
+                     hintText:  context.l10n.logSearchHint,
                     hintStyle: TextStyle(
                       color:      c.dimLabel,
                       fontSize:   13,

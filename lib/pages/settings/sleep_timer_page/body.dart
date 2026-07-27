@@ -16,7 +16,7 @@ class _SleepTimerBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 0, bottom: 8),
               child: Text(
-                'PILIH DURASI',
+                 context.l10n.sleepPresetSection,
                 style: TextStyle(
                   color: AppColors.of(context).secondaryLabel,
                   fontSize: 12,

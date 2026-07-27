@@ -13,6 +13,29 @@ class _SongInfoContent extends StatelessWidget {
     this.liveFormat,
   });
 
+  String _localizedLoudnessSource(BuildContext context, String source) {
+    final l = context.l10n;
+    return switch (source) {
+      'ReplayGain (Track)' => l.loudnessReplayGainTrack,
+      'ReplayGain (Album)' => l.loudnessReplayGainAlbum,
+      'R128 (Track)' => l.loudnessR128Track,
+      'R128 (Album)' => l.loudnessR128Album,
+      'iTunNORM' => l.loudnessITunNorm,
+      'Embedded' => l.loudnessEmbedded,
+      'None' => l.loudnessNone,
+      _ => source,
+    };
+  }
+
+  String _localizedLyricsType(BuildContext context, String? type) {
+    final l = context.l10n;
+    return switch (type) {
+      'LRC (synced)' => l.lyricsTypeSynced,
+      'Plain text' => l.lyricsTypePlain,
+      _ => type ?? l.yes,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -171,7 +194,8 @@ class _SongInfoContent extends StatelessWidget {
                 if ((songInfo.loudnessSource ?? '').isNotEmpty)
                   PlayerSongInfoRow(
                     label: l.fieldLoudnessSource,
-                    value: songInfo.loudnessSource!,
+                    value: _localizedLoudnessSource(
+                        context, songInfo.loudnessSource!),
                   ),
               ],
             ),
@@ -185,7 +209,7 @@ class _SongInfoContent extends StatelessWidget {
               children: [
                 PlayerSongInfoRow(
                   label: l.fieldLyrics,
-                  value: songInfo.lyricsType ?? 'Yes',
+                  value: _localizedLyricsType(context, songInfo.lyricsType),
                 ),
               ],
             ),

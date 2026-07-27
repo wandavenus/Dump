@@ -125,4 +125,4 @@ externalPort = 3000
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
-build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter build web --release --base-href /"]
+build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter build web --release --base-href / --no-wasm-dry-run"]

@@ -210,7 +210,7 @@ class _LogPageState extends State<LogPage> {
       ),
       title: Row(
         children: [
-          const Text('Log',
+           Text(context.l10n.logTitle,
               style: TextStyle(
                   fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
           const SizedBox(width: 8),
@@ -250,7 +250,7 @@ class _LogPageState extends State<LogPage> {
                           ? const Color(0xFF30D158)
                           : c.quaternaryLabel),
                   const SizedBox(width: 4),
-                  Text('LIVE',
+                   Text(context.l10n.liveLabel,
                       style: TextStyle(
                         color: _liveTail
                             ? const Color(0xFF30D158)
