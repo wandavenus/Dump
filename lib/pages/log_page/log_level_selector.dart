@@ -9,30 +9,31 @@ class _LogLevelSelector extends StatelessWidget {
 
   // ── Visual helpers ─────────────────────────────────────────────────────────
 
-  static ({String label, Color color, IconData icon}) _visual() {
+  static ({String label, Color color, IconData icon}) _visual(
+      AppLocalizations l) {
     if (!LogService.loggingEnabled.value) {
       return (
-        label: 'OFF',
+        label: l.logBadgeOff,
         color: const Color(0xFF48484A),
         icon:  Icons.tune_rounded,
       );
     }
     if (LogService.errorsOnly.value) {
       return (
-        label: 'ERR',
+        label: l.logBadgeError,
         color: const Color(0xFFFF9F0A),
         icon:  Icons.tune_rounded,
       );
     }
     if (LogService.verboseEnabled.value) {
       return (
-        label: 'VRB',
+        label: l.logBadgeVerbose,
         color: const Color(0xFF0A84FF),
         icon:  Icons.tune_rounded,
       );
     }
     return (
-      label: 'LOG',
+      label: l.logBadgeNormal,
       color: const Color(0xFF30D158),
       icon:  Icons.tune_rounded,
     );
@@ -185,7 +186,7 @@ class _LogLevelSelector extends StatelessWidget {
         LogService.verboseEnabled,
       ]),
       builder: (_, _) {
-        final v = _visual();
+        final v = _visual(context.l10n);
         return GestureDetector(
           onTap: () => _showSheet(context),
           child: Padding(

@@ -214,7 +214,7 @@ class _LogPageState extends State<LogPage> {
               style: TextStyle(
                   fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.4)),
           const SizedBox(width: 8),
-          Text('${entries.length}',
+          Text(context.l10n.logEntryCount(entries.length),
               style: TextStyle(
                   color: c.quaternaryLabel, fontSize: 12, fontFamily: 'monospace')),
           const SizedBox(width: 10),

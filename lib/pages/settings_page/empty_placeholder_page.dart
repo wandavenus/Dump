@@ -30,7 +30,7 @@ class _EmptyPlaceholderPage extends StatelessWidget {
       ),
       body: Center(
         child: Text(
-          'Belum ada konten',
+          context.l10n.contentUnavailable,
           style: TextStyle(color: c.secondaryLabel, fontSize: 15),
         ),
       ),

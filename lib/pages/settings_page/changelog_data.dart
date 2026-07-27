@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.3',
+    date: '27 Juli 2026',
+    changes: [
+      'Lengkapi terjemahan Indonesia dan English untuk player, lirik, Home, detail artis/album, playlist, Equalizer, Log, dan status audio.',
+      'Tambahkan format terjemahan untuk durasi, jumlah lagu, metadata artis, dan nilai kontrol audio.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.2',
     date: '27 Juli 2026',
     changes: [

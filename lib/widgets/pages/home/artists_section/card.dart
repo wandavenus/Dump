@@ -38,7 +38,7 @@ class _ArtistCard extends StatelessWidget {
               ),
             ),
             Text(
-              '${artist.songs.length} lagu',
+              context.l10n.songsCount(artist.songs.length),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 
 class PlaylistEmptyState extends StatelessWidget {
   const PlaylistEmptyState({super.key});
@@ -9,7 +10,7 @@ class PlaylistEmptyState extends StatelessWidget {
 
     return Center(
       child: Text(
-        'Belum ada lagu',
+        context.l10n.noSongsYet,
         style: TextStyle(
           color: colors.onSurfaceVariant,
           fontSize: 16,

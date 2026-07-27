@@ -19,7 +19,7 @@ class SongListSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 20, bottom: 4),
             child: Text(
-              'Top Songs',
+              context.l10n.topSongs,
               style: TextStyle(
                 color: AppColors.of(context).primaryLabel,
                 fontSize: 20,

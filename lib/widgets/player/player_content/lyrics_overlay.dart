@@ -185,7 +185,7 @@ class _EmptyLyricsOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Lirik tidak ditemukan',
+              context.l10n.lyricsNotFound,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 17,
@@ -203,7 +203,7 @@ class _EmptyLyricsOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Tambahkan file .lrc di folder yang sama\ndengan lagu, atau konfigurasikan folder\nlirik di Pengaturan.',
+              context.l10n.lyricsFileHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.2),

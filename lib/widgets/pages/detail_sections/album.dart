@@ -75,7 +75,7 @@ class AlbumHero extends StatelessWidget {
               ],
               const SizedBox(width: 3),
               Text(
-                'Lossless',
+                context.l10n.lossless,
                 style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
               ),
             ],

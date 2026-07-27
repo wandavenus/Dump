@@ -14,8 +14,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
   late final Animation<double>   _fade;
 
   static const _steps  = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
-  static const _labels = ['Off', '1s', '2s', '4s', '6s', '8s', '12s'];
-
   @override
   void initState() {
     super.initState();
@@ -97,7 +95,10 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                           _steps[i]: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
-                              _labels[i],
+                               i == 0
+                                   ? context.l10n.crossfadeOptionOff
+                                   : context.l10n.crossfadeOptionSeconds(
+                                       _steps[i].toStringAsFixed(0)),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),

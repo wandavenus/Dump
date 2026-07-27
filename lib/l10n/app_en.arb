@@ -443,5 +443,72 @@
   "limiterDesc": "Prevents audio from exceeding a set volume level to avoid clipping/distortion. Slide below 0 dB to activate.",
   "limiterReleaseTitle": "Limiter Release",
   "limiterReleaseDesc": "How quickly the limiter releases after capping a peak. Too fast can sound unnatural.",
-  "softClipperDesc": "Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter."
+  "softClipperDesc": "Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.",
+
+  "dspPipeline": "DSP Pipeline",
+  "androidDsp": "Android DSP",
+  "webFallback": "Web / Fallback",
+  "bassBoost": "Bass Boost",
+  "supported": "Supported ✓",
+  "unavailable": "Unavailable ✗",
+  "durationSeconds": "{seconds} sec",
+  "@durationSeconds": { "placeholders": { "seconds": { "type": "int" } } },
+  "durationMinutesSeconds": "{minutes}m {seconds}s",
+  "@durationMinutesSeconds": {
+    "placeholders": {
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+  "durationHoursMinutesSeconds": "{hours}h {minutes}m {seconds}s",
+  "@durationHoursMinutesSeconds": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" },
+      "seconds": { "type": "int" }
+    }
+  },
+  "lyricsNotFound": "Lyrics not found",
+  "lyricsFileHint": "Add an .lrc file in the same folder as the song, or configure the lyrics folder in Settings.",
+  "noSongSelected": "No song selected",
+  "lockedInactive": "Controls locked — Bit-Perfect Mode is active",
+  "bandEq": "BAND EQ",
+  "preset": "PRESET",
+  "pitchSemitone": "{value} semitone",
+  "@pitchSemitone": { "placeholders": { "value": { "type": "String" } } },
+  "decibelValue": "{value} dB",
+  "@decibelValue": { "placeholders": { "value": { "type": "String" } } },
+  "millisecondsValue": "{value} ms",
+  "@millisecondsValue": { "placeholders": { "value": { "type": "String" } } },
+  "crossfadeOptionOff": "Off",
+  "crossfadeOptionSeconds": "{seconds}s",
+  "@crossfadeOptionSeconds": { "placeholders": { "seconds": { "type": "String" } } },
+  "listenAgain": "Listen Again",
+  "moreFromArtist": "More from {artist}",
+  "@moreFromArtist": { "placeholders": { "artist": { "type": "String" } } },
+  "topPicks": "Top Picks For You",
+  "songsByArtist": "{songs} songs • {albums} albums",
+  "@songsByArtist": {
+    "placeholders": {
+      "songs": { "type": "int" },
+      "albums": { "type": "int" }
+    }
+  },
+  "lossless": "Lossless",
+  "contentUnavailable": "No content yet",
+  "playedCount": "Played {count}x",
+  "@playedCount": { "placeholders": { "count": { "type": "int" } } },
+  "copyrightFooter": "© {year} Flutter Music App with Media3 ExoPlayer",
+  "@copyrightFooter": { "placeholders": { "year": { "type": "int" } } },
+  "logFilterAll": "ALL",
+  "logFilterError": "ERR",
+  "logFilterWarning": "WRN",
+  "logFilterInfo": "INF",
+  "logFilterVerbose": "VRB",
+  "logBadgeOff": "OFF",
+  "logBadgeError": "ERR",
+  "logBadgeVerbose": "VRB",
+  "logBadgeNormal": "LOG",
+  "songsCount": "{count} songs",
+  "@songsCount": { "placeholders": { "count": { "type": "int" } } }
 }

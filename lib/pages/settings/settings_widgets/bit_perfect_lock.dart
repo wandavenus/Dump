@@ -41,15 +41,15 @@ class _BitPerfectLockBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
         children: [
           Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFFF92D48)),
           SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Dikunci nonaktif — Mode Bit-Perfect sedang aktif',
+              context.l10n.lockedInactive,
               style: TextStyle(color: Color(0xFFF92D48), fontSize: 12),
             ),
           ),

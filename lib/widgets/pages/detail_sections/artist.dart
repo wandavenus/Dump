@@ -12,10 +12,10 @@ class ArtistHero extends StatelessWidget {
   int get _albumCount => songs.map((s) => s.album).toSet().length;
 
   /// Build metadata string: "X lagu • X album"
-  String _buildMetadata() {
+  String _buildMetadata(BuildContext context) {
     final songCount = songs.length;
     final albumCount = _albumCount;
-    return '$songCount lagu • $albumCount album';
+    return context.l10n.songsByArtist(songCount, albumCount);
   }
 
   @override
@@ -61,7 +61,7 @@ class ArtistHero extends StatelessWidget {
 
           // Meta: X lagu • X album
           Text(
-            _buildMetadata(),
+            _buildMetadata(context),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,

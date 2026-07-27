@@ -53,9 +53,9 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
   // Caption di atas tiap kartu, meniru gaya "Listen Again" / "More from
   // [Artist]" pada referensi: kartu pertama = ajakan dengarkan lagi,
   // kartu selanjutnya = rekomendasi dari artis album tersebut.
-  String _captionFor(int index) {
-    if (index == 0) return 'Dengarkan Lagi';
-    return 'Lainnya dari ${_albums[index].artist}';
+  String _captionFor(BuildContext context, int index) {
+    if (index == 0) return context.l10n.listenAgain;
+    return context.l10n.moreFromArtist(_albums[index].artist);
   }
 
   @override
@@ -71,10 +71,10 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+           Padding(
           padding: EdgeInsets.only(left: kPageLeftPadding, top: 13),
-          child: Text(
-            'Top Picks For You',
+             child: Text(
+             context.l10n.topPicks,
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
@@ -86,7 +86,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
             itemCount: _albums.length > 5 ? 5 : _albums.length,
             itemBuilder: (context, index) => _AlbumCard(
               album: _albums[index],
-              caption: _captionFor(index),
+               caption: _captionFor(context, index),
             ),
           ),
         ),
