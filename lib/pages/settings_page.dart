@@ -1,4 +1,6 @@
 import 'dart:async' show unawaited;
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:gal/gal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
