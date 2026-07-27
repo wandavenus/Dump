@@ -11,7 +11,6 @@ import '../song_context_menu.dart';
 export '../play_shuffle_buttons.dart' show PlayShuffleButtons;
 
 part 'detail_sections/top_bar.dart';
-part 'detail_sections/circle_icon.dart';
 part 'detail_sections/album.dart';
 part 'detail_sections/artist.dart';
 part 'detail_sections/songs.dart';
