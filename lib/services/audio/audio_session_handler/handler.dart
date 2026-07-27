@@ -26,7 +26,9 @@ class AudioSessionHandler {
       _session = await AudioSession.instance;
       await _session!.configure(const AudioSessionConfiguration.music());
       LogService.log('AudioSession', 'Configured for music playback');
-    } catch (e) {
+    } on Exception catch (e) {
+      // AudioSession.instance and configure() can throw PlatformException or
+      // StateError depending on the platform and audio session plugin version.
       LogService.warn('AudioSession', 'Init failed: $e');
     }
   }

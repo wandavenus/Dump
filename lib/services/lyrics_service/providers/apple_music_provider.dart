@@ -51,7 +51,8 @@ class AppleMusicProvider implements LyricsProvider {
       return result;
     } on CancelledException {
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
+      // Multiple exception types possible: FormatException, IOException, etc.
       LogService.verbose(name, 'Error: $e');
       return null;
     }

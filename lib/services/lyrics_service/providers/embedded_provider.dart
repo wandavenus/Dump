@@ -51,7 +51,8 @@ class EmbeddedProvider implements LyricsProvider {
       );
     } on CancelledException {
       return null;
-    } catch (e) {
+    } on Object catch (e) {
+      // PlatformException (MethodChannel) or other plugin errors
       LogService.verbose('EmbeddedProvider', 'Error: $e');
       return null;
     }

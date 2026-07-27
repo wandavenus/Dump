@@ -123,7 +123,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get sectionAudio => 'AUDIO';
 
   @override
-  String get audioNormalize => 'Audio Normalize';
+  String get audioNormalize => 'Normalisasi Audio';
 
   @override
   String get modeLabel => 'Mode';
@@ -143,7 +143,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get crossfeedStrength => 'Kekuatan';
 
   @override
-  String get crossfadeTitle => 'Crossfade';
+  String get crossfadeTitle => 'Pudar Silang';
 
   @override
   String crossfadeSeconds(String secs) {
@@ -151,10 +151,10 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get stereoWidening => 'Stereo Widening';
+  String get stereoWidening => 'Pelebaran Stereo';
 
   @override
-  String get loudnessNormalization => 'Loudness Normalization';
+  String get loudnessNormalization => 'Normalisasi Kenyaringan';
 
   @override
   String get loudnessNormActiveSubtitle =>
@@ -176,14 +176,14 @@ class AppLocalizationsId extends AppLocalizations {
   String get preamp => 'Preamp';
 
   @override
-  String get clippingProtection => 'Clipping Protection';
+  String get clippingProtection => 'Pelindung Kliping';
 
   @override
   String get clippingProtectionSubtitle =>
       'Cegah distorsi saat gain melebihi 0 dBFS';
 
   @override
-  String get replayGainTitle => 'Audio Normalize';
+  String get replayGainTitle => 'Normalisasi Audio';
 
   @override
   String get replayGainModeLabel => 'Mode';
@@ -195,7 +195,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get replayGainOff => 'Off';
 
   @override
-  String get replayGainAuto => 'Auto';
+  String get replayGainAuto => 'Otomatis';
 
   @override
   String get replayGainTrack => 'Track Gain';
@@ -372,19 +372,19 @@ class AppLocalizationsId extends AppLocalizations {
   String get playbackSpeed => 'Kecepatan Putar';
 
   @override
-  String get pitchShift => 'Pitch Shift';
+  String get pitchShift => 'Pergeseran Nada';
 
   @override
   String get bassBoost => 'Bass Boost';
 
   @override
-  String get compressor => 'Compressor';
+  String get compressor => 'Kompresor';
 
   @override
-  String get limiter => 'Limiter';
+  String get limiter => 'Pembatas';
 
   @override
-  String get softClipper => 'Soft Clipper';
+  String get softClipper => 'Kliping Halus';
 
   @override
   String get sectionBitPerfect => 'BIT-PERFECT';
@@ -488,7 +488,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get sleepAfterSong => 'Berhenti setelah lagu ini selesai';
 
   @override
-  String get sleepFadeOut => 'Musik akan fade out perlahan saat timer habis';
+  String get sleepFadeOut => 'Musik akan memudar perlahan saat timer habis';
 
   @override
   String get timerAfterSong => 'Timer: berhenti setelah lagu ini';
@@ -499,7 +499,7 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get upNextLabel => 'UP NEXT';
+  String get upNextLabel => 'BERIKUTNYA';
 
   @override
   String get shuffleOn => 'Shuffle On';
@@ -508,16 +508,16 @@ class AppLocalizationsId extends AppLocalizations {
   String get shuffleOff => 'Shuffle Off';
 
   @override
-  String get loopOff => 'Loop Off';
+  String get loopOff => 'Loop Mati';
 
   @override
-  String get loopAll => 'Loop All';
+  String get loopAll => 'Loop Semua';
 
   @override
-  String get loopOne => 'Loop One';
+  String get loopOne => 'Loop Satu';
 
   @override
-  String get songInfoLabel => 'Song Info';
+  String get songInfoLabel => 'Info Lagu';
 
   @override
   String get queueEmpty => 'Antrian kosong';
@@ -626,7 +626,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get renamePlaylist => 'Ganti Nama';
 
   @override
-  String get deletePlaylistConfirm => 'Hapus Playlist?';
+  String get deletePlaylistConfirm => 'Hapus Daftar Lagu?';
 
   @override
   String get deletePlaylist => 'Hapus Playlist';
@@ -641,7 +641,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get noSongsYet => 'Belum ada lagu';
 
   @override
-  String get myPlaylists => 'Playlist Saya';
+  String get myPlaylists => 'Daftar Lagu Saya';
 
   @override
   String get noPlaylistsCreated => 'Belum ada playlist';
@@ -768,7 +768,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get thankYouSupport => 'Terima kasih atas dukunganmu.';
 
   @override
-  String get sendReportGmail => 'Kirim laporan kamu ke Gmail';
+  String get sendReportGmail => 'Kirim laporan kamu ke';
 
   @override
   String get orSocialMedia => 'atau ke akun sosial media di halaman Tentang.';
@@ -854,16 +854,16 @@ class AppLocalizationsId extends AppLocalizations {
   String get fieldFormat => 'Format';
 
   @override
-  String get fieldBitDepth => 'Bit Depth';
+  String get fieldBitDepth => 'Kedalaman Bit';
 
   @override
-  String get fieldSampleRate => 'Sample Rate';
+  String get fieldSampleRate => 'Laju Sampel';
 
   @override
   String get fieldChannels => 'Saluran';
 
   @override
-  String get fieldBitrate => 'Bitrate';
+  String get fieldBitrate => 'Laju Bit';
 
   @override
   String get fieldEncoder => 'Encoder';
@@ -1059,7 +1059,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get hardKnee => 'Hard knee';
 
   @override
-  String get noPlaylists => 'Belum ada playlist';
+  String get noPlaylists => 'Belum ada daftar putar';
 
   @override
   String get bugReportParagraph1 =>
@@ -1142,10 +1142,10 @@ class AppLocalizationsId extends AppLocalizations {
   String get webFallback => 'Web / Fallback';
 
   @override
-  String get supported => 'Didukung ✓';
+  String get supported => 'Didukung';
 
   @override
-  String get unavailable => 'Tidak tersedia ✗';
+  String get unavailable => 'Tidak tersedia';
 
   @override
   String durationSeconds(int seconds) {
@@ -1198,7 +1198,7 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get crossfadeOptionOff => 'Nonaktif';
+  String get crossfadeOptionOff => 'Mati';
 
   @override
   String crossfadeOptionSeconds(String seconds) {

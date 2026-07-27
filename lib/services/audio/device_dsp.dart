@@ -59,7 +59,9 @@ class DeviceDsp {
         'DeviceDsp',
         'Effect support — bass=$_bassBoostSupported',
       );
-    } catch (e) {
+    } on Exception catch (e) {
+      // getEffectSupport routes through a MethodChannel; may throw
+      // PlatformException (service not ready) or MissingPluginException.
       LogService.warn('DeviceDsp', 'queryEffectSupport: $e');
     }
   }

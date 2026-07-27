@@ -18,7 +18,10 @@ class AlbumPage extends StatelessWidget {
         backgroundColor: theme.scaffoldBackgroundColor,
       );
     }
-    final args = route.settings.arguments as Map<String, dynamic>;
+    final args = route.settings.arguments as Map<String, dynamic>?;
+    if (args == null) {
+      return Scaffold(backgroundColor: theme.scaffoldBackgroundColor);
+    }
 
     final album = args['album'] as LocalSong;
     final songs = args['songs'] as List<LocalSong>;

@@ -165,7 +165,10 @@ class _FirstPageState extends State<FirstPage> {
                     if (expanded) {
                       PlayerSheetController.close();
                     } else {
-                      _tabNavKeys[_selectedIndex].currentState?.maybePop();
+                      unawaited(
+                        _tabNavKeys[_selectedIndex].currentState?.maybePop() ??
+                            Future.value(),
+                      );
                     }
                   },
                   child: Stack(

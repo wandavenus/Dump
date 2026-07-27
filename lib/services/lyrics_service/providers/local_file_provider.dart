@@ -74,7 +74,7 @@ class LocalFileProvider implements LyricsProvider {
       FileSystemEntityType type;
       try {
         type = (await file.stat()).type; // ignore: avoid_slow_async_io
-      } catch (_) {
+      } on IOException catch (_) {
         continue;
       }
       if (type == FileSystemEntityType.notFound) continue;
@@ -106,10 +106,10 @@ class LocalFileProvider implements LyricsProvider {
         raw = await file.readAsString(encoding: latin1);
       }
       return raw;
-    } catch (_) {
+    } on IOException catch (_) {
       try {
         return await file.readAsString(encoding: latin1);
-      } catch (_) {
+      } on IOException catch (_) {
         return null;
       }
     }

@@ -18,7 +18,10 @@ class ArtistPage extends StatelessWidget {
       return Scaffold(backgroundColor: theme.scaffoldBackgroundColor);
     }
 
-    final songs = route.settings.arguments as List<LocalSong>;
+    final songs = route.settings.arguments as List<LocalSong>?;
+    if (songs == null) {
+      return Scaffold(backgroundColor: theme.scaffoldBackgroundColor);
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

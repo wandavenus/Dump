@@ -560,7 +560,7 @@ class AudioEffectsService {
   static Future<EqualizerParameters?> getEqualizerParameters() async {
     try {
       return await PlaybackManager.getEqualizerParameters();
-    } catch (error) {
+    } on Exception catch (error) {
       LogService.warn('AudioEffects', 'getEqParameters: $error');
       return null;
     }
@@ -575,7 +575,7 @@ class AudioEffectsService {
       await prefs.setDouble('eqBand_$bandIndex', gainDb);
       // Manual band adjustment — clear preset selection indicator.
       eqPreset.value = -1;
-    } catch (e) {
+    } on Exception catch (e) {
       LogService.warn('AudioEffects', 'setEqBand: $e');
     }
   }
@@ -599,11 +599,11 @@ class AudioEffectsService {
     for (var b = 0; b < gains.length; b++) {
       unawaited(_writeEqBand(b, gains[b]));
     }
-    SharedPreferences.getInstance().then((prefs) {
+    unawaited(SharedPreferences.getInstance().then((prefs) {
       for (var b = 0; b < gains.length; b++) {
         prefs.setDouble('eqBand_$b', gains[b]);
       }
-    });
+    }));
   }
 
   static Future<void> restoreEqualizerBands() async {

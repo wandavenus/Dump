@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
@@ -24,10 +26,12 @@ class _HomePageState extends State<HomePage> {
 
   void _onScrollToTop() {
     if (_scroll.hasClients) {
-      _scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        ),
       );
     }
   }

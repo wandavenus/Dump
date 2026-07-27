@@ -72,7 +72,9 @@ class LrclibProvider implements LyricsProvider {
     String? bestWord;
     String? bestSynced;
     String? bestPlain;
-    for (final entry in data) {
+    for (final Object? rawEntry in data) {
+      final entry = ProviderHttp.asJsonMap(rawEntry);
+      if (entry == null) continue;
       final synced = (entry['syncedLyrics'] as String?) ?? '';
       final plain  = (entry['lyrics'] as String?) ?? '';
       if (synced.isNotEmpty) {

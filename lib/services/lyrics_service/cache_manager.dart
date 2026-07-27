@@ -14,8 +14,8 @@ class LyricsCacheManager {
   static final LyricsCacheManager instance = LyricsCacheManager._();
   LyricsCacheManager._();
 
-  static const _prefixV2 = 'lyrics_v2_';
-  static const _ttlMs = 30 * 24 * 60 * 60 * 1000; // 30 hari
+  static const String _prefixV2 = 'lyrics_v2_';
+  static const int _ttlMs = 30 * 24 * 60 * 60 * 1000; // 30 hari
 
   // ── Memory cache ──────────────────────────────────────────────────────────
   final Map<String, _CacheEntry> _mem = {};
@@ -23,8 +23,8 @@ class LyricsCacheManager {
 
   // Kunci yang baru-baru ini gagal dicari — hindari re-request selama 1 jam.
   final Map<String, int> _failedAtMs = {};
-  static const _failedTtlMs = 60 * 60 * 1000; // 1 jam
-  static const _maxFailedEntries = 200;
+  static const int _failedTtlMs = 60 * 60 * 1000; // 1 jam
+  static const int _maxFailedEntries = 200;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -81,7 +81,8 @@ class LyricsCacheManager {
         isInternet: isInternet,
         rawLrc: lrc,
       );
-    } catch (_) {
+    } on Exception catch (_) {
+      // Corrupt/unreadable cache entry — treat as a miss
       return null;
     }
   }
@@ -102,7 +103,9 @@ class LyricsCacheManager {
         'cachedAt': DateTime.now().millisecondsSinceEpoch,
       };
       await prefs.setString('$_prefixV2$key', jsonEncode(map));
-    } catch (_) {}
+    } on Exception catch (_) {
+      // Best-effort disk write — failure is silent
+    }
   }
 
   // ── Failure TTL ───────────────────────────────────────────────────────────
@@ -140,7 +143,9 @@ class LyricsCacheManager {
       for (final k in keys) {
         await prefs.remove(k);
       }
-    } catch (_) {}
+    } on Exception catch (_) {
+      // Best-effort cache clear — failure is silent
+    }
   }
 }
 
