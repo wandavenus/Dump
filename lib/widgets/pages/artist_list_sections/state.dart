@@ -55,12 +55,12 @@ class _ArtistListContentState extends State<ArtistListContent> {
       controller: widget.scrollController,
       slivers: [
         // Header — judul tidak diubah
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               LargePageTitle(title: context.l10n.favoriteArtists),
-              HeaderDivider(),
+              const HeaderDivider(),
             ],
           ),
         ),

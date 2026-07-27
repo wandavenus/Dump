@@ -185,7 +185,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                           onTap: () => Navigator.of(context).push(
                             ZoomFadeRoute<void>(page: const ChangelogPage()),
                           ),
-                          child: const Text(
+                          child: Text(
                             l.releaseNotes,
                             style: TextStyle(
                               color: Color(0xFFF92D48),
