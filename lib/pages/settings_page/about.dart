@@ -19,8 +19,22 @@ class _AboutSection extends StatelessWidget {
         ),
         SettingsActionRow(
           title: l.support,
-          onTap: () => Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: const SupportPage()),
+          onTap: () => showModalBottomSheet<void>(
+            context: context,
+            backgroundColor: Colors.transparent,
+            isScrollControlled: true,
+            builder: (_) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/images/qris_support.webp',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
         SettingsActionRow(
