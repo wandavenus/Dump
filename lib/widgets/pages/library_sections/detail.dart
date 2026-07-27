@@ -37,7 +37,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void initState() {
     super.initState();
     _songsFuture = MediaStoreService.getSongs();
-    _songsFuture.then(_updateSortedCaches);
+    unawaited(_songsFuture.then(_updateSortedCaches));
     _countsFuture = HistoryService.getPlayCounts();
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
@@ -79,7 +79,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       _songsFuture  = MediaStoreService.getSongs();
       _countsFuture = HistoryService.getPlayCounts();
     });
-    _songsFuture.then(_updateSortedCaches);
+    unawaited(_songsFuture.then(_updateSortedCaches));
   }
 
   static const double _kAnimEnd = 140.0;

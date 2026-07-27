@@ -8,14 +8,14 @@ class _AnimatedBlurredPlayerBackgroundState
   @override
   void initState() {
     super.initState();
-    _loadPalette(widget.songId);
+    unawaited(_loadPalette(widget.songId));
   }
 
   @override
   void didUpdateWidget(AnimatedBlurredPlayerBackground old) {
     super.didUpdateWidget(old);
     if (old.songId != widget.songId) {
-      _loadPalette(widget.songId);
+      unawaited(_loadPalette(widget.songId));
     }
   }
 

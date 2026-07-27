@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.8',
+    date: '27 Juli 2026',
+    changes: [
+      'Hapus 3 compile error (void result, syntax token, undefined function).',
+      'Bungkus semua Future fire-and-forget dengan unawaited() di ~30 file.',
+      'Ganti pola Future discarded di dispose() pakai .ignore() yang lebih aman.',
+      'Hapus import dart:async yang tidak terpakai.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.7',
     date: '27 Juli 2026',
     changes: [

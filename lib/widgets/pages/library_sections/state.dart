@@ -8,7 +8,7 @@ class _LibraryContentState extends State<LibraryContent> {
   @override
   void initState() {
     super.initState();
-    _loadOrder();
+    unawaited(_loadOrder());
   }
 
   Future<void> _loadOrder() async {
@@ -40,7 +40,7 @@ class _LibraryContentState extends State<LibraryContent> {
       final item = _items.removeAt(oldIndex);
       _items.insert(newIndex, item);
     });
-    _saveOrder();
+    unawaited(_saveOrder());
   }
 
   @override

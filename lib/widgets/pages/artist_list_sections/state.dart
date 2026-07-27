@@ -7,12 +7,12 @@ class _ArtistListContentState extends State<ArtistListContent> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override

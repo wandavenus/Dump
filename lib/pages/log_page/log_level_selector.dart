@@ -129,7 +129,7 @@ class _LogLevelSelector extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   static Widget _option({

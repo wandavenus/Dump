@@ -6,6 +6,8 @@
 // Public surface: [showSleepTimerSheet] (top-level helper used by the player
 // 3-dot menu); widget tree lives in the `sleep_timer_page/` sub-parts.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';

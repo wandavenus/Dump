@@ -47,12 +47,12 @@ class _LibraryRow extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (destination != null) {
-          Navigator.of(context).push(
+          unawaited(Navigator.of(context).push(
             ZoomFadeRoute<void>(page: _LibraryDetailPage(destination: destination!)),
-          );
+          ));
           return;
         }
-        Navigator.pushNamed(context, routeName!);
+        unawaited(Navigator.pushNamed(context, routeName!));
       },
       child: row,
     );

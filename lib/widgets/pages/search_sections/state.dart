@@ -18,13 +18,13 @@ class _SearchSliversState extends State<SearchSlivers>
   @override
   void initState() {
     super.initState();
-    _loadSongs();
+    unawaited(_loadSongs());
     _controller.addListener(_onQueryChanged);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _loadSongs();
+    if (mounted) unawaited(_loadSongs());
   }
 
   @override

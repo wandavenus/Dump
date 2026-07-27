@@ -9,12 +9,12 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override

@@ -601,7 +601,7 @@ class AudioEffectsService {
     }
     unawaited(SharedPreferences.getInstance().then((prefs) {
       for (var b = 0; b < gains.length; b++) {
-        prefs.setDouble('eqBand_$b', gains[b]);
+        unawaited(prefs.setDouble('eqBand_$b', gains[b]));
       }
     }));
   }

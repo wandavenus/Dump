@@ -15,12 +15,12 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
       _albums = _buildAlbums(cached);
       _isLoading = false;
     }
-    _load();
+    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   @override

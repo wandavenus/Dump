@@ -31,7 +31,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   SmartPlaylistType _resolveType() => switch (_smartCardTypes[widget.index]) {
@@ -72,13 +72,13 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           _count = ids.length;
           _artworkIds = ids.take(4).toList();
         });
-        ArtworkRepository.instance.prefetch(_artworkIds);
+        unawaited(ArtworkRepository.instance.prefetch(_artworkIds));
       }
     } catch (_) {}
   }
 
   void _open() {
-    Navigator.push(
+    unawaited(Navigator.push(
       context,
       ZoomFadeRoute<void>(
         page: PlaylistPage.smart(
@@ -86,7 +86,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           type: _resolveType(),
         ),
       ),
-    );
+    ));
   }
 
   @override
@@ -123,21 +123,21 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   void initState() {
     super.initState();
     _artworkIds = widget.playlist.songIds.take(4).toList();
-    ArtworkRepository.instance.prefetch(_artworkIds);
+    unawaited(ArtworkRepository.instance.prefetch(_artworkIds));
   }
 
   void _open() {
-    Navigator.push(
+    unawaited(Navigator.push(
       context,
       ZoomFadeRoute<void>(page: PlaylistPage.user(playlist: widget.playlist)),
     ).then((_) {
       // refresh after returning (songs may have been removed)
       widget.onDeleted();
-    });
+    }));
   }
 
   void _onLongPress() {
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => SwipeToDismissSheet(
@@ -175,7 +175,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   @override
@@ -206,7 +206,7 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {

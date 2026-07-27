@@ -24,14 +24,14 @@ class _AlbumCardState extends State<_AlbumCard> {
   @override
   void initState() {
     super.initState();
-    _loadPaletteColor();
+    unawaited(_loadPaletteColor());
   }
 
   @override
   void didUpdateWidget(_AlbumCard old) {
     super.didUpdateWidget(old);
     if (old.album.coverSongId != widget.album.coverSongId) {
-      _loadPaletteColor();
+      unawaited(_loadPaletteColor());
     }
   }
 
