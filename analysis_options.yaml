@@ -19,6 +19,28 @@ analyzer:
   errors:
     invalid_annotation_target: ignore
 
+    # Suppress high-noise cosmetic/style lints so analyzer output stays focused
+    # on type-safety and bug-prevention issues.
+    prefer_double_quotes: ignore
+    always_specify_types: ignore
+    prefer_final_parameters: ignore
+    unnecessary_final: ignore
+    specify_nonobvious_local_variable_types: ignore
+    public_member_api_docs: ignore
+    lines_longer_than_80_chars: ignore
+    always_put_control_body_on_new_line: ignore
+    always_use_package_imports: ignore
+    prefer_relative_imports: ignore
+    prefer_single_quotes: ignore
+    prefer_int_literals: ignore
+    prefer_final_locals: ignore
+    omit_local_variable_types: ignore
+    omit_obvious_local_variable_types: ignore
+    omit_obvious_property_types: ignore
+    sort_constructors_first: ignore
+    diagnostic_describe_all_properties: ignore
+    comment_references: ignore
+
 linter:
   rules:
     - always_declare_return_types
