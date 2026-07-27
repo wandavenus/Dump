@@ -1260,4 +1260,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String songsCount(int count) {
     return '$count songs';
   }
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) =>
+      '$hours hr $minutes min';
+
+  @override
+  String durationOnlyMinutes(int minutes) => '$minutes min';
+
+  @override
+  String albumSongsAndDuration(int count, String duration) =>
+      '$count songs, $duration';
+
+  @override
+  String get madeByShort => 'Made by';
 }

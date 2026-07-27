@@ -2419,6 +2419,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} songs'**
   String songsCount(int count);
+
+  /// No description provided for @durationHoursMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hr {minutes} min'**
+  String durationHoursMinutes(int hours, int minutes);
+
+  /// No description provided for @durationOnlyMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String durationOnlyMinutes(int minutes);
+
+  /// No description provided for @albumSongsAndDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs, {duration}'**
+  String albumSongsAndDuration(int count, String duration);
+
+  /// No description provided for @madeByShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Made by'**
+  String get madeByShort;
 }
 
 class _AppLocalizationsDelegate

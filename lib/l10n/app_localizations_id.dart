@@ -1262,4 +1262,18 @@ class AppLocalizationsId extends AppLocalizations {
   String songsCount(int count) {
     return '$count lagu';
   }
+
+  @override
+  String durationHoursMinutes(int hours, int minutes) =>
+      '$hours jam $minutes menit';
+
+  @override
+  String durationOnlyMinutes(int minutes) => '$minutes menit';
+
+  @override
+  String albumSongsAndDuration(int count, String duration) =>
+      '$count lagu, $duration';
+
+  @override
+  String get madeByShort => 'Oleh';
 }

@@ -43,6 +43,7 @@ class _AboutFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final year = _currentYear;
 
     return Padding(
@@ -53,7 +54,7 @@ class _AboutFooter extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Made by Wndavenznchole',
+              '${l.madeByShort} Wndavenznchole',
               textAlign: TextAlign.left,
               style: TextStyle(
                 color: AppColors.of(context).secondaryLabel,
@@ -62,7 +63,7 @@ class _AboutFooter extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              '© $year Flutter Music App with Media3 Exoplayer',
+              l.copyrightFooter(year),
               textAlign: TextAlign.left,
               style: TextStyle(
                 color: AppColors.of(context).secondaryLabel,

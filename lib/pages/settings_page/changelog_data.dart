@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.4',
+    date: '27 Juli 2026',
+    changes: [
+      'Lokalisasi penuh: ganti semua string hardcoded di halaman artis, album, dan footer Settings dengan kunci terjemahan.',
+      'Tambah format durasi (jam/menit) dan jumlah lagu+durasi sebagai kunci l10n baru di EN dan ID.',
+      'Perbaiki "More by Artist" dan footer copyright di halaman album untuk mengikuti bahasa aktif.',
+      'Perbaiki versi yang tampil di halaman Tentang App.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.3',
     date: '27 Juli 2026',
     changes: [
