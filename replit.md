@@ -67,6 +67,7 @@ Build APK juga menyiapkan Android SDK, NDK, CMake, JDK 21 tervalidasi, dan Ninja
 - Setelah kode selesai diubah dan analyze clean, langsung akhiri tanpa menunggu proses rebuild web selesai.
 - Gunakan **Bahasa Indonesia non-formal / gaul** untuk semua pesan progres, penjelasan, dan info pengerjaan. Pakai "aku/kamu", bukan "gue/lu".
 - Lakukan Pengerjaan dengan penuh pertimbangan supaya tidak membuat kesalahan yang tidak diingin kan dari hasil pengerjaan yang sudah di lakukan
+- **Wajib ikuti best practices** di setiap pengerjaan apapun — berlaku untuk semua bahasa dan framework yang ada di repo ini (Dart/Flutter, Kotlin, C/CMake, JavaScript, dsb.). Termasuk: penamaan yang konsisten, penanganan error yang benar, null safety, type safety, resource management, tidak ada dead code, dan konvensi idiomatik masing-masing bahasa.
 
 ## Target device (real Android testing device)
 
