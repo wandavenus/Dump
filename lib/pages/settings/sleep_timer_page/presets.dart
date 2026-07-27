@@ -66,7 +66,7 @@ class _PresetList extends StatelessWidget {
   }
 
   String _localizedPresetLabel(
-      BuildContext context, ({String label, Duration? duration}) preset) {
+      BuildContext context, ({Duration? duration}) preset) {
     final duration = preset.duration;
     if (duration == null) return context.l10n.sleepPresetEndOfSong;
     if (duration.inMinutes < 60) {
@@ -80,8 +80,7 @@ class _PresetList extends StatelessWidget {
   }
 
   void _startPreset(
-      BuildContext context,
-      ({String label, Duration? duration}) preset) {
+      BuildContext context, ({Duration? duration}) preset) {
     if (preset.duration == null) {
       SleepTimerService.startEndOfSong();
     } else {

@@ -230,7 +230,7 @@ class _SheetBody extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: 12),
               child: currentSong == null || currentState == null
-                  ? const Center(
+                  ? Center(
                        child: Text(
                          context.l10n.noSongSelected,
                         style: TextStyle(

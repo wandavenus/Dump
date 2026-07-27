@@ -444,6 +444,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get debugSection => 'MODE AKTIF';
 
   @override
+  String get debugLabel => 'DEBUG';
+
+  @override
   String get sessionStats => 'Statistik Sesi';
 
   @override
@@ -884,6 +887,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get fieldFileName => 'Nama File';
 
   @override
+  String get fieldFilePath => 'Lokasi File';
+
+  @override
   String get fieldFolder => 'Folder';
 
   @override
@@ -1264,15 +1270,19 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String durationHoursMinutes(int hours, int minutes) =>
-      '$hours jam $minutes menit';
+  String durationHoursMinutes(int hours, int minutes) {
+    return '$hours jam $minutes menit';
+  }
 
   @override
-  String durationOnlyMinutes(int minutes) => '$minutes menit';
+  String durationOnlyMinutes(int minutes) {
+    return '$minutes menit';
+  }
 
   @override
-  String albumSongsAndDuration(int count, String duration) =>
-      '$count lagu, $duration';
+  String albumSongsAndDuration(int count, String duration) {
+    return '$count lagu, $duration';
+  }
 
   @override
   String get madeByShort => 'Oleh';

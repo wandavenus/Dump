@@ -443,6 +443,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get debugSection => 'MODE ACTIVE';
 
   @override
+  String get debugLabel => 'DEBUG';
+
+  @override
   String get sessionStats => 'Session Statistics';
 
   @override
@@ -883,6 +886,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldFileName => 'File Name';
 
   @override
+  String get fieldFilePath => 'File Path';
+
+  @override
   String get fieldFolder => 'Folder';
 
   @override
@@ -1262,15 +1268,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String durationHoursMinutes(int hours, int minutes) =>
-      '$hours hr $minutes min';
+  String durationHoursMinutes(int hours, int minutes) {
+    return '$hours hr $minutes min';
+  }
 
   @override
-  String durationOnlyMinutes(int minutes) => '$minutes min';
+  String durationOnlyMinutes(int minutes) {
+    return '$minutes min';
+  }
 
   @override
-  String albumSongsAndDuration(int count, String duration) =>
-      '$count songs, $duration';
+  String albumSongsAndDuration(int count, String duration) {
+    return '$count songs, $duration';
+  }
 
   @override
   String get madeByShort => 'Made by';

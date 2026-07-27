@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:musicplayer/extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import '../../services/audio_playback_state.dart';

@@ -11,10 +11,10 @@ class _DebugSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 16),
               child: Text(
-                'DEBUG',
+                l.debugLabel,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,

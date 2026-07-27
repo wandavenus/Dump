@@ -48,8 +48,19 @@ pages/settings/sleep_timer_page.dart.
 
 ## Version bump
 
-Versi di pubspec.yaml + changelog_data.dart dinaikkan ke 1.4.2 saat selesai implementasi ini.
+Versi di pubspec.yaml + changelog_data.dart dinaikkan ke 1.4.5 setelah penyempurnaan lokalisasi.
 
 **Why:** Jalur `flutter_gen` dan dry-run WASM default tidak kompatibel dengan Flutter 3.44 pada workspace ini, sedangkan file generated lokal dan target JS berhasil.
 
 **How to apply:** Pertahankan import generated lokal dan gunakan `--no-wasm-dry-run` untuk build web manual, watcher, dan deployment.
+
+## Current completion state
+
+- ARB English dan Bahasa Indonesia memiliki 393 message key yang sama.
+- `LanguageManager` menyimpan `system`, `en`, atau `id`; `null` pada locale berarti kembali mengikuti bahasa perangkat.
+- Preset Sleep Timer membentuk label dari `context.l10n` saat UI dibuat, bukan menyimpan teks bahasa tertentu di service.
+- String literal yang tersisa di UI adalah nilai teknis, simbol, nama akun/artis, email, atau data lagu demo—bukan copy yang perlu diterjemahkan.
+
+**Why:** Menjaga sumber terjemahan tetap lengkap dan mencegah service/domain layer bergantung pada bahasa tampilan.
+
+**How to apply:** Tambahkan string baru ke kedua ARB, jalankan `flutter gen-l10n`, lalu gunakan `context.l10n` di widget; jangan memasukkan label terjemahan ke service.
