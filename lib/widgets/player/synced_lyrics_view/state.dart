@@ -90,7 +90,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _currentIndex = _computeLineIndex(s.position);
     _activateTimelineForCurrentLine(s.position);
 
-    if (_isPlaying) _frameTicker.start();
+    if (_isPlaying) unawaited(_frameTicker.start());
 
     _posSub = AudioService.positionStream.listen(_onPosition);
     AudioService.playbackState.addListener(_onPlaybackState);
@@ -113,7 +113,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         final s = AudioService.playbackState.value;
         _syncFromPlaybackState(s);
 
-        if (_isPlaying && !_frameTicker.isActive) _frameTicker.start();
+        if (_isPlaying && !_frameTicker.isActive) unawaited(_frameTicker.start());
 
         final currentPos = _interpolatedPosition;
         _maybeUpdateCurrentLine(currentPos, allowBinarySearch: true);
@@ -124,7 +124,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
           _scrollToCenter(_currentIndex, animate: true);
         });
 
-      default:
+      case AppLifecycleState.detached:
         break;
     }
   }
@@ -156,7 +156,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   void dispose() {
     widget.dragHandle?._detach(this);
     WidgetsBinding.instance.removeObserver(this);
-    _posSub?.cancel();
+    unawaited(_posSub?.cancel() ?? Future<void>.value());
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
     _karaokeController.dispose();

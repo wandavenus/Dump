@@ -44,7 +44,7 @@ class _LogLevelSelector extends StatelessWidget {
   void _showSheet(BuildContext context) {
     final c = AppColors.of(context);
     final l = context.l10n;
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       backgroundColor: c.surface,
       shape: const RoundedRectangleBorder(

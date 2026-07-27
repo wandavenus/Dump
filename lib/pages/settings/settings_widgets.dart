@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';

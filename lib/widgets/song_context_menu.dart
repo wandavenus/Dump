@@ -74,7 +74,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
   @override
   void initState() {
     super.initState();
-    _loadFavorite();
+    unawaited(_loadFavorite());
   }
 
   Future<void> _loadFavorite() async {

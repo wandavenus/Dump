@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
@@ -42,13 +44,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
     _scroll.addListener(_onScroll);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
   void _onRescan() {
-    if (mounted) _load();
+    if (mounted) unawaited(_load());
   }
 
   static const double _kAnimEnd = 140.0;
@@ -218,11 +220,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
   void _playAll() {
     if (_songs.isEmpty) return;
-    AudioService.playSongAt(playlist: _songs, index: 0);
+    unawaited(AudioService.playSongAt(playlist: _songs, index: 0));
   }
 
   void _playSong(int index) {
-    AudioService.playSongAt(playlist: _songs, index: index);
+    unawaited(AudioService.playSongAt(playlist: _songs, index: index));
   }
 
   String _fmt(Duration d) {

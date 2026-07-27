@@ -1,4 +1,6 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';

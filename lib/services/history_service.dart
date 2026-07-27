@@ -72,12 +72,12 @@ class HistoryService {
     // Song play count
     final playCounts = _decodeMap(prefs.getString(_playCountKey) ?? '{}');
     playCounts[song.id.toString()] =
-        (playCounts[song.id.toString()] ?? 0) + 1;
+        (playCounts[song.id.toString()] as int? ?? 0) + 1;
 
     // Artist play count
     final artistCounts =
         _decodeMap(prefs.getString(_artistPlayCountKey) ?? '{}');
-    artistCounts[song.artist] = (artistCounts[song.artist] ?? 0) + 1;
+    artistCounts[song.artist] = (artistCounts[song.artist] as int? ?? 0) + 1;
 
     // Flush all three keys to SharedPreferences in parallel.
     await Future.wait([

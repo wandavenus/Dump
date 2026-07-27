@@ -167,7 +167,7 @@ class _FirstPageState extends State<FirstPage> {
                     } else {
                       unawaited(
                         _tabNavKeys[_selectedIndex].currentState?.maybePop() ??
-                            Future.value(),
+                            Future.value(false),
                       );
                     }
                   },

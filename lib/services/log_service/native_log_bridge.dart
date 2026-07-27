@@ -10,7 +10,7 @@ class NativeLogBridge {
 
   static void init() {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = _channel.receiveBroadcastStream().listen(
       (dynamic event) {
         if (event is! Map) return;
@@ -31,7 +31,7 @@ class NativeLogBridge {
   }
 
   static void dispose() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = null;
   }
 }

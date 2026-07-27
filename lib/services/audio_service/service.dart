@@ -159,7 +159,7 @@ class AudioService {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _staticSubs.add(
         PlaybackManager.audioSessionIdStream.listen((id) {
-          if (id > 0) DeviceDsp.attachEffectsToSession(id);
+          if (id > 0) unawaited(DeviceDsp.attachEffectsToSession(id));
         }),
       );
     }
@@ -219,9 +219,9 @@ class AudioService {
     final song = currentSong;
     if (song != null) {
       // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
-      _ReplayGainApplicator.apply(song).catchError((Object e) {
+      unawaited(_ReplayGainApplicator.apply(song).catchError((Object e) {
         LogService.warn('AudioService', '_ReplayGainApplicator.apply (setting change) error: $e');
-      });
+      }));
     }
   }
 
@@ -246,7 +246,7 @@ class AudioService {
       if (songs.isEmpty) {
         _playlist = List<LocalSong>.unmodifiable([]);
         _setState(playbackState.value.copyWith(currentPlaylist: const []));
-        ArtworkRepository.setActiveQueueIds([]);
+        unawaited(ArtworkRepository.setActiveQueueIds([]));
         return;
       }
       _playlist = List<LocalSong>.unmodifiable(songs);
@@ -254,7 +254,7 @@ class AudioService {
 
       // Tell the native artwork cache which songs are in the active queue so
       // those WebP files are never evicted by LRU cleanup.
-      ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList());
+      unawaited(ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList()));
     } catch (e) {
       LogService.warn('AudioService', 'onNativeQueueChanged parse error: $e');
     }

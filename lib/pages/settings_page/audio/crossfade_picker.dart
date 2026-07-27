@@ -32,7 +32,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
 
   void _toggle() {
     setState(() => _expanded = !_expanded);
-    _expanded ? _ctrl.forward() : _ctrl.reverse();
+    unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
   }
 
   @override
@@ -88,7 +88,7 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                     child: CupertinoSlidingSegmentedControl<double>(
                       groupValue: snapped,
                       onValueChanged: (v) {
-                        if (v != null) AudioEffectsService.setCrossfade(v);
+                        if (v != null) unawaited(AudioEffectsService.setCrossfade(v));
                       },
                       children: {
                         for (var i = 0; i < _steps.length; i++)
