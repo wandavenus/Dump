@@ -33,16 +33,18 @@ class _ArtistListContentState extends State<ArtistListContent> {
               .map((e) => ArtistInfo(name: e.key, songs: e.value))
               .toList()
             ..sort((a, b) => a.name.compareTo(b.name));
-      if (mounted)
+      if (mounted) {
         setState(() {
           _artists = artists;
           _isLoading = false;
         });
+      }
     } on Exception catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
+      }
     }
   }
 

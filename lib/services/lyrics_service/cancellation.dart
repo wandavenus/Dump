@@ -60,8 +60,9 @@ class CancellationToken {
       ),
     );
     onCancel(() {
-      if (!completer.isCompleted)
+      if (!completer.isCompleted) {
         completer.completeError(const CancelledException());
+      }
     });
     return completer.future;
   }

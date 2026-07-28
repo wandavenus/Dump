@@ -81,11 +81,12 @@ class _SongContextMenuState extends State<SongContextMenu> {
 
   Future<void> _loadFavorite() async {
     final fav = await PlaylistService.isFavorite(widget.song.id);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isFavorite = fav;
         _favLoaded = true;
       });
+    }
   }
 
   @override
