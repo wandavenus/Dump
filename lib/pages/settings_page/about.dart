@@ -29,7 +29,7 @@ class _AboutSection extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: GestureDetector(
-                    onTap: () => _confirmSaveQris(sheetCtx),
+                    onTap: () => _confirmSaveQris(sheetCtx, pageContext: context),
                     child: Image.asset(
                       'assets/images/qris_support.webp',
                       fit: BoxFit.contain,
@@ -53,7 +53,10 @@ class _AboutSection extends StatelessWidget {
   }
 }
 
-Future<void> _confirmSaveQris(BuildContext context) async {
+Future<void> _confirmSaveQris(
+  BuildContext context, {
+  required BuildContext pageContext,
+}) async {
   final confirmed = await showCupertinoDialog<bool>(
     context: context,
     builder: (_) => CupertinoAlertDialog(
@@ -74,14 +77,22 @@ Future<void> _confirmSaveQris(BuildContext context) async {
     ),
   );
   if (confirmed != true) return;
+
+  void showSnack(String message) {
+    if (pageContext.mounted) {
+      ScaffoldMessenger.of(pageContext).showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
+  }
+
   try {
     final hasAccess = await Gal.requestAccess();
     if (!hasAccess) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Izin galeri ditolak')),
-        );
-      }
+      showSnack('Izin galeri ditolak');
       return;
     }
     final bytes = await rootBundle.load('assets/images/qris_support.webp');
@@ -89,17 +100,9 @@ Future<void> _confirmSaveQris(BuildContext context) async {
       bytes.buffer.asUint8List(),
       name: 'qris_wndavenz',
     );
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
-      );
-    }
-  } on Exception {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menyimpan gambar')),
-      );
-    }
+    showSnack('Gambar berhasil disimpan ke galeri');
+  } catch (e) {
+    showSnack('Gagal menyimpan: $e');
   }
 }
 
