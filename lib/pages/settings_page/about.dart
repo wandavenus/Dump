@@ -90,6 +90,14 @@ Future<void> _confirmSaveQris(
   }
 
   try {
+    // Minta izin storage secara eksplisit — MIUI 12 memblokir MediaStore
+    // tanpa izin ini meski Android 10+ seharusnya tidak memerlukannya.
+    final storageStatus = await Permission.storage.request();
+    if (storageStatus.isDenied || storageStatus.isPermanentlyDenied) {
+      showSnack('Izin penyimpanan ditolak — aktifkan di Pengaturan > Izin Aplikasi');
+      return;
+    }
+
     final hasAccess = await Gal.requestAccess();
     if (!hasAccess) {
       showSnack('Izin galeri ditolak');
