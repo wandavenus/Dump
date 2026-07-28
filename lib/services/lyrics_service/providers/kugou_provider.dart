@@ -84,8 +84,9 @@ class KugouProvider implements LyricsProvider {
         cancelToken,
         headers: _headers,
       );
-      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200)
+      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200) {
         return null;
+      }
       cancelToken.throwIfCancelled();
 
       final lyricSearchData = ProviderHttp.asJsonMap(

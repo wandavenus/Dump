@@ -53,16 +53,18 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       final songs = await MediaStoreService.getSongs();
       final playCounts = await HistoryService.getArtistPlayCounts();
       final artists = _buildArtists(songs, playCounts);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _artists = artists;
           _isLoading = false;
         });
+      }
     } on Exception catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
+      }
     }
   }
 

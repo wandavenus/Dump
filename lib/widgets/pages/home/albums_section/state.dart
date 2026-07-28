@@ -43,17 +43,19 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     try {
       final songs = await MediaStoreService.getSongs();
       final albums = _buildAlbums(songs);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _albums = albums;
           _isLoading = false;
         });
+      }
     } on Exception catch (e) {
       LogService.warn('AlbumsSection', 'Failed to load albums: $e');
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
+      }
     }
   }
 

@@ -96,8 +96,9 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                     child: CupertinoSlidingSegmentedControl<double>(
                       groupValue: snapped,
                       onValueChanged: (v) {
-                        if (v != null)
+                        if (v != null) {
                           unawaited(AudioEffectsService.setCrossfade(v));
+                        }
                       },
                       children: {
                         for (var i = 0; i < _steps.length; i++)

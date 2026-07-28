@@ -56,10 +56,12 @@ class MediaCapabilitiesService {
     _stereoWideningSub = PlaybackManager.stereoWideningStream.listen((map) {
       final enabled = map['enabled'] as bool? ?? false;
       final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
-      if (stereoWideningEnabled.value != enabled)
+      if (stereoWideningEnabled.value != enabled) {
         stereoWideningEnabled.value = enabled;
-      if (stereoWideningStrength.value != strength)
+      }
+      if (stereoWideningStrength.value != strength) {
         stereoWideningStrength.value = strength;
+      }
     });
 
     // Push all settings to active engine on startup.

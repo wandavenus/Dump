@@ -23,22 +23,24 @@ class _AnimatedBlurredPlayerBackgroundState
     if (id <= 0) {
       // Clear palette so PlayerFallbackBackground is shown, not stale colors
       // from the previously-playing song.
-      if (mounted)
+      if (mounted) {
         setState(() {
           _songId = id;
           _palette = const [];
         });
+      }
       return;
     }
 
     // Fast path: already in the LRU cache — no I/O needed.
     final cached = NativePaletteService.getSync(id);
     if (cached != null) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _songId = id;
           _palette = cached;
         });
+      }
       return;
     }
 
