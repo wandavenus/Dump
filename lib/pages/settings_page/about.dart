@@ -133,8 +133,8 @@ Future<void> _confirmSaveQris(
     await tempFile.writeAsBytes(bytes, flush: true);
 
     // ── 4. Validasi temp file ──────────────────────────────────────────────
-    final exists = await tempFile.exists();
-    final size   = exists ? await tempFile.length() : 0;
+    final exists = tempFile.existsSync();
+    final size   = exists ? tempFile.lengthSync() : 0;
     LogService.log(tag, 'Temp file — exists=$exists size=$size');
     if (!exists || size <= 0) {
       throw Exception('Temp file tidak valid (exists=$exists size=$size)');
@@ -142,7 +142,7 @@ Future<void> _confirmSaveQris(
 
     // ── 5. Simpan ke galeri via Gal.putImage ───────────────────────────────
     LogService.log(tag, 'Calling Gal.putImage…');
-    await Gal.putImage(tempFile.path, name: 'qris_wndavenz');
+    await Gal.putImage(tempFile.path);
     LogService.log(tag, 'Gal.putImage() selesai — sukses');
 
     showSnack('Gambar berhasil disimpan ke galeri');
@@ -159,18 +159,18 @@ Future<void> _confirmSaveQris(
         stackTrace: st.toString());
     showSnack('Gagal menyimpan: $reason (${e.type.name})');
 
-  } catch (e, st) {
+  } on Object catch (e, st) {
     LogService.error(tag, 'Unexpected error: $e', stackTrace: st.toString());
     showSnack('Gagal menyimpan: $e');
 
   } finally {
     // Hapus temp file setelah selesai (sukses maupun gagal)
     try {
-      if (tempFile != null && await tempFile.exists()) {
+      if (tempFile != null && tempFile.existsSync()) {
         await tempFile.delete();
         LogService.log(tag, 'Temp file dihapus');
       }
-    } catch (_) {}
+    } on Object catch (_) {}
   }
 }
 
