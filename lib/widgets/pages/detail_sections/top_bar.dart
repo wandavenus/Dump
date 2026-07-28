@@ -22,13 +22,18 @@ class DetailTopBar extends StatelessWidget {
               ),
             ),
           ),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.cast_rounded, size: 22, color: Color(0xFFF92D48)),
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                  ZoomFadeRoute<void>(page: const DownloadQueuePage()),
+                ),
+                child: const Icon(Icons.cast_rounded, size: 22, color: Color(0xFFF92D48)),
+              ),
               SizedBox(width: 20),
-              Icon(Icons.add, size: 22, color: Color(0xFFF92D48)),
+              const Icon(Icons.add, size: 22, color: Color(0xFFF92D48)),
               SizedBox(width: 20),
-              Icon(
+              const Icon(
                 CupertinoIcons.ellipsis_vertical,
                 size: 22,
                 color: Color(0xFFF92D48),

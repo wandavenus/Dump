@@ -146,6 +146,17 @@ class MediaStoreService {
     return true;
   }
 
+
+  static Future<void> scanFile(String path) async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod<void>('scanFile', {'path': path});
+      await refreshSongs();
+    } on Object catch (error) {
+      LogService.warn('MediaStore', 'scanFile failed for $path: $error');
+    }
+  }
+
   static Future<List<LocalSong>> refreshSongs() {
     // Coalesce concurrent callers onto a single in-flight query/parse pass.
     final inFlight = _inFlightRefresh;

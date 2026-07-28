@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/pages/download_queue_page.dart';
 
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/zoom_fade_route.dart';
 import '../song_artwork.dart';
 import '../song_context_menu.dart';
 

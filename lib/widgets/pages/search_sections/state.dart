@@ -8,6 +8,8 @@ class _SearchSliversState extends State<SearchSlivers>
 
   List<LocalSong> _allSongs = [];
   List<LocalSong> _results = [];
+  List<OnlineTrack> _onlineResults = [];
+  bool _onlineLoading = false;
   bool _isSearching = false;
   bool _loading = false;
   Timer? _queryDebounce;
@@ -81,7 +83,18 @@ class _SearchSliversState extends State<SearchSlivers>
       setState(() {
         _results = filtered;
         _isSearching = true;
+        _onlineLoading = true;
       });
+      unawaited(_searchOnline(_controller.text.trim()));
+    });
+  }
+
+  Future<void> _searchOnline(String query) async {
+    final found = await ExtensionService.instance.search(query);
+    if (!mounted || _controller.text.trim() != query) return;
+    setState(() {
+      _onlineResults = found;
+      _onlineLoading = false;
     });
   }
 
@@ -92,6 +105,8 @@ class _SearchSliversState extends State<SearchSlivers>
     setState(() {
       _results = [];
       _isSearching = false;
+      _onlineResults = [];
+      _onlineLoading = false;
     });
   }
 
@@ -118,6 +133,8 @@ class _SearchSliversState extends State<SearchSlivers>
             results: _results,
             query: _controller.text.trim(),
             allSongs: _allSongs,
+            onlineResults: _onlineResults,
+            onlineLoading: _onlineLoading,
           )
         else
           const SearchCategoryGrid(),

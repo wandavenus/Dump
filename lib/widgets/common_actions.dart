@@ -3,6 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/pages/download_queue_page.dart';
 import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/utils/zoom_fade_route.dart';
@@ -52,7 +53,12 @@ class _CommonActionsState extends State<CommonActions> {
   }
 
   void _cast(BuildContext context) {
-    // TODO: Cast function
+    unawaited(
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(ZoomFadeRoute<void>(page: const DownloadQueuePage())),
+    );
   }
 
   @override
