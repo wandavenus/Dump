@@ -29,7 +29,7 @@ class _AboutSection extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: GestureDetector(
-                    onTap: () => _confirmSaveQris(sheetCtx, pageContext: context),
+                    onTap: () => _confirmSaveQris(sheetCtx),
                     child: Image.asset(
                       'assets/images/qris_support.webp',
                       fit: BoxFit.contain,
@@ -53,10 +53,7 @@ class _AboutSection extends StatelessWidget {
   }
 }
 
-Future<void> _confirmSaveQris(
-  BuildContext context, {
-  required BuildContext pageContext,
-}) async {
+Future<void> _confirmSaveQris(BuildContext context) async {
   final confirmed = await showCupertinoDialog<bool>(
     context: context,
     builder: (_) => CupertinoAlertDialog(
@@ -76,41 +73,53 @@ Future<void> _confirmSaveQris(
       ],
     ),
   );
+
   if (confirmed != true) return;
 
-  void showSnack(String message) {
-    if (pageContext.mounted) {
-      ScaffoldMessenger.of(pageContext).showSnackBar(
-        SnackBar(
-          content: Text(message, style: const TextStyle(color: Colors.white)),
-          backgroundColor: Colors.black87,
-        ),
-      );
-    }
-  }
-
   try {
-    // Minta izin storage secara eksplisit — MIUI 12 memblokir MediaStore
-    // tanpa izin ini meski Android 10+ seharusnya tidak memerlukannya.
-    final storageStatus = await Permission.storage.request();
-    if (storageStatus.isDenied || storageStatus.isPermanentlyDenied) {
-      showSnack('Izin penyimpanan ditolak — aktifkan di Pengaturan > Izin Aplikasi');
-      return;
+    final hasAccess = await Gal.hasAccess();
+    if (!hasAccess) {
+      final granted = await Gal.requestAccess();
+      if (!granted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Akses galeri ditolak')),
+          );
+        }
+        return;
+      }
     }
 
-    final hasAccess = await Gal.requestAccess();
-    if (!hasAccess) {
-      showSnack('Izin galeri ditolak');
-      return;
-    }
     final bytes = await rootBundle.load('assets/images/qris_support.webp');
+    final uint8list = bytes.buffer.asUint8List(
+      bytes.offsetInBytes,
+      bytes.lengthInBytes,
+    );
+
     await Gal.putImageBytes(
-      bytes.buffer.asUint8List(),
+      uint8list,
       name: 'qris_wndavenz',
     );
-    showSnack('Gambar berhasil disimpan ke galeri');
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
+      );
+    }
+  } on GalException catch (e) {
+    debugPrint('Gal error: ${e.type.message}');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal: ${e.type.message}')),
+      );
+    }
   } catch (e) {
-    showSnack('Gagal menyimpan: $e');
+    debugPrint('Save error: $e');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menyimpan gambar')),
+      );
+    }
   }
 }
 
