@@ -29,7 +29,9 @@ class _AboutSection extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: GestureDetector(
-                    onTap: () => _confirmSaveQris(sheetCtx),
+                    // pageContext = context dari halaman settings (bukan sheetCtx)
+                    // agar SnackBar muncul di Scaffold yang benar.
+                    onTap: () => _confirmSaveQris(sheetCtx, pageContext: context),
                     child: Image.asset(
                       'assets/images/qris_support.webp',
                       fit: BoxFit.contain,
@@ -53,7 +55,17 @@ class _AboutSection extends StatelessWidget {
   }
 }
 
-Future<void> _confirmSaveQris(BuildContext context) async {
+/// Menampilkan dialog konfirmasi lalu menyimpan QRIS ke galeri.
+///
+/// [context]     — context bottom sheet (untuk dialog Cupertino).
+/// [pageContext] — context halaman Settings (untuk SnackBar & Scaffold).
+Future<void> _confirmSaveQris(
+  BuildContext context, {
+  required BuildContext pageContext,
+}) async {
+  const tag = 'QrisSave';
+
+  // ── Dialog konfirmasi ──────────────────────────────────────────────────────
   final confirmed = await showCupertinoDialog<bool>(
     context: context,
     builder: (_) => CupertinoAlertDialog(
@@ -61,7 +73,6 @@ Future<void> _confirmSaveQris(BuildContext context) async {
       content: const Text('Simpan gambar QRIS ke galeri?'),
       actions: [
         CupertinoDialogAction(
-          isDestructiveAction: false,
           onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Batal'),
         ),
@@ -73,53 +84,93 @@ Future<void> _confirmSaveQris(BuildContext context) async {
       ],
     ),
   );
-
   if (confirmed != true) return;
 
+  // ── Helper snackbar (selalu pakai pageContext) ─────────────────────────────
+  void showSnack(String message) {
+    if (pageContext.mounted) {
+      ScaffoldMessenger.of(pageContext).showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.black87,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  File? tempFile;
   try {
-    final hasAccess = await Gal.hasAccess();
-    if (!hasAccess) {
+    // ── 1. Cek & minta izin galeri ─────────────────────────────────────────
+    LogService.log(tag, 'Checking gallery access…');
+    if (!await Gal.hasAccess()) {
+      LogService.log(tag, 'No access — requesting…');
       final granted = await Gal.requestAccess();
       if (!granted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Akses galeri ditolak')),
-          );
-        }
+        LogService.log(tag, 'Permission denied by user', level: LogLevel.warning);
+        showSnack('Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi');
         return;
       }
     }
+    LogService.log(tag, 'Permission granted');
 
-    final bytes = await rootBundle.load('assets/images/qris_support.webp');
-    final uint8list = bytes.buffer.asUint8List(
-      bytes.offsetInBytes,
-      bytes.lengthInBytes,
+    // ── 2. Load asset & validasi ───────────────────────────────────────────
+    LogService.log(tag, 'Loading asset qris_support.webp…');
+    final byteData = await rootBundle.load('assets/images/qris_support.webp');
+    final bytes    = byteData.buffer.asUint8List(
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
     );
+    LogService.log(tag, 'Asset loaded — ${bytes.length} bytes');
+    if (bytes.isEmpty) {
+      throw Exception('Asset kosong (0 bytes)');
+    }
 
-    await Gal.putImageBytes(
-      uint8list,
-      name: 'qris_wndavenz',
-    );
+    // ── 3. Tulis ke temporary file ─────────────────────────────────────────
+    final tmpDir = await getTemporaryDirectory();
+    tempFile = File('${tmpDir.path}/qris_wndavenz.webp');
+    LogService.log(tag, 'Writing temp file: ${tempFile.path}');
+    await tempFile.writeAsBytes(bytes, flush: true);
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
-      );
+    // ── 4. Validasi temp file ──────────────────────────────────────────────
+    final exists = await tempFile.exists();
+    final size   = exists ? await tempFile.length() : 0;
+    LogService.log(tag, 'Temp file — exists=$exists size=$size');
+    if (!exists || size <= 0) {
+      throw Exception('Temp file tidak valid (exists=$exists size=$size)');
     }
-  } on GalException catch (e) {
-    debugPrint('Gal error: ${e.type.message}');
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal: ${e.type.message}')),
-      );
-    }
-  } catch (e) {
-    debugPrint('Save error: $e');
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menyimpan gambar')),
-      );
-    }
+
+    // ── 5. Simpan ke galeri via Gal.putImage ───────────────────────────────
+    LogService.log(tag, 'Calling Gal.putImage…');
+    await Gal.putImage(tempFile.path, name: 'qris_wndavenz');
+    LogService.log(tag, 'Gal.putImage() selesai — sukses');
+
+    showSnack('Gambar berhasil disimpan ke galeri');
+
+  } on GalException catch (e, st) {
+    // Tangani setiap tipe GalException secara spesifik
+    final reason = switch (e.type) {
+      GalExceptionType.accessDenied       => 'Akses galeri ditolak',
+      GalExceptionType.notEnoughSpace     => 'Ruang penyimpanan penuh',
+      GalExceptionType.notSupportedFormat => 'Format tidak didukung',
+      GalExceptionType.unexpected         => 'Error tidak terduga dari galeri',
+    };
+    LogService.error(tag, 'GalException [${e.type.name}]: $e',
+        stackTrace: st.toString());
+    showSnack('Gagal menyimpan: $reason (${e.type.name})');
+
+  } catch (e, st) {
+    LogService.error(tag, 'Unexpected error: $e', stackTrace: st.toString());
+    showSnack('Gagal menyimpan: $e');
+
+  } finally {
+    // Hapus temp file setelah selesai (sukses maupun gagal)
+    try {
+      if (tempFile != null && await tempFile.exists()) {
+        await tempFile.delete();
+        LogService.log(tag, 'Temp file dihapus');
+      }
+    } catch (_) {}
   }
 }
 
