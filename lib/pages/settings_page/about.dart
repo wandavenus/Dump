@@ -75,6 +75,15 @@ Future<void> _confirmSaveQris(BuildContext context) async {
   );
   if (confirmed != true) return;
   try {
+    final hasAccess = await Gal.requestAccess();
+    if (!hasAccess) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin galeri ditolak')),
+        );
+      }
+      return;
+    }
     final bytes = await rootBundle.load('assets/images/qris_support.webp');
     await Gal.putImageBytes(
       bytes.buffer.asUint8List(),
