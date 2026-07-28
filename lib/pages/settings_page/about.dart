@@ -73,19 +73,48 @@ Future<void> _confirmSaveQris(BuildContext context) async {
       ],
     ),
   );
+
   if (confirmed != true) return;
+
   try {
+    final hasAccess = await Gal.hasAccess();
+    if (!hasAccess) {
+      final granted = await Gal.requestAccess();
+      if (!granted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Akses galeri ditolak')),
+          );
+        }
+        return;
+      }
+    }
+
     final bytes = await rootBundle.load('assets/images/qris_support.webp');
+    final uint8list = bytes.buffer.asUint8List(
+      bytes.offsetInBytes,
+      bytes.lengthInBytes,
+    );
+
     await Gal.putImageBytes(
-      bytes.buffer.asUint8List(),
+      uint8list,
       name: 'qris_wndavenz',
     );
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gambar berhasil disimpan ke galeri')),
       );
     }
-  } on Exception {
+  } on GalException catch (e) {
+    debugPrint('Gal error: ${e.type.message}');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal: ${e.type.message}')),
+      );
+    }
+  } catch (e) {
+    debugPrint('Save error: $e');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gagal menyimpan gambar')),
