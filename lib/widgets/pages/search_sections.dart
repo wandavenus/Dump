@@ -5,6 +5,9 @@ import 'package:musicplayer/extensions/localization_extension.dart';
 
 import '../../models/local_song.dart';
 import '../../services/audio_service.dart';
+import '../../services/download_manager.dart';
+import '../../services/extensions/extension_service.dart';
+import '../../services/extensions/models/online_track.dart';
 import '../../services/media_store_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/sample_music_data.dart';

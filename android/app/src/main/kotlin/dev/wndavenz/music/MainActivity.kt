@@ -3,6 +3,7 @@ package dev.wndavenz.music
 import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
@@ -365,6 +366,17 @@ class MainActivity : FlutterActivity() {
                                 postToFlutter {
                                     result.error("songs_query_error", e.message, null)
                                 }
+                            }
+                        }
+                    }
+
+                    "scanFile" -> {
+                        val path = call.argument<String>("path")
+                        if (path.isNullOrBlank()) {
+                            result.error("invalid_path", "Missing path", null)
+                        } else {
+                            MediaScannerConnection.scanFile(this, arrayOf(path), null) { _, _ ->
+                                postToFlutter { result.success(null) }
                             }
                         }
                     }
