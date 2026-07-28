@@ -483,7 +483,7 @@
       "duration": { "type": "String" }
     }
   },
-  "madeByShort": "Oleh",
+  "madeByShort": "Dibuat Oleh",
 
   "@appName": { "description": "Nama aplikasi" },
   "@crossfadeSeconds": {
