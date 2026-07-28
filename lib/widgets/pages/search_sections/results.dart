@@ -46,17 +46,23 @@ class _SearchResultsSliver extends StatelessWidget {
       if (results.isNotEmpty)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-          child: Text('Local Songs', style: Theme.of(context).textTheme.titleMedium),
+          child: Text(
+            'Local Songs',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
         ),
       for (final song in results)
         _SearchResultTile(
           song: song,
           playlist: allSongs,
-          index: allSongs.indexOf(song) >= 0 ? allSongs.indexOf(song) : 0,
+          index: allSongs.contains(song) ? allSongs.indexOf(song) : 0,
         ),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-        child: Text('Online Results', style: Theme.of(context).textTheme.titleMedium),
+        child: Text(
+          'Online Results',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       ),
       if (onlineLoading)
         const Padding(
@@ -66,7 +72,10 @@ class _SearchResultsSliver extends StatelessWidget {
       else if (onlineResults.isEmpty)
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Text('No online results from installed extensions.', style: TextStyle(color: AppColors.of(context).secondaryLabel)),
+          child: Text(
+            'No online results from installed extensions.',
+            style: TextStyle(color: AppColors.of(context).secondaryLabel),
+          ),
         )
       else
         for (final track in onlineResults) _OnlineTrackTile(track: track),
@@ -74,7 +83,6 @@ class _SearchResultsSliver extends StatelessWidget {
     return SliverList(delegate: SliverChildListDelegate(children));
   }
 }
-
 
 class _OnlineTrackTile extends StatelessWidget {
   const _OnlineTrackTile({required this.track});
@@ -86,15 +94,24 @@ class _OnlineTrackTile extends StatelessWidget {
           ? const Icon(Icons.cloud_download)
           : ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(track.artwork!, width: 48, height: 48, fit: BoxFit.cover),
+              child: Image.network(
+                track.artwork!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+              ),
             ),
       title: Text(track.title),
-      subtitle: Text('${track.artist} • ${track.album}${track.quality == null ? '' : ' • ${track.quality}'}'),
+      subtitle: Text(
+        '${track.artist} • ${track.album}${track.quality == null ? '' : ' • ${track.quality}'}',
+      ),
       trailing: IconButton(
         icon: const Icon(Icons.download_rounded),
         onPressed: () {
           DownloadManager.instance.enqueue(track);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Queued ${track.title}')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Queued ${track.title}')));
         },
       ),
     );

@@ -146,7 +146,6 @@ class MediaStoreService {
     return true;
   }
 
-
   static Future<void> scanFile(String path) async {
     if (kIsWeb) return;
     try {
