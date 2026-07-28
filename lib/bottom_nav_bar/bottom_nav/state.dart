@@ -59,7 +59,7 @@ class _FirstPageState extends State<FirstPage> {
   static const List<Widget> _tabRoots = [
     HomePage(),
     BrowsePage(),
-    RadioPage(),
+    PodcastPage(),
     LibraryPage(),
     SearchPage(),
   ];

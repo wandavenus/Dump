@@ -7,7 +7,7 @@ import 'package:musicplayer/services/player_sheet_controller.dart';
 import 'package:musicplayer/pages/browse_page.dart';
 import 'package:musicplayer/pages/home_page.dart';
 import 'package:musicplayer/pages/library_page.dart';
-import 'package:musicplayer/pages/radio.dart';
+import 'package:musicplayer/pages/podcast_page.dart';
 import 'package:musicplayer/pages/search_page.dart';
 import 'package:musicplayer/pages/album_page.dart';
 import 'package:musicplayer/pages/artist_list.dart';

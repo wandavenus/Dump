@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
+import android.media.MediaScannerConnection
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
@@ -366,6 +367,16 @@ class MainActivity : FlutterActivity() {
                                     result.error("songs_query_error", e.message, null)
                                 }
                             }
+                        }
+                    }
+
+                    "scanFile" -> {
+                        val path = call.argument<String>("path")
+                        if (path.isNullOrBlank()) {
+                            result.error("invalid_path", "Path is required", null)
+                        } else {
+                            MediaScannerConnection.scanFile(this, arrayOf(path), null) { _, _ -> }
+                            result.success(null)
                         }
                     }
 
