@@ -13,11 +13,11 @@ class _CrossfeedSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SettingsToggleRow(
-              title:    l.crossfeedTitle,
+              title: l.crossfeedTitle,
               subtitle: enabled
                   ? l.crossfeedActiveSubtitle
                   : l.crossfeedInactiveSubtitle,
-              value:     enabled,
+              value: enabled,
               onChanged: AudioEffectsService.setCrossfeedEnabled,
             ),
             if (enabled) ...[
@@ -25,11 +25,11 @@ class _CrossfeedSection extends StatelessWidget {
               ValueListenableBuilder<double>(
                 valueListenable: AudioEffectsService.crossfeedAmount,
                 builder: (_, amount, _) => SettingsSliderRow(
-                  title:     l.crossfeedStrength,
-                  subtitle:  '${(amount * 100).round()}%',
-                  value:     amount,
-                  min:       0.0,
-                  max:       1.0,
+                  title: l.crossfeedStrength,
+                  subtitle: '${(amount * 100).round()}%',
+                  value: amount,
+                  min: 0.0,
+                  max: 1.0,
                   onChanged: AudioEffectsService.setCrossfeedAmount,
                   divisions: 20,
                   showReset: amount != 0.3,

@@ -17,8 +17,9 @@ class AudioEffectsService {
 
   // ── Value notifiers ────────────────────────────────────────────────────────
 
-  static final ValueNotifier<ReplayGainMode> replayGainMode =
-      ValueNotifier(ReplayGainMode.off);
+  static final ValueNotifier<ReplayGainMode> replayGainMode = ValueNotifier(
+    ReplayGainMode.off,
+  );
   static final ValueNotifier<double> replayGainPreamp = ValueNotifier(0.0);
 
   /// Clipping protection — caps effective ReplayGain so that
@@ -179,37 +180,37 @@ class AudioEffectsService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    crossfadeDuration.value = prefs.getDouble('crossfade')    ?? 0.0;
-    pitchShift.value       = prefs.getDouble('pitch')         ?? 0.0;
-    bassBoost.value        = prefs.getInt('bassBoost')        ?? 0;
-    playbackSpeed.value    = prefs.getDouble('speed')         ?? 1.0;
-    equalizerEnabled.value = prefs.getBool('eqEnabled')       ?? false;
-    roomPreset.value       = prefs.getInt('roomPreset')       ?? 0;
-    eqPreset.value         = prefs.getInt('eqPreset')         ?? -1;
-    lyricsPath.value       = prefs.getString('lyricsPath')    ?? '';
+    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
+    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
+    bassBoost.value = prefs.getInt('bassBoost') ?? 0;
+    playbackSpeed.value = prefs.getDouble('speed') ?? 1.0;
+    equalizerEnabled.value = prefs.getBool('eqEnabled') ?? false;
+    roomPreset.value = prefs.getInt('roomPreset') ?? 0;
+    eqPreset.value = prefs.getInt('eqPreset') ?? -1;
+    lyricsPath.value = prefs.getString('lyricsPath') ?? '';
 
     final rgIdx = prefs.getInt('replayGainMode') ?? 0;
     replayGainMode.value =
         ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
-    replayGainPreamp.value    = prefs.getDouble('replayGainPreamp') ?? 0.0;
-    clippingProtection.value  = prefs.getBool('rgClipProtect')      ?? true;
-    loudnessNormEnabled.value = prefs.getBool('lnEnabled')          ?? false;
-    loudnessNormTarget.value  = prefs.getDouble('lnTarget')         ?? -23.0;
-    crossfeedEnabled.value    = prefs.getBool('crossfeedEnabled')   ?? false;
-    crossfeedAmount.value     = prefs.getDouble('crossfeedAmount')  ?? 0.3;
-    compressorEnabled.value   = prefs.getBool('compEnabled')        ?? false;
-    compressorThreshold.value = prefs.getDouble('compThreshold')    ?? -20.0;
-    compressorRatio.value     = prefs.getDouble('compRatio')        ?? 1.0;
-    compressorAttackMs.value  = prefs.getDouble('compAttackMs')     ?? 10.0;
-    compressorReleaseMs.value = prefs.getDouble('compReleaseMs')    ?? 100.0;
-    compressorKneeDb.value    = prefs.getDouble('compKneeDb')       ?? 6.0;
-    limiterEnabled.value      = prefs.getBool('limEnabled')         ?? false;
-    limiterThreshold.value    = prefs.getDouble('limThreshold')     ?? 0.0;
-    limiterReleaseMs.value    = prefs.getDouble('limReleaseMs')     ?? 50.0;
-    nativePreampDb.value      = prefs.getDouble('nativePreampDb')   ?? 0.0;
-    softClipperEnabled.value  = prefs.getBool('scEnabled')          ?? false;
-    softClipperThreshold.value = prefs.getDouble('scThreshold')     ?? 0.0;
-    bitPerfectMode.value      = prefs.getBool('bitPerfectMode')     ?? false;
+    replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
+    clippingProtection.value = prefs.getBool('rgClipProtect') ?? true;
+    loudnessNormEnabled.value = prefs.getBool('lnEnabled') ?? false;
+    loudnessNormTarget.value = prefs.getDouble('lnTarget') ?? -23.0;
+    crossfeedEnabled.value = prefs.getBool('crossfeedEnabled') ?? false;
+    crossfeedAmount.value = prefs.getDouble('crossfeedAmount') ?? 0.3;
+    compressorEnabled.value = prefs.getBool('compEnabled') ?? false;
+    compressorThreshold.value = prefs.getDouble('compThreshold') ?? -20.0;
+    compressorRatio.value = prefs.getDouble('compRatio') ?? 1.0;
+    compressorAttackMs.value = prefs.getDouble('compAttackMs') ?? 10.0;
+    compressorReleaseMs.value = prefs.getDouble('compReleaseMs') ?? 100.0;
+    compressorKneeDb.value = prefs.getDouble('compKneeDb') ?? 6.0;
+    limiterEnabled.value = prefs.getBool('limEnabled') ?? false;
+    limiterThreshold.value = prefs.getDouble('limThreshold') ?? 0.0;
+    limiterReleaseMs.value = prefs.getDouble('limReleaseMs') ?? 50.0;
+    nativePreampDb.value = prefs.getDouble('nativePreampDb') ?? 0.0;
+    softClipperEnabled.value = prefs.getBool('scEnabled') ?? false;
+    softClipperThreshold.value = prefs.getDouble('scThreshold') ?? 0.0;
+    bitPerfectMode.value = prefs.getBool('bitPerfectMode') ?? false;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -290,7 +291,9 @@ class AudioEffectsService {
     // Soft Clipper (Phase 6) — same always-on native default; always push.
     PlaybackManager.setNativeSoftClipperBypass(!softClipperEnabled.value);
     if (softClipperEnabled.value) {
-      PlaybackManager.setNativeSoftClipperThresholdDb(softClipperThreshold.value);
+      PlaybackManager.setNativeSoftClipperThresholdDb(
+        softClipperThreshold.value,
+      );
     }
   }
 
@@ -345,7 +348,10 @@ class AudioEffectsService {
     loudnessNormTarget.value = v;
     await _saveDouble('lnTarget', v);
     PlaybackManager.setNativeLoudnessNormTargetLufs(v);
-    LogService.log('AudioEffects', 'Loudness target: ${v.toStringAsFixed(1)} LUFS');
+    LogService.log(
+      'AudioEffects',
+      'Loudness target: ${v.toStringAsFixed(1)} LUFS',
+    );
   }
 
   // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────
@@ -443,7 +449,10 @@ class AudioEffectsService {
     await _saveBool('compEnabled', enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
     if (enabled) _pushCompressorParams();
-    LogService.log('AudioEffects', 'Compressor ratio: ${v.toStringAsFixed(1)}:1');
+    LogService.log(
+      'AudioEffects',
+      'Compressor ratio: ${v.toStringAsFixed(1)}:1',
+    );
   }
 
   // ── Limiter (Phase 6) ────────────────────────────────────────────────────────
@@ -511,7 +520,9 @@ class AudioEffectsService {
     await _saveBool('scEnabled', enabled);
     PlaybackManager.setNativeSoftClipperBypass(!enabled);
     if (enabled) {
-      PlaybackManager.setNativeSoftClipperThresholdDb(softClipperThreshold.value);
+      PlaybackManager.setNativeSoftClipperThresholdDb(
+        softClipperThreshold.value,
+      );
     }
     LogService.log('AudioEffects', 'Soft Clipper: ${enabled ? 'ON' : 'OFF'}');
   }
@@ -568,9 +579,14 @@ class AudioEffectsService {
 
   static Future<void> setEqualizerBandGain(int bandIndex, double gainDb) async {
     try {
-      unawaited(_writeEqBand(bandIndex, gainDb).catchError(
-        (Object e) => LogService.warn('AudioEffects', 'writeEqBand[$bandIndex] error: $e'),
-      ));
+      unawaited(
+        _writeEqBand(bandIndex, gainDb).catchError(
+          (Object e) => LogService.warn(
+            'AudioEffects',
+            'writeEqBand[$bandIndex] error: $e',
+          ),
+        ),
+      );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('eqBand_$bandIndex', gainDb);
       // Manual band adjustment — clear preset selection indicator.
@@ -599,15 +615,17 @@ class AudioEffectsService {
     for (var b = 0; b < gains.length; b++) {
       unawaited(_writeEqBand(b, gains[b]));
     }
-    unawaited(SharedPreferences.getInstance().then((prefs) {
-      for (var b = 0; b < gains.length; b++) {
-        unawaited(prefs.setDouble('eqBand_$b', gains[b]));
-      }
-    }));
+    unawaited(
+      SharedPreferences.getInstance().then((prefs) {
+        for (var b = 0; b < gains.length; b++) {
+          unawaited(prefs.setDouble('eqBand_$b', gains[b]));
+        }
+      }),
+    );
   }
 
   static Future<void> restoreEqualizerBands() async {
-    final prefs  = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     final params = await getEqualizerParameters();
     if (params == null) return;
     for (var i = 0; i < params.bandCount; i++) {
@@ -620,16 +638,46 @@ class AudioEffectsService {
 
   // Legacy EQ presets kept for backward compat
   static const List<Map<String, dynamic>> eqPresets = [
-    {'name': 'Normal',      'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Classical',   'gains': [5.0, 3.0, 0.0, 3.0, 4.0]},
-    {'name': 'Dance',       'gains': [6.0, 0.0, 2.0, 4.0, 1.0]},
-    {'name': 'Flat',        'gains': [0.0, 0.0, 0.0, 0.0, 0.0]},
-    {'name': 'Folk',        'gains': [3.0, 0.0, 0.0, 2.0, -1.0]},
-    {'name': 'Heavy Metal', 'gains': [4.0, 1.0, 9.0, 3.0, 0.0]},
-    {'name': 'Hip-Hop',     'gains': [5.0, 4.0, 1.0, 1.0, 3.0]},
-    {'name': 'Jazz',        'gains': [4.0, 2.0, -2.0, 2.0, 5.0]},
-    {'name': 'Pop',         'gains': [-1.0, 2.0, 5.0, 1.0, -2.0]},
-    {'name': 'Rock',        'gains': [5.0, 3.0, -1.0, 3.0, 5.0]},
+    {
+      'name': 'Normal',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Classical',
+      'gains': [5.0, 3.0, 0.0, 3.0, 4.0],
+    },
+    {
+      'name': 'Dance',
+      'gains': [6.0, 0.0, 2.0, 4.0, 1.0],
+    },
+    {
+      'name': 'Flat',
+      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+      'name': 'Folk',
+      'gains': [3.0, 0.0, 0.0, 2.0, -1.0],
+    },
+    {
+      'name': 'Heavy Metal',
+      'gains': [4.0, 1.0, 9.0, 3.0, 0.0],
+    },
+    {
+      'name': 'Hip-Hop',
+      'gains': [5.0, 4.0, 1.0, 1.0, 3.0],
+    },
+    {
+      'name': 'Jazz',
+      'gains': [4.0, 2.0, -2.0, 2.0, 5.0],
+    },
+    {
+      'name': 'Pop',
+      'gains': [-1.0, 2.0, 5.0, 1.0, -2.0],
+    },
+    {
+      'name': 'Rock',
+      'gains': [5.0, 3.0, -1.0, 3.0, 5.0],
+    },
   ];
 
   static Future<void> applyEqPreset(int presetIndex) async {
@@ -651,7 +699,10 @@ class AudioEffectsService {
       unawaited(_writeEqBand(i, clamped));
       await prefs.setDouble('eqBand_$i', clamped);
     }
-    LogService.log('AudioEffects', 'EQ preset: ${eqPresets[presetIndex]['name']}');
+    LogService.log(
+      'AudioEffects',
+      'EQ preset: ${eqPresets[presetIndex]['name']}',
+    );
   }
 
   // ── Crossfade ──────────────────────────────────────────────────────────────
@@ -810,17 +861,17 @@ class AudioEffectsService {
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool('bpmSnapValid') ?? false)) return;
 
-    final eq         = prefs.getBool('bpmSnapEq')             ?? false;
-    final bass       = prefs.getInt('bpmSnapBass')            ?? 0;
-    final speed      = prefs.getDouble('bpmSnapSpeed')        ?? 1.0;
-    final pitch      = prefs.getDouble('bpmSnapPitch')        ?? 0.0;
-    final crossfade  = prefs.getDouble('bpmSnapCrossfade')    ?? 0.0;
-    final rgIdx      = prefs.getInt('bpmSnapRgMode')          ?? 0;
-    final ln         = prefs.getBool('bpmSnapLn')             ?? false;
-    final crossfeed  = prefs.getBool('bpmSnapCrossfeed')      ?? false;
-    final compRatio  = prefs.getDouble('bpmSnapCompRatio')    ?? 1.0;
-    final limThresh  = prefs.getDouble('bpmSnapLimThreshold') ?? 0.0;
-    final scThresh   = prefs.getDouble('bpmSnapScThreshold')  ?? 0.0;
+    final eq = prefs.getBool('bpmSnapEq') ?? false;
+    final bass = prefs.getInt('bpmSnapBass') ?? 0;
+    final speed = prefs.getDouble('bpmSnapSpeed') ?? 1.0;
+    final pitch = prefs.getDouble('bpmSnapPitch') ?? 0.0;
+    final crossfade = prefs.getDouble('bpmSnapCrossfade') ?? 0.0;
+    final rgIdx = prefs.getInt('bpmSnapRgMode') ?? 0;
+    final ln = prefs.getBool('bpmSnapLn') ?? false;
+    final crossfeed = prefs.getBool('bpmSnapCrossfeed') ?? false;
+    final compRatio = prefs.getDouble('bpmSnapCompRatio') ?? 1.0;
+    final limThresh = prefs.getDouble('bpmSnapLimThreshold') ?? 0.0;
+    final scThresh = prefs.getDouble('bpmSnapScThreshold') ?? 0.0;
 
     await setEqualizerEnabled(eq);
     if (eq) await restoreEqualizerBands();

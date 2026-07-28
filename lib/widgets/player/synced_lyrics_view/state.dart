@@ -113,7 +113,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
         final s = AudioService.playbackState.value;
         _syncFromPlaybackState(s);
 
-        if (_isPlaying && !_frameTicker.isActive) unawaited(_frameTicker.start());
+        if (_isPlaying && !_frameTicker.isActive)
+          unawaited(_frameTicker.start());
 
         final currentPos = _interpolatedPosition;
         _maybeUpdateCurrentLine(currentPos, allowBinarySearch: true);

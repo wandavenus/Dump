@@ -234,9 +234,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.2.3',
     date: '18 Juli 2026',
-    changes: [
-      'Hapus fitur Skip Silence.',
-    ],
+    changes: ['Hapus fitur Skip Silence.'],
   ),
   _ChangelogEntry(
     version: '1.2.2',
@@ -319,9 +317,7 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '1.0.2',
     date: '14 Juli 2026',
-    changes: [
-      'Redesign halaman Tentang App menjadi tampilan minimalis.',
-    ],
+    changes: ['Redesign halaman Tentang App menjadi tampilan minimalis.'],
   ),
   _ChangelogEntry(
     version: '1.0.1',
@@ -335,8 +331,6 @@ const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
     version: '0.0.1',
     date: '07 Mei 2026',
-    changes: [
-      'Initial Build',
-    ],
+    changes: ['Initial Build'],
   ),
 ];

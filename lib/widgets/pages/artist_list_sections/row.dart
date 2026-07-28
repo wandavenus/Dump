@@ -12,7 +12,8 @@ class ArtistListRow extends StatelessWidget {
     final subtitle = context.l10n.songsCount(songCount);
 
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/artist', arguments: artist.songs),
+      onTap: () =>
+          Navigator.pushNamed(context, '/artist', arguments: artist.songs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -35,7 +36,7 @@ class ArtistListRow extends StatelessWidget {
             artist.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,  
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: c.primaryLabel,
               fontSize: 13,
@@ -50,11 +51,8 @@ class ArtistListRow extends StatelessWidget {
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,  
-            style: TextStyle(
-              color: c.secondaryLabel,
-              fontSize: 12,
-            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: c.secondaryLabel, fontSize: 12),
           ),
         ],
       ),

@@ -62,34 +62,31 @@ class AppleMusicSliderTrackShape extends SliderTrackShape {
 
     final radius = Radius.circular(trackRect.height / 2);
 
-// gambar full track dulu
-canvas.drawRRect(
-  RRect.fromRectAndRadius(trackRect, radius),
-  Paint()..color = sliderTheme.inactiveTrackColor!,
-);
+    // gambar full track dulu
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(trackRect, radius),
+      Paint()..color = sliderTheme.inactiveTrackColor!,
+    );
 
-// gambar progress aktif di atasnya
-final activeRect = Rect.fromLTRB(
-  trackRect.left,
-  trackRect.top,
-  thumbCenter.dx.clamp(trackRect.left, trackRect.right),
-  trackRect.bottom,
-);
+    // gambar progress aktif di atasnya
+    final activeRect = Rect.fromLTRB(
+      trackRect.left,
+      trackRect.top,
+      thumbCenter.dx.clamp(trackRect.left, trackRect.right),
+      trackRect.bottom,
+    );
 
-canvas.drawRRect(
-  RRect.fromRectAndRadius(activeRect, radius),
-  Paint()..color = sliderTheme.activeTrackColor!,
-);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(activeRect, radius),
+      Paint()..color = sliderTheme.activeTrackColor!,
+    );
   }
 }
 
 class PlayerProgressSection extends StatefulWidget {
   final String Function(Duration duration) formatTime;
 
-  const PlayerProgressSection({
-    super.key,
-    required this.formatTime,
-  });
+  const PlayerProgressSection({super.key, required this.formatTime});
 
   @override
   State<PlayerProgressSection> createState() => _PlayerProgressSectionState();
@@ -103,8 +100,10 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white,
     inactiveTrackColor: const Color(0xFF8D8D8D),
-    thumbShape:
-        const RoundSliderThumbShape(enabledThumbRadius: 0, disabledThumbRadius: 0),
+    thumbShape: const RoundSliderThumbShape(
+      enabledThumbRadius: 0,
+      disabledThumbRadius: 0,
+    ),
     overlayShape: SliderComponentShape.noOverlay,
     thumbColor: Colors.transparent,
     overlayColor: Colors.transparent,
@@ -154,7 +153,9 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     // ── Throttled seek (timestamp-based, no Timer) ───────────────────────────
     if (nowMs - _lastSeekMs >= _throttleMs) {
       _lastSeekMs = nowMs;
-      unawaited(AudioService.seek(Duration(milliseconds: (newValue * 1000).round())));
+      unawaited(
+        AudioService.seek(Duration(milliseconds: (newValue * 1000).round())),
+      );
     }
 
     setState(() => _dragValue = newValue);
@@ -167,7 +168,9 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     }
 
     // Final authoritative seek (millisecond precision)
-    unawaited(AudioService.seek(Duration(milliseconds: (endValue * 1000).round())));
+    unawaited(
+      AudioService.seek(Duration(milliseconds: (endValue * 1000).round())),
+    );
 
     setState(() {
       _isDragging = false;
@@ -207,9 +210,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
 
         final liveValue = durationSeconds == 0
             ? 0.0
-            : position.inSeconds
-                .clamp(0, durationSeconds)
-                .toDouble();
+            : position.inSeconds.clamp(0, durationSeconds).toDouble();
 
         final displayValue = _isDragging ? _dragValue : liveValue;
 
@@ -220,21 +221,21 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
         return Column(
           children: [
             SizedBox(
-  height: 32,
-  child: Center(
-    child: SliderTheme(
-      data: _sliderTheme,
-      child: Slider(
-        min: 0,
-        max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
-        value: displayValue,
-        onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
-        onChanged: durationSeconds == 0 ? null : _onChanged,
-        onChangeEnd: durationSeconds == 0 ? null : _onChangeEnd,
-      ),
-    ),
-  ),
-),
+              height: 32,
+              child: Center(
+                child: SliderTheme(
+                  data: _sliderTheme,
+                  child: Slider(
+                    min: 0,
+                    max: durationSeconds == 0 ? 1 : durationSeconds.toDouble(),
+                    value: displayValue,
+                    onChangeStart: durationSeconds == 0 ? null : _onChangeStart,
+                    onChanged: durationSeconds == 0 ? null : _onChanged,
+                    onChangeEnd: durationSeconds == 0 ? null : _onChangeEnd,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 1),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

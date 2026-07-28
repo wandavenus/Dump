@@ -40,8 +40,8 @@ class LanguageManager extends ChangeNotifier {
   }
 
   Locale? _fromCode(String code) => switch (code) {
-        'en' => const Locale('en'),
-        'id' => const Locale('id'),
-        _ => null, // system default
-      };
+    'en' => const Locale('en'),
+    'id' => const Locale('id'),
+    _ => null, // system default
+  };
 }

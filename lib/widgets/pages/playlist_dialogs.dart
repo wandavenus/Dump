@@ -60,10 +60,7 @@ Future<bool> showDeletePlaylistDialog({
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(
-                  l.delete,
-                  style: TextStyle(color: colors.primary),
-                ),
+                child: Text(l.delete, style: TextStyle(color: colors.primary)),
               ),
             ],
           );

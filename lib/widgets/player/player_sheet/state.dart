@@ -231,12 +231,9 @@ class _SheetBody extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12),
               child: currentSong == null || currentState == null
                   ? Center(
-                       child: Text(
-                         context.l10n.noSongSelected,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                        ),
+                      child: Text(
+                        context.l10n.noSongSelected,
+                        style: TextStyle(color: Colors.white, fontSize: 24),
                       ),
                     )
                   : PlayerContent(
@@ -267,14 +264,10 @@ class _SheetBody extends StatelessWidget {
                   PlayerContent.forwardExternalDragStart();
                 },
                 onVerticalDragUpdate: (d) {
-                  PlayerContent.forwardExternalDrag(
-                    d.delta.dy,
-                  );
+                  PlayerContent.forwardExternalDrag(d.delta.dy);
                 },
                 onVerticalDragEnd: (d) {
-                  PlayerContent.forwardExternalDragEnd(
-                    d.primaryVelocity ?? 0,
-                  );
+                  PlayerContent.forwardExternalDragEnd(d.primaryVelocity ?? 0);
                 },
               ),
             ),

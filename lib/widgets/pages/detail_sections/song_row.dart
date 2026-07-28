@@ -44,10 +44,7 @@ class SongListRow extends StatelessWidget {
                   child: Text(
                     '${index + 1}',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: c.secondaryLabel,
-                    ),
+                    style: TextStyle(fontSize: 14, color: c.secondaryLabel),
                   ),
                 ),
 

@@ -45,18 +45,18 @@ void main(List<String> args) async {
       // gain_processor.c are compiled as separate TUs to keep each file's
       // scope explicit (matching the header-per-file contract).
       sources: [
-        'src/$packageName.c',      // lifecycle, version, capability, module registry
-        'src/audio_buffer.c',      // NarAudioBuffer — interleaved PCM buffer
-        'src/dsp_pipeline.c',      // DSP processing chain
-        'src/gain_processor.c',    // Gain processor (Phase 4: pipeline validator)
-        'src/replaygain_processor.c',   // ReplayGain processor (Phase 8: metadata gain)
-        'src/biquad_filter.c',          // Biquad coefficient computation (shared by crossfeed/loudness)
-        'src/comp_processor.c',         // Compressor processor (Phase 6)
-        'src/crossfeed_processor.c',    // Crossfeed processor (Phase 7)
-        'src/limiter_processor.c',      // Look-ahead limiter processor (Phase 6)
+        'src/$packageName.c', // lifecycle, version, capability, module registry
+        'src/audio_buffer.c', // NarAudioBuffer — interleaved PCM buffer
+        'src/dsp_pipeline.c', // DSP processing chain
+        'src/gain_processor.c', // Gain processor (Phase 4: pipeline validator)
+        'src/replaygain_processor.c', // ReplayGain processor (Phase 8: metadata gain)
+        'src/biquad_filter.c', // Biquad coefficient computation (shared by crossfeed/loudness)
+        'src/comp_processor.c', // Compressor processor (Phase 6)
+        'src/crossfeed_processor.c', // Crossfeed processor (Phase 7)
+        'src/limiter_processor.c', // Look-ahead limiter processor (Phase 6)
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
-        'src/loudness_processor.c',     // Loudness Normalization (Phase 8.5)
-        'src/aaudio_probe.c',           // AAudio exclusive/MMAP diagnostic probe
+        'src/loudness_processor.c', // Loudness Normalization (Phase 8.5)
+        'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
         // System.loadLibrary("native_audio_runtime") on Android; it is the
         // JVM/JNI counterpart to the Dart FFI entry points in this same
@@ -70,7 +70,7 @@ void main(List<String> args) async {
         // ARM64 NEON Assembly kernels — compiled by clang's integrated assembler.
         // Compiled only for arm64-v8a; the file is guarded by #ifdef __aarch64__
         // so x86_64 host builds (unit tests) get an empty translation unit.
-        'src/neon_kernels.S',           // nar_gain_apply_neon, nar_biquad_stereo_neon
+        'src/neon_kernels.S', // nar_gain_apply_neon, nar_biquad_stereo_neon
       ],
       libraries: libraries,
     );

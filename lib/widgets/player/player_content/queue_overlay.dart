@@ -40,11 +40,13 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
       0.0,
       widget.scrollController.position.maxScrollExtent,
     );
-    unawaited(widget.scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeOut,
-    ));
+    unawaited(
+      widget.scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      ),
+    );
   }
 
   @override
@@ -84,10 +86,9 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _QueueControlButton(
-                      icon:
-                          state.loopMode == LoopMode.one
-                              ? CupertinoIcons.repeat_1
-                              : CupertinoIcons.repeat,
+                      icon: state.loopMode == LoopMode.one
+                          ? CupertinoIcons.repeat_1
+                          : CupertinoIcons.repeat,
                       active: state.loopMode != LoopMode.off,
                       onTap: AudioService.cycleLoopMode,
                     ),
@@ -97,10 +98,8 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
                     child: _QueueControlButton(
                       icon: CupertinoIcons.infinite,
                       active: _autoplayEnabled,
-                      onTap:
-                          () => setState(
-                            () => _autoplayEnabled = !_autoplayEnabled,
-                          ),
+                      onTap: () =>
+                          setState(() => _autoplayEnabled = !_autoplayEnabled),
                     ),
                   ),
                 ],
@@ -208,7 +207,6 @@ class _QueueRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              
               SizedBox(
                 width: 44,
                 height: 44,
@@ -230,11 +228,13 @@ class _QueueRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color:
-                            isCurrent ? const Color(0xFFFFFFFF) : Colors.white,
+                        color: isCurrent
+                            ? const Color(0xFFFFFFFF)
+                            : Colors.white,
                         fontSize: 14,
-                        fontWeight:
-                            isCurrent ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isCurrent
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 1),

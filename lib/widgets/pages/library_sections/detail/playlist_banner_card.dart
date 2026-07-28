@@ -11,8 +11,8 @@ class _PlaylistBannerCard extends StatelessWidget {
     required this.onLongPress,
   });
 
-  final LocalSong   song;
-  final int         playCount;
+  final LocalSong song;
+  final int playCount;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -21,7 +21,7 @@ class _PlaylistBannerCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: GestureDetector(
-        onTap:       onTap,
+        onTap: onTap,
         onLongPress: onLongPress,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,23 +30,23 @@ class _PlaylistBannerCard extends StatelessWidget {
             AspectRatio(
               aspectRatio: 16 / 9,
               child: SongArtwork(
-                songId:       song.id,
-                size:         600,
+                songId: song.id,
+                size: 600,
                 borderRadius: BorderRadius.circular(10),
-                fit:          BoxFit.cover,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 8),
             // Song title
             Text(
               song.title,
-              maxLines:  2,
-              overflow:  TextOverflow.ellipsis,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color:      AppColors.of(context).primaryLabel,
-                fontSize:   15,
+                color: AppColors.of(context).primaryLabel,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                height:     1.3,
+                height: 1.3,
               ),
             ),
             const SizedBox(height: 2),
@@ -58,7 +58,7 @@ class _PlaylistBannerCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color:    AppColors.of(context).secondaryLabel,
+                color: AppColors.of(context).secondaryLabel,
                 fontSize: 13,
               ),
             ),

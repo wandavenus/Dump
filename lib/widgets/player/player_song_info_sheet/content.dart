@@ -8,10 +8,7 @@ class _SongInfoContent extends StatelessWidget {
   /// AUDIO QUALITY section — they reflect what is actually being decoded now.
   final Map<String, dynamic>? liveFormat;
 
-  const _SongInfoContent({
-    required this.songInfo,
-    this.liveFormat,
-  });
+  const _SongInfoContent({required this.songInfo, this.liveFormat});
 
   String _localizedLoudnessSource(BuildContext context, String source) {
     final l = context.l10n;
@@ -98,7 +95,9 @@ class _SongInfoContent extends StatelessWidget {
               PlayerSongInfoRow(label: l.fieldAlbum, value: songInfo.album),
               if (songInfo.albumArtist.isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldAlbumArtist, value: songInfo.albumArtist),
+                  label: l.fieldAlbumArtist,
+                  value: songInfo.albumArtist,
+                ),
               if (songInfo.genre.isNotEmpty)
                 PlayerSongInfoRow(label: l.fieldGenre, value: songInfo.genre),
               PlayerSongInfoRow(label: l.fieldYear, value: songInfo.year),
@@ -106,10 +105,16 @@ class _SongInfoContent extends StatelessWidget {
                 PlayerSongInfoRow(
                   label: l.fieldTrack,
                   value: songInfo.discNumber.isNotEmpty
-                      ? l.trackDiscValue(songInfo.trackNumber, songInfo.discNumber)
+                      ? l.trackDiscValue(
+                          songInfo.trackNumber,
+                          songInfo.discNumber,
+                        )
                       : songInfo.trackNumber,
                 ),
-              PlayerSongInfoRow(label: l.fieldDuration, value: songInfo.duration),
+              PlayerSongInfoRow(
+                label: l.fieldDuration,
+                value: songInfo.duration,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -171,10 +176,16 @@ class _SongInfoContent extends StatelessWidget {
 
               // Encoder — from embedded tags only, skip when absent
               if ((songInfo.encoder ?? '').isNotEmpty)
-                PlayerSongInfoRow(label: l.fieldEncoder, value: songInfo.encoder!),
+                PlayerSongInfoRow(
+                  label: l.fieldEncoder,
+                  value: songInfo.encoder!,
+                ),
 
               // File Size — always from metadata (no native live equivalent)
-              PlayerSongInfoRow(label: l.fieldFileSize, value: songInfo.fileSize),
+              PlayerSongInfoRow(
+                label: l.fieldFileSize,
+                value: songInfo.fileSize,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -188,14 +199,15 @@ class _SongInfoContent extends StatelessWidget {
               children: [
                 PlayerSongInfoRow(
                   label: l.fieldAppliedGain,
-                  value:
-                      '${songInfo.appliedGainDb!.toStringAsFixed(1)} dB',
+                  value: '${songInfo.appliedGainDb!.toStringAsFixed(1)} dB',
                 ),
                 if ((songInfo.loudnessSource ?? '').isNotEmpty)
                   PlayerSongInfoRow(
                     label: l.fieldLoudnessSource,
                     value: _localizedLoudnessSource(
-                        context, songInfo.loudnessSource!),
+                      context,
+                      songInfo.loudnessSource!,
+                    ),
                   ),
               ],
             ),
@@ -234,14 +246,22 @@ class _SongInfoContent extends StatelessWidget {
           _InfoSection(
             title: l.sectionFile,
             children: [
-              PlayerSongInfoRow(label: l.fieldFileName, value: songInfo.fileName),
+              PlayerSongInfoRow(
+                label: l.fieldFileName,
+                value: songInfo.fileName,
+              ),
               if (songInfo.folder.isNotEmpty)
                 PlayerSongInfoRow(label: l.fieldFolder, value: songInfo.folder),
               if ((songInfo.dateAdded ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldDateAdded, value: songInfo.dateAdded!),
+                  label: l.fieldDateAdded,
+                  value: songInfo.dateAdded!,
+                ),
               if ((songInfo.modified ?? '').isNotEmpty)
-                PlayerSongInfoRow(label: l.fieldModified, value: songInfo.modified!),
+                PlayerSongInfoRow(
+                  label: l.fieldModified,
+                  value: songInfo.modified!,
+                ),
             ],
           ),
 
@@ -250,35 +270,57 @@ class _SongInfoContent extends StatelessWidget {
             title: l.sectionAdditionalInfo,
             children: [
               if ((songInfo.composer ?? '').isNotEmpty)
-                PlayerSongInfoRow(label: l.fieldComposer, value: songInfo.composer!),
+                PlayerSongInfoRow(
+                  label: l.fieldComposer,
+                  value: songInfo.composer!,
+                ),
               if ((songInfo.publisher ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldPublisher, value: songInfo.publisher!),
+                  label: l.fieldPublisher,
+                  value: songInfo.publisher!,
+                ),
               if ((songInfo.copyright ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldCopyright, value: songInfo.copyright!),
+                  label: l.fieldCopyright,
+                  value: songInfo.copyright!,
+                ),
               if ((songInfo.isrc ?? '').isNotEmpty)
                 PlayerSongInfoRow(label: l.fieldIsrc, value: songInfo.isrc!),
               if ((songInfo.comment ?? '').isNotEmpty)
-                PlayerSongInfoRow(label: l.fieldComment, value: songInfo.comment!),
+                PlayerSongInfoRow(
+                  label: l.fieldComment,
+                  value: songInfo.comment!,
+                ),
               if ((songInfo.rgTrackGain ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldRgTrackGain, value: songInfo.rgTrackGain!),
+                  label: l.fieldRgTrackGain,
+                  value: songInfo.rgTrackGain!,
+                ),
               if ((songInfo.rgTrackPeak ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldRgTrackPeak, value: songInfo.rgTrackPeak!),
+                  label: l.fieldRgTrackPeak,
+                  value: songInfo.rgTrackPeak!,
+                ),
               if ((songInfo.rgAlbumGain ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldRgAlbumGain, value: songInfo.rgAlbumGain!),
+                  label: l.fieldRgAlbumGain,
+                  value: songInfo.rgAlbumGain!,
+                ),
               if ((songInfo.rgAlbumPeak ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldRgAlbumPeak, value: songInfo.rgAlbumPeak!),
+                  label: l.fieldRgAlbumPeak,
+                  value: songInfo.rgAlbumPeak!,
+                ),
               if ((songInfo.r128Track ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldR128TrackGain, value: songInfo.r128Track!),
+                  label: l.fieldR128TrackGain,
+                  value: songInfo.r128Track!,
+                ),
               if ((songInfo.r128Album ?? '').isNotEmpty)
                 PlayerSongInfoRow(
-                    label: l.fieldR128AlbumGain, value: songInfo.r128Album!),
+                  label: l.fieldR128AlbumGain,
+                  value: songInfo.r128Album!,
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -295,14 +337,14 @@ class _SongInfoContent extends StatelessWidget {
   /// MIME string is empty or unrecognised.
   static String _fmtMimeType(String mime, String fallback) {
     final label = switch (mime) {
-      'audio/flac'                       => 'FLAC',
-      'audio/mpeg' || 'audio/mp3'        => 'MP3',
-      'audio/aac'  || 'audio/mp4a-latm'  => 'AAC',
-      'audio/ogg'  || 'audio/vorbis'     => 'OGG Vorbis',
-      'audio/opus'                       => 'Opus',
-      'audio/wav'  || 'audio/x-wav'      => 'WAV',
-      'audio/alac' || 'audio/x-alac'     => 'ALAC',
-      'audio/raw'  || 'audio/pcm'        => 'PCM',
+      'audio/flac' => 'FLAC',
+      'audio/mpeg' || 'audio/mp3' => 'MP3',
+      'audio/aac' || 'audio/mp4a-latm' => 'AAC',
+      'audio/ogg' || 'audio/vorbis' => 'OGG Vorbis',
+      'audio/opus' => 'Opus',
+      'audio/wav' || 'audio/x-wav' => 'WAV',
+      'audio/alac' || 'audio/x-alac' => 'ALAC',
+      'audio/raw' || 'audio/pcm' => 'PCM',
       _ => mime.isNotEmpty ? mime.split('/').last.toUpperCase() : '',
     };
     return label.isNotEmpty ? label : fallback;
@@ -331,11 +373,7 @@ class _SongInfoContent extends StatelessWidget {
   /// Formats bitrate from bits/second to "320 kbps".
   /// Returns the metadata [fallback] when [bps] is 0 (lossless), or
   /// localized "Lossless" when the fallback itself is empty / unknown.
-  static String _fmtBitrate(
-    int bps,
-    String fallback,
-    AppLocalizations l,
-  ) {
+  static String _fmtBitrate(int bps, String fallback, AppLocalizations l) {
     if (bps > 0) return '${(bps / 1000).round()} kbps';
     if (fallback.isNotEmpty && fallback != 'Unknown') return fallback;
     return l.bitrateUnknownLossless;

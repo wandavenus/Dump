@@ -378,10 +378,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Control point pulled right of artFullLeft so the path bulges rightward
     // before settling — keeps the overall diagonal feel ("tetap diagonal").
     final cpLeft = artFullLeft + screenW * 0.17; // ≈ 67 px on 393-wide screen
-    final cpTop  = lerpDouble(miniArtTop, artFullTop, 0.15)!; // low start → late lift
+    final cpTop = lerpDouble(
+      miniArtTop,
+      artFullTop,
+      0.15,
+    )!; // low start → late lift
     final bmt = 1.0 - t;
-    final artLeft = bmt * bmt * miniArtLeft + 2 * bmt * t * cpLeft + t * t * artFullLeft;
-    final artTop  = bmt * bmt * miniArtTop  + 2 * bmt * t * cpTop  + t * t * artFullTop;
+    final artLeft =
+        bmt * bmt * miniArtLeft + 2 * bmt * t * cpLeft + t * t * artFullLeft;
+    final artTop =
+        bmt * bmt * miniArtTop + 2 * bmt * t * cpTop + t * t * artFullTop;
     final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
     final artRadius = lerpDouble(4.0, 12.0, t)!;
 

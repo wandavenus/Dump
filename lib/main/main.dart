@@ -27,10 +27,12 @@ Future<void> main() async {
       // Empat service ini independen satu sama lain (masing-masing hanya
       // memuat pengaturan sendiri dari SharedPreferences), jadi dijalankan
       // paralel untuk mempercepat waktu ke first frame.
-      BootTrace.log('BEFORE Future.wait([ThemeController.init, LogService.init, '
-          'LyricsSettings.init, UpNextSettings.init, WatermarkService.init, '
-          'ArtworkRepository.warmUp, NativePaletteService.warmUp, '
-          'MediaStoreService.warmUp, HistoryService.warmUp])');
+      BootTrace.log(
+        'BEFORE Future.wait([ThemeController.init, LogService.init, '
+        'LyricsSettings.init, UpNextSettings.init, WatermarkService.init, '
+        'ArtworkRepository.warmUp, NativePaletteService.warmUp, '
+        'MediaStoreService.warmUp, HistoryService.warmUp])',
+      );
       await Future.wait([
         BootTrace.step('LanguageManager.init', LanguageManager.instance.init),
         BootTrace.step('ThemeController.init', ThemeController.init),
@@ -43,11 +45,16 @@ Future<void> main() async {
         // frame — cached cover art then never flashes a placeholder on cold
         // start (app killed / removed from recents).
         BootTrace.step(
-            'ArtworkRepository.warmUp', ArtworkRepository.instance.warmUp),
+          'ArtworkRepository.warmUp',
+          ArtworkRepository.instance.warmUp,
+        ),
         // Persisted palette colours (album card backgrounds, player background
         // shader) so they render instantly on cold start too, matching the
         // artwork image's own instant-render behaviour above.
-        BootTrace.step('NativePaletteService.warmUp', NativePaletteService.warmUp),
+        BootTrace.step(
+          'NativePaletteService.warmUp',
+          NativePaletteService.warmUp,
+        ),
         // Hydrates the last-known song list from disk so the very first frame
         // can render the full library (and each song's cached artwork)
         // immediately instead of a spinner while MediaStore re-enumerates.
@@ -203,7 +210,9 @@ Future<void> main() async {
       // DeviceDsp (DSP capability helper) diinisialisasi setelahnya.
       BootTrace.log('BEFORE await PlaybackManager.initialize()');
       await BootTrace.step(
-          'PlaybackManager.initialize', PlaybackManager.initialize);
+        'PlaybackManager.initialize',
+        PlaybackManager.initialize,
+      );
       BootTrace.log('AFTER  await PlaybackManager.initialize()');
 
       BootTrace.log('BEFORE await DeviceDsp.initialize()');
@@ -211,7 +220,10 @@ Future<void> main() async {
       BootTrace.log('AFTER  await DeviceDsp.initialize()');
 
       BootTrace.log('BEFORE await AudioEffectsService.init()');
-      await BootTrace.step('AudioEffectsService.init', AudioEffectsService.init);
+      await BootTrace.step(
+        'AudioEffectsService.init',
+        AudioEffectsService.init,
+      );
       BootTrace.log('AFTER  await AudioEffectsService.init()');
 
       BootTrace.log('BEFORE LyricsService.init() (sync)');
@@ -220,7 +232,9 @@ Future<void> main() async {
 
       BootTrace.log('BEFORE await MediaCapabilitiesService.initialize()');
       await BootTrace.step(
-          'MediaCapabilitiesService.initialize', MediaCapabilitiesService.initialize);
+        'MediaCapabilitiesService.initialize',
+        MediaCapabilitiesService.initialize,
+      );
       BootTrace.log('AFTER  await MediaCapabilitiesService.initialize()');
 
       BootTrace.log('BEFORE AudioService.initialize() (sync)');

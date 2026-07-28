@@ -33,8 +33,7 @@ class SettingsToggleRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: TextStyle(
-                        color: c.secondaryLabel, fontSize: 12),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                   ),
                 ],
               ],

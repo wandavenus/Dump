@@ -14,9 +14,7 @@ class AlbumPage extends StatelessWidget {
     final route = ModalRoute.of(context);
     final theme = Theme.of(context);
     if (route == null) {
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-      );
+      return Scaffold(backgroundColor: theme.scaffoldBackgroundColor);
     }
     final args = route.settings.arguments as Map<String, dynamic>?;
     if (args == null) {

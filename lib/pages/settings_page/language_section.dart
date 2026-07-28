@@ -79,14 +79,24 @@ class _LanguageSectionState extends State<_LanguageSection> {
                 selected: _currentCode == 'system',
                 onTap: _select,
               ),
-              Divider(height: 1, thickness: 0.5, color: c.separator, indent: 52),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: c.separator,
+                indent: 52,
+              ),
               _LanguageOption(
                 label: l.languageEnglish,
                 code: 'en',
                 selected: _currentCode == 'en',
                 onTap: _select,
               ),
-              Divider(height: 1, thickness: 0.5, color: c.separator, indent: 52),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: c.separator,
+                indent: 52,
+              ),
               _LanguageOption(
                 label: l.languageIndonesian,
                 code: 'id',
@@ -155,7 +165,11 @@ class _LanguageOption extends StatelessWidget {
               ),
             ),
             if (selected)
-              Icon(Icons.check_rounded, color: const Color(0xFFF92D48), size: 20),
+              Icon(
+                Icons.check_rounded,
+                color: const Color(0xFFF92D48),
+                size: 20,
+              ),
           ],
         ),
       ),

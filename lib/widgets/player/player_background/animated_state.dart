@@ -2,8 +2,8 @@ part of '../player_background.dart';
 
 class _AnimatedBlurredPlayerBackgroundState
     extends State<AnimatedBlurredPlayerBackground> {
-  int          _songId  = -1;
-  List<Color>  _palette = const [];
+  int _songId = -1;
+  List<Color> _palette = const [];
 
   @override
   void initState() {
@@ -23,14 +23,22 @@ class _AnimatedBlurredPlayerBackgroundState
     if (id <= 0) {
       // Clear palette so PlayerFallbackBackground is shown, not stale colors
       // from the previously-playing song.
-      if (mounted) setState(() { _songId = id; _palette = const []; });
+      if (mounted)
+        setState(() {
+          _songId = id;
+          _palette = const [];
+        });
       return;
     }
 
     // Fast path: already in the LRU cache — no I/O needed.
     final cached = NativePaletteService.getSync(id);
     if (cached != null) {
-      if (mounted) setState(() { _songId = id; _palette = cached; });
+      if (mounted)
+        setState(() {
+          _songId = id;
+          _palette = cached;
+        });
       return;
     }
 
@@ -38,18 +46,18 @@ class _AnimatedBlurredPlayerBackgroundState
     final colors = await NativePaletteService.get(id);
     if (!mounted || widget.songId != id) return;
 
-    setState(() { _songId = id; _palette = colors; });
+    setState(() {
+      _songId = id;
+      _palette = colors;
+    });
   }
 
-@override
-Widget build(BuildContext context) {
-  final Widget child = _palette.isEmpty
-      ? const PlayerFallbackBackground()
-      : ProceduralFogBackground(
-          songId: _songId,
-          palette: _palette,
-        );
+  @override
+  Widget build(BuildContext context) {
+    final Widget child = _palette.isEmpty
+        ? const PlayerFallbackBackground()
+        : ProceduralFogBackground(songId: _songId, palette: _palette);
 
-  return child;
-}
+    return child;
+  }
 }

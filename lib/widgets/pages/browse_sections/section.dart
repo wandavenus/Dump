@@ -18,7 +18,10 @@ class _BrowseSection extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Icon(
                 Icons.chevron_right_rounded,

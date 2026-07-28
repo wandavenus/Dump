@@ -75,7 +75,8 @@ class NativeAudioBuffer {
     _assertAlive();
     final dataPtr = bindings.nar_audio_buffer_data(_ptr);
     if (dataPtr == ffi.nullptr) return Float32List(0);
-    final total = bindings.nar_audio_buffer_capacity_frames(_ptr) *
+    final total =
+        bindings.nar_audio_buffer_capacity_frames(_ptr) *
         bindings.nar_audio_buffer_channel_count(_ptr);
     return dataPtr.asTypedList(total);
   }
@@ -171,78 +172,102 @@ class NativeDspPipeline {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    final pipelineStatus =
-        NativeRuntimeStatus.fromCode(bindings.nar_dsp_pipeline_init());
+    final pipelineStatus = NativeRuntimeStatus.fromCode(
+      bindings.nar_dsp_pipeline_init(),
+    );
     if (pipelineStatus != NativeRuntimeStatus.ok) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (pipeline)', pipelineStatus);
+        'NativeDspPipeline.initialize (pipeline)',
+        pipelineStatus,
+      );
     }
 
     final gainStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_gain_processor_register_internal());
+      bindings.nar_gain_processor_register_internal(),
+    );
     // duplicateModule is expected on hot restart (processor already registered).
     if (gainStatus != NativeRuntimeStatus.ok &&
         gainStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (gain)', gainStatus);
+        'NativeDspPipeline.initialize (gain)',
+        gainStatus,
+      );
     }
 
     // Phase 8: ReplayGain (slot 1, after gain).
     // Starts bypassed — PlaybackManager engages it after resolving metadata.
     final replayGainStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_replaygain_processor_register_internal());
+      bindings.nar_replaygain_processor_register_internal(),
+    );
     if (replayGainStatus != NativeRuntimeStatus.ok &&
         replayGainStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (replaygain)', replayGainStatus);
+        'NativeDspPipeline.initialize (replaygain)',
+        replayGainStatus,
+      );
     }
 
     // Phase 8.5: Loudness Normalization (slot 2, after replaygain).
     // Starts bypassed — PlaybackManager engages it when user enables the feature.
     final loudnessStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_loudness_processor_register_internal());
+      bindings.nar_loudness_processor_register_internal(),
+    );
     if (loudnessStatus != NativeRuntimeStatus.ok &&
         loudnessStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (loudness)', loudnessStatus);
+        'NativeDspPipeline.initialize (loudness)',
+        loudnessStatus,
+      );
     }
 
     // Phase 6: Compressor (slot 3; Parametric EQ removed — legacy system
     // Equalizer is the sole EQ backend, see MEMORY.md "EQ silent attach
     // failure").
     final compStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_comp_processor_register_internal());
+      bindings.nar_comp_processor_register_internal(),
+    );
     if (compStatus != NativeRuntimeStatus.ok &&
         compStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (comp)', compStatus);
+        'NativeDspPipeline.initialize (comp)',
+        compStatus,
+      );
     }
 
     // Phase 7: Crossfeed (slot 5, between compressor and limiter)
     final crossfeedStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_crossfeed_processor_register_internal());
+      bindings.nar_crossfeed_processor_register_internal(),
+    );
     if (crossfeedStatus != NativeRuntimeStatus.ok &&
         crossfeedStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (crossfeed)', crossfeedStatus);
+        'NativeDspPipeline.initialize (crossfeed)',
+        crossfeedStatus,
+      );
     }
 
     // Phase 6: Limiter (slot 6)
     final limiterStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_limiter_processor_register_internal());
+      bindings.nar_limiter_processor_register_internal(),
+    );
     if (limiterStatus != NativeRuntimeStatus.ok &&
         limiterStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (limiter)', limiterStatus);
+        'NativeDspPipeline.initialize (limiter)',
+        limiterStatus,
+      );
     }
 
     // Phase 6: Soft Clipper (slot 7)
     final softClipperStatus = NativeRuntimeStatus.fromCode(
-        bindings.nar_soft_clipper_processor_register_internal());
+      bindings.nar_soft_clipper_processor_register_internal(),
+    );
     if (softClipperStatus != NativeRuntimeStatus.ok &&
         softClipperStatus != NativeRuntimeStatus.duplicateModule) {
       throw NativeRuntimeException(
-          'NativeDspPipeline.initialize (soft_clipper)', softClipperStatus);
+        'NativeDspPipeline.initialize (soft_clipper)',
+        softClipperStatus,
+      );
     }
 
     _initialized = true;
@@ -350,9 +375,15 @@ class NativeCompressor {
     required double kneeDb,
     required double makeupGainDb,
     double sampleRate = 48000.0,
-  }) =>
-      bindings.nar_comp_set_params(
-          thresholdDb, ratio, attackMs, releaseMs, kneeDb, makeupGainDb, sampleRate);
+  }) => bindings.nar_comp_set_params(
+    thresholdDb,
+    ratio,
+    attackMs,
+    releaseMs,
+    kneeDb,
+    makeupGainDb,
+    sampleRate,
+  );
 
   /// Enable (`false`) or bypass (`true`) the compressor.
   void setBypass(bool bypass) => bindings.nar_comp_set_bypass(bypass ? 1 : 0);
@@ -382,11 +413,11 @@ class NativeLimiter {
     required double thresholdDb,
     required double releaseMs,
     double sampleRate = 48000.0,
-  }) =>
-      bindings.nar_limiter_set_params(thresholdDb, releaseMs, sampleRate);
+  }) => bindings.nar_limiter_set_params(thresholdDb, releaseMs, sampleRate);
 
   /// Enable (`false`) or bypass (`true`) the limiter.
-  void setBypass(bool bypass) => bindings.nar_limiter_set_bypass(bypass ? 1 : 0);
+  void setBypass(bool bypass) =>
+      bindings.nar_limiter_set_bypass(bypass ? 1 : 0);
 
   /// `true` if the limiter bypass is active.
   bool get bypass => bindings.nar_limiter_get_bypass() != 0;
@@ -432,9 +463,14 @@ class NativeCrossfeed {
     double hfCompHz = 4000.0,
     double width = 1.0,
     double sampleRate = 48000.0,
-  }) =>
-      bindings.nar_crossfeed_set_params(
-          amount, cutoffHz, hfCompDb, hfCompHz, width, sampleRate);
+  }) => bindings.nar_crossfeed_set_params(
+    amount,
+    cutoffHz,
+    hfCompDb,
+    hfCompHz,
+    width,
+    sampleRate,
+  );
 
   /// Enable (`false`) or bypass (`true`) the crossfeed processor.
   void setBypass(bool bypass) =>
@@ -484,9 +520,11 @@ class NativeReplayGain {
     required double gainDb,
     double peakLinear = 0.0,
     bool useClippingProtection = true,
-  }) =>
-      bindings.nar_replaygain_set_gain(
-          gainDb, peakLinear, useClippingProtection ? 1 : 0);
+  }) => bindings.nar_replaygain_set_gain(
+    gainDb,
+    peakLinear,
+    useClippingProtection ? 1 : 0,
+  );
 
   /// Enable (`false`) or bypass (`true`) the ReplayGain processor.
   void setBypass(bool bypass) =>

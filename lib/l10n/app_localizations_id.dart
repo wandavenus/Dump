@@ -1285,5 +1285,5 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
-  String get madeByShort => 'Oleh';
+  String get madeByShort => 'Dibuat Oleh';
 }

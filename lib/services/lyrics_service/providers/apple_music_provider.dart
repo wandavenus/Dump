@@ -65,11 +65,9 @@ class AppleMusicProvider implements LyricsProvider {
     CancellationToken cancelToken,
   ) async {
     final term = '${query.artist} ${query.title}'.trim();
-    final uri = Uri.parse(_searchUrl).replace(queryParameters: {
-      'term': term,
-      'entity': 'song',
-      'limit': '5',
-    });
+    final uri = Uri.parse(
+      _searchUrl,
+    ).replace(queryParameters: {'term': term, 'entity': 'song', 'limit': '5'});
 
     final response = await ProviderHttp.get(uri, name, cancelToken);
     if (response == null) return null;
@@ -77,8 +75,9 @@ class AppleMusicProvider implements LyricsProvider {
 
     final data = ProviderHttp.asJsonMap(jsonDecode(response.body));
     final rawResults = data?['results'];
-    final results =
-        rawResults is List ? rawResults.cast<Object?>() : const <Object?>[];
+    final results = rawResults is List
+        ? rawResults.cast<Object?>()
+        : const <Object?>[];
     if (results.isEmpty) return null;
 
     final wantTitle = query.title.toLowerCase().trim();
@@ -91,21 +90,22 @@ class AppleMusicProvider implements LyricsProvider {
     for (final entry in results) {
       final entryMap = ProviderHttp.asJsonMap(entry);
       if (entryMap == null) continue;
-      final trackName =
-          (entryMap['trackName'] as String? ?? '').toLowerCase();
-      final artistName =
-          (entryMap['artistName'] as String? ?? '').toLowerCase();
+      final trackName = (entryMap['trackName'] as String? ?? '').toLowerCase();
+      final artistName = (entryMap['artistName'] as String? ?? '')
+          .toLowerCase();
       final durationMs = entryMap['trackTimeMillis'] as int?;
 
       int score = 0;
       if (trackName == wantTitle) {
         score += 3;
-      } else if (trackName.contains(wantTitle) || wantTitle.contains(trackName)) {
+      } else if (trackName.contains(wantTitle) ||
+          wantTitle.contains(trackName)) {
         score += 1;
       }
       if (artistName == wantArtist) {
         score += 3;
-      } else if (artistName.contains(wantArtist) || wantArtist.contains(artistName)) {
+      } else if (artistName.contains(wantArtist) ||
+          wantArtist.contains(artistName)) {
         score += 1;
       }
       if (wantDurationMs != null && durationMs != null) {
@@ -129,9 +129,9 @@ class AppleMusicProvider implements LyricsProvider {
     int trackId,
     CancellationToken cancelToken,
   ) async {
-    final uri = Uri.parse(_lyricsUrl).replace(queryParameters: {
-      'id': trackId.toString(),
-    });
+    final uri = Uri.parse(
+      _lyricsUrl,
+    ).replace(queryParameters: {'id': trackId.toString()});
 
     final response = await ProviderHttp.get(uri, name, cancelToken);
     if (response == null) return null;
@@ -147,8 +147,9 @@ class AppleMusicProvider implements LyricsProvider {
     if (data.containsKey('detail') || data.containsKey('error')) return null;
 
     final content = data['content'];
-    final contentLines =
-        content is List ? content.cast<Object?>() : const <Object?>[];
+    final contentLines = content is List
+        ? content.cast<Object?>()
+        : const <Object?>[];
     if (contentLines.isEmpty) return null;
 
     final type = (data['type'] as String? ?? '').toLowerCase();
@@ -182,11 +183,11 @@ class AppleMusicProvider implements LyricsProvider {
         // Line-level saja: gabungkan seluruh teks kata jadi satu baris.
         final text = words is List
             ? words
-                .map(ProviderHttp.asJsonMap)
-                .whereType<Map<String, dynamic>>()
-                .map((w) => w['text'] as String? ?? '')
-                .where((t) => t.isNotEmpty)
-                .join(' ')
+                  .map(ProviderHttp.asJsonMap)
+                  .whereType<Map<String, dynamic>>()
+                  .map((w) => w['text'] as String? ?? '')
+                  .where((t) => t.isNotEmpty)
+                  .join(' ')
             : (words is String ? words : '');
         if (text.isEmpty) continue;
         buf.writeln('[${_msToTag(startMs)}]$text');

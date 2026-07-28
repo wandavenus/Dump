@@ -40,9 +40,15 @@ class HomePageContent extends StatelessWidget {
           LargePageTitle(title: context.l10n.homeTitle, align: false),
           const HeaderDivider(),
           const _LocalAlbumsSection(),
-           SectionTitle(title: context.l10n.recentlyPlayed, routeName: '/musiclist'),
+          SectionTitle(
+            title: context.l10n.recentlyPlayed,
+            routeName: '/musiclist',
+          ),
           const _RecentlyPlayedSection(),
-           SectionTitle(title: context.l10n.favoriteArtists, routeName: '/artistlist'),
+          SectionTitle(
+            title: context.l10n.favoriteArtists,
+            routeName: '/artistlist',
+          ),
           const _LocalArtistsSection(),
           SizedBox(height: bottomClearance),
         ],

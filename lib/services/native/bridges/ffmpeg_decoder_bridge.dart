@@ -43,12 +43,14 @@ class FfmpegDecoderCapabilities {
       available: map['available'] as bool? ?? false,
       moduleLinked: map['moduleLinked'] as bool? ?? false,
       version: map['version'] as String?,
-      supportedCodecs: (map['supportedCodecs'] as List?)?.cast<String>() ?? const [],
+      supportedCodecs:
+          (map['supportedCodecs'] as List?)?.cast<String>() ?? const [],
     );
   }
 
   @override
-  String toString() => 'FfmpegDecoderCapabilities(available=$available, '
+  String toString() =>
+      'FfmpegDecoderCapabilities(available=$available, '
       'moduleLinked=$moduleLinked, version=$version, codecs=$supportedCodecs)';
 }
 
@@ -87,13 +89,15 @@ class FfmpegDecoderInfo {
       decoderName: map['decoderName'] as String? ?? 'unknown',
       mimeType: map['mimeType'] as String?,
       isFfmpegDecoder: map['isFfmpegDecoder'] as bool? ?? false,
-      initializationDurationMs: (map['initializationDurationMs'] as num?)?.toInt() ?? 0,
+      initializationDurationMs:
+          (map['initializationDurationMs'] as num?)?.toInt() ?? 0,
       reason: map['reason'] as String? ?? '',
     );
   }
 
   @override
-  String toString() => 'FfmpegDecoderInfo($decoderName, mime=$mimeType, '
+  String toString() =>
+      'FfmpegDecoderInfo($decoderName, mime=$mimeType, '
       'isFfmpeg=$isFfmpegDecoder, ${initializationDurationMs}ms)';
 }
 
@@ -148,11 +152,16 @@ class FfmpegDecoderBridge implements NativeModule {
 
   static const String _moduleId = 'ffmpeg_decoder';
 
-  static const MethodChannel _channel = MethodChannel('musicplayer/ffmpeg_decoder');
-  static const EventChannel _decoderInfoEvents = EventChannel('musicplayer/ffmpeg_decoder_events');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/ffmpeg_decoder',
+  );
+  static const EventChannel _decoderInfoEvents = EventChannel(
+    'musicplayer/ffmpeg_decoder_events',
+  );
 
   NativeModuleStatus _status = NativeModuleStatus.uninitialized;
-  FfmpegDecoderCapabilities _capabilities = FfmpegDecoderCapabilities.unavailable;
+  FfmpegDecoderCapabilities _capabilities =
+      FfmpegDecoderCapabilities.unavailable;
 
   StreamSubscription<dynamic>? _decoderInfoSub;
   final _decoderInfoCtrl = StreamController<FfmpegDecoderInfo>.broadcast();
@@ -181,7 +190,8 @@ class FfmpegDecoderBridge implements NativeModule {
     BootTrace.log('ENTER FfmpegDecoderBridge.initialize()');
     if (_status != NativeModuleStatus.uninitialized) {
       BootTrace.log(
-          'EXIT  FfmpegDecoderBridge.initialize() — already $_status, no-op');
+        'EXIT  FfmpegDecoderBridge.initialize() — already $_status, no-op',
+      );
       return;
     }
 
@@ -217,28 +227,34 @@ class FfmpegDecoderBridge implements NativeModule {
     // background with a hard timeout instead of being awaited here.
     unawaited(_probeCapabilities());
     BootTrace.log(
-        'EXIT  FfmpegDecoderBridge.initialize() — returns immediately, '
-        '_probeCapabilities() fired unawaited in background');
+      'EXIT  FfmpegDecoderBridge.initialize() — returns immediately, '
+      '_probeCapabilities() fired unawaited in background',
+    );
   }
 
   /// Runs the native `queryStatus` round-trip in the background and updates
   /// [_capabilities]/[_status] whenever it resolves (or times out). Must
   /// never be awaited from [initialize] — see the comment there.
   Future<void> _probeCapabilities() async {
-    BootTrace.log('ENTER FfmpegDecoderBridge._probeCapabilities() (background)');
+    BootTrace.log(
+      'ENTER FfmpegDecoderBridge._probeCapabilities() (background)',
+    );
     final sw = Stopwatch()..start();
     try {
       // Automatic capability detection — availability, native library
       // version if loaded, and which of the Phase 9 target codecs the
       // bundled FFmpeg build actually supports. Hard timeout guarantees this
       // always settles even if the native side never replies.
-      BootTrace.log('BEFORE await _channel.invokeMethod(queryStatus).timeout(3s)');
+      BootTrace.log(
+        'BEFORE await _channel.invokeMethod(queryStatus).timeout(3s)',
+      );
       final result = await _channel
           .invokeMethod<Map<dynamic, dynamic>>('queryStatus')
           .timeout(const Duration(seconds: 3));
       BootTrace.log(
-          'AFTER  await _channel.invokeMethod(queryStatus) (${sw.elapsedMilliseconds}ms) '
-          'result=$result');
+        'AFTER  await _channel.invokeMethod(queryStatus) (${sw.elapsedMilliseconds}ms) '
+        'result=$result',
+      );
       _capabilities = result != null
           ? FfmpegDecoderCapabilities.fromMap(result)
           : FfmpegDecoderCapabilities.unavailable;
@@ -246,15 +262,17 @@ class FfmpegDecoderBridge implements NativeModule {
           ? NativeModuleStatus.available
           : NativeModuleStatus.unavailable;
       BootTrace.log(
-          'EXIT  FfmpegDecoderBridge._probeCapabilities() — status=$_status, '
-          'available=${_capabilities.available}');
+        'EXIT  FfmpegDecoderBridge._probeCapabilities() — status=$_status, '
+        'available=${_capabilities.available}',
+      );
     } on Object catch (e, st) {
       // Channel missing/failed/timed out (e.g. platform not Android, or the
       // native reply never arrived) — fail open, already the default above.
       // Uses Object (not Exception) to also catch TimeoutException and Errors.
       BootTrace.log(
-          'EXCEPTION/TIMEOUT in FfmpegDecoderBridge._probeCapabilities() '
-          'after ${sw.elapsedMilliseconds}ms: $e\n$st');
+        'EXCEPTION/TIMEOUT in FfmpegDecoderBridge._probeCapabilities() '
+        'after ${sw.elapsedMilliseconds}ms: $e\n$st',
+      );
       _capabilities = FfmpegDecoderCapabilities.unavailable;
       _status = NativeModuleStatus.unavailable;
     }
@@ -275,11 +293,13 @@ class FfmpegDecoderBridge implements NativeModule {
   Future<List<NativeCapability>> queryCapabilities() async {
     const targetCodecs = ['ALAC', 'DTS', 'DTS-HD', 'TrueHD', 'Vorbis', 'Opus'];
     return targetCodecs
-        .map((codec) => NativeCapability(
-              key: 'decoder.${codec.toLowerCase().replaceAll('-', '_')}',
-              supported: _capabilities.supportedCodecs.contains(codec),
-              version: _capabilities.available ? _capabilities.version : null,
-            ))
+        .map(
+          (codec) => NativeCapability(
+            key: 'decoder.${codec.toLowerCase().replaceAll('-', '_')}',
+            supported: _capabilities.supportedCodecs.contains(codec),
+            version: _capabilities.available ? _capabilities.version : null,
+          ),
+        )
         .toList();
   }
 

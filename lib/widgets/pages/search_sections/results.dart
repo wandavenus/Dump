@@ -19,11 +19,18 @@ class _SearchResultsSliver extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.search_off, color: AppColors.of(context).tertiaryLabel, size: 48),
+              Icon(
+                Icons.search_off,
+                color: AppColors.of(context).tertiaryLabel,
+                size: 48,
+              ),
               const SizedBox(height: 12),
               Text(
                 context.l10n.searchNoResults(query),
-                style: TextStyle(color: AppColors.of(context).secondaryLabel, fontSize: 15),
+                style: TextStyle(
+                  color: AppColors.of(context).secondaryLabel,
+                  fontSize: 15,
+                ),
               ),
             ],
           ),
@@ -32,28 +39,25 @@ class _SearchResultsSliver extends StatelessWidget {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, i) {
-          if (i.isOdd) {
-            return Divider(
-              height: 1,
-              thickness: 0.5,
-              color: AppColors.of(context).separator,
-              indent: 76,
-              endIndent: 16,
-            );
-          }
-          final idx = i ~/ 2;
-          final song = results[idx];
-          final indexInAll = allSongs.indexOf(song);
-          return _SearchResultTile(
-            song: song,
-            playlist: allSongs,
-            index: indexInAll >= 0 ? indexInAll : 0,
+      delegate: SliverChildBuilderDelegate((context, i) {
+        if (i.isOdd) {
+          return Divider(
+            height: 1,
+            thickness: 0.5,
+            color: AppColors.of(context).separator,
+            indent: 76,
+            endIndent: 16,
           );
-        },
-        childCount: results.length * 2 - 1,
-      ),
+        }
+        final idx = i ~/ 2;
+        final song = results[idx];
+        final indexInAll = allSongs.indexOf(song);
+        return _SearchResultTile(
+          song: song,
+          playlist: allSongs,
+          index: indexInAll >= 0 ? indexInAll : 0,
+        );
+      }, childCount: results.length * 2 - 1),
     );
   }
 }

@@ -21,9 +21,10 @@ abstract final class AppRouter {
   /// Push the Settings page on the root navigator so it overlays all tabs.
   static void pushSettings(BuildContext context) {
     unawaited(
-      Navigator.of(context, rootNavigator: true).push(
-        ZoomFadeRoute<void>(page: const SettingsPage()),
-      ),
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(ZoomFadeRoute<void>(page: const SettingsPage())),
     );
   }
 

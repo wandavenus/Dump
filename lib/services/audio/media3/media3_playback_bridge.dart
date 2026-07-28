@@ -49,41 +49,69 @@ class Media3PlaybackBridge {
 
   // ── EventChannels ──────────────────────────────────────────────────────────
 
-  static const EventChannel _playbackStateEvents  = EventChannel('musicplayer/media3_playbackState');
-  static const EventChannel _positionEvents        = EventChannel('musicplayer/media3_position');
-  static const EventChannel _durationEvents        = EventChannel('musicplayer/media3_duration');
-  static const EventChannel _currentTrackEvents    = EventChannel('musicplayer/media3_currentTrack');
-  static const EventChannel _queueEvents           = EventChannel('musicplayer/media3_queue');
-  static const EventChannel _bufferingStateEvents  = EventChannel('musicplayer/media3_bufferingState');
-  static const EventChannel _audioSessionIdEvents  = EventChannel('musicplayer/media3_audioSessionId');
-  static const EventChannel _shuffleModeEvents     = EventChannel('musicplayer/media3_shuffleMode');
-  static const EventChannel _repeatModeEvents      = EventChannel('musicplayer/media3_repeatMode');
-  static const EventChannel _sleepTimerEvents      = EventChannel('musicplayer/media3_sleepTimer');
-  static const EventChannel _offloadStateEvents    = EventChannel('musicplayer/media3_offloadState');
-  static const EventChannel _audioFormatEvents     = EventChannel('musicplayer/media3_audioFormat');
-  static const EventChannel _stereoWideningEvents   = EventChannel('musicplayer/media3_stereoWidening');
+  static const EventChannel _playbackStateEvents = EventChannel(
+    'musicplayer/media3_playbackState',
+  );
+  static const EventChannel _positionEvents = EventChannel(
+    'musicplayer/media3_position',
+  );
+  static const EventChannel _durationEvents = EventChannel(
+    'musicplayer/media3_duration',
+  );
+  static const EventChannel _currentTrackEvents = EventChannel(
+    'musicplayer/media3_currentTrack',
+  );
+  static const EventChannel _queueEvents = EventChannel(
+    'musicplayer/media3_queue',
+  );
+  static const EventChannel _bufferingStateEvents = EventChannel(
+    'musicplayer/media3_bufferingState',
+  );
+  static const EventChannel _audioSessionIdEvents = EventChannel(
+    'musicplayer/media3_audioSessionId',
+  );
+  static const EventChannel _shuffleModeEvents = EventChannel(
+    'musicplayer/media3_shuffleMode',
+  );
+  static const EventChannel _repeatModeEvents = EventChannel(
+    'musicplayer/media3_repeatMode',
+  );
+  static const EventChannel _sleepTimerEvents = EventChannel(
+    'musicplayer/media3_sleepTimer',
+  );
+  static const EventChannel _offloadStateEvents = EventChannel(
+    'musicplayer/media3_offloadState',
+  );
+  static const EventChannel _audioFormatEvents = EventChannel(
+    'musicplayer/media3_audioFormat',
+  );
+  static const EventChannel _stereoWideningEvents = EventChannel(
+    'musicplayer/media3_stereoWidening',
+  );
   // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
   // Media3PlaybackService.onCreate() has fully finished wiring; replays
   // immediately to a listener that subscribes after that already happened.
-  static const EventChannel _serviceReadyEvents     = EventChannel('musicplayer/media3_serviceReady');
+  static const EventChannel _serviceReadyEvents = EventChannel(
+    'musicplayer/media3_serviceReady',
+  );
 
   // Keep deprecated public refs for callers that use them directly.
-  static const EventChannel playbackStateEvents   = _playbackStateEvents;
-  static const EventChannel positionEvents         = _positionEvents;
-  static const EventChannel durationEvents         = _durationEvents;
-  static const EventChannel currentTrackEvents     = _currentTrackEvents;
-  static const EventChannel queueEvents            = _queueEvents;
-  static const EventChannel bufferingStateEvents   = _bufferingStateEvents;
-  static const EventChannel audioSessionIdEvents   = _audioSessionIdEvents;
+  static const EventChannel playbackStateEvents = _playbackStateEvents;
+  static const EventChannel positionEvents = _positionEvents;
+  static const EventChannel durationEvents = _durationEvents;
+  static const EventChannel currentTrackEvents = _currentTrackEvents;
+  static const EventChannel queueEvents = _queueEvents;
+  static const EventChannel bufferingStateEvents = _bufferingStateEvents;
+  static const EventChannel audioSessionIdEvents = _audioSessionIdEvents;
 
   // ── Streams ────────────────────────────────────────────────────────────────
 
   static final Stream<Map<dynamic, dynamic>> playbackStateStream =
-    _playbackStateEvents
-        .receiveBroadcastStream()
-        .where((e) => e is Map)
-        .cast<Map<dynamic, dynamic>>()
-        .asBroadcastStream();
+      _playbackStateEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
 
   /// Stream of offload state snapshots emitted by [AudioOffloadManager].
   ///
@@ -101,65 +129,65 @@ class Media3PlaybackBridge {
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
 
-// A bad tick here (e.g. a native-side ratio computed with a zero
-// denominator) must never crash the whole position/duration pipeline —
-// `toIntOrElse` falls back to 0 ms instead of throwing "Infinity or NaN
-// toInt" out of this stream's map callback.
-static final Stream<Duration> positionStream = _positionEvents
-    .receiveBroadcastStream()
-    .where((e) => e is num)
-    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
-    .asBroadcastStream();
+  // A bad tick here (e.g. a native-side ratio computed with a zero
+  // denominator) must never crash the whole position/duration pipeline —
+  // `toIntOrElse` falls back to 0 ms instead of throwing "Infinity or NaN
+  // toInt" out of this stream's map callback.
+  static final Stream<Duration> positionStream = _positionEvents
+      .receiveBroadcastStream()
+      .where((e) => e is num)
+      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
+      .asBroadcastStream();
 
-static final Stream<Duration> durationStream = _durationEvents
-    .receiveBroadcastStream()
-    .where((e) => e is num)
-    .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
-    .asBroadcastStream();
+  static final Stream<Duration> durationStream = _durationEvents
+      .receiveBroadcastStream()
+      .where((e) => e is num)
+      .map((e) => Duration(milliseconds: (e as num).toIntOrElse(0)))
+      .asBroadcastStream();
 
-static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
-    _currentTrackEvents
-        .receiveBroadcastStream()
-        .where((e) => e == null || e is Map)
-        .cast<Map<dynamic, dynamic>?>()
-        .asBroadcastStream();
+  static final Stream<Map<dynamic, dynamic>?> currentTrackStream =
+      _currentTrackEvents
+          .receiveBroadcastStream()
+          .where((e) => e == null || e is Map)
+          .cast<Map<dynamic, dynamic>?>()
+          .asBroadcastStream();
 
-static final Stream<List<dynamic>> queueStream = _queueEvents
-    .receiveBroadcastStream()
-    .where((e) => e is List)
-    .cast<List<dynamic>>()
-    .asBroadcastStream();
+  static final Stream<List<dynamic>> queueStream = _queueEvents
+      .receiveBroadcastStream()
+      .where((e) => e is List)
+      .cast<List<dynamic>>()
+      .asBroadcastStream();
 
-static final Stream<bool> bufferingStateStream = _bufferingStateEvents
-    .receiveBroadcastStream()
-    .where((e) => e is bool)
-    .cast<bool>()
-    .asBroadcastStream();
+  static final Stream<bool> bufferingStateStream = _bufferingStateEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>()
+      .asBroadcastStream();
 
-static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
-    .receiveBroadcastStream()
-    .where((e) => e is num)
-    .map((e) => (e as num).toIntOrElse(-1))
-    .asBroadcastStream();
+  static final Stream<int> audioSessionIdStream = _audioSessionIdEvents
+      .receiveBroadcastStream()
+      .where((e) => e is num)
+      .map((e) => (e as num).toIntOrElse(-1))
+      .asBroadcastStream();
 
-static final Stream<bool> shuffleModeStream = _shuffleModeEvents
-    .receiveBroadcastStream()
-    .where((e) => e is bool)
-    .cast<bool>()
-    .asBroadcastStream();
+  static final Stream<bool> shuffleModeStream = _shuffleModeEvents
+      .receiveBroadcastStream()
+      .where((e) => e is bool)
+      .cast<bool>()
+      .asBroadcastStream();
 
-static final Stream<String> repeatModeStream = _repeatModeEvents
-    .receiveBroadcastStream()
-    .where((e) => e is String)
-    .cast<String>()
-    .asBroadcastStream();
+  static final Stream<String> repeatModeStream = _repeatModeEvents
+      .receiveBroadcastStream()
+      .where((e) => e is String)
+      .cast<String>()
+      .asBroadcastStream();
 
-static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
-    _sleepTimerEvents
-        .receiveBroadcastStream()
-        .where((e) => e is Map)
-        .cast<Map<dynamic, dynamic>>()
-        .asBroadcastStream();
+  static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
+      _sleepTimerEvents
+          .receiveBroadcastStream()
+          .where((e) => e is Map)
+          .cast<Map<dynamic, dynamic>>()
+          .asBroadcastStream();
 
   /// Live audio format emitted by ExoPlayer's [onTracksChanged] listener.
   ///
@@ -220,7 +248,8 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       } on PlatformException catch (error) {
         if (error.code != 'not_ready' || attempt == 4) rethrow;
         await Future<void>.delayed(
-            Duration(milliseconds: 200 * (1 << attempt)));
+          Duration(milliseconds: 200 * (1 << attempt)),
+        );
       }
     }
     return null;
@@ -228,9 +257,9 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
 
   // ── Playback transport ─────────────────────────────────────────────────────
 
-  static Future<void> play()           => _invoke<void>('play');
-  static Future<void> pause()          => _invoke<void>('pause');
-  static Future<void> stop()           => _invoke<void>('stop');
+  static Future<void> play() => _invoke<void>('play');
+  static Future<void> pause() => _invoke<void>('pause');
+  static Future<void> stop() => _invoke<void>('stop');
 
   /// Performs a complete Media3 service teardown.
   ///
@@ -248,11 +277,11 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   ///
   /// Use this when switching away from the Media3 engine permanently.
   /// Use [stop] for transient pause-and-idle while keeping the service ready.
-  static Future<void> release()        => _invoke<void>('release');
+  static Future<void> release() => _invoke<void>('release');
   static Future<void> seek(Duration position) =>
       _invoke<void>('seek', {'position': position.inMilliseconds});
-  static Future<void> skipNext()       => _invoke<void>('skipNext');
-  static Future<void> skipPrevious()   => _invoke<void>('skipPrevious');
+  static Future<void> skipNext() => _invoke<void>('skipNext');
+  static Future<void> skipPrevious() => _invoke<void>('skipPrevious');
   static Future<void> setTrack(int index) =>
       _invoke<void>('setTrack', {'index': index});
   static Future<void> setQueue(List<LocalSong> queue, int index) =>
@@ -282,11 +311,10 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       _invoke<void>('removeFromQueue', {'index': index});
 
   /// Move the item at [oldIndex] to [newIndex].
-  static Future<void> reorderQueue(int oldIndex, int newIndex) =>
-      _invoke<void>('reorderQueue', {
-        'oldIndex': oldIndex,
-        'newIndex': newIndex,
-      });
+  static Future<void> reorderQueue(int oldIndex, int newIndex) => _invoke<void>(
+    'reorderQueue',
+    {'oldIndex': oldIndex, 'newIndex': newIndex},
+  );
 
   // ── Playback parameters ────────────────────────────────────────────────────
 
@@ -317,7 +345,9 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
         ?.map((f) => (f as num).toInt())
         .toList();
     final bands = List<AndroidEqualizerBand>.generate(bandIndices.length, (i) {
-      final freqHz = (freqList != null && i < freqList.length) ? freqList[i] : 0;
+      final freqHz = (freqList != null && i < freqList.length)
+          ? freqList[i]
+          : 0;
       return AndroidEqualizerBand(bandIndices[i], centerFrequencyHz: freqHz);
     });
     return AndroidEqualizerParameters(
@@ -339,8 +369,7 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setTrackGain({
     required bool enabled,
     required double gainDb,
-  }) =>
-      _invoke<void>('setTrackGain', {'enabled': enabled, 'gainDb': gainDb});
+  }) => _invoke<void>('setTrackGain', {'enabled': enabled, 'gainDb': gainDb});
 
   // ── Bass Boost ─────────────────────────────────────────────────────────────
 
@@ -354,11 +383,10 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
   static Future<void> setStereoWidening({
     required bool enabled,
     required double strength,
-  }) =>
-      _invoke<void>('setStereoWidening', {
-        'enabled': enabled,
-        'strength': strength,
-      });
+  }) => _invoke<void>('setStereoWidening', {
+    'enabled': enabled,
+    'strength': strength,
+  });
 
   // ── Playback stats (Item 6) ───────────────────────────────────────────────
 
@@ -410,8 +438,7 @@ static final Stream<Map<dynamic, dynamic>> sleepTimerStream =
       _invoke<void>('setSleepTimerEndOfSong');
 
   /// Cancel any active sleep timer.
-  static Future<void> cancelSleepTimer() =>
-      _invoke<void>('cancelSleepTimer');
+  static Future<void> cancelSleepTimer() => _invoke<void>('cancelSleepTimer');
 
   // ── Audio format query ─────────────────────────────────────────────────────
 

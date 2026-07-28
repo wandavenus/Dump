@@ -25,11 +25,11 @@ class LogEntry {
   }
 
   String get levelTag => switch (level) {
-        LogLevel.verbose => 'VRB',
-        LogLevel.info    => 'INF',
-        LogLevel.warning => 'WRN',
-        LogLevel.error   => 'ERR',
-      };
+    LogLevel.verbose => 'VRB',
+    LogLevel.info => 'INF',
+    LogLevel.warning => 'WRN',
+    LogLevel.error => 'ERR',
+  };
 
   @override
   String toString() =>

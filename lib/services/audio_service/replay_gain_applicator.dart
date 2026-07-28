@@ -61,15 +61,15 @@ class _ReplayGainApplicator {
         LogService.verbose(
           'ReplayGainApplicator',
           'Deferred to Loudness Norm'
-          ' (preamp: ${preamp.toStringAsFixed(1)} dB)',
+              ' (preamp: ${preamp.toStringAsFixed(1)} dB)',
         );
         return;
       }
 
       // ── Resolve loudness metadata ──────────────────────────────────────────
       final data = await LoudnessSourceResolver.resolve(
-        song:         song,
-        mode:         mode,
+        song: song,
+        mode: mode,
         previousSong: prevSong,
       );
 
@@ -87,9 +87,9 @@ class _ReplayGainApplicator {
       // Pass raw gain + preamp to native: the C layer handles dB→linear
       // conversion and optional clipping protection atomically.
       // Clamped to [−24, +24] dB by the C processor.
-      final preamp     = AudioEffectsService.replayGainPreamp.value;
-      final useClip    = AudioEffectsService.clippingProtection.value;
-      final gainDb     = data.gainDb + preamp;
+      final preamp = AudioEffectsService.replayGainPreamp.value;
+      final useClip = AudioEffectsService.clippingProtection.value;
+      final gainDb = data.gainDb + preamp;
       final peakLinear = data.peakLinear ?? 0.0;
 
       PlaybackManager.setNativeReplayGain(
@@ -102,8 +102,8 @@ class _ReplayGainApplicator {
       LogService.verbose(
         'ReplayGainApplicator',
         '"${song.title}": ${gainDb.toStringAsFixed(2)} dB '
-        '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
-        'clip=$useClip, src=${data.source.label})',
+            '(peak=${peakLinear > 0 ? peakLinear.toStringAsFixed(3) : "n/a"}, '
+            'clip=$useClip, src=${data.source.label})',
       );
     } on Object catch (e, st) {
       // Fail-open: never let a ReplayGain failure block playback.

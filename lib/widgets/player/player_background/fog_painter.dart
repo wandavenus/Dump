@@ -64,26 +64,30 @@ class _ShaderPainter extends CustomPainter {
   // Fallback: dark navy tones used before the first extraction completes.
   // Colors[0]=primary, [1]=secondary, [2]=accent, [3]=highlight, [4]=shadow.
 
-  double _old0r = 43 / 255.0,  _old0g = 49 / 255.0,  _old0b = 58 / 255.0;
-  double _old1r = 78 / 255.0,  _old1g = 101 / 255.0, _old1b = 125 / 255.0;
+  double _old0r = 43 / 255.0, _old0g = 49 / 255.0, _old0b = 58 / 255.0;
+  double _old1r = 78 / 255.0, _old1g = 101 / 255.0, _old1b = 125 / 255.0;
   double _old2r = 123 / 255.0, _old2g = 135 / 255.0, _old2b = 148 / 255.0;
-  double _old3r = 171 / 255.0, _old3g = 190 / 255.0, _old3b = 212 / 255.0; // highlight fallback
-  double _old4r = 18 / 255.0,  _old4g = 24 / 255.0,  _old4b = 33 / 255.0;  // shadow fallback
+  double _old3r = 171 / 255.0,
+      _old3g = 190 / 255.0,
+      _old3b = 212 / 255.0; // highlight fallback
+  double _old4r = 18 / 255.0,
+      _old4g = 24 / 255.0,
+      _old4b = 33 / 255.0; // shadow fallback
 
-  double _cur0r = 43 / 255.0,  _cur0g = 49 / 255.0,  _cur0b = 58 / 255.0;
-  double _cur1r = 78 / 255.0,  _cur1g = 101 / 255.0, _cur1b = 125 / 255.0;
+  double _cur0r = 43 / 255.0, _cur0g = 49 / 255.0, _cur0b = 58 / 255.0;
+  double _cur1r = 78 / 255.0, _cur1g = 101 / 255.0, _cur1b = 125 / 255.0;
   double _cur2r = 123 / 255.0, _cur2g = 135 / 255.0, _cur2b = 148 / 255.0;
   double _cur3r = 171 / 255.0, _cur3g = 190 / 255.0, _cur3b = 212 / 255.0;
-  double _cur4r = 18 / 255.0,  _cur4g = 24 / 255.0,  _cur4b = 33 / 255.0;
+  double _cur4r = 18 / 255.0, _cur4g = 24 / 255.0, _cur4b = 33 / 255.0;
 
   // ── Pre-computed interpolated colours (written by _recompute, read by paint)
   // Initialised to the fallback palette so paint() is safe before the first
   // setColors() call.
-  double _c0r = 43 / 255.0,  _c0g = 49 / 255.0,  _c0b = 58 / 255.0;
-  double _c1r = 78 / 255.0,  _c1g = 101 / 255.0, _c1b = 125 / 255.0;
+  double _c0r = 43 / 255.0, _c0g = 49 / 255.0, _c0b = 58 / 255.0;
+  double _c1r = 78 / 255.0, _c1g = 101 / 255.0, _c1b = 125 / 255.0;
   double _c2r = 123 / 255.0, _c2g = 135 / 255.0, _c2b = 148 / 255.0;
   double _c3r = 171 / 255.0, _c3g = 190 / 255.0, _c3b = 212 / 255.0;
-  double _c4r = 18 / 255.0,  _c4g = 24 / 255.0,  _c4b = 33 / 255.0;
+  double _c4r = 18 / 255.0, _c4g = 24 / 255.0, _c4b = 33 / 255.0;
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
 
@@ -112,25 +116,55 @@ class _ShaderPainter extends CustomPainter {
   /// as the new baseline so rapid skips never cause a colour snap.
   void setColors(List<Color> colors) {
     // Snapshot current interpolated position → new "old" baseline.
-    _old0r = _c0r; _old0g = _c0g; _old0b = _c0b;
-    _old1r = _c1r; _old1g = _c1g; _old1b = _c1b;
-    _old2r = _c2r; _old2g = _c2g; _old2b = _c2b;
-    _old3r = _c3r; _old3g = _c3g; _old3b = _c3b;
-    _old4r = _c4r; _old4g = _c4g; _old4b = _c4b;
+    _old0r = _c0r;
+    _old0g = _c0g;
+    _old0b = _c0b;
+    _old1r = _c1r;
+    _old1g = _c1g;
+    _old1b = _c1b;
+    _old2r = _c2r;
+    _old2g = _c2g;
+    _old2b = _c2b;
+    _old3r = _c3r;
+    _old3g = _c3g;
+    _old3b = _c3b;
+    _old4r = _c4r;
+    _old4g = _c4g;
+    _old4b = _c4b;
 
     // Set new target colours — NativePaletteService._padToFive() guarantees
     // exactly 5 entries; guard all indices defensively with semantically correct
     // fallback tones (not colors[0]) in case the contract is ever violated.
-    final c0 = colors.isNotEmpty ? colors[0] : const Color(0xFF2B313A); // primary
-    final c1 = colors.length > 1 ? colors[1] : const Color(0xFF4E657D); // secondary
-    final c2 = colors.length > 2 ? colors[2] : const Color(0xFF7B8794); // accent
-    final c3 = colors.length > 3 ? colors[3] : const Color(0xFFABBED4); // highlight
-    final c4 = colors.length > 4 ? colors[4] : const Color(0xFF121821); // shadow
-    _cur0r = c0.r; _cur0g = c0.g; _cur0b = c0.b;
-    _cur1r = c1.r; _cur1g = c1.g; _cur1b = c1.b;
-    _cur2r = c2.r; _cur2g = c2.g; _cur2b = c2.b;
-    _cur3r = c3.r; _cur3g = c3.g; _cur3b = c3.b;
-    _cur4r = c4.r; _cur4g = c4.g; _cur4b = c4.b;
+    final c0 = colors.isNotEmpty
+        ? colors[0]
+        : const Color(0xFF2B313A); // primary
+    final c1 = colors.length > 1
+        ? colors[1]
+        : const Color(0xFF4E657D); // secondary
+    final c2 = colors.length > 2
+        ? colors[2]
+        : const Color(0xFF7B8794); // accent
+    final c3 = colors.length > 3
+        ? colors[3]
+        : const Color(0xFFABBED4); // highlight
+    final c4 = colors.length > 4
+        ? colors[4]
+        : const Color(0xFF121821); // shadow
+    _cur0r = c0.r;
+    _cur0g = c0.g;
+    _cur0b = c0.b;
+    _cur1r = c1.r;
+    _cur1g = c1.g;
+    _cur1b = c1.b;
+    _cur2r = c2.r;
+    _cur2g = c2.g;
+    _cur2b = c2.b;
+    _cur3r = c3.r;
+    _cur3g = c3.g;
+    _cur3b = c3.b;
+    _cur4r = c4.r;
+    _cur4g = c4.g;
+    _cur4b = c4.b;
 
     // Restart the crossfade from 0 and pre-compute the starting position
     // (blend=0 means the pre-computed values equal the old baseline).
@@ -149,20 +183,20 @@ class _ShaderPainter extends CustomPainter {
       ..setFloat(0, size.width)
       ..setFloat(1, size.height)
       ..setFloat(2, _time)
-      ..setFloat(3, _c0r)   // uColor0.r    primary
-      ..setFloat(4, _c0g)   // uColor0.g
-      ..setFloat(5, _c0b)   // uColor0.b
-      ..setFloat(6, _c1r)   // uColor1.r    secondary
-      ..setFloat(7, _c1g)   // uColor1.g
-      ..setFloat(8, _c1b)   // uColor1.b
-      ..setFloat(9, _c2r)   // uColor2.r    accent
-      ..setFloat(10, _c2g)  // uColor2.g
-      ..setFloat(11, _c2b)  // uColor2.b
-      ..setFloat(12, _c3r)  // uHighlight.r highlight
-      ..setFloat(13, _c3g)  // uHighlight.g
-      ..setFloat(14, _c3b)  // uHighlight.b
-      ..setFloat(15, _c4r)  // uShadow.r    shadow
-      ..setFloat(16, _c4g)  // uShadow.g
+      ..setFloat(3, _c0r) // uColor0.r    primary
+      ..setFloat(4, _c0g) // uColor0.g
+      ..setFloat(5, _c0b) // uColor0.b
+      ..setFloat(6, _c1r) // uColor1.r    secondary
+      ..setFloat(7, _c1g) // uColor1.g
+      ..setFloat(8, _c1b) // uColor1.b
+      ..setFloat(9, _c2r) // uColor2.r    accent
+      ..setFloat(10, _c2g) // uColor2.g
+      ..setFloat(11, _c2b) // uColor2.b
+      ..setFloat(12, _c3r) // uHighlight.r highlight
+      ..setFloat(13, _c3g) // uHighlight.g
+      ..setFloat(14, _c3b) // uHighlight.b
+      ..setFloat(15, _c4r) // uShadow.r    shadow
+      ..setFloat(16, _c4g) // uShadow.g
       ..setFloat(17, _c4b); // uShadow.b
 
     _paint.shader = shader;

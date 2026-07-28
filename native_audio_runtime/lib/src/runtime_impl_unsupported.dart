@@ -49,9 +49,9 @@ class NativeAAudioProbe {
   static final NativeAAudioProbe instance = NativeAAudioProbe._();
 
   AAudioProbeReport run() => const AAudioProbeReport(
-        result: AAudioProbeResult.unsupportedPlatform,
-        sharingMode: AAudioSharingMode.unknown,
-        performanceMode: AAudioPerformanceMode.unknown,
-        detail: 'AAudio hanya tersedia di Android',
-      );
+    result: AAudioProbeResult.unsupportedPlatform,
+    sharingMode: AAudioSharingMode.unknown,
+    performanceMode: AAudioPerformanceMode.unknown,
+    detail: 'AAudio hanya tersedia di Android',
+  );
 }

@@ -60,8 +60,8 @@ class LrcParser {
     final quality = inlineMatches > lineCount
         ? LyricsQuality.wordTimedLrc
         : inlineMatches > 0
-            ? LyricsQuality.charTimedLrc
-            : LyricsQuality.lineTimedLrc;
+        ? LyricsQuality.charTimedLrc
+        : LyricsQuality.lineTimedLrc;
 
     final lines = parseLrc(raw);
     if (lines.isEmpty) return const ParsedLyrics([], LyricsQuality.none);
@@ -136,8 +136,7 @@ class LrcParser {
       if (timestamps.isEmpty) continue;
 
       // Teks = sesudah timestamp terakhir, strip inline word-timing
-      final rawText =
-          line.substring(cursor).replaceAll(_inlineRe, '').trim();
+      final rawText = line.substring(cursor).replaceAll(_inlineRe, '').trim();
       if (rawText.isEmpty) continue;
 
       for (final ts in timestamps) {
@@ -170,8 +169,11 @@ class LrcParser {
     if (!hasTs) return LyricsQuality.unsyncedLyrics;
 
     final inlineCount = _enhancedRe.allMatches(raw).length;
-    final lineCount =
-        raw.split('\n').where((l) => l.trim().isNotEmpty).length.clamp(1, 9999);
+    final lineCount = raw
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .length
+        .clamp(1, 9999);
     if (inlineCount > lineCount) return LyricsQuality.wordTimedLrc;
     if (inlineCount > 0) return LyricsQuality.charTimedLrc;
     return LyricsQuality.lineTimedLrc;

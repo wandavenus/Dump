@@ -24,11 +24,13 @@ class _LibraryPageState extends State<LibraryPage> {
 
   void _onScrollToTop() {
     if (_scroll.hasClients) {
-      unawaited(_scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      ));
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        ),
+      );
     }
   }
 
@@ -51,10 +53,7 @@ class _LibraryPageState extends State<LibraryPage> {
         actions: const [CommonActions()],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(0.5),
-          child: Divider(
-            height: 0.9,
-            color: Colors.transparent,
-          ),
+          child: Divider(height: 0.9, color: Colors.transparent),
         ),
       ),
       body: PrimaryScrollController(

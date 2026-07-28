@@ -92,7 +92,9 @@ class NativeAudioRuntime {
     final count = bindings.native_runtime_module_count();
     return List.generate(count, (i) {
       final ptr = bindings.native_runtime_module_id_at(i);
-      return ptr == ffi.nullptr ? 'unknown' : ptr.cast<pkg_ffi.Utf8>().toDartString();
+      return ptr == ffi.nullptr
+          ? 'unknown'
+          : ptr.cast<pkg_ffi.Utf8>().toDartString();
     });
   }
 }
@@ -133,8 +135,9 @@ class NativeAAudioProbe {
     };
 
     final errPtr = bindings.native_runtime_aaudio_last_error();
-    final detail =
-        errPtr == ffi.nullptr ? '' : errPtr.cast<pkg_ffi.Utf8>().toDartString();
+    final detail = errPtr == ffi.nullptr
+        ? ''
+        : errPtr.cast<pkg_ffi.Utf8>().toDartString();
 
     return AAudioProbeReport(
       result: result,

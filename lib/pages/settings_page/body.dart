@@ -27,10 +27,7 @@ class _SettingsBody extends StatelessWidget {
             const SizedBox(height: 32),
             const _SystemSection(),
             const SizedBox(height: 32),
-            if (debug) ...[
-              const _DebugSection(),
-              const SizedBox(height: 32),
-            ],
+            if (debug) ...[const _DebugSection(), const SizedBox(height: 32)],
             const _AboutSection(),
             const SizedBox(height: 48),
           ],

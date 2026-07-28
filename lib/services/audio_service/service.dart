@@ -35,23 +35,24 @@ class AudioService {
   // Kept as a Dart list purely for LocalSong object access (song.duration,
   // ReplayGain data, etc.).  The AUTHORITATIVE queue lives in native.
   static List<LocalSong> _playlist = [];
-  static int             _currentIndex = 0;
+  static int _currentIndex = 0;
 
   /// Last song played — for LoudnessSourceResolver album-gain auto-mode.
   static LocalSong? _previousSong;
 
   // ── Misc ─────────────────────────────────────────────────────────────[...]
   static bool _initialized = false;
-  static bool _isLoading   = false;
+  static bool _isLoading = false;
   static final List<StreamSubscription<dynamic>> _staticSubs = [];
 
   // ── Convenience getters ───────────────────────────────────────────────────
-  static LocalSong? get currentSong     => playbackState.value.currentSong;
-  static bool       get isPlaying       => playbackState.value.isPlaying;
-  static int        get currentIndex    => playbackState.value.currentIndex;
-  static List<LocalSong> get currentPlaylist => playbackState.value.currentPlaylist;
-  static LoopMode   get loopMode        => playbackState.value.loopMode;
-  static bool       get shuffleEnabled  => playbackState.value.shuffleEnabled;
+  static LocalSong? get currentSong => playbackState.value.currentSong;
+  static bool get isPlaying => playbackState.value.isPlaying;
+  static int get currentIndex => playbackState.value.currentIndex;
+  static List<LocalSong> get currentPlaylist =>
+      playbackState.value.currentPlaylist;
+  static LoopMode get loopMode => playbackState.value.loopMode;
+  static bool get shuffleEnabled => playbackState.value.shuffleEnabled;
 
   /// Next queue index — shuffle-correct when native value is available.
   ///
@@ -68,10 +69,10 @@ class AudioService {
     if (nativeNext != null) return nativeNext;
     // Fallback: linear calculation (used before first native currentTrack event).
     final state = playbackState.value;
-    final sz    = state.currentPlaylist.length;
+    final sz = state.currentPlaylist.length;
     if (sz == 0) return -1;
     if (state.loopMode == LoopMode.one) return state.currentIndex;
-    if (state.currentIndex < sz - 1)    return state.currentIndex + 1;
+    if (state.currentIndex < sz - 1) return state.currentIndex + 1;
     if (state.loopMode == LoopMode.all) return 0;
     return -1;
   }
@@ -81,7 +82,9 @@ class AudioService {
   static void initialize() {
     BootTrace.log('ENTER AudioService.initialize()');
     if (_initialized) {
-      BootTrace.log('EXIT  AudioService.initialize() — already initialized, no-op');
+      BootTrace.log(
+        'EXIT  AudioService.initialize() — already initialized, no-op',
+      );
       return;
     }
     _initialized = true;
@@ -90,11 +93,13 @@ class AudioService {
     _staticSubs.add(
       PlaybackManager.playbackStateStream.listen((event) {
         final isPlaying = event['playing'] == true;
-        final ps        = _parseProcessingState(event['processingState']);
-        _setState(playbackState.value.copyWith(
-          isPlaying:       isPlaying,
-          processingState: ps,
-        ));
+        final ps = _parseProcessingState(event['processingState']);
+        _setState(
+          playbackState.value.copyWith(
+            isPlaying: isPlaying,
+            processingState: ps,
+          ),
+        );
         if (ps == ProcessingState.completed && !_isLoading) {
           LogService.verbose('AudioService', 'Track completed (queue ended)');
           _onTrackCompleted();
@@ -122,15 +127,16 @@ class AudioService {
     );
 
     // ── Full queue (pushed after every mutation) ──────────────────────────
-    _staticSubs.add(
-      PlaybackManager.queueStream.listen(_onNativeQueueChanged),
-    );
+    _staticSubs.add(PlaybackManager.queueStream.listen(_onNativeQueueChanged));
 
     // ── Shuffle mode ──────────────────────────────────────────────────────
     _staticSubs.add(
       PlaybackManager.shuffleModeStream.listen((enabled) {
         _setState(playbackState.value.copyWith(shuffleEnabled: enabled));
-        LogService.verbose('AudioService', 'Shuffle → ${enabled ? "on" : "off"}');
+        LogService.verbose(
+          'AudioService',
+          'Shuffle → ${enabled ? "on" : "off"}',
+        );
       }),
     );
 
@@ -146,12 +152,14 @@ class AudioService {
     // ── Sleep timer ────────────────────────────────────────────────────────
     _staticSubs.add(
       PlaybackManager.sleepTimerStream.listen((map) {
-        final active      = map['active']      as bool? ?? false;
+        final active = map['active'] as bool? ?? false;
         final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
-        _setState(playbackState.value.copyWith(
-          sleepTimerActive:      active,
-          sleepTimerRemainingMs: remainingMs,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            sleepTimerActive: active,
+            sleepTimerRemainingMs: remainingMs,
+          ),
+        );
       }),
     );
 
@@ -183,8 +191,12 @@ class AudioService {
 
     AudioEffectsService.playbackSpeed.addListener(_onSpeedChange);
     AudioEffectsService.replayGainMode.addListener(_onReplayGainSettingChanged);
-    AudioEffectsService.replayGainPreamp.addListener(_onReplayGainSettingChanged);
-    AudioEffectsService.clippingProtection.addListener(_onReplayGainSettingChanged);
+    AudioEffectsService.replayGainPreamp.addListener(
+      _onReplayGainSettingChanged,
+    );
+    AudioEffectsService.clippingProtection.addListener(
+      _onReplayGainSettingChanged,
+    );
 
     // Loudness Normalization (Phase 8.5) — sync initial state to native layer.
     //
@@ -197,18 +209,24 @@ class AudioService {
     if (PlaybackManager.nativeLoudnessNormAvailable) {
       try {
         PlaybackManager.setNativeLoudnessNormBypass(
-            !AudioEffectsService.loudnessNormEnabled.value);
+          !AudioEffectsService.loudnessNormEnabled.value,
+        );
         PlaybackManager.setNativeLoudnessNormTargetLufs(
-            AudioEffectsService.loudnessNormTarget.value);
+          AudioEffectsService.loudnessNormTarget.value,
+        );
       } on Exception catch (e, st) {
-        LogService.error('AudioService',
-            'Loudness Normalization sync failed despite native runtime reporting available: $e',
-            stackTrace: st.toString());
+        LogService.error(
+          'AudioService',
+          'Loudness Normalization sync failed despite native runtime reporting available: $e',
+          stackTrace: st.toString(),
+        );
       }
     } else {
-      LogService.log('AudioService',
-          'Loudness Normalization skipped — native DSP runtime unavailable '
-          '(loudnessNormEnabled will have no effect until the native runtime loads)');
+      LogService.log(
+        'AudioService',
+        'Loudness Normalization skipped — native DSP runtime unavailable '
+            '(loudnessNormEnabled will have no effect until the native runtime loads)',
+      );
     }
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
@@ -219,9 +237,14 @@ class AudioService {
     final song = currentSong;
     if (song != null) {
       // LOW-06 fix: errors from the async resolve are logged instead of silently dropped.
-      unawaited(_ReplayGainApplicator.apply(song).catchError((Object e) {
-        LogService.warn('AudioService', '_ReplayGainApplicator.apply (setting change) error: $e');
-      }));
+      unawaited(
+        _ReplayGainApplicator.apply(song).catchError((Object e) {
+          LogService.warn(
+            'AudioService',
+            '_ReplayGainApplicator.apply (setting change) error: $e',
+          );
+        }),
+      );
     }
   }
 
@@ -254,7 +277,9 @@ class AudioService {
 
       // Tell the native artwork cache which songs are in the active queue so
       // those WebP files are never evicted by LRU cleanup.
-      unawaited(ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList()));
+      unawaited(
+        ArtworkRepository.setActiveQueueIds(songs.map((s) => s.id).toList()),
+      );
     } on Exception catch (e) {
       LogService.warn('AudioService', 'onNativeQueueChanged parse error: $e');
     }
@@ -265,7 +290,7 @@ class AudioService {
     if (_playlist.isEmpty || trackMap == null) return;
 
     final nativeIndex = trackMap['index'] as int? ?? -1;
-    final nativeId    = trackMap['id'];
+    final nativeId = trackMap['id'];
 
     final int resolved = (nativeIndex >= 0 && nativeIndex < _playlist.length)
         ? nativeIndex
@@ -306,27 +331,34 @@ class AudioService {
     if (resolved == _currentIndex &&
         playbackState.value.currentSong?.id == _playlist[resolved].id) {
       if (nativeNext != playbackState.value.nextTrackIndex) {
-        _setState(playbackState.value.copyWith(
-          nextTrackIndex:      nativeNext,
-          clearNextTrackIndex: nativeNext == null,
-        ));
+        _setState(
+          playbackState.value.copyWith(
+            nextTrackIndex: nativeNext,
+            clearNextTrackIndex: nativeNext == null,
+          ),
+        );
       }
       return;
     }
 
-    unawaited(_syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext));
+    unawaited(
+      _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext),
+    );
   }
 
-  static Future<void> _syncCurrentTrackFromNative(int index, {int? nativeNextIndex}) async {
-    final song      = _playlist[index];
+  static Future<void> _syncCurrentTrackFromNative(
+    int index, {
+    int? nativeNextIndex,
+  }) async {
+    final song = _playlist[index];
     final prevIndex = _currentIndex;
-    _currentIndex   = index;
+    _currentIndex = index;
     // ARCH-01 fix: capture _previousSong BEFORE overwriting it. The static field
     // was previously written before _applyReplayGain ran, so album-gain auto-mode
     // always compared the current song to itself (wrong). prevSong now carries the
     // correct predecessor into the async resolve call.
-    final prevSong  = _previousSong;
-    _previousSong   = song;
+    final prevSong = _previousSong;
+    _previousSong = song;
 
     // ARTWORK-FIX: Pre-warm ImageCache for mini player artwork BEFORE setState.
     // Without this, the native EventChannel path (_syncCurrentTrackFromNative)
@@ -338,10 +370,9 @@ class AudioService {
     if (!kIsWeb) {
       final miniPx = ArtworkRepository.instance.resolveTargetPx(46.3);
       try {
-        await ArtworkRepository.instance.prewarmImageCache(
-          [song.id],
-          targetSizePx: miniPx,
-        ).timeout(const Duration(milliseconds: 500), onTimeout: () {});
+        await ArtworkRepository.instance
+            .prewarmImageCache([song.id], targetSizePx: miniPx)
+            .timeout(const Duration(milliseconds: 500), onTimeout: () {});
       } on Exception catch (e) {
         LogService.verbose(
           'AudioService',
@@ -350,19 +381,21 @@ class AudioService {
       }
     }
 
-    _setState(playbackState.value.copyWith(
-      currentSong:         song,
-      currentIndex:        index,
-      currentPlaylist:     _playlist,
-      duration:            song.duration,
-      nextTrackIndex:      nativeNextIndex,
-      clearNextTrackIndex: nativeNextIndex == null,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: song,
+        currentIndex: index,
+        currentPlaylist: _playlist,
+        duration: song.duration,
+        nextTrackIndex: nativeNextIndex,
+        clearNextTrackIndex: nativeNextIndex == null,
+      ),
+    );
 
     LogService.log(
       'AudioService',
       'Native → [${index + 1}/${_playlist.length}]: '
-      '"${song.title}" — ${song.artist}',
+          '"${song.title}" — ${song.artist}',
     );
 
     if (index != prevIndex) unawaited(HistoryService.trackPlay(song));
@@ -384,9 +417,16 @@ class AudioService {
     }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
-    unawaited(_ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((Object e) {
-      LogService.warn('AudioService', '_ReplayGainApplicator.apply error: $e');
-    }));
+    unawaited(
+      _ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((
+        Object e,
+      ) {
+        LogService.warn(
+          'AudioService',
+          '_ReplayGainApplicator.apply error: $e',
+        );
+      }),
+    );
   }
 
   // ── Playback ──────────────────────────────────────────────────────────[...]
@@ -399,7 +439,10 @@ class AudioService {
     initialize();
 
     if (_isLoading) {
-      LogService.verbose('AudioService', 'playSongAt ignored — already loading');
+      LogService.verbose(
+        'AudioService',
+        'playSongAt ignored — already loading',
+      );
       return;
     }
     if (playlist.isEmpty || index < 0 || index >= playlist.length) {
@@ -411,17 +454,19 @@ class AudioService {
     }
 
     _isLoading = true;
-    final immutable     = List<LocalSong>.unmodifiable(playlist);
-    final selectedSong  = immutable[index];
-    _playlist           = immutable;
-    _currentIndex       = index;
+    final immutable = List<LocalSong>.unmodifiable(playlist);
+    final selectedSong = immutable[index];
+    _playlist = immutable;
+    _currentIndex = index;
 
-    _setState(playbackState.value.copyWith(
-      currentSong:     selectedSong,
-      currentIndex:    index,
-      currentPlaylist: immutable,
-      isLoading:       true,
-    ));
+    _setState(
+      playbackState.value.copyWith(
+        currentSong: selectedSong,
+        currentIndex: index,
+        currentPlaylist: immutable,
+        isLoading: true,
+      ),
+    );
 
     try {
       // Yield I/O bandwidth to the audio decode pipeline by stopping the
@@ -436,14 +481,18 @@ class AudioService {
       LogService.log(
         'AudioService',
         'Now playing [${index + 1}/${immutable.length}]: '
-        '"${selectedSong.title}" — ${selectedSong.artist}',
+            '"${selectedSong.title}" — ${selectedSong.artist}',
       );
       unawaited(HistoryService.trackPlay(selectedSong));
     } on Object catch (e, st) {
-      LogService.error('AudioService', 'playSongAt failed: $e', stackTrace: st.toString());
+      LogService.error(
+        'AudioService',
+        'playSongAt failed: $e',
+        stackTrace: st.toString(),
+      );
     } finally {
       _previousSong = selectedSong;
-      _isLoading    = false;
+      _isLoading = false;
       _setState(playbackState.value.copyWith(isLoading: false));
     }
   }
@@ -497,17 +546,19 @@ class AudioService {
   static Future<void> playFromCurrentQueue(int index) async {
     if (index < 0 || index >= _playlist.length) return;
     _currentIndex = index;
-    final song    = _playlist[index];
-    _setState(playbackState.value.copyWith(
-      currentSong:  song,
-      currentIndex: index,
-    ));
+    final song = _playlist[index];
+    _setState(
+      playbackState.value.copyWith(currentSong: song, currentIndex: index),
+    );
     await PlaybackManager.setTrack(index);
     await PlaybackManager.play();
     _previousSong = song;
     unawaited(HistoryService.trackPlay(song));
     unawaited(_ReplayGainApplicator.apply(song));
-    LogService.log('AudioService', 'Queue jump → [${index + 1}]: "${song.title}"');
+    LogService.log(
+      'AudioService',
+      'Queue jump → [${index + 1}]: "${song.title}"',
+    );
   }
 
   // ── Loop / Shuffle (native-delegated) ─────────────────────────────────────
@@ -515,7 +566,7 @@ class AudioService {
   static Future<void> cycleLoopMode() async {
     initialize();
     final current = playbackState.value.loopMode;
-    final next    = switch (current) {
+    final next = switch (current) {
       LoopMode.off => LoopMode.all,
       LoopMode.all => LoopMode.one,
       LoopMode.one => LoopMode.off,
@@ -529,7 +580,7 @@ class AudioService {
   static Future<void> toggleShuffle() async {
     initialize();
     final current = playbackState.value.shuffleEnabled;
-    final next    = !current;
+    final next = !current;
     // Optimistic UI update — native confirms via shuffleModeStream.
     _setState(playbackState.value.copyWith(shuffleEnabled: next));
     await PlaybackManager.setShuffleMode(next);
@@ -542,9 +593,9 @@ class AudioService {
   static void addToQueueNext(LocalSong song) {
     // Optimistic update for immediate UI feedback.
     if (_playlist.isNotEmpty) {
-      final pos     = (_currentIndex + 1).clamp(0, _playlist.length);
+      final pos = (_currentIndex + 1).clamp(0, _playlist.length);
       final mutable = List<LocalSong>.from(_playlist)..insert(pos, song);
-      _playlist     = List<LocalSong>.unmodifiable(mutable);
+      _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
     unawaited(PlaybackManager.insertNext(song));
@@ -555,11 +606,14 @@ class AudioService {
   static void addToQueue(LocalSong song) {
     if (_playlist.isNotEmpty) {
       final mutable = List<LocalSong>.from(_playlist)..add(song);
-      _playlist     = List<LocalSong>.unmodifiable(mutable);
+      _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
     unawaited(PlaybackManager.appendToQueue(song));
-    LogService.log('AudioService', 'Queued at end: "${song.title}" (${_playlist.length})');
+    LogService.log(
+      'AudioService',
+      'Queued at end: "${song.title}" (${_playlist.length})',
+    );
   }
 
   /// Reorder the queue. Follows Flutter's ReorderableListView convention:
@@ -569,11 +623,13 @@ class AudioService {
     if (oldIndex < 0 || oldIndex >= _playlist.length) return;
 
     // Adjust for Flutter's off-by-one in ReorderableListView.onReorder.
-    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex)
-        .clamp(0, _playlist.length - 1);
+    final adjustedNew = (newIndex > oldIndex ? newIndex - 1 : newIndex).clamp(
+      0,
+      _playlist.length - 1,
+    );
 
     final mutable = List<LocalSong>.from(_playlist);
-    final item    = mutable.removeAt(oldIndex);
+    final item = mutable.removeAt(oldIndex);
     mutable.insert(adjustedNew, item);
 
     int newCurrent = _currentIndex;
@@ -586,14 +642,19 @@ class AudioService {
     }
 
     _currentIndex = newCurrent;
-    _playlist     = List<LocalSong>.unmodifiable(mutable);
-    _setState(playbackState.value.copyWith(
-      currentPlaylist: _playlist,
-      currentIndex:    _currentIndex,
-    ));
+    _playlist = List<LocalSong>.unmodifiable(mutable);
+    _setState(
+      playbackState.value.copyWith(
+        currentPlaylist: _playlist,
+        currentIndex: _currentIndex,
+      ),
+    );
 
     unawaited(PlaybackManager.reorderQueue(oldIndex, adjustedNew));
-    LogService.log('AudioService', 'Queue reordered: [$oldIndex] → [$adjustedNew]');
+    LogService.log(
+      'AudioService',
+      'Queue reordered: [$oldIndex] → [$adjustedNew]',
+    );
   }
 
   // ── Track-completed handler ────────────────────────────────────────────────
@@ -616,11 +677,11 @@ class AudioService {
 
   /// Re-sync Dart state dari engine yang sedang aktif.
   /// Call after initialize() dan pada setiap AppLifecycleState.resumed.
-  /// 
+  ///
   /// STARTUP FIX: All async operations wrapped with timeouts to prevent
   /// indefinite hang if native layer is not responding.
   /// - getPlaybackSnapshot: 5s timeout
-  /// - artwork prewarm: 2s timeout  
+  /// - artwork prewarm: 2s timeout
   /// - replay gain apply: 2s timeout
   /// Timeouts are non-fatal; execution continues and logs the event.
   static Future<void> syncFromNative() async {
@@ -628,18 +689,17 @@ class AudioService {
 
     try {
       // ── STARTUP FIX: Wrap getPlaybackSnapshot with 5s timeout ──────────────
-      final snapshot = await PlaybackManager.getPlaybackSnapshot()
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              LogService.warn(
-                'AudioService',
-                'syncFromNative: getPlaybackSnapshot() timeout (5s) — native layer may be slow or unresponsive',
-              );
-              return null;
-            },
+      final snapshot = await PlaybackManager.getPlaybackSnapshot().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          LogService.warn(
+            'AudioService',
+            'syncFromNative: getPlaybackSnapshot() timeout (5s) — native layer may be slow or unresponsive',
           );
-      
+          return null;
+        },
+      );
+
       if (snapshot == null) return;
 
       final rawQueue = snapshot['queue'];
@@ -653,18 +713,20 @@ class AudioService {
           .toList();
       if (songs.isEmpty) return;
 
-      final index   = ((snapshot['currentIndex'] as num?)?.toInt() ?? 0)
-          .clamp(0, songs.length - 1);
-      final isPlaying  = snapshot['isPlaying']       as bool?   ?? false;
-      final stateStr   = snapshot['processingState'] as String? ?? 'idle';
-      final positionMs = (snapshot['positionMs']     as num?)?.toInt() ?? 0;
-      final durationMs = (snapshot['durationMs']     as num?)?.toInt() ?? 0;
-      final shuffleOn  = snapshot['shuffleEnabled']  as bool?   ?? false;
-      final repeatStr  = snapshot['repeatMode']      as String? ?? 'off';
+      final index = ((snapshot['currentIndex'] as num?)?.toInt() ?? 0).clamp(
+        0,
+        songs.length - 1,
+      );
+      final isPlaying = snapshot['isPlaying'] as bool? ?? false;
+      final stateStr = snapshot['processingState'] as String? ?? 'idle';
+      final positionMs = (snapshot['positionMs'] as num?)?.toInt() ?? 0;
+      final durationMs = (snapshot['durationMs'] as num?)?.toInt() ?? 0;
+      final shuffleOn = snapshot['shuffleEnabled'] as bool? ?? false;
+      final repeatStr = snapshot['repeatMode'] as String? ?? 'off';
       final timerActive = snapshot['sleepTimerActive'] as bool? ?? false;
-      final timerMs    = (snapshot['sleepTimerRemainingMs'] as num?)?.toInt() ?? 0;
+      final timerMs = (snapshot['sleepTimerRemainingMs'] as num?)?.toInt() ?? 0;
 
-      _playlist     = List<LocalSong>.unmodifiable(songs);
+      _playlist = List<LocalSong>.unmodifiable(songs);
       _currentIndex = index;
       final song = songs[index];
 
@@ -672,43 +734,47 @@ class AudioService {
 
       // ── STARTUP FIX: Wrap artwork prewarm with 2s timeout ───────────────
       try {
-        await ArtworkRepository.instance.prewarmImageCache(
-          [song.id],
-          targetSizePx: miniPx,
-        ).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () {
-            LogService.verbose(
-              'AudioService',
-              'syncFromNative: artwork prewarm timeout (2s) — skipping',
+        await ArtworkRepository.instance
+            .prewarmImageCache([song.id], targetSizePx: miniPx)
+            .timeout(
+              const Duration(seconds: 2),
+              onTimeout: () {
+                LogService.verbose(
+                  'AudioService',
+                  'syncFromNative: artwork prewarm timeout (2s) — skipping',
+                );
+                return;
+              },
             );
-            return;
-          },
-        );
       } on Exception catch (e) {
-        LogService.verbose('AudioService', 'syncFromNative: artwork prewarm error: $e');
+        LogService.verbose(
+          'AudioService',
+          'syncFromNative: artwork prewarm error: $e',
+        );
       }
 
-      _setState(playbackState.value.copyWith(
-        currentSong:           song,
-        currentIndex:          index,
-        currentPlaylist:       _playlist,
-        isPlaying:             isPlaying,
-        processingState:       _parseProcessingState(stateStr),
-        duration: durationMs > 0
-            ? Duration(milliseconds: durationMs)
-            : song.duration,
-        position:              Duration(milliseconds: positionMs),
-        shuffleEnabled:        shuffleOn,
-        loopMode:              _loopModeFromString(repeatStr),
-        sleepTimerActive:      timerActive,
-        sleepTimerRemainingMs: timerMs,
-      ));
+      _setState(
+        playbackState.value.copyWith(
+          currentSong: song,
+          currentIndex: index,
+          currentPlaylist: _playlist,
+          isPlaying: isPlaying,
+          processingState: _parseProcessingState(stateStr),
+          duration: durationMs > 0
+              ? Duration(milliseconds: durationMs)
+              : song.duration,
+          position: Duration(milliseconds: positionMs),
+          shuffleEnabled: shuffleOn,
+          loopMode: _loopModeFromString(repeatStr),
+          sleepTimerActive: timerActive,
+          sleepTimerRemainingMs: timerMs,
+        ),
+      );
 
       LogService.log(
         'AudioService',
         'syncFromNative: ${songs.length} tracks, idx=$index, '
-        'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
+            'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
       );
 
       // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
@@ -724,7 +790,10 @@ class AudioService {
           },
         );
       } on Exception catch (e) {
-        LogService.verbose('AudioService', 'syncFromNative: replay gain apply error: $e');
+        LogService.verbose(
+          'AudioService',
+          'syncFromNative: replay gain apply error: $e',
+        );
       }
     } on Object catch (e, st) {
       LogService.warn('AudioService', 'syncFromNative error: $e\n$st');
@@ -740,15 +809,15 @@ class AudioService {
 
   static ProcessingState _parseProcessingState(dynamic raw) => switch (raw) {
     'buffering' => ProcessingState.buffering,
-    'ready'     => ProcessingState.ready,
+    'ready' => ProcessingState.ready,
     'completed' => ProcessingState.completed,
-    _           => ProcessingState.idle,
+    _ => ProcessingState.idle,
   };
 
   static LoopMode _loopModeFromString(String mode) => switch (mode) {
     'one' => LoopMode.one,
     'all' => LoopMode.all,
-    _     => LoopMode.off,
+    _ => LoopMode.off,
   };
 
   static String _fmtDur(Duration d) {

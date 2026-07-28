@@ -50,7 +50,10 @@ class KugouProvider implements LyricsProvider {
         _searchUrl.replaceFirst('{q}', Uri.encodeComponent(q)),
       );
       final searchResp = await ProviderHttp.get(
-        searchUri, name, cancelToken, headers: _headers,
+        searchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -58,8 +61,9 @@ class KugouProvider implements LyricsProvider {
       final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
       final searchSection = ProviderHttp.asJsonMap(searchData?['data']);
       final rawSongs = searchSection?['info'];
-      final songs =
-          rawSongs is List ? rawSongs.cast<Object?>() : const <Object?>[];
+      final songs = rawSongs is List
+          ? rawSongs.cast<Object?>()
+          : const <Object?>[];
       if (songs.isEmpty) return null;
       final song = ProviderHttp.asJsonMap(songs.first);
       if (song == null) return null;
@@ -75,13 +79,18 @@ class KugouProvider implements LyricsProvider {
             .replaceFirst('{hash}', hash),
       );
       final lyricSearchResp = await ProviderHttp.get(
-        lyricSearchUri, name, cancelToken, headers: _headers,
+        lyricSearchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
-      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200) return null;
+      if (lyricSearchResp == null || lyricSearchResp.statusCode != 200)
+        return null;
       cancelToken.throwIfCancelled();
 
-      final lyricSearchData =
-          ProviderHttp.asJsonMap(jsonDecode(lyricSearchResp.body));
+      final lyricSearchData = ProviderHttp.asJsonMap(
+        jsonDecode(lyricSearchResp.body),
+      );
       final rawCandidates = lyricSearchData?['candidates'];
       final candidates = rawCandidates is List
           ? rawCandidates.cast<Object?>()
@@ -89,7 +98,7 @@ class KugouProvider implements LyricsProvider {
       if (candidates.isEmpty) return null;
       final candidate = ProviderHttp.asJsonMap(candidates.first);
       if (candidate == null) return null;
-      final lyricId   = '${candidate['id'] ?? ''}';
+      final lyricId = '${candidate['id'] ?? ''}';
       final accessKey = '${candidate['accesskey'] ?? ''}';
       if (lyricId.isEmpty || accessKey.isEmpty) return null;
 
@@ -100,7 +109,10 @@ class KugouProvider implements LyricsProvider {
             .replaceFirst('{key}', Uri.encodeComponent(accessKey)),
       );
       final lyricGetResp = await ProviderHttp.get(
-        lyricGetUri, name, cancelToken, headers: _headers,
+        lyricGetUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (lyricGetResp == null || lyricGetResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -118,10 +130,13 @@ class KugouProvider implements LyricsProvider {
       }
 
       final quality = LrcParser.detectQuality(content);
-      final lines   = LrcParser.parseLrc(content);
+      final lines = LrcParser.parseLrc(content);
       if (lines.isEmpty) return null;
 
-      LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+      LogService.verbose(
+        name,
+        '${lines.length} lines [${quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: lines,
         quality: quality,

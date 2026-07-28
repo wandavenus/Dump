@@ -36,24 +36,28 @@ class NativeModuleRegistry {
 
   /// Initialize all registered modules in registration order.
   static Future<void> initializeAll() async {
-    BootTrace.log('ENTER NativeModuleRegistry.initializeAll() '
-        '(${_modules.length} module(s): ${_modules.map((m) => m.moduleId).join(', ')})');
+    BootTrace.log(
+      'ENTER NativeModuleRegistry.initializeAll() '
+      '(${_modules.length} module(s): ${_modules.map((m) => m.moduleId).join(', ')})',
+    );
     for (final m in _modules) {
       BootTrace.log('BEFORE await ${m.moduleId}.initialize()');
       final sw = Stopwatch()..start();
       try {
         await m.initialize();
         BootTrace.log(
-            'AFTER  await ${m.moduleId}.initialize() (${sw.elapsedMilliseconds}ms)');
+          'AFTER  await ${m.moduleId}.initialize() (${sw.elapsedMilliseconds}ms)',
+        );
         LogService.log(
           'NativeModuleRegistry',
           '${m.displayName} (${m.moduleId}) — '
-          '${m.isAvailable ? 'available' : 'unavailable (stub)'}',
+              '${m.isAvailable ? 'available' : 'unavailable (stub)'}',
         );
       } on Object catch (e, st) {
         BootTrace.log(
-            'EXCEPTION in ${m.moduleId}.initialize() after '
-            '${sw.elapsedMilliseconds}ms: $e\n$st');
+          'EXCEPTION in ${m.moduleId}.initialize() after '
+          '${sw.elapsedMilliseconds}ms: $e\n$st',
+        );
         LogService.log(
           'NativeModuleRegistry',
           '${m.displayName} init error: $e',
@@ -88,14 +92,19 @@ class NativeModuleRegistry {
   /// Aggregate capabilities from every registered module.
   ///
   /// Returns a map of `moduleId → capabilities`.
-  static Future<Map<String, List<NativeCapability>>> queryAllCapabilities() async {
+  static Future<Map<String, List<NativeCapability>>>
+  queryAllCapabilities() async {
     final result = <String, List<NativeCapability>>{};
     for (final m in _modules) {
       try {
         result[m.moduleId] = await m.queryCapabilities();
       } on Object catch (e) {
         result[m.moduleId] = [
-          NativeCapability(key: 'error', supported: false, version: e.toString()),
+          NativeCapability(
+            key: 'error',
+            supported: false,
+            version: e.toString(),
+          ),
         ];
       }
     }

@@ -24,13 +24,13 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // every scroll-induced rebuild (which would cause a waiting→data flicker).
   Future<Map<String, dynamic>>? _countsFuture;
   // Pre-sorted caches; recomputed only when songs change, not on every scroll.
-  List<ArtistInfo>       _cachedSortedArtists = [];
-  List<List<LocalSong>>  _cachedSortedAlbums  = [];
+  List<ArtistInfo> _cachedSortedArtists = [];
+  List<List<LocalSong>> _cachedSortedAlbums = [];
 
-  final _scroll            = ScrollController();
-  final _searchController  = TextEditingController();
-  final _searchFocus       = FocusNode();
-  final _offsetNotifier    = ValueNotifier<double>(0.0);
+  final _scroll = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  final _offsetNotifier = ValueNotifier<double>(0.0);
   String _filter = '';
 
   @override
@@ -51,16 +51,16 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     for (final song in songs) {
       artistMap.putIfAbsent(song.artist, () => []).add(song);
     }
-    final artists = artistMap.entries
-        .map((e) => ArtistInfo(name: e.key, songs: e.value))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final artists =
+        artistMap.entries
+            .map((e) => ArtistInfo(name: e.key, songs: e.value))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     // Albums sorted A→Z by album title.
     final albumMap = <String, List<LocalSong>>{};
     for (final song in songs) {
-      albumMap.putIfAbsent(
-          '${song.albumId}-${song.album}', () => []).add(song);
+      albumMap.putIfAbsent('${song.albumId}-${song.album}', () => []).add(song);
     }
     final albums = albumMap.values.toList()
       ..sort((a, b) => a.first.album.compareTo(b.first.album));
@@ -68,7 +68,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     if (mounted) {
       setState(() {
         _cachedSortedArtists = artists;
-        _cachedSortedAlbums  = albums;
+        _cachedSortedAlbums = albums;
       });
     }
   }
@@ -76,7 +76,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void _onRescan() {
     if (!mounted) return;
     setState(() {
-      _songsFuture  = MediaStoreService.getSongs();
+      _songsFuture = MediaStoreService.getSongs();
       _countsFuture = HistoryService.getPlayCounts();
     });
     unawaited(_songsFuture.then(_updateSortedCaches));
@@ -109,18 +109,18 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   // ── Labels ─────────────────────────────────────────────────────────────────
 
   String _title(BuildContext context) => switch (widget.destination) {
-        _LibraryDestination.playlist => context.l10n.playlists,
-        _LibraryDestination.artists  => context.l10n.artists,
-        _LibraryDestination.albums   => context.l10n.albums,
-        _LibraryDestination.songs    => context.l10n.songs,
-      };
+    _LibraryDestination.playlist => context.l10n.playlists,
+    _LibraryDestination.artists => context.l10n.artists,
+    _LibraryDestination.albums => context.l10n.albums,
+    _LibraryDestination.songs => context.l10n.songs,
+  };
 
   String _hintText(BuildContext context) => switch (widget.destination) {
-        _LibraryDestination.playlist => context.l10n.searchInPlaylists,
-        _LibraryDestination.artists  => context.l10n.searchArtists,
-        _LibraryDestination.albums   => context.l10n.searchAlbums,
-        _LibraryDestination.songs    => context.l10n.searchSongs,
-      };
+    _LibraryDestination.playlist => context.l10n.searchInPlaylists,
+    _LibraryDestination.artists => context.l10n.searchArtists,
+    _LibraryDestination.albums => context.l10n.searchAlbums,
+    _LibraryDestination.songs => context.l10n.searchSongs,
+  };
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-         title:                  title,
+        title: title,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -141,7 +141,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             size: 28,
           ),
         ),
-        actions:                const [CommonActions()],
+        actions: const [CommonActions()],
       ),
       body: FutureBuilder<List<LocalSong>>(
         future: _songsFuture,
@@ -152,48 +152,53 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           final songs = snapshot.data ?? const <LocalSong>[];
           if (songs.isEmpty) return _empty(context);
 
-          final bottomClearance =
-              MediaQuery.paddingOf(context).bottom + 64.5;
+          final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
 
           return switch (widget.destination) {
             _LibraryDestination.playlist => _FrequentSongsView(
-              songs:          songs,
-              countsFuture:   _countsFuture!,
-              scroll:         _scroll,
-               titleHeader:    _titleHeader(context),
+              songs: songs,
+              countsFuture: _countsFuture!,
+              scroll: _scroll,
+              titleHeader: _titleHeader(context),
               bottomClearance: bottomClearance,
-              onPlay:         _playAt,
-              onLongPress:    (ctx, song, playlist, idx) =>
-                  showSongContextMenu(ctx,
-                      song: song, playlist: playlist, index: idx),
+              onPlay: _playAt,
+              onLongPress: (ctx, song, playlist, idx) => showSongContextMenu(
+                ctx,
+                song: song,
+                playlist: playlist,
+                index: idx,
+              ),
             ),
             _LibraryDestination.artists => _ArtistsGridView(
-              artists:         _cachedSortedArtists,
-              filter:          _filter,
-              scroll:          _scroll,
-               titleHeader:     _titleHeader(context),
-              stickyControls:  _stickyControls(songs),
+              artists: _cachedSortedArtists,
+              filter: _filter,
+              scroll: _scroll,
+              titleHeader: _titleHeader(context),
+              stickyControls: _stickyControls(songs),
               bottomClearance: bottomClearance,
             ),
             _LibraryDestination.albums => _AlbumsListView(
-              albums:          _cachedSortedAlbums,
-              filter:          _filter,
-              scroll:          _scroll,
-               titleHeader:     _titleHeader(context),
-              stickyControls:  _stickyControls(songs),
+              albums: _cachedSortedAlbums,
+              filter: _filter,
+              scroll: _scroll,
+              titleHeader: _titleHeader(context),
+              stickyControls: _stickyControls(songs),
               bottomClearance: bottomClearance,
             ),
             _LibraryDestination.songs => _SongsListView(
-              songs:           songs,
-              filter:          _filter,
-              scroll:          _scroll,
-               titleHeader:     _titleHeader(context),
-              stickyControls:  _stickyControls(songs),
+              songs: songs,
+              filter: _filter,
+              scroll: _scroll,
+              titleHeader: _titleHeader(context),
+              stickyControls: _stickyControls(songs),
               bottomClearance: bottomClearance,
-              onPlay:          _playAt,
-              onLongPress:     (ctx, song, playlist, idx) =>
-                  showSongContextMenu(ctx,
-                      song: song, playlist: playlist, index: idx),
+              onPlay: _playAt,
+              onLongPress: (ctx, song, playlist, idx) => showSongContextMenu(
+                ctx,
+                song: song,
+                playlist: playlist,
+                index: idx,
+              ),
             ),
           };
         },
@@ -217,9 +222,9 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   Widget _titleHeader(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize:       MainAxisSize.min,
+      mainAxisSize: MainAxisSize.min,
       children: [
-         LargePageTitle(title: _title(context)),
+        LargePageTitle(title: _title(context)),
         const HeaderDivider(),
       ],
     );
@@ -253,7 +258,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color:        c.surface,
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -261,22 +266,21 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
-                controller:  _searchController,
-                focusNode:   _searchFocus,
-                autofocus:   false,
+                controller: _searchController,
+                focusNode: _searchFocus,
+                autofocus: false,
                 style: TextStyle(color: c.primaryLabel, fontSize: 15),
                 cursorColor: const Color(0xFFF92D48),
                 decoration: InputDecoration(
-                   hintText:  _hintText(context),
-                  hintStyle: TextStyle(
-                      color: c.secondaryLabel, fontSize: 15),
-                  border:         InputBorder.none,
-                  isDense:        true,
+                  hintText: _hintText(context),
+                  hintStyle: TextStyle(color: c.secondaryLabel, fontSize: 15),
+                  border: InputBorder.none,
+                  isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 textInputAction: TextInputAction.search,
-                onSubmitted:   (_) => _searchFocus.unfocus(),
-                onTapOutside:  (_) => _searchFocus.unfocus(),
+                onSubmitted: (_) => _searchFocus.unfocus(),
+                onTapOutside: (_) => _searchFocus.unfocus(),
               ),
             ),
             if (_filter.isNotEmpty)
@@ -287,8 +291,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: Icon(Icons.cancel,
-                      color: c.secondaryLabel, size: 18),
+                  child: Icon(Icons.cancel, color: c.secondaryLabel, size: 18),
                 ),
               ),
           ],

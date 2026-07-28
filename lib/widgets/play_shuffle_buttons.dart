@@ -12,7 +12,11 @@ import '../theme/app_colors.dart';
 /// Shared "Putar" / "Acak" action buttons — used consistently across
 /// Song List, Album List (Library), Album Detail, and Artist Detail.
 class PlayShuffleButtons extends StatelessWidget {
-  const PlayShuffleButtons({super.key, required this.songs, this.topPadding = 16});
+  const PlayShuffleButtons({
+    super.key,
+    required this.songs,
+    this.topPadding = 16,
+  });
 
   final List<LocalSong> songs;
 
@@ -49,7 +53,9 @@ class PlayShuffleButtons extends StatelessWidget {
                 }
                 final randomIndex = Random().nextInt(songs.length);
                 await AudioService.playSongAt(
-                    playlist: songs, index: randomIndex);
+                  playlist: songs,
+                  index: randomIndex,
+                );
               } on Exception catch (e) {
                 LogService.error('PlayShuffleButtons', 'shuffle error: $e');
               }
@@ -88,7 +94,11 @@ class _ActionButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
+              Icon(
+                icon,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,

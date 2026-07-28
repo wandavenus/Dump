@@ -15,7 +15,10 @@ class _SearchTitle extends StatelessWidget {
         child: Text(
           context.l10n.searchTitle,
           style: TextStyle(
-              fontSize: 34, fontWeight: FontWeight.bold, color: c.primaryLabel),
+            fontSize: 34,
+            fontWeight: FontWeight.bold,
+            color: c.primaryLabel,
+          ),
         ),
       ),
     );

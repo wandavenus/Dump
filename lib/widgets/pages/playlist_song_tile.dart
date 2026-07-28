@@ -50,10 +50,7 @@ class PlaylistSongTile extends StatelessWidget {
             )
           : Text(
               duration,
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
             ),
       onTap: onTap,
     );

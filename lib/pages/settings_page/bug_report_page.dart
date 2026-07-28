@@ -117,9 +117,7 @@ class BugReportPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                TextSpan(
-                  text: ' ${context.l10n.orSocialMedia}',
-                ),
+                TextSpan(text: ' ${context.l10n.orSocialMedia}'),
               ],
             ),
           ),

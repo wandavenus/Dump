@@ -8,10 +8,7 @@ part of '../song_context_menu.dart';
 class _AddToPlaylistSheet extends StatefulWidget {
   final LocalSong song;
   final NavigatorState tabNavigator;
-  const _AddToPlaylistSheet({
-    required this.song,
-    required this.tabNavigator,
-  });
+  const _AddToPlaylistSheet({required this.song, required this.tabNavigator});
 
   @override
   State<_AddToPlaylistSheet> createState() => _AddToPlaylistSheetState();
@@ -64,16 +61,19 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
               ),
               const SizedBox(height: 12),
               Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: c.separator,
-                  indent: 52),
+                height: 1,
+                thickness: 0.5,
+                color: c.separator,
+                indent: 52,
+              ),
               // Buat baru
               InkWell(
                 onTap: () => _createNew(context),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -137,8 +137,7 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       pl.name,
@@ -219,7 +218,9 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                 borderSide: BorderSide(color: dc.separator),
               ),
               focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Theme.of(dialogCtx).colorScheme.primary),
+                borderSide: BorderSide(
+                  color: Theme.of(dialogCtx).colorScheme.primary,
+                ),
               ),
             ),
             onSubmitted: (v) => Navigator.pop(dialogCtx, v.trim()),
@@ -237,7 +238,9 @@ class _AddToPlaylistSheetState extends State<_AddToPlaylistSheet> {
                   Navigator.pop(dialogCtx, nameController.text.trim()),
               child: Text(
                 context.l10n.create,
-                style: TextStyle(color: Theme.of(dialogCtx).colorScheme.primary),
+                style: TextStyle(
+                  color: Theme.of(dialogCtx).colorScheme.primary,
+                ),
               ),
             ),
           ],

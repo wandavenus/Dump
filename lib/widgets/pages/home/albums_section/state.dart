@@ -43,10 +43,17 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     try {
       final songs = await MediaStoreService.getSongs();
       final albums = _buildAlbums(songs);
-      if (mounted) setState(() { _albums = albums; _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _albums = albums;
+          _isLoading = false;
+        });
     } on Exception catch (e) {
       LogService.warn('AlbumsSection', 'Failed to load albums: $e');
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 
@@ -71,10 +78,10 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-           Padding(
+        Padding(
           padding: EdgeInsets.only(left: kPageLeftPadding, top: 13),
-             child: Text(
-             context.l10n.topPicks,
+          child: Text(
+            context.l10n.topPicks,
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
@@ -86,7 +93,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
             itemCount: _albums.length > 5 ? 5 : _albums.length,
             itemBuilder: (context, index) => _AlbumCard(
               album: _albums[index],
-               caption: _captionFor(context, index),
+              caption: _captionFor(context, index),
             ),
           ),
         ),

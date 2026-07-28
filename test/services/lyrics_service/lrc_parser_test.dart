@@ -174,7 +174,10 @@ void main() {
         const lrc =
             '[00:01.00]<00:01.00>A <00:01.30>B\n'
             '[00:03.00]<00:03.00>C <00:03.30>D\n';
-        expect(LrcParser.detectQuality(lrc), equals(LyricsQuality.wordTimedLrc));
+        expect(
+          LrcParser.detectQuality(lrc),
+          equals(LyricsQuality.wordTimedLrc),
+        );
       });
     });
   });

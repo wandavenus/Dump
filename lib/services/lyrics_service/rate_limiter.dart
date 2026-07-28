@@ -23,8 +23,10 @@ class ProviderRateLimiter {
   }
 
   /// Tandai provider kena rate limit — cooldown [duration] (default 60 detik).
-  void markRateLimited(String providerName,
-      {Duration duration = const Duration(seconds: 60)}) {
+  void markRateLimited(
+    String providerName, {
+    Duration duration = const Duration(seconds: 60),
+  }) {
     _cooldowns[providerName] = (Stopwatch()..start(), duration);
   }
 

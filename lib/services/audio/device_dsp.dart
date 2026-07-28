@@ -21,7 +21,7 @@ class DeviceDsp {
   DeviceDsp._();
 
   // ── Effect-support flags (queried from native, exposed to UI) ─────────────
-  static bool _bassBoostSupported   = false;
+  static bool _bassBoostSupported = false;
 
   static bool _initialized = false;
   static int _lastSessionId = -1;
@@ -31,7 +31,7 @@ class DeviceDsp {
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static bool get bassBoostSupported   => _bassBoostSupported;
+  static bool get bassBoostSupported => _bassBoostSupported;
 
   // ── Initialization ─────────────────────────────────────────────────────────
 
@@ -55,10 +55,7 @@ class DeviceDsp {
       final result = await PlaybackManager.getEffectSupport();
       if (result == null) return;
       _bassBoostSupported = result['bassBoostSupported'] as bool? ?? false;
-      LogService.log(
-        'DeviceDsp',
-        'Effect support — bass=$_bassBoostSupported',
-      );
+      LogService.log('DeviceDsp', 'Effect support — bass=$_bassBoostSupported');
     } on Exception catch (e) {
       // getEffectSupport routes through a MethodChannel; may throw
       // PlatformException (service not ready) or MissingPluginException.
@@ -114,9 +111,9 @@ class DeviceDsp {
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
   static Future<void> dispose() async {
-    _bassBoostSupported   = false;
-    _initialized          = false;
-    _lastSessionId        = -1;
+    _bassBoostSupported = false;
+    _initialized = false;
+    _lastSessionId = -1;
     LogService.log('DeviceDsp', 'Disposed');
   }
 }

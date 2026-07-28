@@ -11,11 +11,7 @@ import '../song_artwork.dart';
 import 'detail_sections.dart';
 
 class AlbumPageContent extends StatelessWidget {
-  const AlbumPageContent({
-    super.key,
-    required this.album,
-    required this.songs,
-  });
+  const AlbumPageContent({super.key, required this.album, required this.songs});
 
   final LocalSong album;
   final List<LocalSong> songs;
@@ -58,7 +54,10 @@ class _AlbumFooter extends StatelessWidget {
 
   String _formatDate(BuildContext context) {
     final locale = Localizations.localeOf(context);
-    return DateFormat('d MMMM y', locale.toLanguageTag()).format(DateTime.now());
+    return DateFormat(
+      'd MMMM y',
+      locale.toLanguageTag(),
+    ).format(DateTime.now());
   }
 
   @override
@@ -74,17 +73,29 @@ class _AlbumFooter extends StatelessWidget {
         children: [
           Text(
             _formatDate(context),
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
-            l.albumSongsAndDuration(songs.length, _formatTotalDuration(context)),
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            l.albumSongsAndDuration(
+              songs.length,
+              _formatTotalDuration(context),
+            ),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             '℗ $year $artistName',
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
         ],
       ),
@@ -115,7 +126,9 @@ class _MoreByArtistState extends State<_MoreByArtist> {
 
   void _onRescan() {
     if (!mounted) return;
-    setState(() { _future = _loadOtherAlbums(); });
+    setState(() {
+      _future = _loadOtherAlbums();
+    });
   }
 
   @override
@@ -126,7 +139,8 @@ class _MoreByArtistState extends State<_MoreByArtist> {
 
   Future<List<_AlbumGroup>> _loadOtherAlbums() async {
     final allSongs = await MediaStoreService.getSongs();
-    final artistName = widget.currentAlbum.albumArtist ?? widget.currentAlbum.artist;
+    final artistName =
+        widget.currentAlbum.albumArtist ?? widget.currentAlbum.artist;
     final currentAlbumName = widget.currentAlbum.album;
 
     // Filter songs: same artist, different album
@@ -168,14 +182,14 @@ class _MoreByArtistState extends State<_MoreByArtist> {
               child: GestureDetector(
                 onTap: () {
                   // Navigate to artist page
-                  final artistSongs = albums
-                      .expand((a) => a.songs)
-                      .toList();
-                  unawaited(Navigator.pushNamed(
-                    context,
-                    '/artist',
-                    arguments: artistSongs,
-                  ));
+                  final artistSongs = albums.expand((a) => a.songs).toList();
+                  unawaited(
+                    Navigator.pushNamed(
+                      context,
+                      '/artist',
+                      arguments: artistSongs,
+                    ),
+                  );
                 },
                 child: Row(
                   children: [
@@ -205,8 +219,7 @@ class _MoreByArtistState extends State<_MoreByArtist> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(left: 16, right: 8),
                 itemCount: albums.length,
-                itemBuilder: (context, i) =>
-                    _SmallAlbumCard(album: albums[i]),
+                itemBuilder: (context, i) => _SmallAlbumCard(album: albums[i]),
               ),
             ),
 
@@ -240,10 +253,7 @@ class _SmallAlbumCard extends StatelessWidget {
       onTap: () => Navigator.pushNamed(
         context,
         '/album',
-        arguments: {
-          'album': album.songs.first,
-          'songs': album.songs,
-        },
+        arguments: {'album': album.songs.first, 'songs': album.songs},
       ),
       child: Container(
         width: cardWidth,

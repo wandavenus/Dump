@@ -252,9 +252,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           left: _playerHorizontalPadding,
                           right: _playerHorizontalPadding,
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              end: showOverlay ? 0.0 : 1.0,
-                            ),
+                            tween: Tween<double>(end: showOverlay ? 0.0 : 1.0),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeInOutCubic,
                             builder: (context, value, child) =>
@@ -280,9 +278,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           right: 7,
                           bottom: _lyricsExpand > 0 ? -230.0 : 2.0,
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              end: showLyrics ? 1.0 : 0.0,
-                            ),
+                            tween: Tween<double>(end: showLyrics ? 1.0 : 0.0),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeInOutCubic,
                             builder: (context, value, child) =>
@@ -302,9 +298,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           right: 15.7,
                           bottom: controlsHeight,
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              end: showQueue ? 1.0 : 0.0,
-                            ),
+                            tween: Tween<double>(end: showQueue ? 1.0 : 0.0),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeInOutCubic,
                             builder: (context, value, child) =>
@@ -360,9 +354,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           top: 10,
                           right: 27,
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              end: showLyrics ? 1.0 : 0.0,
-                            ),
+                            tween: Tween<double>(end: showLyrics ? 1.0 : 0.0),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeInOutCubic,
                             builder: (context, value, child) =>
@@ -381,9 +373,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           left: 16 + _smallCoverSize + 25,
 
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(
-                              end: showOverlay ? 1.0 : 0.0,
-                            ),
+                            tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
                             duration: const Duration(milliseconds: 400),
                             curve: Curves.easeInOutCubic,
                             builder: (context, value, child) =>
@@ -414,10 +404,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                         duration: const Duration(
                                           milliseconds: 250,
                                         ),
-                                        crossFadeState:
-                                            _showMarquee
-                                                ? CrossFadeState.showSecond
-                                                : CrossFadeState.showFirst,
+                                        crossFadeState: _showMarquee
+                                            ? CrossFadeState.showSecond
+                                            : CrossFadeState.showFirst,
                                         firstChild: Text(
                                           widget.song.title,
                                           maxLines: 1,
@@ -484,26 +473,26 @@ class _PlayerContentState extends State<PlayerContent> {
                                 showOverlay
                                     ? (16.0 - coverLeft)
                                     : lerpDouble(
-                                      22.0 - coverLeft,
-                                      0.0,
-                                      progress,
-                                    )!,
+                                        22.0 - coverLeft,
+                                        0.0,
+                                        progress,
+                                      )!,
                                 showOverlay
                                     ? (-0.5 - coverTop)
                                     : lerpDouble(
-                                      sh - 140 - coverTop,
-                                      0.0,
-                                      progress,
-                                    )!,
+                                        sh - 140 - coverTop,
+                                        0.0,
+                                        progress,
+                                      )!,
                               ),
                               child: Transform.scale(
                                 scale: showOverlay
                                     ? (_smallCoverSize / largeCoverSize)
                                     : lerpDouble(
-                                      70.0 / largeCoverSize,
-                                      1.0,
-                                      progress,
-                                    )!,
+                                        70.0 / largeCoverSize,
+                                        1.0,
+                                        progress,
+                                      )!,
                                 alignment: Alignment.topLeft,
                                 child: Container(
                                   width: largeCoverSize,
@@ -541,7 +530,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                       width: largeCoverSize,
                                       height: largeCoverSize,
                                       child: Hero(
-                                        tag: PlayerHeroTags.artwork(widget.song),
+                                        tag: PlayerHeroTags.artwork(
+                                          widget.song,
+                                        ),
                                         child: SongArtwork(
                                           songId: widget.song.id,
                                           size: largeCoverSize,
@@ -569,32 +560,29 @@ class _PlayerContentState extends State<PlayerContent> {
               // GestureDetector forwards vertical drags from controls area to list.
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onVerticalDragStart:
-                    (showLyrics || showQueue)
-                        ? (_) {
-                          _forwardVerticalDragStart(showLyrics: showLyrics);
-                        }
-                        : null,
-                onVerticalDragUpdate:
-                    (showLyrics || showQueue)
-                        ? (d) {
-                          _forwardVerticalDrag(
-                            showLyrics: showLyrics,
-                            showQueue: showQueue,
-                            deltaY: d.delta.dy,
-                          );
-                        }
-                        : null,
-                onVerticalDragEnd:
-                    (showLyrics || showQueue)
-                        ? (d) {
-                          _forwardVerticalDragEnd(
-                            showLyrics: showLyrics,
-                            showQueue: showQueue,
-                            velocity: d.primaryVelocity ?? 0,
-                          );
-                        }
-                        : null,
+                onVerticalDragStart: (showLyrics || showQueue)
+                    ? (_) {
+                        _forwardVerticalDragStart(showLyrics: showLyrics);
+                      }
+                    : null,
+                onVerticalDragUpdate: (showLyrics || showQueue)
+                    ? (d) {
+                        _forwardVerticalDrag(
+                          showLyrics: showLyrics,
+                          showQueue: showQueue,
+                          deltaY: d.delta.dy,
+                        );
+                      }
+                    : null,
+                onVerticalDragEnd: (showLyrics || showQueue)
+                    ? (d) {
+                        _forwardVerticalDragEnd(
+                          showLyrics: showLyrics,
+                          showQueue: showQueue,
+                          velocity: d.primaryVelocity ?? 0,
+                        );
+                      }
+                    : null,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(end: 1.0 - _lyricsExpand),
                   duration: const Duration(milliseconds: 300),

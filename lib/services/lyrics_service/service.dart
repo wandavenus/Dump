@@ -53,8 +53,8 @@ class LyricsService {
     final source = providerResult.isInternet
         ? LyricsSource.internet
         : providerResult.isEmbedded
-            ? LyricsSource.embedded
-            : LyricsSource.localFile;
+        ? LyricsSource.embedded
+        : LyricsSource.localFile;
 
     return LyricsResult(
       providerResult.lines,
@@ -79,5 +79,4 @@ class LyricsService {
   /// Parse LRC format ke daftar [LyricLine].
   /// Tetap publik karena digunakan oleh kode lain.
   static List<LyricLine> parseLrc(String lrc) => LrcParser.parseLrc(lrc);
-
 }

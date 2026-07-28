@@ -57,11 +57,13 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
   }
 
   void _showModePicker(BuildContext context, ReplayGainMode current) {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ReplayGainModePicker(current: current),
-    ));
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _ReplayGainModePicker(current: current),
+      ),
+    );
   }
 
   @override
@@ -77,8 +79,10 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
             InkWell(
               onTap: _toggle,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -88,16 +92,18 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                         _replayGainLabel(context, mode),
-                        style: TextStyle(
-                            color: c.secondaryLabel, fontSize: 13),
+                        _replayGainLabel(context, mode),
+                        style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                       ),
                     ),
                     AnimatedRotation(
-                      turns:    _expanded ? 0.5 : 0.0,
+                      turns: _expanded ? 0.5 : 0.0,
                       duration: const Duration(milliseconds: 220),
-                      child: Icon(Icons.keyboard_arrow_down,
-                          color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: c.primaryLabel.withValues(alpha: 0.38),
+                        size: 18,
+                      ),
                     ),
                   ],
                 ),
@@ -106,7 +112,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
             // Collapsible content
             SizeTransition(
               sizeFactor: _ctrl,
-              alignment:  Alignment.topCenter,
+              alignment: Alignment.topCenter,
               child: FadeTransition(
                 opacity: _fade,
                 child: Column(
@@ -117,26 +123,38 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       onTap: () => _showModePicker(context, mode),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                   Text(context.l10n.replayGainModeLabel,
-                                      style: TextStyle(
-                                          color: c.primaryLabel, fontSize: 15)),
+                                  Text(
+                                    context.l10n.replayGainModeLabel,
+                                    style: TextStyle(
+                                      color: c.primaryLabel,
+                                      fontSize: 15,
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
-                                  Text(_replayGainLabel(context, mode),
-                                      style: TextStyle(
-                                          color: c.secondaryLabel,
-                                          fontSize: 12)),
+                                  Text(
+                                    _replayGainLabel(context, mode),
+                                    style: TextStyle(
+                                      color: c.secondaryLabel,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right,
-                                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
+                            Icon(
+                              Icons.chevron_right,
+                              color: c.primaryLabel.withValues(alpha: 0.38),
+                              size: 18,
+                            ),
                           ],
                         ),
                       ),
@@ -146,10 +164,11 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       Padding(
                         padding: const EdgeInsets.only(left: 16, bottom: 6),
                         child: Text(
-                           _replayGainDescription(context, mode),
+                          _replayGainDescription(context, mode),
                           style: TextStyle(
-                              color: c.primaryLabel.withValues(alpha: 0.38),
-                              fontSize: 12),
+                            color: c.primaryLabel.withValues(alpha: 0.38),
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     // Preamp slider + clipping protection — only when active
@@ -158,13 +177,13 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       ValueListenableBuilder<double>(
                         valueListenable: AudioEffectsService.replayGainPreamp,
                         builder: (_, preamp, _) => SettingsSliderRow(
-                           title: context.l10n.replayGainPreampLabel,
+                          title: context.l10n.replayGainPreampLabel,
                           subtitle: preamp == 0
                               ? '0 dB'
                               : '${preamp > 0 ? '+' : ''}${preamp.toStringAsFixed(1)} dB',
-                          value:     preamp,
-                          min:       -15,
-                          max:       15,
+                          value: preamp,
+                          min: -15,
+                          max: 15,
                           onChanged: AudioEffectsService.setReplayGainPreamp,
                           divisions: 30,
                           showReset: preamp != 0,
@@ -175,9 +194,9 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                       ValueListenableBuilder<bool>(
                         valueListenable: AudioEffectsService.clippingProtection,
                         builder: (_, clip, _) => SettingsToggleRow(
-                           title:     context.l10n.clippingProtection,
-                           subtitle:  context.l10n.clippingProtectionSubtitle,
-                          value:     clip,
+                          title: context.l10n.clippingProtection,
+                          subtitle: context.l10n.clippingProtectionSubtitle,
+                          value: clip,
                           onChanged: AudioEffectsService.setClippingProtection,
                         ),
                       ),
@@ -219,10 +238,12 @@ class _ModeChip extends StatelessWidget {
         ),
       ),
       child: Text(
-         _replayGainLabel(context, mode),
+        _replayGainLabel(context, mode),
         style: TextStyle(
-          fontSize:   12,
-          color:      active ? const Color(0xFFF92D48) : c.primaryLabel.withValues(alpha: 0.60),
+          fontSize: 12,
+          color: active
+              ? const Color(0xFFF92D48)
+              : c.primaryLabel.withValues(alpha: 0.60),
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -241,7 +262,7 @@ class _ReplayGainModePicker extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:        c.surface,
+          color: c.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -249,10 +270,10 @@ class _ReplayGainModePicker extends StatelessWidget {
           children: [
             const SizedBox(height: 12),
             Container(
-              width:  36,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color:        c.dragHandle,
+                color: c.dragHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -262,11 +283,12 @@ class _ReplayGainModePicker extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                   context.l10n.replayGainTitle,
+                  context.l10n.replayGainTitle,
                   style: TextStyle(
-                      color: c.primaryLabel,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600),
+                    color: c.primaryLabel,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -285,7 +307,7 @@ class _ReplayGainModePicker extends StatelessWidget {
 class _ModeOption extends StatelessWidget {
   const _ModeOption({required this.mode, required this.selected});
   final ReplayGainMode mode;
-  final bool           selected;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -293,12 +315,14 @@ class _ModeOption extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
       leading: Container(
-        width:  22,
+        width: 22,
         height: 22,
         decoration: BoxDecoration(
-          shape:  BoxShape.circle,
+          shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? const Color(0xFFF92D48) : c.primaryLabel.withValues(alpha: 0.30),
+            color: selected
+                ? const Color(0xFFF92D48)
+                : c.primaryLabel.withValues(alpha: 0.30),
             width: 2,
           ),
           color: selected ? const Color(0xFFF92D48) : Colors.transparent,
@@ -308,16 +332,19 @@ class _ModeOption extends StatelessWidget {
             : null,
       ),
       title: Text(
-         _replayGainLabel(context, mode),
+        _replayGainLabel(context, mode),
         style: TextStyle(
-          color:      selected ? const Color(0xFFF92D48) : c.primaryLabel,
+          color: selected ? const Color(0xFFF92D48) : c.primaryLabel,
           fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          fontSize:   15,
+          fontSize: 15,
         ),
       ),
       subtitle: Text(
-         _replayGainDescription(context, mode),
-        style: TextStyle(color: c.primaryLabel.withValues(alpha: 0.54), fontSize: 12),
+        _replayGainDescription(context, mode),
+        style: TextStyle(
+          color: c.primaryLabel.withValues(alpha: 0.54),
+          fontSize: 12,
+        ),
       ),
       onTap: () {
         unawaited(AudioEffectsService.setReplayGainMode(mode));

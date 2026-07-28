@@ -16,9 +16,9 @@ class SongInfo {
   final String? publisher;
 
   // ─── Audio ────────────────────────────────────────────────────────────────
-  final String format;      // file extension in uppercase
-  final String bitrate;     // formatted, e.g. "256 kbps"
-  final String sampleRate;  // formatted, e.g. "48 kHz"
+  final String format; // file extension in uppercase
+  final String bitrate; // formatted, e.g. "256 kbps"
+  final String sampleRate; // formatted, e.g. "48 kHz"
   final String? encoder;
 
   // ─── ReplayGain / Loudness ────────────────────────────────────────────────
@@ -29,15 +29,15 @@ class SongInfo {
   final String? r128Track;
   final String? r128Album;
   final String? loudnessSource; // human-readable source label
-  final double? appliedGainDb;  // gain applied by the player in dB
+  final double? appliedGainDb; // gain applied by the player in dB
 
   // ─── File ─────────────────────────────────────────────────────────────────
   final String fileSize;
   final String filePath;
   final String fileName;
   final String folder;
-  final String? modified;   // formatted modification date
-  final String? dateAdded;  // formatted date added (from MediaStore)
+  final String? modified; // formatted modification date
+  final String? dateAdded; // formatted date added (from MediaStore)
 
   // ─── Embedded Content ─────────────────────────────────────────────────────
   final bool hasEmbeddedLyrics;

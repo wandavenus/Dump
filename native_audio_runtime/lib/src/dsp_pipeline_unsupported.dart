@@ -24,8 +24,7 @@ class NativeAudioBuffer {
     required int capacityFrames,
     required int channelCount,
     required int sampleRate,
-  }) =>
-      null;
+  }) => null;
 
   void destroy() {}
 
@@ -61,7 +60,8 @@ class NativeDspPipeline {
 
   Future<void> dispose() async {}
 
-  int processBuffer(NativeAudioBuffer buffer) => NativeRuntimeStatus.unsupportedPlatform.index;
+  int processBuffer(NativeAudioBuffer buffer) =>
+      NativeRuntimeStatus.unsupportedPlatform.index;
 
   void reset() {}
 
@@ -113,8 +113,7 @@ class NativeReplayGain {
     required double gainDb,
     double peakLinear = 0.0,
     bool useClippingProtection = true,
-  }) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
 
   void setBypass(bool bypass) {}
   bool get bypass => true;
@@ -135,8 +134,7 @@ class NativeCompressor {
     required double kneeDb,
     required double makeupGainDb,
     double sampleRate = 48000.0,
-  }) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
 
   void setBypass(bool bypass) {}
   bool get bypass => false;
@@ -153,8 +151,7 @@ class NativeLimiter {
     required double thresholdDb,
     required double releaseMs,
     double sampleRate = 48000.0,
-  }) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
 
   void setBypass(bool bypass) {}
   bool get bypass => false;
@@ -175,8 +172,7 @@ class NativeCrossfeed {
     double hfCompHz = 4000.0,
     double width = 1.0,
     double sampleRate = 48000.0,
-  }) =>
-      NativeRuntimeStatus.unsupportedPlatform.index;
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
 
   void setBypass(bool bypass) {}
   bool get bypass => false;

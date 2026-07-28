@@ -25,10 +25,9 @@ class _QueueControlButton extends StatelessWidget {
         curve: Curves.easeOut,
         height: 36,
         decoration: BoxDecoration(
-          color:
-              active
-                  ? _activeColor.withValues(alpha: 0.48)
-                  : Colors.white.withValues(alpha: 0.08),
+          color: active
+              ? _activeColor.withValues(alpha: 0.48)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(

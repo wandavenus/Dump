@@ -42,12 +42,14 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
     if (_userIsManualScrolling && animate) return;
     if (_pendingViewportRestorePixels != null && animate) return;
     if (animate) {
-      unawaited(_itemScrollController.scrollTo(
-        index: index,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        alignment: 0.2,
-      ));
+      unawaited(
+        _itemScrollController.scrollTo(
+          index: index,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          alignment: 0.2,
+        ),
+      );
     } else {
       _itemScrollController.jumpTo(index: index, alignment: 0.2);
     }

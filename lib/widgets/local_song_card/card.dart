@@ -71,11 +71,6 @@ class LocalSongCard extends StatelessWidget {
   }
 
   void _showContextMenu(BuildContext context) {
-    showSongContextMenu(
-      context,
-      song: song,
-      playlist: playlist,
-      index: index,
-    );
+    showSongContextMenu(context, song: song, playlist: playlist, index: index);
   }
 }

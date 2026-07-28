@@ -21,10 +21,7 @@ class PlaylistPlayAllButton extends StatelessWidget {
         children: [
           Text(
             context.l10n.songsCount(count),
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
           ),
           const Spacer(),
           GestureDetector(

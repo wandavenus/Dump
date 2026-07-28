@@ -33,20 +33,22 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
-    final pos   = box.localToGlobal(Offset.zero);
-    final size  = box.size;
+    final pos = box.localToGlobal(Offset.zero);
+    final size = box.size;
     const menuW = 220.0;
-    final left  = (pos.dx + size.width - menuW).clamp(8.0, double.infinity);
-    final top   = pos.dy + size.height + 8;
+    final left = (pos.dx + size.width - menuW).clamp(8.0, double.infinity);
+    final top = pos.dy + size.height + 8;
 
-    _entry = OverlayEntry(builder: (_) => _MoreMenuOverlay(
-      left:       left,
-      top:        top,
-      width:      menuW,
-      song:       widget.song,
-      onClose:    _close,
-      onNavigate: _closeAndNavigate,
-    ));
+    _entry = OverlayEntry(
+      builder: (_) => _MoreMenuOverlay(
+        left: left,
+        top: top,
+        width: menuW,
+        song: widget.song,
+        onClose: _close,
+        onNavigate: _closeAndNavigate,
+      ),
+    );
 
     Overlay.of(context, rootOverlay: true).insert(_entry!);
   }
@@ -135,9 +137,9 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final c         = AppColors.of(context);
-    final state     = AudioService.playbackState.value;
-    final active    = SleepTimerService.isActive.value;
+    final c = AppColors.of(context);
+    final state = AudioService.playbackState.value;
+    final active = SleepTimerService.isActive.value;
     final remaining = SleepTimerService.remaining.value;
 
     final l = context.l10n;
@@ -165,20 +167,20 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
 
         // Menu box
         Positioned(
-          left:  widget.left,
-          top:   widget.top,
+          left: widget.left,
+          top: widget.top,
           width: widget.width,
           child: Material(
             color: Colors.transparent,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color:        c.surface2,
+                color: c.surface2,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color:      Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 20,
-                    offset:     const Offset(0, 6),
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
@@ -186,39 +188,38 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _MenuItem(
-                    icon:   CupertinoIcons.shuffle,
-                    label:  state.shuffleEnabled ? l.shuffleOn : l.shuffleOff,
+                    icon: CupertinoIcons.shuffle,
+                    label: state.shuffleEnabled ? l.shuffleOn : l.shuffleOff,
                     active: state.shuffleEnabled,
-                    onTap:  AudioService.toggleShuffle,
+                    onTap: AudioService.toggleShuffle,
                   ),
                   _Divider(c: c),
                   _MenuItem(
-                    icon:   _loopIcon(state.loopMode),
-                    label:  _loopLabelL10n(l, state.loopMode),
+                    icon: _loopIcon(state.loopMode),
+                    label: _loopLabelL10n(l, state.loopMode),
                     active: state.loopMode != LoopMode.off,
-                    onTap:  AudioService.cycleLoopMode,
+                    onTap: AudioService.cycleLoopMode,
                   ),
                   _Divider(c: c),
                   _MenuItem(
-                    icon:  CupertinoIcons.info,
+                    icon: CupertinoIcons.info,
                     label: l.songInfoLabel,
                     onTap: () => widget.onNavigate(
                       () => showModalBottomSheet<void>(
-                        context:            context,
+                        context: context,
                         isScrollControlled: true,
-                        useSafeArea:        true,
-                        backgroundColor:    Colors.transparent,
+                        useSafeArea: true,
+                        backgroundColor: Colors.transparent,
                         builder: (_) => PlayerSongInfoSheet(song: widget.song),
                       ),
                     ),
                   ),
                   _Divider(c: c),
                   _SleepTimerItem(
-                    active:     active,
+                    active: active,
                     sleepLabel: sleepLabel,
-                    onTap: () => widget.onNavigate(
-                      () => showSleepTimerSheet(context),
-                    ),
+                    onTap: () =>
+                        widget.onNavigate(() => showSleepTimerSheet(context)),
                   ),
                 ],
               ),
@@ -244,8 +245,8 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
 
 class _MenuItem extends StatelessWidget {
   final IconData icon;
-  final String   label;
-  final bool     active;
+  final String label;
+  final bool active;
   final VoidCallback onTap;
 
   const _MenuItem({
@@ -257,10 +258,10 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c           = AppColors.of(context);
-    final accent      = Theme.of(context).colorScheme.primary;
-    final labelColor  = active ? accent : c.primaryLabel;
-    final iconColor   = active ? accent : c.secondaryLabel;
+    final c = AppColors.of(context);
+    final accent = Theme.of(context).colorScheme.primary;
+    final labelColor = active ? accent : c.primaryLabel;
+    final iconColor = active ? accent : c.secondaryLabel;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -273,9 +274,9 @@ class _MenuItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color:      labelColor,
+                color: labelColor,
                 fontWeight: FontWeight.w600,
-                fontSize:   15,
+                fontSize: 15,
               ),
             ),
           ],
@@ -286,7 +287,7 @@ class _MenuItem extends StatelessWidget {
 }
 
 class _SleepTimerItem extends StatelessWidget {
-  final bool    active;
+  final bool active;
   final String? sleepLabel;
   final VoidCallback onTap;
 
@@ -298,7 +299,7 @@ class _SleepTimerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c      = AppColors.of(context);
+    final c = AppColors.of(context);
     final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: onTap,
@@ -320,18 +321,15 @@ class _SleepTimerItem extends StatelessWidget {
                 Text(
                   context.l10n.sleepTimerTitle,
                   style: TextStyle(
-                    color:      active ? accent : c.primaryLabel,
+                    color: active ? accent : c.primaryLabel,
                     fontWeight: FontWeight.w600,
-                    fontSize:   15,
+                    fontSize: 15,
                   ),
                 ),
                 if (sleepLabel != null)
                   Text(
                     sleepLabel!,
-                    style: TextStyle(
-                      color:    c.secondaryLabel,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 12),
                   ),
               ],
             ),

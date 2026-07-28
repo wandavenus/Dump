@@ -15,7 +15,11 @@ class DetailTopBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             child: const Padding(
               padding: EdgeInsets.all(6),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFFF92D48)),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 18,
+                color: Color(0xFFF92D48),
+              ),
             ),
           ),
           const Row(
@@ -24,7 +28,11 @@ class DetailTopBar extends StatelessWidget {
               SizedBox(width: 20),
               Icon(Icons.add, size: 22, color: Color(0xFFF92D48)),
               SizedBox(width: 20),
-              Icon(CupertinoIcons.ellipsis_vertical, size: 22, color: Color(0xFFF92D48)),
+              Icon(
+                CupertinoIcons.ellipsis_vertical,
+                size: 22,
+                color: Color(0xFFF92D48),
+              ),
             ],
           ),
         ],

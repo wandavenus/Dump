@@ -28,13 +28,21 @@ class _ArtistListContentState extends State<ArtistListContent> {
       for (final song in songs) {
         artistMap.putIfAbsent(song.artist, () => []).add(song);
       }
-      final artists = artistMap.entries
-          .map((e) => ArtistInfo(name: e.key, songs: e.value))
-          .toList()
-        ..sort((a, b) => a.name.compareTo(b.name));
-      if (mounted) setState(() { _artists = artists; _isLoading = false; });
+      final artists =
+          artistMap.entries
+              .map((e) => ArtistInfo(name: e.key, songs: e.value))
+              .toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
+      if (mounted)
+        setState(() {
+          _artists = artists;
+          _isLoading = false;
+        });
     } on Exception catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 
@@ -46,8 +54,10 @@ class _ArtistListContentState extends State<ArtistListContent> {
     }
     if (_artists.isEmpty) {
       return Center(
-        child: Text(context.l10n.noArtistsFound,
-            style: TextStyle(color: c.secondaryLabel)),
+        child: Text(
+          context.l10n.noArtistsFound,
+          style: TextStyle(color: c.secondaryLabel),
+        ),
       );
     }
 

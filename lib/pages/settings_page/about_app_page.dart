@@ -3,7 +3,7 @@ part of '../settings_page.dart';
 // ─── URL konstanta ────────────────────────────────────────────────────────────
 
 const String _kInstagramUrl = 'https://www.instagram.com/wndavenznchole';
-const String _kFacebookUrl  = 'https://www.facebook.com/Wndavenznchole';
+const String _kFacebookUrl = 'https://www.facebook.com/Wndavenznchole';
 
 // ─── Tentang App ────────────────────────────────────────────────────────────
 
@@ -124,7 +124,9 @@ class _AboutAppPageState extends State<AboutAppPage> {
                             behavior: HitTestBehavior.opaque,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 4),
+                                horizontal: 24,
+                                vertical: 4,
+                              ),
                               child: Text(
                                 debug
                                     ? '${l.appVersion('1.4.4')} [${l.debugModeActiveLabel}]'
@@ -222,12 +224,9 @@ class _AboutAppPageState extends State<AboutAppPage> {
             left: 0,
             right: 0,
             child: Text(
-               context.l10n.copyrightFooter(year),
+              context.l10n.copyrightFooter(year),
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: c.tertiaryLabel,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: c.tertiaryLabel, fontSize: 13),
             ),
           ),
         ],

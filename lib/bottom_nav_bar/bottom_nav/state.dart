@@ -148,8 +148,9 @@ class _FirstPageState extends State<FirstPage> {
                 selectedItemColor: Theme.of(context).colorScheme.primary,
                 unselectedItemColor: c.secondaryLabel,
                 showUnselectedLabels: true,
-                backgroundColor:
-                    useGlassNavBar ? Colors.transparent : c.surface,
+                backgroundColor: useGlassNavBar
+                    ? Colors.transparent
+                    : c.surface,
                 unselectedFontSize: 11.0,
                 selectedFontSize: 11.0,
               ),
@@ -204,11 +205,12 @@ class _FirstPageState extends State<FirstPage> {
                             // jadi drag_px ≈ progress × sh × 0.55.
                             // Clamp ke tinggi navbar agar tidak melewati bawah layar.
                             final navH = useGlassNavBar ? 70.0 : 71.5;
-                            final sh   = MediaQuery.sizeOf(context).height;
+                            final sh = MediaQuery.sizeOf(context).height;
                             // Kurva deselerasi dua-segmen:
                             // [0, 0.75] : f(p) = p − 0.5p²  → f'(0)=1, f'(0.5)=0.5, f'(0.75)=0.25
                             // [0.75, 1] : kuadratik lebih curam → f'(0.75)=0.25 turun ke 0.05 di p=1
-                            const double b75 = 0.75 - 0.5 * 0.75 * 0.75; // 0.46875
+                            const double b75 =
+                                0.75 - 0.5 * 0.75 * 0.75; // 0.46875
                             final double curved;
                             if (progress < 0.75) {
                               curved = progress - 0.5 * progress * progress;

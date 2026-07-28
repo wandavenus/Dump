@@ -30,9 +30,16 @@ class _RecentlyPlayedSectionState extends State<_RecentlyPlayedSection> {
           .where(songMap.containsKey)
           .map((id) => songMap[id]!)
           .toList();
-      if (mounted) setState(() { _songs = recent; _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _songs = recent;
+          _isLoading = false;
+        });
     } on Exception catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 

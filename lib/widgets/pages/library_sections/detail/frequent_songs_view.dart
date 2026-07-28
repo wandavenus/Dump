@@ -15,16 +15,17 @@ class _FrequentSongsView extends StatelessWidget {
     required this.onLongPress,
   });
 
-  final List<LocalSong>                 songs;
-  final Future<Map<String, dynamic>>    countsFuture;
-  final ScrollController                scroll;
+  final List<LocalSong> songs;
+  final Future<Map<String, dynamic>> countsFuture;
+  final ScrollController scroll;
 
   /// Pre-built title + divider widget (no search bar for this tab).
   final Widget titleHeader;
   final double bottomClearance;
 
-  final void Function(List<LocalSong>, int)                        onPlay;
-  final void Function(BuildContext, LocalSong, List<LocalSong>, int) onLongPress;
+  final void Function(List<LocalSong>, int) onPlay;
+  final void Function(BuildContext, LocalSong, List<LocalSong>, int)
+  onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +35,9 @@ class _FrequentSongsView extends StatelessWidget {
         final counts = snapshot.data ?? const <String, dynamic>{};
         final sorted = List<LocalSong>.from(songs)
           ..sort(
-            (a, b) =>
-                ((counts[b.id.toString()] ?? 0) as num).compareTo(
-                  (counts[a.id.toString()] ?? 0) as num,
-                ),
+            (a, b) => ((counts[b.id.toString()] ?? 0) as num).compareTo(
+              (counts[a.id.toString()] ?? 0) as num,
+            ),
           );
 
         return CustomScrollView(
@@ -45,25 +45,20 @@ class _FrequentSongsView extends StatelessWidget {
           slivers: [
             SliverToBoxAdapter(child: titleHeader),
             SliverPadding(
-              padding:
-                  EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final song      = sorted[index];
-                    final songIndex = songs.indexOf(song);
-                    final count =
-                        (counts[song.id.toString()] ?? 0) as num;
-                    return _PlaylistBannerCard(
-                      song:      song,
-                      playCount: count.toInt(),
-                      onTap:     () => onPlay(songs, songIndex),
-                      onLongPress: () =>
-                          onLongPress(context, song, songs, songIndex),
-                    );
-                  },
-                  childCount: sorted.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final song = sorted[index];
+                  final songIndex = songs.indexOf(song);
+                  final count = (counts[song.id.toString()] ?? 0) as num;
+                  return _PlaylistBannerCard(
+                    song: song,
+                    playCount: count.toInt(),
+                    onTap: () => onPlay(songs, songIndex),
+                    onLongPress: () =>
+                        onLongPress(context, song, songs, songIndex),
+                  );
+                }, childCount: sorted.length),
               ),
             ),
           ],

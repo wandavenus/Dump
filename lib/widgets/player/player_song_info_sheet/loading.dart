@@ -7,9 +7,7 @@ class _LoadingSongInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox(
       height: 360,
-      child: Center(
-        child: CircularProgressIndicator(color: Color(0xFFF92D48)),
-      ),
+      child: Center(child: CircularProgressIndicator(color: Color(0xFFF92D48))),
     );
   }
 }

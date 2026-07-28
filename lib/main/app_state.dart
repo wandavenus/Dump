@@ -18,16 +18,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       applyEdgeToEdge();
-      unawaited(AudioService.syncFromNative().catchError(
-        (Object e) => LogService.warn('AppState', 'syncFromNative error: $e'),
-      ));
+      unawaited(
+        AudioService.syncFromNative().catchError(
+          (Object e) => LogService.warn('AppState', 'syncFromNative error: $e'),
+        ),
+      );
       unawaited(OpenFileService.onResume());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       NativePaletteService.clearMemoryCache();
-      unawaited(LyricsSettings.flush().catchError(
-        (Object e) => LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
-      ));
+      unawaited(
+        LyricsSettings.flush().catchError(
+          (Object e) =>
+              LogService.warn('AppState', 'LyricsSettings.flush error: $e'),
+        ),
+      );
     }
   }
 
@@ -53,10 +58,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
-              supportedLocales: const [
-                Locale('en'),
-                Locale('id'),
-              ],
+              supportedLocales: const [Locale('en'), Locale('id')],
               localeResolutionCallback: (deviceLocale, supported) {
                 // If user chose explicit locale, honour it (already set via
                 // LanguageManager.locale above).
@@ -92,8 +94,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                                   child: Text(
                                     WatermarkService.text,
                                     style: TextStyle(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.85),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: 0.3,

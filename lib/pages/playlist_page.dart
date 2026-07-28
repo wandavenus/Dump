@@ -82,8 +82,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
 
       final allSongs = await MediaStoreService.getSongs();
       final songMap = {for (final s in allSongs) s.id: s};
-      final songs =
-          ids.where(songMap.containsKey).map((id) => songMap[id]!).toList();
+      final songs = ids
+          .where(songMap.containsKey)
+          .map((id) => songMap[id]!)
+          .toList();
 
       if (mounted) {
         setState(() {
@@ -108,9 +110,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
         return HistoryService.getRecentlyPlayedIds();
       case SmartPlaylistType.mostPlayed:
         final counts = await HistoryService.getPlayCounts();
-        final sorted =
-            counts.entries.toList()
-              ..sort((a, b) => (b.value as int).compareTo(a.value as int));
+        final sorted = counts.entries.toList()
+          ..sort((a, b) => (b.value as int).compareTo(a.value as int));
         return sorted
             .map((e) => int.tryParse(e.key) ?? 0)
             .where((id) => id != 0)
@@ -162,10 +163,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: Text(
-                l.save,
-                style: TextStyle(color: c.primaryLabel),
-              ),
+              child: Text(l.save, style: TextStyle(color: c.primaryLabel)),
             ),
           ],
         );
@@ -204,7 +202,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(l.delete, style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
+              child: Text(
+                l.delete,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.primary),
+              ),
             ),
           ],
         );
@@ -262,7 +263,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
               onPressed: _rename,
             ),
             IconButton(
-              icon: Icon(CupertinoIcons.trash, color: Theme.of(context).colorScheme.primary),
+              icon: Icon(
+                CupertinoIcons.trash,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               onPressed: _delete,
             ),
           ],
@@ -293,10 +297,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     children: [
                       LargePageTitle(title: widget.name),
                       const HeaderDivider(),
-                      _PlayAllButton(
-                        count: _songs.length,
-                        onTap: _playAll,
-                      ),
+                      _PlayAllButton(count: _songs.length, onTap: _playAll),
                     ],
                   );
                 }
@@ -313,18 +314,12 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   ),
                   title: Text(
                     song.title,
-                    style: TextStyle(
-                      color: c.primaryLabel,
-                      fontSize: 15,
-                    ),
+                    style: TextStyle(color: c.primaryLabel, fontSize: 15),
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     song.artist,
-                    style: TextStyle(
-                      color: c.secondaryLabel,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: isUserPlaylist

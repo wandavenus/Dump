@@ -147,7 +147,7 @@ class _LyricsOverlayBody extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                       sourceLabel,
+                      sourceLabel,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
                         fontSize: 11,

@@ -35,7 +35,7 @@ class ArtworkRepository {
   // ── Memory caches ──────────────────────────────────────────────────────────
 
   // LRU map: insertion-order, move-to-back on hit.
-  final LinkedHashMap<int, String>    _paths     = LinkedHashMap();
+  final LinkedHashMap<int, String> _paths = LinkedHashMap();
   // Reuse FileImage objects to avoid repeated object allocation.
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
   // Reuse artwork bytes to avoid repeated disk reads.
@@ -85,32 +85,37 @@ class ArtworkRepository {
   /// Pass [size] >= 250 through unchanged by the caller (full-res path) —
   /// this helper is only for the ResizeImage (<250) branch.
   int resolveTargetPx(double size) {
-  final dpr = _cachedDpr ??=
-      SchedulerBinding.instance.platformDispatcher.views.firstOrNull
-          ?.devicePixelRatio ?? 3.0; // 3.0 = Mi 9T DPR; fallback sebelum view terpasang
+    final dpr = _cachedDpr ??=
+        SchedulerBinding
+            .instance
+            .platformDispatcher
+            .views
+            .firstOrNull
+            ?.devicePixelRatio ??
+        3.0; // 3.0 = Mi 9T DPR; fallback sebelum view terpasang
 
-  var target = (size * dpr).round();
+    var target = (size * dpr).round();
 
-  // Jangan decode artwork kecil / song list terlalu kecil.
-  if (size < 80) {
-    return target < 460 ? 460 : target;
+    // Jangan decode artwork kecil / song list terlalu kecil.
+    if (size < 80) {
+      return target < 460 ? 460 : target;
+    }
+
+    // Recently Played / Artist.
+    if (size >= 170 && size < 250) {
+      target = (target * 1.75).round();
+    }
+
+    return target;
   }
 
-  // Recently Played / Artist.
-  if (size >= 170 && size < 250) {
-    target = (target * 1.75).round();
+  Future<String> _resolvedCacheDir() async {
+    if (_cacheDirPath != null) return _cacheDirPath!;
+    final base = (await getApplicationSupportDirectory()).path;
+    _cacheDirPath = base;
+    return base;
   }
 
-  return target;
-}
-
-Future<String> _resolvedCacheDir() async {
-  if (_cacheDirPath != null) return _cacheDirPath!;
-  final base = (await getApplicationSupportDirectory()).path;
-  _cacheDirPath = base;
-  return base;
-}
-  
   /// Resolves the support-directory path and pre-scans the artwork sub-directory
   /// to populate [_diskCachedIds].  Call once during app startup (awaited, before
   /// [runApp]) so [getProviderSync] can return immediately on the very first frame
@@ -232,10 +237,7 @@ Future<String> _resolvedCacheDir() async {
   /// full-resolution original.  Pass null to skip resizing.
   ///
   /// Returns null when the song has no artwork.
-  Future<ImageProvider?> getProvider(
-    int songId, {
-    int? targetSizePx,
-  }) async {
+  Future<ImageProvider?> getProvider(int songId, {int? targetSizePx}) async {
     final path = await getPath(songId);
     if (path == null) return null;
 
@@ -248,35 +250,35 @@ Future<String> _resolvedCacheDir() async {
   ///
   /// Returns null when the song has no artwork or the file cannot be read.
   Future<Uint8List?> getBytes(int songId) async {
-  final cached = _bytes.remove(songId);
-  if (cached != null) {
-    _bytes[songId] = cached;
-    return cached;
-  }
-
-  final path = await getPath(songId);
-  if (path == null) return null;
-
-  try {
-    final bytes = await File(path).readAsBytes();
-
-    _bytes[songId] = bytes;
-
-    while (_bytes.length > _maxEntries) {
-      _bytes.remove(_bytes.keys.first);
+    final cached = _bytes.remove(songId);
+    if (cached != null) {
+      _bytes[songId] = cached;
+      return cached;
     }
 
-    return bytes;
-  } on Exception catch (_) {
-    // File read failed — the path is stale (e.g. native LRU evicted the file
-    // while Dart still held a memory reference).  Evict all cached references
-    // so the next call goes through the full resolve → re-extract path instead
-    // of returning the same dead path again.
-    evict(songId);
-    _diskCachedIds.remove(songId);
-    return null;
+    final path = await getPath(songId);
+    if (path == null) return null;
+
+    try {
+      final bytes = await File(path).readAsBytes();
+
+      _bytes[songId] = bytes;
+
+      while (_bytes.length > _maxEntries) {
+        _bytes.remove(_bytes.keys.first);
+      }
+
+      return bytes;
+    } on Exception catch (_) {
+      // File read failed — the path is stale (e.g. native LRU evicted the file
+      // while Dart still held a memory reference).  Evict all cached references
+      // so the next call goes through the full resolve → re-extract path instead
+      // of returning the same dead path again.
+      evict(songId);
+      _diskCachedIds.remove(songId);
+      return null;
+    }
   }
-}
 
   // ── Flutter ImageCache pre-warm ────────────────────────────────────────────
 
@@ -308,10 +310,9 @@ Future<String> _resolvedCacheDir() async {
       final provider = getProviderSync(id, targetSizePx: targetSizePx);
       if (provider == null) continue;
 
-      warmups.add(_decodeIntoImageCache(provider).timeout(
-        timeout,
-        onTimeout: () {},
-      ));
+      warmups.add(
+        _decodeIntoImageCache(provider).timeout(timeout, onTimeout: () {}),
+      );
     }
 
     if (warmups.isEmpty) return;
@@ -394,21 +395,21 @@ Future<String> _resolvedCacheDir() async {
   /// Remove [songId] from memory caches (e.g. after a library change).
   /// The disk file is NOT deleted; call native cleanupIfNeeded for that.
   void evict(int songId) {
-  _paths.remove(songId);
-  _providers.remove(songId);
-  _bytes.remove(songId);
-  unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
-}
+    _paths.remove(songId);
+    _providers.remove(songId);
+    _bytes.remove(songId);
+    unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
+  }
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).
   void clearMemory() {
-  _paths.clear();
-  _providers.clear();
-  _bytes.clear();
+    _paths.clear();
+    _providers.clear();
+    _bytes.clear();
 
-  PaintingBinding.instance.imageCache.clear();
-  PaintingBinding.instance.imageCache.clearLiveImages();
-}
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+  }
 
   // ── Private helpers ────────────────────────────────────────────────────────
 

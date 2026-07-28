@@ -15,14 +15,18 @@ class _InfoLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Text('$label: ',
-              style: TextStyle(
-                  color: c.secondaryLabel, fontSize: 12)),
+          Text(
+            '$label: ',
+            style: TextStyle(color: c.secondaryLabel, fontSize: 12),
+          ),
           Expanded(
-            child: Text(val,
-                style: TextStyle(
-                    color: c.primaryLabel.withValues(alpha: 0.70),
-                    fontSize: 12)),
+            child: Text(
+              val,
+              style: TextStyle(
+                color: c.primaryLabel.withValues(alpha: 0.70),
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
       ),

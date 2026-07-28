@@ -27,8 +27,10 @@ class MediaCapabilitiesService {
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
   /// correctly to both players during a crossfade overlap.
-  static final ValueNotifier<bool>   stereoWideningEnabled  = ValueNotifier(false);
-  static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(0.5);
+  static final ValueNotifier<bool> stereoWideningEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> stereoWideningStrength = ValueNotifier(
+    0.5,
+  );
 
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
@@ -41,8 +43,10 @@ class MediaCapabilitiesService {
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
 
-    stereoWideningEnabled.value  = prefs.getBool('${_kPrefix}stereoEnabled')    ?? false;
-    stereoWideningStrength.value = prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
+    stereoWideningEnabled.value =
+        prefs.getBool('${_kPrefix}stereoEnabled') ?? false;
+    stereoWideningStrength.value =
+        prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -50,17 +54,22 @@ class MediaCapabilitiesService {
     // not just what was requested.
     _stereoWideningSub?.cancel();
     _stereoWideningSub = PlaybackManager.stereoWideningStream.listen((map) {
-      final enabled  = map['enabled']  as bool?   ?? false;
+      final enabled = map['enabled'] as bool? ?? false;
       final strength = (map['strength'] as num?)?.toDouble() ?? 0.5;
-      if (stereoWideningEnabled.value  != enabled)  stereoWideningEnabled.value  = enabled;
-      if (stereoWideningStrength.value != strength) stereoWideningStrength.value = strength;
+      if (stereoWideningEnabled.value != enabled)
+        stereoWideningEnabled.value = enabled;
+      if (stereoWideningStrength.value != strength)
+        stereoWideningStrength.value = strength;
     });
 
     // Push all settings to active engine on startup.
     unawaited(_applyAll());
 
-    LogService.log('MediaCap', 'Initialized — '
-        'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}');
+    LogService.log(
+      'MediaCap',
+      'Initialized — '
+          'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}',
+    );
   }
 
   // Cold-start race fix — same root cause as AudioEffectsService.applyAll():
@@ -71,10 +80,12 @@ class MediaCapabilitiesService {
   // means these calls run once the service has actually finished wiring.
   static Future<void> _applyAll() async {
     await PlaybackManager.waitForServiceReady();
-    unawaited(PlaybackManager.setStereoWidening(
-      enabled:  stereoWideningEnabled.value,
-      strength: stereoWideningStrength.value,
-    ));
+    unawaited(
+      PlaybackManager.setStereoWidening(
+        enabled: stereoWideningEnabled.value,
+        strength: stereoWideningStrength.value,
+      ),
+    );
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────
@@ -85,10 +96,12 @@ class MediaCapabilitiesService {
     stereoWideningEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('${_kPrefix}stereoEnabled', value);
-    unawaited(PlaybackManager.setStereoWidening(
-      enabled:  value,
-      strength: stereoWideningStrength.value,
-    ));
+    unawaited(
+      PlaybackManager.setStereoWidening(
+        enabled: value,
+        strength: stereoWideningStrength.value,
+      ),
+    );
     LogService.log('MediaCap', 'stereoWidening: $value');
   }
 
@@ -99,10 +112,7 @@ class MediaCapabilitiesService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('${_kPrefix}stereoStrength', v);
     if (stereoWideningEnabled.value) {
-      unawaited(PlaybackManager.setStereoWidening(
-        enabled:  true,
-        strength: v,
-      ));
+      unawaited(PlaybackManager.setStereoWidening(enabled: true, strength: v));
     }
     LogService.log('MediaCap', 'stereoStrength: $v');
   }

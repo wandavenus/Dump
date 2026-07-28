@@ -23,7 +23,10 @@ class BrowseBannerCarousel extends StatelessWidget {
           final song = songs[index];
           return Container(
             width: 370,
-            margin: const EdgeInsets.only(left: kCardMarginLeft, right: kCardMarginLeft),
+            margin: const EdgeInsets.only(
+              left: kCardMarginLeft,
+              right: kCardMarginLeft,
+            ),
             child: Center(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,7 +49,7 @@ class BrowseBannerCarousel extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 0.5), 
+                  const SizedBox(height: 0.5),
                   Text(
                     song.album,
                     style: TextStyle(

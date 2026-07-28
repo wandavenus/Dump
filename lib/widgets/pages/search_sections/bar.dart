@@ -15,7 +15,10 @@ class _StickySearchBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: child,
@@ -64,7 +67,7 @@ class _SearchBar extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
-                  autofocus: false,   // Never autofocus on page load
+                  autofocus: false, // Never autofocus on page load
                   style: TextStyle(color: c.primaryLabel, fontSize: 16),
                   cursorColor: const Color(0xFFF92D48),
                   decoration: InputDecoration(
@@ -96,7 +99,11 @@ class _SearchBar extends StatelessWidget {
                   onTap: onClear,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Icon(Icons.cancel, color: c.secondaryLabel, size: 18),
+                    child: Icon(
+                      Icons.cancel,
+                      color: c.secondaryLabel,
+                      size: 18,
+                    ),
                   ),
                 ),
             ],

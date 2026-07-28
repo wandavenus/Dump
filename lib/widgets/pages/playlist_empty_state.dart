@@ -11,10 +11,7 @@ class PlaylistEmptyState extends StatelessWidget {
     return Center(
       child: Text(
         context.l10n.noSongsYet,
-        style: TextStyle(
-          color: colors.onSurfaceVariant,
-          fontSize: 16,
-        ),
+        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 16),
       ),
     );
   }

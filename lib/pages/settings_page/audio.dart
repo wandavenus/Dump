@@ -31,24 +31,30 @@ class _AudioSection extends StatelessWidget {
 
               ValueListenableBuilder<bool>(
                 valueListenable: MediaCapabilitiesService.stereoWideningEnabled,
-                builder: (_, enabled, _) =>
-                    ValueListenableBuilder<double>(
-                  valueListenable: MediaCapabilitiesService.stereoWideningStrength,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable:
+                      MediaCapabilitiesService.stereoWideningStrength,
                   builder: (_, v, _) {
                     final pct = (v * 100).round();
                     return SettingsSliderRow(
-                      title:    l.stereoWidening,
+                      title: l.stereoWidening,
                       subtitle: enabled ? '$pct%' : l.disabled,
-                      value:    enabled ? v : 0.0,
-                      min:      0.0,
-                      max:      1.0,
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
                       divisions: 20,
                       onChanged: (val) async {
                         if (val > 0) {
-                          await MediaCapabilitiesService.setStereoWidening(true);
-                          await MediaCapabilitiesService.setStereoWideningStrength(val);
+                          await MediaCapabilitiesService.setStereoWidening(
+                            true,
+                          );
+                          await MediaCapabilitiesService.setStereoWideningStrength(
+                            val,
+                          );
                         } else {
-                          await MediaCapabilitiesService.setStereoWidening(false);
+                          await MediaCapabilitiesService.setStereoWidening(
+                            false,
+                          );
                         }
                       },
                       showReset: enabled,
