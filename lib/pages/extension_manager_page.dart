@@ -45,7 +45,7 @@ class _ExtensionManagerPageState extends State<ExtensionManagerPage> {
     try {
       final e = await _registry.load(_url.text.trim());
       if (mounted) setState(() => _entries = e);
-    } catch (e) {
+    } on Object catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -65,7 +65,7 @@ class _ExtensionManagerPageState extends State<ExtensionManagerPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('${e.name} installed')));
       }
-    } catch (err) {
+    } on Object catch (err) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,

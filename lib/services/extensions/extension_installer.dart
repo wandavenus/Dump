@@ -24,7 +24,7 @@ class ExtensionInstaller {
             return ExtensionManifest.fromJson(
               jsonDecode(f.readAsStringSync()) as Map<String, dynamic>,
             );
-          } catch (_) {
+          } on Object {
             return null;
           }
         })
@@ -46,7 +46,10 @@ class ExtensionInstaller {
     final tmp = Directory('${target.path}.tmp');
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
     tmp.createSync(recursive: true);
-    if (entry.packageUrl.toLowerCase().endsWith('.zip')) {
+    final packagePath = Uri.parse(entry.packageUrl).path.toLowerCase();
+    if (packagePath.endsWith('.zip') ||
+        packagePath.endsWith('.sflx') ||
+        packagePath.endsWith('.spotiflac-ext')) {
       for (final file in ZipDecoder().decodeBytes(res.bodyBytes).files) {
         final outPath = p.normalize(p.join(tmp.path, file.name));
         if (!p.isWithin(tmp.path, outPath) && outPath != tmp.path) continue;
@@ -67,6 +70,15 @@ class ExtensionInstaller {
     final manifest = ExtensionManifest.fromJson(
       jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>,
     );
+    manifest.validate();
+    if (!File(p.join(tmp.path, manifest.entrypoint)).existsSync()) {
+      final canonical = File(p.join(tmp.path, 'index.js'));
+      if (!canonical.existsSync()) {
+        throw Exception(
+          'Extension entrypoint not found: ${manifest.entrypoint}',
+        );
+      }
+    }
     if (!manifest.isValid ||
         !File(p.join(tmp.path, manifest.entrypoint)).existsSync()) {
       throw Exception('Invalid extension manifest');
@@ -82,7 +94,8 @@ class ExtensionInstaller {
     version: e.version,
     author: e.author,
     description: e.description,
-    type: e.type,
+    types: [e.type],
+    displayName: e.displayName,
     entrypoint: 'index.js',
   );
   Future<void> uninstall(String id) async {

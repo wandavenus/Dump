@@ -17,11 +17,13 @@ class ExtensionRegistryService {
         throw Exception('Registry HTTP ${res.statusCode}');
       }
       final decoded = jsonDecode(res.body);
-      final list = decoded is List
+      final list = decoded is List<dynamic>
           ? decoded
-          : (decoded['extensions'] as List? ?? const []);
+          : decoded is Map<String, dynamic>
+          ? (decoded['extensions'] as List<dynamic>? ?? const <dynamic>[])
+          : const <dynamic>[];
       return list
-          .whereType<Map>()
+          .whereType<Map<String, dynamic>>()
           .map((e) => ExtensionEntry.fromJson(e.cast<String, dynamic>()))
           .where((e) => e.id.isNotEmpty)
           .toList(growable: false);

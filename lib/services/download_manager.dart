@@ -29,13 +29,15 @@ class DownloadManager extends ChangeNotifier {
         _items
           ..clear()
           ..addAll(
-            (jsonDecode(await f.readAsString()) as List).whereType<Map>().map(
-              (e) => DownloadItem.fromJson(e.cast<String, dynamic>()),
-            ),
+            (jsonDecode(await f.readAsString()) as List<dynamic>)
+                .whereType<Map<String, dynamic>>()
+                .map((e) => DownloadItem.fromJson(e)),
           );
         notifyListeners();
       }
-    } catch (_) {}
+    } on Object {
+      // Ignore corrupt persisted queue state and start with an empty queue.
+    }
   }
 
   Future<void> _persist() async {
@@ -100,16 +102,10 @@ class DownloadManager extends ChangeNotifier {
     try {
       _items[index] = item.copyWith(status: DownloadStatus.downloading);
       notifyListeners();
-      final url = await ExtensionService.instance
-          .runtimeFor(item.track.extensionId)
-          ?.resolveDownloadUrl(item.track);
-      if (url == null) throw Exception('No download URL');
-      final client = http.Client();
-      final req = http.Request('GET', Uri.parse(url));
-      final res = await client.send(req);
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw Exception('HTTP ${res.statusCode}');
-      }
+      final runtime = ExtensionService.instance.runtimeFor(
+        item.track.extensionId,
+      );
+      if (runtime == null) throw Exception('Extension runtime not available');
       final dir = Directory(
         p.join(
           (await getExternalStorageDirectory() ??
@@ -123,11 +119,42 @@ class DownloadManager extends ChangeNotifier {
         RegExp(r'[\\/:*?"<>|]'),
         '_',
       );
+      final out = File(p.join(dir.path, '$safe.flac'));
+      final providerResult = await runtime.download(
+        item.track,
+        out.path,
+        onProgress: (progress) {
+          _items[index] = item.copyWith(progress: progress);
+          notifyListeners();
+        },
+      );
+      final url = providerResult.downloadUrl;
+      if (providerResult.success &&
+          providerResult.filePath != null &&
+          File(providerResult.filePath!).existsSync()) {
+        await MediaStoreService.scanFile(providerResult.filePath!);
+        _items[index] = _items[index].copyWith(
+          status: DownloadStatus.completed,
+          progress: 1,
+          filePath: providerResult.filePath,
+        );
+        MediaStoreService.rescanNotifier.value++;
+        return;
+      }
+      if (url == null || url.isEmpty) {
+        throw Exception(providerResult.error ?? 'No download URL');
+      }
+      final client = http.Client();
+      final req = http.Request('GET', Uri.parse(url));
+      final res = await client.send(req);
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw Exception('HTTP ${res.statusCode}');
+      }
       final ext = p.extension(Uri.parse(url).path).isEmpty
-          ? '.mp3'
+          ? '.flac'
           : p.extension(Uri.parse(url).path);
       final tmp = File(p.join(dir.path, '$safe.part'));
-      final out = File(p.join(dir.path, '$safe$ext'));
+      final downloaded = File(p.join(dir.path, '$safe$ext'));
       final sink = tmp.openWrite();
       var got = 0;
       final total = res.contentLength ?? 0;
@@ -150,16 +177,16 @@ class DownloadManager extends ChangeNotifier {
       }
       await sink.close();
       client.close();
-      if (out.existsSync()) await out.delete();
-      await tmp.rename(out.path);
-      await MediaStoreService.scanFile(out.path);
+      if (downloaded.existsSync()) await downloaded.delete();
+      await tmp.rename(downloaded.path);
+      await MediaStoreService.scanFile(downloaded.path);
       _items[index] = _items[index].copyWith(
         status: DownloadStatus.completed,
         progress: 1,
-        filePath: out.path,
+        filePath: downloaded.path,
       );
       MediaStoreService.rescanNotifier.value++;
-    } catch (e) {
+    } on Object catch (e) {
       _items[index] = _items[index].copyWith(
         status: DownloadStatus.failed,
         error: e.toString(),
