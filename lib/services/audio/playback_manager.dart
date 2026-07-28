@@ -133,7 +133,9 @@ class PlaybackManager {
   static Future<void> initialize() async {
     BootTrace.log('ENTER PlaybackManager.initialize()');
     if (_initialized) {
-      BootTrace.log('EXIT  PlaybackManager.initialize() — already initialized, no-op');
+      BootTrace.log(
+        'EXIT  PlaybackManager.initialize() — already initialized, no-op',
+      );
       return;
     }
     _initialized = true;
@@ -158,17 +160,20 @@ class PlaybackManager {
     BootTrace.log('BEFORE try/await NativeDspPipeline.instance.initialize()');
     try {
       await NativeDspPipeline.instance.initialize();
-      BootTrace.log('AFTER  await NativeDspPipeline.instance.initialize() — ok');
+      BootTrace.log(
+        'AFTER  await NativeDspPipeline.instance.initialize() — ok',
+      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline initialized'
-        ' (${NativeDspPipeline.instance.processorCount} processor(s))',
+            ' (${NativeDspPipeline.instance.processorCount} processor(s))',
       );
     } on Exception catch (e, st) {
       // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
       // MissingPluginException, or other platform-level errors — all non-fatal.
       BootTrace.log(
-          'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st');
+        'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st',
+      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline unavailable (non-fatal): $e',
@@ -215,13 +220,13 @@ class PlaybackManager {
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
-  static Future<void> play()           => Media3PlaybackBridge.play();
-  static Future<void> pause()          => Media3PlaybackBridge.pause();
-  static Future<void> stop()           => Media3PlaybackBridge.stop();
+  static Future<void> play() => Media3PlaybackBridge.play();
+  static Future<void> pause() => Media3PlaybackBridge.pause();
+  static Future<void> stop() => Media3PlaybackBridge.stop();
   static Future<void> seek(Duration p) => Media3PlaybackBridge.seek(p);
-  static Future<void> skipNext()       => Media3PlaybackBridge.skipNext();
-  static Future<void> skipPrevious()   => Media3PlaybackBridge.skipPrevious();
-  static Future<void> setTrack(int i)  => Media3PlaybackBridge.setTrack(i);
+  static Future<void> skipNext() => Media3PlaybackBridge.skipNext();
+  static Future<void> skipPrevious() => Media3PlaybackBridge.skipPrevious();
+  static Future<void> setTrack(int i) => Media3PlaybackBridge.setTrack(i);
 
   // ── Mode ──────────────────────────────────────────────────────────────────
 
@@ -233,8 +238,8 @@ class PlaybackManager {
   // ── Playback parameters ───────────────────────────────────────────────────
 
   static Future<void> setVolume(double v) => Media3PlaybackBridge.setVolume(v);
-  static Future<void> setSpeed(double v)  => Media3PlaybackBridge.setSpeed(v);
-  static Future<void> setPitch(double v)  => Media3PlaybackBridge.setPitch(v);
+  static Future<void> setSpeed(double v) => Media3PlaybackBridge.setSpeed(v);
+  static Future<void> setPitch(double v) => Media3PlaybackBridge.setPitch(v);
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
@@ -291,8 +296,7 @@ class PlaybackManager {
         minDecibels: raw.minDecibels,
         maxDecibels: raw.maxDecibels,
         bandCount: raw.bands.length,
-        centerFrequenciesHz:
-            raw.bands.map((b) => b.centerFrequencyHz).toList(),
+        centerFrequenciesHz: raw.bands.map((b) => b.centerFrequencyHz).toList(),
       );
     } on Exception catch (_) {
       return null;
@@ -307,11 +311,10 @@ class PlaybackManager {
   static Future<void> setStereoWidening({
     required bool enabled,
     required double strength,
-  }) =>
-      Media3PlaybackBridge.setStereoWidening(
-        enabled: enabled,
-        strength: strength,
-      );
+  }) => Media3PlaybackBridge.setStereoWidening(
+    enabled: enabled,
+    strength: strength,
+  );
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
       Media3PlaybackBridge.getPlaybackStats();
@@ -346,7 +349,7 @@ class PlaybackManager {
 
   /// Aggregate capability report across all registered native modules.
   static Future<Map<String, List<NativeCapability>>>
-      queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
+  queryNativeCapabilities() => NativeModuleRegistry.queryAllCapabilities();
 
   // ── FFmpeg decoder (Phase 9) ──────────────────────────────────────────────
   //
@@ -409,7 +412,7 @@ class PlaybackManager {
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline unavailable — DSP calls are no-ops from here on '
-        '(fail-open). First skipped call: $callSite',
+            '(fail-open). First skipped call: $callSite',
         level: LogLevel.warning,
       );
     }
@@ -439,13 +442,12 @@ class PlaybackManager {
 
   /// Whether the native gain processor is currently bypassed. `true`
   /// (effectively bypassed) when the pipeline is unavailable.
-  static bool get nativeGainBypass => !_dspGuard('nativeGainBypass') ||
-      NativeDspPipeline.instance.gainBypass;
+  static bool get nativeGainBypass =>
+      !_dspGuard('nativeGainBypass') || NativeDspPipeline.instance.gainBypass;
 
   /// Enable or disable a specific native DSP processor by its C id
   /// (e.g. `'dsp.gain'`). Thread-safe. No-op when the pipeline is unavailable.
-  static void setNativeDspProcessorEnabled(String id,
-      {required bool enabled}) {
+  static void setNativeDspProcessorEnabled(String id, {required bool enabled}) {
     if (!_dspGuard('setNativeDspProcessorEnabled($id)')) return;
     NativeDspPipeline.instance.setProcessorEnabled(id, enabled: enabled);
   }
@@ -462,9 +464,9 @@ class PlaybackManager {
 
   /// Ids of every registered native DSP processor, in processing order.
   static List<String> get nativeDspProcessorIds => [
-        for (var i = 0; i < NativeDspPipeline.instance.processorCount; i++)
-          NativeDspPipeline.instance.processorIdAt(i) ?? '',
-      ];
+    for (var i = 0; i < NativeDspPipeline.instance.processorCount; i++)
+      NativeDspPipeline.instance.processorIdAt(i) ?? '',
+  ];
 
   // Native Parametric EQ (Phase 5) was removed — the legacy Android system
   // Equalizer (via Media3PlaybackBridge.getEqualizerParameters/
@@ -511,25 +513,25 @@ class PlaybackManager {
   /// [makeupGainDb] : Default 0.0 dBFS. Range [−24, 24].
   /// [sampleRate]   : Current playback sample rate. 0 → 48000 Hz fallback.
   static int setNativeCompressorParams({
-    double thresholdDb  = -20.0,
-    double ratio        =   4.0,
-    double attackMs     =  10.0,
-    double releaseMs    = 100.0,
-    double kneeDb       =   6.0,
-    double makeupGainDb =   0.0,
-    double sampleRate   = 48000.0,
+    double thresholdDb = -20.0,
+    double ratio = 4.0,
+    double attackMs = 10.0,
+    double releaseMs = 100.0,
+    double kneeDb = 6.0,
+    double makeupGainDb = 0.0,
+    double sampleRate = 48000.0,
   }) {
     if (!_dspGuard('setNativeCompressorParams')) {
       return NativeRuntimeStatus.notInitialized.index;
     }
     return NativeCompressor.instance.setParams(
-      thresholdDb:  thresholdDb,
-      ratio:        ratio,
-      attackMs:     attackMs,
-      releaseMs:    releaseMs,
-      kneeDb:       kneeDb,
+      thresholdDb: thresholdDb,
+      ratio: ratio,
+      attackMs: attackMs,
+      releaseMs: releaseMs,
+      kneeDb: kneeDb,
       makeupGainDb: makeupGainDb,
-      sampleRate:   sampleRate,
+      sampleRate: sampleRate,
     );
   }
 
@@ -558,16 +560,16 @@ class PlaybackManager {
   /// [sampleRate]  : Current playback sample rate. 0 → 48000 Hz fallback.
   static int setNativeLimiterParams({
     double thresholdDb = -1.0,
-    double releaseMs   = 50.0,
-    double sampleRate  = 48000.0,
+    double releaseMs = 50.0,
+    double sampleRate = 48000.0,
   }) {
     if (!_dspGuard('setNativeLimiterParams')) {
       return NativeRuntimeStatus.notInitialized.index;
     }
     return NativeLimiter.instance.setParams(
       thresholdDb: thresholdDb,
-      releaseMs:   releaseMs,
-      sampleRate:  sampleRate,
+      releaseMs: releaseMs,
+      sampleRate: sampleRate,
     );
   }
 
@@ -585,9 +587,8 @@ class PlaybackManager {
 
   /// Look-ahead frames the limiter uses (63 = ~1.3 ms at 48 kHz). `0` when
   /// the pipeline is unavailable.
-  static int get nativeLimiterLookaheadFrames => _dspGuard(
-        'nativeLimiterLookaheadFrames',
-      )
+  static int get nativeLimiterLookaheadFrames =>
+      _dspGuard('nativeLimiterLookaheadFrames')
       ? NativeLimiter.instance.lookaheadFrames
       : 0;
 
@@ -688,16 +689,16 @@ class PlaybackManager {
   /// or when the pipeline is unavailable.
   static double get nativeLoudnessMeasuredLufs =>
       _dspGuard('nativeLoudnessMeasuredLufs')
-          ? NativeLoudnessNorm.instance.measuredLufs
-          : -99.0;
+      ? NativeLoudnessNorm.instance.measuredLufs
+      : -99.0;
 
   /// Current smooth gain applied to the audio stream, in dBFS.
   /// Positive = boost, negative = attenuation. 0.0 when bypassed or when the
   /// pipeline is unavailable.
   static double get nativeLoudnessAppliedGainDb =>
       _dspGuard('nativeLoudnessAppliedGainDb')
-          ? NativeLoudnessNorm.instance.appliedGainDb
-          : 0.0;
+      ? NativeLoudnessNorm.instance.appliedGainDb
+      : 0.0;
 
   /// Reset the loudness analyzer and smooth gain back to unity.
   /// Must be called on every track change so each track is measured fresh.
@@ -725,8 +726,8 @@ class PlaybackManager {
   /// unavailable.
   static double get nativeSoftClipperThresholdDb =>
       _dspGuard('nativeSoftClipperThresholdDb')
-          ? NativeSoftClipper.instance.thresholdDb
-          : 0.0;
+      ? NativeSoftClipper.instance.thresholdDb
+      : 0.0;
 
   /// Enable (`false`) or bypass (`true`) the soft clipper. No-op when the
   /// pipeline is unavailable.

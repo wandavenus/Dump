@@ -6,8 +6,7 @@ class ThemeController {
 
   static SharedPreferences? _prefs;
 
-  static final ValueNotifier<ThemeMode> mode =
-      ValueNotifier(ThemeMode.system);
+  static final ValueNotifier<ThemeMode> mode = ValueNotifier(ThemeMode.system);
 
   static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
   static final ValueNotifier<bool> glassNavBar = ValueNotifier(true);
@@ -24,9 +23,8 @@ class ThemeController {
     _prefs = await SharedPreferences.getInstance();
     final prefs = _prefs!;
 
-    mode.value = ThemeMode.values[
-      prefs.getInt('theme_mode') ?? ThemeMode.system.index
-    ];
+    mode.value =
+        ThemeMode.values[prefs.getInt('theme_mode') ?? ThemeMode.system.index];
 
     glassTheme.value = prefs.getBool('glass_theme') ?? false;
     glassNavBar.value = prefs.getBool('glass_navbar') ?? true;

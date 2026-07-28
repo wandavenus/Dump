@@ -122,9 +122,7 @@ class _SearchSliversState extends State<SearchSlivers>
         else
           const SearchCategoryGrid(),
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: MediaQuery.paddingOf(context).bottom + 64.5,
-          ),
+          child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 64.5),
         ),
       ],
     );

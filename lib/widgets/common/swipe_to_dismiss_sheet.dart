@@ -54,10 +54,7 @@ class _SwipeToDismissSheetState extends State<SwipeToDismissSheet> {
       onVerticalDragEnd: _handleDragEnd,
       child: Transform.translate(
         offset: Offset(0, _dragOffset),
-        child: Opacity(
-          opacity: 1 - (dragFraction * 0.35),
-          child: widget.child,
-        ),
+        child: Opacity(opacity: 1 - (dragFraction * 0.35), child: widget.child),
       ),
     );
   }

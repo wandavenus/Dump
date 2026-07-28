@@ -22,21 +22,19 @@ class SleepTimerPage extends StatelessWidget {
         actions: [
           ValueListenableBuilder<bool>(
             valueListenable: SleepTimerService.isActive,
-            builder:
-                (_, active, _) =>
-                    active
-                        ? CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: SleepTimerService.cancel,
-                          child: Text(
-                            context.l10n.cancelTimer,
-                            style: const TextStyle(
-                              color: Color(0xFFF92D48),
-                              fontSize: 15,
-                            ),
-                          ),
-                        )
-                        : const SizedBox.shrink(),
+            builder: (_, active, _) => active
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: SleepTimerService.cancel,
+                    child: Text(
+                      context.l10n.cancelTimer,
+                      style: const TextStyle(
+                        color: Color(0xFFF92D48),
+                        fontSize: 15,
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

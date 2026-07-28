@@ -13,9 +13,9 @@ class _AboutSection extends StatelessWidget {
         const SizedBox(height: 6),
         SettingsActionRow(
           title: l.reportBug,
-          onTap: () => Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: const BugReportPage()),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).push(ZoomFadeRoute<void>(page: const BugReportPage())),
         ),
         SettingsActionRow(
           title: l.support,
@@ -31,7 +31,8 @@ class _AboutSection extends StatelessWidget {
                   child: GestureDetector(
                     // pageContext = context dari halaman settings (bukan sheetCtx)
                     // agar SnackBar muncul di Scaffold yang benar.
-                    onTap: () => _confirmSaveQris(sheetCtx, pageContext: context),
+                    onTap: () =>
+                        _confirmSaveQris(sheetCtx, pageContext: context),
                     child: Image.asset(
                       'assets/images/qris_support.webp',
                       fit: BoxFit.contain,
@@ -44,9 +45,9 @@ class _AboutSection extends StatelessWidget {
         ),
         SettingsActionRow(
           title: l.aboutApp,
-          onTap: () => Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: const AboutAppPage()),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).push(ZoomFadeRoute<void>(page: const AboutAppPage())),
         ),
         const SettingsDivider(),
         const _AboutFooter(),
@@ -107,8 +108,14 @@ Future<void> _confirmSaveQris(
       LogService.log(tag, 'No access — requesting…');
       final granted = await Gal.requestAccess();
       if (!granted) {
-        LogService.log(tag, 'Permission denied by user', level: LogLevel.warning);
-        showSnack('Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi');
+        LogService.log(
+          tag,
+          'Permission denied by user',
+          level: LogLevel.warning,
+        );
+        showSnack(
+          'Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi',
+        );
         return;
       }
     }
@@ -117,7 +124,7 @@ Future<void> _confirmSaveQris(
     // ── 2. Load asset & validasi ───────────────────────────────────────────
     LogService.log(tag, 'Loading asset qris_support.webp…');
     final byteData = await rootBundle.load('assets/images/qris_support.webp');
-    final bytes    = byteData.buffer.asUint8List(
+    final bytes = byteData.buffer.asUint8List(
       byteData.offsetInBytes,
       byteData.lengthInBytes,
     );
@@ -134,7 +141,7 @@ Future<void> _confirmSaveQris(
 
     // ── 4. Validasi temp file ──────────────────────────────────────────────
     final exists = tempFile.existsSync();
-    final size   = exists ? tempFile.lengthSync() : 0;
+    final size = exists ? tempFile.lengthSync() : 0;
     LogService.log(tag, 'Temp file — exists=$exists size=$size');
     if (!exists || size <= 0) {
       throw Exception('Temp file tidak valid (exists=$exists size=$size)');
@@ -146,23 +153,23 @@ Future<void> _confirmSaveQris(
     LogService.log(tag, 'Gal.putImage() selesai — sukses');
 
     showSnack('Gambar berhasil disimpan ke galeri');
-
   } on GalException catch (e, st) {
     // Tangani setiap tipe GalException secara spesifik
     final reason = switch (e.type) {
-      GalExceptionType.accessDenied       => 'Akses galeri ditolak',
-      GalExceptionType.notEnoughSpace     => 'Ruang penyimpanan penuh',
+      GalExceptionType.accessDenied => 'Akses galeri ditolak',
+      GalExceptionType.notEnoughSpace => 'Ruang penyimpanan penuh',
       GalExceptionType.notSupportedFormat => 'Format tidak didukung',
-      GalExceptionType.unexpected         => 'Error tidak terduga dari galeri',
+      GalExceptionType.unexpected => 'Error tidak terduga dari galeri',
     };
-    LogService.error(tag, 'GalException [${e.type.name}]: $e',
-        stackTrace: st.toString());
+    LogService.error(
+      tag,
+      'GalException [${e.type.name}]: $e',
+      stackTrace: st.toString(),
+    );
     showSnack('Gagal menyimpan: $reason (${e.type.name})');
-
   } on Object catch (e, st) {
     LogService.error(tag, 'Unexpected error: $e', stackTrace: st.toString());
     showSnack('Gagal menyimpan: $e');
-
   } finally {
     // Hapus temp file setelah selesai (sukses maupun gagal)
     try {

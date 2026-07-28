@@ -122,8 +122,9 @@ void main() {
     'native_runtime_aaudio_last_error',
   };
 
-  final bindingsOutput = packageRoot
-      .resolve('lib/src/third_party/native_audio_runtime.g.dart');
+  final bindingsOutput = packageRoot.resolve(
+    'lib/src/third_party/native_audio_runtime.g.dart',
+  );
 
   FfiGenerator(
     headers: Headers(

@@ -30,18 +30,24 @@ class _AppearanceSection extends StatelessWidget {
                     children: {
                       ThemeMode.light: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(l.themeLight,
-                            style: const TextStyle(fontSize: 13)),
+                        child: Text(
+                          l.themeLight,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
                       ThemeMode.system: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(l.themeAutomatic,
-                            style: const TextStyle(fontSize: 13)),
+                        child: Text(
+                          l.themeAutomatic,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
                       ThemeMode.dark: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(l.themeDark,
-                            style: const TextStyle(fontSize: 13)),
+                        child: Text(
+                          l.themeDark,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
                     },
                   );
@@ -74,29 +80,34 @@ class _AppearanceSection extends StatelessWidget {
               const SettingsDivider(),
               if (isGlass) ...[
                 _GlassSubToggle(
-                    label: l.glassToggleNavBar,
-                    notifier: ThemeController.glassNavBar,
-                    onChanged: ThemeController.setGlassNavBar),
+                  label: l.glassToggleNavBar,
+                  notifier: ThemeController.glassNavBar,
+                  onChanged: ThemeController.setGlassNavBar,
+                ),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: l.glassToggleAppBar,
-                    notifier: ThemeController.glassAppBar,
-                    onChanged: ThemeController.setGlassAppBar),
+                  label: l.glassToggleAppBar,
+                  notifier: ThemeController.glassAppBar,
+                  onChanged: ThemeController.setGlassAppBar,
+                ),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: l.glassToggleMiniPlayer,
-                    notifier: ThemeController.glassMiniPlayer,
-                    onChanged: ThemeController.setGlassMiniPlayer),
+                  label: l.glassToggleMiniPlayer,
+                  notifier: ThemeController.glassMiniPlayer,
+                  onChanged: ThemeController.setGlassMiniPlayer,
+                ),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: l.glassTogglePlayerSheet,
-                    notifier: ThemeController.glassPlayerSheet,
-                    onChanged: ThemeController.setGlassPlayerSheet),
+                  label: l.glassTogglePlayerSheet,
+                  notifier: ThemeController.glassPlayerSheet,
+                  onChanged: ThemeController.setGlassPlayerSheet,
+                ),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
-                    label: l.glassToggleAlbumCard,
-                    notifier: ThemeController.glassAlbumCard,
-                    onChanged: ThemeController.setGlassAlbumCard),
+                  label: l.glassToggleAlbumCard,
+                  notifier: ThemeController.glassAlbumCard,
+                  onChanged: ThemeController.setGlassAlbumCard,
+                ),
                 const SettingsDivider(indent: 52),
               ],
             ],

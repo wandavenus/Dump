@@ -37,16 +37,16 @@ class _SearchResultTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: c.primaryLabel,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500),
+                      color: c.primaryLabel,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   Text(
                     '${song.artist} · ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: c.secondaryLabel, fontSize: 13),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                   ),
                 ],
               ),

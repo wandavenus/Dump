@@ -20,14 +20,21 @@ class _GlassSubToggle extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: notifier,
       builder: (_, value, _) => Padding(
-        padding: const EdgeInsets.only(left: 36, right: 16, top: 10, bottom: 10),
+        padding: const EdgeInsets.only(
+          left: 36,
+          right: 16,
+          top: 10,
+          bottom: 10,
+        ),
         child: Row(
           children: [
             Icon(Icons.blur_on, size: 16, color: c.secondaryLabel),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(color: c.primaryLabel, fontSize: 15)),
+              child: Text(
+                label,
+                style: TextStyle(color: c.primaryLabel, fontSize: 15),
+              ),
             ),
             CupertinoSwitch(
               value: value,

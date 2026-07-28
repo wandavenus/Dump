@@ -26,11 +26,13 @@ class _RadioPageState extends State<RadioPage> {
 
   void _onScrollToTop() {
     if (_scroll.hasClients) {
-      unawaited(_scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      ));
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        ),
+      );
     }
   }
 

@@ -46,8 +46,7 @@ class PlayerSheetController {
   }
 
   static void _onTick(Duration elapsed) {
-    final rawT =
-        (elapsed.inMilliseconds / _animDurationMs).clamp(0.0, 1.0);
+    final rawT = (elapsed.inMilliseconds / _animDurationMs).clamp(0.0, 1.0);
 
     // easeOutCubic: 1 - (1-t)^3
     final u = 1.0 - rawT;

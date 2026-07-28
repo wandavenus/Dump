@@ -78,12 +78,18 @@ class _MusicListState extends State<MusicList> {
                   LargePageTitle(title: context.l10n.recentlyPlayed),
                   const HeaderDivider(),
                   const SizedBox(height: 160),
-                  Icon(Icons.music_note, size: 56, color: AppColors.of(context).tertiaryLabel),
+                  Icon(
+                    Icons.music_note,
+                    size: 56,
+                    color: AppColors.of(context).tertiaryLabel,
+                  ),
                   const SizedBox(height: 12),
                   Center(
                     child: Text(
                       context.l10n.noLocalSongs,
-                      style: TextStyle(color: AppColors.of(context).secondaryLabel),
+                      style: TextStyle(
+                        color: AppColors.of(context).secondaryLabel,
+                      ),
                     ),
                   ),
                 ],
@@ -156,7 +162,9 @@ class _MusicListState extends State<MusicList> {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: AppColors.of(context).secondaryLabel),
+                    style: TextStyle(
+                      color: AppColors.of(context).secondaryLabel,
+                    ),
                   ),
                 );
               },

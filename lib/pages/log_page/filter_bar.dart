@@ -21,21 +21,22 @@ class _LogFilterBar extends StatelessWidget {
     required this.onSearchChanged,
   });
 
-  final LogLevel?    levelFilter;
-  final String?      categoryFilter;
+  final LogLevel? levelFilter;
+  final String? categoryFilter;
   final List<String> categories;
-  final int          totalCount;
-  final int   Function(LogLevel) countLevel;
+  final int totalCount;
+  final int Function(LogLevel) countLevel;
   final Color Function(LogLevel) levelColor;
-  final TextEditingController    searchController;
-  final ValueChanged<LogLevel?>  onLevelChanged;
-  final ValueChanged<String?>    onCategoryChanged;
+  final TextEditingController searchController;
+  final ValueChanged<LogLevel?> onLevelChanged;
+  final ValueChanged<String?> onCategoryChanged;
+
   /// Called on every text change AND when the clear button is tapped.
   final VoidCallback onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
-    final c         = AppColors.of(context);
+    final c = AppColors.of(context);
     final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -49,80 +50,110 @@ class _LogFilterBar extends StatelessWidget {
 
   // ── Search ─────────────────────────────────────────────────────────────────
 
-  Widget _buildSearch(BuildContext context, AppThemeExtension c, Color scaffoldBg) =>
-      Container(
-        color: scaffoldBg,
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-        child: Container(
-          height: 36,
-          decoration: BoxDecoration(
-            color:        c.surface,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded,
-                  color: c.quaternaryLabel, size: 15),
-              const SizedBox(width: 7),
-              Expanded(
-                child: TextField(
-                  controller: searchController,
-                  style: TextStyle(
-                    color:      c.primaryLabel,
-                    fontSize:   13,
-                    fontFamily: 'monospace',
-                  ),
-                  decoration: InputDecoration(
-                     hintText:  context.l10n.logSearchHint,
-                    hintStyle: TextStyle(
-                      color:      c.dimLabel,
-                      fontSize:   13,
-                      fontFamily: 'monospace',
-                    ),
-                    border:         InputBorder.none,
-                    isDense:        true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (_) => onSearchChanged(),
-                ),
+  Widget _buildSearch(
+    BuildContext context,
+    AppThemeExtension c,
+    Color scaffoldBg,
+  ) => Container(
+    color: scaffoldBg,
+    padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+    child: Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        children: [
+          Icon(Icons.search_rounded, color: c.quaternaryLabel, size: 15),
+          const SizedBox(width: 7),
+          Expanded(
+            child: TextField(
+              controller: searchController,
+              style: TextStyle(
+                color: c.primaryLabel,
+                fontSize: 13,
+                fontFamily: 'monospace',
               ),
-              if (searchController.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    searchController.clear();
-                    onSearchChanged(); // controller.clear() doesn't fire onChanged
-                  },
-                  child: Icon(Icons.close_rounded,
-                      color: c.quaternaryLabel, size: 15),
+              decoration: InputDecoration(
+                hintText: context.l10n.logSearchHint,
+                hintStyle: TextStyle(
+                  color: c.dimLabel,
+                  fontSize: 13,
+                  fontFamily: 'monospace',
                 ),
-            ],
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (_) => onSearchChanged(),
+            ),
           ),
-        ),
-      );
+          if (searchController.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                searchController.clear();
+                onSearchChanged(); // controller.clear() doesn't fire onChanged
+              },
+              child: Icon(
+                Icons.close_rounded,
+                color: c.quaternaryLabel,
+                size: 15,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 
   // ── Filter chips ───────────────────────────────────────────────────────────
 
-  Widget _buildFilterRow(BuildContext context, AppThemeExtension c, Color scaffoldBg) {
+  Widget _buildFilterRow(
+    BuildContext context,
+    AppThemeExtension c,
+    Color scaffoldBg,
+  ) {
     return Container(
-      color:  scaffoldBg,
+      color: scaffoldBg,
       height: 32,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _levelChip(null,             context.l10n.logFilterAll, totalCount, c),
-          _levelChip(LogLevel.error,   context.l10n.logFilterError, countLevel(LogLevel.error), c),
-          _levelChip(LogLevel.warning, context.l10n.logFilterWarning, countLevel(LogLevel.warning), c),
-          _levelChip(LogLevel.info,    context.l10n.logFilterInfo, countLevel(LogLevel.info), c),
-          _levelChip(LogLevel.verbose, context.l10n.logFilterVerbose, countLevel(LogLevel.verbose), c),
+          _levelChip(null, context.l10n.logFilterAll, totalCount, c),
+          _levelChip(
+            LogLevel.error,
+            context.l10n.logFilterError,
+            countLevel(LogLevel.error),
+            c,
+          ),
+          _levelChip(
+            LogLevel.warning,
+            context.l10n.logFilterWarning,
+            countLevel(LogLevel.warning),
+            c,
+          ),
+          _levelChip(
+            LogLevel.info,
+            context.l10n.logFilterInfo,
+            countLevel(LogLevel.info),
+            c,
+          ),
+          _levelChip(
+            LogLevel.verbose,
+            context.l10n.logFilterVerbose,
+            countLevel(LogLevel.verbose),
+            c,
+          ),
           if (categories.isNotEmpty) ...[
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('│',
-                    style: TextStyle(
-                        color: c.surface2, fontFamily: 'monospace')),
+                child: Text(
+                  '│',
+                  style: TextStyle(color: c.surface2, fontFamily: 'monospace'),
+                ),
               ),
             ),
             ...categories.map((cat) => _catChip(cat, c)),
@@ -132,13 +163,18 @@ class _LogFilterBar extends StatelessWidget {
     );
   }
 
-  Widget _levelChip(LogLevel? level, String label, int count, AppThemeExtension c) {
+  Widget _levelChip(
+    LogLevel? level,
+    String label,
+    int count,
+    AppThemeExtension c,
+  ) {
     final active = levelFilter == level;
-    final color  = level == null ? c.primaryLabel : levelColor(level);
+    final color = level == null ? c.primaryLabel : levelColor(level);
     return GestureDetector(
       onTap: () => onLevelChanged(level),
       child: Container(
-        margin:  const EdgeInsets.only(right: 6),
+        margin: const EdgeInsets.only(right: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: const BoxDecoration(),
         child: Row(
@@ -147,8 +183,8 @@ class _LogFilterBar extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color:      active ? color : c.quaternaryLabel,
-                fontSize:   11,
+                color: active ? color : c.quaternaryLabel,
+                fontSize: 11,
                 fontFamily: 'monospace',
                 fontWeight: active ? FontWeight.w700 : FontWeight.w400,
               ),
@@ -158,10 +194,8 @@ class _LogFilterBar extends StatelessWidget {
               Text(
                 '$count',
                 style: TextStyle(
-                  color: active
-                      ? color.withValues(alpha: 0.6)
-                      : c.dimLabel,
-                  fontSize:   9,
+                  color: active ? color.withValues(alpha: 0.6) : c.dimLabel,
+                  fontSize: 9,
                   fontFamily: 'monospace',
                 ),
               ),
@@ -177,7 +211,7 @@ class _LogFilterBar extends StatelessWidget {
     return GestureDetector(
       onTap: () => onCategoryChanged(active ? null : cat),
       child: Container(
-        margin:  const EdgeInsets.only(right: 6),
+        margin: const EdgeInsets.only(right: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: active
@@ -187,14 +221,15 @@ class _LogFilterBar extends StatelessWidget {
           border: active
               ? Border.all(
                   color: c.secondaryLabel.withValues(alpha: 0.2),
-                  width: 0.5)
+                  width: 0.5,
+                )
               : null,
         ),
         child: Text(
           cat,
           style: TextStyle(
-            color:      active ? c.secondaryLabel : c.quaternaryLabel,
-            fontSize:   11,
+            color: active ? c.secondaryLabel : c.quaternaryLabel,
+            fontSize: 11,
             fontFamily: 'monospace',
             fontWeight: active ? FontWeight.w600 : FontWeight.w400,
           ),

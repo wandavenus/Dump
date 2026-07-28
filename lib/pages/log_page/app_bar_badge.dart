@@ -7,24 +7,24 @@ part of '../log_page.dart';
 
 class _AppBarBadge extends StatelessWidget {
   const _AppBarBadge({required this.count, required this.color});
-  final int   count;
+  final int count;
   final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color:        color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          '$count',
-          style: TextStyle(
-            color:      color.withValues(alpha: 0.85),
-            fontSize:   10,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      '$count',
+      style: TextStyle(
+        color: color.withValues(alpha: 0.85),
+        fontSize: 10,
+        fontFamily: 'monospace',
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }

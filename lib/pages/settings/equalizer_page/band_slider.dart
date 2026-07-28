@@ -62,7 +62,9 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
     }
     try {
       final params = await Media3PlaybackBridge.getEqualizerParameters();
-      final rawLabels = params.bands.map((b) => _formatHz(b.centerFrequencyHz)).toList();
+      final rawLabels = params.bands
+          .map((b) => _formatHz(b.centerFrequencyHz))
+          .toList();
       final labels = rawLabels.every((l) => l != '?') && rawLabels.isNotEmpty
           ? rawLabels
           : _defaultLabels;
@@ -84,7 +86,10 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
 
   Future<void> _restoreGainsFromPrefs(int count) async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = List.generate(count, (i) => prefs.getDouble('eqBand_$i') ?? 0.0);
+    final saved = List.generate(
+      count,
+      (i) => prefs.getDouble('eqBand_$i') ?? 0.0,
+    );
     if (mounted) setState(() => _gains = saved);
   }
 
@@ -134,9 +139,12 @@ class _EqBandSliderSectionState extends State<_EqBandSliderSection> {
                   ? GestureDetector(
                       onTap: _resetAll,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         child: Text(
-                           context.l10n.reset,
+                          context.l10n.reset,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontSize: 13,
@@ -292,9 +300,9 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
 
   @override
   Widget build(BuildContext context) {
-    final isActive   = widget.gain.abs() > 0.1;
+    final isActive = widget.gain.abs() > 0.1;
     final isDragging = _activePointer != null;
-    final c          = AppColors.of(context);
+    final c = AppColors.of(context);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -309,8 +317,9 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
                   ? Theme.of(context).colorScheme.primary
                   : c.tertiaryLabel,
               fontSize: 10,
-              fontWeight:
-                  isDragging || isActive ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isDragging || isActive
+                  ? FontWeight.w600
+                  : FontWeight.normal,
             ),
             child: Text(_gainLabel, textAlign: TextAlign.center),
           ),
@@ -356,10 +365,7 @@ class _VerticalBandSliderState extends State<_VerticalBandSlider>
           height: 16,
           child: Text(
             widget.freqLabel,
-            style: TextStyle(
-              color: c.secondaryLabel,
-              fontSize: 10,
-            ),
+            style: TextStyle(color: c.secondaryLabel, fontSize: 10),
             textAlign: TextAlign.center,
           ),
         ),
@@ -413,8 +419,8 @@ class _BandTrackPainter extends CustomPainter {
     if (range <= 0) return;
 
     final cx = size.width / 2;
-    final gainFraction = (gain - min) / range;          // 0.0 (min) → 1.0 (max)
-    final zeroFraction = (-min) / range;                // position of 0 dB
+    final gainFraction = (gain - min) / range; // 0.0 (min) → 1.0 (max)
+    final zeroFraction = (-min) / range; // position of 0 dB
     final thumbY = size.height * (1.0 - gainFraction);
     final centerY = size.height * (1.0 - zeroFraction);
 
@@ -427,8 +433,12 @@ class _BandTrackPainter extends CustomPainter {
           )!
         : disabledAccentColor;
     final thumbColor = enabled
-        ? Color.lerp(neutralTrackColor, accentColor,
-            (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 + pressAmount * 0.2)!
+        ? Color.lerp(
+            neutralTrackColor,
+            accentColor,
+            (gain.abs() / (range / 2)).clamp(0.0, 1.0) * 0.8 +
+                pressAmount * 0.2,
+          )!
         : disabledAccentColor;
 
     // ── Background track ─────────────────────────────────────────────────────
@@ -463,8 +473,7 @@ class _BandTrackPainter extends CustomPainter {
     );
 
     // ── Thumb glow (when pressed or gain ≠ 0) ────────────────────────────────
-    final glowOpacity = (pressAmount * 0.25 +
-        (gain.abs() > 0.1 ? 0.08 : 0.0));
+    final glowOpacity = (pressAmount * 0.25 + (gain.abs() > 0.1 ? 0.08 : 0.0));
     if (glowOpacity > 0 && enabled) {
       final glowPaint = Paint()
         ..color = accentColor.withValues(alpha: glowOpacity)

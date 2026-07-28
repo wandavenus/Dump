@@ -10,7 +10,10 @@ class MyScrollBehavior extends MaterialScrollBehavior {
   // child as-is removes both the stretch and glow indicators entirely.
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context, Widget child, ScrollableDetails details) {
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return child;
   }
 }

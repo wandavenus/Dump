@@ -49,7 +49,10 @@ class KuwoProvider implements LyricsProvider {
         _searchUrl.replaceFirst('{q}', Uri.encodeComponent(q)),
       );
       final searchResp = await ProviderHttp.get(
-        searchUri, name, cancelToken, headers: _headers,
+        searchUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (searchResp == null || searchResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -57,13 +60,17 @@ class KuwoProvider implements LyricsProvider {
       final searchData = ProviderHttp.asJsonMap(jsonDecode(searchResp.body));
       final searchSection = ProviderHttp.asJsonMap(searchData?['data']);
       final rawList = searchSection?['list'];
-      final list = rawList is List ? rawList.cast<Object?>() : const <Object?>[];
+      final list = rawList is List
+          ? rawList.cast<Object?>()
+          : const <Object?>[];
       if (list.isEmpty) return null;
       final firstSong = ProviderHttp.asJsonMap(list.first);
       if (firstSong == null) return null;
 
       final musicId =
-          firstSong['musicrid']?.toString() ?? firstSong['rid']?.toString() ?? '';
+          firstSong['musicrid']?.toString() ??
+          firstSong['rid']?.toString() ??
+          '';
       if (musicId.isEmpty) return null;
 
       // Ambil hanya numeric ID
@@ -71,11 +78,12 @@ class KuwoProvider implements LyricsProvider {
       if (numericId.isEmpty) return null;
 
       // 2. Ambil LRC
-      final lrcUri = Uri.parse(
-        _lrcUrl.replaceFirst('{id}', numericId),
-      );
+      final lrcUri = Uri.parse(_lrcUrl.replaceFirst('{id}', numericId));
       final lrcResp = await ProviderHttp.get(
-        lrcUri, name, cancelToken, headers: _headers,
+        lrcUri,
+        name,
+        cancelToken,
+        headers: _headers,
       );
       if (lrcResp == null || lrcResp.statusCode != 200) return null;
       cancelToken.throwIfCancelled();
@@ -91,10 +99,13 @@ class KuwoProvider implements LyricsProvider {
       if (lrc == null || lrc.trim().isEmpty) return null;
 
       final quality = LrcParser.detectQuality(lrc);
-      final lines   = LrcParser.parseLrc(lrc);
+      final lines = LrcParser.parseLrc(lrc);
       if (lines.isEmpty) return null;
 
-      LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
+      LogService.verbose(
+        name,
+        '${lines.length} lines [${quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: lines,
         quality: quality,

@@ -67,10 +67,19 @@ external int native_runtime_last_status();
 /// Allocate an interleaved PCM buffer. Returns nullptr on failure.
 /// `format`: 0 = FLOAT32 (only supported format in Phase 4).
 @ffi.Native<
-    ffi.Pointer<NarAudioBuffer> Function(
-        ffi.Int32, ffi.Int32, ffi.Int32, ffi.Int32)>()
+  ffi.Pointer<NarAudioBuffer> Function(
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Int32,
+    ffi.Int32,
+  )
+>()
 external ffi.Pointer<NarAudioBuffer> nar_audio_buffer_create(
-    int capacityFrames, int channelCount, int sampleRate, int format);
+  int capacityFrames,
+  int channelCount,
+  int sampleRate,
+  int format,
+);
 
 /// Free a buffer. Safe to call with nullptr (no-op).
 @ffi.Native<ffi.Void Function(ffi.Pointer<NarAudioBuffer>)>()
@@ -78,14 +87,15 @@ external void nar_audio_buffer_destroy(ffi.Pointer<NarAudioBuffer> buffer);
 
 /// Direct pointer to interleaved float32 sample data. Returns nullptr for
 /// a null buffer or non-FLOAT32 format.
-@ffi.Native<
-    ffi.Pointer<ffi.Float> Function(ffi.Pointer<NarAudioBuffer>)>()
+@ffi.Native<ffi.Pointer<ffi.Float> Function(ffi.Pointer<NarAudioBuffer>)>()
 external ffi.Pointer<ffi.Float> nar_audio_buffer_data(
-    ffi.Pointer<NarAudioBuffer> buffer);
+  ffi.Pointer<NarAudioBuffer> buffer,
+);
 
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<NarAudioBuffer>)>()
 external int nar_audio_buffer_capacity_frames(
-    ffi.Pointer<NarAudioBuffer> buffer);
+  ffi.Pointer<NarAudioBuffer> buffer,
+);
 
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<NarAudioBuffer>)>()
 external int nar_audio_buffer_frame_count(ffi.Pointer<NarAudioBuffer> buffer);
@@ -93,7 +103,9 @@ external int nar_audio_buffer_frame_count(ffi.Pointer<NarAudioBuffer> buffer);
 /// Narrow (or restore) the number of valid frames. Returns status code.
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<NarAudioBuffer>, ffi.Int32)>()
 external int nar_audio_buffer_set_frame_count(
-    ffi.Pointer<NarAudioBuffer> buffer, int frameCount);
+  ffi.Pointer<NarAudioBuffer> buffer,
+  int frameCount,
+);
 
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<NarAudioBuffer>)>()
 external int nar_audio_buffer_channel_count(ffi.Pointer<NarAudioBuffer> buffer);
@@ -109,7 +121,9 @@ external int nar_audio_buffer_timestamp_us(ffi.Pointer<NarAudioBuffer> buffer);
 
 @ffi.Native<ffi.Void Function(ffi.Pointer<NarAudioBuffer>, ffi.Int64)>()
 external void nar_audio_buffer_set_timestamp_us(
-    ffi.Pointer<NarAudioBuffer> buffer, int timestampUs);
+  ffi.Pointer<NarAudioBuffer> buffer,
+  int timestampUs,
+);
 
 // ── dsp_pipeline.h ────────────────────────────────────────────────────────────
 
@@ -136,7 +150,9 @@ external void nar_dsp_pipeline_dispose();
 /// Enable (1) or disable (0) a processor by id (UTF-8 C string).
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Int32)>()
 external int nar_dsp_pipeline_set_enabled(
-    ffi.Pointer<ffi.Char> id, int enabled);
+  ffi.Pointer<ffi.Char> id,
+  int enabled,
+);
 
 /// Returns 1 if enabled, 0 if disabled, error code if not found.
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<ffi.Char>)>()
@@ -187,16 +203,25 @@ external int nar_comp_processor_register_internal();
 /// Configure all compressor parameters in one call.
 /// Floats are truncated from Dart double → C float by the FFI layer.
 @ffi.Native<
-    ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float,
-        ffi.Float, ffi.Float, ffi.Float, ffi.Float)>()
+  ffi.Int32 Function(
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+  )
+>()
 external int nar_comp_set_params(
-    double thresholdDb,
-    double ratio,
-    double attackMs,
-    double releaseMs,
-    double kneeDb,
-    double makeupGainDb,
-    double sampleRate);
+  double thresholdDb,
+  double ratio,
+  double attackMs,
+  double releaseMs,
+  double kneeDb,
+  double makeupGainDb,
+  double sampleRate,
+);
 
 /// Enable (0) or bypass (1) the compressor.
 @ffi.Native<ffi.Void Function(ffi.Int32)>()
@@ -220,7 +245,10 @@ external int nar_replaygain_processor_register_internal();
 /// Effective gain is pre-computed and stored atomically. Returns 0 (OK).
 @ffi.Native<ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Int32)>()
 external int nar_replaygain_set_gain(
-    double gainDb, double peakLinear, int useClippingProtection);
+  double gainDb,
+  double peakLinear,
+  int useClippingProtection,
+);
 
 /// Enable (0) or bypass (1) the ReplayGain processor.
 @ffi.Native<ffi.Void Function(ffi.Int32)>()
@@ -279,15 +307,23 @@ external int nar_crossfeed_processor_register_internal();
 /// [hfCompDb]: HF shelf gain [0,12] dB. [hfCompHz]: shelf corner [1000,16000] Hz.
 /// [width]: stereo width [0,2]. [sampleRate]: playback rate (0 → 48000).
 @ffi.Native<
-    ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float,
-        ffi.Float, ffi.Float, ffi.Float)>()
+  ffi.Int32 Function(
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+    ffi.Float,
+  )
+>()
 external int nar_crossfeed_set_params(
-    double amount,
-    double cutoffHz,
-    double hfCompDb,
-    double hfCompHz,
-    double width,
-    double sampleRate);
+  double amount,
+  double cutoffHz,
+  double hfCompDb,
+  double hfCompHz,
+  double width,
+  double sampleRate,
+);
 
 /// Enable (0) or bypass (1) the crossfeed processor.
 @ffi.Native<ffi.Void Function(ffi.Int32)>()
@@ -307,7 +343,10 @@ external int nar_limiter_processor_register_internal();
 /// Configure limiter parameters (threshold, release, sample rate).
 @ffi.Native<ffi.Int32 Function(ffi.Float, ffi.Float, ffi.Float)>()
 external int nar_limiter_set_params(
-    double thresholdDb, double releaseMs, double sampleRate);
+  double thresholdDb,
+  double releaseMs,
+  double sampleRate,
+);
 
 /// Enable (0) or bypass (1) the limiter.
 @ffi.Native<ffi.Void Function(ffi.Int32)>()

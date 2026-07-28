@@ -117,6 +117,5 @@ class NativeRuntimeException implements Exception {
   const NativeRuntimeException(this.operation, this.status);
 
   @override
-  String toString() =>
-      'NativeRuntimeException: $operation failed with $status';
+  String toString() => 'NativeRuntimeException: $operation failed with $status';
 }

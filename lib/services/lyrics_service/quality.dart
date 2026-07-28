@@ -1,11 +1,11 @@
 /// Kualitas lirik dari tertinggi ke terendah (ordinal = prioritas).
 enum LyricsQuality {
-  wordTimedLrc,    // Enhanced LRC dengan word-timing <mm:ss.xx> per kata
-  charTimedLrc,    // Enhanced LRC dengan character-timing
-  lineTimedLrc,    // Standard LRC [mm:ss.xx] per baris
-  plainLrc,        // LRC dengan struktur tapi tanpa timestamp bermakna
-  unsyncedLyrics,  // Teks biasa tanpa timing
-  none,            // Tidak ada lirik
+  wordTimedLrc, // Enhanced LRC dengan word-timing <mm:ss.xx> per kata
+  charTimedLrc, // Enhanced LRC dengan character-timing
+  lineTimedLrc, // Standard LRC [mm:ss.xx] per baris
+  plainLrc, // LRC dengan struktur tapi tanpa timestamp bermakna
+  unsyncedLyrics, // Teks biasa tanpa timing
+  none, // Tidak ada lirik
 }
 
 extension LyricsQualityX on LyricsQuality {
@@ -17,12 +17,12 @@ extension LyricsQualityX on LyricsQuality {
   bool get isWordTimed => this == LyricsQuality.wordTimedLrc;
 
   String get displayName => switch (this) {
-    LyricsQuality.wordTimedLrc   => 'Word-timed LRC',
-    LyricsQuality.charTimedLrc   => 'Char-timed LRC',
-    LyricsQuality.lineTimedLrc   => 'Synced LRC',
-    LyricsQuality.plainLrc       => 'Plain LRC',
+    LyricsQuality.wordTimedLrc => 'Word-timed LRC',
+    LyricsQuality.charTimedLrc => 'Char-timed LRC',
+    LyricsQuality.lineTimedLrc => 'Synced LRC',
+    LyricsQuality.plainLrc => 'Plain LRC',
     LyricsQuality.unsyncedLyrics => 'Unsynced',
-    LyricsQuality.none           => 'None',
+    LyricsQuality.none => 'None',
   };
 
   /// Serialisasi untuk cache disk.

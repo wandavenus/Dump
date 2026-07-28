@@ -17,70 +17,76 @@ class AlbumHero extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Artwork — centered, ~220px
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SongArtwork(
-              songId: album.id,
-              size: 220,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Artwork — centered, ~220px
+            ClipRRect(
               borderRadius: BorderRadius.circular(12),
+              child: SongArtwork(
+                songId: album.id,
+                size: 220,
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Album title
-          Text(
-            album.album,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.of(context).primaryLabel,
+            // Album title
+            Text(
+              album.album,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.of(context).primaryLabel,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
+            const SizedBox(height: 4),
 
-          // Artist name
-          Text(
-            album.albumArtist ?? album.artist,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFFF92D48),
+            // Artist name
+            Text(
+              album.albumArtist ?? album.artist,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFFF92D48),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
+            const SizedBox(height: 4),
 
-          // Meta: Genre • Year • 🔊 Lossless
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (metaParts.isNotEmpty) ...[
+            // Meta: Genre • Year • 🔊 Lossless
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (metaParts.isNotEmpty) ...[
+                  Text(
+                    metaParts.join(' • '),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.of(context).secondaryLabel,
+                    ),
+                  ),
+                  Text(
+                    ' • ',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.of(context).secondaryLabel,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 3),
                 Text(
-                  metaParts.join(' • '),
+                  context.l10n.lossless,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.of(context).secondaryLabel,
                   ),
                 ),
-                Text(
-                  ' • ',
-                  style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
-                ),
               ],
-              const SizedBox(width: 3),
-              Text(
-                context.l10n.lossless,
-                style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
         ),
       ),
     );

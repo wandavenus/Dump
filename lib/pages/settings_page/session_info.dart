@@ -9,15 +9,23 @@ class _AudioSessionInfo extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.l10n.audioEngineInfo,
-              style: TextStyle(color: c.primaryLabel, fontSize: 15)),
+          Text(
+            context.l10n.audioEngineInfo,
+            style: TextStyle(color: c.primaryLabel, fontSize: 15),
+          ),
           const SizedBox(height: 6),
-          _InfoLine(context.l10n.dspPipeline,
-              DeviceDsp.isAndroid ? context.l10n.androidDsp : context.l10n.webFallback),
-          _InfoLine(context.l10n.bassBoost,
-              DeviceDsp.bassBoostSupported
-                  ? context.l10n.supported
-                  : context.l10n.unavailable),
+          _InfoLine(
+            context.l10n.dspPipeline,
+            DeviceDsp.isAndroid
+                ? context.l10n.androidDsp
+                : context.l10n.webFallback,
+          ),
+          _InfoLine(
+            context.l10n.bassBoost,
+            DeviceDsp.bassBoostSupported
+                ? context.l10n.supported
+                : context.l10n.unavailable,
+          ),
         ],
       ),
     );

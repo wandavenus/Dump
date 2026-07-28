@@ -11,8 +11,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('placeholder — compiles without errors',
-      (WidgetTester tester) async {
+  testWidgets('placeholder — compiles without errors', (
+    WidgetTester tester,
+  ) async {
     expect(true, isTrue);
   });
 }

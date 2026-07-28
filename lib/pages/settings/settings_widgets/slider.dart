@@ -73,26 +73,28 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   }
 
   Widget _buildSlider(AppThemeExtension c) => SliderTheme(
-        data: SliderTheme.of(context).copyWith(
-          activeTrackColor: const Color(0xFFF92D48),
-          thumbColor: c.primaryLabel,
-          inactiveTrackColor: c.separator,
-          overlayColor: const Color(0x29F92D48),
-          trackHeight: 3,
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-        ),
-        child: Slider(
-          value: (_dragValue ?? widget.value).clamp(widget.min, widget.max).toDouble(),
-          min: widget.min,
-          max: widget.max,
-          divisions: widget.divisions,
-          onChanged: (v) => setState(() => _dragValue = v),
-          onChangeEnd: (v) {
-            setState(() => _dragValue = null);
-            unawaited(widget.onChanged(v));
-          },
-        ),
-      );
+    data: SliderTheme.of(context).copyWith(
+      activeTrackColor: const Color(0xFFF92D48),
+      thumbColor: c.primaryLabel,
+      inactiveTrackColor: c.separator,
+      overlayColor: const Color(0x29F92D48),
+      trackHeight: 3,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+    ),
+    child: Slider(
+      value: (_dragValue ?? widget.value)
+          .clamp(widget.min, widget.max)
+          .toDouble(),
+      min: widget.min,
+      max: widget.max,
+      divisions: widget.divisions,
+      onChanged: (v) => setState(() => _dragValue = v),
+      onChangeEnd: (v) {
+        setState(() => _dragValue = null);
+        unawaited(widget.onChanged(v));
+      },
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -108,20 +110,29 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
             Row(
               children: [
                 Expanded(
-                  child: Text(widget.title,
-                      style: TextStyle(color: c.primaryLabel, fontSize: 16)),
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(color: c.primaryLabel, fontSize: 16),
+                  ),
                 ),
                 if (widget.showReset && widget.onReset != null)
                   GestureDetector(
                     onTap: widget.onReset,
-                    child: Text(context.l10n.reset,
-                        style: const TextStyle(color: Color(0xFFF92D48), fontSize: 13)),
+                    child: Text(
+                      context.l10n.reset,
+                      style: const TextStyle(
+                        color: Color(0xFFF92D48),
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
               ],
             ),
             const SizedBox(height: 2),
-            Text(widget.subtitle,
-                style: TextStyle(color: c.secondaryLabel, fontSize: 12)),
+            Text(
+              widget.subtitle,
+              style: TextStyle(color: c.secondaryLabel, fontSize: 12),
+            ),
             _buildSlider(c),
             if (widget.description != null) ...[
               const SizedBox(height: 2),
@@ -155,19 +166,24 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(widget.title,
-                        style:
-                            TextStyle(color: c.primaryLabel, fontSize: 16)),
+                    child: Text(
+                      widget.title,
+                      style: TextStyle(color: c.primaryLabel, fontSize: 16),
+                    ),
                   ),
-                  Text(widget.subtitle,
-                      style: TextStyle(
-                          color: c.secondaryLabel, fontSize: 13)),
+                  Text(
+                    widget.subtitle,
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                  ),
                   const SizedBox(width: 6),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 220),
-                    child: Icon(Icons.keyboard_arrow_down,
-                        color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: c.primaryLabel.withValues(alpha: 0.38),
+                      size: 18,
+                    ),
                   ),
                 ],
               ),
@@ -188,9 +204,13 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
                         onTap: widget.onReset,
-                        child: Text(context.l10n.reset,
-                            style: const TextStyle(
-                                color: Color(0xFFF92D48), fontSize: 13)),
+                        child: Text(
+                          context.l10n.reset,
+                          style: const TextStyle(
+                            color: Color(0xFFF92D48),
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   _buildSlider(c),

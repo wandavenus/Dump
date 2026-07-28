@@ -104,10 +104,7 @@ class NativePaletteService {
   /// Pads a list to 5 colors using the fallback palette for missing slots.
   static List<Color> _padToFive(List<Color> colors) {
     if (colors.length >= 5) return colors;
-    return [
-      ...colors,
-      for (int i = colors.length; i < 5; i++) _kFallback[i],
-    ];
+    return [...colors, for (int i = colors.length; i < 5; i++) _kFallback[i]];
   }
 
   /// Debounced persistence: batches rapid extractions into a single disk write.
@@ -128,8 +125,9 @@ class NativePaletteService {
     try {
       final map = <String, List<int>>{};
       for (final entry in _cache.entries) {
-        map[entry.key.toString()] =
-            entry.value.map((c) => c.toARGB32()).toList();
+        map[entry.key.toString()] = entry.value
+            .map((c) => c.toARGB32())
+            .toList();
       }
       final file = File(path);
       await file.parent.create(recursive: true);
@@ -208,7 +206,9 @@ class NativePaletteService {
       // a transient engine teardown, or a temporary decode failure must be
       // retryable on the next call rather than persisted forever.
       // PlatformException, IOException, FormatException all extend Exception.
-      debugPrint('[NativePaletteService] extraction failed for songId=$songId: $e\n$st');
+      debugPrint(
+        '[NativePaletteService] extraction failed for songId=$songId: $e\n$st',
+      );
       return _kFallback;
     } finally {
       // ignore: unawaited_futures

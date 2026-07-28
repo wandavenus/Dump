@@ -5,11 +5,7 @@ class _LibraryItem {
   final IconData icon;
   final _LibraryDestination? destination;
 
-  const _LibraryItem({
-    required this.id,
-    required this.icon,
-    this.destination,
-  });
+  const _LibraryItem({required this.id, required this.icon, this.destination});
 }
 
 // Daftar default (urutan awal)

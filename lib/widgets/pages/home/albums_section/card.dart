@@ -36,21 +36,23 @@ class _AlbumCardState extends State<_AlbumCard> {
   }
 
   Future<void> _loadPaletteColor() async {
-  final songId = widget.album.coverSongId;
+    final songId = widget.album.coverSongId;
 
-  final cached = NativePaletteService.getSync(songId);
-  if (cached != null) {
-    if (mounted) {
-      setState(() => _bgColor = cached.isNotEmpty ? cached[0] : _fallbackColor);
+    final cached = NativePaletteService.getSync(songId);
+    if (cached != null) {
+      if (mounted) {
+        setState(
+          () => _bgColor = cached.isNotEmpty ? cached[0] : _fallbackColor,
+        );
+      }
+      return;
     }
-    return;
+
+    final colors = await NativePaletteService.get(songId);
+    if (!mounted) return;
+
+    setState(() => _bgColor = colors.isNotEmpty ? colors[0] : _fallbackColor);
   }
-
-  final colors = await NativePaletteService.get(songId);
-  if (!mounted) return;
-
-  setState(() => _bgColor = colors.isNotEmpty ? colors[0] : _fallbackColor);
-}
 
   @override
   Widget build(BuildContext context) {
@@ -111,15 +113,15 @@ class _AlbumCardState extends State<_AlbumCard> {
                         color: _bgColor,
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center, 
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Text(
                               album.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center, 
+                              textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,

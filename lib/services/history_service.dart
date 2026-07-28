@@ -50,8 +50,9 @@ class HistoryService {
       _cachedRecentIds = (prefs.getStringList(_recentKey) ?? [])
           .map(int.parse)
           .toList(growable: false);
-      _cachedArtistCounts =
-          _decodeMap(prefs.getString(_artistPlayCountKey) ?? '{}');
+      _cachedArtistCounts = _decodeMap(
+        prefs.getString(_artistPlayCountKey) ?? '{}',
+      );
     } on Exception catch (_) {
       // Best-effort — failed warm-up just means the first frame falls back
       // to the async path (same behaviour as before this optimisation).
@@ -75,8 +76,9 @@ class HistoryService {
         (playCounts[song.id.toString()] as int? ?? 0) + 1;
 
     // Artist play count
-    final artistCounts =
-        _decodeMap(prefs.getString(_artistPlayCountKey) ?? '{}');
+    final artistCounts = _decodeMap(
+      prefs.getString(_artistPlayCountKey) ?? '{}',
+    );
     artistCounts[song.artist] = (artistCounts[song.artist] as int? ?? 0) + 1;
 
     // Flush all three keys to SharedPreferences in parallel.

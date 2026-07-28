@@ -81,9 +81,12 @@ class _CommonActionsState extends State<CommonActions> {
             ),
             onSelected: (value) {
               if (value == 'settings') {
-                unawaited(Navigator.of(context, rootNavigator: true).push(
-                  ZoomFadeRoute<void>(page: const SettingsPage()),
-                ));
+                unawaited(
+                  Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).push(ZoomFadeRoute<void>(page: const SettingsPage())),
+                );
               } else if (value == 'rescan') {
                 unawaited(_rescan());
               }

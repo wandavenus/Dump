@@ -63,8 +63,10 @@ class _MyAppState extends State<MyApp> {
                     spacerSmall,
                     Text('Version: ${data.version}', style: textStyle),
                     spacerSmall,
-                    const Text('Capabilities (Phase 3 — all placeholders):',
-                        style: textStyle),
+                    const Text(
+                      'Capabilities (Phase 3 — all placeholders):',
+                      style: textStyle,
+                    ),
                     for (final c in data.capabilities)
                       Text('  ${c.key}: supported=${c.supported}'),
                   ],

@@ -76,7 +76,9 @@ class NativeDspBridge implements NativeModule {
   Future<void> initialize() async {
     BootTrace.log('ENTER NativeDspBridge.initialize()');
     if (_status != NativeModuleStatus.uninitialized) {
-      BootTrace.log('EXIT  NativeDspBridge.initialize() — already $_status, no-op');
+      BootTrace.log(
+        'EXIT  NativeDspBridge.initialize() — already $_status, no-op',
+      );
       return;
     }
 
@@ -91,15 +93,16 @@ class NativeDspBridge implements NativeModule {
         // Web, or the native library failed to load — no exception, just
         // "unavailable", matching this module's own stub-era contract.
         _status = NativeModuleStatus.unavailable;
-        BootTrace.log('EXIT  NativeDspBridge.initialize() — runtime unavailable');
+        BootTrace.log(
+          'EXIT  NativeDspBridge.initialize() — runtime unavailable',
+        );
         return;
       }
 
-      final regStatus =
-          NativeAudioRuntime.instance.registerModule(_moduleId);
+      final regStatus = NativeAudioRuntime.instance.registerModule(_moduleId);
       _status = switch (regStatus) {
-        NativeRuntimeStatus.ok || NativeRuntimeStatus.duplicateModule =>
-            NativeModuleStatus.available,
+        NativeRuntimeStatus.ok ||
+        NativeRuntimeStatus.duplicateModule => NativeModuleStatus.available,
         _ => NativeModuleStatus.unavailable,
       };
       BootTrace.log('EXIT  NativeDspBridge.initialize() — status=$_status');
@@ -144,5 +147,4 @@ class NativeDspBridge implements NativeModule {
         .map((c) => NativeCapability(key: c.key, supported: c.supported))
         .toList();
   }
-
 }

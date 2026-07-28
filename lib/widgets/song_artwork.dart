@@ -106,8 +106,8 @@ class _SongArtworkState extends State<SongArtwork> {
   // _loading:     whether an async load is currently in flight.
   // Together these implement a "latest-wins" strategy: if the widget's songId
   // changes while a load is in flight, the loop picks up the new ID.
-  int  _requestedId = -1;
-  bool _loading     = false;
+  int _requestedId = -1;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -133,7 +133,7 @@ class _SongArtworkState extends State<SongArtwork> {
     }
     // Re-load when size crosses the full-res threshold (250 px).
     final wasSmall = old.size < 250;
-    final isLarge  = widget.size >= 250;
+    final isLarge = widget.size >= 250;
     if (wasSmall && isLarge) unawaited(_load(widget.songId));
   }
 
@@ -145,7 +145,9 @@ class _SongArtworkState extends State<SongArtwork> {
     try {
       while (mounted) {
         final targetId = _requestedId;
-        final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
+        final targetPx = ArtworkRepository.instance.resolveTargetPx(
+          widget.size,
+        );
 
         final provider = await ArtworkRepository.instance.getProvider(
           targetId,

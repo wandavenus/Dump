@@ -25,11 +25,11 @@ class _SystemSection extends StatelessWidget {
   }
 
   void _showLogs(BuildContext context) {
-    unawaited(Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => const LogPage(),
+    unawaited(
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const LogPage()),
       ),
-    ));
+    );
   }
 }

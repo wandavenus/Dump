@@ -77,11 +77,7 @@ void main() {
       });
 
       test('handles num types correctly (int and double)', () {
-        final map = {
-          'id': 42.0,
-          'albumId': 7.0,
-          'duration': 60500.0,
-        };
+        final map = {'id': 42.0, 'albumId': 7.0, 'duration': 60500.0};
         final result = LocalSong.fromMap(map);
         expect(result.id, equals(42));
         expect(result.albumId, equals(7));

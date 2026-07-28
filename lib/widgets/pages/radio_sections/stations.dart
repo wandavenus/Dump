@@ -35,17 +35,17 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   }
 
   SmartPlaylistType _resolveType() => switch (_smartCardTypes[widget.index]) {
-    _SmartType.favorites      => SmartPlaylistType.favorites,
+    _SmartType.favorites => SmartPlaylistType.favorites,
     _SmartType.recentlyPlayed => SmartPlaylistType.recentlyPlayed,
-    _SmartType.mostPlayed     => SmartPlaylistType.mostPlayed,
+    _SmartType.mostPlayed => SmartPlaylistType.mostPlayed,
   };
 
   String _resolveName(BuildContext context) {
     final l = context.l10n;
     return switch (_smartCardTypes[widget.index]) {
-      _SmartType.favorites      => l.favoritesLabel,
+      _SmartType.favorites => l.favoritesLabel,
       _SmartType.recentlyPlayed => l.recentlyPlayed,
-      _SmartType.mostPlayed     => l.mostPlayedLabel,
+      _SmartType.mostPlayed => l.mostPlayedLabel,
     };
   }
 
@@ -78,22 +78,26 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   }
 
   void _open() {
-    unawaited(Navigator.push(
-      context,
-      ZoomFadeRoute<void>(
-        page: PlaylistPage.smart(
-          name: _resolveName(context),
-          type: _resolveType(),
+    unawaited(
+      Navigator.push(
+        context,
+        ZoomFadeRoute<void>(
+          page: PlaylistPage.smart(
+            name: _resolveName(context),
+            type: _resolveType(),
+          ),
         ),
       ),
-    ));
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return PlaylistCard(
       name: _resolveName(context),
-      subtitle: _count == 0 ? context.l10n.noSongsYet : context.l10n.songCount(_count),
+      subtitle: _count == 0
+          ? context.l10n.noSongsYet
+          : context.l10n.songCount(_count),
       artworkIds: _artworkIds,
       onTap: _open,
     );
@@ -127,55 +131,62 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
   }
 
   void _open() {
-    unawaited(Navigator.push(
-      context,
-      ZoomFadeRoute<void>(page: PlaylistPage.user(playlist: widget.playlist)),
-    ).then((_) {
-      // refresh after returning (songs may have been removed)
-      widget.onDeleted();
-    }));
+    unawaited(
+      Navigator.push(
+        context,
+        ZoomFadeRoute<void>(page: PlaylistPage.user(playlist: widget.playlist)),
+      ).then((_) {
+        // refresh after returning (songs may have been removed)
+        widget.onDeleted();
+      }),
+    );
   }
 
   void _onLongPress() {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SwipeToDismissSheet(
-        child: ColoredBox(
-          color: AppColors.of(ctx).surface,
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.of(ctx).dragHandle,
-                    borderRadius: BorderRadius.circular(2),
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => SwipeToDismissSheet(
+          child: ColoredBox(
+            color: AppColors.of(ctx).surface,
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.of(ctx).dragHandle,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Color(0xFFF92D48)),
-                  title: Text(
-                    ctx.l10n.deletePlaylist,
-                    style: const TextStyle(color: Color(0xFFF92D48)),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFFF92D48),
+                    ),
+                    title: Text(
+                      ctx.l10n.deletePlaylist,
+                      style: const TextStyle(color: Color(0xFFF92D48)),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await PlaylistService.deletePlaylist(widget.playlist.id);
+                      widget.onDeleted();
+                    },
                   ),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await PlaylistService.deletePlaylist(widget.playlist.id);
-                    widget.onDeleted();
-                  },
-                ),
-                const SizedBox(height: 8),
-              ],
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   @override
@@ -183,7 +194,9 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
     final count = widget.playlist.songIds.length;
     return PlaylistCard(
       name: widget.playlist.name,
-      subtitle: count == 0 ? context.l10n.noSongsYet : context.l10n.songCount(count),
+      subtitle: count == 0
+          ? context.l10n.noSongsYet
+          : context.l10n.songCount(count),
       artworkIds: _artworkIds,
       onTap: _open,
       onLongPress: _onLongPress,
@@ -245,7 +258,10 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(ctx.l10n.cancel, style: TextStyle(color: cc.secondaryLabel)),
+              child: Text(
+                ctx.l10n.cancel,
+                style: TextStyle(color: cc.secondaryLabel),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
@@ -272,7 +288,12 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 16, kPageLeftPadding, 4),
+          padding: const EdgeInsets.fromLTRB(
+            kPageLeftPadding,
+            16,
+            kPageLeftPadding,
+            4,
+          ),
           child: Row(
             children: [
               Text(
@@ -287,8 +308,10 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
               GestureDetector(
                 onTap: _createPlaylist,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: c.surface2,
                     borderRadius: BorderRadius.circular(20),

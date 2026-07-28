@@ -27,7 +27,9 @@ class _PresetList extends StatelessWidget {
                 onTap: () => _startPreset(context, preset),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -40,13 +42,11 @@ class _PresetList extends StatelessWidget {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                           _localizedPresetLabel(context, preset),
-                          style: TextStyle(
-                              color: c.primaryLabel, fontSize: 16),
+                          _localizedPresetLabel(context, preset),
+                          style: TextStyle(color: c.primaryLabel, fontSize: 16),
                         ),
                       ),
-                      Icon(Icons.chevron_right,
-                          color: c.separator, size: 20),
+                      Icon(Icons.chevron_right, color: c.separator, size: 20),
                     ],
                   ),
                 ),
@@ -66,7 +66,9 @@ class _PresetList extends StatelessWidget {
   }
 
   String _localizedPresetLabel(
-      BuildContext context, ({Duration? duration}) preset) {
+    BuildContext context,
+    ({Duration? duration}) preset,
+  ) {
     final duration = preset.duration;
     if (duration == null) return context.l10n.sleepPresetEndOfSong;
     if (duration.inMinutes < 60) {
@@ -79,8 +81,7 @@ class _PresetList extends StatelessWidget {
     return context.l10n.sleepPresetHour(hourLabel);
   }
 
-  void _startPreset(
-      BuildContext context, ({Duration? duration}) preset) {
+  void _startPreset(BuildContext context, ({Duration? duration}) preset) {
     if (preset.duration == null) {
       SleepTimerService.startEndOfSong();
     } else {
@@ -104,8 +105,7 @@ class _PresetList extends StatelessWidget {
         ),
         backgroundColor: c.surface,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
     );

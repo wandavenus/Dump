@@ -89,8 +89,16 @@ class _ColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final opts = [
       (label: context.l10n.lyricsColorWhite, dot: Colors.white, value: 'white'),
-      (label: context.l10n.lyricsColorRed, dot: const Color(0xFFF92D48), value: 'accent'),
-      (label: context.l10n.lyricsColorYellow, dot: const Color(0xFFFFD60A), value: 'yellow'),
+      (
+        label: context.l10n.lyricsColorRed,
+        dot: const Color(0xFFF92D48),
+        value: 'accent',
+      ),
+      (
+        label: context.l10n.lyricsColorYellow,
+        dot: const Color(0xFFFFD60A),
+        value: 'yellow',
+      ),
     ];
     return ValueListenableBuilder<String>(
       valueListenable: LyricsSettings.activeColor,

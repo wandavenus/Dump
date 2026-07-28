@@ -30,11 +30,14 @@ class _DebugSection extends StatelessWidget {
                 color: const Color(0xFFF92D48).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(l.debugSection,
-                  style: const TextStyle(
-                      color: Color(0xFFF92D48),
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold)),
+              child: Text(
+                l.debugSection,
+                style: const TextStyle(
+                  color: Color(0xFFF92D48),
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -101,13 +104,15 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  report == null ? l.aaudioNotTested : _describe(context, report),
+                  report == null
+                      ? l.aaudioNotTested
+                      : _describe(context, report),
                   style: TextStyle(
                     color: report == null
                         ? c.tertiaryLabel
                         : report.isExclusiveLowLatency
-                            ? const Color(0xFF30D158)
-                            : const Color(0xFFFF9F0A),
+                        ? const Color(0xFF30D158)
+                        : const Color(0xFFFF9F0A),
                     fontSize: 12,
                   ),
                 ),
@@ -128,7 +133,10 @@ class _AAudioProbeRowState extends State<_AAudioProbeRow> {
                   onPressed: _doProbe,
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF0A84FF),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),

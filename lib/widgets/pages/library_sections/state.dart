@@ -15,15 +15,14 @@ class _LibraryContentState extends State<LibraryContent> {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getStringList(_kOrderKey);
     if (saved != null && saved.length == _defaultItems.length) {
-      final ordered =
-          saved
-              .map(
-                (id) => _defaultItems.firstWhere(
-                  (e) => e.id == id,
-                  orElse: () => _defaultItems.first,
-                ),
-              )
-              .toList();
+      final ordered = saved
+          .map(
+            (id) => _defaultItems.firstWhere(
+              (e) => e.id == id,
+              orElse: () => _defaultItems.first,
+            ),
+          )
+          .toList();
       if (mounted) setState(() => _items = ordered);
     }
     if (mounted) setState(() => _loaded = true);
@@ -57,7 +56,11 @@ class _LibraryContentState extends State<LibraryContent> {
               editMode: _editMode,
               onToggleEdit: () => setState(() => _editMode = !_editMode),
             ),
-            Divider(color: AppColors.of(context).separator, thickness: 0.5, height: 0),
+            Divider(
+              color: AppColors.of(context).separator,
+              thickness: 0.5,
+              height: 0,
+            ),
             const SizedBox(height: 9),
             _editMode ? _buildReorderable(context) : _buildStaticList(context),
             SizedBox(height: bottomClearance),
@@ -71,27 +74,26 @@ class _LibraryContentState extends State<LibraryContent> {
     final l = context.l10n;
     return switch (id) {
       'playlist' => l.playlists,
-      'artist'   => l.artists,
-      'album'    => l.albums,
-      'songs'    => l.songs,
-      'tv'       => l.tvAndFilm,
-      _          => id,
+      'artist' => l.artists,
+      'album' => l.albums,
+      'songs' => l.songs,
+      'tv' => l.tvAndFilm,
+      _ => id,
     };
   }
 
   Widget _buildStaticList(BuildContext context) {
     return Column(
-      children:
-          _items
-              .map(
-                (item) => _LibraryRow(
-                  key: ValueKey(item.id),
-                  icon: item.icon,
-                  title: _resolveItemTitle(context, item.id),
-                  destination: item.destination,
-                ),
-              )
-              .toList(),
+      children: _items
+          .map(
+            (item) => _LibraryRow(
+              key: ValueKey(item.id),
+              icon: item.icon,
+              title: _resolveItemTitle(context, item.id),
+              destination: item.destination,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -99,30 +101,28 @@ class _LibraryContentState extends State<LibraryContent> {
     return ReorderableListView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      proxyDecorator:
-          (child, index, animation) => Material(
-            color: Colors.transparent,
-            child: ScaleTransition(
-              scale: animation.drive(
-                Tween<double>(
-                  begin: 1,
-                  end: 1.04,
-                ).chain(CurveTween(curve: Curves.easeOut)),
-              ),
-              child: child,
-            ),
+      proxyDecorator: (child, index, animation) => Material(
+        color: Colors.transparent,
+        child: ScaleTransition(
+          scale: animation.drive(
+            Tween<double>(
+              begin: 1,
+              end: 1.04,
+            ).chain(CurveTween(curve: Curves.easeOut)),
           ),
+          child: child,
+        ),
+      ),
       onReorderItem: _onReorder,
-      children:
-          _items
-              .map(
-                (item) => _EditableRow(
-                  key: ValueKey(item.id),
-                  icon: item.icon,
-                  title: _resolveItemTitle(context, item.id),
-                ),
-              )
-              .toList(),
+      children: _items
+          .map(
+            (item) => _EditableRow(
+              key: ValueKey(item.id),
+              icon: item.icon,
+              title: _resolveItemTitle(context, item.id),
+            ),
+          )
+          .toList(),
     );
   }
 }

@@ -16,19 +16,17 @@ class _ArtistsGridView extends StatelessWidget {
 
   /// Pre-sorted artist list from the parent state cache.
   final List<ArtistInfo> artists;
-  final String           filter;
+  final String filter;
   final ScrollController scroll;
-  final Widget           titleHeader;
-  final Widget           stickyControls;
-  final double           bottomClearance;
+  final Widget titleHeader;
+  final Widget stickyControls;
+  final double bottomClearance;
 
   @override
   Widget build(BuildContext context) {
     final filtered = filter.isEmpty
         ? artists
-        : artists
-            .where((a) => a.name.toLowerCase().contains(filter))
-            .toList();
+        : artists.where((a) => a.name.toLowerCase().contains(filter)).toList();
 
     return CustomScrollView(
       controller: scroll,
@@ -39,9 +37,9 @@ class _ArtistsGridView extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount:   2,
+              crossAxisCount: 2,
               crossAxisSpacing: 8,
-              mainAxisSpacing:  16,
+              mainAxisSpacing: 16,
               childAspectRatio: 0.78,
             ),
             delegate: SliverChildBuilderDelegate(

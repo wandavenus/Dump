@@ -33,18 +33,20 @@ void showSongContextMenu(
   required int index,
 }) {
   final navigator = Navigator.of(context);
-  unawaited(showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    useRootNavigator: true,
-    builder: (_) => SongContextMenu(
-      song: song,
-      playlist: playlist,
-      index: index,
-      tabNavigator: navigator,
+  unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      builder: (_) => SongContextMenu(
+        song: song,
+        playlist: playlist,
+        index: index,
+        tabNavigator: navigator,
+      ),
     ),
-  ));
+  );
 }
 
 // ─── SongContextMenu ──────────────────────────────────────────────────────────
@@ -79,7 +81,11 @@ class _SongContextMenuState extends State<SongContextMenu> {
 
   Future<void> _loadFavorite() async {
     final fav = await PlaylistService.isFavorite(widget.song.id);
-    if (mounted) setState(() { _isFavorite = fav; _favLoaded = true; });
+    if (mounted)
+      setState(() {
+        _isFavorite = fav;
+        _favLoaded = true;
+      });
   }
 
   @override
@@ -187,12 +193,15 @@ class _SongContextMenuState extends State<SongContextMenu> {
                     ? CupertinoIcons.heart_fill
                     : CupertinoIcons.heart,
                 iconColor: Theme.of(context).colorScheme.primary,
-                label: _isFavorite ? context.l10n.removeFromFavorites : context.l10n.addToFavorites,
+                label: _isFavorite
+                    ? context.l10n.removeFromFavorites
+                    : context.l10n.addToFavorites,
                 onTap: _favLoaded
                     ? () async {
                         final navigator = Navigator.of(context);
-                        final nowFav =
-                            await PlaylistService.toggleFavorite(widget.song.id);
+                        final nowFav = await PlaylistService.toggleFavorite(
+                          widget.song.id,
+                        );
                         if (!mounted) return;
                         setState(() => _isFavorite = nowFav);
                         navigator.pop();
@@ -248,12 +257,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
     );
   }
 
-  static Widget _insetDivider(AppThemeExtension c) => Divider(
-    height: 1,
-    thickness: 0.5,
-    color: c.separator,
-    indent: 52,
-  );
+  static Widget _insetDivider(AppThemeExtension c) =>
+      Divider(height: 1, thickness: 0.5, color: c.separator, indent: 52);
 
   // ── Hapus dari Perangkat ───────────────────────────────────────────────────
 
@@ -293,16 +298,18 @@ class _SongContextMenuState extends State<SongContextMenu> {
   // ── Tambah ke Daftar Putar ─────────────────────────────────────────────────
 
   void _showAddToPlaylist(BuildContext context) {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      builder: (_) => _AddToPlaylistSheet(
-        song: widget.song,
-        tabNavigator: widget.tabNavigator,
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useRootNavigator: true,
+        builder: (_) => _AddToPlaylistSheet(
+          song: widget.song,
+          tabNavigator: widget.tabNavigator,
+        ),
       ),
-    ));
+    );
   }
 
   // ── Buka Album ─────────────────────────────────────────────────────────────
@@ -312,16 +319,19 @@ class _SongContextMenuState extends State<SongContextMenu> {
     Navigator.pop(context);
     try {
       final allSongs = await MediaStoreService.getSongs();
-      final albumSongs =
-          allSongs.where((s) => s.album == widget.song.album).toList();
-      unawaited(nav.push(
-        ZoomFadeRoute<void>(
-          settings: RouteSettings(
-            arguments: {'album': widget.song, 'songs': albumSongs},
+      final albumSongs = allSongs
+          .where((s) => s.album == widget.song.album)
+          .toList();
+      unawaited(
+        nav.push(
+          ZoomFadeRoute<void>(
+            settings: RouteSettings(
+              arguments: {'album': widget.song, 'songs': albumSongs},
+            ),
+            page: const AlbumPage(),
           ),
-          page: const AlbumPage(),
         ),
-      ));
+      );
     } on Exception catch (_) {}
   }
 
@@ -332,14 +342,17 @@ class _SongContextMenuState extends State<SongContextMenu> {
     Navigator.pop(context);
     try {
       final allSongs = await MediaStoreService.getSongs();
-      final artistSongs =
-          allSongs.where((s) => s.artist == widget.song.artist).toList();
-      unawaited(nav.push(
-        ZoomFadeRoute<void>(
-          settings: RouteSettings(arguments: artistSongs),
-          page: const ArtistPage(),
+      final artistSongs = allSongs
+          .where((s) => s.artist == widget.song.artist)
+          .toList();
+      unawaited(
+        nav.push(
+          ZoomFadeRoute<void>(
+            settings: RouteSettings(arguments: artistSongs),
+            page: const ArtistPage(),
+          ),
         ),
-      ));
+      );
     } on Exception catch (_) {}
   }
 
@@ -348,39 +361,43 @@ class _SongContextMenuState extends State<SongContextMenu> {
   void _showSongInfo(BuildContext context) {
     final c = AppColors.of(context);
     final l = context.l10n;
-    unawaited(showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: c.surface,
-        title: Text(
-          l.songInformation,
-          style: TextStyle(color: c.primaryLabel, fontSize: 17),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _InfoRow(label: l.fieldTitle, value: widget.song.title),
-            _InfoRow(label: l.fieldArtist, value: widget.song.artist),
-            _InfoRow(label: l.fieldAlbum, value: widget.song.album),
-            _InfoRow(
-              label: l.fieldDuration,
-              value: _formatDuration(widget.song.duration),
+    unawaited(
+      showDialog<void>(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: c.surface,
+          title: Text(
+            l.songInformation,
+            style: TextStyle(color: c.primaryLabel, fontSize: 17),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _InfoRow(label: l.fieldTitle, value: widget.song.title),
+              _InfoRow(label: l.fieldArtist, value: widget.song.artist),
+              _InfoRow(label: l.fieldAlbum, value: widget.song.album),
+              _InfoRow(
+                label: l.fieldDuration,
+                value: _formatDuration(widget.song.duration),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                l.close,
+                style: TextStyle(
+                  color: Theme.of(dialogContext).colorScheme.primary,
+                ),
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
-              l.close,
-              style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary),
-            ),
-          ),
-        ],
       ),
-    ));
+    );
   }
 
   String _formatDuration(Duration d) {

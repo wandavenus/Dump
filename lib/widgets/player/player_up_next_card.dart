@@ -5,7 +5,6 @@ import 'package:musicplayer/services/audio_playback_state.dart';
 import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
 
-
 class PlayerUpNextCard extends StatefulWidget {
   final bool showOverlay;
 
@@ -27,11 +26,12 @@ class _PlayerUpNextCardState extends State<PlayerUpNextCard> {
         return ValueListenableBuilder<AudioPlaybackState>(
           valueListenable: AudioService.playbackState,
           builder: (_, state, _) {
-            final nextIdx  = AudioService.nextIndex;
+            final nextIdx = AudioService.nextIndex;
             final playlist = state.currentPlaylist;
-            final hasNext  = nextIdx >= 0 && nextIdx < playlist.length;
+            final hasNext = nextIdx >= 0 && nextIdx < playlist.length;
             final nextSong = hasNext ? playlist[nextIdx] : null;
-            final visible  = settingEnabled &&
+            final visible =
+                settingEnabled &&
                 hasNext &&
                 !widget.showOverlay &&
                 nextSong?.id != _dismissedSongId;
@@ -95,50 +95,50 @@ class _UpNextCardContent extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
         child: Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Text(
-        context.l10n.upNextLabel,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.45),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                context.l10n.upNextLabel,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF8E8E93),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-    ),
-    const SizedBox(width: 10),
-    Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            song.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            song.artist,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    ),
-  ],
-),
       ),
     );
   }

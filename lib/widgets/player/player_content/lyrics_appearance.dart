@@ -26,12 +26,14 @@ class _AppearanceButton extends StatelessWidget {
   }
 
   void _show(BuildContext context) {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const _LyricsAppearanceOverlay(),
-    ));
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const _LyricsAppearanceOverlay(),
+      ),
+    );
   }
 }
 

@@ -34,12 +34,7 @@ class _LibraryRow extends StatelessWidget {
             ],
           ),
         ),
-        Divider(
-          color: c.separator,
-          thickness: 0.5,
-          indent: 38,
-          endIndent: 0,
-        ),
+        Divider(color: c.separator, thickness: 0.5, indent: 38, endIndent: 0),
       ],
     );
 
@@ -47,9 +42,13 @@ class _LibraryRow extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (destination != null) {
-          unawaited(Navigator.of(context).push(
-            ZoomFadeRoute<void>(page: _LibraryDetailPage(destination: destination!)),
-          ));
+          unawaited(
+            Navigator.of(context).push(
+              ZoomFadeRoute<void>(
+                page: _LibraryDetailPage(destination: destination!),
+              ),
+            ),
+          );
           return;
         }
         unawaited(Navigator.pushNamed(context, routeName!));

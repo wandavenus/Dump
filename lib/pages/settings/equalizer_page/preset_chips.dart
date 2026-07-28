@@ -68,21 +68,24 @@ class _PresetChip extends StatelessWidget {
                   : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 0,
+                ),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFFF92D48)
                       : enabled
-                          ? c.primaryLabel.withValues(alpha: 0.09)
-                          : c.primaryLabel.withValues(alpha: 0.04),
+                      ? c.primaryLabel.withValues(alpha: 0.09)
+                      : c.primaryLabel.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected
                         ? const Color(0xFFF92D48)
                         : enabled
-                            ? c.primaryLabel.withValues(alpha: 0.12)
-                            : c.primaryLabel.withValues(alpha: 0.05),
+                        ? c.primaryLabel.withValues(alpha: 0.12)
+                        : c.primaryLabel.withValues(alpha: 0.05),
                     width: 1.0,
                   ),
                 ),
@@ -92,11 +95,10 @@ class _PresetChip extends StatelessWidget {
                     color: isSelected
                         ? Colors.white
                         : enabled
-                            ? c.primaryLabel.withValues(alpha: 0.85)
-                            : c.primaryLabel.withValues(alpha: 0.35),
+                        ? c.primaryLabel.withValues(alpha: 0.85)
+                        : c.primaryLabel.withValues(alpha: 0.35),
                     fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ),

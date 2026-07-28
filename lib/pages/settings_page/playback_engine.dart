@@ -3,14 +3,18 @@ part of '../settings_page.dart';
 // ─── Playback Stats utility ────────────────────────────────────────────────────
 
 void _showStatsSheet(BuildContext context) {
-  unawaited(MediaCapabilitiesService.getPlaybackStats().then((stats) {
-    if (!context.mounted) return;
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PlaybackStatsSheet(stats: stats),
-    ));
-  }));
+  unawaited(
+    MediaCapabilitiesService.getPlaybackStats().then((stats) {
+      if (!context.mounted) return;
+      unawaited(
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _PlaybackStatsSheet(stats: stats),
+        ),
+      );
+    }),
+  );
 }
 
 // ─── Playback Stats Bottom Sheet ──────────────────────────────────────────────
@@ -72,16 +76,18 @@ class _PlaybackStatsSheet extends StatelessWidget {
             if (stats case final s?) ...[
               _StatRow(
                 label: l.playTimeLabel,
-                 value: _fmtMs(
-                     context,
-                    (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0),
+                value: _fmtMs(
+                  context,
+                  (s['totalPlayTimeMs'] as num?)?.toInt() ?? 0,
+                ),
                 icon: Icons.play_circle_outline_rounded,
               ),
               _StatRow(
                 label: l.bufferingTimeLabel,
-                 value: _fmtMs(
-                     context,
-                    (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0),
+                value: _fmtMs(
+                  context,
+                  (s['totalBufferingTimeMs'] as num?)?.toInt() ?? 0,
+                ),
                 icon: Icons.hourglass_bottom_rounded,
               ),
               _StatRow(
@@ -98,7 +104,10 @@ class _PlaybackStatsSheet extends StatelessWidget {
               ),
             ] else
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Text(
                   l.statsNotAvailable,
                   style: TextStyle(

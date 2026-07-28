@@ -55,17 +55,26 @@ class _ArtistFooter extends StatelessWidget {
         children: [
           Text(
             artistName,
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             l.songsByArtist(songs.length, albumCount),
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             _formatTotalDuration(context),
-            style: TextStyle(fontSize: 12, color: AppColors.of(context).secondaryLabel),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.of(context).secondaryLabel,
+            ),
           ),
         ],
       ),

@@ -14,9 +14,9 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
       final songs = await MediaStoreService.getSongs();
       if (!context.mounted) return;
       if (songs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.noSongsInLibrary)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.noSongsInLibrary)));
         return;
       }
       unawaited(ReplayGainService.scanLibrary(songs, writeTags: true));
@@ -38,7 +38,7 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         }
         if (progress.finished) {
           return _ScanResultRow(
-            progress:    progress,
+            progress: progress,
             onScanAgain: () => _startScan(context),
           );
         }
@@ -66,8 +66,10 @@ class _ScanIdleRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.scanLibrary,
-                      style: TextStyle(color: c.primaryLabel, fontSize: 15)),
+                  Text(
+                    l.scanLibrary,
+                    style: TextStyle(color: c.primaryLabel, fontSize: 15),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     l.scanLibrarySubtitle,
@@ -76,8 +78,11 @@ class _ScanIdleRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.graphic_eq_rounded,
-                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
+            Icon(
+              Icons.graphic_eq_rounded,
+              color: c.primaryLabel.withValues(alpha: 0.38),
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -133,12 +138,9 @@ class _ScanProgressRow extends StatelessWidget {
 }
 
 class _ScanResultRow extends StatelessWidget {
-  const _ScanResultRow({
-    required this.progress,
-    required this.onScanAgain,
-  });
+  const _ScanResultRow({required this.progress, required this.onScanAgain});
   final BatchScanProgress progress;
-  final VoidCallback       onScanAgain;
+  final VoidCallback onScanAgain;
 
   @override
   Widget build(BuildContext context) {
@@ -163,16 +165,23 @@ class _ScanResultRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.scanLibrary,
-                      style: TextStyle(color: c.primaryLabel, fontSize: 15)),
+                  Text(
+                    l.scanLibrary,
+                    style: TextStyle(color: c.primaryLabel, fontSize: 15),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: TextStyle(color: c.secondaryLabel, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 12),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.replay_rounded,
-                color: c.primaryLabel.withValues(alpha: 0.38), size: 18),
+            Icon(
+              Icons.replay_rounded,
+              color: c.primaryLabel.withValues(alpha: 0.38),
+              size: 18,
+            ),
           ],
         ),
       ),

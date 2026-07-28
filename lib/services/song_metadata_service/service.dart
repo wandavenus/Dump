@@ -3,7 +3,9 @@ part of '../song_metadata_service.dart';
 class SongMetadataService {
   SongMetadataService._();
 
-  static const MethodChannel _channel = MethodChannel('musicplayer/media_store');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/media_store',
+  );
   static const String unknown = 'Unknown';
 
   // ── In-memory LRU cache (mtime-keyed) ─────────────────────────────────────
@@ -72,101 +74,114 @@ class SongMetadataService {
 
     // Parallel-fetch from all data sources
     final List<dynamic> results = await Future.wait([
-      _loadNativeMetadata(song),   // year, bitrate, sampleRate, composer (MediaMetadataRetriever)
-      _loadExtendedTags(song),     // RG/R128 + encoder/isrc/copyright/publisher/comment/lyrics
-      _getPlayCount(song.id),      // play count from SharedPreferences history
-      ReplayGainService.resolve(song), // applied gain from in-memory/prefs cache
+      _loadNativeMetadata(
+        song,
+      ), // year, bitrate, sampleRate, composer (MediaMetadataRetriever)
+      _loadExtendedTags(
+        song,
+      ), // RG/R128 + encoder/isrc/copyright/publisher/comment/lyrics
+      _getPlayCount(song.id), // play count from SharedPreferences history
+      ReplayGainService.resolve(
+        song,
+      ), // applied gain from in-memory/prefs cache
     ]);
 
     final nativeMeta = results[0] as Map<String, String?>;
-    final extTags    = results[1] as Map<String, dynamic>;
-    final playCount  = results[2] as int;
-    final loudness   = results[3] as LoudnessData;
+    final extTags = results[1] as Map<String, dynamic>;
+    final playCount = results[2] as int;
+    final loudness = results[3] as LoudnessData;
 
     // File info — read from dart:io (cheap, sync)
-    final path       = song.path;
-    final fileName   = path.contains('/') ? path.split('/').last : path;
-    final folder     = path.contains('/')
+    final path = song.path;
+    final fileName = path.contains('/') ? path.split('/').last : path;
+    final folder = path.contains('/')
         ? path.substring(0, path.lastIndexOf('/'))
         : '';
     final rawSizeBytes = _fileSizeBytes(path);
-    final mtimeMs2   = mtimeMs ?? _mtimeMs(path);
-    final modified   = mtimeMs2 != null
+    final mtimeMs2 = mtimeMs ?? _mtimeMs(path);
+    final modified = mtimeMs2 != null
         ? _formatDate(DateTime.fromMillisecondsSinceEpoch(mtimeMs2))
         : null;
     final dateAdded = song.dateAdded != null
-        ? _formatDate(DateTime.fromMillisecondsSinceEpoch(song.dateAdded! * 1000))
+        ? _formatDate(
+            DateTime.fromMillisecondsSinceEpoch(song.dateAdded! * 1000),
+          )
         : null;
 
     // Lyrics
-    final hasLyrics  = extTags['hasLyrics'] == true;
+    final hasLyrics = extTags['hasLyrics'] == true;
     final lyricsType = hasLyrics
         ? _lyricsTypeLabel(extTags['lyricsType'] as String?)
         : null;
 
     // albumArtist: skip if same as artist or empty
     final rawAlbumArtist = _clean(song.albumArtist);
-    final albumArtist = (rawAlbumArtist == unknown ||
-            rawAlbumArtist == _clean(song.artist))
+    final albumArtist =
+        (rawAlbumArtist == unknown || rawAlbumArtist == _clean(song.artist))
         ? ''
         : rawAlbumArtist;
 
     final rawGenre = _clean(song.genre);
-    final genre    = rawGenre == unknown ? '' : rawGenre;
+    final genre = rawGenre == unknown ? '' : rawGenre;
 
     // Composer comes from extTags (ExoMetadataReader) and falls back to
     // nativeMeta (MediaMetadataRetriever) for formats not handled by TagBuilder.
-    final composer = _nullableStr(extTags['composer'] as String?)
-        ?? _nullableStr(nativeMeta['composer']);
+    final composer =
+        _nullableStr(extTags['composer'] as String?) ??
+        _nullableStr(nativeMeta['composer']);
 
     final info = SongInfo(
       // General
-      title:       _clean(song.title),
-      artist:      _clean(song.artist),
-      album:       _clean(song.album),
+      title: _clean(song.title),
+      artist: _clean(song.artist),
+      album: _clean(song.album),
       albumArtist: albumArtist,
-      genre:       genre,
-      year:        song.year != null
+      genre: genre,
+      year: song.year != null
           ? song.year.toString()
-          : (_clean(nativeMeta['year']) == unknown ? '' : _clean(nativeMeta['year'])),
+          : (_clean(nativeMeta['year']) == unknown
+                ? ''
+                : _clean(nativeMeta['year'])),
       trackNumber: song.trackNumber?.toString() ?? '',
-      discNumber:  song.discNumber?.toString() ?? '',
-      duration:    _formatDuration(song.duration),
-      composer:    composer,
-      comment:     _nullableStr(extTags['comment']    as String?),
-      isrc:        _nullableStr(extTags['isrc']       as String?),
-      copyright:   _nullableStr(extTags['copyright']  as String?),
-      publisher:   _nullableStr(extTags['publisher']  as String?),
+      discNumber: song.discNumber?.toString() ?? '',
+      duration: _formatDuration(song.duration),
+      composer: composer,
+      comment: _nullableStr(extTags['comment'] as String?),
+      isrc: _nullableStr(extTags['isrc'] as String?),
+      copyright: _nullableStr(extTags['copyright'] as String?),
+      publisher: _nullableStr(extTags['publisher'] as String?),
 
       // Audio
-      format:      extractAudioFormat(path),
-      bitrate:     _formatBitrate(
-          song.bitrate?.toString() ?? nativeMeta['bitrate']),
-      sampleRate:  _formatSampleRate(
-          song.sampleRate?.toString() ?? nativeMeta['sampleRate']),
-      encoder:     _nullableStr(extTags['encoder'] as String?),
+      format: extractAudioFormat(path),
+      bitrate: _formatBitrate(
+        song.bitrate?.toString() ?? nativeMeta['bitrate'],
+      ),
+      sampleRate: _formatSampleRate(
+        song.sampleRate?.toString() ?? nativeMeta['sampleRate'],
+      ),
+      encoder: _nullableStr(extTags['encoder'] as String?),
 
       // ReplayGain
-      rgTrackGain:    _nullableStr(extTags['replayGainTrackGain'] as String?),
-      rgTrackPeak:    _nullableStr(extTags['replayGainTrackPeak'] as String?),
-      rgAlbumGain:    _nullableStr(extTags['replayGainAlbumGain'] as String?),
-      rgAlbumPeak:    _nullableStr(extTags['replayGainAlbumPeak'] as String?),
-      r128Track:      _nullableStr(extTags['r128TrackGain'] as String?),
-      r128Album:      _nullableStr(extTags['r128AlbumGain'] as String?),
-      appliedGainDb:  loudness.hasData ? loudness.gainDb : null,
+      rgTrackGain: _nullableStr(extTags['replayGainTrackGain'] as String?),
+      rgTrackPeak: _nullableStr(extTags['replayGainTrackPeak'] as String?),
+      rgAlbumGain: _nullableStr(extTags['replayGainAlbumGain'] as String?),
+      rgAlbumPeak: _nullableStr(extTags['replayGainAlbumPeak'] as String?),
+      r128Track: _nullableStr(extTags['r128TrackGain'] as String?),
+      r128Album: _nullableStr(extTags['r128AlbumGain'] as String?),
+      appliedGainDb: loudness.hasData ? loudness.gainDb : null,
       loudnessSource: loudness.hasData ? loudness.source.label : null,
 
       // File
-      fileSize:  formatFileSize(rawSizeBytes) ?? unknown,
-      filePath:  path,
-      fileName:  fileName,
-      folder:    folder,
-      modified:  modified,
+      fileSize: formatFileSize(rawSizeBytes) ?? unknown,
+      filePath: path,
+      fileName: fileName,
+      folder: folder,
+      modified: modified,
       dateAdded: dateAdded,
 
       // Embedded Content
       hasEmbeddedLyrics: hasLyrics,
-      lyricsType:        lyricsType,
+      lyricsType: lyricsType,
 
       // Statistics
       playCount: playCount,
@@ -179,23 +194,25 @@ class SongMetadataService {
   static SongInfo _buildWebFallback(LocalSong song) {
     final path = song.path;
     return SongInfo(
-      title:      _clean(song.title),
-      artist:     _clean(song.artist),
-      album:      _clean(song.album),
-      duration:   _formatDuration(song.duration),
-      format:     extractAudioFormat(path),
-      bitrate:    unknown,
+      title: _clean(song.title),
+      artist: _clean(song.artist),
+      album: _clean(song.album),
+      duration: _formatDuration(song.duration),
+      format: extractAudioFormat(path),
+      bitrate: unknown,
       sampleRate: unknown,
-      fileSize:   unknown,
-      filePath:   path,
-      fileName:   path.contains('/') ? path.split('/').last : path,
-      folder:     '',
+      fileSize: unknown,
+      filePath: path,
+      fileName: path.contains('/') ? path.split('/').last : path,
+      folder: '',
     );
   }
 
   // ── Data fetchers ─────────────────────────────────────────────────────────
 
-  static Future<Map<String, String?>> _loadNativeMetadata(LocalSong song) async {
+  static Future<Map<String, String?>> _loadNativeMetadata(
+    LocalSong song,
+  ) async {
     try {
       final result = await _channel.invokeMapMethod<String, String?>(
         'getAudioMetadata',
@@ -203,7 +220,11 @@ class SongMetadataService {
       );
       return result ?? {};
     } on Exception catch (e) {
-      LogService.log('SongMetadata', 'getAudioMetadata failed: $e', level: LogLevel.warning);
+      LogService.log(
+        'SongMetadata',
+        'getAudioMetadata failed: $e',
+        level: LogLevel.warning,
+      );
       return {};
     }
   }
@@ -216,7 +237,11 @@ class SongMetadataService {
       );
       return result ?? {};
     } on Exception catch (e) {
-      LogService.log('SongMetadata', 'getSongExtendedTags failed: $e', level: LogLevel.warning);
+      LogService.log(
+        'SongMetadata',
+        'getSongExtendedTags failed: $e',
+        level: LogLevel.warning,
+      );
       return {};
     }
   }
@@ -289,7 +314,7 @@ class SongMetadataService {
 
   static String _formatDuration(Duration duration) {
     if (duration <= Duration.zero) return unknown;
-    final hours   = duration.inHours;
+    final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     final seconds = duration.inSeconds.remainder(60);
     if (hours > 0) {
@@ -316,8 +341,8 @@ class SongMetadataService {
   }
 
   static String? _lyricsTypeLabel(String? type) => switch (type) {
-        'LRC'   => 'LRC (synced)',
-        'PLAIN' => 'Plain text',
-        _       => null,
-      };
+    'LRC' => 'LRC (synced)',
+    'PLAIN' => 'Plain text',
+    _ => null,
+  };
 }

@@ -60,7 +60,9 @@ class _ChangelogPageState extends State<ChangelogPage> {
               child: Text(
                 context.l10n.noChangelog,
                 style: TextStyle(
-                    color: AppColors.of(context).secondaryLabel, fontSize: 15),
+                  color: AppColors.of(context).secondaryLabel,
+                  fontSize: 15,
+                ),
               ),
             )
           : SingleChildScrollView(
@@ -109,10 +111,7 @@ class _ChangelogEntryTile extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 entry.date,
-                style: TextStyle(
-                  color: c.secondaryLabel,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: c.secondaryLabel, fontSize: 14),
               ),
             ],
           ),

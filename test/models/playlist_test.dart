@@ -31,12 +31,19 @@ void main() {
         expect(result.id, equals(''));
         expect(result.name, equals(''));
         expect(result.songIds, isEmpty);
-        expect(result.createdAt,
-            equals(DateTime.fromMillisecondsSinceEpoch(0)));
+        expect(
+          result.createdAt,
+          equals(DateTime.fromMillisecondsSinceEpoch(0)),
+        );
       });
 
       test('songIds are parsed as int even when stored as double', () {
-        final json = {'id': 'x', 'name': 'X', 'songIds': [1.0, 2.0], 'createdAt': 0};
+        final json = {
+          'id': 'x',
+          'name': 'X',
+          'songIds': [1.0, 2.0],
+          'createdAt': 0,
+        };
         final result = Playlist.fromJson(json);
         expect(result.songIds, equals([1, 2]));
       });

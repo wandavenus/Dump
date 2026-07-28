@@ -11,7 +11,9 @@ class _ActiveTimerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF92D48).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFFF92D48).withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [
@@ -23,9 +25,10 @@ class _ActiveTimerCard extends StatelessWidget {
               Text(
                 context.l10n.sleepTimerActive,
                 style: TextStyle(
-                    color: c.primaryLabel,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                  color: c.primaryLabel,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -36,8 +39,7 @@ class _ActiveTimerCard extends StatelessWidget {
               if (remaining == null) {
                 return Text(
                   context.l10n.sleepAfterSong,
-                  style: TextStyle(
-                      color: c.secondaryLabel, fontSize: 14),
+                  style: TextStyle(color: c.secondaryLabel, fontSize: 14),
                 );
               }
               final h = remaining.inHours;

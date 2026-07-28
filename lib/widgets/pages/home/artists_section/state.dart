@@ -53,9 +53,16 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       final songs = await MediaStoreService.getSongs();
       final playCounts = await HistoryService.getArtistPlayCounts();
       final artists = _buildArtists(songs, playCounts);
-      if (mounted) setState(() { _artists = artists; _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _artists = artists;
+          _isLoading = false;
+        });
     } on Exception catch (_) {
-      if (mounted) setState(() { _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 
@@ -75,8 +82,7 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(10),
         itemCount: _artists.length,
-        itemBuilder: (context, index) =>
-            _ArtistCard(artist: _artists[index]),
+        itemBuilder: (context, index) => _ArtistCard(artist: _artists[index]),
       ),
     );
   }

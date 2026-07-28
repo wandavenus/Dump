@@ -25,7 +25,7 @@ class ProceduralFogBackground extends StatefulWidget {
     required this.palette,
   });
 
-  final int         songId;
+  final int songId;
   final List<Color> palette;
 
   @override
@@ -44,10 +44,10 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
   // Shader state — null until the async asset load finishes.
   // ignore: unused_field — held to prevent GC from destroying the shader.
   ui.FragmentProgram? _program;
-  _ShaderPainter?     _painter;
+  _ShaderPainter? _painter;
 
   // Monotonically increasing time (seconds).
-  double _t    = 0.0;
+  double _t = 0.0;
   double _prev = -1.0;
 
   @override
@@ -74,7 +74,7 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     );
     if (!mounted) return;
 
-    final shader  = program.fragmentShader();
+    final shader = program.fragmentShader();
     final painter = _ShaderPainter(shader: shader, repaint: _controller);
     painter
       ..setTime(_t)
@@ -92,10 +92,10 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     final v = _controller.value;
     if (_prev >= 0.0) {
       var dt = v - _prev;
-      if (dt < 0.0) dt += 1.0;   // controller looped (30 min boundary)
+      if (dt < 0.0) dt += 1.0; // controller looped (30 min boundary)
       final realDt = dt * 1800.0; // convert to real seconds (1 unit ≈ 1 s)
       _t += realDt;
-      _painter?.setTime(_t);      // single field write — no state rebuild
+      _painter?.setTime(_t); // single field write — no state rebuild
       _painter?.advanceBlend(realDt); // advances colour crossfade if active
     }
     _prev = v;
@@ -127,8 +127,8 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     // While the shader asset is loading (typically < 1 frame on warm cache,
     // a few frames on first run) show a solid dark background.
     if (painter == null) {
-  return const SizedBox.shrink();
-}
+      return const SizedBox.shrink();
+    }
 
     // SizedBox.expand forces FittedBox to receive tight constraints equal to
     // the full available size, so BoxFit.cover scales the 256×512 shader
@@ -141,11 +141,9 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
         clipBehavior: Clip.hardEdge,
         child: RepaintBoundary(
           child: SizedBox(
-            width:  _kW,
+            width: _kW,
             height: _kH,
-            child: CustomPaint(
-              painter: painter,
-            ),
+            child: CustomPaint(painter: painter),
           ),
         ),
       ),

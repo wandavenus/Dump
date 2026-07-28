@@ -30,22 +30,22 @@ class LoudnessSourceResolver {
     final (track, album) = await ReplayGainService.resolveBoth(song);
 
     final result = switch (mode) {
-      ReplayGainMode.off   => const LoudnessData.none(),
+      ReplayGainMode.off => const LoudnessData.none(),
       ReplayGainMode.track => track,
       ReplayGainMode.album => album.hasData ? album : track,
-      ReplayGainMode.auto  => _auto(
-          track:        track,
-          album:        album,
-          song:         song,
-          previousSong: previousSong,
-        ),
+      ReplayGainMode.auto => _auto(
+        track: track,
+        album: album,
+        song: song,
+        previousSong: previousSong,
+      ),
     };
 
     if (result.hasData) {
       LogService.verbose(
         'LoudnessResolver',
         '"${song.title}": ${result.gainDb.toStringAsFixed(2)} dB '
-        '(${result.source.label}, mode=${mode.name})',
+            '(${result.source.label}, mode=${mode.name})',
       );
     }
 

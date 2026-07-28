@@ -26,9 +26,7 @@ class BitPerfectLock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _BitPerfectLockBanner(),
-            IgnorePointer(
-              child: Opacity(opacity: 0.35, child: child),
-            ),
+            IgnorePointer(child: Opacity(opacity: 0.35, child: child)),
           ],
         );
       },

@@ -34,8 +34,7 @@ class LrclibProvider implements LyricsProvider {
     final lines = LrcParser.parseLrc(raw);
     if (lines.isEmpty) return null;
 
-    LogService.verbose(name,
-        '${lines.length} lines [${quality.displayName}]');
+    LogService.verbose(name, '${lines.length} lines [${quality.displayName}]');
     return LyricsProviderResult(
       lines: lines,
       quality: quality,
@@ -60,7 +59,9 @@ class LrclibProvider implements LyricsProvider {
       uri,
       name,
       cancelToken,
-      headers: {'User-Agent': 'MusicPlayerApp/2.0 (github.com/user/musicplayer)'},
+      headers: {
+        'User-Agent': 'MusicPlayerApp/2.0 (github.com/user/musicplayer)',
+      },
     );
     if (response == null) return null;
     if (response.statusCode != 200) return null;
@@ -76,7 +77,7 @@ class LrclibProvider implements LyricsProvider {
       final entry = ProviderHttp.asJsonMap(rawEntry);
       if (entry == null) continue;
       final synced = (entry['syncedLyrics'] as String?) ?? '';
-      final plain  = (entry['lyrics'] as String?) ?? '';
+      final plain = (entry['lyrics'] as String?) ?? '';
       if (synced.isNotEmpty) {
         final q = LrcParser.detectQuality(synced);
         if (q == LyricsQuality.wordTimedLrc && bestWord == null) {

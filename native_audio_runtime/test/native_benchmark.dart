@@ -19,7 +19,7 @@ import 'package:native_audio_runtime/native_audio_runtime.dart';
 import 'package:test/test.dart';
 
 const int _kChannels = 2;
-const int _kFrames = 1024;          // ~23 ms @ 44.1 kHz — a typical callback size
+const int _kFrames = 1024; // ~23 ms @ 44.1 kHz — a typical callback size
 const int _kSampleRate = 44100;
 const int _kWarmupIters = 64;
 const int _kMeasureIters = 2048;
@@ -72,41 +72,52 @@ void main() {
       sw.stop();
       // 2 s is generous; on a CI runner with cold caches this still leaves
       // plenty of headroom while catching a real regression.
-      expect(sw.elapsedMilliseconds, lessThan(2000),
-          reason: 'pipeline init took ${sw.elapsedMilliseconds} ms');
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(2000),
+        reason: 'pipeline init took ${sw.elapsedMilliseconds} ms',
+      );
       // ignore: avoid_print
       print('[bench] init=${sw.elapsedMilliseconds}ms');
       // Restore the processor state the rest of the suite expects.
       pipeline.setGainDb(0.0);
     });
 
-    test('processBuffer throughput ($_kMeasureIters x $_kFrames frames)', () async {
-      final pipeline = NativeDspPipeline.instance;
-      _fillSine(benchBuf, 440.0);
+    test(
+      'processBuffer throughput ($_kMeasureIters x $_kFrames frames)',
+      () async {
+        final pipeline = NativeDspPipeline.instance;
+        _fillSine(benchBuf, 440.0);
 
-      // Warm up — let any lazy JIT / first-call caches settle.
-      for (int i = 0; i < _kWarmupIters; i++) {
-        pipeline.processBuffer(benchBuf);
-      }
+        // Warm up — let any lazy JIT / first-call caches settle.
+        for (int i = 0; i < _kWarmupIters; i++) {
+          pipeline.processBuffer(benchBuf);
+        }
 
-      final sw = Stopwatch()..start();
-      for (int i = 0; i < _kMeasureIters; i++) {
-        pipeline.processBuffer(benchBuf);
-      }
-      sw.stop();
+        final sw = Stopwatch()..start();
+        for (int i = 0; i < _kMeasureIters; i++) {
+          pipeline.processBuffer(benchBuf);
+        }
+        sw.stop();
 
-      final frames = _kMeasureIters * _kFrames;
-      final secs = sw.elapsedMicroseconds / 1e6;
-      final fps = frames / secs;
-      // ignore: avoid_print
-      print('[bench] processed $frames frames in ${sw.elapsedMilliseconds}ms '
-          '(${(fps / 1000).toStringAsFixed(1)}k frames/sec)');
+        final frames = _kMeasureIters * _kFrames;
+        final secs = sw.elapsedMicroseconds / 1e6;
+        final fps = frames / secs;
+        // ignore: avoid_print
+        print(
+          '[bench] processed $frames frames in ${sw.elapsedMilliseconds}ms '
+          '(${(fps / 1000).toStringAsFixed(1)}k frames/sec)',
+        );
 
-      // Soft floor: 10k frames/sec. The native pipeline is way above this
-      // in practice (millions of frames/sec) — this only catches catastrophic
-      // regressions, e.g. accidental FFI-per-call overhead.
-      expect(fps, greaterThan(10000),
-          reason: 'throughput $fps fps is below the sanity floor');
-    });
+        // Soft floor: 10k frames/sec. The native pipeline is way above this
+        // in practice (millions of frames/sec) — this only catches catastrophic
+        // regressions, e.g. accidental FFI-per-call overhead.
+        expect(
+          fps,
+          greaterThan(10000),
+          reason: 'throughput $fps fps is below the sanity floor',
+        );
+      },
+    );
   });
 }

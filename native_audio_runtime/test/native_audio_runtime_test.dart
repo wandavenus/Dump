@@ -152,34 +152,43 @@ void main() {
     expect(NativeDspPipeline.instance.isInitialized, isTrue);
   });
 
-  test('pipeline registers all 7 processors (Phase 4–8.5, PEQ removed) in order', () async {
-    await NativeAudioRuntime.instance.initialize();
-    await NativeDspPipeline.instance.initialize();
+  test(
+    'pipeline registers all 7 processors (Phase 4–8.5, PEQ removed) in order',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
 
-    // [0]gain → [1]replaygain → [2]loudness → [3]compressor →
-    // [4]crossfeed → [5]limiter → [6]soft_clipper
-    // (Parametric EQ removed — legacy system Equalizer is the sole EQ backend.)
-    expect(NativeDspPipeline.instance.processorCount, equals(7));
-    expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
-    expect(
-      NativeDspPipeline.instance.processorIdAt(1),
-      equals('dsp.replaygain'),
-    );
-    expect(NativeDspPipeline.instance.processorIdAt(2), equals('dsp.loudness'));
-    expect(
-      NativeDspPipeline.instance.processorIdAt(3),
-      equals('dsp.compressor'),
-    );
-    expect(
-      NativeDspPipeline.instance.processorIdAt(4),
-      equals('dsp.crossfeed'),
-    );
-    expect(NativeDspPipeline.instance.processorIdAt(5), equals('dsp.limiter'));
-    expect(
-      NativeDspPipeline.instance.processorIdAt(6),
-      equals('dsp.soft_clipper'),
-    );
-  });
+      // [0]gain → [1]replaygain → [2]loudness → [3]compressor →
+      // [4]crossfeed → [5]limiter → [6]soft_clipper
+      // (Parametric EQ removed — legacy system Equalizer is the sole EQ backend.)
+      expect(NativeDspPipeline.instance.processorCount, equals(7));
+      expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
+      expect(
+        NativeDspPipeline.instance.processorIdAt(1),
+        equals('dsp.replaygain'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(2),
+        equals('dsp.loudness'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(3),
+        equals('dsp.compressor'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(4),
+        equals('dsp.crossfeed'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(5),
+        equals('dsp.limiter'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(6),
+        equals('dsp.soft_clipper'),
+      );
+    },
+  );
 
   test('gain processor defaults to 0 dBFS and bypass off', () async {
     await NativeAudioRuntime.instance.initialize();
@@ -1751,68 +1760,65 @@ void main() {
     }
   });
 
-  test(
-    'loudness: stereo (identical L=R) reads ~3.01 dB louder than mono '
-    'at the same per-channel amplitude — regression test for the fixed '
-    'channel-averaging bug (BS.1770-4 sums channel power, it does not '
-    'average it)',
-    () async {
-      await NativeAudioRuntime.instance.initialize();
-      await NativeDspPipeline.instance.initialize();
-      isolateLoudness();
-      NativeLoudnessNorm.instance.reset();
-      NativeLoudnessNorm.instance.setBypass(false);
+  test('loudness: stereo (identical L=R) reads ~3.01 dB louder than mono '
+      'at the same per-channel amplitude — regression test for the fixed '
+      'channel-averaging bug (BS.1770-4 sums channel power, it does not '
+      'average it)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    isolateLoudness();
+    NativeLoudnessNorm.instance.reset();
+    NativeLoudnessNorm.instance.setBypass(false);
 
-      const sampleRate = 48000;
-      // 600 ms: past the first 400 ms gating block plus one extra 100 ms hop.
-      final frames = (sampleRate * 0.6).round();
+    const sampleRate = 48000;
+    // 600 ms: past the first 400 ms gating block plus one extra 100 ms hop.
+    final frames = (sampleRate * 0.6).round();
 
-      final monoBuf = sineBuffer(
-        frames: frames,
-        channels: 1,
-        sampleRate: sampleRate,
-        amplitude: 0.5,
-      );
-      try {
-        NativeDspPipeline.instance.processBuffer(monoBuf);
-      } finally {
-        monoBuf.destroy();
-      }
-      final monoLufs = NativeLoudnessNorm.instance.measuredLufs;
+    final monoBuf = sineBuffer(
+      frames: frames,
+      channels: 1,
+      sampleRate: sampleRate,
+      amplitude: 0.5,
+    );
+    try {
+      NativeDspPipeline.instance.processBuffer(monoBuf);
+    } finally {
+      monoBuf.destroy();
+    }
+    final monoLufs = NativeLoudnessNorm.instance.measuredLufs;
 
-      NativeLoudnessNorm.instance.reset();
-      final stereoBuf = sineBuffer(
-        frames: frames,
-        channels: 2,
-        sampleRate: sampleRate,
-        amplitude: 0.5,
-      );
-      try {
-        NativeDspPipeline.instance.processBuffer(stereoBuf);
-      } finally {
-        stereoBuf.destroy();
-      }
-      final stereoLufs = NativeLoudnessNorm.instance.measuredLufs;
+    NativeLoudnessNorm.instance.reset();
+    final stereoBuf = sineBuffer(
+      frames: frames,
+      channels: 2,
+      sampleRate: sampleRate,
+      amplitude: 0.5,
+    );
+    try {
+      NativeDspPipeline.instance.processBuffer(stereoBuf);
+    } finally {
+      stereoBuf.destroy();
+    }
+    final stereoLufs = NativeLoudnessNorm.instance.measuredLufs;
 
-      expect(
-        monoLufs,
-        greaterThan(-99.0),
-        reason: 'mono block should have gated in in 600 ms',
-      );
-      expect(
-        stereoLufs,
-        greaterThan(-99.0),
-        reason: 'stereo block should have gated in in 600 ms',
-      );
-      expect(
-        stereoLufs - monoLufs,
-        closeTo(3.0103, 0.05),
-        reason:
-            'identical L=R channels must sum power (+3.01 dB), not average '
-            'it (which would read identically to mono — the historical bug)',
-      );
-    },
-  );
+    expect(
+      monoLufs,
+      greaterThan(-99.0),
+      reason: 'mono block should have gated in in 600 ms',
+    );
+    expect(
+      stereoLufs,
+      greaterThan(-99.0),
+      reason: 'stereo block should have gated in in 600 ms',
+    );
+    expect(
+      stereoLufs - monoLufs,
+      closeTo(3.0103, 0.05),
+      reason:
+          'identical L=R channels must sum power (+3.01 dB), not average '
+          'it (which would read identically to mono — the historical bug)',
+    );
+  });
 
   test(
     'loudness: LFE channel (index 3 of 6) is excluded from the measurement',
@@ -1884,51 +1890,48 @@ void main() {
     },
   );
 
-  test(
-    'loudness: a single NaN sample does not poison filter state or produce '
-    'non-finite output (fail-open defensive guard)',
-    () async {
-      await NativeAudioRuntime.instance.initialize();
-      await NativeDspPipeline.instance.initialize();
-      isolateLoudness();
-      NativeLoudnessNorm.instance.reset();
-      NativeLoudnessNorm.instance.setBypass(false);
+  test('loudness: a single NaN sample does not poison filter state or produce '
+      'non-finite output (fail-open defensive guard)', () async {
+    await NativeAudioRuntime.instance.initialize();
+    await NativeDspPipeline.instance.initialize();
+    isolateLoudness();
+    NativeLoudnessNorm.instance.reset();
+    NativeLoudnessNorm.instance.setBypass(false);
 
-      const sampleRate = 48000;
-      final frames = (sampleRate * 0.6).round();
+    const sampleRate = 48000;
+    final frames = (sampleRate * 0.6).round();
 
-      final buf = sineBuffer(
-        frames: frames,
-        channels: 2,
-        sampleRate: sampleRate,
-        amplitude: 0.5,
-      );
-      try {
-        // Inject a NaN into the very first frame, both channels.
-        buf.data[0] = double.nan;
-        buf.data[1] = double.nan;
+    final buf = sineBuffer(
+      frames: frames,
+      channels: 2,
+      sampleRate: sampleRate,
+      amplitude: 0.5,
+    );
+    try {
+      // Inject a NaN into the very first frame, both channels.
+      buf.data[0] = double.nan;
+      buf.data[1] = double.nan;
 
-        NativeDspPipeline.instance.processBuffer(buf);
+      NativeDspPipeline.instance.processBuffer(buf);
 
-        for (var i = 0; i < buf.data.length; i++) {
-          expect(
-            buf.data[i].isFinite,
-            isTrue,
-            reason:
-                'a single NaN input sample must never propagate to a '
-                'non-finite output sample',
-          );
-        }
+      for (var i = 0; i < buf.data.length; i++) {
         expect(
-          NativeLoudnessNorm.instance.measuredLufs.isFinite,
+          buf.data[i].isFinite,
           isTrue,
-          reason: 'measured LUFS must remain finite despite the NaN input',
+          reason:
+              'a single NaN input sample must never propagate to a '
+              'non-finite output sample',
         );
-      } finally {
-        buf.destroy();
       }
-    },
-  );
+      expect(
+        NativeLoudnessNorm.instance.measuredLufs.isFinite,
+        isTrue,
+        reason: 'measured LUFS must remain finite despite the NaN input',
+      );
+    } finally {
+      buf.destroy();
+    }
+  });
 
   test('loudness: reset clears gating state back to the sentinel', () async {
     await NativeAudioRuntime.instance.initialize();

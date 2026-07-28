@@ -27,16 +27,18 @@ class _EqualizerSection extends StatelessWidget {
                       trailing = l.disabled;
                     } else if (presetIdx >= 0 &&
                         presetIdx < AudioEffectsService.eqPresets.length) {
-                      trailing = AudioEffectsService.eqPresets[presetIdx]['name'] as String;
+                      trailing =
+                          AudioEffectsService.eqPresets[presetIdx]['name']
+                              as String;
                     } else {
                       trailing = l.equalizerCustom;
                     }
                     return SettingsActionRow(
                       title: l.equalizerTitle,
                       subtitle: trailing,
-                      onTap: () => Navigator.of(context).push(
-                        ZoomFadeRoute<void>(page: const EqualizerPage()),
-                      ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).push(ZoomFadeRoute<void>(page: const EqualizerPage())),
                     );
                   },
                 );

@@ -25,13 +25,15 @@ part 'sleep_timer_page/presets.dart';
 /// Shows the sleep timer picker as a bottom sheet.
 /// Use this from the player 3-dot menu.
 void showSleepTimerSheet(BuildContext context) {
-  unawaited(showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const _SleepTimerSheetWidget(),
-  ));
+  unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _SleepTimerSheetWidget(),
+    ),
+  );
 }
 
 class _SleepTimerSheetWidget extends StatelessWidget {
@@ -67,7 +69,7 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                       context.l10n.sleepTimerTitle,
+                      context.l10n.sleepTimerTitle,
                       style: TextStyle(
                         color: c.primaryLabel,
                         fontSize: 16,
@@ -77,27 +79,25 @@ class _SleepTimerSheetWidget extends StatelessWidget {
                     const Spacer(),
                     ValueListenableBuilder<bool>(
                       valueListenable: SleepTimerService.isActive,
-                      builder:
-                          (_, active, _) =>
-                              active
-                                  ? CupertinoButton(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    onPressed: () {
-                                      SleepTimerService.cancel();
-                                      Navigator.of(context).pop();
-                                    },
-                                     child: Text(
-                                       context.l10n.cancelTimer,
-                                      style: TextStyle(
-                                        color: Color(0xFFF92D48),
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  )
-                                  : const SizedBox.shrink(),
+                      builder: (_, active, _) => active
+                          ? CupertinoButton(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              onPressed: () {
+                                SleepTimerService.cancel();
+                                Navigator.of(context).pop();
+                              },
+                              child: Text(
+                                context.l10n.cancelTimer,
+                                style: TextStyle(
+                                  color: Color(0xFFF92D48),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
@@ -142,7 +142,7 @@ class _SleepTimerSheetBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 5),
               child: Text(
-                 context.l10n.sleepPresetSection,
+                context.l10n.sleepPresetSection,
                 style: TextStyle(
                   color: c.secondaryLabel,
                   fontSize: 12,

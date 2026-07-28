@@ -13,8 +13,9 @@ part of '../replay_gain_service.dart';
 class ReplayGainService {
   ReplayGainService._();
 
-  static const MethodChannel _channel =
-      MethodChannel('musicplayer/media_store');
+  static const MethodChannel _channel = MethodChannel(
+    'musicplayer/media_store',
+  );
 
   // In-memory cache (cleared on hot-restart).
   static final Map<int, LoudnessData> _cache = {};
@@ -105,7 +106,10 @@ class ReplayGainService {
       if (result == null) return {};
       return result.map((k, v) => MapEntry(k, v?.toString()));
     } on Exception catch (e) {
-      LogService.verbose('ReplayGain', 'Tag read failed for "${song.title}": $e');
+      LogService.verbose(
+        'ReplayGain',
+        'Tag read failed for "${song.title}": $e',
+      );
       return {};
     }
   }
@@ -132,9 +136,9 @@ class ReplayGainService {
     final rgGain = _parseGainDb(tags['replayGainTrackGain']);
     if (rgGain != null) {
       return LoudnessData(
-        gainDb:     rgGain,
+        gainDb: rgGain,
         peakLinear: _parsePeak(tags['replayGainTrackPeak']),
-        source:     LoudnessSource.replayGainTrack,
+        source: LoudnessSource.replayGainTrack,
       );
     }
 
@@ -143,10 +147,7 @@ class ReplayGainService {
     if (r128 != null) {
       final parsed = _parseR128(r128);
       if (parsed != null) {
-        return LoudnessData(
-          gainDb: parsed,
-          source: LoudnessSource.r128Track,
-        );
+        return LoudnessData(gainDb: parsed, source: LoudnessSource.r128Track);
       }
     }
 
@@ -165,9 +166,9 @@ class ReplayGainService {
     final rgGain = _parseGainDb(tags['replayGainAlbumGain']);
     if (rgGain != null) {
       return LoudnessData(
-        gainDb:     rgGain,
+        gainDb: rgGain,
         peakLinear: _parsePeak(tags['replayGainAlbumPeak']),
-        source:     LoudnessSource.replayGainAlbum,
+        source: LoudnessSource.replayGainAlbum,
       );
     }
 
@@ -176,10 +177,7 @@ class ReplayGainService {
     if (r128 != null) {
       final parsed = _parseR128(r128);
       if (parsed != null) {
-        return LoudnessData(
-          gainDb: parsed,
-          source: LoudnessSource.r128Album,
-        );
+        return LoudnessData(gainDb: parsed, source: LoudnessSource.r128Album);
       }
     }
 
@@ -191,12 +189,12 @@ class ReplayGainService {
 
   /// Parses "  -3.45 dB" → -3.45.  Returns null if not parseable.
   static double? _parseGainDb(String? raw) {
-  if (raw == null || raw.trim().isEmpty) return null;
-  // Ambil angka desimal dengan tanda opsional di awal
-  final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
-  if (match == null) return null;
-  return double.tryParse(match.group(1)!);
-}
+    if (raw == null || raw.trim().isEmpty) return null;
+    // Ambil angka desimal dengan tanda opsional di awal
+    final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
+    if (match == null) return null;
+    return double.tryParse(match.group(1)!);
+  }
 
   /// Parses peak value "0.987654" → 0.987654.
   static double? _parsePeak(String? raw) {
@@ -219,10 +217,13 @@ class ReplayGainService {
   /// Volume difference = 1000/max(track_left, track_right) in linear scale.
   static LoudnessData? _parseITunNorm(String raw) {
     try {
-      final parts = raw.trim().split(RegExp(r'\s+'))
-          .where((s) => s.isNotEmpty).toList();
+      final parts = raw
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((s) => s.isNotEmpty)
+          .toList();
       if (parts.length < 2) return null;
-      final left  = int.parse(parts[0], radix: 16);
+      final left = int.parse(parts[0], radix: 16);
       final right = int.parse(parts[1], radix: 16);
       final volume = [left, right].reduce((a, b) => a > b ? a : b);
       if (volume <= 0) return null;
@@ -235,9 +236,9 @@ class ReplayGainService {
   }
 
   static double _log10(double x) {
-  if (x <= 0) return double.negativeInfinity;
-  return math.log(x) / math.ln10;
-} 
+    if (x <= 0) return double.negativeInfinity;
+    return math.log(x) / math.ln10;
+  }
 
   // ── SharedPrefs persistence ────────────────────────────────────────────────
 
@@ -245,12 +246,13 @@ class ReplayGainService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final gainStr = prefs.getString('rg_${songId}_gain');
-      final srcIdx  = prefs.getInt('rg_${songId}_src');
+      final srcIdx = prefs.getInt('rg_${songId}_src');
       if (gainStr == null || srcIdx == null) return null;
       final gain = double.tryParse(gainStr);
       if (gain == null) return null;
       final peak = double.tryParse(prefs.getString('rg_${songId}_peak') ?? '');
-      final src = LoudnessSource.values[srcIdx.clamp(0, LoudnessSource.values.length - 1)];
+      final src = LoudnessSource
+          .values[srcIdx.clamp(0, LoudnessSource.values.length - 1)];
       return LoudnessData(gainDb: gain, peakLinear: peak, source: src);
     } on Exception catch (_) {
       return null;
@@ -277,8 +279,9 @@ class ReplayGainService {
 
   /// Live progress state for a [scanLibrary] run.
   /// Bind UI widgets to this notifier — it updates after every song.
-  static final ValueNotifier<BatchScanProgress> scanProgress =
-      ValueNotifier(const BatchScanProgress());
+  static final ValueNotifier<BatchScanProgress> scanProgress = ValueNotifier(
+    const BatchScanProgress(),
+  );
 
   /// Requests cancellation of the active [scanLibrary] run.
   /// The current song finishes before the loop stops.
@@ -299,19 +302,18 @@ class ReplayGainService {
   }) async {
     if (kIsWeb || song.path.isEmpty) return null;
     try {
-      final raw = await _channel.invokeMapMethod<String, dynamic>(
-        'scanTrack',
-        {'path': song.path},
-      );
+      final raw = await _channel.invokeMapMethod<String, dynamic>('scanTrack', {
+        'path': song.path,
+      });
       if (raw == null) return null;
       final gainDb = (raw['trackGainDb'] as num?)?.toDouble();
-      final peak   = (raw['trackPeak']   as num?)?.toDouble();
+      final peak = (raw['trackPeak'] as num?)?.toDouble();
       final integratedLufs = (raw['integratedLufs'] as num?)?.toDouble();
       if (gainDb == null) return null;
       final data = LoudnessData(
-        gainDb:     gainDb,
+        gainDb: gainDb,
         peakLinear: (peak != null && peak > 0.0) ? peak : null,
-        source:     LoudnessSource.replayGainTrack,
+        source: LoudnessSource.replayGainTrack,
       );
       _cache[song.id] = data;
       await _saveToPrefs(song.id, data);
@@ -326,8 +328,10 @@ class ReplayGainService {
       }
       return data;
     } on PlatformException catch (e) {
-      LogService.warn('ReplayGain',
-          'scanOneSong "${song.title}": ${e.code} – ${e.message}');
+      LogService.warn(
+        'ReplayGain',
+        'scanOneSong "${song.title}": ${e.code} – ${e.message}',
+      );
       return null;
     } on Object catch (e) {
       LogService.warn('ReplayGain', 'scanOneSong "${song.title}": $e');
@@ -358,12 +362,10 @@ class ReplayGainService {
     if (kIsWeb || songs.isEmpty) return;
     if (scanProgress.value.running) return;
 
-    final toScan = songs
-        .where((s) {
-          final c = _cache[s.id];
-          return c == null || c.gainDb == 0.0;
-        })
-        .toList();
+    final toScan = songs.where((s) {
+      final c = _cache[s.id];
+      return c == null || c.gainDb == 0.0;
+    }).toList();
 
     if (toScan.isEmpty) {
       scanProgress.value = const BatchScanProgress(
@@ -397,9 +399,14 @@ class ReplayGainService {
     for (var base = 0; base < toScan.length; base += concurrency) {
       if (_cancelRequested) {
         scanProgress.value = scanProgress.value.copyWith(
-          done: base, running: false, cancelled: true,
+          done: base,
+          running: false,
+          cancelled: true,
         );
-        LogService.log('ReplayGain', 'Scan dibatalkan pada $base/${toScan.length}');
+        LogService.log(
+          'ReplayGain',
+          'Scan dibatalkan pada $base/${toScan.length}',
+        );
         return;
       }
 
@@ -408,7 +415,8 @@ class ReplayGainService {
 
       // Show the first song of the chunk as the "current" title
       scanProgress.value = scanProgress.value.copyWith(
-        done: base, currentTitle: chunk.first.title,
+        done: base,
+        currentTitle: chunk.first.title,
       );
 
       // Fire both scans concurrently; scanOneSong never throws (catches all).
@@ -417,19 +425,19 @@ class ReplayGainService {
       // still get scanned (for in-app normalization) but skip the file
       // write, and critically do NOT trigger a fallback per-file dialog.
       final results = await Future.wait(
-        chunk.map((s) => scanOneSong(
-              s,
-              writeTags: writeTags && (writeAccessById[s.id] ?? false),
-            )),
+        chunk.map(
+          (s) => scanOneSong(
+            s,
+            writeTags: writeTags && (writeAccessById[s.id] ?? false),
+          ),
+        ),
       );
 
       for (final r in results) {
         if (r == null) failed++;
       }
 
-      scanProgress.value = scanProgress.value.copyWith(
-        done: end,
-      );
+      scanProgress.value = scanProgress.value.copyWith(done: end);
 
       // Minimal yield between chunks to keep the event loop responsive and
       // allow cancellation checks without adding noticeable total latency.
@@ -439,9 +447,9 @@ class ReplayGainService {
     }
 
     scanProgress.value = BatchScanProgress(
-      done:    toScan.length,
-      total:   toScan.length,
-      failed:  failed,
+      done: toScan.length,
+      total: toScan.length,
+      failed: failed,
       running: false,
     );
     LogService.log(
@@ -473,10 +481,9 @@ class ReplayGainService {
       );
     }
     try {
-      final raw = await _channel.invokeMapMethod<String, dynamic>(
-        'scanAlbum',
-        {'paths': songs.map((s) => s.path).toList()},
-      );
+      final raw = await _channel.invokeMapMethod<String, dynamic>('scanAlbum', {
+        'paths': songs.map((s) => s.path).toList(),
+      });
       if (raw == null) {
         return AlbumScanResult(
           trackResults: const {},
@@ -611,19 +618,17 @@ class ReplayGainService {
   }) async {
     if (kIsWeb || song.path.isEmpty) return false;
     try {
-      final raw = await _channel.invokeMapMethod<String, dynamic>(
-        'writeReplayGain',
-        {
-          'path': song.path,
-          'songId': song.id,
-          'trackGainDb': trackGainDb,
-          'trackPeak': trackPeak,
-          'integratedLufs': trackIntegratedLufs,
-          'albumGainDb': ?albumGainDb,
-          'albumPeak': ?albumPeak,
-          'albumIntegratedLufs': ?albumIntegratedLufs,
-        },
-      );
+      final raw = await _channel
+          .invokeMapMethod<String, dynamic>('writeReplayGain', {
+            'path': song.path,
+            'songId': song.id,
+            'trackGainDb': trackGainDb,
+            'trackPeak': trackPeak,
+            'integratedLufs': trackIntegratedLufs,
+            'albumGainDb': ?albumGainDb,
+            'albumPeak': ?albumPeak,
+            'albumIntegratedLufs': ?albumIntegratedLufs,
+          });
       final success = raw?['success'] == true;
       if (!success) {
         LogService.warn(
@@ -718,48 +723,53 @@ class AlbumScanResult {
 /// Immutable state for a [ReplayGainService.scanLibrary] run.
 class BatchScanProgress {
   const BatchScanProgress({
-    this.done         = 0,
-    this.total        = 0,
-    this.failed       = 0,
-    this.running      = false,
-    this.cancelled    = false,
+    this.done = 0,
+    this.total = 0,
+    this.failed = 0,
+    this.running = false,
+    this.cancelled = false,
     this.currentTitle = '',
   });
 
   /// Songs processed so far (successes + failures combined).
-  final int    done;
+  final int done;
+
   /// Total songs queued for this run.
-  final int    total;
+  final int total;
+
   /// Songs that failed to decode.
-  final int    failed;
+  final int failed;
+
   /// Whether a scan is currently in progress.
-  final bool   running;
+  final bool running;
+
   /// Whether the last scan ended due to user cancellation.
-  final bool   cancelled;
+  final bool cancelled;
+
   /// Title of the song currently being scanned (empty when idle).
   final String currentTitle;
 
-  int  get succeeded => done - failed;
+  int get succeeded => done - failed;
 
   /// `true` when no scan has started yet since app launch.
-  bool get idle      => !running && total == 0;
+  bool get idle => !running && total == 0;
 
   /// `true` after a scan completes (with or without cancellation).
-  bool get finished  => !running && total > 0;
+  bool get finished => !running && total > 0;
 
   BatchScanProgress copyWith({
-    int?    done,
-    int?    total,
-    int?    failed,
-    bool?   running,
-    bool?   cancelled,
+    int? done,
+    int? total,
+    int? failed,
+    bool? running,
+    bool? cancelled,
     String? currentTitle,
   }) => BatchScanProgress(
-    done:         done         ?? this.done,
-    total:        total        ?? this.total,
-    failed:       failed       ?? this.failed,
-    running:      running      ?? this.running,
-    cancelled:    cancelled    ?? this.cancelled,
+    done: done ?? this.done,
+    total: total ?? this.total,
+    failed: failed ?? this.failed,
+    running: running ?? this.running,
+    cancelled: cancelled ?? this.cancelled,
     currentTitle: currentTitle ?? this.currentTitle,
   );
 }

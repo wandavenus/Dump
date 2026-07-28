@@ -86,8 +86,10 @@ class LocalFileProvider implements LyricsProvider {
       final parsed = LrcParser.parse(raw.trim());
       if (parsed.isEmpty) continue;
 
-      LogService.verbose('LocalFileProvider',
-          'Found $filePath — ${parsed.lines.length} lines [${parsed.quality.displayName}]');
+      LogService.verbose(
+        'LocalFileProvider',
+        'Found $filePath — ${parsed.lines.length} lines [${parsed.quality.displayName}]',
+      );
       return LyricsProviderResult(
         lines: parsed.lines,
         quality: parsed.quality,
