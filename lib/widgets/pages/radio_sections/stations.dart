@@ -56,7 +56,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
       if (mounted) {
         setState(() {
           _count = ids.length;
-          _artworkIds = ids.take(4).toList();
+          _artworkIds = ids.take(6).toList();
         });
         unawaited(ArtworkRepository.instance.prefetch(_artworkIds));
       }
@@ -79,13 +79,86 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return PlaylistCard(
-      name: _resolveName(context),
-      subtitle: _count == 0
-          ? context.l10n.noSongsYet
-          : context.l10n.songCount(_count),
-      artworkIds: _artworkIds,
+    final c = AppColors.of(context);
+
+    return GestureDetector(
       onTap: _open,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 8, kPageLeftPadding, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Section header ──────────────────────────────────────────────
+            Row(
+              children: [
+                Text(
+                  _resolveName(context),
+                  style: TextStyle(
+                    color: c.primaryLabel,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                if (_count > 0)
+                  Text(
+                    context.l10n.songCount(_count),
+                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                  ),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right, color: c.secondaryLabel, size: 20),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // ── 3×2 artwork grid ────────────────────────────────────────────
+            LayoutBuilder(
+              builder: (ctx, constraints) {
+                const crossCount = 3;
+                const spacing = 6.0;
+                final itemSize =
+                    (constraints.maxWidth - spacing * (crossCount - 1)) /
+                    crossCount;
+
+                Widget cell(int i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: itemSize,
+                    height: itemSize,
+                    child: i < _artworkIds.length
+                        ? _GridCell(songId: _artworkIds[i])
+                        : ColoredBox(color: c.surface2),
+                  ),
+                );
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        cell(0),
+                        const SizedBox(width: spacing),
+                        cell(1),
+                        const SizedBox(width: spacing),
+                        cell(2),
+                      ],
+                    ),
+                    const SizedBox(height: spacing),
+                    Row(
+                      children: [
+                        cell(3),
+                        const SizedBox(width: spacing),
+                        cell(4),
+                        const SizedBox(width: spacing),
+                        cell(5),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

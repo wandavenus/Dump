@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.0',
+    date: '29 Juli 2026',
+    changes: [
+      'Ubah tampilan seksi Favorit di Radio Page dari 1 kartu banner besar ke grid 3×2 kartu artwork kecil.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.9',
     date: '29 Juli 2026',
     changes: [
