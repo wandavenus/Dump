@@ -30,7 +30,6 @@ class _NewMusicSection extends StatefulWidget {
 
 class _NewMusicSectionState extends State<_NewMusicSection> {
   final _controller = PageController();
-  int _page = 0;
 
   @override
   void dispose() {
@@ -40,7 +39,6 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     if (widget.songs.isEmpty) return const SizedBox.shrink();
 
     final pageCount = (widget.songs.length / _kItemsPerPage).ceil();
@@ -73,7 +71,6 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
           height: _kGridHeight,
           child: PageView.builder(
             controller: _controller,
-            onPageChanged: (p) => setState(() => _page = p),
             itemCount: pageCount,
             itemBuilder: (context, pageIndex) {
               final start = pageIndex * _kItemsPerPage;
@@ -84,29 +81,6 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
           ),
         ),
 
-        // ── Page dots ─────────────────────────────────────────────────────────
-        if (pageCount > 1)
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(pageCount, (i) {
-                final active = i == _page;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 16 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? c.primaryLabel
-                        : c.primaryLabel.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ),
       ],
     );
   }
