@@ -221,7 +221,7 @@ class _NewMusicCell extends StatelessWidget {
                   Container(
                     width: double.infinity,
                     height: 0.5,
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: c.hairlineSeparator,
                   ),
                 ],
               ),
