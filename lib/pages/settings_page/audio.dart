@@ -17,6 +17,10 @@ class _AudioSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+
+              const _AudioEngineSelector(),
+              const SettingsDivider(),
+
               const _ReplayGainSection(),
               const SettingsDivider(),
 

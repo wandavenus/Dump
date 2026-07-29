@@ -161,3 +161,11 @@ target_include_directories(stretch_native PRIVATE
 target_compile_options(stretch_native PRIVATE -Wall -Wextra -fvisibility=hidden -O3 -fstack-protector-strong)
 
 target_link_libraries(stretch_native PRIVATE log)
+
+# ── Native AAudio playback engine (direct NDK AAudio, no Oboe) ───────────────
+add_library(aaudio_engine SHARED
+    aaudio/aaudio_engine.cpp
+)
+
+target_compile_options(aaudio_engine PRIVATE -Wall -Wextra -fvisibility=hidden -O3)
+target_link_libraries(aaudio_engine PRIVATE aaudio log)

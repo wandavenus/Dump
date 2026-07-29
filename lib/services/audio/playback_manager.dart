@@ -8,6 +8,7 @@ import '../native_palette_service.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
 import '../boot_trace.dart';
+import 'audio_engine_manager.dart';
 import 'media3/media3_playback_bridge.dart';
 import '../native/bridges/native_dsp_bridge.dart';
 import '../native/bridges/ffmpeg_decoder_bridge.dart';
@@ -105,28 +106,28 @@ class PlaybackManager {
   // ── Public streams ─────────────────────────────────────────────────────────
 
   static Stream<Map<dynamic, dynamic>> get playbackStateStream =>
-      Media3PlaybackBridge.playbackStateStream;
+      AudioEngineManager.engine.playbackStateStream;
   static Stream<Duration> get positionStream =>
-      Media3PlaybackBridge.positionStream;
+      AudioEngineManager.engine.positionStream;
   static Stream<Duration> get durationStream =>
-      Media3PlaybackBridge.durationStream;
+      AudioEngineManager.engine.durationStream;
   static Stream<Map<dynamic, dynamic>?> get currentTrackStream =>
       _currentTrackCtrl.stream;
   static Stream<List<dynamic>> get queueStream => _queueCtrl.stream;
   static Stream<bool> get bufferingStateStream =>
-      Media3PlaybackBridge.bufferingStateStream;
+      AudioEngineManager.engine.bufferingStateStream;
   static Stream<bool> get shuffleModeStream =>
-      Media3PlaybackBridge.shuffleModeStream;
+      AudioEngineManager.engine.shuffleModeStream;
   static Stream<String> get repeatModeStream =>
-      Media3PlaybackBridge.repeatModeStream;
+      AudioEngineManager.engine.repeatModeStream;
   static Stream<Map<dynamic, dynamic>> get sleepTimerStream =>
-      Media3PlaybackBridge.sleepTimerStream;
+      AudioEngineManager.engine.sleepTimerStream;
   static Stream<int> get audioSessionIdStream =>
-      Media3PlaybackBridge.audioSessionIdStream;
+      AudioEngineManager.engine.audioSessionIdStream;
   static Stream<Map<dynamic, dynamic>> get audioFormatStream =>
-      Media3PlaybackBridge.audioFormatStream;
+      AudioEngineManager.engine.audioFormatStream;
   static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
-      Media3PlaybackBridge.stereoWideningStream;
+      AudioEngineManager.engine.stereoWideningStream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ class PlaybackManager {
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
     BootTrace.log('BEFORE await NativeModuleRegistry.initializeAll()');
     await NativeModuleRegistry.initializeAll();
+    await AudioEngineManager.initialize();
     BootTrace.log('AFTER  await NativeModuleRegistry.initializeAll()');
 
     // Initialize the Phase 4.5 native DSP pipeline (C-side: dsp_pipeline.c +
@@ -182,7 +184,7 @@ class PlaybackManager {
 
     // Subscribe to currentTrack: forward events and trigger artwork prefetch.
     _subs.add(
-      Media3PlaybackBridge.currentTrackStream.listen((event) {
+      AudioEngineManager.engine.currentTrackStream.listen((event) {
         _currentTrackCtrl.add(event);
 
         final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
@@ -198,7 +200,7 @@ class PlaybackManager {
 
     // Subscribe to queue: forward events, mirror queue, seed artwork prefetch.
     _subs.add(
-      Media3PlaybackBridge.queueStream.listen((queue) {
+      AudioEngineManager.engine.queueStream.listen((queue) {
         _queueCtrl.add(queue);
 
         _currentQueue = queue
@@ -220,31 +222,39 @@ class PlaybackManager {
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
-  static Future<void> play() => Media3PlaybackBridge.play();
-  static Future<void> pause() => Media3PlaybackBridge.pause();
-  static Future<void> stop() => Media3PlaybackBridge.stop();
-  static Future<void> seek(Duration p) => Media3PlaybackBridge.seek(p);
-  static Future<void> skipNext() => Media3PlaybackBridge.skipNext();
-  static Future<void> skipPrevious() => Media3PlaybackBridge.skipPrevious();
-  static Future<void> setTrack(int i) => Media3PlaybackBridge.setTrack(i);
+  static Future<void> play() => AudioEngineManager.engine.play();
+  static Future<void> pause() => AudioEngineManager.engine.pause();
+  static Future<void> stop() => AudioEngineManager.engine.stop();
+  static Future<void> seek(Duration p) => AudioEngineManager.engine.seek(p);
+  static Future<void> skipNext() => AudioEngineManager.engine.skipNext();
+  static Future<void> skipPrevious() => AudioEngineManager.engine.skipPrevious();
+  static Future<void> setTrack(int i) {
+    AudioEngineManager.rememberTrackIndex(i);
+    return AudioEngineManager.engine.setTrack(i);
+  }
 
   // ── Mode ──────────────────────────────────────────────────────────────────
 
   static Future<void> setRepeatMode(String m) =>
-      Media3PlaybackBridge.setRepeatMode(m);
+      AudioEngineManager.engine.setRepeatMode(m);
   static Future<void> setShuffleMode(bool e) =>
-      Media3PlaybackBridge.setShuffleMode(e);
+      AudioEngineManager.engine.setShuffleMode(e);
 
   // ── Playback parameters ───────────────────────────────────────────────────
 
-  static Future<void> setVolume(double v) => Media3PlaybackBridge.setVolume(v);
+  static Future<void> setVolume(double v) {
+    AudioEngineManager.rememberVolume(v);
+    return AudioEngineManager.engine.setVolume(v);
+  }
   static Future<void> setSpeed(double v) => Media3PlaybackBridge.setSpeed(v);
   static Future<void> setPitch(double v) => Media3PlaybackBridge.setPitch(v);
 
   // ── Queue mutations ───────────────────────────────────────────────────────
 
-  static Future<void> setQueue(List<LocalSong> q, int i) =>
-      Media3PlaybackBridge.setQueue(q, i);
+  static Future<void> setQueue(List<LocalSong> q, int i) {
+    AudioEngineManager.rememberQueue(q, i);
+    return AudioEngineManager.engine.setQueue(q, i);
+  }
   static Future<void> insertNext(LocalSong s) =>
       Media3PlaybackBridge.insertNext(s);
   static Future<void> appendToQueue(LocalSong s) =>

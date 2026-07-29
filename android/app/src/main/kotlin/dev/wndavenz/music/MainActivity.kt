@@ -14,6 +14,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import dev.wndavenz.music.aaudio.AAudioPlaybackBridge
 import dev.wndavenz.music.events.ServiceReadyGate
 import dev.wndavenz.music.metadata.ExoMetadataReader
 import dev.wndavenz.music.metadata.MetadataCacheDb
@@ -39,11 +40,13 @@ class MainActivity : FlutterActivity() {
     private val audioEffectsChannel   = "musicplayer/audio_effects"
     private val media3PlaybackChannel = "musicplayer/media3_playback"
     private val ffmpegDecoderChannel  = "musicplayer/ffmpeg_decoder"
+    private val aaudioPlaybackChannel = "musicplayer/aaudio_playback"
 
     private lateinit var artworkCacheManager: ArtworkCacheManager
     private lateinit var metadataCacheDb: MetadataCacheDb
     private lateinit var replayGainBridge: ReplayGainBridge
     private lateinit var nativePaletteBridge: NativePaletteBridge
+    private lateinit var aaudioPlaybackBridge: AAudioPlaybackBridge
 
     // Snapdragon 730 / 6 GB RAM friendly pools: bounded queues avoid unbounded
     // thread creation and keep artwork/metadata scans from competing with audio
@@ -118,6 +121,7 @@ class MainActivity : FlutterActivity() {
             openReplayGainWriteFd(songId)
         }
         nativePaletteBridge = NativePaletteBridge(artworkCacheManager, artworkExecutor)
+        aaudioPlaybackBridge = AAudioPlaybackBridge(this)
 
         // Prune stale cache entries older than 90 days on a bounded background
         // queue instead of spawning an extra ad-hoc thread during startup.
@@ -129,6 +133,7 @@ class MainActivity : FlutterActivity() {
         setupMediaStoreChannel(flutterEngine)
         setupAudioEffectsChannel(flutterEngine)
         setupMedia3PlaybackChannels(flutterEngine)
+        setupAAudioPlaybackChannels(flutterEngine)
         setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
         setupNativePaletteChannel(flutterEngine)
@@ -307,6 +312,17 @@ class MainActivity : FlutterActivity() {
         // finished (service alive from a previous launch in this process).
         EventChannel(messenger, "musicplayer/media3_serviceReady")
             .setStreamHandler(ServiceReadyGate.handler())
+    }
+
+    // ── Native AAudio playback channels ───────────────────────────────────────
+
+    private fun setupAAudioPlaybackChannels(flutterEngine: FlutterEngine) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, aaudioPlaybackChannel).setMethodCallHandler { call, result ->
+            aaudioPlaybackBridge.handle(call, result)
+        }
+        EventChannel(messenger, "musicplayer/aaudio_events")
+            .setStreamHandler(aaudioPlaybackBridge)
     }
 
     // ── FFmpeg decoder channel (Phase 9) ────────────────────────────────────

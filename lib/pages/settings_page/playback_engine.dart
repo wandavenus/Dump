@@ -178,3 +178,60 @@ class _StatRow extends StatelessWidget {
     );
   }
 }
+
+class _AudioEngineSelector extends StatelessWidget {
+  const _AudioEngineSelector();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return ValueListenableBuilder<AudioEngineType>(
+      valueListenable: AudioEngineManager.selectedEngine,
+      builder: (context, selected, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Audio Engine',
+                style: TextStyle(
+                  color: c.primaryLabel,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Pilih engine playback Android. Native Media3 direkomendasikan untuk background dan notifikasi.',
+                style: TextStyle(color: c.secondaryLabel, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<AudioEngineType>(
+                segments: const [
+                  ButtonSegment<AudioEngineType>(
+                    value: AudioEngineType.media3,
+                    label: Text('Native Media3'),
+                    icon: Icon(Icons.library_music_rounded),
+                  ),
+                  ButtonSegment<AudioEngineType>(
+                    value: AudioEngineType.aaudio,
+                    label: Text('Native AAudio'),
+                    icon: Icon(Icons.graphic_eq_rounded),
+                  ),
+                ],
+                selected: {selected},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) {
+                  unawaited(
+                    AudioEngineManager.setPreferredEngine(selection.first),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
