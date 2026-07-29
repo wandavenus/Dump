@@ -41,11 +41,16 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
       final shuffled = List<LocalSong>.from(songs)..shuffle();
       final third = (shuffled.length / 3).ceil();
 
+      // "Musik Baru" — diurutkan berdasarkan dateAdded terbaru, ambil 30 teratas
+      final byDateAdded = List<LocalSong>.from(songs)
+        ..sort((a, b) => (b.dateAdded ?? 0).compareTo(a.dateAdded ?? 0));
+      final newMusicList = byDateAdded.take(30).toList();
+
       if (mounted) {
         setState(() {
           _bannerSongs = banners;
           _recommend = shuffled.take(third).toList();
-          _newMusic = shuffled.skip(third).take(third).toList();
+          _newMusic = newMusicList;
           _daily = shuffled.skip(third * 2).toList();
         });
       }
@@ -65,7 +70,7 @@ class _BrowsePageContentState extends State<BrowsePageContent> {
           const SizedBox(height: 12),
           BrowseBannerCarousel(songs: _bannerSongs),
           _BrowseSection(title: context.l10n.weRecommend, songs: _recommend),
-          _BrowseSection(title: context.l10n.newMusicSection, songs: _newMusic),
+          _NewMusicSection(songs: _newMusic),
           _BrowseSection(title: context.l10n.dailyTop100, songs: _daily),
           SizedBox(height: bottomClearance),
         ],
