@@ -1,7 +1,7 @@
 name: musicplayer
-description: "A new Flutter project."
+description: "-"
 publish_to: 'none'
-version: 1.5.1
+version: 1.5.7
 
 environment:
   sdk: '>=3.12.2 <4.0.0'

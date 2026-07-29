@@ -70,7 +70,7 @@ android {
         versionName flutterVersionName
 
         ndk {
-            abiFilters "arm64-v8a" // 🌟 Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
+            abiFilters "arm64-v8a" // Kunci di sini! Ini yang bikin APK lu cuma bawa mesin arm64
         }
 
         // Jellyfin AAR is always on the classpath via Maven Central.
@@ -109,7 +109,7 @@ android {
                 "META-INF/LGPL2.1"
             ]
         }
-        // 🌟 Biar file .so dari v7a atau x86 punya media-kit gak ikut disuntik ke dalem APK lu
+        // Biar file .so dari v7a atau x86 punya media-kit gak ikut disuntik ke dalem APK lu
         jniLibs {
             excludes += [
                 'lib/armeabi-v7a/**',
