@@ -361,10 +361,6 @@ class _UserPlaylistsSectionState extends State<_UserPlaylistsSection> {
                     horizontal: 12,
                     vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    color: c.surface2,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
                   child: Row(
                     children: [
                       Icon(Icons.add, color: c.primaryLabel, size: 16),
