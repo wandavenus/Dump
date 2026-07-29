@@ -189,7 +189,7 @@ class _NewMusicCell extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Judul + artis
+            // Judul + artis + divider
             SizedBox(
               width: textW,
               child: Column(
@@ -215,6 +215,28 @@ class _NewMusicCell extends StatelessWidget {
                       fontSize: 12,
                       color: c.secondaryLabel,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Divider selebar judul (diukur dengan TextPainter)
+                  LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final tp = TextPainter(
+                        text: TextSpan(
+                          text: song.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                      )..layout(maxWidth: constraints.maxWidth);
+                      return Container(
+                        width: tp.width,
+                        height: 0.5,
+                        color: Colors.white.withValues(alpha: 0.25),
+                      );
+                    },
                   ),
                 ],
               ),
