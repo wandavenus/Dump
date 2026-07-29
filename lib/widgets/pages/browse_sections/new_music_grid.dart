@@ -217,26 +217,11 @@ class _NewMusicCell extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Divider selebar judul (diukur dengan TextPainter)
-                  LayoutBuilder(
-                    builder: (ctx, constraints) {
-                      final tp = TextPainter(
-                        text: TextSpan(
-                          text: song.title,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        maxLines: 1,
-                        textDirection: TextDirection.ltr,
-                      )..layout(maxWidth: constraints.maxWidth);
-                      return Container(
-                        width: tp.width,
-                        height: 0.5,
-                        color: Colors.white.withValues(alpha: 0.25),
-                      );
-                    },
+                  // Divider selebar area teks cell, tidak melebar ke kolom lain.
+                  Container(
+                    width: double.infinity,
+                    height: 0.5,
+                    color: Colors.white.withValues(alpha: 0.25),
                   ),
                 ],
               ),
