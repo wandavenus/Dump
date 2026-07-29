@@ -23,7 +23,7 @@ class _LibraryHeader extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.only(top: 10),
             child: GestureDetector(
               onTap: onToggleEdit,
               child: Text(
