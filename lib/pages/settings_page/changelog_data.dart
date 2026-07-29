@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.1',
+    date: '29 Juli 2026',
+    changes: [
+      'Tap kartu artwork di grid Favorit langsung memutar lagu tanpa pindah halaman.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.0',
     date: '29 Juli 2026',
     changes: [

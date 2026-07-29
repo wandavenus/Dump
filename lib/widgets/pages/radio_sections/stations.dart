@@ -23,18 +23,13 @@ class _SmartPlaylistCardWidget extends StatefulWidget {
 }
 
 class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
-  List<int> _artworkIds = [];
-  int _count = 0;
+  List<LocalSong> _songs = [];
 
   @override
   void initState() {
     super.initState();
     unawaited(_load());
   }
-
-  SmartPlaylistType _resolveType() => switch (_smartCardTypes[widget.index]) {
-    _SmartType.favorites => SmartPlaylistType.favorites,
-  };
 
   String _resolveName(BuildContext context) {
     return switch (_smartCardTypes[widget.index]) {
@@ -43,121 +38,113 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
   }
 
   Future<void> _load() async {
-    final type = _resolveType();
     try {
-      List<int> ids;
-      switch (type) {
-        case SmartPlaylistType.favorites:
-          ids = await PlaylistService.getFavoriteIds();
-        case SmartPlaylistType.recentlyPlayed:
-        case SmartPlaylistType.mostPlayed:
-          ids = [];
-      }
+      final ids = await PlaylistService.getFavoriteIds();
+      final allSongs = await MediaStoreService.getSongs();
+      final songMap = {for (final s in allSongs) s.id: s};
+      final resolved = ids
+          .where(songMap.containsKey)
+          .map((id) => songMap[id]!)
+          .toList();
       if (mounted) {
-        setState(() {
-          _count = ids.length;
-          _artworkIds = ids.take(6).toList();
-        });
-        unawaited(ArtworkRepository.instance.prefetch(_artworkIds));
+        setState(() => _songs = resolved);
+        final previewIds = resolved.take(6).map((s) => s.id).toList();
+        unawaited(ArtworkRepository.instance.prefetch(previewIds));
       }
-    } on Exception catch (_) {}
+    } on Exception catch (e) {
+      LogService.error('SmartPlaylistCard', 'load error: $e');
+    }
   }
 
-  void _open() {
-    unawaited(
-      Navigator.push(
-        context,
-        ZoomFadeRoute<void>(
-          page: PlaylistPage.smart(
-            name: _resolveName(context),
-            type: _resolveType(),
-          ),
-        ),
-      ),
-    );
+  Future<void> _playSongAt(int index) async {
+    try {
+      await AudioService.playSongAt(playlist: _songs, index: index);
+    } on Exception catch (e) {
+      LogService.error('SmartPlaylistCard', 'playSongAt error: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
 
-    return GestureDetector(
-      onTap: _open,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 8, kPageLeftPadding, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section header ──────────────────────────────────────────────
-            Row(
-              children: [
-                Text(
-                  _resolveName(context),
-                  style: TextStyle(
-                    color: c.primaryLabel,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 8, kPageLeftPadding, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Section header ────────────────────────────────────────────────
+          Row(
+            children: [
+              Text(
+                _resolveName(context),
+                style: TextStyle(
+                  color: c.primaryLabel,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
-                const Spacer(),
-                if (_count > 0)
-                  Text(
-                    context.l10n.songCount(_count),
-                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
-                  ),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: c.secondaryLabel, size: 20),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // ── 3×2 artwork grid ────────────────────────────────────────────
-            LayoutBuilder(
-              builder: (ctx, constraints) {
-                const crossCount = 3;
-                const spacing = 6.0;
-                final itemSize =
-                    (constraints.maxWidth - spacing * (crossCount - 1)) /
-                    crossCount;
+              ),
+              const Spacer(),
+              if (_songs.isNotEmpty)
+                Text(
+                  context.l10n.songCount(_songs.length),
+                  style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // ── 3×2 artwork grid ──────────────────────────────────────────────
+          LayoutBuilder(
+            builder: (ctx, constraints) {
+              const crossCount = 3;
+              const spacing = 6.0;
+              final itemSize =
+                  (constraints.maxWidth - spacing * (crossCount - 1)) /
+                  crossCount;
 
-                Widget cell(int i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: itemSize,
-                    height: itemSize,
-                    child: i < _artworkIds.length
-                        ? _GridCell(songId: _artworkIds[i])
-                        : ColoredBox(color: c.surface2),
+              Widget cell(int i) {
+                final hasSong = i < _songs.length;
+                return GestureDetector(
+                  onTap: hasSong ? () => unawaited(_playSongAt(i)) : null,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: itemSize,
+                      height: itemSize,
+                      child: hasSong
+                          ? _GridCell(songId: _songs[i].id)
+                          : ColoredBox(color: c.surface2),
+                    ),
                   ),
                 );
+              }
 
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        cell(0),
-                        const SizedBox(width: spacing),
-                        cell(1),
-                        const SizedBox(width: spacing),
-                        cell(2),
-                      ],
-                    ),
-                    const SizedBox(height: spacing),
-                    Row(
-                      children: [
-                        cell(3),
-                        const SizedBox(width: spacing),
-                        cell(4),
-                        const SizedBox(width: spacing),
-                        cell(5),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      cell(0),
+                      const SizedBox(width: spacing),
+                      cell(1),
+                      const SizedBox(width: spacing),
+                      cell(2),
+                    ],
+                  ),
+                  const SizedBox(height: spacing),
+                  Row(
+                    children: [
+                      cell(3),
+                      const SizedBox(width: spacing),
+                      cell(4),
+                      const SizedBox(width: spacing),
+                      cell(5),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
