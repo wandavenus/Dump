@@ -18,21 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHandler {
-    @Volatile
     private var sink: EventChannel.EventSink? = null
-
     private val mainHandler = Handler(Looper.getMainLooper())
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
-    @Volatile
     private var focusRequest: AudioFocusRequest? = null
-
     private var queue: List<Map<String, Any?>> = emptyList()
     private var index = 0
-
-    @Volatile
     private var decoderThread: Thread? = null
-
     private val decoding = AtomicBoolean(false)
     private var durationMs = 0L
     private var pendingSeekUs = -1L
@@ -40,69 +32,21 @@ class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHa
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
-                "initialize" -> {
-                    nativeInit()
-                    emitState("idle")
-                    result.success(null)
-                }
-
-                "setQueue" -> {
-                    setQueue(call)
-                    result.success(null)
-                }
-
-                "setTrack" -> {
-                    setTrack(call.argument<Int>("index") ?: 0)
-                    result.success(null)
-                }
-
-                "skipNext" -> {
-                    setTrack((index + 1).coerceAtMost(queue.lastIndex))
-                    result.success(null)
-                }
-
-                "skipPrevious" -> {
-                    setTrack((index - 1).coerceAtLeast(0))
-                    result.success(null)
-                }
-
-                "play" -> {
-                    play()
-                    result.success(null)
-                }
-
-                "pause" -> {
-                    nativePause()
-                    emitState("paused")
-                    result.success(null)
-                }
-
-                "stop" -> {
-                    stopDecode()
-                    nativeStop()
-                    emitState("stopped")
-                    result.success(null)
-                }
-
+                "initialize" -> { nativeInit(); emitState("idle"); result.success(null) }
+                "setQueue" -> { setQueue(call); result.success(null) }
+                "setTrack" -> { setTrack((call.argument<Int>("index") ?: 0)); result.success(null) }
+                "skipNext" -> { setTrack((index + 1).coerceAtMost(queue.lastIndex)); result.success(null) }
+                "skipPrevious" -> { setTrack((index - 1).coerceAtLeast(0)); result.success(null) }
+                "play" -> { play(); result.success(null) }
+                "pause" -> { nativePause(); emitState("paused"); result.success(null) }
+                "stop" -> { stopDecode(); nativeStop(); emitState("stopped"); result.success(null) }
                 "seek" -> {
                     pendingSeekUs = (call.argument<Int>("position") ?: 0) * 1000L
                     nativeFlush()
                     result.success(null)
                 }
-
-                "setVolume" -> {
-                    nativeSetVolume((call.argument<Double>("volume") ?: 1.0).toFloat())
-                    result.success(null)
-                }
-
-                "dispose" -> {
-                    stopDecode()
-                    nativeRelease()
-                    abandonFocus()
-                    emitState("idle")
-                    result.success(null)
-                }
-
+                "setVolume" -> { nativeSetVolume((call.argument<Double>("volume") ?: 1.0).toFloat()); result.success(null) }
+                "dispose" -> { stopDecode(); nativeRelease(); abandonFocus(); emitState("idle"); result.success(null) }
                 else -> result.notImplemented()
             }
         } catch (e: Throwable) {
@@ -133,18 +77,13 @@ class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHa
 
         stopDecode()
         decoding.set(true)
-
-        decoderThread = thread(name = "aaudio-decoder") {
-            decode(song["path"] as? String ?: "")
-        }
-
+        decoderThread = thread(name = "aaudio-decoder") { decode(song["path"] as? String ?: "") }
         emitState("buffering")
     }
 
     private fun decode(path: String) {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
-
         try {
             extractor.setDataSource(path)
 
@@ -209,68 +148,51 @@ class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHa
                 }
 
                 val outIndex = codec.dequeueOutputBuffer(info, 10_000)
-                when (outIndex) {
-                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        val fmt = codec.outputFormat
-                        val rate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                        val channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val fmt = codec.outputFormat
+                    val rate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                    val channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
 
-                        nativeConfigure(rate, channels)
-                        outputConfigured = true
+                    nativeConfigure(rate, channels)
+                    outputConfigured = true
 
-                        emit(
-                            mapOf(
-                                "type" to "format",
-                                "sampleRate" to rate,
-                                "channelCount" to channels,
-                                "mimeType" to "audio/raw"
-                            )
+                    emit(
+                        mapOf(
+                            "type" to "format",
+                            "sampleRate" to rate,
+                            "channelCount" to channels,
+                            "mimeType" to "audio/raw"
                         )
+                    )
 
-                        nativeStart()
-                        emitState("playing")
-                    }
+                    nativeStart()
+                    emitState("playing")
+                } else if (outIndex >= 0) {
+                    if (!outputConfigured) throw IllegalStateException("Output format not ready")
 
-                    else -> {
-                        if (outIndex >= 0) {
-                            if (!outputConfigured) {
-                                throw IllegalStateException("Output format not ready")
-                            }
+                    val buffer = codec.getOutputBuffer(outIndex) ?: ByteBuffer.allocate(0)
+                    buffer.position(info.offset)
+                    buffer.limit(info.offset + info.size)
 
-                            val buffer = codec.getOutputBuffer(outIndex) ?: ByteBuffer.allocate(0)
-                            buffer.position(info.offset)
-                            buffer.limit(info.offset + info.size)
+                    nativeWrite(buffer, info.size)
 
-                            nativeWrite(buffer, info.size)
+                    emit(
+                        mapOf(
+                            "type" to "position",
+                            "position" to info.presentationTimeUs / 1000L
+                        )
+                    )
 
-                            emit(
-                                mapOf(
-                                    "type" to "position",
-                                    "position" to info.presentationTimeUs / 1000L
-                                )
-                            )
-
-                            sawOutputEnd = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
-                            codec.releaseOutputBuffer(outIndex, false)
-                        }
-                    }
+                    sawOutputEnd = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
+                    codec.releaseOutputBuffer(outIndex, false)
                 }
             }
         } catch (e: Throwable) {
             emit(mapOf("type" to "state", "state" to "error", "message" to e.message))
         } finally {
-            try {
-                codec?.stop()
-            } catch (_: Throwable) {
-            }
-            try {
-                codec?.release()
-            } catch (_: Throwable) {
-            }
-            try {
-                extractor.release()
-            } catch (_: Throwable) {
-            }
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+            try { extractor.release() } catch (_: Throwable) {}
             decoding.set(false)
         }
     }
@@ -305,7 +227,6 @@ class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHa
                         .build()
                 )
                 .build()
-
             focusRequest = req
             audioManager.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         } else {
@@ -338,8 +259,6 @@ class AAudioPlaybackBridge(private val context: Context) : EventChannel.StreamHa
     private external fun nativeRelease()
 
     companion object {
-        init {
-            System.loadLibrary("aaudio_engine")
-        }
+        init { System.loadLibrary("aaudio_engine") }
     }
 }
