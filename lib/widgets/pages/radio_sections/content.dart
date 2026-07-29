@@ -5,7 +5,9 @@ class RadioPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
     return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomClearance),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
