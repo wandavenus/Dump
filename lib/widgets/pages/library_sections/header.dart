@@ -22,18 +22,15 @@ class _LibraryHeader extends StatelessWidget {
               color: c.primaryLabel,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: GestureDetector(
-              onTap: onToggleEdit,
-              child: Text(
-                editMode ? context.l10n.done : context.l10n.edit,
-                style: TextStyle(
-                  color: editMode
-                      ? c.primaryLabel.withValues(alpha: 0.7)
-                      : const Color(0xFFF92D48),
-                  fontSize: 17,
-                ),
+          GestureDetector(
+            onTap: onToggleEdit,
+            child: Text(
+              editMode ? context.l10n.done : context.l10n.edit,
+              style: TextStyle(
+                color: editMode
+                    ? c.primaryLabel.withValues(alpha: 0.7)
+                    : const Color(0xFFF92D48),
+                fontSize: 17,
               ),
             ),
           ),
