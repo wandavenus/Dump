@@ -13,16 +13,7 @@ class RadioPageContent extends StatelessWidget {
           const HeaderDivider(),
           const SizedBox(height: 12),
           const _SmartPlaylistCardWidget(index: 0),
-          const _SmartPlaylistCardWidget(index: 1),
-          const _SmartPlaylistCardWidget(index: 2),
           const _UserPlaylistsSection(),
-          const SizedBox(height: 8),
-          SectionTitle(
-            title: context.l10n.recentlyPlayed,
-            routeName: '/musiclist',
-            showChevron: false,
-          ),
-          const _RecentlyPlayedSection(),
         ],
       ),
     );

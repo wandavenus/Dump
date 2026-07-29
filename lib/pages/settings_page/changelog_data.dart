@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.4.9',
+    date: '29 Juli 2026',
+    changes: [
+      'Hapus seksi "Baru Dimainkan" dan "Paling Sering" beserta kartu dan banner-nya dari Radio Page.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.4.8',
     date: '27 Juli 2026',
     changes: [

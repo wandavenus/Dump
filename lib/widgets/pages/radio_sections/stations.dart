@@ -5,12 +5,10 @@ part of '../radio_sections.dart';
 // ─── Data for smart playlist cards ───────────────────────────────────────────
 
 // Smart card names are resolved at build time via context.l10n — see _SmartPlaylistCardWidget.
-enum _SmartType { favorites, recentlyPlayed, mostPlayed }
+enum _SmartType { favorites }
 
 final List<_SmartType> _smartCardTypes = [
   _SmartType.favorites,
-  _SmartType.recentlyPlayed,
-  _SmartType.mostPlayed,
 ];
 
 // ─── Smart playlist card (loads artwork ids async) ────────────────────────────
@@ -36,16 +34,11 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
 
   SmartPlaylistType _resolveType() => switch (_smartCardTypes[widget.index]) {
     _SmartType.favorites => SmartPlaylistType.favorites,
-    _SmartType.recentlyPlayed => SmartPlaylistType.recentlyPlayed,
-    _SmartType.mostPlayed => SmartPlaylistType.mostPlayed,
   };
 
   String _resolveName(BuildContext context) {
-    final l = context.l10n;
     return switch (_smartCardTypes[widget.index]) {
-      _SmartType.favorites => l.favoritesLabel,
-      _SmartType.recentlyPlayed => l.recentlyPlayed,
-      _SmartType.mostPlayed => l.mostPlayedLabel,
+      _SmartType.favorites => context.l10n.favoritesLabel,
     };
   }
 
@@ -57,15 +50,8 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
         case SmartPlaylistType.favorites:
           ids = await PlaylistService.getFavoriteIds();
         case SmartPlaylistType.recentlyPlayed:
-          ids = await HistoryService.getRecentlyPlayedIds();
         case SmartPlaylistType.mostPlayed:
-          final counts = await HistoryService.getPlayCounts();
-          final sorted = counts.entries.toList()
-            ..sort((a, b) => (b.value as int).compareTo(a.value as int));
-          ids = sorted
-              .map((e) => int.tryParse(e.key) ?? 0)
-              .where((id) => id != 0)
-              .toList();
+          ids = [];
       }
       if (mounted) {
         setState(() {
