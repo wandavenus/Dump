@@ -206,7 +206,7 @@ class _NewMusicCell extends StatelessWidget {
                       color: c.primaryLabel,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     song.artist,
                     maxLines: 1,
@@ -216,7 +216,7 @@ class _NewMusicCell extends StatelessWidget {
                       color: c.secondaryLabel,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   // Divider selebar area teks cell, tidak melebar ke kolom lain.
                   Container(
                     width: double.infinity,
