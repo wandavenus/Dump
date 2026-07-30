@@ -52,24 +52,29 @@ void main() {
   float wY2 = sin((uvAdj.y + wY1) * 2.8 + t * 0.145) * 0.04;
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
-  // ── 5 Scalar Fields (center semua disesuaikan biar tetap di posisi relatif yang sama) ──
-  // Center utama (tengah layar)
-  float dist1 = length(uvd - vec2(0.5 * aspect, 0.5 + sin(t * 0.10) * 0.3));
-  float f0 = sin(dist1 * 1.7 - t * 0.15) * 0.35 + 0.4; 
+// ── Scalar colour fields (Seamless Glow) ──────────────────────────────
+// ★ TAMBAHIN INI: makin besar angkanya, makin kecil gumpalan warnanya
+float scale = 1.5;  // Coba 2.0 - 4.0 (2.8 = ukuran sedang, semua warna keliatan)
 
-  float f1 = sin(uvd.x * 1.8 + t * 0.08) * cos(uvd.y * 2.0 - t * 0.11) * 0.30 + 0.35;
+// Pusat 1: Glow utama
+float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
+float f0 = sin(dist1 * (1.7 * scale) - t * 0.15) * 0.35 + 0.4; 
 
-  // Center pendukung (kiri-atas)
-  float dist2 = length(uvd - vec2((0.3 + cos(t * 0.13) * 0.15) * aspect, 0.7 + sin(t * 0.09) * 0.15));
-  float f2 = cos(dist2 * 2.0 + t * 0.2) * 0.35 + 0.4;
+// Pusat 2: Non-radial interference
+float f1 = sin(uvd.x * (1.8 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
 
-  // Center diagonal (kanan-bawah)
-  float dist3 = length(uvd - vec2((0.8 - sin(t * 0.12) * 0.25) * aspect, 0.2 + cos(t * 0.14) * 0.20));
-  float f3 = sin(dist3 * 2.2 - t * 0.18) * 0.30 + 0.35;
+// Pusat 3: Glow pendukung
+float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
+float f2 = cos(dist2 * (2.0 * scale) + t * 0.2) * 0.35 + 0.4;
 
-  float f4 = cos(uvd.x * 2.5 - t * 0.16) * sin(uvd.y * 1.8 + t * 0.12) * 0.25 + 0.30;
+// Pusat 4: Diagonal flow
+float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
+float f3 = sin(dist3 * (2.2 * scale) - t * 0.18) * 0.30 + 0.35;
 
-  // ── Palette blend (sama persis kayak asli) ──
+// Pusat 5: Dynamic high-freq wave
+float f4 = cos(uvd.x * (2.5 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
+
+// ── Palette blend (sama persis kayak asli) ──
   vec3 col = mixVibrant(uColor0, uColor1, f0);
   float accentWeight = clamp((f1 + f3) * 0.5, 0.0, 1.0);
   col = mixVibrant(col, uColor2, accentWeight);
