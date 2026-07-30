@@ -73,7 +73,7 @@ void main() {
   float hBright = smoothstep(0.5, 0.8, avgField);
   col = mix(col, uHighlight, hBright * 0.35);
 
-  float hDark = smoothstep(0.6, 0.2, avgField);
+  float hDark = smoothstep(0.3, 0.05, avgField);
   col = mix(col, uShadow, hDark * 0.05);
 
   // ── Soft vignette ──
