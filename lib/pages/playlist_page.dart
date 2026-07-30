@@ -354,7 +354,6 @@ class _PlayAllButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
