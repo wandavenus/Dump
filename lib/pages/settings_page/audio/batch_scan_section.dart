@@ -8,6 +8,31 @@ class _BatchScanSection extends StatefulWidget {
 }
 
 class _BatchScanSectionState extends State<_BatchScanSection> {
+  Future<void> _confirmAndStartScan(BuildContext context) async {
+    final l = context.l10n;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: Text(l.scanLibraryConfirmTitle),
+        content: Text(l.scanLibraryConfirmBody),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.cancel),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l.scanLibrary),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await _startScan(context);
+    }
+  }
+
   Future<void> _startScan(BuildContext context) async {
     final l = context.l10n;
     try {
@@ -39,10 +64,10 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         if (progress.finished) {
           return _ScanResultRow(
             progress: progress,
-            onScanAgain: () => _startScan(context),
+            onScanAgain: () => _confirmAndStartScan(context),
           );
         }
-        return _ScanIdleRow(onTap: () => _startScan(context));
+        return _ScanIdleRow(onTap: () => _confirmAndStartScan(context));
       },
     );
   }

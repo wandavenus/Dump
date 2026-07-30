@@ -327,6 +327,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Calculate ReplayGain for songs without data';
 
   @override
+  String get scanLibraryConfirmTitle => 'Scan Library?';
+
+  @override
+  String get scanLibraryConfirmBody =>
+      'This will scan your library and calculate ReplayGain data for songs that do not have it yet. Continue?';
+
+  @override
   String get scanPreparing => 'Preparing...';
 
   @override
