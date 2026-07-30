@@ -257,7 +257,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
           if (isUserPlaylist) ...[
             IconButton(
               icon: Icon(
-                CupertinoIcons.pencil,
+                CupertinoIcons.create_solid,
                 color: Theme.of(context).colorScheme.primary,
               ),
               onPressed: _rename,
@@ -309,8 +309,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   ),
                   leading: SongArtwork(
                     songId: song.id,
-                    size: 48,
-                    borderRadius: BorderRadius.circular(6),
+                    size: 55,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   title: Text(
                     song.title,
@@ -368,20 +368,12 @@ class _PlayAllButton extends StatelessWidget {
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                // primaryLabel: white in dark, dark text in light — inverts
-                // nicely against the scaffold background.
-                color: c.primaryLabel,
-                borderRadius: BorderRadius.circular(20),
-              ),
               child: Row(
                 children: [
-                  Icon(Icons.play_arrow, color: scaffoldBg, size: 18),
-                  const SizedBox(width: 4),
                   Text(
                     context.l10n.playAll,
                     style: TextStyle(
-                      color: scaffoldBg,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
