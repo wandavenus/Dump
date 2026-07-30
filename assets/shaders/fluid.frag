@@ -54,7 +54,7 @@ void main() {
 
 // ── Scalar colour fields (Seamless Glow) ──────────────────────────────
 // ★ TAMBAHIN INI: makin besar angkanya, makin kecil gumpalan warnanya
-float scale = 1.5;  // Coba 2.0 - 4.0 (2.8 = ukuran sedang, semua warna keliatan)
+float scale = 3.5;  // Coba 2.0 - 4.0 (2.8 = ukuran sedang, semua warna keliatan)
 
 // Pusat 1: Glow utama
 float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
