@@ -71,7 +71,7 @@ void main() {
   float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
   float hBright = smoothstep(0.5, 0.8, avgField);
-  col = mix(col, uHighlight, hBright * 0.15);
+  col = mix(col, uHighlight, hBright * 0.25);
 
   float hDark = smoothstep(0.4, 0.1, avgField);
   col = mix(col, uShadow, hDark * 0.05);
