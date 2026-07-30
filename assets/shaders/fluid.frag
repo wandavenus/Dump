@@ -90,7 +90,7 @@ void main() {
   col = mix(col, uShadow, hDark * 0.35);
 
   // ── Soft vignette ──────────────────────────────────────────────────────────
-  float vig = 1.0 - length(uv - 0.5) * 0.4;
+  float vig = 1.0 - length(uv - 0.5) * 0;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Animated film grain ────────────────────────────────────────────────────
