@@ -51,7 +51,7 @@ class _SearchResultTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.play_arrow, color: c.separator, size: 20),
+        
           ],
         ),
       ),
