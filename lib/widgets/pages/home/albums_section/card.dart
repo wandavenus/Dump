@@ -10,7 +10,6 @@ class _AlbumCard extends StatefulWidget {
 }
 
 class _AlbumCardState extends State<_AlbumCard> {
-  
   static const double _cardWidth = 260;
   static const double _artworkHeight = 270;
   static const double _infoHeight = 68;

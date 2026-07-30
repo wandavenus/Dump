@@ -51,7 +51,6 @@ class _SearchResultTile extends StatelessWidget {
                 ],
               ),
             ),
-        
           ],
         ),
       ),

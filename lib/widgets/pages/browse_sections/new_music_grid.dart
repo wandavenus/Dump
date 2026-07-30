@@ -16,9 +16,7 @@ const double _kRowGap = 10.0;
 // Total tinggi area grid:
 // 3 × 44 (artwork) + 2 × 10 (row gap) + 16×2 (padding atas bawah) = 196
 const double _kGridHeight =
-    _kRowsPerPage * _kArtworkSize +
-    (_kRowsPerPage - 1) * _kRowGap +
-    32.0;
+    _kRowsPerPage * _kArtworkSize + (_kRowsPerPage - 1) * _kRowGap + 32.0;
 
 class _NewMusicSection extends StatefulWidget {
   final List<LocalSong> songs;
@@ -74,13 +72,18 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
             itemCount: pageCount,
             itemBuilder: (context, pageIndex) {
               final start = pageIndex * _kItemsPerPage;
-              final pageSongs =
-                  widget.songs.skip(start).take(_kItemsPerPage).toList();
-              return _NewMusicPage(songs: pageSongs, allSongs: widget.songs, pageStart: start);
+              final pageSongs = widget.songs
+                  .skip(start)
+                  .take(_kItemsPerPage)
+                  .toList();
+              return _NewMusicPage(
+                songs: pageSongs,
+                allSongs: widget.songs,
+                pageStart: start,
+              );
             },
           ),
         ),
-
       ],
     );
   }
@@ -108,8 +111,7 @@ class _NewMusicPage extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (ctx, constraints) {
-          final cellW =
-              (constraints.maxWidth - _kColGap) / _kColsPerPage;
+          final cellW = (constraints.maxWidth - _kColGap) / _kColsPerPage;
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(_kRowsPerPage, (row) {
@@ -117,9 +119,7 @@ class _NewMusicPage extends StatelessWidget {
                 children: List.generate(_kColsPerPage, (col) {
                   final idx = row * _kColsPerPage + col;
                   return Padding(
-                    padding: EdgeInsets.only(
-                      left: col == 0 ? 0 : _kColGap,
-                    ),
+                    padding: EdgeInsets.only(left: col == 0 ? 0 : _kColGap),
                     child: idx < songs.length
                         ? _NewMusicCell(
                             song: songs[idx],
@@ -163,10 +163,7 @@ class _NewMusicCell extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         try {
-          await AudioService.playSongAt(
-            playlist: allSongs,
-            index: globalIndex,
-          );
+          await AudioService.playSongAt(playlist: allSongs, index: globalIndex);
         } on Exception catch (e) {
           LogService.error('NewMusicCell', 'playSongAt: $e');
         }
@@ -211,10 +208,7 @@ class _NewMusicCell extends StatelessWidget {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: c.secondaryLabel,
-                    ),
+                    style: TextStyle(fontSize: 12, color: c.secondaryLabel),
                   ),
                   const SizedBox(height: 6),
                   // Divider selebar area teks cell, tidak melebar ke kolom lain.
