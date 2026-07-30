@@ -84,12 +84,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const Spacer(),
-              if (_songs.isNotEmpty)
-                Text(
-                  context.l10n.songCount(_songs.length),
-                  style: TextStyle(color: c.secondaryLabel, fontSize: 13),
-                ),
+              
             ],
           ),
           const SizedBox(height: 12),
@@ -97,7 +92,7 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
           LayoutBuilder(
             builder: (ctx, constraints) {
               const crossCount = 3;
-              const spacing = 6.0;
+              const spacing = 15.0;
               final itemSize =
                   (constraints.maxWidth - spacing * (crossCount - 1)) /
                   crossCount;
@@ -107,9 +102,9 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                 return GestureDetector(
                   onTap: hasSong ? () => unawaited(_playSongAt(i)) : null,
                   child: ArtworkHairlineBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
                         width: itemSize,
                         height: itemSize,
