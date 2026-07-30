@@ -321,18 +321,18 @@ class AppLocalizationsId extends AppLocalizations {
   String get sleepPresetSection => 'PILIH DURASI';
 
   @override
-  String get scanLibrary => 'Scan Library';
+  String get scanLibrary => 'Pindai Perpustakaan';
 
   @override
   String get scanLibrarySubtitle =>
-      'Hitung ReplayGain untuk lagu yang belum punya data';
+      'Hitung dan Tanamkan ReplayGain untuk lagu yang belum punya data';
 
   @override
-  String get scanLibraryConfirmTitle => 'Scan Library?';
+  String get scanLibraryConfirmTitle => 'Pindai Perpustakaan?';
 
   @override
   String get scanLibraryConfirmBody =>
-      'Library akan dipindai untuk menghitung data ReplayGain pada lagu yang belum memilikinya. Lanjutkan?';
+      'Perpustakan akan dipindai dan ditanamkan ReplayGain pada lagu yang belum memilikinya. Lanjutkan?';
 
   @override
   String get scanPreparing => 'Mempersiapkan...';
@@ -1048,7 +1048,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get newMusicSection => 'Musik Baru';
 
   @override
-  String get dailyTop100 => 'Top 100 Harian';
+  String get dailyTop100 => 'Top Harian';
 
   @override
   String get tvAndFilm => 'TV & Film';
