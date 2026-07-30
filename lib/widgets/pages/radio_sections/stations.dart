@@ -7,9 +7,7 @@ part of '../radio_sections.dart';
 // Smart card names are resolved at build time via context.l10n — see _SmartPlaylistCardWidget.
 enum _SmartType { favorites }
 
-final List<_SmartType> _smartCardTypes = [
-  _SmartType.favorites,
-];
+final List<_SmartType> _smartCardTypes = [_SmartType.favorites];
 
 // ─── Smart playlist card (loads artwork ids async) ────────────────────────────
 
@@ -69,7 +67,12 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
     final c = AppColors.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(kPageLeftPadding, 8, kPageLeftPadding, 8),
+      padding: const EdgeInsets.fromLTRB(
+        kPageLeftPadding,
+        8,
+        kPageLeftPadding,
+        8,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,7 +87,6 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              
             ],
           ),
           const SizedBox(height: 12),
