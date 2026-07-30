@@ -39,8 +39,8 @@ void main() {
   float wY2 = sin((uvAdj.y + wY1) * 2.8 + t * 0.145) * 0.04;
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
-  // ── Scalar colour fields (scale = 3.5, sesuai kode terbaru) ──
-  float scale = 2.5;
+  // ── Scalar colour fields ──
+  float scale = 2.0;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
   float f0 = sin(dist1 * (1.7 * scale) - t * 0.15) * 0.35 + 0.4;
@@ -74,7 +74,7 @@ void main() {
   col = mix(col, uHighlight, hBright * 0.15);
 
   float hDark = smoothstep(0.4, 0.1, avgField);
-  col = mix(col, uShadow, hDark * 0.15);
+  col = mix(col, uShadow, hDark * 0.05);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.3;
