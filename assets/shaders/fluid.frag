@@ -37,65 +37,54 @@ vec3 mixVibrant(vec3 col1, vec3 col2, float factor) {
 }
 
 void main() {
-  // Cache fragment coordinate
   vec2 fragCoord = FlutterFragCoord().xy;
-
-  // Normalised UV in [0, 1]
   vec2 uv = fragCoord / uSize;
   float t = uTime;
 
-  // ── Domain warp (softened for seamless blending) ──────────────────────────
-  float wX1 = sin(uv.y * 2.0 + uv.x * 1.0 + t * 0.180) * 0.25;
-  float wY1 = cos(uv.x * 2.2 + uv.y * 1.2 + t * 0.145) * 0.22;
+  // ── Fix Aspect Ratio (biar lingkaran & gerakan proporsional) ──
+  float aspect = uSize.x / uSize.y;
+  vec2 uvAdj = vec2(uv.x * aspect, uv.y); // Pakai ini buat semua hitungan jarak & warp
 
-  // Layer 2: breaks up repeating stripe artefacts
-  float wX2 = cos((uv.x + wX1) * 3.0 - t * 0.212) * 0.05;
-  float wY2 = sin((uv.y + wY1) * 2.8 + t * 0.145) * 0.04;
+  // ── Domain warp pake uvAdj ──
+  float wX1 = sin(uvAdj.y * 2.0 + uvAdj.x * 1.0 + t * 0.180) * 0.25;
+  float wY1 = cos(uvAdj.x * 2.2 + uvAdj.y * 1.2 + t * 0.145) * 0.22;
+  float wX2 = cos((uvAdj.x + wX1) * 3.0 - t * 0.212) * 0.05;
+  float wY2 = sin((uvAdj.y + wY1) * 2.8 + t * 0.145) * 0.04;
+  vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
-  vec2 uvd = uv + vec2(wX1 + wX2, wY1 + wY2);
-
-  // ── Scalar colour fields (5 Fields - Seamless Glow) ──────────────────────
-  // Pusat 1: Glow utama
-  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
+  // ── 5 Scalar Fields (center semua disesuaikan biar tetap di posisi relatif yang sama) ──
+  // Center utama (tengah layar)
+  float dist1 = length(uvd - vec2(0.5 * aspect, 0.5 + sin(t * 0.10) * 0.3));
   float f0 = sin(dist1 * 1.7 - t * 0.15) * 0.35 + 0.4; 
 
-  // Pusat 2: Non-radial interference
   float f1 = sin(uvd.x * 1.8 + t * 0.08) * cos(uvd.y * 2.0 - t * 0.11) * 0.30 + 0.35;
 
-  // Pusat 3: Glow pendukung
-  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
+  // Center pendukung (kiri-atas)
+  float dist2 = length(uvd - vec2((0.3 + cos(t * 0.13) * 0.15) * aspect, 0.7 + sin(t * 0.09) * 0.15));
   float f2 = cos(dist2 * 2.0 + t * 0.2) * 0.35 + 0.4;
 
-  // Pusat 4: Diagonal flow
-  float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
+  // Center diagonal (kanan-bawah)
+  float dist3 = length(uvd - vec2((0.8 - sin(t * 0.12) * 0.25) * aspect, 0.2 + cos(t * 0.14) * 0.20));
   float f3 = sin(dist3 * 2.2 - t * 0.18) * 0.30 + 0.35;
 
-  // Pusat 5: Dynamic high-freq wave
   float f4 = cos(uvd.x * 2.5 - t * 0.16) * sin(uvd.y * 1.8 + t * 0.12) * 0.25 + 0.30;
 
-  // ── Palette blend ──────────────────────────────────────────────────────────
-  // Layer 1: Primary ↔ Secondary
+  // ── Palette blend (sama persis kayak asli) ──
   vec3 col = mixVibrant(uColor0, uColor1, f0);
-
-  // Layer 2: Accent — gabungan f1 & f3
   float accentWeight = clamp((f1 + f3) * 0.5, 0.0, 1.0);
   col = mixVibrant(col, uColor2, accentWeight);
-
-  // Layer 3: Highlight — nyala pas f0, f2, f4 lagi nge-peak bareng
   float hBright = smoothstep(0.40, 0.80, (f0 + f2 + f4) / 3.0);
   col = mix(col, uHighlight, hBright * 0.30);
-
-  // Layer 4: Shadow — masuk pas semua field lagi di lembah terendah
   float hDark = smoothstep(0.45, 0.15, (f0 + f1 + f2 + f3 + f4) / 5.0);
   col = mix(col, uShadow, hDark * 0.35);
 
-  // ── Soft vignette ──────────────────────────────────────────────────────────
-  float vig = 1.0 - length(uv - 0.5) * 0;
+  // ── (soft spotlight di pinggir) ──
+  float vig = 1.0 - length(uv - 0.5) * 0.3;
   col *= clamp(vig, 0.0, 1.0);
 
-  // ── Animated film grain ────────────────────────────────────────────────────
-  vec2 grainUV = fragCoord + mod(uTime, 1.0) * 82.2;
-  float grain   = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
+  // ── Film grain ──
+  vec2 grainUV = fragCoord + mod(t, 1.0) * 82.2;
+  float grain = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
   col = mix(col, vec3(grain), 0.02);
 
   fragColor = vec4(col, 1.0);
