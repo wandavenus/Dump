@@ -123,6 +123,8 @@
 
   "scanLibrary": "Scan Library",
   "scanLibrarySubtitle": "Calculate ReplayGain for songs without data",
+  "scanLibraryConfirmTitle": "Scan Library?",
+  "scanLibraryConfirmBody": "This will scan your library and calculate ReplayGain data for songs that do not have it yet. Continue?",
   "scanPreparing": "Preparing...",
   "noSongsInLibrary": "No songs found in library.",
   "scanLibraryLoadFailed": "Failed to load library: {error}",

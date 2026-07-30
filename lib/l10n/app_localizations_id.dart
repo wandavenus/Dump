@@ -328,6 +328,13 @@ class AppLocalizationsId extends AppLocalizations {
       'Hitung ReplayGain untuk lagu yang belum punya data';
 
   @override
+  String get scanLibraryConfirmTitle => 'Scan Library?';
+
+  @override
+  String get scanLibraryConfirmBody =>
+      'Library akan dipindai untuk menghitung data ReplayGain pada lagu yang belum memilikinya. Lanjutkan?';
+
+  @override
   String get scanPreparing => 'Mempersiapkan...';
 
   @override

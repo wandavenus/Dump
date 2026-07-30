@@ -115,6 +115,8 @@
 
   "scanLibrary": "Scan Library",
   "scanLibrarySubtitle": "Hitung ReplayGain untuk lagu yang belum punya data",
+  "scanLibraryConfirmTitle": "Scan Library?",
+  "scanLibraryConfirmBody": "Library akan dipindai untuk menghitung data ReplayGain pada lagu yang belum memilikinya. Lanjutkan?",
   "scanPreparing": "Mempersiapkan...",
   "noSongsInLibrary": "Tidak ada lagu ditemukan di library.",
   "scanLibraryLoadFailed": "Gagal memuat library: {error}",

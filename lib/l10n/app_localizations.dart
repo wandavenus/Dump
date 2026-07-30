@@ -704,6 +704,18 @@ abstract class AppLocalizations {
   /// **'Calculate ReplayGain for songs without data'**
   String get scanLibrarySubtitle;
 
+  /// No description provided for @scanLibraryConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan Library?'**
+  String get scanLibraryConfirmTitle;
+
+  /// No description provided for @scanLibraryConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will scan your library and calculate ReplayGain data for songs that do not have it yet. Continue?'**
+  String get scanLibraryConfirmBody;
+
   /// No description provided for @scanPreparing.
   ///
   /// In en, this message translates to:
