@@ -17,7 +17,7 @@ class PlayerFavoriteButton extends StatefulWidget {
 
 class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
   static const double _unfavoriteIconSize = 19;
-  static const double _favoriteIconSize = 30;
+  static const double _favoriteIconSize = 19;
 
   bool _isFavorite = false;
 
@@ -54,11 +54,11 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
                 )
               : const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color.fromARGB(80, 100, 100, 100),
+                  color: Color.fromARGB(50, 200, 200, 200),
                 ),
           child: Icon(
             CupertinoIcons.star,
-            color: _isFavorite ? Colors.black : Colors.white,
+            color: _isFavorite ? Colors.transparent : Colors.white,
             size: _isFavorite ? _favoriteIconSize : _unfavoriteIconSize,
           ),
         ),

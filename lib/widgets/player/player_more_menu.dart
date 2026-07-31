@@ -79,7 +79,7 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
         height: 27,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color.fromARGB(80, 100, 100, 100),
+          color: Color.fromARGB(50, 200, 200, 200),
         ),
         child: const Icon(
           CupertinoIcons.ellipsis_vertical,
