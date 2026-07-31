@@ -56,9 +56,7 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
           child: _isFavorite
               ? CustomPaint(
                   size: const Size.square(27),
-                  painter: _FavoriteCutoutPainter(
-                    iconSize: _favoriteIconSize,
-                  ),
+                  painter: _FavoriteCutoutPainter(iconSize: _favoriteIconSize),
                 )
               : const Icon(
                   CupertinoIcons.star,
