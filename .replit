@@ -26,18 +26,17 @@ args = "Watch & Rebuild Web"
 task = "workflow.run"
 args = "Dart Format"
 
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node server.js"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow]]
 name = "Watch & Rebuild Web"
@@ -72,8 +71,8 @@ outputType = "console"
 
 [[workflows.workflow]]
 name = "Build APK"
-author = "agent"
 mode = "sequential"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -84,6 +83,7 @@ outputType = "console"
 
 [[workflows.workflow]]
 name = "Flutter Debug Web"
+mode = "sequential"
 author = "agent"
 
 [[workflows.workflow.tasks]]
