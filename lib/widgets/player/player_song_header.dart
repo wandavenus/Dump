@@ -52,7 +52,7 @@ class PlayerSongHeader extends StatelessWidget {
         ),
         const SizedBox(width: 17),
         PlayerFavoriteButton(song: song),
-        const SizedBox(width: 14),
+        const SizedBox(width: 15),
         PlayerMoreMenu(song: song),
       ],
     );
