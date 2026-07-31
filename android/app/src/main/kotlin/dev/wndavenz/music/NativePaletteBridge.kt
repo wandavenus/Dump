@@ -108,9 +108,6 @@ class NativePaletteBridge(
 
         private const val PALETTE_TARGET_SIZE = 256
 
-        /** Center-crop fraction: inner (1 - 2×margin) of each axis. */
-        private const val CENTER_MARGIN = 0.10f
-
         /** Maximum candidates fed into the harmony triplet search. */
         private const val TOP_N = 32
 
@@ -259,7 +256,6 @@ class NativePaletteBridge(
         if (all.isEmpty()) return buildFallbackFromPalette(palette)
 
         // Step 1: Center-crop palette for spatial weighting.
-        val centerColors = extractCenterColors(bitmap)
 
         // Step 2: Filter achromatic swatches.
         val candidates = all.filter { sw ->
@@ -301,11 +297,9 @@ class NativePaletteBridge(
             val vibrancy    = sat.pow(0.8)
             // Blended score: dominant area (70%) + vibrancy (30%).
             val baseScore   = popFactor * 0.90 + vibrancy * 0.10
-            // Reduced center boost: still rewards centered subjects, but not
-            // enough to let a single isolated element overwhelm the background.
-            val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.15 else 1.0
+
             val darkBonus = if (light < 0.25) 1.20 else 1.0
-            val score = baseScore * lightFactor * centerBoost * darkBonus
+            val score = baseScore * lightFactor * darkBonus
             Scored(sw, score)
         }.sortedByDescending { it.score }
 
@@ -549,31 +543,7 @@ class NativePaletteBridge(
 
         return (triadicScore * 0.4 + complementaryScore * 0.3 + spread * 0.3)
             .coerceIn(0.0, 1.0)
-    }
-
-    // ── Spatial / center weighting ────────────────────────────────────────────
-
-    /**
-     * Extracts the dominant colors from the center crop of [bitmap]
-     * (inner 60 % of each axis).  Used to boost scores of swatches that
-     * appear prominently near the visual subject.
-     */
-    private fun extractCenterColors(bitmap: Bitmap): List<Int> {
-        val w = bitmap.width; val h = bitmap.height
-        val cx = (w * CENTER_MARGIN).toInt()
-        val cy = (h * CENTER_MARGIN).toInt()
-        val cw = (w * (1f - 2 * CENTER_MARGIN)).toInt().coerceAtLeast(1)
-        val ch = (h * (1f - 2 * CENTER_MARGIN)).toInt().coerceAtLeast(1)
-        return try {
-            val center = Bitmap.createBitmap(bitmap, cx, cy, cw, ch)
-            val p = Palette.from(center).maximumColorCount(8).clearFilters().generate()
-            center.recycle()
-            p.swatches.sortedByDescending { it.population }.take(4).map { it.rgb }
-        } catch (e: Exception) {
-            Log.d(TAG, "Center crop extraction failed, spatial weighting disabled", e)
-            emptyList()
-        }
-    }
+    }    
 
     /**
      * Returns true if [rgb1] and [rgb2] are perceptually close, using the
