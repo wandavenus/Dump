@@ -92,31 +92,44 @@ object ExoMetadataReader {
         if (!file.exists()) return AudioTags()
 
         return try {
-            val future = MetadataRetriever.retrieveMetadata(
-                context, MediaItem.fromUri(Uri.fromFile(file))
-            )
-            val trackGroups = future.get(TIMEOUT_SEC, TimeUnit.SECONDS)
+    MetadataRetriever.Builder(
+        context,
+        MediaItem.fromUri(Uri.fromFile(file))
+    ).build().use { retriever ->
 
-            val builder = TagBuilder()
-            for (i in 0 until trackGroups.length) {
-                val group = trackGroups[i]
-                for (j in 0 until group.length) {
-                    val metadata = group.getFormat(j).metadata ?: continue
-                    for (k in 0 until metadata.length()) {
-                        runCatching { builder.consume(metadata[k]) }
-                    }
-                }
+        val trackGroups = retriever
+            .retrieveTrackGroups()
+            .get(TIMEOUT_SEC, TimeUnit.SECONDS)
+
+        val builder = TagBuilder()
+
+        for (i in 0 until trackGroups.length) {
+            val group = trackGroups.get(i)
+
+            for (j in 0 until group.length) {
+                val metadata = group.getFormat(j).metadata ?: continue
+
+                for (k in 0 until metadata.length) {
+    runCatching {
+        builder.consume(metadata.get(k))
+    }
+}
             }
-            builder.build().also { tags ->
-                // Guarded so the string concatenation (allocations + toString calls)
-                // is skipped entirely during bulk library scans unless debug
-                // logging is actually enabled for this tag.
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Read ${file.name}: " +
-                        "rg=${tags.rgTrackGain} r128=${tags.r128Track} " +
-                        "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}")
-                }
+        }
+
+        builder.build().also { tags ->
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(
+                    TAG,
+                    "Read ${file.name}: " +
+                        "rg=${tags.rgTrackGain} " +
+                        "r128=${tags.r128Track} " +
+                        "lyrics=${tags.lyrics?.length?.let { "${it}ch" } ?: "none"}"
+                )
             }
+        }
+    }
+
         } catch (e: TimeoutException) {
             Log.w(TAG, "MetadataRetriever timed out for: $path")
             AudioTags()
