@@ -48,22 +48,19 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
           width: 27,
           height: 27,
           decoration: _isFavorite
-              ? null
+              ? const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                )
               : const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color.fromARGB(80, 100, 100, 100),
                 ),
-          child: _isFavorite
-              ? const Icon(
-                  CupertinoIcons.star_circle_fill,
-                  color: Colors.white,
-                  size: _favoriteIconSize,
-                )
-              : const Icon(
-                  CupertinoIcons.star,
-                  color: Colors.white,
-                  size: _unfavoriteIconSize,
-                ),
+          child: Icon(
+            CupertinoIcons.star,
+            color: _isFavorite ? Colors.black : Colors.white,
+            size: _isFavorite ? _favoriteIconSize : _unfavoriteIconSize,
+          ),
         ),
       ),
     );

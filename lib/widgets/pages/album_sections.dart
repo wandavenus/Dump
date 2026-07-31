@@ -69,8 +69,10 @@ class _AlbumFooterState extends State<_AlbumFooter> {
 
   String _formatTotalDuration(BuildContext context) {
     final l = context.l10n;
-    final total =
-        widget.songs.fold(Duration.zero, (sum, s) => sum + s.duration);
+    final total = widget.songs.fold(
+      Duration.zero,
+      (sum, s) => sum + s.duration,
+    );
     final h = total.inHours;
     final m = total.inMinutes.remainder(60);
     if (h > 0) return l.durationHoursMinutes(h, m);
