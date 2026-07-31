@@ -45,8 +45,8 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
       child: GestureDetector(
         onTap: _toggleFavorite,
         child: Container(
-          width: 27,
-          height: 27,
+          width: 28,
+          height: 28,
           decoration: _isFavorite
               ? null
               : const BoxDecoration(

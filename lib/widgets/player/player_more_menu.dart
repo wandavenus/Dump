@@ -75,8 +75,8 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
       key: _key,
       onTap: _open,
       child: Container(
-        width: 27,
-        height: 27,
+        width: 28,
+        height: 28,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: Color.fromARGB(50, 200, 200, 200),
