@@ -40,7 +40,7 @@ void main() {
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
   // ── Scalar colour fields ──
-  float scale = 1.8;
+  float scale = 1.5;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
   float f0 = sin(dist1 * (1.7 * scale) - t * 0.15) * 0.35 + 0.4;
@@ -76,7 +76,7 @@ float hDark = smoothstep(0.02, 0.2, avgField);
 col = mix(col, uShadow, hDark * 0.0);
 
   // ── Soft vignette ──
-  float vig = 1.0 - length(uv - 0.5) * 0.2;
+  float vig = 1.0 - length(uv - 0.5) * 0.3;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Film grain ──
