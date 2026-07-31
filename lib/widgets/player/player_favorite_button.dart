@@ -1,5 +1,4 @@
 import 'dart:async' show unawaited;
-import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -79,56 +78,35 @@ class _FavoriteCutoutPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final layer = Offset.zero & size;
-    canvas.saveLayer(layer, Paint());
-
+    final bounds = Offset.zero & size;
+    canvas.saveLayer(bounds, Paint());
     canvas.drawCircle(
       Offset(size.width / 2, size.height / 2),
       size.shortestSide / 2,
       Paint()..color = Colors.white,
     );
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = iconSize / 2;
-    final points = <Offset>[];
-    for (var i = 0; i < 10; i++) {
-      final angle = -math.pi / 2 + i * math.pi / 5;
-      final pointRadius = i.isEven ? radius : radius * 0.42;
-      points.add(Offset(
-        center.dx + pointRadius * math.cos(angle),
-        center.dy + pointRadius * math.sin(angle),
-      ));
-    }
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(CupertinoIcons.star.codePoint),
+        style: TextStyle(
+          foreground: Paint()..blendMode = BlendMode.dstOut,
+          fontSize: iconSize,
+          fontFamily: CupertinoIcons.star.fontFamily,
+          package: CupertinoIcons.star.fontPackage,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
 
-    // Trim each corner and connect it with a quadratic curve through the
-    // original vertex. This keeps the star shape while softening every tip.
-    const cornerRadius = 2.1;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final previous = points[(i - 1 + points.length) % points.length];
-      final current = points[i];
-      final next = points[(i + 1) % points.length];
-      final before = _towards(current, previous, cornerRadius);
-      final after = _towards(current, next, cornerRadius);
-
-      if (i == 0) {
-        path.moveTo(after.dx, after.dy);
-      } else {
-        path.lineTo(after.dx, after.dy);
-      }
-      path.quadraticBezierTo(current.dx, current.dy, before.dx, before.dy);
-    }
-    path.close();
-    canvas.drawPath(path, Paint()..blendMode = BlendMode.dstOut);
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size.width - textPainter.width) / 2,
+        (size.height - textPainter.height) / 2,
+      ),
+    );
     canvas.restore();
-  }
-
-  Offset _towards(Offset from, Offset to, double distance) {
-    final delta = to - from;
-    final length = delta.distance;
-    if (length == 0) return from;
-    final amount = math.min(distance, length / 2) / length;
-    return from + delta * amount;
   }
 
   @override
