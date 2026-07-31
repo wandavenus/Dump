@@ -75,11 +75,11 @@ class _PlayerMoreMenuState extends State<PlayerMoreMenu> {
       key: _key,
       onTap: _open,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 27,
+        height: 27,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color.fromARGB(70, 100, 100, 100),
+          color: Color.fromARGB(80, 100, 100, 100),
         ),
         child: const Icon(
           CupertinoIcons.ellipsis_vertical,
