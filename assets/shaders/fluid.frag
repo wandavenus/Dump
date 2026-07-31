@@ -40,7 +40,7 @@ void main() {
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
   // ── Scalar colour fields ──
-  float scale = 2.0;
+  float scale = 1.8;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
   float f0 = sin(dist1 * (1.7 * scale) - t * 0.15) * 0.35 + 0.4;
@@ -70,10 +70,10 @@ vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
 float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.35);
+col = mix(col, uHighlight, hBright * 0.40);
 
 float hDark = smoothstep(0.02, 0.2, avgField);
-col = mix(col, uShadow, hDark * 0.05);
+col = mix(col, uShadow, hDark * 0.0);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.2;
