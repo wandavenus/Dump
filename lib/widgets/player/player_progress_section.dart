@@ -96,7 +96,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   // Shared SliderThemeData — computed once instead of on every ~50 ms
   // playback-state rebuild.  All values are const so this is safe to cache.
   static final _sliderTheme = SliderThemeData(
-    trackHeight: 6, // 7 default
+    trackHeight: 7,
     trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white.withValues(alpha: 0.5),
     inactiveTrackColor: const Color(0xFF8D8D8D).withValues(alpha: 0.5),
