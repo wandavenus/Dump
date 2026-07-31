@@ -22,6 +22,10 @@ args = "Start application"
 task = "workflow.run"
 args = "Watch & Rebuild Web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Dart Format"
+
 
 [[workflows.workflow]]
 name = "Start application"
@@ -98,6 +102,17 @@ author = "agent"
 task = "shell.exec"
 args = "export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && dart devtools --no-launch-browser --host 0.0.0.0 --port 9100"
 waitForPort = 9100
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Dart Format"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && dart format ."
 
 [workflows.workflow.metadata]
 outputType = "console"
