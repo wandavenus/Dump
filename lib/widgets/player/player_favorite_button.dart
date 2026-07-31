@@ -88,12 +88,12 @@ class _FavoriteCutoutPainter extends CustomPainter {
 
     final textPainter = TextPainter(
       text: TextSpan(
-        text: String.fromCharCode(CupertinoIcons.star.codePoint),
+        text: String.fromCharCode(CupertinoIcons.star_fill.codePoint),
         style: TextStyle(
           foreground: Paint()..blendMode = BlendMode.dstOut,
           fontSize: iconSize,
-          fontFamily: CupertinoIcons.star.fontFamily,
-          package: CupertinoIcons.star.fontPackage,
+          fontFamily: CupertinoIcons.star_fill.fontFamily,
+          package: CupertinoIcons.star_fill.fontPackage,
         ),
       ),
       textDirection: TextDirection.ltr,
