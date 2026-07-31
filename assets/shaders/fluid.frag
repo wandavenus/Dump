@@ -55,26 +55,25 @@ void main() {
 
   float f4 = cos(uvd.x * (2.5 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
 
-  // ── Palette blend (tanpa mixVibrant) ──
-  // Weighted average dari semua field
-  float total = f0 + f1 + f2 + f3 + f4;
-  float w0 = f0 / total;
-  float w1 = f1 / total;
-  float w2 = f2 / total;
-  float w3 = f3 / total;
-  float w4 = f4 / total;
+  // ── Palette blend ──
 
-  // Campur warna dasar (Primary, Secondary, Accent)
-  vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
+// Hanya normalisasi field yang benar-benar dipakai untuk warna dasar
+float total = f0 + f1 + f2;
+float w0 = f0 / total;
+float w1 = f1 / total;
+float w2 = f2 / total;
 
-  // Highlight & shadow sebagai sentuhan halus (15% efek)
-  float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
+// Campur warna dasar
+vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 
-  float hBright = smoothstep(0.5, 0.8, avgField);
-  col = mix(col, uHighlight, hBright * 0.35);
+// Highlight & shadow sebagai sentuhan halus
+float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
-  float hDark = smoothstep(0.2, 0.02, avgField);
-  col = mix(col, uShadow, hDark * 0.05);
+float hBright = smoothstep(0.5, 0.8, avgField);
+col = mix(col, uHighlight, hBright * 0.35);
+
+float hDark = smoothstep(0.02, 0.2, avgField);
+col = mix(col, uShadow, hDark * 0.05);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.2;
