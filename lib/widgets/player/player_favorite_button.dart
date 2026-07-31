@@ -90,23 +90,45 @@ class _FavoriteCutoutPainter extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
     final radius = iconSize / 2;
-    final path = Path();
+    final points = <Offset>[];
     for (var i = 0; i < 10; i++) {
       final angle = -math.pi / 2 + i * math.pi / 5;
       final pointRadius = i.isEven ? radius : radius * 0.42;
-      final point = Offset(
+      points.add(Offset(
         center.dx + pointRadius * math.cos(angle),
         center.dy + pointRadius * math.sin(angle),
-      );
+      ));
+    }
+
+    // Trim each corner and connect it with a quadratic curve through the
+    // original vertex. This keeps the star shape while softening every tip.
+    const cornerRadius = 2.1;
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final previous = points[(i - 1 + points.length) % points.length];
+      final current = points[i];
+      final next = points[(i + 1) % points.length];
+      final before = _towards(current, previous, cornerRadius);
+      final after = _towards(current, next, cornerRadius);
+
       if (i == 0) {
-        path.moveTo(point.dx, point.dy);
+        path.moveTo(after.dx, after.dy);
       } else {
-        path.lineTo(point.dx, point.dy);
+        path.lineTo(after.dx, after.dy);
       }
+      path.quadraticBezierTo(current.dx, current.dy, before.dx, before.dy);
     }
     path.close();
     canvas.drawPath(path, Paint()..blendMode = BlendMode.dstOut);
     canvas.restore();
+  }
+
+  Offset _towards(Offset from, Offset to, double distance) {
+    final delta = to - from;
+    final length = delta.distance;
+    if (length == 0) return from;
+    final amount = math.min(distance, length / 2) / length;
+    return from + delta * amount;
   }
 
   @override
