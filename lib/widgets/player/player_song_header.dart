@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/local_song.dart';
 import 'player_hero_tags.dart';
+import 'player_favorite_button.dart';
 import 'player_more_menu.dart';
 
 class PlayerSongHeader extends StatelessWidget {
@@ -50,6 +51,8 @@ class PlayerSongHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 17),
+         PlayerFavoriteButton(song: song),
+         const SizedBox(width: 10),
         PlayerMoreMenu(song: song),
       ],
     );
