@@ -106,7 +106,7 @@ class NativePaletteBridge(
             0xFF121821.toInt(),  // shadow
         )
 
-        private const val PALETTE_TARGET_SIZE = 128
+        private const val PALETTE_TARGET_SIZE = 256
 
         /** Center-crop fraction: inner (1 - 2×margin) of each axis. */
         private const val CENTER_MARGIN = 0.10f
@@ -300,7 +300,7 @@ class NativePaletteBridge(
             // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
             val vibrancy    = sat.pow(0.8)
             // Blended score: dominant area (70%) + vibrancy (30%).
-            val baseScore   = popFactor * 0.70 + vibrancy * 0.30
+            val baseScore   = popFactor * 0.90 + vibrancy * 0.10
             // Reduced center boost: still rewards centered subjects, but not
             // enough to let a single isolated element overwhelm the background.
             val centerBoost = if (centerColors.any { colorSimilar(it, sw.rgb) }) 1.15 else 1.0
