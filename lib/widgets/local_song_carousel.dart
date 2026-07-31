@@ -20,7 +20,7 @@ class LocalSongCarousel extends StatelessWidget {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(kListLeftPadding, 10, 10, 10),
-        itemCount: songs.length,
+        itemCount: _songs.length > 10 ? 10 : _songs.length,
         itemBuilder: (context, index) =>
             LocalSongCard(song: songs[index], playlist: songs, index: index),
       ),
