@@ -109,7 +109,7 @@ object ExoMetadataReader {
             for (j in 0 until group.length) {
                 val metadata = group.getFormat(j).metadata ?: continue
 
-                for (k in 0 until metadata.length) {
+                for (k in 0 until metadata.length()) {
     runCatching {
         builder.consume(metadata.get(k))
     }
