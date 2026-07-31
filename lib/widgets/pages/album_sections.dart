@@ -1,11 +1,10 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../../extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
+import '../../services/song_metadata_service.dart';
 import '../../theme/app_colors.dart';
 import '../song_artwork.dart';
 import 'detail_sections.dart';
@@ -37,34 +36,54 @@ class AlbumPageContent extends StatelessWidget {
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
-class _AlbumFooter extends StatelessWidget {
+class _AlbumFooter extends StatefulWidget {
   const _AlbumFooter({required this.album, required this.songs});
 
   final LocalSong album;
   final List<LocalSong> songs;
 
+  @override
+  State<_AlbumFooter> createState() => _AlbumFooterState();
+}
+
+class _AlbumFooterState extends State<_AlbumFooter> {
+  String? _copyright;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCopyright());
+  }
+
+  Future<void> _loadCopyright() async {
+    if (widget.songs.isEmpty) return;
+    try {
+      final info = await SongMetadataService.getSongInfo(widget.songs.first);
+      if (mounted && info.copyright != null && info.copyright!.isNotEmpty) {
+        setState(() => _copyright = info.copyright);
+      }
+    } on Exception catch (_) {
+      // silently ignore; fallback copyright is used
+    }
+  }
+
   String _formatTotalDuration(BuildContext context) {
     final l = context.l10n;
-    final total = songs.fold(Duration.zero, (sum, s) => sum + s.duration);
+    final total =
+        widget.songs.fold(Duration.zero, (sum, s) => sum + s.duration);
     final h = total.inHours;
     final m = total.inMinutes.remainder(60);
     if (h > 0) return l.durationHoursMinutes(h, m);
     return l.durationOnlyMinutes(m);
   }
 
-  String _formatDate(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    return DateFormat(
-      'd MMMM y',
-      locale.toLanguageTag(),
-    ).format(DateTime.now());
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final year = album.year?.toString() ?? DateTime.now().year.toString();
-    final artistName = album.albumArtist ?? album.artist;
+    final year =
+        widget.album.year?.toString() ?? DateTime.now().year.toString();
+    final artistName = widget.album.albumArtist ?? widget.album.artist;
+    final copyrightText = _copyright ?? '℗ $year $artistName';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -72,16 +91,8 @@ class _AlbumFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _formatDate(context),
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.of(context).secondaryLabel,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
             l.albumSongsAndDuration(
-              songs.length,
+              widget.songs.length,
               _formatTotalDuration(context),
             ),
             style: TextStyle(
@@ -91,7 +102,7 @@ class _AlbumFooter extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '℗ $year $artistName',
+            copyrightText,
             style: TextStyle(
               fontSize: 12,
               color: AppColors.of(context).secondaryLabel,
