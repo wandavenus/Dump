@@ -16,8 +16,8 @@ class PlayerFavoriteButton extends StatefulWidget {
 }
 
 class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
-  static const double _unfavoriteIconSize = 22;
-  static const double _favoriteIconSize = 22;
+  static const double _unfavoriteIconSize = 19;
+  static const double _favoriteIconSize = 30;
 
   bool _isFavorite = false;
 
