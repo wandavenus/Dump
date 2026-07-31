@@ -83,7 +83,7 @@ class _LocalArtistsSectionState extends State<_LocalArtistsSection> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(10),
-        itemCount: _artists.length,
+        itemCount: _artists.length > 10 ? 10 : _artists.length,
         itemBuilder: (context, index) => _ArtistCard(artist: _artists[index]),
       ),
     );
