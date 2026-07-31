@@ -31,10 +31,6 @@ import kotlin.math.pow
  * 3. **MMCQ quantization** — [Palette.from] with [maximumColorCount] = 32 and
  *    no colour filters.
  *
- * 4. **Spatial / subject weighting** — a center-crop (inner 60 % of each axis)
- *    is analysed independently.  Colors prominent in the center receive a
- *    ×1.15 score boost, ensuring visually important subjects (characters,
- *    objects) receive a small lift without overwhelming the overall mood.
  *
  * 5. **Perceptual scoring** — each swatch is scored:
  *      score = (0.70 × pop_factor + 0.30 × sat^0.8)
@@ -237,7 +233,7 @@ class NativePaletteBridge(
                 .maximumColorCount(96)
                 .clearFilters()
                 .generate()
-            selectBestFive(palette, bitmap)
+            selectBestFive(palette)
         } finally {
             bitmap.recycle()
         }
@@ -251,7 +247,7 @@ class NativePaletteBridge(
      *
      * Returns [FALLBACK] only if no usable swatches are found.
      */
-    private fun selectBestFive(palette: Palette, bitmap: Bitmap): List<Int> {
+    private fun selectBestFive(palette: Palette): List<Int> {
         val all = palette.swatches
         if (all.isEmpty()) return buildFallbackFromPalette(palette)
 
@@ -295,7 +291,7 @@ class NativePaletteBridge(
             // Softer saturation power: sat^0.8 reduces the gap between
             // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
             val vibrancy    = sat.pow(0.8)
-            // Blended score: dominant area (70%) + vibrancy (30%).
+            // Blended score: dominant area (90%) + vibrancy (10%).
             val baseScore   = popFactor * 0.90 + vibrancy * 0.10
 
             val darkBonus = if (light < 0.25) 1.20 else 1.0
@@ -329,17 +325,21 @@ class NativePaletteBridge(
         //
         // Using representativeSwatch saturation for accent (not averaged saturation)
         // because the representative is the color users actually see.
-        val accent = bestTriplet.maxByOrNull { it.representativeSwatch.hsl[1] }
-            ?: return buildFallbackFromPalette(palette)
-        val remaining = bestTriplet.filter {
-            it.representativeSwatch.rgb != accent.representativeSwatch.rgb
-        }
-        var primaryCluster = remaining.maxByOrNull { it.totalPopulation } ?: accent
-        val secondaryCluster = remaining
-            .filter { it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb }
-            .maxByOrNull { it.totalPopulation }
-            ?: primaryCluster
+        var primaryCluster = bestTriplet.maxByOrNull { it.totalPopulation }
+    ?: return buildFallbackFromPalette(palette)
 
+val accent = bestTriplet
+    .filter { it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb }
+    .maxByOrNull { it.representativeSwatch.hsl[1] }
+    ?: return buildFallbackFromPalette(palette)
+
+var secondaryCluster = bestTriplet
+    .filter {
+        it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb &&
+        it.representativeSwatch.rgb != accent.representativeSwatch.rgb
+    }
+    .maxByOrNull { it.totalPopulation }
+    ?: return buildFallbackFromPalette(palette)
         // Step 7: Neutral-dominance correction.
         //
         // The saturation filter (S ≥ 0.10) above intentionally discards near-
@@ -362,16 +362,21 @@ class NativePaletteBridge(
             .maxByOrNull { it.population }
 
         if (dominantNeutral != null &&
-            dominantNeutral.population > primaryCluster.totalPopulation * 2.0) {
-            // Neutral background dominates — use it as the mood colour.
-            // Wrap it in a single-swatch cluster so the rest of the code
-            // can read .representativeSwatch uniformly.
-            primaryCluster = ColorCluster(
-                swatches = mutableListOf(dominantNeutral),
-                totalPopulation = dominantNeutral.population,
-                totalScore = 0.0,
-            )
+    dominantNeutral.population > primaryCluster.totalPopulation * 2.0) {
+    primaryCluster = ColorCluster(
+        swatches = mutableListOf(dominantNeutral),
+        totalPopulation = dominantNeutral.population,
+        totalScore = 0.0,
+    )
+
+    secondaryCluster = bestTriplet
+        .filter {
+            it.representativeSwatch.rgb != accent.representativeSwatch.rgb &&
+            it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb
         }
+        .maxByOrNull { it.totalPopulation }
+        ?: accent
+}
 
         // Step 8: Highlight + Shadow from remaining clusters.
         //
