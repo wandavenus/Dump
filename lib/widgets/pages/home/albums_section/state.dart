@@ -1,6 +1,8 @@
 part of '../../home_sections.dart';
 
 class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
+  static const String _albumOrderPrefsKey = 'home_random_album_order_v1';
+
   List<_AlbumGroup> _albums = [];
   bool _isLoading = true;
 
@@ -12,10 +14,10 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     // first build() call renders content instead of a spinner.
     final cached = MediaStoreService.cachedSongs;
     if (cached != null) {
-      _albums = _buildAlbums(cached);
-      _isLoading = false;
+      unawaited(_loadFromSongs(cached));
+    } else {
+      unawaited(_load());
     }
-    unawaited(_load());
     MediaStoreService.rescanNotifier.addListener(_onRescan);
   }
 
@@ -29,28 +31,80 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
     super.dispose();
   }
 
-  List<_AlbumGroup> _buildAlbums(List<LocalSong> songs) {
+  List<_AlbumGroup> _groupAlbums(List<LocalSong> songs) {
     final map = <int, List<LocalSong>>{};
     for (final song in songs) {
       map.putIfAbsent(song.albumId, () => []).add(song);
     }
-    final albums = map.entries
+    return map.entries
         .map((e) => _AlbumGroup(albumId: e.key, songs: e.value))
         .toList();
-    albums.shuffle(Random());
-    return albums;
+  }
+
+  Future<List<_AlbumGroup>> _buildAlbums(List<LocalSong> songs) async {
+    final albums = _groupAlbums(songs);
+    if (albums.isEmpty) return albums;
+
+    final albumsById = {for (final album in albums) album.albumId: album};
+    final prefs = await SharedPreferences.getInstance();
+    final savedOrder = prefs.getStringList(_albumOrderPrefsKey);
+
+    if (savedOrder == null || savedOrder.isEmpty) {
+      albums.shuffle(Random());
+      await prefs.setStringList(
+        _albumOrderPrefsKey,
+        albums.map((album) => album.albumId.toString()).toList(),
+      );
+      return albums;
+    }
+
+    final orderedAlbums = <_AlbumGroup>[];
+    final orderedIds = <int>{};
+    for (final rawId in savedOrder) {
+      final albumId = int.tryParse(rawId);
+      if (albumId == null) continue;
+
+      final album = albumsById[albumId];
+      if (album == null || !orderedIds.add(albumId)) continue;
+      orderedAlbums.add(album);
+    }
+
+    final newAlbums =
+        albums.where((album) => !orderedIds.contains(album.albumId)).toList()
+          ..sort((a, b) {
+            final byName = a.name.compareTo(b.name);
+            if (byName != 0) return byName;
+            return a.artist.compareTo(b.artist);
+          });
+
+    orderedAlbums.addAll(newAlbums);
+    final resolvedOrder = orderedAlbums
+        .map((album) => album.albumId.toString())
+        .toList(growable: false);
+    if (resolvedOrder.length != savedOrder.length ||
+        !resolvedOrder.indexed.every(
+          (entry) => entry.$2 == savedOrder[entry.$1],
+        )) {
+      await prefs.setStringList(_albumOrderPrefsKey, resolvedOrder);
+    }
+
+    return orderedAlbums;
+  }
+
+  Future<void> _loadFromSongs(List<LocalSong> songs) async {
+    final albums = await _buildAlbums(songs);
+    if (!mounted) return;
+
+    setState(() {
+      _albums = albums;
+      _isLoading = false;
+    });
   }
 
   Future<void> _load() async {
     try {
       final songs = await MediaStoreService.getSongs();
-      final albums = _buildAlbums(songs);
-      if (mounted) {
-        setState(() {
-          _albums = albums;
-          _isLoading = false;
-        });
-      }
+      await _loadFromSongs(songs);
     } on Exception catch (e) {
       LogService.warn('AlbumsSection', 'Failed to load albums: $e');
       if (mounted) {
