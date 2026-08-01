@@ -121,6 +121,7 @@ class _NewMusicPage extends StatelessWidget {
                   allSongs: allSongs,
                   globalIndex: pageStart + idx,
                   width: double.infinity,
+                  showDivider: idx < songs.length - 1,
                 )
               : const SizedBox(width: double.infinity, height: _kArtworkSize);
         }),
@@ -136,12 +137,14 @@ class _NewMusicCell extends StatelessWidget {
   final List<LocalSong> allSongs;
   final int globalIndex;
   final double width;
+  final bool showDivider;
 
   const _NewMusicCell({
     required this.song,
     required this.allSongs,
     required this.globalIndex,
     required this.width,
+    required this.showDivider,
   });
 
   @override
@@ -198,13 +201,15 @@ class _NewMusicCell extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: c.secondaryLabel),
                   ),
-                  const SizedBox(height: 6),
-                  // Divider selebar area teks cell, tidak melebar ke kolom lain.
-                  Container(
-                    width: double.infinity,
-                    height: 0.5,
-                    color: c.separator,
-                  ),
+                  if (showDivider) ...[
+                    const SizedBox(height: 6),
+                    // Divider hanya di antara baris, bukan setelah baris terakhir.
+                    Container(
+                      width: double.infinity,
+                      height: 0.5,
+                      color: c.separator,
+                    ),
+                  ],
                 ],
               ),
             ),
