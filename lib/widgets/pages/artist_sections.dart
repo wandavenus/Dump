@@ -20,6 +20,11 @@ class ArtistPageContent extends StatelessWidget {
           ArtistHero(songs: songs),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),
+          const Divider(
+            color: Colors.white,
+            thickness: 0.5,
+            height: 1,
+          ),
           _ArtistFooter(songs: songs),
           SizedBox(height: bottomClearance),
         ],
