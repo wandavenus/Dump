@@ -98,8 +98,8 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
   static final _sliderTheme = SliderThemeData(
     trackHeight: 7,
     trackShape: const AppleMusicSliderTrackShape(),
-    activeTrackColor: Colors.white.withValues(alpha: 0.3),
-    inactiveTrackColor: const Color(0xFF8D8D8D).withValues(alpha: 0.3),
+    activeTrackColor: Colors.white.withValues(alpha: 0.5),
+    inactiveTrackColor: const Color(0xFF8D8D8D).withValues(alpha: 0.4),
     thumbShape: const RoundSliderThumbShape(
       enabledThumbRadius: 0,
       disabledThumbRadius: 0,
