@@ -90,6 +90,7 @@ class PlaybackManager {
   static final Set<int> _prefetchingSongs = <int>{};
   static int _activePrefetches = 0;
   static const int _maxConcurrentPrefetches = 2;
+  static int _lastPrefetchedNextIndex = -2;
 
   // ── Forwarding stream controllers (currentTrack / queue intercepted) ───────
   //
@@ -187,11 +188,27 @@ class PlaybackManager {
 
         final currentIndex = (event?['index'] as num?)?.toInt() ?? -1;
         if (currentIndex < 0) return;
-        if (_lastPrefetchedIndex == currentIndex) return;
+        final nextIndex = (event?['nextTrackIndex'] as num?)?.toInt() ?? -2;
+        if (_lastPrefetchedIndex == currentIndex &&
+            _lastPrefetchedNextIndex == nextIndex) {
+          return;
+        }
         _lastPrefetchedIndex = currentIndex;
+        _lastPrefetchedNextIndex = nextIndex;
 
-        for (var i = -1; i <= 3; i++) {
-          unawaited(_prefetchArtwork(currentIndex + i));
+        // Prefetch the actual native current/next tracks. Linear neighbours
+        // are wrong when ExoPlayer shuffle mode is enabled.
+        final ids = <int>{};
+        if (currentIndex >= 0 && currentIndex < _currentQueue.length) {
+          ids.add(_currentQueue[currentIndex].id);
+        }
+        if (nextIndex >= 0 && nextIndex < _currentQueue.length) {
+          ids.add(_currentQueue[nextIndex].id);
+        }
+        final eventId = (event?['id'] as num?)?.toInt();
+        if (eventId != null && eventId > 0) ids.add(eventId);
+        for (final id in ids) {
+          unawaited(_prefetchPalette(id));
         }
       }),
     );
@@ -814,32 +831,33 @@ class PlaybackManager {
       if (index < 0 || index >= _currentQueue.length) return;
 
       final song = _currentQueue[index];
-
-      if (!_prefetchingSongs.add(song.id)) {
-        return;
-      }
-
-      if (_activePrefetches >= _maxConcurrentPrefetches) {
-        _prefetchingSongs.remove(song.id);
-        return;
-      }
-
-      _activePrefetches++;
-
-      if (NativePaletteService.getSync(song.id) != null) {
-        return;
-      }
-
-      await NativePaletteService.get(song.id);
+      await _prefetchPalette(song.id);
     } on Exception catch (_) {
       // Ignore prefetch failures.
+    }
+  }
+
+  static Future<void> _prefetchPalette(int songId) async {
+    if (songId <= 0 || !_prefetchingSongs.add(songId)) return;
+
+    if (_activePrefetches >= _maxConcurrentPrefetches) {
+      _prefetchingSongs.remove(songId);
+      return;
+    }
+
+    _activePrefetches++;
+    try {
+      if (NativePaletteService.getSync(songId) == null) {
+        await NativePaletteService.get(songId);
+      }
+    } on Exception catch (_) {
+      // Ignore prefetch failures; the player background retries on demand.
     } finally {
-      if (index >= 0 && index < _currentQueue.length) {
-        _prefetchingSongs.remove(_currentQueue[index].id);
-        if (_activePrefetches > 0) {
-          _activePrefetches--;
-        }
+      _prefetchingSongs.remove(songId);
+      if (_activePrefetches > 0) {
+        _activePrefetches--;
       }
     }
   }
+
 }

@@ -210,12 +210,15 @@ class NativePaletteBridge(
 
     // ── Core extraction pipeline ──────────────────────────────────────────────
 
-    private fun extractColors(songId: Int): List<Int> {
-        val path = artworkCacheManager.getOrExtract(songId) ?: return FALLBACK
+    private fun extractColors(songId: Int): List<Int>? {
+        // A missing/temporarily unavailable artwork is not a successful palette
+        // extraction. Returning null lets Dart retry instead of persisting the
+        // generic fallback as if it belonged to this song.
+        val path = artworkCacheManager.getOrExtract(songId) ?: return null
 
         val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, boundsOpts)
-        if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return FALLBACK
+        if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
 
         var sampleSize = 1
         while (boundsOpts.outWidth / sampleSize > PALETTE_TARGET_SIZE ||
@@ -226,7 +229,7 @@ class NativePaletteBridge(
         val bitmap = BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
             inSampleSize = sampleSize
             inPreferredConfig = Bitmap.Config.ARGB_8888
-        }) ?: return FALLBACK
+        }) ?: return null
 
         return try {
             val palette = Palette.from(bitmap)

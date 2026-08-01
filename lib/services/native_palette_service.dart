@@ -90,9 +90,11 @@ class NativePaletteService {
           values.length,
           (i) => Color(values[i] as int),
         );
+        final padded = _padToFive(colors);
+        if (isHardFallback(padded)) continue;
         // Pad old 3-color entries to 5 so callers relying on indices 3/4
         // get something reasonable until the next real extraction.
-        _cache.put(songId, _padToFive(colors));
+        _cache.put(songId, padded);
       }
     } on Exception catch (e, st) {
       // Corrupt or unreadable cache — start fresh, never crash startup.
@@ -105,6 +107,15 @@ class NativePaletteService {
   static List<Color> _padToFive(List<Color> colors) {
     if (colors.length >= 5) return colors;
     return [...colors, for (int i = colors.length; i < 5; i++) _kFallback[i]];
+  }
+
+  /// True when the native side had no usable artwork colours.
+  static bool isHardFallback(List<Color> colors) {
+    if (colors.length != _kFallback.length) return false;
+    for (var i = 0; i < colors.length; i++) {
+      if (colors[i].toARGB32() != _kFallback[i].toARGB32()) return false;
+    }
+    return true;
   }
 
   /// Debounced persistence: batches rapid extractions into a single disk write.
@@ -151,7 +162,10 @@ class NativePaletteService {
   ///
   /// The returned list has 5 entries:
   ///   [0] primary, [1] secondary, [2] accent, [3] highlight, [4] shadow.
-  static List<Color>? getSync(int songId) => _cache.get(songId);
+  static List<Color>? getSync(int songId) {
+    final cached = _cache.get(songId);
+    return cached != null && !isHardFallback(cached) ? cached : null;
+  }
 
   /// Clears the in-memory LRU cache to free RAM.  Disk cache remains intact.
   static void clearMemoryCache() => _cache.clear();
@@ -168,7 +182,9 @@ class NativePaletteService {
   /// directly from ArtworkCacheManager.
   static Future<List<Color>> get(int songId, [Uint8List? artwork]) {
     final cached = _cache.get(songId);
-    if (cached != null) return Future.value(cached);
+    if (cached != null && !isHardFallback(cached)) {
+      return Future.value(cached);
+    }
 
     final inFlight = _pending[songId];
     if (inFlight != null) return inFlight;
@@ -180,35 +196,50 @@ class NativePaletteService {
 
   static Future<List<Color>> _extract(int songId) async {
     try {
-      // Non-Android / web: return and cache fallback immediately (no
-      // MethodChannel is available there).
+      // Non-Android / web: no native extractor is available. Do not cache the
+      // fallback, otherwise a later platform transition can never retry.
       if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-        _cache.put(songId, _kFallback);
         return _kFallback;
       }
 
-      final raw = await _channel.invokeListMethod<int>(
-        'extractPalette',
-        songId,
-      );
+      // Artwork extraction can race the Media3 transition/cache prefetch.
+      // Retry once so a transient null/error does not become visible as the
+      // player's final background.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final raw = await _channel.invokeListMethod<int>(
+            'extractPalette',
+            songId,
+          );
 
-      // Need at least 3 values; bridge normally returns 5.
-      if (raw == null || raw.length < 3) {
-        return _kFallback;
+          // Need at least 3 values; bridge normally returns 5.
+          if (raw != null && raw.length >= 3) {
+            final colors = _padToFive(
+              raw.map(Color.new).toList(growable: false),
+            );
+            if (!isHardFallback(colors)) {
+              _cache.put(songId, colors);
+              _schedulePersist();
+              return colors;
+            }
+          }
+        } on Exception catch (e, st) {
+          if (attempt == 1) {
+            debugPrint(
+              '[NativePaletteService] extraction failed for '
+              'songId=$songId: $e\n$st',
+            );
+          }
+        }
+
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 120));
+        }
       }
 
-      final colors = _padToFive(raw.map(Color.new).toList(growable: false));
-      _cache.put(songId, colors);
-      _schedulePersist();
-      return colors;
-    } on Exception catch (e, st) {
-      // Do not cache fallback for a native/channel failure.  Queue saturation,
-      // a transient engine teardown, or a temporary decode failure must be
-      // retryable on the next call rather than persisted forever.
-      // PlatformException, IOException, FormatException all extend Exception.
-      debugPrint(
-        '[NativePaletteService] extraction failed for songId=$songId: $e\n$st',
-      );
+      // Do not cache fallback for a native/channel failure. Queue saturation,
+      // a transient engine teardown, or a temporary decode failure must remain
+      // retryable on the next call.
       return _kFallback;
     } finally {
       // ignore: unawaited_futures
