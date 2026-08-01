@@ -212,10 +212,25 @@ class _NewMusicCell extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    CupertinoIcons.ellipsis_vertical,
-                    size: 20,
-                    color: c.secondaryLabel,
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      showSongContextMenu(
+                        context,
+                        song: song,
+                        playlist: allSongs,
+                        index: globalIndex,
+                      );
+                    },
+                    child: SizedBox(
+                      width: 32,
+                      height: artSize,
+                      child: Icon(
+                        CupertinoIcons.ellipsis_vertical,
+                        size: 20,
+                        color: c.secondaryLabel,
+                      ),
+                    ),
                   ),
                 ],
               ),
