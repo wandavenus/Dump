@@ -4,7 +4,7 @@ part of '../../library_sections.dart';
 ///
 /// Loads play-count data via [countsFuture] and sorts [songs] by play count
 /// descending. Displays the results as a Windows-style tile grid.
-class _FrequentSongsView extends StatelessWidget {
+class _FrequentSongsView extends StatefulWidget {
   const _FrequentSongsView({
     required this.songs,
     required this.countsFuture,
@@ -28,84 +28,207 @@ class _FrequentSongsView extends StatelessWidget {
   onLongPress;
 
   @override
+  State<_FrequentSongsView> createState() => _FrequentSongsViewState();
+}
+
+class _FrequentSongsViewState extends State<_FrequentSongsView> {
+  late Future<List<Playlist>> _playlistsFuture;
+  String _filter = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _playlistsFuture = PlaylistService.getPlaylists();
+  }
+
+  Future<void> _createPlaylist() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.of(ctx).surface,
+        title: Text(
+          ctx.l10n.newPlaylist,
+          style: TextStyle(color: AppColors.of(ctx).primaryLabel),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: AppColors.of(ctx).primaryLabel),
+          decoration: InputDecoration(
+            hintText: ctx.l10n.playlistNameHint,
+            hintStyle: TextStyle(color: AppColors.of(ctx).secondaryLabel),
+          ),
+          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text(ctx.l10n.create),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name != null && name.isNotEmpty) {
+      await PlaylistService.createPlaylist(name);
+      if (mounted) {
+        setState(() => _playlistsFuture = PlaylistService.getPlaylists());
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: countsFuture,
+    return FutureBuilder<List<Playlist>>(
+      future: _playlistsFuture,
       builder: (context, snapshot) {
-        final counts = snapshot.data ?? const <String, dynamic>{};
-        final sorted = List<LocalSong>.from(songs)
-          ..sort(
-            (a, b) => ((counts[b.id.toString()] ?? 0) as num).compareTo(
-              (counts[a.id.toString()] ?? 0) as num,
-            ),
-          );
-
+        final playlists = (snapshot.data ?? const <Playlist>[])
+            .where((p) => p.name.toLowerCase().contains(_filter))
+            .toList();
+        final c = AppColors.of(context);
         return CustomScrollView(
-          controller: scroll,
+          controller: widget.scroll,
           slivers: [
-            SliverToBoxAdapter(child: titleHeader),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, rowIndex) {
-                  final firstIndex = rowIndex * 2;
-                  final first = sorted[firstIndex];
-                  final firstSongIndex = songs.indexOf(first);
-                  final firstCount = (counts[first.id.toString()] ?? 0) as num;
-                  final secondIndex = firstIndex + 1;
-
-                  Widget tile(LocalSong song, num count, int songIndex) {
-                    return _PlaylistBannerCard(
-                      song: song,
-                      playCount: count.toInt(),
-                      height: _tileHeight(rowIndex, songIndex == secondIndex),
-                      onTap: () => onPlay(songs, songIndex),
-                      onLongPress: () =>
-                          onLongPress(context, song, songs, songIndex),
-                    );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: tile(first, firstCount, firstSongIndex),
-                        ),
-                        const SizedBox(width: 12),
-                        if (secondIndex < sorted.length)
-                          Expanded(
-                            child: tile(
-                              sorted[secondIndex],
-                              (counts[sorted[secondIndex].id.toString()] ?? 0)
-                                  as num,
-                              songs.indexOf(sorted[secondIndex]),
-                            ),
-                          )
-                        else
-                          const Expanded(child: SizedBox()),
-                      ],
+            SliverToBoxAdapter(child: widget.titleHeader),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: TextField(
+                  onChanged: (value) =>
+                      setState(() => _filter = value.toLowerCase()),
+                  style: TextStyle(color: c.primaryLabel),
+                  decoration: InputDecoration(
+                    hintText: context.l10n.searchInPlaylists,
+                    hintStyle: TextStyle(color: c.secondaryLabel),
+                    filled: true,
+                    fillColor: c.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
                     ),
-                  );
-                }, childCount: (sorted.length + 1) ~/ 2),
+                    prefixIcon: Icon(
+                      CupertinoIcons.search,
+                      color: c.secondaryLabel,
+                    ),
+                  ),
+                ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: GestureDetector(
+                onTap: _createPlaylist,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.plus,
+                          color: Color(0xFFF92D48),
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Text(
+                        context.l10n.newPlaylist,
+                        style: const TextStyle(
+                          color: Color(0xFFF92D48),
+                          fontSize: 17,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (playlists.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyPlaylists(onCreate: _createPlaylist),
+              )
+            else
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, widget.bottomClearance),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => ListTile(
+                      title: Text(
+                        playlists[index].name,
+                        style: TextStyle(color: c.primaryLabel),
+                      ),
+                      subtitle: Text(
+                        '${playlists[index].songIds.length} ${context.l10n.songs}',
+                        style: TextStyle(color: c.secondaryLabel),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<Widget>(
+                          builder: (_) =>
+                              PlaylistPage.user(playlist: playlists[index]),
+                        ),
+                      ),
+                    ),
+                    childCount: playlists.length,
+                  ),
+                ),
+              ),
           ],
         );
       },
     );
   }
+}
 
-  /// Fixed pattern keeps the "random" tile sizes stable during rebuilds.
-  double _tileHeight(int row, bool secondTile) {
-    const patterns = <List<double>>[
-      [196, 148],
-      [148, 196],
-      [176, 176],
-      [212, 156],
-      [156, 212],
-    ];
-    return patterns[row % patterns.length][secondTile ? 1 : 0];
-  }
+class _EmptyPlaylists extends StatelessWidget {
+  const _EmptyPlaylists({required this.onCreate});
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            context.l10n.noPlaylistsCreated,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.of(context).primaryLabel,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.noPlaylistsYet,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.of(context).secondaryLabel,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: onCreate,
+              child: Text(context.l10n.newPlaylist),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
