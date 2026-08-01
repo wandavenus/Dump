@@ -8,7 +8,7 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'android/**'
-      - 'native_android_runtime/**'
+      - 'native_audio_runtime/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
 
@@ -19,7 +19,7 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'android/**'
-      - 'native_android_runtime/**'
+      - 'native_audio_runtime/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
        
@@ -53,14 +53,6 @@ jobs:
         with:
           channel : stable
           cache: true
-
-      - name: Cache pub
-        uses: actions/cache@v6
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
 
       - name: Install dependencies
         run: flutter pub get
