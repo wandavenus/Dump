@@ -123,7 +123,7 @@ class _FrequentSongsViewState extends State<_FrequentSongsView> {
               child: GestureDetector(
                 onTap: _createPlaylist,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 16, 12),
                   child: Row(
                     children: [
                       Container(
@@ -141,7 +141,7 @@ class _FrequentSongsViewState extends State<_FrequentSongsView> {
                       ),
                       const SizedBox(width: 20),
                       Text(
-                        context.l10n.newPlaylist,
+                        '${context.l10n.newPlaylistDialogTitle}...',
                         style: const TextStyle(
                           color: Color(0xFFF92D48),
                           fontSize: 17,
@@ -152,10 +152,13 @@ class _FrequentSongsViewState extends State<_FrequentSongsView> {
                 ),
               ),
             ),
+            const SliverToBoxAdapter(child: Divider(height: 1, thickness: 0.5)),
             if (playlists.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyPlaylists(onCreate: _createPlaylist),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 148),
+                  child: _EmptyPlaylists(onCreate: _createPlaylist),
+                ),
               )
             else
               SliverPadding(
@@ -212,19 +215,33 @@ class _EmptyPlaylists extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            context.l10n.noPlaylistsYet,
+            'Anda dapat membuat daftar putar dari lagu '
+            'di perpustakaan Anda atau dari katalog Apple Music.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.of(context).secondaryLabel,
               fontSize: 16,
             ),
           ),
-          const SizedBox(height: 28),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: onCreate,
-              child: Text(context.l10n.newPlaylist),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            child: SizedBox(
+              width: double.infinity,
+              height: 61,
+              child: FilledButton(
+                onPressed: onCreate,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF2948),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  context.l10n.newPlaylistDialogTitle,
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ),
             ),
           ),
         ],

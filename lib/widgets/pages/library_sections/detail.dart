@@ -131,7 +131,13 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
         title: title,
-        scrollOffsetListenable: _offsetNotifier,
+        scrollOffsetListenable:
+            widget.destination == _LibraryDestination.playlist
+            ? null
+            : _offsetNotifier,
+        scrollOffset: widget.destination == _LibraryDestination.playlist
+            ? 100
+            : 0,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).pop(),
@@ -159,7 +165,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
               songs: songs,
               countsFuture: _countsFuture!,
               scroll: _scroll,
-              titleHeader: _titleHeader(context),
+              titleHeader: const SizedBox.shrink(),
               bottomClearance: bottomClearance,
               onPlay: _playAt,
               onLongPress: (ctx, song, playlist, idx) => showSongContextMenu(
