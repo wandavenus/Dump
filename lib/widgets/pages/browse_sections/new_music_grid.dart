@@ -1,20 +1,18 @@
 part of '../browse_sections.dart';
 
-// ─── "Musik Baru" — paged 3×2 grid ───────────────────────────────────────────
-// Setiap halaman = 3 baris × 2 kolom = 6 item.
-// Tiap sel = artwork kecil di kiri + judul & artis di kanan.
-// Swipe horizontal berpindah ke 6 item berikutnya.
+// ─── "Musik Baru" — carousel kolom 4×3 ──────────────────────────────────────
+// Setiap halaman/kolom berisi 4 baris lagu.
+// Tiga kolom pertama dapat digeser horizontal, dengan kolom berikutnya
+// sengaja terlihat sebagian di sisi kanan seperti referensi desain.
 
-const int _kRowsPerPage = 3;
-const int _kColsPerPage = 2;
-const int _kItemsPerPage = _kRowsPerPage * _kColsPerPage; // 6
+const int _kRowsPerPage = 4;
+const int _kItemsPerPage = _kRowsPerPage; // satu kolom = 4 item
 
 const double _kArtworkSize = 44.0;
-const double _kColGap = 12.0;
 const double _kRowGap = 10.0;
 
-// Total tinggi area grid:
-// 3 × 44 (artwork) + 2 × 10 (row gap) + 16×2 (padding atas bawah) = 196
+// Total tinggi area carousel:
+// 4 × 44 (artwork) + 3 × 10 (row gap) + 16×2 (padding atas bawah) = 240
 const double _kGridHeight =
     _kRowsPerPage * _kArtworkSize + (_kRowsPerPage - 1) * _kRowGap + 32.0;
 
@@ -27,7 +25,9 @@ class _NewMusicSection extends StatefulWidget {
 }
 
 class _NewMusicSectionState extends State<_NewMusicSection> {
-  final _controller = PageController();
+  // Slightly narrower pages expose the next column at the right edge,
+  // matching the horizontal carousel treatment in the reference.
+  final _controller = PageController(viewportFraction: 0.92);
 
   @override
   void dispose() {
@@ -69,6 +69,8 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
           height: _kGridHeight,
           child: PageView.builder(
             controller: _controller,
+            // Leave a preview of the next horizontal column visible.
+            padEnds: false,
             itemCount: pageCount,
             itemBuilder: (context, pageIndex) {
               final start = pageIndex * _kItemsPerPage;
@@ -89,7 +91,7 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
   }
 }
 
-// ─── Satu halaman = 3 baris × 2 kolom ────────────────────────────────────────
+// ─── Satu halaman = satu kolom penuh berisi 4 baris ───────────────────────────
 
 class _NewMusicPage extends StatelessWidget {
   final List<LocalSong> songs;
@@ -109,31 +111,19 @@ class _NewMusicPage extends StatelessWidget {
         horizontal: kPageLeftPadding,
         vertical: 16,
       ),
-      child: LayoutBuilder(
-        builder: (ctx, constraints) {
-          final cellW = (constraints.maxWidth - _kColGap) / _kColsPerPage;
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(_kRowsPerPage, (row) {
-              return Row(
-                children: List.generate(_kColsPerPage, (col) {
-                  final idx = row * _kColsPerPage + col;
-                  return Padding(
-                    padding: EdgeInsets.only(left: col == 0 ? 0 : _kColGap),
-                    child: idx < songs.length
-                        ? _NewMusicCell(
-                            song: songs[idx],
-                            allSongs: allSongs,
-                            globalIndex: pageStart + idx,
-                            width: cellW,
-                          )
-                        : SizedBox(width: cellW, height: _kArtworkSize),
-                  );
-                }),
-              );
-            }),
-          );
-        },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(_kRowsPerPage, (row) {
+          final idx = row;
+          return songs.length > idx
+              ? _NewMusicCell(
+                  song: songs[idx],
+                  allSongs: allSongs,
+                  globalIndex: pageStart + idx,
+                  width: double.infinity,
+                )
+              : const SizedBox(width: double.infinity, height: _kArtworkSize);
+        }),
       ),
     );
   }
