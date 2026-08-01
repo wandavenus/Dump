@@ -3,7 +3,7 @@ part of '../../library_sections.dart';
 /// CustomScrollView for the Daftar Putar (Frequently Played) library tab.
 ///
 /// Loads play-count data via [countsFuture] and sorts [songs] by play count
-/// descending. Uses [_PlaylistBannerCard] for each item.
+/// descending. Displays the results as a Windows-style tile grid.
 class _FrequentSongsView extends StatelessWidget {
   const _FrequentSongsView({
     required this.songs,
@@ -47,23 +47,65 @@ class _FrequentSongsView extends StatelessWidget {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final song = sorted[index];
-                  final songIndex = songs.indexOf(song);
-                  final count = (counts[song.id.toString()] ?? 0) as num;
-                  return _PlaylistBannerCard(
-                    song: song,
-                    playCount: count.toInt(),
-                    onTap: () => onPlay(songs, songIndex),
-                    onLongPress: () =>
-                        onLongPress(context, song, songs, songIndex),
+                delegate: SliverChildBuilderDelegate((context, rowIndex) {
+                  final firstIndex = rowIndex * 2;
+                  final first = sorted[firstIndex];
+                  final firstSongIndex = songs.indexOf(first);
+                  final firstCount = (counts[first.id.toString()] ?? 0) as num;
+                  final secondIndex = firstIndex + 1;
+
+                  Widget tile(LocalSong song, num count, int songIndex) {
+                    return _PlaylistBannerCard(
+                      song: song,
+                      playCount: count.toInt(),
+                      height: _tileHeight(rowIndex, songIndex == secondIndex),
+                      onTap: () => onPlay(songs, songIndex),
+                      onLongPress: () =>
+                          onLongPress(context, song, songs, songIndex),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: tile(first, firstCount, firstSongIndex),
+                        ),
+                        const SizedBox(width: 12),
+                        if (secondIndex < sorted.length)
+                          Expanded(
+                            child: tile(
+                              sorted[secondIndex],
+                              (counts[sorted[secondIndex].id.toString()] ?? 0)
+                                  as num,
+                              songs.indexOf(sorted[secondIndex]),
+                            ),
+                          )
+                        else
+                          const Expanded(child: SizedBox()),
+                      ],
+                    ),
                   );
-                }, childCount: sorted.length),
+                }, childCount: (sorted.length + 1) ~/ 2),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// Fixed pattern keeps the "random" tile sizes stable during rebuilds.
+  double _tileHeight(int row, bool secondTile) {
+    const patterns = <List<double>>[
+      [196, 148],
+      [148, 196],
+      [176, 176],
+      [212, 156],
+      [156, 212],
+    ];
+    return patterns[row % patterns.length][secondTile ? 1 : 0];
   }
 }
