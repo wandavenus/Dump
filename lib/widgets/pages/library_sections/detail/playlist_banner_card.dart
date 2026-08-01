@@ -21,6 +21,7 @@ class _PlaylistBannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
+      padding: EdgeInsets.zero,
       child: GestureDetector(
         onTap: onTap,
         onLongPress: onLongPress,
