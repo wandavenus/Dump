@@ -20,6 +20,7 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
   static const double _favoriteIconSize = 19;
 
   bool _isFavorite = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -27,9 +28,22 @@ class _PlayerFavoriteButtonState extends State<PlayerFavoriteButton> {
     unawaited(_loadFavoriteState());
   }
 
+  @override
+  void didUpdateWidget(covariant PlayerFavoriteButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.song.id != widget.song.id) {
+      unawaited(_loadFavoriteState());
+    }
+  }
+
   Future<void> _loadFavoriteState() async {
+    final generation = ++_loadGeneration;
+    final songId = widget.song.id;
     final isFavorite = await PlaylistService.isFavorite(widget.song.id);
-    if (mounted) setState(() => _isFavorite = isFavorite);
+    if (!mounted || generation != _loadGeneration || songId != widget.song.id) {
+      return;
+    }
+    setState(() => _isFavorite = isFavorite);
   }
 
   Future<void> _toggleFavorite() async {
