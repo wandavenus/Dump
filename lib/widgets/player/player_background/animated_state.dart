@@ -19,7 +19,7 @@ class _AnimatedBlurredPlayerBackgroundState
     }
   }
 
-  Future<void> _loadPalette(int id) async {
+  Future<void> _loadPalette(int id, {int attempt = 0}) async {
     if (id <= 0) {
       // Clear palette so PlayerFallbackBackground is shown, not stale colors
       // from the previously-playing song.
@@ -47,6 +47,17 @@ class _AnimatedBlurredPlayerBackgroundState
     // Slow path: native bridge extracts colours from ArtworkCacheManager.
     final colors = await NativePaletteService.get(id);
     if (!mounted || widget.songId != id) return;
+
+    // ArtworkCacheManager and Media3 can finish their work just after the
+    // palette call starts during a shuffle transition. The service deliberately
+    // does not cache this hard fallback, so retry a few times before showing it.
+    if (NativePaletteService.isHardFallback(colors) && attempt < 3) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (mounted && widget.songId == id) {
+        await _loadPalette(id, attempt: attempt + 1);
+      }
+      return;
+    }
 
     setState(() {
       _songId = id;
