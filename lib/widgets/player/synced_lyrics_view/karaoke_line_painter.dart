@@ -18,6 +18,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
   // ── Opsi A: Path di-reuse setiap frame, bukan dibuat baru ────────────────
   final Path _clipPath = Path();
+  final Path _currentClipPath = Path();
 
   // ── Opsi B: Flag untuk skip _cacheWordPixels saat hanya warna berubah ───
   bool _wordRectsPrecomputed = false;
@@ -65,6 +66,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
     // ── Opsi A: reset Path yang sama, tidak instansiasi baru tiap frame ───
     _clipPath.reset();
+    _currentClipPath.reset();
 
     for (int i = 0; i <= cursor; i++) {
       final rects = _wordRects[i];
@@ -74,9 +76,9 @@ class _KaraokeLinePainter extends CustomPainter {
         }
       } else {
         for (final rect in rects) {
-          final clipW = rect.width * progress;
+          final clipW = rect.width * Curves.easeOutCubic.transform(progress);
           if (textDirection == TextDirection.rtl) {
-            _clipPath.addRect(
+            _currentClipPath.addRect(
               Rect.fromLTRB(
                 rect.right - clipW,
                 rect.top,
@@ -85,7 +87,7 @@ class _KaraokeLinePainter extends CustomPainter {
               ),
             );
           } else {
-            _clipPath.addRect(
+            _currentClipPath.addRect(
               Rect.fromLTRB(
                 rect.left,
                 rect.top,
@@ -101,6 +103,20 @@ class _KaraokeLinePainter extends CustomPainter {
     if (!_clipPath.getBounds().isEmpty) {
       canvas.save();
       canvas.clipPath(_clipPath);
+      highlight.paint(canvas, Offset.zero);
+      canvas.restore();
+    }
+
+    if (!_currentClipPath.getBounds().isEmpty) {
+      // Fade the current word in as its timing window begins. The bounded
+      // layer opacity prevents a hard pop at the word boundary while the
+      // eased clip keeps the fill motion visually smooth.
+      final fade = Curves.easeOutCubic.transform(progress);
+      canvas.saveLayer(
+        _currentClipPath.getBounds(),
+        Paint()..color = Colors.white.withValues(alpha: fade),
+      );
+      canvas.clipPath(_currentClipPath);
       highlight.paint(canvas, Offset.zero);
       canvas.restore();
     }
