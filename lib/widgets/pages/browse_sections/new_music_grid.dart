@@ -148,7 +148,6 @@ class _NewMusicCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     const artSize = _kArtworkSize;
-    final textW = width - artSize - 10;
 
     return GestureDetector(
       onTap: () async {
@@ -177,8 +176,7 @@ class _NewMusicCell extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             // Judul + artis + divider
-            SizedBox(
-              width: textW,
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -209,6 +207,12 @@ class _NewMusicCell extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              CupertinoIcons.ellipsis_vertical,
+              size: 20,
+              color: c.secondaryLabel,
             ),
           ],
         ),
