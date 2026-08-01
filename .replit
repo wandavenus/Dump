@@ -110,12 +110,12 @@ outputType = "console"
 name = "Dart Format"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && dart format ."
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && dart format lib"
 
 [[ports]]
 localPort = 3000
