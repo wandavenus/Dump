@@ -61,8 +61,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: lineSpacing),
                   child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.easeOutCubic,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
                     style: TextStyle(
                       fontSize: fs,
                       fontWeight: FontWeight.bold,

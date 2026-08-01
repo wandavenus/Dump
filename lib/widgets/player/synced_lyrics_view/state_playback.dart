@@ -37,8 +37,29 @@ extension _SyncedLyricsViewPlaybackState on _SyncedLyricsViewState {
     }
     // ─────────────────────────────────────────────────────────────────
 
-    _anchorPos = position;
-    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final wasPlaying = _isPlaying;
+
+    if (!wasPlaying) {
+      _anchorPos = position;
+      _anchorWallMs = nowMs;
+    } else {
+      // Native position events arrive every 200 ms and may already be slightly
+      // stale by the time they cross the platform channel. Re-anchoring
+      // directly to every event causes the 60 FPS interpolation to jump back.
+      // Apply only a small bounded correction so the visual clock remains
+      // continuous while still converging to the real audio position.
+      final predicted = _interpolatedPosition;
+      final deltaMs = position.inMilliseconds - predicted.inMilliseconds;
+      if (deltaMs.abs() > 1000) {
+        // Large discontinuities are intentional seeks or track changes.
+        _anchorPos = position;
+      } else {
+        final correctionMs = (deltaMs * 0.18).round().clamp(-40, 40);
+        _anchorPos = predicted + Duration(milliseconds: correctionMs);
+      }
+      _anchorWallMs = nowMs;
+    }
 
     if (_isPlaying && !_frameTicker.isActive) unawaited(_frameTicker.start());
 
