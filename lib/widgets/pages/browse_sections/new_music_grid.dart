@@ -223,10 +223,13 @@ class _NewMusicCell extends StatelessWidget {
             if (showDivider) ...[
               const SizedBox(height: 6),
               // Divider membentang sampai area ikon ellipsis.
-              Container(
-                width: double.infinity,
-                height: 0.5,
-                color: c.separator,
+              Padding(
+                padding: const EdgeInsets.only(left: artSize + 10),
+                child: Container(
+                  width: double.infinity,
+                  height: 0.5,
+                  color: c.separator,
+                ),
               ),
             ],
           ],
