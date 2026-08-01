@@ -20,9 +20,9 @@ class ArtistPageContent extends StatelessWidget {
           ArtistHero(songs: songs),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),
-          const Divider(
-            color: Colors.white,
-            thickness: 0.5,
+          Divider(
+            color: AppColors.of(context).subtleSeparator,
+            thickness: 0.4,
             height: 1,
           ),
           _ArtistFooter(songs: songs),
