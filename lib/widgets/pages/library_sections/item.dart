@@ -17,7 +17,7 @@ const _defaultItems = <_LibraryItem>[
   ),
   _LibraryItem(
     id: 'artist',
-    icon: CupertinoIcons.mic,
+    icon: CupertinoIcons.music_mic,
     destination: _LibraryDestination.artists,
   ),
   _LibraryItem(
