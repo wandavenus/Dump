@@ -162,63 +162,73 @@ class _NewMusicCell extends StatelessWidget {
       },
       child: SizedBox(
         width: width,
-        height: artSize,
-        child: Row(
+        height: artSize + (showDivider ? 7 : 0),
+        child: Column(
           children: [
-            // Artwork
-            ArtworkHairlineBorder(
-              borderRadius: BorderRadius.circular(6),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SongArtwork(
-                  songId: song.id,
-                  size: artSize,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Judul + artis + divider
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+            SizedBox(
+              height: artSize,
+              child: Row(
                 children: [
-                  Text(
-                    song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: c.primaryLabel,
+                  // Artwork
+                  ArtworkHairlineBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: SongArtwork(
+                        songId: song.id,
+                        size: artSize,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    song.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: c.secondaryLabel),
-                  ),
-                  if (showDivider) ...[
-                    const SizedBox(height: 6),
-                    // Divider hanya di antara baris, bukan setelah baris terakhir.
-                    Container(
-                      width: double.infinity,
-                      height: 0.5,
-                      color: c.separator,
+                  const SizedBox(width: 10),
+                  // Judul + artis
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: c.primaryLabel,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          song.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c.secondaryLabel,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.ellipsis_vertical,
+                    size: 20,
+                    color: c.secondaryLabel,
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              CupertinoIcons.ellipsis_vertical,
-              size: 20,
-              color: c.secondaryLabel,
-            ),
+            if (showDivider) ...[
+              const SizedBox(height: 6),
+              // Divider membentang sampai area ikon ellipsis.
+              Container(
+                width: double.infinity,
+                height: 0.5,
+                color: c.separator,
+              ),
+            ],
           ],
         ),
       ),
