@@ -6,11 +6,13 @@ class SongListRow extends StatelessWidget {
     required this.song,
     required this.index,
     required this.playlist,
+    this.showDivider = true,
   });
 
   final LocalSong song;
   final int index;
   final List<LocalSong> playlist;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
@@ -27,13 +29,14 @@ class SongListRow extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Divider(
-            color: c.subtleSeparator,
-            thickness: 0.4,
-            height: 1,
-            indent: 44,
-            endIndent: 0,
-          ),
+          if (showDivider)
+            Divider(
+              color: c.subtleSeparator,
+              thickness: 0.4,
+              height: 1,
+              indent: 44,
+              endIndent: 0,
+            ),
           SizedBox(
             height: 50,
             child: Row(

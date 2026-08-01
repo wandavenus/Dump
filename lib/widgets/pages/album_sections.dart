@@ -25,6 +25,11 @@ class AlbumPageContent extends StatelessWidget {
           AlbumHero(album: album),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),
+          const Divider(
+            color: Colors.white,
+            thickness: 0.5,
+            height: 1,
+          ),
           _AlbumFooter(album: album, songs: songs),
           _MoreByArtist(currentAlbum: album),
           SizedBox(height: bottomClearance),

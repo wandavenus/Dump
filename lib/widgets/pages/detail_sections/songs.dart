@@ -32,8 +32,12 @@ class SongListSection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
           itemCount: songs.length,
-          itemBuilder: (context, index) =>
-              SongListRow(song: songs[index], index: index, playlist: songs),
+          itemBuilder: (context, index) => SongListRow(
+            song: songs[index],
+            index: index,
+            playlist: songs,
+            showDivider: index > 0,
+          ),
         ),
       ],
     );
