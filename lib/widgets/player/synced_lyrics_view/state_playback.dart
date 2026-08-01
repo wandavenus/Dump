@@ -63,8 +63,14 @@ extension _SyncedLyricsViewPlaybackState on _SyncedLyricsViewState {
 
     if (_isPlaying && !_frameTicker.isActive) unawaited(_frameTicker.start());
 
-    _maybeUpdateCurrentLine(position, allowBinarySearch: true);
-    _karaokeController.updatePosition(position);
+    // Keep line selection on the same corrected clock as the painter.
+    // Using raw native timestamps here can switch the line ahead of the
+    // smoothly interpolated word highlight.
+    _maybeUpdateCurrentLine(_anchorPos, allowBinarySearch: true);
+    // Use the corrected anchor, NOT the raw native position.
+    // Raw position causes a 200 ms snap every time the EventChannel fires,
+    // which is what made the highlight appear to jump.
+    _karaokeController.updatePosition(_anchorPos);
   }
 
   void _onFrameTick(Duration _) {
