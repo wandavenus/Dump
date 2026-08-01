@@ -45,7 +45,11 @@ class BrowseBannerCarousel extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.normal,
-                      color: AppColors.of(context).primaryLabel,
+                      // Use the active Material theme directly. The banner
+                      // can be built through a nested context where the
+                      // custom extension may still carry the dark value
+                      // during a theme transition.
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
