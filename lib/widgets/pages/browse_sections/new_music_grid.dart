@@ -39,7 +39,10 @@ class _NewMusicSectionState extends State<_NewMusicSection> {
   Widget build(BuildContext context) {
     if (widget.songs.isEmpty) return const SizedBox.shrink();
 
-    final pageCount = (widget.songs.length / _kItemsPerPage).ceil();
+    // Keep the carousel compact: at most three columns, while each column
+    // retains the existing four-row layout.
+    final pageCount =
+        ((widget.songs.length / _kItemsPerPage).ceil()).clamp(1, 3) as int;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
