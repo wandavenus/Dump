@@ -37,7 +37,6 @@ class _LanguageSectionState extends State<_LanguageSection> {
     final c = AppColors.of(context);
     await showModalBottomSheet<void>(
       context: context,
-      sheetAnimationStyle: AnimationStyle.noAnimation,
       backgroundColor: Colors.transparent,
       builder: (_) => SwipeToDismissSheet(
         child: Container(

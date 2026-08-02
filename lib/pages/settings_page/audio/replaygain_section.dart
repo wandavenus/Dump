@@ -60,7 +60,6 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
     unawaited(
       showModalBottomSheet<void>(
         context: context,
-        sheetAnimationStyle: AnimationStyle.noAnimation,
         backgroundColor: Colors.transparent,
         builder: (_) => _ReplayGainModePicker(current: current),
       ),
