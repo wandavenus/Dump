@@ -232,14 +232,23 @@ echo "════════════════════════�
 flutter doctor 2>&1 || true
 
 # ──────────────────────────────────────────────────
-# 8. flutter build apk --debug
+# 8. flutter build apk
 # ──────────────────────────────────────────────────
+BUILD_MODE="${1:---release}"
+case "$BUILD_MODE" in
+  --debug|--profile|--release) ;;
+  *)
+    echo "✗ Mode build tidak valid: $BUILD_MODE (gunakan --debug, --profile, atau --release)"
+    exit 1
+    ;;
+esac
+
 echo ""
 echo "══════════════════════════════════════════════"
-echo " flutter build apk --debug"
+echo " flutter build apk $BUILD_MODE"
 echo "══════════════════════════════════════════════"
 cd "$PROJECT_ROOT"
-flutter build apk --debug 2>&1
+flutter build apk "$BUILD_MODE" 2>&1
 echo ""
 echo "✓ Build selesai!"
 ls -lh build/app/outputs/flutter-apk/*.apk 2>/dev/null || true

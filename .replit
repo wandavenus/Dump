@@ -26,6 +26,10 @@ args = "Watch & Rebuild Web"
 task = "workflow.run"
 args = "Dart Format"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build APK"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -74,12 +78,12 @@ name = "Build APK"
 mode = "sequential"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash setup-flutter.sh && bash build-apk.sh"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash setup-flutter.sh && bash build-apk.sh --release"
 
 [[workflows.workflow]]
 name = "Flutter Debug Web"
