@@ -112,9 +112,13 @@ class PlaybackNotificationManager(
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Music Playback",
-                    NotificationManager.IMPORTANCE_LOW).apply {
+                    // Keep the media control notification ranked above ordinary
+                    // background notifications. Alerts are explicitly disabled
+                    // below because playback state changes must stay silent.
+                    NotificationManager.IMPORTANCE_HIGH).apply {
                     setSound(null, null)
                     enableVibration(false)
+                    setShowBadge(false)
                 }
             )
         }
@@ -304,10 +308,21 @@ class PlaybackNotificationManager(
             .setColor(notificationIconColor())
             .setContentTitle(title)
             .setContentText(artist)
-            .setOngoing(isPlaying)
+            // Keep the player notification pinned while the foreground media
+            // service is alive, including when playback is paused. Otherwise
+            // MIUI can rank a newly-arriving notification above the player.
+            .setOngoing(true)
+            .setAutoCancel(false)
             .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(
+                NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
+            )
+        }
 
         launchPendingIntent?.let { builder.setContentIntent(it) }
         bitmap?.let { builder.setLargeIcon(it) }
@@ -458,7 +473,10 @@ class PlaybackNotificationManager(
     }
 
     companion object {
-        const val CHANNEL_ID        = "media3_playback"
+        // Versioned so devices that already created the old LOW-importance
+        // channel receive the corrected ranking. Android does not allow an
+        // app to raise an existing channel's importance programmatically.
+        const val CHANNEL_ID        = "media3_playback_priority_v2"
         const val NOTIFICATION_ID   = 1001
         const val ACTION_PLAY_PAUSE = "dev.wndavenz.music.ACTION_PLAY_PAUSE"
         const val ACTION_SKIP_NEXT  = "dev.wndavenz.music.ACTION_SKIP_NEXT"
