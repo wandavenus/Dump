@@ -398,6 +398,7 @@ class Media3PlaybackService : MediaSessionService() {
             },
             preloadManager      = preloadManager,
             getVolumeBeforeDuck = { audioFocusManager.volumeBeforeDuck },
+            getEffectiveVolume  = { audioFocusManager.effectiveVolume() },
             hasAudioFocus       = { audioFocusManager.hasAudioFocus() },
             requestAudioFocus   = { audioFocusManager.request() },
             getQueue            = { queueManager.queue },

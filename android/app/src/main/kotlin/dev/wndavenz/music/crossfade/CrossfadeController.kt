@@ -51,6 +51,7 @@ class CrossfadeController(
     private val switchSessionPlayer:  (ExoPlayer) -> Unit,
     private val preloadManager:       PreloadManager,
     private val getVolumeBeforeDuck:  () -> Float,
+     private val getEffectiveVolume:   () -> Float = getVolumeBeforeDuck,
     private val hasAudioFocus:        () -> Boolean,
     private val requestAudioFocus:    () -> Boolean,
     private val getQueue:             () -> List<Map<String, Any?>>,
@@ -356,7 +357,6 @@ class CrossfadeController(
     durationMs: Long,
 ) {
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
-        val targetVol  = getVolumeBeforeDuck().coerceIn(0f, 1f)
         val steps      = (durationMs / FADE_STEP_MS).coerceAtLeast(1L).toInt()
         val stepMs     = (durationMs / steps).coerceAtLeast(1L)
         var step       = 0
@@ -385,6 +385,7 @@ class CrossfadeController(
                         "runEqualPowerFade: COMPLETE (step=$step/$steps) — about to stop old player",
                         newPlayer, oldPlayer)
 
+                    val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
                     setActiveQueueIndex(nextIndex) 
                     newPlayer.volume = targetVol
 
@@ -442,6 +443,11 @@ class CrossfadeController(
                 }
 
                 // ── Equal-power volume update ──────────────────────────────────
+                // Read the target on every tick so a user volume change or a
+                // duck/restore event during the overlap is reflected immediately.
+                // Capturing this once before the fade would restore the stale
+                // pre-change volume at completion.
+                val targetVol = getEffectiveVolume().coerceIn(0f, 1f)
                 val t      = step.toFloat() / steps.toFloat()
                 val theta  = (t * PI / 2.0).toFloat()
                 oldPlayer.volume = (targetVol * cos(theta)).coerceIn(0f, targetVol)

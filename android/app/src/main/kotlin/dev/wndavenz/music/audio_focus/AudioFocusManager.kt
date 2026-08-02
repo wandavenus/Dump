@@ -64,6 +64,7 @@ class AudioFocusManager(
 
     private var _hasAudioFocus        = false
     private var resumeAfterFocusGain  = false
+    private var isDucked             = false
     private var focusRequest: AudioFocusRequest? = null
 
     // ── Focus change listener ─────────────────────────────────────────────────
@@ -75,6 +76,7 @@ class AudioFocusManager(
             AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
             AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK -> {
                 _hasAudioFocus = true
+                isDucked = false
                 // Restore volume to pre-duck level
                 p.volume = volumeBeforeDuck.coerceIn(0f, 1f)
                 if (resumeAfterFocusGain) {
@@ -94,12 +96,14 @@ class AudioFocusManager(
                 if (!getCrossfadeInProgress()) {
                     volumeBeforeDuck = p.volume.coerceIn(0.01f, 1f)
                 }
+                isDucked = true
                 // Duck to 20% of the pre-duck target (–14 dB).
                 p.volume = (volumeBeforeDuck * 0.2f).coerceIn(0f, 0.2f)
                 log("AUDIOFOCUS_DUCK → ${p.volume} (crossfade=${getCrossfadeInProgress()})")
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                isDucked = false
                 onFocusLoss()
                 resumeAfterFocusGain = p.isPlaying
                 p.pause()
@@ -108,6 +112,7 @@ class AudioFocusManager(
             }
 
             AudioManager.AUDIOFOCUS_LOSS -> {
+                isDucked = false
                 onFocusLoss()
                 resumeAfterFocusGain = false
                 p.pause()
@@ -178,6 +183,14 @@ class AudioFocusManager(
     }
 
     fun hasAudioFocus(): Boolean = _hasAudioFocus
+
+    /**
+     * Returns the volume target that should be used by volume automation.
+     * During audio focus ducking this is the same 20% target used for the
+     * active player, allowing both players in a crossfade to stay ducked.
+     */
+    fun effectiveVolume(): Float =
+        (volumeBeforeDuck * if (isDucked) 0.2f else 1f).coerceIn(0f, 1f)
 
     /**
      * Called when the user explicitly sets the volume via MethodChannel.

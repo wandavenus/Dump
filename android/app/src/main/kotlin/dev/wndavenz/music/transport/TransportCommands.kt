@@ -326,8 +326,12 @@ class TransportCommands(
 
             "setCrossfadeDuration" -> {
                 val sec = (call.argument<Number>("duration")?.toFloat() ?: 0f).coerceAtLeast(0f)
+                val wasCrossfading = crossfadeController.crossfadeInProgress
+                val promotedIndex  = preloadManager.preloadedQueueIndex
                 crossfadeController.setDuration(sec)
                 crossfadeController.cancel(resetVolume = true)
+                preloadManager.clearStandbyQueue()
+                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
                 if (sec <= 0f) {
                     preloadManager.releaseStandbyPlayer()
                 } else {
@@ -487,9 +491,18 @@ class TransportCommands(
     }
 
     private fun handlePause(p: ExoPlayer, result: MethodChannel.Result) {
+        // A promoted player temporarily contains only the incoming item. Cancel
+        // first and restore the full queue, otherwise resuming after pause can
+        // lock navigation to that one item and the pending fade can continue
+        // writing volume after playback was paused.
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+        crossfadeController.cancel(resetVolume = true)
+        preloadManager.clearStandbyQueue()
+        restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
+
         // Fade out, then perform the actual pause + bookkeeping only once the
-        // fade completes (or immediately, unchanged, if a crossfade is active
-        // or fade duration resolves to 0 — see PlayPauseFadeController).
+        // fade completes (or immediately if the fade duration resolves to 0).
         playPauseFadeController.fadeOutThenPause(p) {
             p.pause()
             transportState.stopPositionTicker()
@@ -508,12 +521,36 @@ class TransportCommands(
         // elsewhere) — no fade here, matches prior instant behavior. Cancel any
         // in-flight play/pause fade so it can't keep writing to a stopped player.
         playPauseFadeController.cancel(p, resetVolume = true)
+        val wasCrossfading = crossfadeController.crossfadeInProgress
+        val promotedIndex  = preloadManager.preloadedQueueIndex
+        crossfadeController.cancel(resetVolume = true)
+        preloadManager.clearStandbyQueue()
+        restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
         p.stop()
         transportState.stopPositionTicker()
         audioFocusManager.abandon()
         log("info", "stop")
         transportState.emitAll()
         result.success(null)
+    }
+
+    /**
+     * A promoted standby player owns a one-item timeline until the fade
+     * completes. If the fade is cancelled by pause/stop/settings, rebuild the
+     * authoritative queue before allowing another transport command to run.
+     */
+    private fun restoreQueueAfterCrossfadeCancel(
+        player: ExoPlayer,
+        wasCrossfading: Boolean,
+        promotedIndex: Int,
+    ) {
+        if (!wasCrossfading ||
+            promotedIndex !in queueManager.queue.indices ||
+            player.mediaItemCount >= queueManager.queue.size) {
+            return
+        }
+        queueManager.setActiveQueueIndex(promotedIndex)
+        queueManager.rebuildPlayerQueue()
     }
 
     private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
