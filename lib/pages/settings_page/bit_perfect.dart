@@ -44,6 +44,7 @@ class _BitPerfectSection extends StatelessWidget {
     }
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
+      sheetAnimationStyle: AnimationStyle.noAnimation,
       backgroundColor: Colors.transparent,
       builder: (_) => const _BitPerfectConfirmSheet(),
     );

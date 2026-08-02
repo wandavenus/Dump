@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 /// Wraps arbitrary bottom-sheet content with a swipe-down-to-dismiss
 /// gesture that responds anywhere on the child — not just a drag handle.
 ///
-/// Dragging down translates the whole sheet with a subtle fade. If the
-/// drag exceeds [dismissDistance] or [dismissVelocity] on release, the
+/// Dragging down translates the whole sheet without changing its opacity. If
+/// the drag exceeds [dismissDistance] or [dismissVelocity] on release, the
 /// enclosing route is popped; otherwise it snaps back to rest.
 class SwipeToDismissSheet extends StatefulWidget {
   final Widget child;
@@ -46,15 +46,13 @@ class _SwipeToDismissSheetState extends State<SwipeToDismissSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final dragFraction = (_dragOffset / 240).clamp(0.0, 1.0);
-
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragUpdate: _handleDragUpdate,
       onVerticalDragEnd: _handleDragEnd,
       child: Transform.translate(
         offset: Offset(0, _dragOffset),
-        child: Opacity(opacity: 1 - (dragFraction * 0.35), child: widget.child),
+        child: widget.child,
       ),
     );
   }

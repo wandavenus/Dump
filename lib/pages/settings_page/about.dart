@@ -21,6 +21,7 @@ class _AboutSection extends StatelessWidget {
           title: l.support,
           onTap: () => showModalBottomSheet<void>(
             context: context,
+            sheetAnimationStyle: AnimationStyle.noAnimation,
             backgroundColor: Colors.transparent,
             isScrollControlled: true,
             builder: (sheetCtx) => SafeArea(

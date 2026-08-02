@@ -192,6 +192,7 @@ class _UserPlaylistCardWidgetState extends State<_UserPlaylistCardWidget> {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
+        sheetAnimationStyle: AnimationStyle.noAnimation,
         backgroundColor: Colors.transparent,
         builder: (ctx) => SwipeToDismissSheet(
           child: ColoredBox(

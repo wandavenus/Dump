@@ -207,6 +207,7 @@ class _MoreMenuOverlayState extends State<_MoreMenuOverlay> {
                     onTap: () => widget.onNavigate(
                       () => showModalBottomSheet<void>(
                         context: context,
+                        sheetAnimationStyle: AnimationStyle.noAnimation,
                         isScrollControlled: true,
                         useSafeArea: true,
                         backgroundColor: Colors.transparent,
