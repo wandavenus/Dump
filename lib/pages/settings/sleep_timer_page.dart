@@ -28,6 +28,7 @@ void showSleepTimerSheet(BuildContext context) {
   unawaited(
     showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: AnimationStyle.noAnimation,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,

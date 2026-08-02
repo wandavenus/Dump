@@ -36,6 +36,7 @@ void showSongContextMenu(
   unawaited(
     showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: AnimationStyle.noAnimation,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useRootNavigator: true,
@@ -302,6 +303,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
+        sheetAnimationStyle: AnimationStyle.noAnimation,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         useRootNavigator: true,

@@ -9,6 +9,7 @@ void _showStatsSheet(BuildContext context) {
       unawaited(
         showModalBottomSheet<void>(
           context: context,
+          sheetAnimationStyle: AnimationStyle.noAnimation,
           backgroundColor: Colors.transparent,
           builder: (_) => _PlaybackStatsSheet(stats: stats),
         ),

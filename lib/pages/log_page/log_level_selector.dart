@@ -48,6 +48,7 @@ class _LogLevelSelector extends StatelessWidget {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
+        sheetAnimationStyle: AnimationStyle.noAnimation,
         backgroundColor: c.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
