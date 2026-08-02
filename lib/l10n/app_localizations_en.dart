@@ -774,7 +774,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get thankYouSupport => 'Thank you for your support.';
 
   @override
-  String get sendReportGmail => 'Send your report to Gmail';
+  String get sendReportGmail => 'Send your report to';
 
   @override
   String get orSocialMedia =>
