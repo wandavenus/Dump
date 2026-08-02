@@ -48,7 +48,15 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (err) {
-        tryFile(path.join(BUILD_DIR, 'index.html'));
+        const fallback = path.join(BUILD_DIR, 'index.html');
+        if (fp !== fallback) {
+          tryFile(fallback);
+          return;
+        }
+        if (!res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Web build is unavailable. Run the Rebuild Web workflow.');
+        }
         return;
       }
       const ext = path.extname(fp).toLowerCase();
