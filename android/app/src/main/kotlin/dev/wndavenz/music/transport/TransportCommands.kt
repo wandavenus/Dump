@@ -215,8 +215,20 @@ class TransportCommands(
             }
 
             "setShuffleMode" -> {
-                p.shuffleModeEnabled = call.argument<Boolean>("enabled") ?: false
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                // During promotion the active player temporarily contains only
+                // the incoming track. Changing shuffle on that one-item
+                // timeline makes nextMediaItemIndex become unset, so the
+                // preload path clears the standby and playback can remain
+                // stuck on the promoted song. Restore the authoritative queue
+                // before changing shuffle, just like pause/skip/crossfade
+                // cancellation paths do.
+                val wasCrossfading = crossfadeController.crossfadeInProgress
+                val promotedIndex  = preloadManager.preloadedQueueIndex
+                crossfadeController.cancel(resetVolume = true)
                 preloadManager.clearStandbyQueue()
+                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
+                p.shuffleModeEnabled = enabled
                 if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
                 queueSync.save()
                 transportState.emitAll(emitQueue = true)
