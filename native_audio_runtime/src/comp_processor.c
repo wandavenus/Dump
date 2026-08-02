@@ -159,7 +159,10 @@ static int32_t _comp_init(void* self) {
     _comp.envelope_db[s]     = NAR_SILENCE_DB;
     _comp.last_sample_rate[s] = 0;
   }
-  atomic_store(&_comp.bypass,   0);
+  // Start bypassed. Dart pushes the persisted user setting after the
+  // pipeline/service is ready; never process audio with compressor defaults
+  // during that startup window.
+  atomic_store(&_comp.bypass,   1);
   COMP_LOG("_comp_init: ok (threshold=%.1f dB, ratio=%.1f:1)", kDefault.threshold_db, kDefault.ratio);
   return NATIVE_RUNTIME_OK;
 }
@@ -270,7 +273,9 @@ static void _comp_dispose(void* self) {
     _comp.last_sample_rate[s] = 0;
     atomic_store(&_comp.dirty[s], 0);
   }
-  atomic_store(&_comp.bypass, 0);
+  // Keep the processor fail-safe while the runtime is being torn down or
+  // re-initialized. The next _comp_init() also starts bypassed.
+  atomic_store(&_comp.bypass, 1);
 }
 
 static int32_t _comp_latency_frames(void* self) {

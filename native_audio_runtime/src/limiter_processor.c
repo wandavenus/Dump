@@ -103,7 +103,9 @@ static int32_t _lim_init(void* self) {
     memset(_lim.delay_buf[s], 0, sizeof(_lim.delay_buf[s]));
     _lim.last_sample_rate[s] = 0;
   }
-  atomic_store(&_lim.bypass, 0);
+  // Start bypassed. Do not apply the native -1 dBFS default before Dart has
+  // synchronized the user's explicit limiter setting.
+  atomic_store(&_lim.bypass, 1);
   LIM_LOG("_lim_init: ok (threshold=%.4f, lookahead=%d frames)",
           kDefault.threshold_linear, NAR_LIMITER_LOOKAHEAD_FRAMES);
   return NATIVE_RUNTIME_OK;
@@ -263,7 +265,9 @@ static void _lim_dispose(void* self) {
     _lim.last_sample_rate[s] = 0;
     atomic_store(&_lim.dirty[s], 0);
   }
-  atomic_store(&_lim.bypass, 0);
+  // Keep the processor fail-safe while the runtime is being torn down or
+  // re-initialized. The next _lim_init() also starts bypassed.
+  atomic_store(&_lim.bypass, 1);
 }
 
 static int32_t _lim_latency_frames(void* self) {

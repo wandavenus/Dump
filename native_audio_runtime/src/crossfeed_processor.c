@@ -151,7 +151,9 @@ static int32_t _xf_init(void* self) {
     memset(&_xf.hf_l[s], 0, sizeof(_xf.hf_l[s]));
     memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
   }
-  atomic_store(&_xf.bypass, 0);
+  // Start bypassed. The user-facing setting is synchronized from Dart after
+  // service readiness; default crossfeed must not color startup audio.
+  atomic_store(&_xf.bypass, 1);
 
   XF_LOG("_xf_init: ok (amount=%.2f, lp_cutoff=%.0f Hz, hf_comp=%.1f dB @ %.0f Hz, width=%.2f)",
          XF_DEFAULT_AMOUNT, XF_DEFAULT_CUTOFF_HZ,
@@ -304,7 +306,9 @@ static void _xf_dispose(void* self) {
     memset(&_xf.hf_r[s], 0, sizeof(_xf.hf_r[s]));
     atomic_store(&_xf.dirty[s], 0);
   }
-  atomic_store(&_xf.bypass, 0);
+  // Keep the processor fail-safe while the runtime is being torn down or
+  // re-initialized. The next _xf_init() also starts bypassed.
+  atomic_store(&_xf.bypass, 1);
 }
 
 static int32_t _xf_latency_frames(void* self) {

@@ -60,7 +60,9 @@ static int32_t _sc_init(void* self) {
   const float threshold_linear = nar_db_to_linear(SC_THRESHOLD_DB_DEFAULT);
   atomic_store(&_sc_threshold_bits,    nar_float_to_bits(threshold_linear));
   atomic_store(&_sc_threshold_db_bits, nar_float_to_bits(SC_THRESHOLD_DB_DEFAULT));
-  atomic_store(&_sc_bypass, 0);
+  // Start bypassed. The native -0.5 dBFS threshold is only a parameter
+  // default; it must not become an audible effect before Dart syncs settings.
+  atomic_store(&_sc_bypass, 1);
   SC_LOG("_sc_init: threshold=%.4f linear (%.1f dBFS)", threshold_linear, SC_THRESHOLD_DB_DEFAULT);
   return NATIVE_RUNTIME_OK;
 }
