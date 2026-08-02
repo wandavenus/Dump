@@ -484,10 +484,10 @@ void main() {
 
   // ── NativeCompressor tests (Phase 6) ─────────────────────────────────────
 
-  test('compressor: default bypass is off', () async {
+  test('compressor: default bypass is on', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
-    expect(NativeCompressor.instance.bypass, isFalse);
+    expect(NativeCompressor.instance.bypass, isTrue);
   });
 
   test('compressor: bypass round-trips correctly', () async {
@@ -749,10 +749,10 @@ void main() {
 
   // ── NativeLimiter tests (Phase 6) ─────────────────────────────────────────
 
-  test('limiter: default bypass is off', () async {
+  test('limiter: default bypass is on', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
-    expect(NativeLimiter.instance.bypass, isFalse);
+    expect(NativeLimiter.instance.bypass, isTrue);
   });
 
   test('limiter: bypass round-trips correctly', () async {
@@ -936,10 +936,10 @@ void main() {
 
   // ── NativeSoftClipper tests (Phase 6) ────────────────────────────────────
 
-  test('soft clipper: default bypass is off', () async {
+  test('soft clipper: default bypass is on', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
-    expect(NativeSoftClipper.instance.bypass, isFalse);
+    expect(NativeSoftClipper.instance.bypass, isTrue);
   });
 
   test('soft clipper: bypass round-trips correctly', () async {
@@ -1174,10 +1174,10 @@ void main() {
 
   // ── NativeCrossfeed tests (Phase 7) ──────────────────────────────────────
 
-  test('crossfeed: default bypass is off', () async {
+  test('crossfeed: default bypass is on', () async {
     await NativeAudioRuntime.instance.initialize();
     await NativeDspPipeline.instance.initialize();
-    expect(NativeCrossfeed.instance.bypass, isFalse);
+    expect(NativeCrossfeed.instance.bypass, isTrue);
   });
 
   test('crossfeed: bypass round-trips correctly', () async {
