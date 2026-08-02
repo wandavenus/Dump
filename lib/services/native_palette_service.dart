@@ -69,6 +69,12 @@ class NativePaletteService {
   /// Handles both old 3-color entries (padded to 5 with fallback tones) and
   /// new 5-color entries transparently — no data loss or migration needed.
   static Future<void> warmUp() async {
+    // The persisted cache uses path_provider and dart:io, neither of which
+    // has a browser implementation. Web callers already use the in-memory
+    // fallback/cache path, so skip disk warm-up instead of logging a plugin
+    // exception during startup.
+    if (kIsWeb) return;
+
     try {
       final dir = await getApplicationCacheDirectory();
       // v5: invalidates v4 because OKLab clustering now merges similar swatches
