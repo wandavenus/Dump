@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.8',
+    date: '2 Agustus 2026',
+    changes: [
+      'Perbaiki pembatalan crossfade saat pause, stop, atau perubahan durasi agar player tidak tertinggal dengan queue satu lagu.',
+      'Perubahan volume user saat crossfade berlangsung kini diterapkan ke target fade terbaru.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.1',
     date: '29 Juli 2026',
     changes: [
