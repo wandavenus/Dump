@@ -308,11 +308,11 @@ class PlaybackNotificationManager(
             .setColor(notificationIconColor())
             .setContentTitle(title)
             .setContentText(artist)
-            // Keep the player notification pinned while the foreground media
-            // service is alive, including when playback is paused. Otherwise
-            // MIUI can rank a newly-arriving notification above the player.
-            .setOngoing(true)
-            .setAutoCancel(false)
+            // Keep the player notification pinned while audio is playing.
+            // Once paused, make it dismissible so the user can swipe it away
+            // without stopping the foreground service or losing the queue.
+            .setOngoing(isPlaying)
+            .setAutoCancel(!isPlaying)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
