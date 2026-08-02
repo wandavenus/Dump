@@ -24,3 +24,10 @@ id = "Weqwr5panchz394_SSs8J"
 uri = "file://build/app/outputs/flutter-apk/app-debug.apk"
 type = "unspecified"
 title = "Music Player debug APK"
+
+[[outputs]]
+id = "T4VQ_vUDp7HJt5EM8j6W9"
+uri = "file://build/app/outputs/flutter-apk/app-release.apk"
+type = "unspecified"
+title = "Music Player APK Release"
+description = "APK release terbaru, dibangun dengan flutter build apk --release."
