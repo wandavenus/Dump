@@ -1541,7 +1541,7 @@ abstract class AppLocalizations {
   /// No description provided for @sendReportGmail.
   ///
   /// In en, this message translates to:
-  /// **'Send your report to Gmail'**
+  /// **'Send your report to'**
   String get sendReportGmail;
 
   /// No description provided for @orSocialMedia.
