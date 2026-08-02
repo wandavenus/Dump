@@ -185,7 +185,7 @@ if (ok) {
     // ── Private helpers ────────────────────────────────────────────────────────
 
     private fun extractRawBytes(songId: Int): ByteArray? {
-     val mmr = MediaMetadataRetriever()
+        val mmr = MediaMetadataRetriever()
         return try {
             val uri = Uri.withAppendedPath(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
@@ -195,15 +195,16 @@ if (ok) {
         } catch (e: Exception) {
             Log.w(TAG, "Cannot extract artwork songId=$songId: ${e.message}")
             null
-           } finally {
+        } finally {
             // Always release, even if setDataSource()/embeddedPicture throws.
             // Relying on the finalizer here is known to cause
             // MediaMetadataRetriever.finalize() TimeoutException crashes in
             // apps that load artwork inside a scrolling grid/RecyclerView.
             try {
-               mmr.release()
-           } catch (_: Exception) {} 
-        
+                mmr.release()
+            } catch (_: Exception) {
+                // Cleanup must not mask the original extraction result/error.
+            }
         }
     }
 
