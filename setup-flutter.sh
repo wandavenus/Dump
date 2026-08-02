@@ -8,7 +8,10 @@
 
 set -e
 
-SETUP_LOCK="/tmp/musicplayer-flutter-setup.lock"
+# Keep the setup lock on the workspace volume. The temporary volume can hit
+# Replit's per-process quota even when the workspace still has free space.
+SETUP_LOCK="/home/runner/workspace/.flutter-setup.lock"
+mkdir -p "$(dirname "$SETUP_LOCK")"
 exec 9>"$SETUP_LOCK"
 flock 9
 
@@ -112,7 +115,8 @@ fi
 #      Flutter run/devices/DevTools require Git and a matching release tag.
 #      Keep this local metadata minimal so cache contents are not rebuilt.
 # ──────────────────────────────────────────────────
-if ! git -C "$FLUTTER_WS" rev-parse --verify HEAD >/dev/null 2>&1 || \
+if [ ! -d "$FLUTTER_WS/.git" ] || \
+   ! git -C "$FLUTTER_WS" rev-parse --verify HEAD >/dev/null 2>&1 || \
    ! git -C "$FLUTTER_WS" describe --tags --exact-match HEAD >/dev/null 2>&1; then
   if [ ! -x "$FLUTTER_WS/bin/cache/dart-sdk/bin/dart" ]; then
     echo "✗ Flutter Dart SDK cache tidak lengkap; tidak aman membuat metadata Git."
