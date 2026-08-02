@@ -1,4 +1,5 @@
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
+- [Flutter refinement roadmap](flutter-refinement-roadmap.md) — Flutter tetap menjadi framework utama; penyempurnaan dilakukan bertahap tanpa migrasi Compose.
 - [Localization Implementation](localization-implementation.md) — Flutter gen_l10n memakai ARB lokal EN/ID, LanguageManager sebagai sumber locale, dan context.l10n untuk UI.
 - [Native Palette Engine](native-palette-engine.md) — androidx.palette MMCQ + perceptual scoring replaces palette_generator_plus; NativePaletteService = drop-in for PaletteExtractor.
 - [Palette fallback during shuffle](palette-shuffle-fallback.md) — transient artwork extraction failures must stay retryable; never persist hardcoded fallback as a song palette.
