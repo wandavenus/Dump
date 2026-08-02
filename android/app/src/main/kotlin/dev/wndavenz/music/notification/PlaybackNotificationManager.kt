@@ -112,10 +112,10 @@ class PlaybackNotificationManager(
         if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
             notificationManager.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Music Playback",
-                    // Keep the media control notification ranked above ordinary
-                    // background notifications. Alerts are explicitly disabled
-                    // below because playback state changes must stay silent.
-                    NotificationManager.IMPORTANCE_HIGH).apply {
+                    // Keep the media control notification silent by default:
+                    // IMPORTANCE_LOW disables MIUI/Android heads-up banners
+                    // while the ongoing foreground notification remains visible.
+                    NotificationManager.IMPORTANCE_LOW).apply {
                     setSound(null, null)
                     enableVibration(false)
                     setShowBadge(false)
@@ -314,7 +314,7 @@ class PlaybackNotificationManager(
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
@@ -473,10 +473,11 @@ class PlaybackNotificationManager(
     }
 
     companion object {
-        // Versioned so devices that already created the old LOW-importance
-        // channel receive the corrected ranking. Android does not allow an
-        // app to raise an existing channel's importance programmatically.
-        const val CHANNEL_ID        = "media3_playback_priority_v2"
+        // Versioned so devices that already created the previous HIGH-
+        // importance channel receive the corrected no-banner behavior.
+        // Android does not allow channel importance to be changed
+        // programmatically after the channel has been created.
+        const val CHANNEL_ID        = "media3_playback_silent_v3"
         const val NOTIFICATION_ID   = 1001
         const val ACTION_PLAY_PAUSE = "dev.wndavenz.music.ACTION_PLAY_PAUSE"
         const val ACTION_SKIP_NEXT  = "dev.wndavenz.music.ACTION_SKIP_NEXT"
