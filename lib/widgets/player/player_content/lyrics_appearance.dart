@@ -29,7 +29,6 @@ class _AppearanceButton extends StatelessWidget {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
-        sheetAnimationStyle: AnimationStyle.noAnimation,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (_) => const _LyricsAppearanceOverlay(),
