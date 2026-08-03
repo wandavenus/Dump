@@ -98,12 +98,7 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                     ),
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 220),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: c.primaryLabel.withValues(alpha: 0.38),
-                        size: 18,
-                      ),
+                      duration: const Duration(milliseconds: 150),
                     ),
                   ],
                 ),
@@ -149,11 +144,6 @@ class _ReplayGainSectionState extends State<_ReplayGainSection>
                                   ),
                                 ],
                               ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: c.primaryLabel.withValues(alpha: 0.38),
-                              size: 18,
                             ),
                           ],
                         ),

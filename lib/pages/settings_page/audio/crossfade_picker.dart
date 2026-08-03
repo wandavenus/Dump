@@ -76,11 +76,6 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                       AnimatedRotation(
                         turns: _expanded ? 0.5 : 0.0,
                         duration: const Duration(milliseconds: 220),
-                        child: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: c.primaryLabel.withValues(alpha: 0.38),
-                          size: 18,
-                        ),
                       ),
                     ],
                   ),
