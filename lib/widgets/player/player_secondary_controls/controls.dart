@@ -24,7 +24,7 @@ class PlayerSecondaryControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _LyricsToggleButton(active: showLyrics, onTap: onLyricsToggle),
-          const SizedBox(width: 150),
+          const SizedBox(width: 160),
           _QueueToggleButton(active: showQueue, onTap: onQueueToggle),
         ],
       ),
