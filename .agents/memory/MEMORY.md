@@ -8,6 +8,7 @@
 - [Dart Layer Map](dart-layer-map.md) — every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ with class + role; init order.
 - [Native C DSP Layer Map](native-c-layer-map.md) — every .c/.h in native_audio_runtime/src/; DSP pipeline slot assignments; NEON kernels; CMake targets.
 - [Kotlin Android Layer Map](kotlin-android-layer-map.md) — every .kt file with class + key methods + role; dual-player, queue ownership, service startup rules.
+- [Pitch/speed slider transitions](pitch-speed-slider-transitions.md) — live preview is throttled; native Signalsmith speed/pitch targets ramp on the audio thread instead of jumping at block boundaries.
 - [Kotlin Android Full](kotlin-android-full.md) — exhaustive .kt list; all MethodChannel/EventChannel names + directions; 3-player setup; MIUI12 rules.
 - [Lyrics Service Deep](lyrics-service-deep.md) — every file in lyrics_service/; full fetch pipeline; provider list; LRC parsing rules; quality ranking.
 - [Audio Services Deep](audio-services-deep.md) — PlaybackManager ownership; all channel names; AudioEffectsService DSP params; NativeModuleRegistry modules; pubspec deps.

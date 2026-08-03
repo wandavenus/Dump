@@ -716,23 +716,50 @@ class AudioEffectsService {
 
   // ── Pitch Shift ───────────────────────────────────────────────────────────
 
-  // Throttle timer for pitch: while the slider is being dragged we update the
-  // UI ValueNotifier on every tick (immediate visual feedback) but defer the
-  // native MethodChannel call + SharedPreferences write to 50 ms after the
-  // last movement. This prevents flooding the audio thread with rapid-fire
-  // nativeSetPitchSemitones() calls and eliminates mid-drag SharedPrefs I/O.
+  // Live preview is separate from the committed setter below. The slider can
+  // update the audio while it is dragged without writing SharedPreferences on
+  // every pointer event.
   static Timer? _pitchThrottle;
+  static double? _pendingPreviewPitch;
+  static double? _lastPreviewPitch;
 
   static Future<void> setPitch(double semitones) async {
-    // Immediate UI update — slider label stays in sync on every tick.
     pitchShift.value = semitones;
-
-    // Throttle: cancel any pending commit and restart the 50 ms window.
     _pitchThrottle?.cancel();
-    _pitchThrottle = Timer(const Duration(milliseconds: 50), () async {
-      await _saveDouble('pitch', semitones);
-      _sendPitch(semitones);
-      LogService.log('AudioEffects', 'Pitch: $semitones semitones');
+    _pitchThrottle = null;
+    _pendingPreviewPitch = null;
+    _lastPreviewPitch = semitones;
+    await _saveDouble('pitch', semitones);
+    _sendPitch(semitones);
+    LogService.log('AudioEffects', 'Pitch: $semitones semitones');
+  }
+
+  /// Updates pitch during a drag at most once per 32 ms. Persistence happens
+  /// only in [setPitch] when the slider is released.
+  static void previewPitch(double semitones) {
+    pitchShift.value = semitones;
+    _pendingPreviewPitch = semitones;
+    _flushPitchPreview(immediate: _pitchThrottle == null);
+  }
+
+  static void _flushPitchPreview({required bool immediate}) {
+    if (immediate) {
+      final value = _pendingPreviewPitch;
+      if (value != null) {
+        _lastPreviewPitch = value;
+        _pendingPreviewPitch = null;
+        _sendPitch(value);
+      }
+    }
+    _pitchThrottle ??= Timer(const Duration(milliseconds: 32), () {
+      _pitchThrottle = null;
+      final value = _pendingPreviewPitch;
+      if (value == null) return;
+      _pendingPreviewPitch = null;
+      if (value != _lastPreviewPitch) {
+        _lastPreviewPitch = value;
+        _sendPitch(value);
+      }
     });
   }
 
@@ -745,23 +772,49 @@ class AudioEffectsService {
 
   // ── Playback Speed ────────────────────────────────────────────────────────
 
-  // Throttle timer for speed: same rationale as _pitchThrottle above.
-  // The fast-bypass ↔ STFT transition at 1.0× already has a nativeReset()
-  // guard in the Kotlin layer; throttling here reduces how often that
-  // transition is triggered when the slider is dragged across the 1.0 division.
   static Timer? _speedThrottle;
+  static double? _pendingPreviewSpeed;
+  static double? _lastPreviewSpeed;
 
   static Future<void> setSpeed(double speed) async {
     final v = speed.clamp(0.25, 3.0).toDouble();
-    // Immediate UI update — slider label stays in sync on every tick.
     playbackSpeed.value = v;
-
-    // Throttle: cancel any pending commit and restart the 50 ms window.
     _speedThrottle?.cancel();
-    _speedThrottle = Timer(const Duration(milliseconds: 50), () async {
-      await _saveDouble('speed', v);
-      _sendSpeed(v);
-      LogService.log('AudioEffects', 'Speed: ${v}x');
+    _speedThrottle = null;
+    _pendingPreviewSpeed = null;
+    _lastPreviewSpeed = v;
+    await _saveDouble('speed', v);
+    _sendSpeed(v);
+    LogService.log('AudioEffects', 'Speed: ${v}x');
+  }
+
+  /// Updates speed during a drag at most once per 32 ms. Persistence happens
+  /// only in [setSpeed] when the slider is released.
+  static void previewSpeed(double speed) {
+    final v = speed.clamp(0.25, 3.0).toDouble();
+    playbackSpeed.value = v;
+    _pendingPreviewSpeed = v;
+    _flushSpeedPreview(immediate: _speedThrottle == null);
+  }
+
+  static void _flushSpeedPreview({required bool immediate}) {
+    if (immediate) {
+      final value = _pendingPreviewSpeed;
+      if (value != null) {
+        _lastPreviewSpeed = value;
+        _pendingPreviewSpeed = null;
+        _sendSpeed(value);
+      }
+    }
+    _speedThrottle ??= Timer(const Duration(milliseconds: 32), () {
+      _speedThrottle = null;
+      final value = _pendingPreviewSpeed;
+      if (value == null) return;
+      _pendingPreviewSpeed = null;
+      if (value != _lastPreviewSpeed) {
+        _lastPreviewSpeed = value;
+        _sendSpeed(value);
+      }
     });
   }
 

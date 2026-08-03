@@ -8,6 +8,10 @@ class SettingsSliderRow extends StatefulWidget {
   final double max;
   final int divisions;
   final Future<void> Function(double) onChanged;
+
+  /// Optional lightweight callback for live previews while dragging. Unlike
+  /// [onChanged], this must not perform persistence or other expensive I/O.
+  final ValueChanged<double>? onChangedLive;
   final bool showReset;
   final VoidCallback? onReset;
 
@@ -28,6 +32,7 @@ class SettingsSliderRow extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangedLive,
     this.divisions = 20,
     this.showReset = false,
     this.onReset,
@@ -88,7 +93,10 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
       min: widget.min,
       max: widget.max,
       divisions: widget.divisions,
-      onChanged: (v) => setState(() => _dragValue = v),
+      onChanged: (v) {
+        setState(() => _dragValue = v);
+        widget.onChangedLive?.call(v);
+      },
       onChangeEnd: (v) {
         setState(() => _dragValue = null);
         unawaited(widget.onChanged(v));
