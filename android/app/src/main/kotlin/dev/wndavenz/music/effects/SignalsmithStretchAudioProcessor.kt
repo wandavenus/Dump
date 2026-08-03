@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import dev.wndavenz.music.events.NativeLogger
 import java.nio.ByteBuffer
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 
@@ -80,6 +81,12 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
          * the very first queueInput() call under normal conditions.
          */
         private const val MIN_FRAMES_FOR_RATIO = 512L
+        // Parameter changes are intentionally ramped on the audio thread. A
+        // slider can move by a large amount between two audio blocks; applying
+        // that jump directly changes both the STFT target and the output-frame
+        // ratio at a block boundary, which is heard as a click/stutter.
+        private const val PARAMETER_RAMP_MS = 80f
+        private const val PARAMETER_EPSILON = 0.0005f
 
         @JvmStatic
         private external fun nativeCreate(sampleRate: Int, channels: Int): Long
@@ -155,6 +162,19 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     @Volatile private var pitchSemitones: Float = 0f
 
     private var handle: Long = 0L
+    // Audio-thread-only applied values. The volatile fields above are targets
+    // written by the MethodChannel thread.
+    private var appliedSpeed: Float = 1f
+    private var appliedPitchSemitones: Float = 0f
+    private var nativePitchSemitones: Float = 0f
+    private var speedRampTarget: Float = 1f
+    private var speedRampStart: Float = 1f
+    private var speedRampElapsedFrames = 0f
+    private var speedRampTotalFrames = 1f
+    private var pitchRampTarget: Float = 0f
+    private var pitchRampStart: Float = 0f
+    private var pitchRampElapsedFrames = 0f
+    private var pitchRampTotalFrames = 1f
     private var carryFrames: Double = 0.0
 
     // ── Media-timeline synchronization counters ───────────────────────────────
@@ -184,21 +204,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var hasBufferedStretchState: Boolean = false
 
     // queueInput() runs exclusively on this instance's own ExoPlayer audio
-    // thread (see class doc "Per-player instances"), so a plain (non-volatile)
-    // field is safe here and keeps the throttle check allocation-free.
-
-    // ── Thread-safety for pitch changes ───────────────────────────────────────
-    //
-    // Signalsmith Stretch is NOT thread-safe. Both setTransposeSemitones() and
-    // process() operate on the same C++ StretchHandle. Previously, setPitchSemitones()
-    // called nativeSetPitchSemitones() directly from whatever thread it was
-    // invoked on (typically the MethodChannel handler = main thread), racing with
-    // nativeProcess() on the audio thread — undefined behaviour.
-    //
-    // Fix: setPitchSemitones() now only writes the @Volatile pitchSemitones
-    // field and raises this flag. The actual native call is deferred to
-    // queueInput(), which always runs on the audio thread that owns this handle.
-    @Volatile private var pendingPitchApply: Boolean = false
+    // thread (see class doc "Per-player instances"), so these ramp fields are
+    // plain non-volatile state and remain allocation-free on the audio path.
 
     // Audio thread only — tracks whether the PREVIOUS queueInput() call went
     // through the fast-bypass path. Used to detect bypass↔STFT transitions.
@@ -240,11 +247,61 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
      *
      * The actual [nativeSetPitchSemitones] call is deferred to [queueInput] so it always
      * runs on the audio thread — never concurrently with [nativeProcess] on the same
-     * (not thread-safe) Signalsmith Stretch object. See [pendingPitchApply].
+     * (not thread-safe) Signalsmith Stretch object.
      */
     fun setPitchSemitones(newSemitones: Float) {
         pitchSemitones = if (newSemitones.isFinite()) newSemitones else 0f
-        pendingPitchApply = true
+    }
+
+    /**
+     * Moves the audio-thread speed toward the latest UI target over a short
+     * sample-rate-aware ramp. This is block based, allocation free, and keeps
+     * all Signalsmith state changes on the owning audio thread.
+     */
+    private fun advanceSpeed(inputFrames: Int): Float {
+        val target = speed
+        val sampleRate = inputAudioFormat.sampleRate.coerceAtLeast(1)
+        if (target != speedRampTarget) {
+            speedRampTarget = target
+            speedRampStart = appliedSpeed
+            speedRampElapsedFrames = 0f
+            speedRampTotalFrames =
+                (sampleRate * PARAMETER_RAMP_MS / 1000f).coerceAtLeast(1f)
+        }
+        speedRampElapsedFrames =
+            (speedRampElapsedFrames + inputFrames).coerceAtMost(speedRampTotalFrames)
+        val fraction = speedRampElapsedFrames / speedRampTotalFrames
+        appliedSpeed = speedRampStart + (speedRampTarget - speedRampStart) * fraction
+        if (abs(appliedSpeed - speedRampTarget) <= PARAMETER_EPSILON) {
+            appliedSpeed = speedRampTarget
+        }
+        return appliedSpeed
+    }
+
+    /**
+     * Moves the audio-thread pitch target over the same short ramp used for
+     * speed. The native transpose setter is called only after this value has
+     * advanced inside [queueInput].
+     */
+    private fun advancePitch(inputFrames: Int): Float {
+        val target = pitchSemitones
+        val sampleRate = inputAudioFormat.sampleRate.coerceAtLeast(1)
+        if (target != pitchRampTarget) {
+            pitchRampTarget = target
+            pitchRampStart = appliedPitchSemitones
+            pitchRampElapsedFrames = 0f
+            pitchRampTotalFrames =
+                (sampleRate * PARAMETER_RAMP_MS / 1000f).coerceAtLeast(1f)
+        }
+        pitchRampElapsedFrames =
+            (pitchRampElapsedFrames + inputFrames).coerceAtMost(pitchRampTotalFrames)
+        val fraction = pitchRampElapsedFrames / pitchRampTotalFrames
+        appliedPitchSemitones =
+            pitchRampStart + (pitchRampTarget - pitchRampStart) * fraction
+        if (abs(appliedPitchSemitones - pitchRampTarget) <= PARAMETER_EPSILON) {
+            appliedPitchSemitones = pitchRampTarget
+        }
+        return appliedPitchSemitones
     }
 
     // ── BaseAudioProcessor overrides ─────────────────────────────────────────
@@ -285,8 +342,20 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             return AudioProcessor.AudioFormat.NOT_SET
         }
         handle = h
-        nativeSetPitchSemitones(h, pitchSemitones)   // safe: onConfigure runs on audio thread
-        pendingPitchApply = false                     // pitch is now in sync with the engine
+        appliedSpeed = speed
+        appliedPitchSemitones = pitchSemitones
+        nativePitchSemitones = pitchSemitones
+        speedRampTarget = speed
+        speedRampStart = speed
+        speedRampElapsedFrames = 0f
+        speedRampTotalFrames =
+            (inputAudioFormat.sampleRate * PARAMETER_RAMP_MS / 1000f).coerceAtLeast(1f)
+        pitchRampTarget = pitchSemitones
+        pitchRampStart = pitchSemitones
+        pitchRampElapsedFrames = 0f
+        pitchRampTotalFrames = speedRampTotalFrames
+        nativeSetPitchSemitones(h, nativePitchSemitones)   // safe: onConfigure runs on audio thread
+        // Pitch is now in sync with the engine.
         prevWasBypass = true                          // fresh engine, treat as bypass start
         carryFrames = 0.0
         hasBufferedStretchState = false
@@ -412,17 +481,18 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
 
         val h = handle
 
-        // ── Fix 1: Apply pending pitch change on the audio thread ─────────────
-        // setPitchSemitones() only writes @Volatile pitchSemitones + sets this
-        // flag; the actual native call is deferred here so setTransposeSemitones()
-        // and process() never run concurrently on the same StretchHandle.
-        if (pendingPitchApply && h != 0L) {
-            nativeSetPitchSemitones(h, pitchSemitones)
-            pendingPitchApply = false
+        // Advance the live parameters gradually at block boundaries. This
+        // keeps the native library single-threaded while preventing a slider
+        // release/preview update from changing the STFT and frame ratio in one
+        // abrupt step.
+        val currentSpeed = advanceSpeed(inputFrames)
+        val currentPitch = advancePitch(inputFrames)
+        if (h != 0L &&
+            abs(currentPitch - nativePitchSemitones) > PARAMETER_EPSILON
+        ) {
+            nativeSetPitchSemitones(h, currentPitch)
+            nativePitchSemitones = currentPitch
         }
-
-        val currentSpeed = speed
-        val currentPitch = pitchSemitones
         val isBypass = h == 0L || (currentSpeed == 1f && currentPitch == 0f)
 
         // ── bypass ↔ STFT transition handling ────────────────────────────────
@@ -649,6 +719,18 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         if (h != 0L) nativeReset(h)
         carryFrames = 0.0
         hasBufferedStretchState = false
+        appliedSpeed = speed
+        appliedPitchSemitones = pitchSemitones
+        nativePitchSemitones = pitchSemitones
+        speedRampTarget = speed
+        speedRampStart = speed
+        speedRampElapsedFrames = 0f
+        speedRampTotalFrames =
+            (inputAudioFormat.sampleRate * PARAMETER_RAMP_MS / 1000f).coerceAtLeast(1f)
+        pitchRampTarget = pitchSemitones
+        pitchRampStart = pitchSemitones
+        pitchRampElapsedFrames = 0f
+        pitchRampTotalFrames = speedRampTotalFrames
         // Reset I/O counters: the new segment starts fresh, so any ratio
         // accumulated before the seek is irrelevant to the new position.
         totalInputFrames  = 0L
@@ -671,7 +753,17 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         hasBufferedStretchState = false
         totalInputFrames  = 0L
         totalOutputFrames = 0L
-        pendingPitchApply = false
+        appliedSpeed = 1f
+        appliedPitchSemitones = 0f
+        nativePitchSemitones = 0f
+        speedRampTarget = 1f
+        speedRampStart = 1f
+        speedRampElapsedFrames = 0f
+        speedRampTotalFrames = 1f
+        pitchRampTarget = 0f
+        pitchRampStart = 0f
+        pitchRampElapsedFrames = 0f
+        pitchRampTotalFrames = 1f
         clearBypassRing()
         prevWasBypass = true
     }
