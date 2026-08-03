@@ -41,6 +41,7 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -50,6 +51,10 @@
 #include <vector>
 
 #include <android/log.h>
+
+#if defined(__aarch64__)
+#include <arm_neon.h>
+#endif
 
 #include "signalsmith-stretch.h"
 
@@ -76,6 +81,54 @@ namespace {
 std::mutex gLogMutex;
 jclass gProcClass = nullptr;
 jmethodID gLogMethodId = nullptr;
+
+#if defined(__aarch64__)
+// Stereo-only NEON shuffles for the interleaved Media3 format
+// [L0, R0, L1, R1, ...] and Signalsmith's planar format. These helpers are
+// deliberately copy-only: they do not change floating-point values or the
+// frame ratio, so the STFT algorithm and timeline remain untouched.
+inline int deinterleaveStereoNeon(
+        const float* interleaved, int frames, float* left, float* right) {
+    int frame = 0;
+    for (; frame + 4 <= frames; frame += 4) {
+        const float32x4x2_t lr = vld2q_f32(interleaved + frame * 2);
+        vst1q_f32(left + frame, lr.val[0]);
+        vst1q_f32(right + frame, lr.val[1]);
+    }
+    return frame;
+}
+
+inline int interleaveStereoNeon(
+        const float* left, const float* right, int frames, float* interleaved) {
+    int frame = 0;
+    for (; frame + 4 <= frames; frame += 4) {
+        const float32x4_t l = vld1q_f32(left + frame);
+        const float32x4_t r = vld1q_f32(right + frame);
+        const float32x4_t maxFinite = vdupq_n_f32(FLT_MAX);
+        const uint32x4_t lFinite = vcleq_f32(vabsq_f32(l), maxFinite);
+        const uint32x4_t rFinite = vcleq_f32(vabsq_f32(r), maxFinite);
+
+        // Keep the existing fail-open contract. A vector store is used only
+        // when every lane is finite; otherwise the scalar path sanitizes the
+        // affected samples to zero before writing them.
+        if (vminvq_u32(lFinite) == UINT32_MAX &&
+            vminvq_u32(rFinite) == UINT32_MAX) {
+            float32x4x2_t lr = {l, r};
+            vst2q_f32(interleaved + frame * 2, lr);
+        } else {
+            for (int i = 0; i < 4; ++i) {
+                const float ls = std::isfinite(left[frame + i])
+                    ? left[frame + i] : 0.0f;
+                const float rs = std::isfinite(right[frame + i])
+                    ? right[frame + i] : 0.0f;
+                interleaved[(frame + i) * 2] = ls;
+                interleaved[(frame + i) * 2 + 1] = rs;
+            }
+        }
+    }
+    return frame;
+}
+#endif
 
 std::string ptrToHex(jlong p) {
     char buf[24];
@@ -318,11 +371,24 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         h->ensureCapacity(inputFrames, outputFrames);
 
         double inSumSq = 0.0;
-        for (int i = 0; i < inputFrames; ++i) {
-            for (int c = 0; c < h->channels; ++c) {
-                const float s = inSamples[i * h->channels + c];
-                h->inPtrs[c][i] = s;
-                if (shouldLog) inSumSq += static_cast<double>(s) * s;
+        if (h->channels == 2 && !shouldLog) {
+#if defined(__aarch64__)
+            const int processed = deinterleaveStereoNeon(
+                inSamples, inputFrames, h->inPtrs[0], h->inPtrs[1]);
+#else
+            const int processed = 0;
+#endif
+            for (int i = processed; i < inputFrames; ++i) {
+                h->inPtrs[0][i] = inSamples[i * 2];
+                h->inPtrs[1][i] = inSamples[i * 2 + 1];
+            }
+        } else {
+            for (int i = 0; i < inputFrames; ++i) {
+                for (int c = 0; c < h->channels; ++c) {
+                    const float s = inSamples[i * h->channels + c];
+                    h->inPtrs[c][i] = s;
+                    if (shouldLog) inSumSq += static_cast<double>(s) * s;
+                }
             }
         }
 
@@ -336,14 +402,32 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
 
         bool hasNonFinite = false;
         double outSumSq = 0.0;
-        for (int i = 0; i < outputFrames; ++i) {
-            for (int c = 0; c < h->channels; ++c) {
-                const float s = h->outPtrs[c][i];
-                const bool finite = std::isfinite(s);
-                if (!finite) hasNonFinite = true;
-                const float safe = finite ? s : 0.0f;
-                outSamples[i * h->channels + c] = safe;
-                if (shouldLog) outSumSq += static_cast<double>(safe) * safe;
+        if (h->channels == 2 && !shouldLog) {
+#if defined(__aarch64__)
+            const int processed = interleaveStereoNeon(
+                h->outPtrs[0], h->outPtrs[1],
+                outputFrames, outSamples);
+#else
+            const int processed = 0;
+#endif
+            for (int i = processed; i < outputFrames; ++i) {
+                const float left = h->outPtrs[0][i];
+                const float right = h->outPtrs[1][i];
+                const bool leftFinite = std::isfinite(left);
+                const bool rightFinite = std::isfinite(right);
+                outSamples[i * 2] = leftFinite ? left : 0.0f;
+                outSamples[i * 2 + 1] = rightFinite ? right : 0.0f;
+            }
+        } else {
+            for (int i = 0; i < outputFrames; ++i) {
+                for (int c = 0; c < h->channels; ++c) {
+                    const float s = h->outPtrs[c][i];
+                    const bool finite = std::isfinite(s);
+                    if (!finite) hasNonFinite = true;
+                    const float safe = finite ? s : 0.0f;
+                    outSamples[i * h->channels + c] = safe;
+                    if (shouldLog) outSumSq += static_cast<double>(safe) * safe;
+                }
             }
         }
 
