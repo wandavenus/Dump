@@ -900,9 +900,9 @@ class Media3PlaybackService : MediaSessionService() {
         // and secondary crossfade players — this is the intended behaviour).
         //
         // NativeDspAudioProcessor is active only for ENCODING_PCM_FLOAT (float32).
-        // setEnableAudioFloatOutput(true) below ensures the decoder pipeline emits
-        // float PCM when the hardware supports it. For 16-bit PCM the processor
-        // returns AudioFormat.NOT_SET and ExoPlayer skips it entirely (transparent).
+        // ToFloatPcmAudioProcessor below guarantees that format explicitly. The
+        // sink's own float-output branch stays disabled because that branch omits
+        // this custom AudioProcessorChain for high-resolution decoder output.
         //
         // If libnative_audio_runtime.so is absent or the Dart-side pipeline has not
         // yet been initialised, audio passes through unmodified (fail-open).
@@ -934,9 +934,16 @@ class Media3PlaybackService : MediaSessionService() {
             if (::stretchManager.isInitialized) stretchManager.createProcessor()
             else dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor()
 
-        // Custom DefaultRenderersFactory that injects the Phase 4.5 processor chain:
-        //   NativeDspAudioProcessor → StereoWideningAudioProcessor
-        //                           → SilenceSkipping → Sonic → AudioTrack
+        // Custom DefaultRenderersFactory that injects the custom processor chain.
+        //
+        // IMPORTANT: DefaultAudioSink's float-output branch adds its internal
+        // ToFloat processor but does NOT append the custom AudioProcessorChain.
+        // Leaving float output enabled therefore bypasses NativeDsp, stereo
+        // widening, and Signalsmith for high-resolution decoder output such as
+        // FFmpeg FLAC at 44.1 kHz.
+        //
+        // The explicit chain below still converts every input to float, applies
+        // the custom processors, then converts back to PCM16.
         //
         // NativeDspAudioProcessor runs first: PCM is routed through the native DSP
         // pipeline (C: dsp_pipeline.c + gain_processor.c) in-place via JNI
@@ -968,7 +975,10 @@ class Media3PlaybackService : MediaSessionService() {
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
                 return DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
+                    // Force the sink to use the custom chain for every input
+                    // format. ToFloatPcmAudioProcessor below still guarantees
+                    // float input to all custom processors.
+                    .setEnableFloatOutput(false)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
                     // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
@@ -996,7 +1006,9 @@ class Media3PlaybackService : MediaSessionService() {
                     .build()
             }
         }
-            .setEnableAudioFloatOutput(true)
+            // Do not let DefaultAudioSink select its float-only fast branch:
+            // that branch omits the custom AudioProcessorChain entirely.
+            .setEnableAudioFloatOutput(false)
             // ALAC must use the bundled FFmpeg software renderer when present.
             // EXTENSION_RENDERER_MODE_PREFER places extension renderers before
             // MediaCodec renderers, avoiding devices that advertise an ALAC

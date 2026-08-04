@@ -192,6 +192,11 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
     private var totalInputFrames: Long = 0L
     private var totalOutputFrames: Long = 0L
 
+    // A configured native handle is not enough to justify timeline scaling:
+    // nativeCreate() may succeed while a later process() call fails.
+    private var nativeProcessingHealthy: Boolean = false
+    private var lastNativeFailureResult: Int? = null
+
     // Tracks whether the current handle has run any audio through the real
     // STFT path (nativeProcess) since it was created or last flushed/reset.
     // This — NOT the current live speed/pitch values — is what determines
@@ -332,6 +337,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         }
         val h = nativeCreate(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         if (h == 0L) {
+            nativeProcessingHealthy = false
             Log.w(LOG_TAG, "native stretch init failed — speed/pitch bypassed for this format")
             NativeLogger.emit(
                 "warn", "Stretch",
@@ -342,6 +348,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
             return AudioProcessor.AudioFormat.NOT_SET
         }
         handle = h
+        nativeProcessingHealthy = false
+        lastNativeFailureResult = null
         appliedSpeed = speed
         appliedPitchSemitones = pitchSemitones
         nativePitchSemitones = pitchSemitones
@@ -478,6 +486,9 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         val bytesPerFrame = channelCount * 4
         val inputFrames = remaining / bytesPerFrame
         if (inputFrames == 0) return
+        // Keep an untouched view for native input and the pass-through fallback.
+        // The caller's buffer is consumed only after the output path is chosen.
+        val inputView = inputBuffer.duplicate()
 
         val h = handle
 
@@ -561,28 +572,56 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         // counted (the bytes are fully consumed regardless of outputFrames), so
         // the ratio tracks the true cumulative stretch applied so far — identical
         // in approach to SonicAudioProcessor.inputBytes / outputBytes.
-        totalInputFrames  += inputFrames
-        totalOutputFrames += outputFrames
+        // Counters are committed after native processing succeeds.
 
-
-        // Fully consume the input regardless of outcome — this processor
-        // never asks to be re-called with the same bytes.
-        inputBuffer.position(inputBuffer.limit())
-
-        if (outputFrames == 0) return
-
-        // The STFT engine is about to run — it may retain buffered/unemitted
-        // output afterwards even if speed/pitch return to unity before EOS.
-        hasBufferedStretchState = true
+        if (outputFrames == 0) {
+            val output = replaceOutputBuffer(remaining)
+            output.put(inputView)
+            output.flip()
+            inputBuffer.position(inputBuffer.limit())
+            totalInputFrames += inputFrames
+            totalOutputFrames += inputFrames
+            nativeProcessingHealthy = false
+            return
+        }
 
         val outputBytes = outputFrames * bytesPerFrame
-        val output = replaceOutputBuffer(outputBytes)
-        val result = nativeProcess(h, inputBuffer, inputFrames, output, outputFrames)
+        // Keep enough capacity for the pass-through fallback. The native call
+        // must see the input before the caller buffer is consumed.
+        val output = replaceOutputBuffer(max(remaining, outputBytes))
+        output.clear()
+        val result = nativeProcess(h, inputView, inputFrames, output, outputFrames)
+        inputBuffer.position(inputBuffer.limit())
         if (result == 0) {
             output.position(0).limit(outputBytes)
+            totalInputFrames += inputFrames
+            totalOutputFrames += outputFrames
+            nativeProcessingHealthy = true
+            lastNativeFailureResult = null
+            // The STFT engine may retain output that must be drained at EOS.
+            hasBufferedStretchState = true
         } else {
-            // Fail-open: emit nothing for this call rather than garbage audio.
-            output.position(0).limit(0)
+            // True fail-open: preserve decoded audio and a matching 1:1
+            // timeline. Never publish an empty buffer after consuming input.
+            output.clear()
+            output.put(inputView)
+            output.flip()
+            totalInputFrames += inputFrames
+            totalOutputFrames += inputFrames
+            nativeProcessingHealthy = false
+            hasBufferedStretchState = false
+            nativeReset(h)
+            prevWasBypass = true
+            writeBypassRing(output, remaining)
+            if (lastNativeFailureResult != result) {
+                NativeLogger.emit(
+                    "warn",
+                    "Stretch",
+                    "[Stretch] nativeProcess failed result=$result sampleRate=${inputAudioFormat.sampleRate} " +
+                        "inputFrames=$inputFrames outputFrames=$outputFrames; using pass-through",
+                )
+                lastNativeFailureResult = result
+            }
         }
     }
 
@@ -667,6 +706,10 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
      * getCurrentPositionUs inside DefaultAudioSink).
      */
     fun getMediaDuration(playoutDurationUs: Long): Long {
+        // Do not let a nominal speed setting advance the media timeline unless
+        // native stretch has actually produced audio. This prevents the UI
+        // from running ahead when the processor is unavailable or has failed.
+        if (!nativeProcessingHealthy) return playoutDurationUs
         val out = totalOutputFrames
         val inp = totalInputFrames
         return when {
@@ -701,6 +744,7 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
      *         this processor will produce from [durationUs] microseconds of input.
      */
     override fun getDurationAfterProcessorApplied(durationUs: Long): Long {
+        if (!nativeProcessingHealthy) return durationUs
         val s = speed
         // Fast path / pitch-only: ratio is 1:1.
         if (s == 1f) return durationUs
@@ -719,6 +763,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         if (h != 0L) nativeReset(h)
         carryFrames = 0.0
         hasBufferedStretchState = false
+        nativeProcessingHealthy = false
+        lastNativeFailureResult = null
         appliedSpeed = speed
         appliedPitchSemitones = pitchSemitones
         nativePitchSemitones = pitchSemitones
@@ -753,6 +799,8 @@ class SignalsmithStretchAudioProcessor : BaseAudioProcessor() {
         hasBufferedStretchState = false
         totalInputFrames  = 0L
         totalOutputFrames = 0L
+        nativeProcessingHealthy = false
+        lastNativeFailureResult = null
         appliedSpeed = 1f
         appliedPitchSemitones = 0f
         nativePitchSemitones = 0f

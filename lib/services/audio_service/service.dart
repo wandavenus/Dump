@@ -185,6 +185,9 @@ class AudioService {
           if (sr > 0 && PlaybackManager.nativeLoudnessNormAvailable) {
             PlaybackManager.setNativeLoudnessSampleRate(sr);
           }
+          if (sr > 0) {
+            AudioEffectsService.setNativeDspSampleRate(sr);
+          }
         }),
       );
     }
