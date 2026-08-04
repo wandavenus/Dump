@@ -24,3 +24,16 @@ verification requires a real Android device build (not available in this Replit 
 workspace) — added `Log.i`/`NativeLogger.emit` lines in NativeDsp/StereoWidening `onConfigure` (Stretch
 already logged) so logcat/System Log shows the encoding each stage actually receives; final
 16-bit confirmation comes from the existing `onAudioTrackInitialized` analytics log.
+
+Device-log lesson: `AudioTrackConfig.encoding` and the app's `NativeLogger` output
+do not prove that `NativeDspAudioProcessor.queueInput()` ran. NativeDsp currently
+uses Android `Log.i`, while Stretch bridges diagnostics into NativeLogger. For a
+format audit, capture both channels and include native process return codes.
+
+**Why:** a 44.1 kHz FLAC test can show a valid `PCM_FLOAT` sink and still fail
+later in the custom stretch pipeline; treating the absence of a NativeLogger
+message as DSP bypass gives the wrong root cause.
+
+**How to apply:** separate format negotiation, native DSP activation, and
+playback-stall evidence. Test non-unity speed/pitch independently from native
+gain/EQ/crossfeed before attributing a stall to sample-rate DSP math.
