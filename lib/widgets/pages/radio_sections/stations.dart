@@ -104,9 +104,9 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                 return GestureDetector(
                   onTap: hasSong ? () => unawaited(_playSongAt(i)) : null,
                   child: ArtworkHairlineBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(15),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(15),
                       child: SizedBox(
                         width: itemSize,
                         height: itemSize,

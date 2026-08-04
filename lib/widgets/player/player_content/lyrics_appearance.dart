@@ -10,11 +10,11 @@ class _AppearanceButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => _show(context),
       child: Container(
-        width: 32,
-        height: 32,
+        width: 30,
+        height: 30,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color.fromARGB(90, 100, 100, 100),
+          color: Color.fromARGB(50, 200, 200, 200),
         ),
         child: const Icon(
           CupertinoIcons.ellipsis_vertical,
