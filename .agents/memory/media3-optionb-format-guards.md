@@ -37,3 +37,17 @@ message as DSP bypass gives the wrong root cause.
 **How to apply:** separate format negotiation, native DSP activation, and
 playback-stall evidence. Test non-unity speed/pitch independently from native
 gain/EQ/crossfeed before attributing a stall to sample-rate DSP math.
+
+Speed/timeline lesson: `StretchAwareAudioProcessorChain.getMediaDuration()` can
+change the reported position even when the custom stretch processor is inactive
+or its native call fails. An accelerated UI timeline is not proof of audible
+time-stretch.
+
+**Why:** FLAC testing showed the timeline getting faster while the audible audio
+did not change, followed by the watchdog stall. The processor's current error
+path can emit an empty buffer after updating its counters, which is not true
+fail-open pass-through.
+
+**How to apply:** gate timeline scaling on a successfully configured/processing
+stretch instance; on native failure preserve audio and use identity timing, and
+log the failure with sample rate and return code.

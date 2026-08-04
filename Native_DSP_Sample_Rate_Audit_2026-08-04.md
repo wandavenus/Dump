@@ -101,6 +101,58 @@ This means the original symptom should be split into two separate problems:
 - **44.1 kHz playback:** definitely stalls after the stretch tests and is then
   skipped. That is the concrete failure shown by the FLAC log.
 
+## New evidence: UI speed changes but audio tempo does not
+
+The additional device observation is highly diagnostic:
+
+- the Flutter position/timeline advances according to the selected speed;
+- the audible FLAC stream remains at its original tempo/timbre;
+- the only obvious result is that the song reaches its end sooner.
+
+This can happen with the current implementation because timeline correction and
+audio transformation are separate:
+
+1. `TransportCommands.setSpeed` intentionally does **not** set
+   `ExoPlayer.playbackParameters.speed`; Media3's Sonic processor remains at its
+   default `1.0`.
+2. All audible speed processing is delegated to
+   `SignalsmithStretchAudioProcessor`.
+3. `StretchAwareAudioProcessorChain.getMediaDuration()` still calls
+   `stretchProcessor.getMediaDuration()` and can scale the reported media
+   position from the speed target, even when the custom processor did not become
+   active or native processing failed.
+
+Therefore the observed combination is consistent with:
+
+```text
+speed command accepted
+→ timeline/currentPosition is scaled
+→ Signalsmith processor is inactive or returns a native processing error
+→ audio remains pass-through (or output is dropped)
+```
+
+The FLAC file does not contain the expected
+`[Stretch] onConfigure -> ACTIVE sampleRate=44100` event. The supplied Opus log
+does contain the equivalent 48 kHz activation event. Because the current log
+capture does not include every Android log channel, this is not by itself proof
+of an inactive FLAC processor, but it is now the highest-value difference to
+verify.
+
+There is also a correctness issue in the current "fail-open" path:
+`SignalsmithStretchAudioProcessor.queueInput()` increments the input/output
+timeline counters and consumes the input before calling `nativeProcess()`. If
+`nativeProcess()` returns an error, it publishes an empty output buffer. That
+is not true pass-through; it can make the audio renderer stall while the
+timeline continues to advance. This matches the FLAC watchdog behavior much
+better than a native DSP coefficient problem.
+
+The next fix must therefore make these states explicit:
+
+- inactive processor: identity timeline and pass-through audio;
+- active processor, native success: stretched audio and measured timeline ratio;
+- native processing failure: safe pass-through with matching frame count and
+  identity timeline, plus a visible error log.
+
 ## Additional confirmed bug
 
 `native_audio_runtime/src/crossfeed_processor.c` does not re-derive its
@@ -138,8 +190,10 @@ the transition into/out of that path.
 
 ## Audit verdict
 
-The logs disprove the hypothesis that native DSP is hard-limited to 48 kHz.
-They do show a real 44.1 kHz FLAC playback stall after stretch controls are
-used. The next implementation should first isolate/fix that stall, then add
-actual native DSP activation/return-code logging, and separately fix
-crossfeed sample-rate coefficient refresh.
+The logs and the new observation disprove the hypothesis that native DSP is
+simply hard-limited to 48 kHz. They show a more specific failure: the speed
+timeline is changing independently from the audible FLAC processing, followed
+by a 44.1 kHz playback stall. The implementation should first make stretch
+activation/failure state correct and observable, then add actual native DSP
+activation/return-code logging, and separately fix crossfeed sample-rate
+coefficient refresh.
