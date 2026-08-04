@@ -70,3 +70,16 @@ audible FLAC audio.
 both `DefaultRenderersFactory.setEnableAudioFloatOutput(false)` and the
 custom sink builder's `.setEnableFloatOutput(false)`. Keep the explicit
 ToFloat/ToInt16 processors around the custom chain.
+
+## Real-device confirmation
+
+The target Xiaomi Mi 9T/K20 was tested after this configuration and the
+reported FLAC sample-rate, native DSP, and speed-processing issues were
+resolved; future Media3 audio-chain changes should preserve this arrangement
+and include a non-48 kHz device test.
+
+**Why:** web/compile validation cannot prove that the audible processor path
+is active, while the device test confirmed the format-guard diagnosis and fix.
+
+**How to apply:** treat real-device playback of FLAC 44.1 kHz plus Opus 48 kHz
+as a regression check whenever the sink, renderer factory, or DSP chain changes.
