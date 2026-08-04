@@ -84,6 +84,7 @@
 - [Bit-Perfect Mode dedicated player](bit-perfect-dedicated-player.md) — 3rd ExoPlayer with zero AudioProcessors/AudioEffects, switched via activePlayer var reassignment + activePlayerProxy.switchTo(), wired into existing toggle.
 - [Native ReplayGain (libebur128 + TagLib)](native-replaygain-libebur128-taglib.md) — JNI/CMake module replaces old Kotlin K-weighting scanner; real loudness math + permanent tag writes; M4A write unsupported by design.
 - [ReplayGain/loudness hardening pass](replaygain-hardening.md) — real-time loudness_processor.c (causal approx) vs offline ebur128_analyzer.cpp (exact) are different problems; BS.1770-4 sums channel power, never averages; crash-safe TagLib write = temp-file+atomic-rename.
+- [ReplayGain scan/write invariants](replaygain-scan-write-audit.md) — revalidate scan identity before write; any post-mutation failure needs restore/verify; numeric cache values must be locale-independent and finite.
 - [ReplayGain Write Tag fix pass](replaygain-writefix.md) — fd leak fix (4 fns); path-based API dead code dihapus total; batchPreAuthorizedSongIds skip per-file grant check; openReplayGainWriteFd logging per exception type.
 - [native_audio_runtime host test env](native-audio-runtime-test-env.md) — use /home/runner/flutter/bin (Dart 3.12.2) on PATH + `ln -sf $(which gcc) /tmp/clang` to actually run `dart test` here.
 - [Native PEQ wired to graphic EQ UI](native-peq-ui-wiring.md) — Band EQ UI now drives native 32-band PEQ (Peak filters) instead of system Equalizer; mutual-exclusion interlock + sample-rate sync required.
