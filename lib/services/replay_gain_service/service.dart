@@ -19,6 +19,7 @@ class ReplayGainService {
 
   // In-memory cache (cleared on hot-restart).
   static final Map<int, LoudnessData> _cache = {};
+  static final Map<int, _ReplayGainFileIdentity> _cacheIdentity = {};
 
   // Deduplicates concurrent resolve() calls for the same song — e.g. rapid
   // track skips or the UI + playback path both resolving loudness for the
@@ -36,15 +37,24 @@ class ReplayGainService {
   static Future<LoudnessData> resolve(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) return const LoudnessData.none();
 
-    // 1. Memory cache
+    // 1. Memory cache, only when it still belongs to the current file.
+    final identity = await _fileIdentity(song.path);
     final cached = _cache[song.id];
-    if (cached != null) return cached;
+    if (cached != null &&
+        identity != null &&
+        _cacheIdentity[song.id] == identity) {
+      return cached;
+    }
+    if (cached != null) {
+      _cache.remove(song.id);
+      _cacheIdentity.remove(song.id);
+    }
 
     // 2. In-flight dedup
     final existing = _inFlight[song.id];
     if (existing != null) return existing;
 
-    final future = _resolveUncached(song);
+    final future = _resolveUncached(song, identity);
     _inFlight[song.id] = future;
     try {
       return await future;
@@ -53,18 +63,25 @@ class ReplayGainService {
     }
   }
 
-  static Future<LoudnessData> _resolveUncached(LocalSong song) async {
+  static Future<LoudnessData> _resolveUncached(
+    LocalSong song,
+    _ReplayGainFileIdentity? identity,
+  ) async {
     // SharedPrefs cache
-    final fromPrefs = await _loadFromPrefs(song.id);
+    final fromPrefs = await _loadFromPrefs(song, identity);
     if (fromPrefs != null) {
       _cache[song.id] = fromPrefs;
+      _cacheIdentity[song.id] = identity!;
       return fromPrefs;
     }
 
     // Native tag read
     final data = await _readTagsNative(song.path, song.id);
     _cache[song.id] = data;
-    await _saveToPrefs(song.id, data);
+    if (identity != null) {
+      _cacheIdentity[song.id] = identity;
+      await _saveToPrefs(song.id, data, identity);
+    }
     return data;
   }
 
@@ -86,13 +103,46 @@ class ReplayGainService {
   }
 
   /// Clears the in-memory cache (e.g., after library re-scan).
-  static void clearCache() => _cache.clear();
+  static void clearCache() {
+    _cache.clear();
+    _cacheIdentity.clear();
+  }
 
   /// Removes the cached entry for a single song.
   static Future<void> invalidate(int songId) async {
     _cache.remove(songId);
+    _cacheIdentity.remove(songId);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('rg_$songId');
+    await Future.wait([
+      prefs.remove('rg_${songId}_gain'),
+      prefs.remove('rg_${songId}_peak'),
+      prefs.remove('rg_${songId}_src'),
+      prefs.remove('rg_${songId}_path'),
+      prefs.remove('rg_${songId}_size'),
+      prefs.remove('rg_${songId}_mtime'),
+    ]);
+  }
+
+  static Future<_ReplayGainFileIdentity?> _fileIdentity(String path) async {
+    if (kIsWeb || path.isEmpty) return null;
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>(
+        'getReplayGainFileIdentity',
+        {'path': path},
+      );
+      final size = (raw?['size'] as num?)?.toInt();
+      final mtime = (raw?['mtimeMs'] as num?)?.toInt();
+      if (raw == null ||
+          size == null ||
+          mtime == null ||
+          size < 0 ||
+          mtime < 0) {
+        return null;
+      }
+      return _ReplayGainFileIdentity(path, size, mtime);
+    } on Exception catch (_) {
+      return null;
+    }
   }
 
   // ── Internal — native read ─────────────────────────────────────────────────
@@ -190,16 +240,22 @@ class ReplayGainService {
   /// Parses "  -3.45 dB" → -3.45.  Returns null if not parseable.
   static double? _parseGainDb(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
-    // Ambil angka desimal dengan tanda opsional di awal
-    final match = RegExp(r'([+-]?\d+(?:\.\d+)?)').firstMatch(raw.trim());
+    // Require the complete value so a locale-formatted or malformed value
+    // such as "+1,23 dB" is rejected instead of being truncated to +1.
+    final match = RegExp(
+      r'^\s*([+-]?\d+(?:\.\d+)?)\s*(?:dB)?\s*$',
+      caseSensitive: false,
+    ).firstMatch(raw);
     if (match == null) return null;
-    return double.tryParse(match.group(1)!);
+    final value = double.tryParse(match.group(1)!);
+    return value?.isFinite == true ? value : null;
   }
 
   /// Parses peak value "0.987654" → 0.987654.
   static double? _parsePeak(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
-    return double.tryParse(raw.trim());
+    final value = double.tryParse(raw.trim());
+    return value?.isFinite == true && value! >= 0.0 ? value : null;
   }
 
   /// R128 gain is stored as integer in units of 1/256 dB (LU relative to -23 LUFS).
@@ -242,15 +298,26 @@ class ReplayGainService {
 
   // ── SharedPrefs persistence ────────────────────────────────────────────────
 
-  static Future<LoudnessData?> _loadFromPrefs(int songId) async {
+  static Future<LoudnessData?> _loadFromPrefs(
+    LocalSong song,
+    _ReplayGainFileIdentity? identity,
+  ) async {
     try {
+      if (identity == null) return null;
       final prefs = await SharedPreferences.getInstance();
+      final songId = song.id;
+      if (prefs.getString('rg_${songId}_path') != song.path ||
+          prefs.getInt('rg_${songId}_size') != identity.size ||
+          prefs.getInt('rg_${songId}_mtime') != identity.mtimeMs) {
+        return null;
+      }
       final gainStr = prefs.getString('rg_${songId}_gain');
       final srcIdx = prefs.getInt('rg_${songId}_src');
       if (gainStr == null || srcIdx == null) return null;
       final gain = double.tryParse(gainStr);
-      if (gain == null) return null;
+      if (gain == null || !gain.isFinite) return null;
       final peak = double.tryParse(prefs.getString('rg_${songId}_peak') ?? '');
+      if (peak != null && (!peak.isFinite || peak < 0.0)) return null;
       final src = LoudnessSource
           .values[srcIdx.clamp(0, LoudnessSource.values.length - 1)];
       return LoudnessData(gainDb: gain, peakLinear: peak, source: src);
@@ -259,17 +326,31 @@ class ReplayGainService {
     }
   }
 
-  static Future<void> _saveToPrefs(int songId, LoudnessData data) async {
+  static Future<void> _saveToPrefs(
+    int songId,
+    LoudnessData data, [
+    _ReplayGainFileIdentity? identity,
+  ]) async {
     try {
+      if (identity == null) return;
       final prefs = await SharedPreferences.getInstance();
-      // Tulis ke 3 key secara paralel (bukan berurutan) untuk mengurangi
-      // waktu tunggu I/O per lagu saat scanning library besar.
-      await Future.wait([
+      final writes = <Future<bool>>[
+        prefs.setString('rg_${songId}_path', identity.path),
+        prefs.setInt('rg_${songId}_size', identity.size),
+        prefs.setInt('rg_${songId}_mtime', identity.mtimeMs),
         prefs.setString('rg_${songId}_gain', data.gainDb.toString()),
         prefs.setInt('rg_${songId}_src', data.source.index),
-        if (data.peakLinear != null)
+      ];
+      if (data.peakLinear != null && data.peakLinear!.isFinite) {
+        writes.add(
           prefs.setString('rg_${songId}_peak', data.peakLinear.toString()),
-      ]);
+        );
+      } else {
+        writes.add(prefs.remove('rg_${songId}_peak'));
+      }
+      // Tulis ke 3 key secara paralel (bukan berurutan) untuk mengurangi
+      // waktu tunggu I/O per lagu saat scanning library besar.
+      await Future.wait(writes);
     } on Exception catch (_) {}
   }
 
@@ -302,6 +383,8 @@ class ReplayGainService {
   }) async {
     if (kIsWeb || song.path.isEmpty) return null;
     try {
+      final before = await _fileIdentity(song.path);
+      if (before == null) return null;
       final raw = await _channel.invokeMapMethod<String, dynamic>('scanTrack', {
         'path': song.path,
       });
@@ -309,22 +392,44 @@ class ReplayGainService {
       final gainDb = (raw['trackGainDb'] as num?)?.toDouble();
       final peak = (raw['trackPeak'] as num?)?.toDouble();
       final integratedLufs = (raw['integratedLufs'] as num?)?.toDouble();
-      if (gainDb == null) return null;
+      if (gainDb == null || !gainDb.isFinite) return null;
+      final cleanPeak = peak != null && peak.isFinite && peak >= 0.0
+          ? peak
+          : null;
+      if (integratedLufs != null && !integratedLufs.isFinite) return null;
+      final afterScan = await _fileIdentity(song.path);
+      if (afterScan != before) {
+        LogService.warn(
+          'ReplayGain',
+          'scanOneSong "${song.title}" discarded: file changed during scan',
+        );
+        return null;
+      }
       final data = LoudnessData(
         gainDb: gainDb,
-        peakLinear: (peak != null && peak > 0.0) ? peak : null,
+        peakLinear: cleanPeak,
         source: LoudnessSource.replayGainTrack,
       );
-      _cache[song.id] = data;
-      await _saveToPrefs(song.id, data);
 
       if (writeTags && integratedLufs != null) {
-        await writeReplayGain(
+        final wrote = await writeReplayGain(
           song: song,
           trackGainDb: gainDb,
-          trackPeak: peak ?? 0.0,
+          trackPeak: cleanPeak ?? 0.0,
           trackIntegratedLufs: integratedLufs,
+          expectedFileSize: before.size,
+          expectedFileMtimeMs: before.mtimeMs,
         );
+        if (!wrote) return null;
+        final afterWrite = await _fileIdentity(song.path);
+        if (afterWrite == null) return null;
+        _cacheIdentity[song.id] = afterWrite;
+        _cache[song.id] = data;
+        await _saveToPrefs(song.id, data, afterWrite);
+      } else {
+        _cacheIdentity[song.id] = before;
+        _cache[song.id] = data;
+        await _saveToPrefs(song.id, data, before);
       }
       return data;
     } on PlatformException catch (e) {
@@ -362,10 +467,17 @@ class ReplayGainService {
     if (kIsWeb || songs.isEmpty) return;
     if (scanProgress.value.running) return;
 
-    final toScan = songs.where((s) {
-      final c = _cache[s.id];
-      return c == null || c.gainDb == 0.0;
-    }).toList();
+    final toScan = <LocalSong>[];
+    for (final song in songs) {
+      final c = _cache[song.id];
+      final identity = await _fileIdentity(song.path);
+      if (c == null ||
+          c.gainDb == 0.0 ||
+          identity == null ||
+          _cacheIdentity[song.id] != identity) {
+        toScan.add(song);
+      }
+    }
 
     if (toScan.isEmpty) {
       scanProgress.value = const BatchScanProgress(
@@ -517,7 +629,11 @@ class ReplayGainService {
           source: LoudnessSource.replayGainAlbum,
         );
         _cache[song.id] = albumData;
-        await _saveToPrefs(song.id, albumData);
+        final identity = await _fileIdentity(song.path);
+        if (identity != null) {
+          _cacheIdentity[song.id] = identity;
+          await _saveToPrefs(song.id, albumData, identity);
+        }
 
         trackResults[song.id] = TrackLoudnessResult(
           song: song,
@@ -612,11 +728,37 @@ class ReplayGainService {
     required double trackGainDb,
     required double trackPeak,
     required double trackIntegratedLufs,
+    int? expectedFileSize,
+    int? expectedFileMtimeMs,
     double? albumGainDb,
     double? albumPeak,
     double? albumIntegratedLufs,
   }) async {
     if (kIsWeb || song.path.isEmpty) return false;
+    if (!trackGainDb.isFinite ||
+        !trackPeak.isFinite ||
+        trackPeak < 0.0 ||
+        !trackIntegratedLufs.isFinite) {
+      return false;
+    }
+    final albumValues = [albumGainDb, albumPeak, albumIntegratedLufs];
+    if (albumValues.any((value) => value != null) &&
+            albumValues.any((value) => value == null || !value.isFinite) ||
+        albumPeak != null && albumPeak < 0.0) {
+      return false;
+    }
+    if (expectedFileSize != null && expectedFileMtimeMs != null) {
+      final current = await _fileIdentity(song.path);
+      if (current == null ||
+          current.size != expectedFileSize ||
+          current.mtimeMs != expectedFileMtimeMs) {
+        LogService.warn(
+          'ReplayGain',
+          'writeReplayGain "${song.title}" rejected: stale scan',
+        );
+        return false;
+      }
+    }
     try {
       final raw = await _channel
           .invokeMapMethod<String, dynamic>('writeReplayGain', {
@@ -625,6 +767,8 @@ class ReplayGainService {
             'trackGainDb': trackGainDb,
             'trackPeak': trackPeak,
             'integratedLufs': trackIntegratedLufs,
+            'fileSize': ?expectedFileSize,
+            'fileMtimeMs': ?expectedFileMtimeMs,
             'albumGainDb': ?albumGainDb,
             'albumPeak': ?albumPeak,
             'albumIntegratedLufs': ?albumIntegratedLufs,

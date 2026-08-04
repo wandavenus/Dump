@@ -3,6 +3,8 @@ package dev.wndavenz.music.replaygain
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import dev.wndavenz.music.metadata.MetadataCacheDb
+import java.io.File
+import java.util.Locale
 
 /**
  * Thin glue between MainActivity's MethodChannel switch and
@@ -27,6 +29,7 @@ import dev.wndavenz.music.metadata.MetadataCacheDb
 class ReplayGainBridge(
     private val metadataCacheDb: MetadataCacheDb,
     private val openFd: (songId: Int) -> ParcelFileDescriptor?,
+    private val pathForSongId: (songId: Int) -> String?,
 ) {
 
     companion object {
@@ -42,8 +45,8 @@ class ReplayGainBridge(
         // fresh measurement even before/without writing tags to the file.
         val mtime = MetadataCacheDb.mtime(path)
         val existing = metadataCacheDb.getByPath(path, mtime)
-        val gainStr = "%+.2f dB".format(result.recommendedGainDb)
-        val peakStr = "%.6f".format(dbToLinear(result.samplePeakDbfs))
+        val gainStr = formatGain(result.recommendedGainDb)
+        val peakStr = formatPeak(dbToLinear(result.samplePeakDbfs))
         metadataCacheDb.putByPath(
             path, mtime,
             MetadataCacheDb.CachedEntry(
@@ -82,10 +85,10 @@ class ReplayGainBridge(
             metadataCacheDb.putByPath(
                 path, mtime,
                 MetadataCacheDb.CachedEntry(
-                    rgTrackGain = "%+.2f dB".format(trackLoudness.recommendedGainDb),
-                    rgTrackPeak = "%.6f".format(dbToLinear(trackLoudness.samplePeakDbfs)),
-                    rgAlbumGain = "%+.2f dB".format(albumResult.albumGainDb),
-                    rgAlbumPeak = "%.6f".format(albumResult.albumPeakLinear),
+                    rgTrackGain = formatGain(trackLoudness.recommendedGainDb),
+                    rgTrackPeak = formatPeak(dbToLinear(trackLoudness.samplePeakDbfs)),
+                    rgAlbumGain = formatGain(albumResult.albumGainDb),
+                    rgAlbumPeak = formatPeak(albumResult.albumPeakLinear),
                     r128Track = existing?.r128Track,
                     r128Album = existing?.r128Album,
                     iTunNorm = existing?.iTunNorm,
@@ -137,14 +140,32 @@ class ReplayGainBridge(
         val albumGainDb = (args["albumGainDb"] as? Number)?.toDouble()
         val albumPeak = (args["albumPeak"] as? Number)?.toDouble()
         val albumIntegratedLufs = (args["albumIntegratedLufs"] as? Number)?.toDouble()
+        val expectedFileSize = (args["fileSize"] as? Number)?.toLong()
+        val expectedFileMtimeMs = (args["fileMtimeMs"] as? Number)?.toLong()
 
         if (path.isBlank() || songId == null || trackGainDb == null || trackPeak == null ||
-            trackIntegratedLufs == null
+            trackIntegratedLufs == null || !trackGainDb.isFinite() || !trackPeak.isFinite() ||
+            trackPeak < 0.0 || !trackIntegratedLufs.isFinite()
+        ) {
+            return mapOf("success" to false, "error" to "INVALID_ARGUMENT")
+        }
+        val albumValues = listOf(albumGainDb, albumPeak, albumIntegratedLufs)
+        if (albumValues.any { it != null } &&
+            albumValues.any { it == null || !it.isFinite() } ||
+            albumPeak != null && albumPeak < 0.0
         ) {
             return mapOf("success" to false, "error" to "INVALID_ARGUMENT")
         }
         val format = TagFormat.fromPath(path)
             ?: return mapOf("success" to false, "error" to "UNSUPPORTED_FORMAT")
+        if (!sameFile(path, songId)) {
+            return mapOf("success" to false, "error" to "STALE_SCAN")
+        }
+        if ((expectedFileSize == null) != (expectedFileMtimeMs == null) ||
+            expectedFileSize != null && !matchesIdentity(path, expectedFileSize, expectedFileMtimeMs!!)
+        ) {
+            return mapOf("success" to false, "error" to "STALE_SCAN")
+        }
 
         val error = runFdMutation(
             songId = songId,
@@ -179,6 +200,9 @@ class ReplayGainBridge(
         if (songId == null) return mapOf("success" to false, "error" to "INVALID_ARGUMENT")
         val format = TagFormat.fromPath(path)
             ?: return mapOf("success" to false, "error" to "UNSUPPORTED_FORMAT")
+        if (!sameFile(path, songId)) {
+            return mapOf("success" to false, "error" to "STALE_SCAN")
+        }
 
         val error = runFdMutation(
             songId = songId,
@@ -212,10 +236,37 @@ class ReplayGainBridge(
         // TagLib::FileStream's destructor already fclose()'d the underlying
         // fd inside the native call above — nothing left to close here.
 
-        if (outcome.error != ReplayGainError.NONE) return outcome.error
+        if (outcome.error != ReplayGainError.NONE) {
+            // A native save can fail after TagLib has already resized or
+            // partially rewritten the metadata region. If a backup exists,
+            // restore it before returning the original error.
+            return if (outcome.regionBackup != null) {
+                val rollback = rollback(
+                    songId,
+                    format,
+                    outcome.regionBackup,
+                    outcome.priorSnapshot,
+                )
+                if (rollback == ReplayGainError.NONE) outcome.error else rollback
+            } else {
+                outcome.error
+            }
+        }
 
         val verifyPfd = openFd(songId)
-            ?: return ReplayGainError.WRITE_ACCESS_DENIED  // wrote fine, but can't confirm — treat as unverified failure
+            ?: run {
+                val rollback = rollback(
+                    songId,
+                    format,
+                    outcome.regionBackup,
+                    outcome.priorSnapshot,
+                )
+                return if (rollback == ReplayGainError.NONE) {
+                    ReplayGainError.VERIFICATION_FAILED
+                } else {
+                    rollback
+                }
+            }
         val verifyFd = verifyPfd.detachFd()
         val verifyResult = verify(verifyFd, outcome.priorSnapshot)
         // Read-only-intent stream, but TagLib still opens with fdopen();
@@ -224,25 +275,74 @@ class ReplayGainBridge(
         if (verifyResult == ReplayGainError.NONE) return ReplayGainError.NONE
 
         // Verification failed — attempt byte-exact rollback using the
-        // region backed up before the mutation.
-        val region = outcome.regionBackup
+        // region backed up before the mutation and verify the restored state.
+        val rollback = rollback(
+            songId,
+            format,
+            outcome.regionBackup,
+            outcome.priorSnapshot,
+        )
+        return if (rollback == ReplayGainError.NONE) {
+            ReplayGainError.VERIFICATION_FAILED
+        } else {
+            rollback
+        }
+    }
+
+    private fun rollback(
+        songId: Int,
+        format: TagFormat,
+        region: ByteArray?,
+        prior: TagSnapshot?,
+    ): ReplayGainError {
         if (region == null) {
-            Log.e(TAG, "songId=$songId verification failed with no region backup to restore")
-            return ReplayGainError.VERIFICATION_FAILED
+            Log.e(TAG, "songId=$songId mutation failed without a metadata backup")
+            return ReplayGainError.ROLLBACK_FAILED
         }
         val restorePfd = openFd(songId)
-        if (restorePfd == null) {
-            Log.e(TAG, "songId=$songId verification failed AND could not reopen for restore")
-            return ReplayGainError.VERIFICATION_FAILED
-        }
+            ?: return ReplayGainError.ROLLBACK_FAILED.also {
+                Log.e(TAG, "songId=$songId could not reopen for rollback")
+            }
         val restoreFd = restorePfd.detachFd()
         val restoreError = ReplayGainService.restoreRegionFd(restoreFd, format, region)
         if (restoreError != ReplayGainError.NONE) {
-            Log.e(TAG, "songId=$songId verification failed AND restore also failed: $restoreError")
+            Log.e(TAG, "songId=$songId rollback failed: $restoreError")
+            return ReplayGainError.ROLLBACK_FAILED
         }
-        return ReplayGainError.VERIFICATION_FAILED
+        if (prior == null) return ReplayGainError.NONE
+
+        val verifyPfd = openFd(songId)
+            ?: return ReplayGainError.ROLLBACK_FAILED.also {
+                Log.e(TAG, "songId=$songId rollback completed but could not verify it")
+            }
+        val verifyFd = verifyPfd.detachFd()
+        val verifyError = ReplayGainService.verifyRestoredFd(verifyFd, format, prior)
+        if (verifyError != ReplayGainError.NONE) {
+            Log.e(TAG, "songId=$songId rollback verification failed: $verifyError")
+            return ReplayGainError.ROLLBACK_FAILED
+        }
+        return ReplayGainError.NONE
     }
 
     private fun dbToLinear(db: Double): Double =
         if (db.isFinite()) Math.pow(10.0, db / 20.0) else 0.0
+
+    private fun formatGain(value: Double): String =
+        String.format(Locale.ROOT, "%+.2f dB", value)
+
+    private fun formatPeak(value: Double): String =
+        String.format(Locale.ROOT, "%.6f", value)
+
+    private fun sameFile(path: String, songId: Int): Boolean {
+        val mediaStorePath = pathForSongId(songId) ?: return false
+        return runCatching {
+            File(path).canonicalFile == File(mediaStorePath).canonicalFile
+        }.getOrDefault(false)
+    }
+
+    private fun matchesIdentity(path: String, expectedSize: Long, expectedMtimeMs: Long): Boolean =
+        runCatching {
+            val file = File(path)
+            file.isFile && file.length() == expectedSize && file.lastModified() == expectedMtimeMs
+        }.getOrDefault(false)
 }

@@ -134,7 +134,10 @@ jobjectArray PackWriteEnvelope(JNIEnv* env, WriteResult result, const TagSnapsho
         env->SetObjectArrayElement(envelope, 1, snap_arr);
         if (snap_arr != nullptr) env->DeleteLocalRef(snap_arr);  // no longer needed
 
-        jbyteArray region_bytes = env->NewByteArray(static_cast<jsize>(region.bytes.size()));
+        jbyteArray region_bytes = nullptr;
+        if (region.captured) {
+            region_bytes = env->NewByteArray(static_cast<jsize>(region.bytes.size()));
+        }
         if (region_bytes != nullptr && !region.bytes.empty()) {
             env->SetByteArrayRegion(region_bytes, 0, static_cast<jsize>(region.bytes.size()),
                                      reinterpret_cast<const jbyte*>(region.bytes.data()));
@@ -296,7 +299,7 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeWriteReplayGainTagsFd(
     RegionBackup region;
     const WriteResult result =
         replaygain::WriteReplayGainTagsFd(fd, req, &prior, &region);
-    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/result == WriteResult::kOk);
+    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/true);
 }
 
 JNIEXPORT jobjectArray JNICALL
@@ -306,7 +309,7 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeRemoveReplayGainTagsFd
     RegionBackup region;
     const WriteResult result = replaygain::RemoveReplayGainTagsFd(
         fd, static_cast<TagFormat>(format), &prior, &region);
-    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/result == WriteResult::kOk);
+    return PackWriteEnvelope(env, result, prior, region, /*include_payload=*/true);
 }
 
 JNIEXPORT jint JNICALL
@@ -328,6 +331,15 @@ Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeVerifyReplayGainRemove
     JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jobjectArray prior_snapshot) {
     const TagSnapshot prior = UnpackSnapshot(env, prior_snapshot);
     const WriteResult result = replaygain::VerifyReplayGainRemovedFd(
+        fd, static_cast<TagFormat>(format), prior);
+    return static_cast<jint>(result);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_replaygain_ReplayGainNative_nativeVerifyReplayGainRestoredFd(
+    JNIEnv* env, jobject /*thiz*/, jint fd, jint format, jobjectArray prior_snapshot) {
+    const TagSnapshot prior = UnpackSnapshot(env, prior_snapshot);
+    const WriteResult result = replaygain::VerifyReplayGainRestoredFd(
         fd, static_cast<TagFormat>(format), prior);
     return static_cast<jint>(result);
 }

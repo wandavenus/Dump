@@ -90,8 +90,9 @@ object ReplayGainNative {
     //
     // Each write/remove call returns Object[3] = [Int resultCode,
     // String[9]? priorSnapshot, ByteArray? regionBackup] — see
-    // PackWriteEnvelope in replaygain_jni.cpp. Payload is only present when
-    // resultCode == ReplayGainError.NONE's native ordinal (0).
+    // PackWriteEnvelope in replaygain_jni.cpp. The snapshot/region payload is
+    // present whenever native captured it, including a failed mutation, so the
+    // Kotlin bridge can attempt rollback after save failures.
 
     external fun nativeWriteReplayGainTagsFd(
         fd: Int,
@@ -125,6 +126,13 @@ object ReplayGainNative {
 
     /** Returns a [ReplayGainError] ordinal. */
     external fun nativeVerifyReplayGainRemovedFd(
+        fd: Int,
+        format: Int,
+        priorSnapshot: Array<String?>,
+    ): Int
+
+    /** Returns a [ReplayGainError] ordinal after comparing with pre-write tags. */
+    external fun nativeVerifyReplayGainRestoredFd(
         fd: Int,
         format: Int,
         priorSnapshot: Array<String?>,

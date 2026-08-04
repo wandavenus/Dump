@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -47,6 +48,21 @@ std::string FormatPeak(double peak_linear) {
     // expect the raw linear value.
     std::snprintf(buf, sizeof(buf), "%.6f", std::max(0.0, peak_linear));
     return std::string(buf);
+}
+
+bool IsValidWriteRequest(const WriteRequest& req) {
+    if (!std::isfinite(req.track_gain_db) ||
+        !std::isfinite(req.track_peak_linear) ||
+        req.track_peak_linear < 0.0) {
+        return false;
+    }
+    if (req.has_album &&
+        (!std::isfinite(req.album_gain_db) ||
+         !std::isfinite(req.album_peak_linear) ||
+         req.album_peak_linear < 0.0)) {
+        return false;
+    }
+    return true;
 }
 
 // ── ID3v2 (MP3) ───────────────────────────────────────────────────────────────
@@ -156,6 +172,13 @@ void ApplyReplayGainFields(TagLib::Ogg::XiphComment* comment, const WriteRequest
     if (req.has_album) {
         SetXiphField(comment, "REPLAYGAIN_ALBUM_GAIN", FormatGainDb(req.album_gain_db));
         SetXiphField(comment, "REPLAYGAIN_ALBUM_PEAK", FormatPeak(req.album_peak_linear));
+    } else {
+        // A track-only rescan supersedes any earlier album measurement. Keep
+        // the file from advertising album loudness calculated for different
+        // audio or a different album membership.
+        RemoveXiphField(comment, "REPLAYGAIN_ALBUM_GAIN");
+        RemoveXiphField(comment, "REPLAYGAIN_ALBUM_PEAK");
+        RemoveXiphField(comment, "R128_ALBUM_GAIN");
     }
     if (is_opus) {
         // Opus RFC/xiph spec: R128_TRACK_GAIN / R128_ALBUM_GAIN are signed
@@ -203,9 +226,11 @@ void SnapshotXiph(TagLib::Ogg::XiphComment* comment, TagSnapshot* out) {
 // determined safely (caller must abort without touching the file), or
 // kWriteFailure on an unexpected short read.
 WriteResult BackupRegion(int fd, TagFormat format, RegionBackup* out_region) {
+    if (out_region == nullptr) return WriteResult::kInvalidArgument;
     const auto size = DetermineMetadataRegionSize(fd, format);
     if (!size.has_value()) return WriteResult::kUnknown;
     if (!ReadRegion(fd, *size, &out_region->bytes)) return WriteResult::kWriteFailure;
+    out_region->captured = true;
     return WriteResult::kOk;
 }
 
@@ -253,7 +278,7 @@ private:
 
 WriteResult WriteReplayGainTagsFd(int fd, const WriteRequest& req, TagSnapshot* out_prior,
                                    RegionBackup* out_region) {
-    if (fd < 0) return WriteResult::kInvalidArgument;
+    if (fd < 0 || !IsValidWriteRequest(req)) return WriteResult::kInvalidArgument;
     if (out_region != nullptr) {
         const WriteResult backup_result = BackupRegion(fd, req.format, out_region);
         if (backup_result != WriteResult::kOk) {
@@ -283,6 +308,10 @@ WriteResult WriteReplayGainTagsFd(int fd, const WriteRequest& req, TagSnapshot* 
             if (req.has_album) {
                 SetTxxx(tag, "REPLAYGAIN_ALBUM_GAIN", FormatGainDb(req.album_gain_db));
                 SetTxxx(tag, "REPLAYGAIN_ALBUM_PEAK", FormatPeak(req.album_peak_linear));
+            } else {
+                RemoveTxxx(tag, "REPLAYGAIN_ALBUM_GAIN");
+                RemoveTxxx(tag, "REPLAYGAIN_ALBUM_PEAK");
+                RemoveTxxx(tag, "R128_ALBUM_GAIN");
             }
             if (!file.save()) return WriteResult::kWriteFailure;
             fsync_guard.Sync();
@@ -475,7 +504,7 @@ WriteResult ReadBackFd(int fd, TagFormat format, TagSnapshot* out) {
 
 WriteResult VerifyReplayGainTagsFd(int fd, const WriteRequest& req,
                                     const TagSnapshot& prior_sentinel) {
-    if (fd < 0) return WriteResult::kInvalidArgument;
+    if (fd < 0 || !IsValidWriteRequest(req)) return WriteResult::kInvalidArgument;
     TagSnapshot actual;
     const WriteResult read_result = ReadBackFd(fd, req.format, &actual);
     if (read_result != WriteResult::kOk) return read_result;
@@ -485,10 +514,18 @@ WriteResult VerifyReplayGainTagsFd(int fd, const WriteRequest& req,
     if (req.has_album) {
         if (!GainMatches(actual.album_gain, req.album_gain_db)) return WriteResult::kVerificationFailed;
         if (!PeakMatches(actual.album_peak, req.album_peak_linear)) return WriteResult::kVerificationFailed;
+    } else if (actual.album_gain.has_value() || actual.album_peak.has_value()) {
+        return WriteResult::kVerificationFailed;
+    }
+    if (!req.has_album && actual.r128_album.has_value()) {
+        return WriteResult::kVerificationFailed;
     }
     if (req.format == TagFormat::kOggOpus) {
         if (!R128Matches(actual.r128_track, req.r128_track_q7_8)) return WriteResult::kVerificationFailed;
         if (req.has_r128_album && !R128Matches(actual.r128_album, req.r128_album_q7_8)) {
+            return WriteResult::kVerificationFailed;
+        }
+        if (!req.has_r128_album && actual.r128_album.has_value()) {
             return WriteResult::kVerificationFailed;
         }
     }
@@ -513,6 +550,26 @@ WriteResult VerifyReplayGainRemovedFd(int fd, TagFormat format,
     }
     if (actual.title != prior_sentinel.title || actual.artist != prior_sentinel.artist ||
         actual.album != prior_sentinel.album) {
+        return WriteResult::kVerificationFailed;
+    }
+    return WriteResult::kOk;
+}
+
+WriteResult VerifyReplayGainRestoredFd(int fd, TagFormat format,
+                                       const TagSnapshot& prior) {
+    if (fd < 0) return WriteResult::kInvalidArgument;
+    TagSnapshot actual;
+    const WriteResult read_result = ReadBackFd(fd, format, &actual);
+    if (read_result != WriteResult::kOk) return read_result;
+    if (actual.track_gain != prior.track_gain ||
+        actual.track_peak != prior.track_peak ||
+        actual.album_gain != prior.album_gain ||
+        actual.album_peak != prior.album_peak ||
+        actual.r128_track != prior.r128_track ||
+        actual.r128_album != prior.r128_album ||
+        actual.title != prior.title ||
+        actual.artist != prior.artist ||
+        actual.album != prior.album) {
         return WriteResult::kVerificationFailed;
     }
     return WriteResult::kOk;

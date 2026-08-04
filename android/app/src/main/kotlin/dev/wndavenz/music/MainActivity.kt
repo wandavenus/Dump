@@ -58,6 +58,14 @@ class MainActivity : FlutterActivity() {
         threads = 2,
         queueCapacity = 32,
     )
+    // TagLib mutates whole metadata regions. Keep all ReplayGain mutations on
+    // one worker so repeated UI actions cannot rewrite the same MediaStore file
+    // concurrently, while unrelated metadata reads remain parallel.
+    private val replayGainWriteExecutor: ExecutorService = boundedExecutor(
+        name = "rg-write",
+        threads = 1,
+        queueCapacity = 16,
+    )
     private val replayGainScanExecutor: ExecutorService = boundedExecutor(
         name = "rg-scan",
         threads = 2,   // 2 concurrent scans — Snapdragon 730 hardware MediaCodec
@@ -114,9 +122,11 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         artworkCacheManager = ArtworkCacheManager(this)
         metadataCacheDb     = MetadataCacheDb.getInstance(this)
-        replayGainBridge    = ReplayGainBridge(metadataCacheDb) { songId ->
-            openReplayGainWriteFd(songId)
-        }
+        replayGainBridge    = ReplayGainBridge(
+            metadataCacheDb = metadataCacheDb,
+            openFd = { songId -> openReplayGainWriteFd(songId) },
+            pathForSongId = { songId -> replayGainPathForSongId(songId) },
+        )
         nativePaletteBridge = NativePaletteBridge(artworkCacheManager, artworkExecutor)
 
         // Prune stale cache entries older than 90 days on a bounded background
@@ -507,6 +517,41 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    // Read-only identity used to bind a cached/scan result to
+                    // the exact path version that produced it. This never
+                    // opens a write fd and is safe on the metadata executor.
+                    "getReplayGainFileIdentity" -> {
+                        val path = call.argument<String>("path") ?: ""
+                        submitBackground(
+                            metadataExecutor,
+                            onRejected = {
+                                postToFlutter {
+                                    result.error("metadata_busy", "Metadata queue is busy", null)
+                                }
+                            },
+                        ) {
+                            try {
+                                val file = File(path)
+                                if (!file.isFile) {
+                                    postToFlutter { result.success(null) }
+                                } else {
+                                    postToFlutter {
+                                        result.success(
+                                            mapOf(
+                                                "size" to file.length(),
+                                                "mtimeMs" to file.lastModified(),
+                                            ),
+                                        )
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                postToFlutter {
+                                    result.error("file_identity_error", e.message, null)
+                                }
+                            }
+                        }
+                    }
+
                     // ── Extended tag read (ExoMetadataReader) ──────────────
                     // Returns RG/R128 tags + extended metadata (composer, encoder,
                     // ISRC, copyright, publisher, comment, hasLyrics, lyricsType)
@@ -683,7 +728,7 @@ class MainActivity : FlutterActivity() {
                         } else {
                             fun submitWrite() {
                                 submitBackground(
-                                    metadataExecutor,
+                                    replayGainWriteExecutor,
                                     onRejected = {
                                         postToFlutter {
                                             result.error("metadata_busy", "Metadata queue is busy", null)
@@ -726,7 +771,7 @@ class MainActivity : FlutterActivity() {
                         } else {
                             fun submitRemove() {
                                 submitBackground(
-                                    metadataExecutor,
+                                    replayGainWriteExecutor,
                                     onRejected = {
                                         postToFlutter {
                                             result.error("metadata_busy", "Metadata queue is busy", null)
@@ -939,6 +984,13 @@ class MainActivity : FlutterActivity() {
             Log.w("MainActivity", "openReplayGainWriteFd($songId): ${e.javaClass.simpleName} — ${e.message}")
             null
         }
+    }
+
+    private fun replayGainPathForSongId(songId: Int): String? {
+        val contentUri = android.content.ContentUris.withAppendedId(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong(),
+        )
+        return getPathFromUri(contentUri)
     }
 
     // ── Helper: ambil path file dari content URI ─────────────────────────────
@@ -1310,6 +1362,7 @@ class MainActivity : FlutterActivity() {
         MetadataPrescanner.cancel()
         artworkExecutor.shutdownNow()
         metadataExecutor.shutdownNow()
+        replayGainWriteExecutor.shutdownNow()
         replayGainScanExecutor.shutdownNow()
         super.onDestroy()
     }

@@ -232,6 +232,17 @@ object ReplayGainService {
         return ReplayGainError.fromNative(code)
     }
 
+    /** Re-reads [fd] and confirms the pre-mutation tag snapshot was restored. */
+    fun verifyRestoredFd(fd: Int, format: TagFormat, prior: TagSnapshot): ReplayGainError {
+        if (!nativeAvailable) return ReplayGainError.UNKNOWN
+        val code = ReplayGainNative.nativeVerifyReplayGainRestoredFd(
+            fd,
+            format.nativeValue,
+            prior.toArray(),
+        )
+        return ReplayGainError.fromNative(code)
+    }
+
     /**
      * Byte-exact rollback after a verification failure: [fd] must be open
      * for writing (a fresh open after the write fd was closed is fine).

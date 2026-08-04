@@ -57,6 +57,8 @@ enum class WriteResult : int32_t {
     // just-written value doesn't read back as expected, or when unrelated
     // metadata (title/artist/album) changed unexpectedly.
     kVerificationFailed = 8,
+    // Rollback was required but could not be completed and verified.
+    kRollbackFailed      = 9,
 };
 
 // Snapshot of the small set of tag *values* relevant to a ReplayGain write —
@@ -87,6 +89,8 @@ struct TagSnapshot {
 // metadata region.
 struct RegionBackup {
     std::string bytes;
+    // An empty region is valid, so this is the success signal.
+    bool captured = false;
 };
 
 // ── Scoped-storage-safe fd-based API ─────────────────────────────────────────
@@ -173,6 +177,11 @@ WriteResult VerifyReplayGainTagsFd(int fd, const WriteRequest& req,
 // otherwise.
 WriteResult VerifyReplayGainRemovedFd(int fd, TagFormat format,
                                        const TagSnapshot& prior_sentinel);
+
+// Re-reads `fd` and confirms that the observable tag values match the snapshot
+// captured immediately before the mutation. Used to prove rollback succeeded.
+WriteResult VerifyReplayGainRestoredFd(int fd, TagFormat format,
+                                       const TagSnapshot& prior);
 
 // Byte-exact rollback: re-determines the CURRENT (post-mutation) metadata
 // region size via `fd` (already open for writing) and replaces exactly

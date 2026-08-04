@@ -22,16 +22,18 @@ enum class ReplayGainError {
     // New native error codes must be appended HERE (before VERIFICATION_FAILED)
     // to keep the Kotlin ordinals in sync with the C++ enum. K-07.
     VERIFICATION_FAILED,
+    ROLLBACK_FAILED,
     // ── Kotlin-only outcomes ──────────────────────────────────────────────────
     // These are never passed to fromNative(); they have no native ordinal.
     // Safe insertion point for future Kotlin-only errors: append after this line.
     // WRITE_ACCESS_DENIED: the user declined (or the system denied) the
     // MediaStore write-grant request for this file — see MediaStoreWriteGate.
-    WRITE_ACCESS_DENIED;
+    WRITE_ACCESS_DENIED,
+    STALE_SCAN;
 
     companion object {
         fun fromNative(code: Int): ReplayGainError =
-            values().getOrElse(code) { UNKNOWN }
+            if (code in NONE.ordinal..ROLLBACK_FAILED.ordinal) values()[code] else UNKNOWN
     }
 }
 
