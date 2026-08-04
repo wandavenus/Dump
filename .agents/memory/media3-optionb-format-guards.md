@@ -51,3 +51,22 @@ fail-open pass-through.
 **How to apply:** gate timeline scaling on a successfully configured/processing
 stretch instance; on native failure preserve audio and use identity timing, and
 log the failure with sample rate and return code.
+
+## Float-output branch invariant
+
+`DefaultAudioSink` must keep `enableFloatOutput` disabled when the application
+supplies a custom `AudioProcessorChain`. Media3's float-output branch inserts
+its internal `ToFloatPcmAudioProcessor` but omits the custom chain, so a decoder
+that already produces high-resolution PCM can bypass every application DSP
+stage. The application chain should perform its own ToFloat → DSP → ToInt16
+conversion.
+
+**Why:** on the target device, FFmpeg FLAC at 44.1 kHz negotiated PCM float
+and bypassed the custom chain, while Opus at 48 kHz negotiated PCM16 and went
+through it. This made speed change the reported timeline without changing the
+audible FLAC audio.
+
+**How to apply:** when adding or changing Media3 sink configuration, verify
+both `DefaultRenderersFactory.setEnableAudioFloatOutput(false)` and the
+custom sink builder's `.setEnableFloatOutput(false)`. Keep the explicit
+ToFloat/ToInt16 processors around the custom chain.

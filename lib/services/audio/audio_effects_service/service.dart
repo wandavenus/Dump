@@ -48,6 +48,11 @@ class AudioEffectsService {
   /// Crossfeed blend strength [0, 1]. Default 0.3 when enabled.
   static final ValueNotifier<double> crossfeedAmount = ValueNotifier(0.3);
 
+  // Media3 reports the actual PCM rate asynchronously when a track is
+  // configured. Keep it for later UI changes so enabling an effect while a
+  // 44.1 kHz track is playing does not send the native layer's 48 kHz default.
+  static int _nativeSampleRate = 48000;
+
   // ── Compressor (Phase 6) ─────────────────────────────────────────────────────
   //
   // Native pipeline defaults this processor to bypass=false (threshold
@@ -223,6 +228,39 @@ class AudioEffectsService {
     unawaited(_pushEngineSettingsWhenReady());
   }
 
+  /// Rebuild sample-rate-dependent native coefficients after Media3 switches
+  /// to a different PCM format. The native pipeline receives the sample rate
+  /// on every audio block, but compressor/limiter/crossfeed coefficients are
+  /// prepared on the control thread and otherwise retain their 48 kHz default.
+  static void setNativeDspSampleRate(int sampleRate) {
+    if (sampleRate <= 0 || kIsWeb) return;
+    _nativeSampleRate = sampleRate;
+
+    if (crossfeedEnabled.value) {
+      PlaybackManager.setNativeCrossfeedParams(
+        amount: crossfeedAmount.value,
+        sampleRate: sampleRate.toDouble(),
+      );
+    }
+    if (compressorEnabled.value) {
+      PlaybackManager.setNativeCompressorParams(
+        thresholdDb: compressorThreshold.value,
+        ratio: compressorRatio.value,
+        attackMs: compressorAttackMs.value,
+        releaseMs: compressorReleaseMs.value,
+        kneeDb: compressorKneeDb.value,
+        sampleRate: sampleRate.toDouble(),
+      );
+    }
+    if (limiterEnabled.value) {
+      PlaybackManager.setNativeLimiterParams(
+        thresholdDb: limiterThreshold.value,
+        releaseMs: limiterReleaseMs.value,
+        sampleRate: sampleRate.toDouble(),
+      );
+    }
+  }
+
   // Cold-start race fix: on a fresh install `Media3PlaybackService` does not
   // exist yet — it is only created on-demand by the user's first "play" /
   // "setQueue" call (see MainActivity's `needsService` allowlist; anything
@@ -258,7 +296,10 @@ class AudioEffectsService {
     // state here regardless of whether the user has touched the setting.
     PlaybackManager.setNativeCrossfeedBypass(!crossfeedEnabled.value);
     if (crossfeedEnabled.value) {
-      PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
+      PlaybackManager.setNativeCrossfeedParams(
+        amount: crossfeedAmount.value,
+        sampleRate: _nativeSampleRate.toDouble(),
+      );
     }
 
     // Native Preamp (dsp.gain) — always push explicit bypass state.
@@ -276,6 +317,7 @@ class AudioEffectsService {
         attackMs: compressorAttackMs.value,
         releaseMs: compressorReleaseMs.value,
         kneeDb: compressorKneeDb.value,
+        sampleRate: _nativeSampleRate.toDouble(),
       );
     }
 
@@ -285,6 +327,7 @@ class AudioEffectsService {
       PlaybackManager.setNativeLimiterParams(
         thresholdDb: limiterThreshold.value,
         releaseMs: limiterReleaseMs.value,
+        sampleRate: _nativeSampleRate.toDouble(),
       );
     }
 
@@ -361,7 +404,10 @@ class AudioEffectsService {
     await _saveBool('crossfeedEnabled', enabled);
     PlaybackManager.setNativeCrossfeedBypass(!enabled);
     if (enabled) {
-      PlaybackManager.setNativeCrossfeedParams(amount: crossfeedAmount.value);
+      PlaybackManager.setNativeCrossfeedParams(
+        amount: crossfeedAmount.value,
+        sampleRate: _nativeSampleRate.toDouble(),
+      );
     }
     LogService.log('AudioEffects', 'Crossfeed: ${enabled ? 'ON' : 'OFF'}');
   }
@@ -371,7 +417,10 @@ class AudioEffectsService {
     crossfeedAmount.value = v;
     await _saveDouble('crossfeedAmount', v);
     if (crossfeedEnabled.value) {
-      PlaybackManager.setNativeCrossfeedParams(amount: v);
+      PlaybackManager.setNativeCrossfeedParams(
+        amount: v,
+        sampleRate: _nativeSampleRate.toDouble(),
+      );
     }
     LogService.log('AudioEffects', 'Crossfeed amount: ${v.toStringAsFixed(2)}');
   }
@@ -388,6 +437,7 @@ class AudioEffectsService {
       attackMs: compressorAttackMs.value,
       releaseMs: compressorReleaseMs.value,
       kneeDb: compressorKneeDb.value,
+      sampleRate: _nativeSampleRate.toDouble(),
     );
   }
 
@@ -461,6 +511,7 @@ class AudioEffectsService {
     PlaybackManager.setNativeLimiterParams(
       thresholdDb: limiterThreshold.value,
       releaseMs: limiterReleaseMs.value,
+      sampleRate: _nativeSampleRate.toDouble(),
     );
   }
 
