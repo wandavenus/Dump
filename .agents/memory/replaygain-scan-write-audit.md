@@ -35,3 +35,12 @@ SharedPreferences can otherwise retain a peak from an older scan.
 
 **How to apply:** use `Locale.ROOT`, reject NaN/infinity, and clear stale
 optional keys during persistence.
+
+Library-wide scans are compute/cache-only by default; permanent tag mutation must
+be an explicit user action with a fresh fingerprint check.
+
+**Why:** a scan is naturally non-destructive, while silently rewriting every
+music file creates an avoidable data-loss and permission surprise.
+
+**How to apply:** keep `scanLibrary()`'s default `writeTags` false and do not
+enable it from a generic “scan library” button.

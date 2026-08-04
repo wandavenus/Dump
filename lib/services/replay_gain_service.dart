@@ -21,3 +21,24 @@ import '../models/loudness_data.dart';
 import 'log_service.dart';
 
 part 'replay_gain_service/service.dart';
+
+/// File identity used to prevent a cached or scanned value from being applied
+/// to a newer file at the same MediaStore id.
+@immutable
+class _ReplayGainFileIdentity {
+  const _ReplayGainFileIdentity(this.path, this.size, this.mtimeMs);
+
+  final String path;
+  final int size;
+  final int mtimeMs;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ReplayGainFileIdentity &&
+      other.path == path &&
+      other.size == size &&
+      other.mtimeMs == mtimeMs;
+
+  @override
+  int get hashCode => Object.hash(path, size, mtimeMs);
+}

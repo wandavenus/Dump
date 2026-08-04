@@ -44,7 +44,10 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         ).showSnackBar(SnackBar(content: Text(l.noSongsInLibrary)));
         return;
       }
-      unawaited(ReplayGainService.scanLibrary(songs, writeTags: true));
+      // Library scan is read/compute-only. Permanent tag changes must go
+      // through the explicit write action so a scan cannot unexpectedly
+      // rewrite user files.
+      unawaited(ReplayGainService.scanLibrary(songs));
     } on Exception catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

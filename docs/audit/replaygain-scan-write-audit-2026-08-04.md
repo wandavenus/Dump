@@ -28,20 +28,31 @@ Temuan prioritas:
 
 | ID | Severity | Status | Ringkasan |
 |---|---|---|---|
-| RG-01 | **HIGH** | Aktif | Kegagalan `save()` atau kegagalan reopen verifikasi tidak selalu memicu rollback walaupun backup region sudah dibuat. |
-| RG-02 | **MEDIUM** | Aktif | Penulisan track-only mempertahankan tag album lama, sehingga album gain bisa stale. |
-| RG-03 | **MEDIUM** | Aktif | Format angka cache Kotlin memakai locale perangkat; locale koma dapat membuat gain salah dibaca oleh Dart. |
-| RG-04 | **MEDIUM** | Aktif | Peak lama di SharedPreferences tidak dihapus ketika hasil scan baru tidak memiliki peak. |
-| RG-05 | **MEDIUM** | Aktif | Tidak ada validasi finite/range terhadap nilai write dari MethodChannel. |
-| RG-06 | **MEDIUM** | Aktif | Format ditentukan dari `path`, sedangkan file yang dibuka ditentukan dari `songId`; keduanya tidak divalidasi harus menunjuk file yang sama. |
-| RG-07 | **MEDIUM** | Aktif | Scanner memakai fallback sample rate/channel count saat metadata format hilang, lalu hasilnya dapat ditanam permanen. |
-| RG-08 | **MEDIUM** | Aktif | Verifikasi hanya memeriksa enam field loudness dan title/artist/album, bukan seluruh metadata yang diklaim dipreservasi. |
-| RG-09 | **MEDIUM** | Aktif | Hasil scan tidak mengikat pengukuran dengan fingerprint/mtime file sebelum write; file yang berubah selama scan dapat diberi tag hasil audio lama. |
+| RG-01 | **HIGH** | Diperbaiki | Semua error setelah backup mencoba restore; hasil restore diverifikasi dan kegagalan dikembalikan sebagai `ROLLBACK_FAILED`. |
+| RG-02 | **MEDIUM** | Diperbaiki | Track-only menghapus field album ReplayGain/R128 lama; verifikasi juga memastikan field tersebut tidak tersisa. |
+| RG-03 | **MEDIUM** | Diperbaiki | Format angka Kotlin memakai `Locale.ROOT`, dan parser Dart menolak angka locale/malformed yang terpotong. |
+| RG-04 | **MEDIUM** | Diperbaiki | Penyimpanan peak menghapus key lama ketika hasil baru tidak memiliki peak. |
+| RG-05 | **MEDIUM** | Diperbaiki | Nilai write divalidasi finite, peak non-negatif, dan field album harus lengkap atau seluruhnya kosong di Dart/Kotlin/native. |
+| RG-06 | **MEDIUM** | Diperbaiki | Path dan `songId` dicocokkan melalui canonical path sebelum write/remove. |
+| RG-07 | **MEDIUM** | Diperbaiki | Scanner menolak sample rate/channel count yang hilang atau di luar rentang, tanpa fallback. |
+| RG-08 | **MEDIUM** | Mitigasi | Backup region tetap mencakup seluruh metadata dan dipakai untuk rollback; verifikasi sukses masih membandingkan field yang diketahui plus sentinel, bukan byte metadata penuh. |
+| RG-09 | **MEDIUM** | Diperbaiki | Scan/cache/write terikat path, ukuran, dan mtime; file yang berubah ditolak sebagai stale. |
 | RG-10 | **LOW** | Gap | Tidak ada test native end-to-end untuk scan, TagLib write, verification, dan restore. |
 | RG-11 | **LOW** | Gap yang sudah didokumentasikan | Cancellation hanya menghentikan batch setelah lagu berjalan selesai; native decoder tidak dapat dibatalkan di tengah lagu. |
 
-Build APK release berhasil pada environment saat audit ini dilakukan. Tidak ada
-perubahan kode yang dibuat selama audit.
+Build APK release berhasil setelah remediasi. Test Dart penuh belum dapat dimulai
+karena hook `native_audio_runtime` pada host runner tidak menemukan compiler
+Linux; jalur APK memakai toolchain Android dan tetap berhasil.
+
+### Status remediasi
+
+Perbaikan diterapkan pada jalur Kotlin/JNI/native dan Flutter. Scan library kini
+bersifat scan-only; penulisan tag permanen harus berasal dari aksi write
+eksplisit. Executor write dibuat serial untuk mencegah dua operasi TagLib
+menyentuh region file yang sama. RG-08 sengaja tetap ditandai mitigasi karena
+verifikasi penuh seluruh metadata memerlukan representasi/canonicalizer metadata
+lintas empat format, sedangkan backup exact-region sudah menjadi batas pemulihan
+yang aman.
 
 ---
 
@@ -426,7 +437,7 @@ Yang ada:
 
 - test JVM untuk parser `TagBuilder`, termasuk field ReplayGain/R128;
 - test Dart untuk model `LoudnessData`;
-- release APK build berhasil pada audit ini.
+- release APK build berhasil setelah remediasi.
 
 Yang belum ada:
 
@@ -440,13 +451,13 @@ Yang belum ada:
 - test stale album fields;
 - test write failure setelah `save()` mulai berjalan.
 
+Pada host Replit, `flutter test test` belum dapat dimulai karena hook
+`native_audio_runtime` tidak menemukan compiler Linux. Ini adalah keterbatasan
+toolchain host; build APK Android menggunakan NDK dan berhasil.
+
 ## Prioritas tindak lanjut
 
-1. **Perbaiki RG-01** sebelum menganggap write path crash-safe.
-2. **Perbaiki RG-02 dan RG-03** karena langsung memengaruhi hasil playback dan
-   metadata yang dibaca aplikasi lain.
-3. **Perbaiki RG-04 dan RG-05** untuk mencegah cache serta tag berisi nilai
-   campuran/invalid.
-4. Tambahkan fingerprint scan/write dan validasi `path`–`songId` pada RG-06/RG-09.
-5. Bangun test native end-to-end sebelum mengubah TagLib atau metadata-region
-   code lagi.
+1. Tambahkan test native end-to-end untuk RG-10 setelah toolchain host tersedia.
+2. Pertimbangkan verifikasi canonical seluruh metadata untuk menutup sisa
+   mitigasi RG-08.
+3. RG-11 tetap merupakan batas cancellation native yang sudah didokumentasikan.
