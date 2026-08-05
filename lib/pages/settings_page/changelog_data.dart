@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.9',
+    date: '5 Agustus 2026',
+    changes: [
+      'Perbaiki palette artwork agar warna warm seperti skin tone atau beige tidak hilang saat artwork hanya punya dua keluarga warna utama.',
+      'Pertahankan navy sebagai warna utama dan buat gradient kartu album tetap membawa warna pendukung dari artwork.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.8',
     date: '2 Agustus 2026',
     changes: [

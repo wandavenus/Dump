@@ -111,10 +111,11 @@ class NativePaletteBridge(
         /**
          * Palette algorithm version — bump whenever the scoring / selection
          * logic changes so callers can invalidate stale cached results.
-         * v7: replaces harmony-triplet selection with coverage-driven role
-         *     selection so distinct artwork colour families survive.
+         * v8: preserves valid one/two-family palettes instead of falling back
+         *     to AndroidX named swatches; two-family artwork keeps the second
+         *     family as accent and derives a related secondary tone.
          */
-        const val CACHE_VERSION = 7
+        const val CACHE_VERSION = 8
 
         /** Minimum perceptual distance for a distinct palette role. */
         private const val MIN_ROLE_DISTANCE = 0.12f
@@ -315,20 +316,26 @@ class NativePaletteBridge(
         // discard a meaningful warm family. Start with the largest family, then
         // deliberately reward perceptual distance for the next two roles.
         val top = clusters.take(TOP_N)
-        if (top.size < 3) return buildFallbackFromPalette(palette)
+        if (top.isEmpty()) return buildFallbackFromPalette(palette)
 
-        var primaryCluster = top.maxByOrNull { it.totalPopulation }
+        // Use the perceptual score for primary rather than raw population.
+        // A dark navy family can have slightly fewer pixels than a skin/beige
+        // family but still be the artwork's visual anchor because the score
+        // includes lightness and dark-tone weighting.
+        var primaryCluster = top.maxByOrNull { it.totalScore }
             ?: return buildFallbackFromPalette(palette)
         var secondaryCluster = chooseCoverageCluster(
             candidates = top,
             selected = listOf(primaryCluster),
             diversityWeight = 0.45,
-        ) ?: return buildFallbackFromPalette(palette)
-        var accent = chooseCoverageCluster(
-            candidates = top,
-            selected = listOf(primaryCluster, secondaryCluster),
-            diversityWeight = 0.70,
-        ) ?: return buildFallbackFromPalette(palette)
+        )
+        var accentCluster = secondaryCluster?.let { secondary ->
+            chooseCoverageCluster(
+                candidates = top,
+                selected = listOf(primaryCluster, secondary),
+                diversityWeight = 0.70,
+            )
+        }
 
         // Step 6: Neutral-dominance correction.
         // The saturation filter (S ≥ 0.10) above intentionally discards near-
@@ -367,12 +374,30 @@ class NativePaletteBridge(
                 candidates = top,
                 selected = listOf(primaryCluster),
                 diversityWeight = 0.45,
-            ) ?: accent
-            accent = chooseCoverageCluster(
-                candidates = top,
-                selected = listOf(primaryCluster, secondaryCluster),
-                diversityWeight = 0.70,
-            ) ?: secondaryCluster
+            )
+            accentCluster = secondaryCluster?.let { secondary ->
+                chooseCoverageCluster(
+                    candidates = top,
+                    selected = listOf(primaryCluster, secondary),
+                    diversityWeight = 0.70,
+                )
+            }
+        }
+
+        // A Palette can legitimately contain only two distinct visual families
+        // after perceptual clustering. Do not call buildFallbackFromPalette()
+        // here: that named-swatch hierarchy often returns three related blues
+        // and discards the real warm family. Keep the second family as accent,
+        // and derive only the missing supporting blue tone.
+        val primaryColor = primaryCluster.representativeSwatch.rgb
+        val secondaryColor = when {
+            accentCluster != null -> secondaryCluster!!.representativeSwatch.rgb
+            else -> deriveSecondary(primaryColor)
+        }
+        val accentColor = when {
+            accentCluster != null -> accentCluster!!.representativeSwatch.rgb
+            secondaryCluster != null -> secondaryCluster!!.representativeSwatch.rgb
+            else -> deriveAccent(primaryColor)
         }
 
         // Step 8: Highlight + Shadow from remaining clusters.
@@ -388,9 +413,9 @@ class NativePaletteBridge(
         // deriveHighlight() / deriveShadow() unchanged.
         val usedRgbs = setOf(
             primaryCluster.representativeSwatch.rgb,
-            secondaryCluster.representativeSwatch.rgb,
-            accent.representativeSwatch.rgb,
-        )
+            secondaryCluster?.representativeSwatch?.rgb,
+            accentCluster?.representativeSwatch?.rgb,
+        ).filterNotNull().toSet()
         val restClusters = clusters.filter { it.representativeSwatch.rgb !in usedRgbs }
         val primaryHue     = primaryCluster.representativeSwatch.hsl[0]
         val primaryIsNeutral = primaryCluster.representativeSwatch.hsl[1] < 0.12f
@@ -413,9 +438,9 @@ class NativePaletteBridge(
             ?: deriveShadow(primaryCluster.representativeSwatch.rgb)
 
         return listOf(
-            primaryCluster.representativeSwatch.rgb,
-            secondaryCluster.representativeSwatch.rgb,
-            accent.representativeSwatch.rgb,
+            primaryColor,
+            secondaryColor,
+            accentColor,
             highlightColor,
             shadowColor,
         )
@@ -668,6 +693,22 @@ class NativePaletteBridge(
         val hsl = rgbToHsl(baseRgb)
         hsl[2] = 0.75f
         hsl[1] = (hsl[1] * 0.70f).coerceAtLeast(0.15f)
+        return hslToRgb(hsl[0], hsl[1], hsl[2])
+    }
+
+    /** Produces a related mid-tone support colour for a one/two-family palette. */
+    private fun deriveSecondary(baseRgb: Int): Int {
+        val hsl = rgbToHsl(baseRgb)
+        hsl[2] = (hsl[2] + 0.18f).coerceIn(0.28f, 0.44f)
+        hsl[1] = (hsl[1] * 0.90f).coerceAtLeast(0.20f)
+        return hslToRgb(hsl[0], hsl[1], hsl[2])
+    }
+
+    /** Produces a stronger same-family accent only when no second family exists. */
+    private fun deriveAccent(baseRgb: Int): Int {
+        val hsl = rgbToHsl(baseRgb)
+        hsl[2] = (hsl[2] + 0.28f).coerceIn(0.42f, 0.62f)
+        hsl[1] = (hsl[1] * 1.12f).coerceIn(0.28f, 0.90f)
         return hslToRgb(hsl[0], hsl[1], hsl[2])
     }
 

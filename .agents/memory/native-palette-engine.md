@@ -27,8 +27,8 @@ Runs on artworkExecutor (bounded 2-thread pool).
 
 ## Dart Cache
 LRU 256 entries + debounced disk persist to the versioned palette cache file.
-The cache was bumped to v7 for coverage-driven role selection; v6 introduced
-extreme-neutral primary correction.
+The cache was bumped to v8 for preserving one/two-family palettes; v7 introduced
+coverage-driven role selection and v6 introduced extreme-neutral primary correction.
 
 **Why:** Dart palette_generator_plus had two problems: (1) Dart isolate overhead for decode+quantize, (2) naïve selection ignoring hue diversity and vibrance. Native approach eliminates both.
 
@@ -40,6 +40,10 @@ Role selection must preserve perceptually distinct, sufficiently populated
 families before considering aesthetic harmony.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
+
+v8 keeps a valid second family as accent when clustering produces only two
+families, derives a related secondary tone from primary, and uses the scored
+cluster as primary so a navy anchor is not replaced by a warm subject family.
 
 ## Important failure mode
 

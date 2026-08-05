@@ -33,7 +33,7 @@ import 'package:path_provider/path_provider.dart';
 //
 // Cache behaviour:
 //   • 256-entry LRU in memory
-//   • Debounced disk persistence (palette_cache_v7.json)
+//   • Debounced disk persistence (palette_cache_v8.json)
 //   • Old 3-color entries are padded to 5 with fallback tones when loaded
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
@@ -77,9 +77,9 @@ class NativePaletteService {
 
     try {
       final dir = await getApplicationCacheDirectory();
-      // v7: invalidates v6 because role selection now preserves distinct
-      // artwork colour families instead of selecting a harmony triplet.
-      _cacheFilePath = '${dir.path}/artwork/palette_cache_v7.json';
+      // v8: invalidates v7 because one/two-family artwork palettes now keep
+      // their real secondary family instead of falling back to named swatches.
+      _cacheFilePath = '${dir.path}/artwork/palette_cache_v8.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 
