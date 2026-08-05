@@ -91,6 +91,13 @@ void main() {
   layer3 *= 0.90 + 0.14 * sin(t * 0.18 + 1.0);
   layer4 *= 0.90 + 0.14 * sin(t * 0.15 + 3.4);
 
+  // Compress influence supaya satu layer ga terlalu dominan.
+   layer0 = pow(layer0, 0.75);
+   layer1 = pow(layer1, 0.75);
+   layer2 = pow(layer2, 0.75);
+   layer3 = pow(layer3, 0.75);
+   layer4 = pow(layer4, 0.75);
+
   // Every basin can use every palette source. The three positive weights are
   // phase-shifted per basin, then normalized, so no layer is permanently tied
   // to dominant, secondary, or accent colour.
