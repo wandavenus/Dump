@@ -44,8 +44,8 @@ population, including near-black and near-white artwork.
 **Why coverage-driven roles:** selecting only by hue harmony can choose several
 related blue clusters and discard a real warm family such as skin or beige.
 Role selection therefore preserves perceptually distinct, sufficiently
-populated families using coverage plus perceptual distance; legacy harmony
-helpers remain diagnostic-only.
+populated families using coverage plus perceptual distance. There is no
+secondary harmony-based selector.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
 

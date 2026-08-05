@@ -87,7 +87,8 @@ class NativePaletteService {
       var cacheVersion = _fallbackCacheVersion;
       if (defaultTargetPlatform == TargetPlatform.android) {
         try {
-          cacheVersion = await _channel.invokeMethod<int>('getCacheVersion') ??
+          cacheVersion =
+              await _channel.invokeMethod<int>('getCacheVersion') ??
               cacheVersion;
         } on PlatformException catch (e, st) {
           debugPrint(
@@ -101,8 +102,7 @@ class NativePaletteService {
           );
         }
       }
-      _cacheFilePath =
-          '${dir.path}/artwork/palette_cache_v$cacheVersion.json';
+      _cacheFilePath = '${dir.path}/artwork/palette_cache_v$cacheVersion.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 
