@@ -41,6 +41,22 @@ families before considering aesthetic harmony.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
 
+## Bridge lifecycle and cache-version contract
+
+`NativePaletteBridge` owns request completion state and must be disposed before
+the Activity shuts down its shared artwork executor. `NativePaletteService` asks
+the bridge for `CACHE_VERSION` during warm-up and uses that value for persisted
+cache naming.
+
+**Why:** A queued native request can otherwise lose its MethodChannel callback
+during engine teardown, and a native algorithm revision can otherwise keep
+serving stale Dart cache entries.
+
+**How to apply:** Any new asynchronous bridge method must register a pending
+request, complete exactly once, and participate in `dispose()`. Any palette
+selection change must bump the native cache version; do not hardcode a second
+independent version in Dart except as an older-engine fallback.
+
 v8 keeps a valid second family as accent when clustering produces only two
 families, derives a related secondary tone from primary, and uses the scored
 cluster as primary so a navy anchor is not replaced by a warm subject family.

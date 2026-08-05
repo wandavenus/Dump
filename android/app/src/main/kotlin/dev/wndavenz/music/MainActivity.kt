@@ -1360,6 +1360,9 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         shuttingDown = true
         MetadataPrescanner.cancel()
+        if (::nativePaletteBridge.isInitialized) {
+            nativePaletteBridge.dispose()
+        }
         artworkExecutor.shutdownNow()
         metadataExecutor.shutdownNow()
         replayGainWriteExecutor.shutdownNow()
