@@ -110,11 +110,11 @@ class NativePaletteBridge(
         /**
          * Palette algorithm version — bump whenever the scoring / selection
          * logic changes so callers can invalidate stale cached results.
-         * v5: OKLab clustering inserted between scoring and harmony selection;
-         *     role assignment and neutral-dominance now operate on cluster
-         *     populations so merged color families compete with full weight.
+         * v6: neutral-dominance role correction also accepts extreme neutral
+         *     tones, allowing near-black and near-white artwork tones to
+         *     anchor primary without changing scoring or harmony selection.
          */
-        const val CACHE_VERSION = 5
+        const val CACHE_VERSION = 6
 
         /**
          * Maximum hue distance (degrees) from primary that a highlight or
@@ -353,19 +353,24 @@ var secondaryCluster = bestTriplet
         // all filtered out, leaving only the small saturated logo to dominate.
         //
         // Fix: after the chromatic triplet is chosen, find the most-populated
-        // neutral swatch (S < 0.12, L in 0.08..0.92).  Compare its population
-        // against the primary cluster's totalPopulation (which already accounts
-        // for merged chromatic swatches) so neutral backgrounds still correctly
-        // replace colorful logos when they truly are the dominant visual element.
+        // neutral swatch (S < 0.12) across the complete lightness range. This
+        // includes pure/near black and pure/near white, which were previously
+        // excluded by the 0.08..0.92 window. Compare its population against
+        // the primary cluster's totalPopulation (which already accounts for
+        // merged chromatic swatches) so an extreme neutral background can
+        // correctly replace a colorful logo when it truly dominates.
         val dominantNeutral = all
             .filter { sw ->
                 val hsl = sw.hsl
-                hsl[1] < 0.12f && hsl[2] in 0.08f..0.92f
+                hsl[1] < 0.12f && hsl[2] in 0.0f..1.0f
             }
             .maxByOrNull { it.population }
 
         if (dominantNeutral != null &&
     dominantNeutral.population > primaryCluster.totalPopulation * 2.0) {
+    // The dominant neutral becomes the primary tone. Downstream highlight
+    // and shadow derivation then uses this actual artwork tone as its anchor,
+    // so black/white artwork is not forced through a chromatic triplet.
     primaryCluster = ColorCluster(
         swatches = mutableListOf(dominantNeutral),
         totalPopulation = dominantNeutral.population,
