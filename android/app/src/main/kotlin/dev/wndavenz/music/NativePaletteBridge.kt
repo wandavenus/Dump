@@ -104,6 +104,8 @@ import kotlin.math.sqrt
 class NativePaletteBridge(
     private val artworkCacheManager: ArtworkCacheManager,
     private val executor: ExecutorService,
+    mainHandler: Handler = Handler(Looper.getMainLooper()),
+    private val extractColorsOverride: ((Int) -> List<Int>?)? = null,
 ) {
 
     companion object {
@@ -186,7 +188,7 @@ class NativePaletteBridge(
             get() = swatches.first()
     }
 
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val mainHandler = mainHandler
 
     private class PendingRequest(
         val result: MethodChannel.Result,
@@ -255,7 +257,8 @@ class NativePaletteBridge(
                 if (!isJobActive(job)) return@execute
                 val startedAt = SystemClock.elapsedRealtime()
                 try {
-                    val colors = extractColors(job.songId)
+                    val colors = extractColorsOverride?.invoke(job.songId)
+                        ?: extractColors(job.songId)
                     recordExtractionMetrics(
                         job.songId,
                         SystemClock.elapsedRealtime() - startedAt,
@@ -457,6 +460,9 @@ class NativePaletteBridge(
      * Returns the named-swatch fallback only if no usable chromatic swatches
      * exist or no clusters remain after filtering.
      */
+    internal fun selectBestFiveForTest(palette: Palette): List<Int> =
+        selectBestFive(palette)
+
     private fun selectBestFive(palette: Palette): List<Int> {
         val all = palette.swatches
         if (all.isEmpty()) return buildFallbackFromPalette(palette)

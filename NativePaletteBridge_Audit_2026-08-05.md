@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-05  
 **Scope:** `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt` and its direct integration points in `MainActivity.kt`, `ArtworkCacheManager.kt`, `NativePaletteService.dart`, and the Android palette dependency.  
-**Status:** Complete — findings NP-01 through NP-05 remediated after the audit;
-NP-06 and NP-07 remain open.
+**Status:** Complete — findings NP-01 through NP-06 remediated after the audit;
+NP-07 remains open.
 
 ## Executive summary
 
@@ -15,7 +15,7 @@ selection are also reasonable for the stated palette goals.
 
 The original audit risks were around lifecycle, cache contracts, documentation,
 and test/queue maintenance rather than the palette math itself. NP-01 through
-NP-04 are now fixed; the remaining open items are summarized below:
+NP-06 are now fixed; the remaining open item is summarized below:
 
 1. **Fixed —** A request could be left unresolved when `MainActivity.onDestroy()` shuts down the
    shared executor, and a running request can post a result after the Flutter
@@ -29,8 +29,8 @@ NP-04 are now fixed; the remaining open items are summarized below:
    weighting, and a 70/30 score, while the implementation uses 96 colors, no
    center weighting, and a 90/10 score. This documentation drift was corrected
    after the audit.
-5. **Open —** There are no tests covering the bridge contract, decode/fallback behavior,
-   lifecycle races, or palette-role selection.
+5. **Fixed —** JVM tests now cover the bridge contract, extraction errors,
+   fallback behavior, lifecycle races, request coalescing, and palette-role selection.
 
 ## Findings summary
 
@@ -41,7 +41,7 @@ NP-04 are now fixed; the remaining open items are summarized below:
 | NP-03 | Medium | Cache version invalidation | High | Fixed |
 | NP-04 | Medium | Algorithm documentation drift | High | Fixed |
 | NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Fixed |
-| NP-06 | Medium | Test coverage gap | High | Open |
+| NP-06 | Medium | Test coverage gap | High | Fixed |
 | NP-07 | Low | Dead legacy harmony implementation | High | Open |
 
 No critical security vulnerability was found in the reviewed bridge. The bridge
@@ -301,10 +301,10 @@ NP-05 is fixed without increasing the worker count:
 - `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt`
 - `android/app/src/test/` — no palette bridge test found
 
-### Description
+### Original gap
 
-The Android test suite contains tests for queue, metadata, audio focus,
-crossfade, event, and lifecycle-related components, but no tests cover
+The Android test suite originally contained tests for queue, metadata, audio
+focus, crossfade, event, and lifecycle-related components, but no tests covered
 `NativePaletteBridge`.
 
 Untested behavior includes:
@@ -320,19 +320,41 @@ Untested behavior includes:
 - cache-version behavior;
 - lifecycle teardown and exactly-once callback completion.
 
+### Remediation
+
+Added `android/app/src/test/kotlin/dev/wndavenz/music/NativePaletteBridgeTest.kt`
+with 13 deterministic JVM tests using a fake executor, synchronous test Handler,
+fake MethodChannel results, and real AndroidX `Palette.Swatch` inputs.
+
+Coverage includes:
+
+- invalid MethodChannel arguments and `getCacheVersion`;
+- unknown method handling;
+- native per-song request coalescing and fan-out;
+- independent jobs for different songs;
+- queue rejection;
+- null artwork result;
+- ordinary extraction exceptions;
+- `OutOfMemoryError` mapping;
+- dispose-time completion and post-dispose rejection;
+- five-color output and warm-family preservation;
+- dominant-neutral correction;
+- empty-palette fallback.
+
+The production bridge gained only a test seam: injectable Handler/extractor and
+an internal selector entry point. Runtime behavior and the public MethodChannel
+contract are unchanged.
+
 ### Impact
 
 Palette algorithm changes can silently regress the warm/beige/skin-tone and
 navy/neutral cases that this engine was introduced to preserve. Lifecycle bugs
 also remain difficult to reproduce without deterministic tests.
 
-### Recommendation
+### Validation
 
-Refactor pure selection helpers behind an injectable/testable seam, then add
-JUnit tests for representative swatch sets and fallback paths. Add a small fake
-`ExecutorService`, fake `ArtworkCacheManager`, and fake `MethodChannel.Result` for
-bridge contract tests. Keep one integration test for the actual AndroidX
-`Palette.generate()` path if the build environment permits it.
+`./gradlew :app:testDebugUnitTest --tests
+dev.wndavenz.music.NativePaletteBridgeTest` passed with **13/13 tests**.
 
 ---
 
@@ -401,7 +423,8 @@ leave dormant production logic in the bridge without a consumer.
 
 3. Connect or remove the unused cache version (NP-03).
 4. Synchronize algorithm documentation and implementation (NP-04).
-5. Add deterministic selection and channel tests (NP-06).
+5. Add deterministic selection and channel tests (NP-06). **Completed** —
+   covered by `NativePaletteBridgeTest`.
 6. Measure and then address shared-queue saturation/coalescing (NP-05).
 
 ### P3 — maintainability
@@ -434,8 +457,9 @@ The following fixes were applied after the initial audit:
 
 Validation of these changes is tracked separately from the original audit
 findings. NP-05 is fixed by native per-song request coalescing, lightweight
-debug metrics, and a longer Dart retry delay for `palette_busy`. The remaining
-open items are missing direct tests and dead legacy harmony helpers.
+debug metrics, and a longer Dart retry delay for `palette_busy`. NP-06 is fixed
+by a deterministic 13-test JVM suite. The remaining open item is the dead
+legacy harmony implementation.
 
 ### NP-05 remediation
 
@@ -456,4 +480,5 @@ open items are missing direct tests and dead legacy harmony helpers.
 - `git diff --check`: passed.
 - `:app:compileDebugKotlin`: passed successfully with the Android SDK
   environment configured. Existing unrelated deprecation warnings remain.
+- `NativePaletteBridgeTest`: passed with **13/13 tests**.
 - Release APK build: intentionally not run.
