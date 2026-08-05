@@ -12,6 +12,7 @@ import java.util.concurrent.RejectedExecutionException
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
  * Native color extraction bridge — replaces `palette_generator_plus`.
@@ -51,18 +52,17 @@ import kotlin.math.pow
  *    because the dark pixels are fragmented across three separate buckets.
  *    After clustering, the merged dark family competes with its full weight.
  *
- * 7. **Harmony-driven triplet selection** — from the top-[TOP_N] scored clusters,
- *    all triplet combinations are evaluated.  Each triplet's score is:
- *      triplet_score = sum_of_cluster_scores × (1 + 0.5 × harmony_score)
- *    Harmony rewards triadic (≈120° hue spacing), complementary (≈180°), and
- *    wide hue spread; penalises near-monochromatic triplets (spread < 25°).
- *    Hue calculations use each cluster's [ColorCluster.representativeSwatch] —
- *    the color users actually see — not an averaged hue.
+ * 7. **Coverage-driven role selection** — roles are selected greedily from the
+ *    highest-scoring clusters. Population remains the main signal, while
+ *    perceptual distance from already-selected roles prevents three shades of
+ *    the same blue from consuming the palette. This preserves real secondary
+ *    families such as skin, beige, green, or red instead of inventing a
+ *    mathematically harmonious substitute.
  *
- * 8. **Role assignment** — the winning triplet is sorted into:
- *      primary   = highest totalPopulation (main mood)
- *      secondary = second-highest totalPopulation
- *      accent    = most saturated representative swatch (vibrant pop)
+ * 8. **Role assignment**:
+ *      primary   = largest visual family
+ *      secondary = largest remaining sufficiently different family
+ *      accent    = most useful remaining coverage/diversity family
  *
  * 9. **Highlight + Shadow** — two extra colors from the remaining clusters:
  *      highlight = lightest saturated representative (L > 0.55, S > 0.10)
@@ -73,9 +73,10 @@ import kotlin.math.pow
  *     Existing callers that only read index 0/1/2 remain fully compatible.
  *
  * # Performance
- * The palette pass is intentionally bounded to a small bitmap and at most
- * C(24,3)=2024 triplets.  Clustering is an O(n²) sweep over at most a few
- * dozen swatches — negligible; no extra bitmap decoding or Palette generation.
+ * The palette pass is intentionally bounded to a small bitmap. Clustering is
+ * an O(n²) sweep over at most a few dozen swatches and role selection is linear
+ * over the resulting clusters — negligible; no extra bitmap decoding or
+ * Palette generation is required.
  * Timings depend on whether artwork is already cached: cache hits avoid
  * MediaStore extraction, while cache misses include artwork extraction and
  * WebP encoding in [ArtworkCacheManager].
@@ -104,28 +105,21 @@ class NativePaletteBridge(
 
         private const val PALETTE_TARGET_SIZE = 256
 
-        /** Maximum candidates fed into the harmony triplet search. */
+         /** Maximum scored clusters considered for coverage role selection. */
         private const val TOP_N = 32
 
         /**
          * Palette algorithm version — bump whenever the scoring / selection
          * logic changes so callers can invalidate stale cached results.
-         * v6: neutral-dominance role correction also accepts extreme neutral
-         *     tones, allowing near-black and near-white artwork tones to
-         *     anchor primary without changing scoring or harmony selection.
+         * v7: replaces harmony-triplet selection with coverage-driven role
+         *     selection so distinct artwork colour families survive.
          */
-        const val CACHE_VERSION = 6
+        const val CACHE_VERSION = 7
 
-        /**
-         * Maximum hue distance (degrees) from primary that a highlight or
-         * shadow candidate may have before being rejected in favour of a
-         * derived tone.
-         *
-         * Raised 60° → 120° so highlight/shadow can draw from a third of the
-         * colour wheel rather than being locked to the primary's hue family.
-         * This prevents all 5 palette slots collapsing to near-monochromatic
-         * tones (e.g. five shades of pink) when the artwork has a dominant hue.
-         */
+        /** Minimum perceptual distance for a distinct palette role. */
+        private const val MIN_ROLE_DISTANCE = 0.12f
+
+        /** Maximum hue distance for non-neutral highlight/shadow candidates. */
         private const val HUE_ANCHOR_THRESHOLD = 120f
     }
 
@@ -315,36 +309,28 @@ class NativePaletteBridge(
         val clusters = mergeSimilarSwatches(scored)
             .sortedByDescending { it.totalScore }
 
-        // Step 5: Harmony-driven triplet selection from top-N clusters.
+        // Step 5: Coverage-driven role selection from top-N clusters.
+        //
+        // The old harmony triplet could select three related blue clusters and
+        // discard a meaningful warm family. Start with the largest family, then
+        // deliberately reward perceptual distance for the next two roles.
         val top = clusters.take(TOP_N)
-        val bestTriplet = selectHarmoniousTriplet(top)
+        if (top.size < 3) return buildFallbackFromPalette(palette)
 
-        if (bestTriplet.isEmpty()) return buildFallbackFromPalette(palette)
+        var primaryCluster = top.maxByOrNull { it.totalPopulation }
+            ?: return buildFallbackFromPalette(palette)
+        var secondaryCluster = chooseCoverageCluster(
+            candidates = top,
+            selected = listOf(primaryCluster),
+            diversityWeight = 0.45,
+        ) ?: return buildFallbackFromPalette(palette)
+        var accent = chooseCoverageCluster(
+            candidates = top,
+            selected = listOf(primaryCluster, secondaryCluster),
+            diversityWeight = 0.70,
+        ) ?: return buildFallbackFromPalette(palette)
 
-        // Step 6: Assign roles within the winning cluster triplet.
-        //   accent    = most saturated representative swatch (vibrant pop)
-        //   primary   = highest totalPopulation among the remaining clusters
-        //   secondary = the remaining cluster
-        //
-        // Using representativeSwatch saturation for accent (not averaged saturation)
-        // because the representative is the color users actually see.
-        var primaryCluster = bestTriplet.maxByOrNull { it.totalPopulation }
-    ?: return buildFallbackFromPalette(palette)
-
-val accent = bestTriplet
-    .filter { it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb }
-    .maxByOrNull { it.representativeSwatch.hsl[1] }
-    ?: return buildFallbackFromPalette(palette)
-
-var secondaryCluster = bestTriplet
-    .filter {
-        it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb &&
-        it.representativeSwatch.rgb != accent.representativeSwatch.rgb
-    }
-    .maxByOrNull { it.totalPopulation }
-    ?: return buildFallbackFromPalette(palette)
-        // Step 7: Neutral-dominance correction.
-        //
+        // Step 6: Neutral-dominance correction.
         // The saturation filter (S ≥ 0.10) above intentionally discards near-
         // achromatic pixels so they don't pollute the chromatic triplet.  But
         // for artwork whose BACKGROUND is white, gray, or another near-neutral
@@ -377,14 +363,17 @@ var secondaryCluster = bestTriplet
         totalScore = 0.0,
     )
 
-    secondaryCluster = bestTriplet
-        .filter {
-            it.representativeSwatch.rgb != accent.representativeSwatch.rgb &&
-            it.representativeSwatch.rgb != primaryCluster.representativeSwatch.rgb
+            secondaryCluster = chooseCoverageCluster(
+                candidates = top,
+                selected = listOf(primaryCluster),
+                diversityWeight = 0.45,
+            ) ?: accent
+            accent = chooseCoverageCluster(
+                candidates = top,
+                selected = listOf(primaryCluster, secondaryCluster),
+                diversityWeight = 0.70,
+            ) ?: secondaryCluster
         }
-        .maxByOrNull { it.totalPopulation }
-        ?: accent
-}
 
         // Step 8: Highlight + Shadow from remaining clusters.
         //
@@ -478,7 +467,60 @@ var secondaryCluster = bestTriplet
         return clusters
     }
 
-    // ── Harmony triplet evaluation ────────────────────────────────────────────
+    /**
+     * Chooses the next role by balancing visual coverage and perceptual
+     * distance from roles that have already been selected.
+     *
+     * The first pass only considers genuinely different families. If the
+     * artwork does not contain enough distinct families, the distance guard is
+     * relaxed so the output still contains three valid colors.
+     */
+    private fun chooseCoverageCluster(
+        candidates: List<ColorCluster>,
+        selected: List<ColorCluster>,
+        diversityWeight: Double,
+    ): ColorCluster? {
+        val selectedRgbs = selected.map { it.representativeSwatch.rgb }.toSet()
+        val remaining = candidates.filter {
+            it.representativeSwatch.rgb !in selectedRgbs
+        }
+        if (remaining.isEmpty()) return null
+
+        val maxPopulation = remaining.maxOf { it.totalPopulation }
+            .toDouble()
+            .coerceAtLeast(1.0)
+
+        fun rank(pool: List<ColorCluster>): ColorCluster? {
+            return pool.maxByOrNull { cluster ->
+                val area = log10(cluster.totalPopulation + 1.0) /
+                    log10(maxPopulation + 1.0)
+                val minDistance = selected.minOf { selectedCluster ->
+                    perceptualDistance(
+                        cluster.representativeSwatch.rgb,
+                        selectedCluster.representativeSwatch.rgb,
+                    )
+                }
+                val diversity = (minDistance / 0.25).coerceIn(0.0, 1.0)
+                area * (1.0 - diversityWeight) + diversity * diversityWeight
+            }
+        }
+
+        val distinct = remaining.filter { cluster ->
+            selected.all {
+                perceptualDistance(
+                    cluster.representativeSwatch.rgb,
+                    it.representativeSwatch.rgb,
+                ) >= MIN_ROLE_DISTANCE
+            }
+        }
+        return rank(distinct).takeUnless { it == null } ?: rank(remaining)
+    }
+
+    // ── Legacy harmony helpers ────────────────────────────────────────────────
+    //
+    // Kept local for backwards-readable diagnostics and future comparisons.
+    // Role selection no longer calls these helpers because harmony alone can
+    // discard a real warm family in favour of several related blue clusters.
 
     /**
      * From [clusters] (pre-sorted by totalScore), evaluates all combinations
@@ -571,10 +613,16 @@ var secondaryCluster = bestTriplet
      * normalised [0, 1] lightness range.
      */
     private fun colorSimilar(rgb1: Int, rgb2: Int, threshold: Float = 0.15f): Boolean {
+        return perceptualDistance(rgb1, rgb2) < threshold
+    }
+
+    private fun perceptualDistance(rgb1: Int, rgb2: Int): Float {
         val (l1, a1, b1) = rgbToOklab(rgb1)
         val (l2, a2, b2) = rgbToOklab(rgb2)
-        val dSq = (l1 - l2) * (l1 - l2) + (a1 - a2) * (a1 - a2) + (b1 - b2) * (b1 - b2)
-        return dSq < threshold * threshold
+        val dSq = (l1 - l2) * (l1 - l2) +
+            (a1 - a2) * (a1 - a2) +
+            (b1 - b2) * (b1 - b2)
+        return sqrt(dSq)
     }
 
     /**

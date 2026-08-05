@@ -18,20 +18,26 @@ Runs on artworkExecutor (bounded 2-thread pool).
 
 ## Selection Algorithm (current)
 1. Filter chromatic candidates: sat ≥ 0.10, lightness 0.06–0.93
-2. Score: 70% popFactor(log-scaled) + 30% vibrancy(sat^0.8) × lightFactor(peak L=0.50) × centerBoost(×1.15) × darkBonus(×1.20 if L<0.25); decode uses ARGB_8888.
-3. Harmony triplet from top-24: maximize sum_scores × (1 + 0.5 × harmonyScore)
-4. Roles: most saturated = accent; highest pop of rest = primary; remainder = secondary
-5. **Neutral-dominance correction (Step 5b):** after triplet, check all swatches (unfiltered) for dominant neutral (S < 0.12, full lightness range). If neutral.population > primary.population × 2.0 → promote neutral to primary. This includes near-black and near-white artwork backgrounds without changing scoring or harmony selection.
-6. Highlight/shadow: hue-coherent candidates from remainder; for neutral primaries (S < 0.12) skip hue-coherence check, derive directly from primary.
+2. Score: population-led score with vibrancy, lightness, center, and dark-tone factors; decode uses ARGB_8888.
+3. Merge perceptually similar swatches with OKLab before role selection.
+4. Coverage-driven roles: primary = largest family; secondary/accent = remaining families ranked by population plus perceptual distance from already-selected roles.
+5. **Neutral-dominance correction:** after chromatic selection, a truly dominant neutral (S < 0.12, full lightness range) can replace primary. This includes near-black and near-white artwork backgrounds.
+6. Highlight/shadow: use distinct remaining artwork clusters where possible, otherwise derive from primary.
 7. Fallback: named palette swatches → hardcoded colors
 
 ## Dart Cache
 LRU 256 entries + debounced disk persist to the versioned palette cache file.
-The cache was bumped to v6 for the extreme-neutral primary correction.
+The cache was bumped to v7 for coverage-driven role selection; v6 introduced
+extreme-neutral primary correction.
 
 **Why:** Dart palette_generator_plus had two problems: (1) Dart isolate overhead for decode+quantize, (2) naïve selection ignoring hue diversity and vibrance. Native approach eliminates both.
 
 **Why neutral-dominance fix:** saturation filter (S ≥ 0.10) correctly excludes achromatic noise from harmony triplet, but for artwork with neutral backgrounds + vivid logo it can leave only the logo colour to dominate the BG. The post-triplet neutral check restores the true background mood without breaking the chromatic harmony logic, including pure/near black and pure/near white.
+
+**Why coverage-driven roles:** a harmony-maximizing triplet can select several
+related blue clusters and discard a real warm family such as skin or beige.
+Role selection must preserve perceptually distinct, sufficiently populated
+families before considering aesthetic harmony.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
 
