@@ -29,92 +29,71 @@ void main() {
   float t = uTime;
 
   // ── Aspect-correct coordinates ────────────────────────────────────────────
-  // The layer anchors below never move. Only their colour and blend amount
-  // changes over time, so the result feels alive without becoming fog/cloud
-  // shapes that travel across the screen.
+  // The fields below move only within bounded interior paths. Their motion is
+  // slow and smooth, so the result feels like a mesh gradient rather than
+  // fast fog/cloud shapes traveling across the screen.
   float aspect = uSize.x / uSize.y;
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  // ── Five fixed colour layers ─────────────────────────────────────────────
-  // Centers are kept inside the visible frame. The five expanded regions
-  // overlap enough to cover the entire screen without a background fill.
-  // Layer 2 is centered so the palette has a strong middle anchor.
-  vec2 layer0Point = vec2((uv.x - 0.16) * aspect, uv.y - 0.15) /
-                     vec2(0.34 * aspect, 0.31);
-  vec2 layer1Point = vec2((uv.x - 0.84) * aspect, uv.y - 0.15) /
-                     vec2(0.34 * aspect, 0.31);
-  vec2 layer2Point = vec2((uv.x - 0.50) * aspect, uv.y - 0.48) /
-                     vec2(0.36 * aspect, 0.34);
-  vec2 layer3Point = vec2((uv.x - 0.16) * aspect, uv.y - 0.84) /
-                     vec2(0.34 * aspect, 0.31);
-  vec2 layer4Point = vec2((uv.x - 0.84) * aspect, uv.y - 0.84) /
-                     vec2(0.34 * aspect, 0.31);
+  // ── Moving Gaussian colour fields / mesh-gradient basins ─────────────────
+  // Each basin follows a bounded Lissajous-like path. The center coordinates
+  // never leave the safe 0.08..0.92 region, while the broad Gaussian falloff
+  // keeps neighboring fields overlapping across the entire screen.
+  vec2 center0 = vec2(
+      0.18 + 0.075 * sin(t * 0.115),
+      0.18 + 0.055 * cos(t * 0.083 + 0.5));
+  vec2 center1 = vec2(
+      0.82 + 0.075 * sin(t * 0.097 + 2.2),
+      0.19 + 0.060 * cos(t * 0.071 + 1.4));
+  vec2 center2 = vec2(
+      0.50 + 0.105 * sin(t * 0.079 + 1.1),
+      0.49 + 0.095 * cos(t * 0.061 + 2.7));
+  vec2 center3 = vec2(
+      0.20 + 0.080 * sin(t * 0.103 + 4.0),
+      0.81 + 0.055 * cos(t * 0.075 + 3.1));
+  vec2 center4 = vec2(
+      0.80 + 0.075 * sin(t * 0.091 + 5.2),
+      0.81 + 0.065 * cos(t * 0.067 + 4.4));
 
-  float layer0Base = exp(-dot(layer0Point, layer0Point) * 2.0);
-  float layer1Base = exp(-dot(layer1Point, layer1Point) * 2.1);
-  float layer2Base = exp(-dot(layer2Point, layer2Point) * 2.0);
-  float layer3Base = exp(-dot(layer3Point, layer3Point) * 2.1);
-  float layer4Base = exp(-dot(layer4Point, layer4Point) * 2.0);
+  vec2 field0Point = vec2((uv.x - center0.x) * aspect, uv.y - center0.y) /
+                     vec2(0.46 * aspect, 0.45);
+  vec2 field1Point = vec2((uv.x - center1.x) * aspect, uv.y - center1.y) /
+                     vec2(0.46 * aspect, 0.45);
+  vec2 field2Point = vec2((uv.x - center2.x) * aspect, uv.y - center2.y) /
+                     vec2(0.50 * aspect, 0.48);
+  vec2 field3Point = vec2((uv.x - center3.x) * aspect, uv.y - center3.y) /
+                     vec2(0.46 * aspect, 0.45);
+  vec2 field4Point = vec2((uv.x - center4.x) * aspect, uv.y - center4.y) /
+                     vec2(0.46 * aspect, 0.45);
 
-  // Only each transition band breathes by a few percent. The centers and
-  // overall locations remain fixed, so no layer can drift out of the frame.
-  float edge0 = smoothstep(0.04, 0.35, layer0Base) *
-                (1.0 - smoothstep(0.72, 0.94, layer0Base));
-  float edge1 = smoothstep(0.04, 0.35, layer1Base) *
-                (1.0 - smoothstep(0.72, 0.94, layer1Base));
-  float edge2 = smoothstep(0.04, 0.35, layer2Base) *
-                (1.0 - smoothstep(0.72, 0.94, layer2Base));
-  float edge3 = smoothstep(0.04, 0.35, layer3Base) *
-                (1.0 - smoothstep(0.72, 0.94, layer3Base));
-  float edge4 = smoothstep(0.04, 0.35, layer4Base) *
-                (1.0 - smoothstep(0.72, 0.94, layer4Base));
+  float breathe0 = 1.0 + 0.08 * sin(t * 0.17 + 0.3);
+  float breathe1 = 1.0 + 0.07 * sin(t * 0.14 + 2.0);
+  float breathe2 = 1.0 + 0.09 * sin(t * 0.11 + 4.1);
+  float breathe3 = 1.0 + 0.07 * sin(t * 0.16 + 1.2);
+  float breathe4 = 1.0 + 0.08 * sin(t * 0.13 + 3.5);
 
-  float radius0 = 1.0 + 0.035 * sin(t * 0.17 + layer0Point.x * 4.0 +
-                                      layer0Point.y * 3.0);
-  float radius1 = 1.0 + 0.040 * sin(t * 0.145 + layer1Point.x * 3.0 -
-                                      layer1Point.y * 4.0 + 1.8);
-  float radius2 = 1.0 + 0.035 * sin(t * 0.12 + layer2Point.x * 4.0 +
-                                      layer2Point.y * 2.5 + 3.7);
-  float radius3 = 1.0 + 0.040 * sin(t * 0.155 + layer3Point.x * 3.5 +
-                                      layer3Point.y * 3.0 + 1.1);
-  float radius4 = 1.0 + 0.035 * sin(t * 0.13 + layer4Point.x * 4.0 -
-                                      layer4Point.y * 2.5 + 2.6);
+  float layer0 = exp(-dot(field0Point, field0Point) * 1.45 /
+                    (breathe0 * breathe0));
+  float layer1 = exp(-dot(field1Point, field1Point) * 1.45 /
+                    (breathe1 * breathe1));
+  float layer2 = exp(-dot(field2Point, field2Point) * 1.35 /
+                    (breathe2 * breathe2));
+  float layer3 = exp(-dot(field3Point, field3Point) * 1.45 /
+                    (breathe3 * breathe3));
+  float layer4 = exp(-dot(field4Point, field4Point) * 1.45 /
+                    (breathe4 * breathe4));
 
-  float layer0Edge = exp(-dot(layer0Point, layer0Point) * 2.0 /
-                         (radius0 * radius0));
-  float layer1Edge = exp(-dot(layer1Point, layer1Point) * 2.1 /
-                         (radius1 * radius1));
-  float layer2Edge = exp(-dot(layer2Point, layer2Point) * 2.0 /
-                         (radius2 * radius2));
-  float layer3Edge = exp(-dot(layer3Point, layer3Point) * 2.1 /
-                         (radius3 * radius3));
-  float layer4Edge = exp(-dot(layer4Point, layer4Point) * 2.0 /
-                         (radius4 * radius4));
+  // Different field strengths keep the result from becoming a flat average,
+  // while the broad Gaussian widths keep neighboring fields overlapping.
+  layer0 *= 0.90 + 0.14 * sin(t * 0.19 + 0.2);
+  layer1 *= 0.90 + 0.14 * sin(t * 0.16 + 2.3);
+  layer2 *= 0.94 + 0.12 * sin(t * 0.13 + 4.0);
+  layer3 *= 0.90 + 0.14 * sin(t * 0.18 + 1.0);
+  layer4 *= 0.90 + 0.14 * sin(t * 0.15 + 3.4);
 
-  float layer0 = mix(layer0Base, layer0Edge, edge0);
-  float layer1 = mix(layer1Base, layer1Edge, edge1);
-  float layer2 = mix(layer2Base, layer2Edge, edge2);
-  float layer3 = mix(layer3Base, layer3Edge, edge3);
-  float layer4 = mix(layer4Base, layer4Edge, edge4);
-
-  // ── Colour-only motion ────────────────────────────────────────────────────
-  // Each layer breathes at a distinct, more noticeable rate. No time value is
-  // applied to coordinates, so the regions never translate or warp.
-  float pulse0 = 0.78 + 0.22 * sin(t * 0.210);
-  float pulse1 = 0.78 + 0.22 * sin(t * 0.166 + 2.1);
-  float pulse2 = 0.78 + 0.22 * sin(t * 0.134 + 4.2);
-  float pulse3 = 0.78 + 0.22 * sin(t * 0.188 + 1.3);
-  float pulse4 = 0.78 + 0.22 * sin(t * 0.152 + 3.5);
-
-  layer0 *= pulse0;
-  layer1 *= pulse1;
-  layer2 *= pulse2;
-  layer3 *= pulse3;
-  layer4 *= pulse4;
-
-  // Colour drift also reaches each layer's center. The centers stay fixed in
-  // space, but their palette values crossfade strongly toward neighbouring
-  // artwork colours so they do not remain locked to one RGB value.
+  // Colour drift reaches each basin, including its moving center. The palette
+  // values crossfade strongly toward neighboring artwork colours instead of
+  // remaining locked to one RGB value.
   float shift0 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.142 + 0.4));
   float shift1 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.118 + 2.4));
   float shift2 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.094 + 4.5));
@@ -135,8 +114,8 @@ void main() {
   vec3 layerColor4 = mix(
       mix(uColor1, uColor0, shift4), uColor2, shift4Next);
 
-  // A restrained global colour exchange makes the overlap feel like colours
-  // are blending, while the fixed masks prevent a liquid/cloud silhouette.
+  // Normalized Gaussian weights create the mesh-gradient blend between basins
+  // while preserving each field's local colour identity.
   float total = layer0 + layer1 + layer2 + layer3 + layer4;
   vec3 col = vec3(0.0);
   col += layerColor0 * layer0;

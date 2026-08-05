@@ -31,26 +31,24 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 **Why:** Lerps ran every frame unconditionally, including during stable playback (blend=1.0). Now lerps only run during the 0.8s crossfade window.
 
 ### Colour-only shader motion
-`fluid.frag` keeps five expanded colour layers anchored to fixed positions
-distributed across the visible frame, with the fifth layout using a centered
-middle layer and no separate background fill. Their opacity,
-palette-neighbor mixing, highlight, and shadow intensity oscillate at
-different rates. Time is never applied to layer coordinates, so the animation
-changes colour relationships without translating the layer centers or warping
-the full regions into cloud/liquid silhouettes. The palette crossfade reaches
-the layer centers, while a small time-varying deformation is limited to each
-mask's transition band. The original screen-space animated film grain adds
-visible texture without affecting the fixed centers.
+`fluid.frag` uses five broad Moving Gaussian Color Fields / mesh-gradient
+basins distributed across the visible frame, with a centered middle field and
+no separate background fill. Each basin moves on a bounded low-amplitude path,
+breathes independently, and blends through normalized Gaussian weights.
+Palette-neighbor mixing, highlight, shadow, and the original screen-space
+animated film grain add temporal colour variation without turning the result
+into fast fog or liquid.
 
 **Why:** The intended visual is living colour and inter-layer blending, not
 moving fog or liquid blobs.
 
 **How to apply:** Keep spatial masks static when tuning this shader. Animate
-only layer pulse, stronger palette-neighbor crossfade, restrained
-highlight/shadow intensity, the original screen-space grain, and a few-percent
-edge-band radius change. Keep all five expanded layer centers inside the frame;
-never apply motion to a full mask or its center. Do not reintroduce a separate
-background fill unless edge coverage is intentionally reduced.
+only bounded basin centers, Gaussian width/strength, stronger
+palette-neighbor crossfade, restrained highlight/shadow intensity, and the
+original screen-space grain. Keep all five centers in the safe interior and
+keep their Gaussian widths broad enough to overlap at the edges. Do not
+reintroduce a separate background fill unless edge coverage is intentionally
+reduced.
 
 ### Shader downscaling
 Shader renders at 256×512 via `SizedBox` + `FittedBox(fit: BoxFit.cover)`. `RepaintBoundary` isolates the `CustomPaint` subtree. This was pre-existing (Phase before 8D).
