@@ -70,10 +70,10 @@ vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
 float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.40);
+col = mix(col, uHighlight, hBright * 0.20);
 
 float hDark = smoothstep(0.02, 0.2, avgField);
-col = mix(col, uShadow, hDark * 0.0);
+col = mix(col, uShadow, hDark * 0.05);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.3;
