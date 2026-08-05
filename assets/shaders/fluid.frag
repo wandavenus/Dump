@@ -116,21 +116,15 @@ void main() {
       0.34 + 0.33 * sin(t * 0.077 + 1.5),
       0.34 + 0.33 * sin(t * 0.059 + 4.8));
 
-  vec3 layerColor0 = (uColor0 * weights0.x + uColor1 * weights0.y +
-                      uColor2 * weights0.z) /
-                     (weights0.x + weights0.y + weights0.z);
-  vec3 layerColor1 = (uColor0 * weights1.x + uColor1 * weights1.y +
-                      uColor2 * weights1.z) /
-                     (weights1.x + weights1.y + weights1.z);
-  vec3 layerColor2 = (uColor0 * weights2.x + uColor1 * weights2.y +
-                      uColor2 * weights2.z) /
-                     (weights2.x + weights2.y + weights2.z);
-  vec3 layerColor3 = (uColor0 * weights3.x + uColor1 * weights3.y +
-                      uColor2 * weights3.z) /
-                     (weights3.x + weights3.y + weights3.z);
-  vec3 layerColor4 = (uColor0 * weights4.x + uColor1 * weights4.y +
-                      uColor2 * weights4.z) /
-                     (weights4.x + weights4.y + weights4.z);
+    // ── Locked Base Colors with Subtle Blend ──────────────────────────────────
+  // Tiap layer punya warna utama yang 'dikunci', tapi tetep animasi tipis
+  // biar gak pernah pudar ke 1 warna yang sama bersamaan.
+  vec3 layerColor0 = mix(uColor0, uColor1, 0.25 + 0.25 * sin(t * 0.142 + 0.4));
+  vec3 layerColor1 = mix(uColor1, uColor2, 0.25 + 0.25 * sin(t * 0.118 + 2.4));
+  vec3 layerColor2 = mix(uColor2, uColor0, 0.25 + 0.25 * sin(t * 0.094 + 4.5));
+  vec3 layerColor3 = mix(uColor0, uColor2, 0.25 + 0.25 * sin(t * 0.126 + 1.2));
+  vec3 layerColor4 = mix(uColor1, uColor0, 0.25 + 0.25 * sin(t * 0.108 + 3.6));
+
 
   // Normalized Gaussian weights create the mesh-gradient blend between basins
   // while preserving each field's local colour identity.
