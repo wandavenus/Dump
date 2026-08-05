@@ -56,7 +56,7 @@ void main() {
       0.50 + 0.33 * cos(t * 0.067 + 4.4));
 
   vec2 field0Point = vec2((uv.x - center0.x) * aspect, uv.y - center0.y) /
-                     vec2(0.48 * aspect, 0.46);
+                     vec2(0.52 * aspect, 0.50);
   vec2 field1Point = vec2((uv.x - center1.x) * aspect, uv.y - center1.y) /
                      vec2(0.52 * aspect, 0.50);
   vec2 field2Point = vec2((uv.x - center2.x) * aspect, uv.y - center2.y) /
