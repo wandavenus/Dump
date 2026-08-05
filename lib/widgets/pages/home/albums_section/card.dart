@@ -17,7 +17,14 @@ class _AlbumCardState extends State<_AlbumCard> {
 
   static const Color _fallbackColor = Color(0xFF2B313A);
 
-  Color _bgColor = _fallbackColor;
+  static const Color _fallbackSecondary = Color(0xFF4E657D);
+  static const Color _fallbackAccent = Color(0xFF7B8794);
+
+  List<Color> _gradientColors = const [
+    _fallbackColor,
+    _fallbackSecondary,
+    _fallbackAccent,
+  ];
 
   @override
   void initState() {
@@ -39,9 +46,7 @@ class _AlbumCardState extends State<_AlbumCard> {
     final cached = NativePaletteService.getSync(songId);
     if (cached != null) {
       if (mounted) {
-        setState(
-          () => _bgColor = cached.isNotEmpty ? cached[0] : _fallbackColor,
-        );
+        setState(() => _gradientColors = _paletteForCard(cached));
       }
       return;
     }
@@ -49,7 +54,15 @@ class _AlbumCardState extends State<_AlbumCard> {
     final colors = await NativePaletteService.get(songId);
     if (!mounted) return;
 
-    setState(() => _bgColor = colors.isNotEmpty ? colors[0] : _fallbackColor);
+    setState(() => _gradientColors = _paletteForCard(colors));
+  }
+
+  List<Color> _paletteForCard(List<Color> colors) {
+    return [
+      colors.isNotEmpty ? colors[0] : _fallbackColor,
+      colors.length > 1 ? colors[1] : _fallbackSecondary,
+      colors.length > 2 ? colors[2] : _fallbackAccent,
+    ];
   }
 
   @override
@@ -108,7 +121,14 @@ class _AlbumCardState extends State<_AlbumCard> {
                       Container(
                         width: _cardWidth,
                         height: _infoHeight,
-                        color: _bgColor,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _gradientColors,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            stops: const [0.0, 0.55, 1.0],
+                          ),
+                        ),
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
