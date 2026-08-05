@@ -43,7 +43,7 @@ void main() {
   float scale = 1.6;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
-  float f0 = sin(dist1 * (2.0 * scale) - t * 0.15) * 0.35 + 0.4;
+  float f0 = sin(dist1 * (2.2 * scale) - t * 0.15) * 0.35 + 0.4;
 
   float f1 = sin(uvd.x * (1.9 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
 
@@ -70,13 +70,13 @@ vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
 float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.20);
+col = mix(col, uHighlight, hBright * 0.30);
 
 float hDark = smoothstep(0.02, 0.2, avgField);
-col = mix(col, uShadow, hDark * 0.05);
+col = mix(col, uShadow, hDark * 0.03);
 
   // ── Soft vignette ──
-  float vig = 1.0 - length(uv - 0.5) * 0.2;
+  float vig = 1.0 - length(uv - 0.5) * 0.25;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Film grain ──
