@@ -94,6 +94,7 @@
 - [Media3 Option B format-guard processors](media3-optionb-format-guards.md) — ToFloat/ToInt16PcmAudioProcessor are public @UnstableApi, safe to bracket custom DefaultAudioProcessorChain; verified via Media3 source + androidx/media#2339.
 - [Signalsmith Stretch ↔ Media3 sync fix](stretch-sync-fix.md) — StretchAwareAudioProcessorChain overrides getMediaDuration; frame-ratio counters fix position drift; real-device verified 2026-07-15.
 - [Audit output convention](audit-output-convention.md) — setiap sesi audit harus menghasilkan file .md di root repo; jangan output isi lengkap ke chat, cukup nama file + ringkasan singkat.
+- [NativePaletteBridge focused audit](native-palette-bridge-focused-audit.md) — focused review found accepted-Handler delivery and post-extraction coalescing windows; see root audit report for details.
 - [High-value analyzer audits](high-value-analyzer-audits.md) — pisahkan error/type/runtime dari lint style-only; validasi target `lib test` dan simpan laporan audit di root.
 - [Analyzer output filtering](analyzer-output-filtering.md) — workflow analyzer menyembunyikan info lint, tetapi tetap menampilkan error/warning dan mempertahankan exit status.
 - [Async fire-and-forget patterns](async-fire-and-forget.md) — unawaited() untuk Future non-nullable; (expr)?.ignore() untuk Future nullable (dispose, cancel); void_checks muncul saat Future<bool> masuk unawaited(Future<void>).
