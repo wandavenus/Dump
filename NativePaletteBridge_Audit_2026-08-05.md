@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-05  
 **Scope:** `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt` and its direct integration points in `MainActivity.kt`, `ArtworkCacheManager.kt`, `NativePaletteService.dart`, and the Android palette dependency.  
-**Status:** Complete — audit only; no production source code was changed.
+**Status:** Complete — findings NP-01, NP-02, and NP-03 remediated after the
+audit; NP-04 through NP-07 remain open.
 
 ## Executive summary
 
@@ -33,9 +34,9 @@ palette math itself:
 
 | ID | Severity | Area | Confidence | Status |
 |---|---|---|---|---|
-| NP-01 | High | Lifecycle / MethodChannel completion | High | Open |
-| NP-02 | High | OOM failure handling | Medium | Open |
-| NP-03 | Medium | Cache version invalidation | High | Open |
+| NP-01 | High | Lifecycle / MethodChannel completion | High | Fixed |
+| NP-02 | High | OOM failure handling | Medium | Fixed |
+| NP-03 | Medium | Cache version invalidation | High | Fixed |
 | NP-04 | Medium | Algorithm documentation drift | High | Open |
 | NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Open |
 | NP-06 | Medium | Test coverage gap | High | Open |
@@ -406,3 +407,34 @@ leave dormant production logic in the bridge without a consumer.
 - The audit used source inspection, call-site tracing, history/blame inspection,
   and repository test discovery.
 - Existing unrelated working-tree changes were left untouched.
+
+## Remediation update
+
+The following fixes were applied after the initial audit:
+
+- **NP-01:** `NativePaletteBridge` now tracks pending requests, completes them
+  exactly once, rejects new work after disposal, handles main-handler delivery
+  failure, and is disposed from `MainActivity.onDestroy()` before the shared
+  executor shuts down.
+- **NP-02:** `OutOfMemoryError` during decode/quantization is converted into a
+  stable `palette_memory_error` result instead of leaving the Dart Future
+  unresolved.
+- **NP-03:** `NativePaletteService.warmUp()` asks the native bridge for
+  `CACHE_VERSION` through `getCacheVersion` and uses that value in the persisted
+  cache filename, with a compatibility fallback for older/non-Android engines.
+
+Validation of these changes is tracked separately from the original audit
+findings. The remaining open items are documentation drift, queue
+coalescing/saturation, missing direct tests, and dead legacy harmony helpers.
+
+### Remediation validation
+
+- `Flutter Analyze`: passed with **No issues found**.
+- `dart format --output=none lib/services/native_palette_service.dart`:
+  completed successfully after formatting the updated Dart file.
+- `git diff --check`: passed.
+- `:app:compileDebugKotlin --offline`: could not run to completion because the
+  local Gradle cache lacks
+  `org.gradle.kotlin.kotlin-dsl:6.6.4`; this is an environment/dependency
+  availability issue, not a reported Kotlin source error.
+- Release APK build: intentionally not run.

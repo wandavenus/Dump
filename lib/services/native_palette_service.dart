@@ -54,6 +54,10 @@ class NativePaletteService {
   ];
 
   static const _channel = MethodChannel('dev.wndavenz.music/native_palette');
+  // Used only when the native channel is unavailable (web/non-Android or an
+  // older engine). Android resolves the authoritative value from
+  // NativePaletteBridge.getCacheVersion during warm-up.
+  static const int _fallbackCacheVersion = 8;
 
   static final _cache = _LruCache<int, List<Color>>(256);
 
@@ -79,7 +83,25 @@ class NativePaletteService {
       final dir = await getApplicationCacheDirectory();
       // v8: invalidates v7 because one/two-family artwork palettes now keep
       // their real secondary family instead of falling back to named swatches.
-      _cacheFilePath = '${dir.path}/artwork/palette_cache_v8.json';
+      var cacheVersion = _fallbackCacheVersion;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          cacheVersion = await _channel.invokeMethod<int>('getCacheVersion') ??
+              cacheVersion;
+        } on PlatformException catch (e, st) {
+          debugPrint(
+            '[NativePaletteService] native cache version unavailable: '
+            '$e\n$st',
+          );
+        } on MissingPluginException catch (e, st) {
+          debugPrint(
+            '[NativePaletteService] native cache version plugin unavailable: '
+            '$e\n$st',
+          );
+        }
+      }
+      _cacheFilePath =
+          '${dir.path}/artwork/palette_cache_v$cacheVersion.json';
       final file = File(_cacheFilePath!);
       if (!file.existsSync()) return;
 

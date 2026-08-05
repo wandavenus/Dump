@@ -9,6 +9,8 @@ import androidx.palette.graphics.Palette
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.pow
@@ -168,9 +170,26 @@ class NativePaletteBridge(
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private class PendingRequest(
+        val result: MethodChannel.Result,
+    ) {
+        val completed = AtomicBoolean(false)
+    }
+
+    private val requestIds = AtomicLong(0L)
+    private val lifecycleLock = Any()
+    private val pendingRequests = mutableMapOf<Long, PendingRequest>()
+
+    @Volatile
+    private var disposed = false
+
     // ── Public entry point ────────────────────────────────────────────────────
 
     fun handleCall(method: String, args: Any?, result: MethodChannel.Result) {
+        if (method == "getCacheVersion") {
+            result.success(CACHE_VERSION)
+            return
+        }
         if (method != "extractPalette") {
             result.notImplemented()
             return
@@ -181,15 +200,37 @@ class NativePaletteBridge(
             return
         }
 
+        val requestId = requestIds.incrementAndGet()
+        val request = PendingRequest(result)
+        synchronized(lifecycleLock) {
+            if (disposed) {
+                result.error("palette_unavailable", "Palette bridge is shutting down", null)
+                return
+            }
+            pendingRequests[requestId] = request
+        }
+
         try {
             executor.execute {
+                if (!isPending(requestId, request)) return@execute
                 try {
                     val colors = extractColors(songId)
-                    mainHandler.post { result.success(colors) }
+                    completeOnMain(requestId, request) {
+                        it.success(colors)
+                    }
+                } catch (error: OutOfMemoryError) {
+                    Log.e(TAG, "Palette extraction ran out of memory for songId=$songId", error)
+                    completeOnMain(requestId, request) {
+                        it.error(
+                            "palette_memory_error",
+                            "Not enough memory to extract palette",
+                            null,
+                        )
+                    }
                 } catch (error: Exception) {
                     Log.w(TAG, "Palette extraction failed for songId=$songId", error)
-                    mainHandler.post {
-                        result.error(
+                    completeOnMain(requestId, request) {
+                        it.error(
                             "palette_extraction_failed",
                             error.message ?: "Palette extraction failed",
                             null,
@@ -199,7 +240,90 @@ class NativePaletteBridge(
             }
         } catch (error: RejectedExecutionException) {
             Log.w(TAG, "Palette queue rejected songId=$songId", error)
-            result.error("palette_busy", "Palette extraction queue is busy", null)
+            completeOnMain(requestId, request) {
+                it.error("palette_busy", "Palette extraction queue is busy", null)
+            }
+        }
+    }
+
+    /**
+     * Completes all requests and prevents work/callbacks from replying after
+     * the Flutter engine is being torn down.
+     *
+     * Must be called before the executor supplied to this bridge is shut down.
+     */
+    fun dispose() {
+        val requests = synchronized(lifecycleLock) {
+            if (disposed) return
+            disposed = true
+            val snapshot = pendingRequests.values.toList()
+            pendingRequests.clear()
+            snapshot
+        }
+
+        requests.forEach { request ->
+            if (request.completed.compareAndSet(false, true)) {
+                try {
+                    request.result.error(
+                        "palette_unavailable",
+                        "Palette bridge is shutting down",
+                        null,
+                    )
+                } catch (error: Exception) {
+                    Log.w(TAG, "Failed to complete palette request during dispose", error)
+                }
+            }
+        }
+    }
+
+    private fun isPending(requestId: Long, request: PendingRequest): Boolean =
+        synchronized(lifecycleLock) {
+            !disposed && pendingRequests[requestId] === request &&
+                !request.completed.get()
+        }
+
+    /**
+     * Posts a result to the main thread and guards it with an atomic
+     * exactly-once check. If the main looper is already unavailable, a final
+     * best-effort error is delivered on the worker thread instead of leaving
+     * Dart's Future unresolved.
+     */
+    private fun completeOnMain(
+        requestId: Long,
+        request: PendingRequest,
+        completion: (MethodChannel.Result) -> Unit,
+    ) {
+        val deliver = Runnable {
+            synchronized(lifecycleLock) {
+                if (disposed || pendingRequests[requestId] !== request ||
+                    !request.completed.compareAndSet(false, true)
+                ) {
+                    return@Runnable
+                }
+                pendingRequests.remove(requestId)
+            }
+            try {
+                completion(request.result)
+            } catch (error: Exception) {
+                Log.w(TAG, "Failed to deliver palette result", error)
+            }
+        }
+
+        if (!mainHandler.post(deliver)) {
+            if (request.completed.compareAndSet(false, true)) {
+                synchronized(lifecycleLock) {
+                    pendingRequests.remove(requestId)
+                }
+                try {
+                    request.result.error(
+                        "palette_unavailable",
+                        "Palette result channel is unavailable",
+                        null,
+                    )
+                } catch (error: Exception) {
+                    Log.w(TAG, "Failed to deliver palette fallback error", error)
+                }
+            }
         }
     }
 
