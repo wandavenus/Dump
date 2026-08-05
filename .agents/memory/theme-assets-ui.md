@@ -40,18 +40,23 @@ Components subscribe via `ValueListenableBuilder`. Helper: `isGlass(notifier)` c
 - Type: GLSL fragment shader
 - Effect: Atmospheric colour-field / fluid effect for player background
 - Rendered by: `lib/widgets/player/player_background/fog_painter.dart`
-- Colors fed from: `PaletteExtractor` dominant/vibrant/muted colors
+- Colors fed from: `NativePaletteService` primary/secondary/accent/highlight/shadow
 - Pre-computed color vars: `_c0r…_c2b`; 256×512 canvas; `RepaintBoundary` isolates repaints
 - Pauses via `TickerMode` when player collapsed
 
-## PaletteExtractor (`lib/services/palette_extractor.dart`)
+## NativePaletteService (`lib/services/native_palette_service.dart`)
 
-- Package: `palette_generator_plus`
-- Downscales artwork to **112×112px** before processing in background isolate
-- Extracts: [dominant, vibrant, muted] colors
+- Android backend: `NativePaletteBridge.kt` using `androidx.palette:palette`
+- Reads artwork by `songId` through `ArtworkCacheManager`; raw image bytes do not
+  cross the MethodChannel
+- Returns 5 colors: `[primary, secondary, accent, highlight, shadow]`
+- Native decode target: maximum **256×256px** per side, `ARGB_8888`
+- Palette quantization: MMCQ with up to 96 swatches and cleared filters
 - Memory cache: LRU 256 entries
-- Disk: debounced JSON writes → `palette_cache.json`
-- Disables default palette filters (allows vivid reds/blacks/whites for shader)
+- Disk: debounced atomic JSON writes to
+  `palette_cache_v<native-version>.json`
+- Android native version is queried through `getCacheVersion`; non-Android/web
+  uses the hardcoded fallback palette
 
 ## Assets Tree
 

@@ -13,8 +13,8 @@ import 'package:path_provider/path_provider.dart';
 // Drop-in replacement for the old `PaletteExtractor` / `palette_generator_plus`
 // pipeline.  Delegates color extraction to [NativePaletteBridge.kt] on the
 // Android side, which uses Android's `androidx.palette:palette` library
-// (MMCQ quantization) + subject-weighted scoring, harmony-driven triplet
-// selection, and an extended 5-color output:
+// (MMCQ quantization) + population-led perceptual scoring, OKLab clustering,
+// coverage/diversity role selection, and an extended 5-color output:
 //
 //   index 0 → primary   (main mood color)
 //   index 1 → secondary (supporting color)
@@ -33,7 +33,7 @@ import 'package:path_provider/path_provider.dart';
 //
 // Cache behaviour:
 //   • 256-entry LRU in memory
-//   • Debounced disk persistence (palette_cache_v8.json)
+//   • Debounced disk persistence to palette_cache_v<native-version>.json
 //   • Old 3-color entries are padded to 5 with fallback tones when loaded
 //   • In-flight dedup: concurrent callers for the same songId share one Future
 //   • On non-Android / web: returns the hardcoded fallback palette
@@ -81,8 +81,9 @@ class NativePaletteService {
 
     try {
       final dir = await getApplicationCacheDirectory();
-      // v8: invalidates v7 because one/two-family artwork palettes now keep
-      // their real secondary family instead of falling back to named swatches.
+      // The native algorithm version is authoritative on Android. It changes
+      // the cache filename so a palette algorithm revision cannot reuse stale
+      // persisted colors. Older/non-native engines use the compatibility value.
       var cacheVersion = _fallbackCacheVersion;
       if (defaultTargetPlatform == TargetPlatform.android) {
         try {
@@ -111,8 +112,9 @@ class NativePaletteService {
         final songId = int.tryParse(entry.key);
         final values = entry.value;
         // Accept both old (3-color) and new (5-color) formats in this cache
-        // file, while the v6 filename ensures results from the old algorithm
-        // are not reused.
+        // file. The versioned filename prevents entries from older algorithms
+        // from being reused; 3-color entries in the current file are padded for
+        // compatibility with older cache contents.
         if (songId == null || values is! List || values.length < 3) continue;
         final colors = List<Color>.generate(
           values.length,

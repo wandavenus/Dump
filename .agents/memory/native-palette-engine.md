@@ -11,14 +11,14 @@ Use `NativePaletteService` (lib/services/native_palette_service.dart) for all pa
 `dev.wndavenz.music/native_palette` — method `extractPalette(songId: Int)` → `List<Int>` (5 ARGB values)
 
 ## Native side
-`NativePaletteBridge.kt` — androidx.palette MMCQ (maximumColorCount=32, clearFilters) + custom selectBestFive().
+`NativePaletteBridge.kt` — androidx.palette MMCQ (maximumColorCount=96, clearFilters) + custom selectBestFive().
 Reads artwork directly from ArtworkCacheManager (no bytes transfer over MethodChannel).
 Registered in MainActivity.configureFlutterEngine → setupNativePaletteChannel().
 Runs on artworkExecutor (bounded 2-thread pool).
 
 ## Selection Algorithm (current)
 1. Filter chromatic candidates: sat ≥ 0.10, lightness 0.06–0.93
-2. Score: population-led score with vibrancy, lightness, center, and dark-tone factors; decode uses ARGB_8888.
+2. Score: `(0.90 × population + 0.10 × sat^0.8) × lightness × darkBonus`; there is no spatial/center weighting. Decode uses ARGB_8888.
 3. Merge perceptually similar swatches with OKLab before role selection.
 4. Coverage-driven roles: primary = largest family; secondary/accent = remaining families ranked by population plus perceptual distance from already-selected roles.
 5. **Neutral-dominance correction:** after chromatic selection, a truly dominant neutral (S < 0.12, full lightness range) can replace primary. This includes near-black and near-white artwork backgrounds.
@@ -27,17 +27,25 @@ Runs on artworkExecutor (bounded 2-thread pool).
 
 ## Dart Cache
 LRU 256 entries + debounced disk persist to the versioned palette cache file.
-The cache was bumped to v8 for preserving one/two-family palettes; v7 introduced
-coverage-driven role selection and v6 introduced extreme-neutral primary correction.
+The native cache version is currently v8. It is read by Dart through
+`getCacheVersion` and used in the persisted filename; v8 preserves
+one/two-family palettes.
 
-**Why:** Dart palette_generator_plus had two problems: (1) Dart isolate overhead for decode+quantize, (2) naïve selection ignoring hue diversity and vibrance. Native approach eliminates both.
+**Historical rationale:** The legacy Dart `palette_generator_plus` path had
+decode/quantize isolate overhead and naïve role selection. The active native
+approach eliminates that old path and uses population-led perceptual selection.
 
-**Why neutral-dominance fix:** saturation filter (S ≥ 0.10) correctly excludes achromatic noise from harmony triplet, but for artwork with neutral backgrounds + vivid logo it can leave only the logo colour to dominate the BG. The post-triplet neutral check restores the true background mood without breaking the chromatic harmony logic, including pure/near black and pure/near white.
+**Why neutral-dominance fix:** the chromatic filter (S ≥ 0.10) excludes
+achromatic candidates from role selection, but neutral backgrounds can be the
+true visual anchor. The post-selection neutral check restores a neutral primary
+when its population exceeds twice the selected chromatic family's merged
+population, including near-black and near-white artwork.
 
-**Why coverage-driven roles:** a harmony-maximizing triplet can select several
+**Why coverage-driven roles:** selecting only by hue harmony can choose several
 related blue clusters and discard a real warm family such as skin or beige.
-Role selection must preserve perceptually distinct, sufficiently populated
-families before considering aesthetic harmony.
+Role selection therefore preserves perceptually distinct, sufficiently
+populated families using coverage plus perceptual distance; legacy harmony
+helpers remain diagnostic-only.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
 
@@ -58,8 +66,8 @@ selection change must bump the native cache version; do not hardcode a second
 independent version in Dart except as an older-engine fallback.
 
 v8 keeps a valid second family as accent when clustering produces only two
-families, derives a related secondary tone from primary, and uses the scored
-cluster as primary so a navy anchor is not replaced by a warm subject family.
+families, derives a related secondary tone from primary, and uses the
+highest-scoring cluster as primary unless dominant-neutral correction applies.
 
 ## Important failure mode
 
