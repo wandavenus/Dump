@@ -2,8 +2,7 @@
 
 **Date:** 2026-08-05  
 **Scope:** `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt` and its direct integration points in `MainActivity.kt`, `ArtworkCacheManager.kt`, `NativePaletteService.dart`, and the Android palette dependency.  
-**Status:** Complete — findings NP-01 through NP-06 remediated after the audit;
-NP-07 remains open.
+**Status:** Complete — findings NP-01 through NP-07 remediated after the audit.
 
 ## Executive summary
 
@@ -15,7 +14,7 @@ selection are also reasonable for the stated palette goals.
 
 The original audit risks were around lifecycle, cache contracts, documentation,
 and test/queue maintenance rather than the palette math itself. NP-01 through
-NP-06 are now fixed; the remaining open item is summarized below:
+NP-07 are now fixed; the audit has no remaining open item.
 
 1. **Fixed —** A request could be left unresolved when `MainActivity.onDestroy()` shuts down the
    shared executor, and a running request can post a result after the Flutter
@@ -42,7 +41,7 @@ NP-06 are now fixed; the remaining open item is summarized below:
 | NP-04 | Medium | Algorithm documentation drift | High | Fixed |
 | NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Fixed |
 | NP-06 | Medium | Test coverage gap | High | Fixed |
-| NP-07 | Low | Dead legacy harmony implementation | High | Open |
+| NP-07 | Low | Dead legacy harmony implementation | High | Fixed |
 
 No critical security vulnerability was found in the reviewed bridge. The bridge
 does not accept filesystem paths or raw image bytes from Dart; it accepts only a
@@ -366,11 +365,11 @@ dev.wndavenz.music.NativePaletteBridgeTest` passed with **13/13 tests**.
 
 - `NativePaletteBridge.kt:544-626`
 
-### Description
+### Original gap
 
-`selectHarmoniousTriplet()` and `harmonyScore()` are retained as legacy helpers,
-but no production call site uses them. They are documented as being kept for
-future comparisons, yet there is no test or diagnostic path that consumes them.
+`selectHarmoniousTriplet()` and `harmonyScore()` were retained as legacy helpers,
+but no production call site used them. They were documented as being kept for
+future comparisons, yet no test or diagnostic path consumed them.
 
 ### Impact
 
@@ -378,11 +377,11 @@ The file is already 800+ lines. Keeping unused selection logic makes it harder
 to identify the active algorithm and increases the chance that a future change
 updates one path while assuming the other is active.
 
-### Recommendation
+### Remediation
 
-Remove the dead helpers, or move them into a clearly named test/benchmark helper
-with tests that explicitly compare the legacy and current algorithms. Do not
-leave dormant production logic in the bridge without a consumer.
+Removed both unused helpers from `NativePaletteBridge.kt`. The active selector
+now has one role-selection path, with no dormant harmony implementation in the
+production bridge.
 
 ---
 
@@ -429,7 +428,8 @@ leave dormant production logic in the bridge without a consumer.
 
 ### P3 — maintainability
 
-7. Remove or isolate dead harmony code (NP-07).
+7. Remove or isolate dead harmony code (NP-07). **Completed** — unused helpers
+   removed from `NativePaletteBridge`.
 
 ## Audit limitations
 
@@ -458,8 +458,8 @@ The following fixes were applied after the initial audit:
 Validation of these changes is tracked separately from the original audit
 findings. NP-05 is fixed by native per-song request coalescing, lightweight
 debug metrics, and a longer Dart retry delay for `palette_busy`. NP-06 is fixed
-by a deterministic 13-test JVM suite. The remaining open item is the dead
-legacy harmony implementation.
+by a deterministic 13-test JVM suite. NP-07 is fixed by removing the unused
+legacy harmony helpers.
 
 ### NP-05 remediation
 
@@ -481,4 +481,6 @@ legacy harmony implementation.
 - `:app:compileDebugKotlin`: passed successfully with the Android SDK
   environment configured. Existing unrelated deprecation warnings remain.
 - `NativePaletteBridgeTest`: passed with **13/13 tests**.
+- NP-07 source search: no references to `selectHarmoniousTriplet` or
+  `harmonyScore` remain.
 - Release APK build: intentionally not run.
