@@ -9,17 +9,17 @@ other Android services, and APK/runtime device behavior.
 
 The file is structurally sound: input validation is explicit, extraction runs
 off the Flutter thread, bitmap ownership is released, requests are coalesced
-while an extraction job is active, and OOM/queue errors are mapped to stable
+through callback delivery, and OOM/queue errors are mapped to stable
 MethodChannel errors. The focused test class and Kotlin compilation both pass.
 
-Four maintainability/reliability findings remain:
+All four findings from the focused review have been remediated:
 
 | ID | Severity | Area | Status |
 |---|---|---|---|
-| NPB-F01 | Medium | Accepted Handler callback can be stranded | Open |
-| NPB-F02 | Low | Small duplicate-work window after extraction | Open |
-| NPB-F03 | Low | Extraction metrics omit failed-job duration/queue depth | Open |
-| NPB-F04 | Low | KDoc still references removed harmony logic | Open |
+| NPB-F01 | Medium | Accepted Handler callback can be stranded | Fixed |
+| NPB-F02 | Low | Small duplicate-work window after extraction | Fixed |
+| NPB-F03 | Low | Extraction metrics omit failed-job duration/queue depth | Fixed |
+| NPB-F04 | Low | KDoc still references removed harmony logic | Fixed |
 
 No critical security issue was found in this file. The bridge accepts only a
 positive song ID and does not accept a Dart-supplied filesystem path or raw
@@ -27,7 +27,7 @@ image bytes.
 
 ## Validation performed
 
-- Read the complete 933-line `NativePaletteBridge.kt`.
+- Read the complete `NativePaletteBridge.kt`.
 - Searched all source/test call sites for the bridge contract and lifecycle.
 - Ran:
 
@@ -38,107 +38,67 @@ image bytes.
   ```
 
 - Result: `BUILD SUCCESSFUL`.
-- The focused test suite remains at 13/13 passing.
+- The focused test suite passes with 15/15 tests.
 - Existing Kotlin warnings are unrelated to this focused audit except the
   already-known unnecessary non-null assertions in the active selector.
-- No production file was modified during this audit.
+- `flutter pub get` was run to restore the missing `audio_session` Android
+  plugin directory in the local dependency cache before Gradle validation.
 
 ## Findings
 
-### NPB-F01 — `Handler.post()` acceptance is not delivery confirmation
+### NPB-F01 — `Handler.post()` acceptance is not delivery confirmation — Fixed
 
 **Severity:** Medium  
 **Location:** `completeOnMain()` around lines 379–415
 
-The bridge treats `mainHandler.post(deliver) == true` as sufficient and relies
-on the runnable eventually executing. If the Handler accepts the runnable but
-the Looper quits, removes pending callbacks, or otherwise stops dispatching
-before `deliver` runs, the request remains in `pendingRequests` and its Dart
-Future is never completed. The `post() == false` branch is handled, but the
-accepted-then-dropped case is not.
+The original risk was that `Handler.post()` returning `true` only confirms
+enqueueing, not eventual Looper delivery. A stopped or removed Looper could
+therefore leave the Dart Future unresolved.
 
-`dispose()` mitigates this when it is definitely called after the callback was
-queued, because it snapshots `pendingRequests` and completes them with
-`palette_unavailable`. The class itself, however, has no acknowledgement or
-timeout for an accepted runnable, so the exactly-once guarantee still depends
-on external lifecycle disposal happening in time.
+**Remediation:** Each posted callback is guarded by the existing atomic
+exactly-once token and a bounded five-second watchdog. If the Handler accepts
+but never dispatches, the watchdog returns `palette_unavailable`. Watchdog
+futures are cancelled after normal delivery, and `dispose()` shuts down the
+watchdog scheduler.
 
-**Impact:** A palette request can remain unresolved during an unusual main
-Looper/engine teardown sequence.
-
-**Recommendation:** Keep a lifecycle-safe delivery token for posted callbacks
-and ensure teardown removes/invalidates callbacks while completing every still
-pending request. Alternatively, use an explicit bounded completion watchdog
-only if the project lifecycle contract cannot guarantee `dispose()` promptly.
-Any change must preserve exactly-once completion and avoid calling a
-`MethodChannel.Result` twice.
-
-### NPB-F02 — Coalescing ends before callbacks are delivered
+### NPB-F02 — Coalescing ends before callbacks are delivered — Fixed
 
 **Severity:** Low  
 **Location:** `completeJobOnMain()` around lines 355–370
 
-`inFlightBySongId.remove(job.songId)` executes before the result runnables are
-posted to the main Handler. A new request for the same song can therefore
-arrive after extraction completes but before the first result runnable runs.
-That request creates a second extraction job even though the first request's
-result is still pending delivery.
+The original risk was removing the per-song job before its result callbacks
+had been delivered. A same-song request arriving in that window could start
+duplicate decode/MMCQ work.
 
-The normal Dart path already deduplicates same-song requests, so this is mostly
-relevant to cross-engine or native callers and to a heavily delayed main
-Looper. It is nevertheless a small gap in the native coalescing contract.
+**Remediation:** A completed `InFlightJob` retains its completion callback until
+all request IDs have been delivered. Requests arriving during that window are
+replayed through the existing callback path without submitting another
+extraction job. The entry is removed as soon as the final request completes.
 
-**Impact:** Duplicate decode/MMCQ work during a narrow callback-delivery
-window; no data corruption.
-
-**Recommendation:** Retain a completed result/error in the per-song in-flight
-entry until all current callbacks have been scheduled or delivered, or add a
-short-lived native result cache keyed by song ID. Do not retain unbounded
-results, and preserve retryability for transient failures.
-
-### NPB-F03 — Metrics are insufficient to measure saturation completely
+### NPB-F03 — Metrics are insufficient to measure saturation completely — Fixed
 
 **Severity:** Low  
 **Location:** `recordExtractionMetrics()` around lines 340–352
 
-The bridge records successful extraction count, coalesced request count, queue
-rejection count, and average duration. Duration is recorded only after
-`extractColors()` returns; jobs that throw an ordinary exception or
-`OutOfMemoryError` are not included in the duration aggregate. The bridge also
-does not observe queue depth or distinguish artwork-cache hit/miss because
-those values belong to the supplied executor/cache manager.
+The original metrics only covered successful extraction duration and did not
+expose queue depth, which could understate latency during failure bursts.
 
-**Impact:** Debug telemetry can understate latency during failure bursts and
-cannot independently prove whether the shared executor is close to saturation.
+**Remediation:** Terminal duration is now recorded from `finally` for success,
+ordinary error, and OOM outcomes. Debug metrics include failure count, outcome,
+current queue depth, and maximum observed queue depth when the supplied
+executor is a `ThreadPoolExecutor`.
 
-**Recommendation:** Record terminal duration in a `finally`-style job metric,
-with a success/error outcome tag. If queue depth is needed, expose it from the
-executor owner rather than reaching through this bridge's generic
-`ExecutorService` interface.
-
-### NPB-F04 — KDoc still describes removed harmony logic
+### NPB-F04 — KDoc still describes removed harmony logic — Fixed
 
 **Severity:** Low  
 **Location:** Class/data-model/selector comments around lines 57–62,
 166–171, and 527–531
 
-The source still contains phrases such as:
+The original wording could make a future maintainer believe a second harmony
+selector still existed after the helper implementation had been removed.
 
-- “downstream harmony and role-assignment calculations”;
-- “Selecting only by hue harmony could choose…”;
-- “rather than inventing a mathematically harmonious substitute.”
-
-The harmony helpers were removed by NP-07. The active code uses perceptual
-distance and coverage/diversity selection, not a harmony score. These comments
-are explanatory historical context, but their current wording can make a
-future maintainer believe a second harmony selector still exists.
-
-**Impact:** Documentation drift and increased risk of future incorrect edits;
-no runtime impact.
-
-**Recommendation:** Reword the comments to say “hue-only selection” or
-“harmony-based selection” as a rejected historical approach, and remove
-“downstream harmony” from the `ColorCluster` documentation.
+**Remediation:** Active comments now describe hue and perceptual-distance
+selection without referring to the removed harmony helper implementation.
 
 ## Verified invariants
 
@@ -174,13 +134,12 @@ no runtime impact.
   top-32 role selection, neutral correction, and five-color output are all
   present in the active path.
 - Fallback output is padded to five colors.
-- The focused 13-test JVM suite covers the contract and main selection cases.
+- The focused 15-test JVM suite covers the contract, main selection cases,
+  delayed callback delivery, and completed-job coalescing.
 
 ## Conclusion
 
-`NativePaletteBridge.kt` is not manifestly broken and passes its focused tests
-and Kotlin compilation. The highest-value follow-up is NPB-F01 because it is
-the only finding that can leave a channel Future unresolved. NPB-F02–F04 are
-low-risk improvements to coalescing precision, observability, and source
-clarity. No algorithm cache-version bump is warranted by this audit because no
-palette-selection behavior was changed.
+`NativePaletteBridge.kt` passes its focused tests and Kotlin compilation. NPB-F01
+through NPB-F04 are fixed. No algorithm cache-version bump is warranted because
+the changes affect callback lifecycle, coalescing, metrics, tests, and comments,
+not palette-selection behavior.

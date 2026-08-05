@@ -4,14 +4,17 @@ import android.os.Handler
 import androidx.palette.graphics.Palette
 import java.util.ArrayDeque
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.util.concurrent.RejectedExecutionException
@@ -122,6 +125,7 @@ class NativePaletteBridgeTest {
         artworkCacheManager = mock(),
         executor = executor,
         mainHandler = immediateHandler(),
+            callbackWatchdog = mock(),
         extractColorsOverride = extractor,
     )
 
@@ -174,6 +178,72 @@ class NativePaletteBridgeTest {
         assertEquals(listOf(1, 2, 3, 4, 5), second.successes.single())
         assertTrue(first.errors.isEmpty())
         assertTrue(second.errors.isEmpty())
+    }
+
+    @Test
+    fun `B03 coalesces requests while completed result awaits Handler delivery`() {
+        val executor = RecordingExecutor()
+        val callbacks = ArrayDeque<Runnable>()
+        val handler = mock<Handler> {
+            on { post(any()) } doAnswer {
+                callbacks.addLast(it.getArgument<Runnable>(0))
+                true
+            }
+        }
+        val bridge = NativePaletteBridge(
+            artworkCacheManager = mock(),
+            executor = executor,
+            mainHandler = handler,
+            callbackWatchdog = mock(),
+            extractColorsOverride = { listOf(1, 2, 3, 4, 5) },
+        )
+        val first = RecordingResult()
+        val second = RecordingResult()
+
+        bridge.handleCall("extractPalette", 42, first)
+        executor.runNext()
+        bridge.handleCall("extractPalette", 42, second)
+
+        assertEquals(0, executor.tasks.size)
+        assertEquals(2, callbacks.size)
+        callbacks.removeFirst().run()
+        callbacks.removeFirst().run()
+        assertEquals(1, first.successes.size)
+        assertEquals(1, second.successes.size)
+        assertTrue(executor.tasks.isEmpty())
+    }
+
+    @Test
+    fun `D03 watchdog completes an accepted but undelivered Handler callback`() {
+        val executor = RecordingExecutor()
+        val watchdog = mock<ScheduledExecutorService>()
+        val watchdogCallback = argumentCaptor<Runnable>()
+        whenever(
+            watchdog.schedule(
+                watchdogCallback.capture(),
+                eq(5_000L),
+                eq(TimeUnit.MILLISECONDS),
+            ),
+        ).thenReturn(null)
+        val handler = mock<Handler> {
+            on { post(any()) } doAnswer { true }
+        }
+        val bridge = NativePaletteBridge(
+            artworkCacheManager = mock(),
+            executor = executor,
+            mainHandler = handler,
+            callbackWatchdog = watchdog,
+            extractColorsOverride = { listOf(1, 2, 3, 4, 5) },
+        )
+        val result = RecordingResult()
+
+        bridge.handleCall("extractPalette", 43, result)
+        executor.runNext()
+        watchdogCallback.firstValue.run()
+
+        assertEquals("palette_unavailable", result.errors.single().first)
+        assertTrue(result.successes.isEmpty())
+        bridge.dispose()
     }
 
     @Test
