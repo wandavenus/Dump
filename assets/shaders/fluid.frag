@@ -42,12 +42,41 @@ void main() {
   vec2 layer1Center = vec2(0.22, -0.02);
   vec2 layer2Center = vec2(-0.08, 0.27);
 
-  float layer0 = exp(-dot((p - layer0Center) * vec2(1.05, 1.10),
-                          (p - layer0Center) * vec2(1.05, 1.10)) * 2.0);
-  float layer1 = exp(-dot((p - layer1Center) * vec2(1.15, 0.95),
-                          (p - layer1Center) * vec2(1.15, 0.95)) * 2.2);
-  float layer2 = exp(-dot((p - layer2Center) * vec2(0.95, 1.20),
-                          (p - layer2Center) * vec2(0.95, 1.20)) * 2.1);
+  vec2 layer0Point = (p - layer0Center) * vec2(1.05, 1.10);
+  vec2 layer1Point = (p - layer1Center) * vec2(1.15, 0.95);
+  vec2 layer2Point = (p - layer2Center) * vec2(0.95, 1.20);
+
+  float layer0Base = exp(-dot(layer0Point, layer0Point) * 2.0);
+  float layer1Base = exp(-dot(layer1Point, layer1Point) * 2.2);
+  float layer2Base = exp(-dot(layer2Point, layer2Point) * 2.1);
+
+  // The centers stay fixed. Only the transition band breathes by a few
+  // percent, creating a soft organic edge without moving or warping the
+  // whole colour region into a cloud/liquid silhouette.
+  float edge0 = smoothstep(0.04, 0.35, layer0Base) *
+                (1.0 - smoothstep(0.72, 0.94, layer0Base));
+  float edge1 = smoothstep(0.04, 0.35, layer1Base) *
+                (1.0 - smoothstep(0.72, 0.94, layer1Base));
+  float edge2 = smoothstep(0.04, 0.35, layer2Base) *
+                (1.0 - smoothstep(0.72, 0.94, layer2Base));
+
+  float radius0 = 1.0 + 0.040 * sin(t * 0.17 + layer0Point.x * 4.0 +
+                                      layer0Point.y * 3.0);
+  float radius1 = 1.0 + 0.035 * sin(t * 0.145 + layer1Point.x * 3.0 -
+                                      layer1Point.y * 4.0 + 1.8);
+  float radius2 = 1.0 + 0.045 * sin(t * 0.12 + layer2Point.x * 4.0 +
+                                      layer2Point.y * 2.5 + 3.7);
+
+  float layer0Edge = exp(-dot(layer0Point, layer0Point) * 2.0 /
+                         (radius0 * radius0));
+  float layer1Edge = exp(-dot(layer1Point, layer1Point) * 2.2 /
+                         (radius1 * radius1));
+  float layer2Edge = exp(-dot(layer2Point, layer2Point) * 2.1 /
+                         (radius2 * radius2));
+
+  float layer0 = mix(layer0Base, layer0Edge, edge0);
+  float layer1 = mix(layer1Base, layer1Edge, edge1);
+  float layer2 = mix(layer2Base, layer2Edge, edge2);
 
   // ── Colour-only motion ────────────────────────────────────────────────────
   // Each layer breathes at a distinct, more noticeable rate. No time value is
