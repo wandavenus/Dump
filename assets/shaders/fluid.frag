@@ -89,16 +89,20 @@ void main() {
   layer1 *= pulse1;
   layer2 *= pulse2;
 
-  // Subtle colour drift happens inside each fixed layer. The shift is toward
-  // a neighboring palette colour, not toward white, so artwork identity stays
-  // intact while the three colours visibly mix over time.
-  float shift0 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.142 + 0.4));
-  float shift1 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.118 + 2.4));
-  float shift2 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.094 + 4.5));
+  // Colour drift also reaches each layer's center. The centers stay fixed in
+  // space, but their palette values crossfade strongly toward neighbouring
+  // artwork colours so they do not remain locked to one RGB value.
+  float shift0 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.142 + 0.4));
+  float shift1 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.118 + 2.4));
+  float shift2 = 0.18 + 0.46 * (0.5 + 0.5 * sin(t * 0.094 + 4.5));
 
-  vec3 layerColor0 = mix(uColor0, uColor1, shift0);
-  vec3 layerColor1 = mix(uColor1, uColor2, shift1);
-  vec3 layerColor2 = mix(uColor2, uColor0, shift2);
+  float shift0Next = 0.06 + 0.24 * (0.5 + 0.5 * sin(t * 0.097 + 2.0));
+  float shift1Next = 0.06 + 0.24 * (0.5 + 0.5 * sin(t * 0.083 + 4.1));
+  float shift2Next = 0.06 + 0.24 * (0.5 + 0.5 * sin(t * 0.071 + 0.8));
+
+  vec3 layerColor0 = mix(mix(uColor0, uColor1, shift0), uColor2, shift0Next);
+  vec3 layerColor1 = mix(mix(uColor1, uColor2, shift1), uColor0, shift1Next);
+  vec3 layerColor2 = mix(mix(uColor2, uColor0, shift2), uColor1, shift2Next);
 
   // A restrained global colour exchange makes the overlap feel like colours
   // are blending, while the fixed masks prevent a liquid/cloud silhouette.
@@ -120,14 +124,12 @@ void main() {
   col = mix(col, uHighlight, highlightMask * highlightPulse);
   col = mix(col, uShadow, shadowMask * shadowPulse);
 
-  // ── Fine animated grain ──────────────────────────────────────────────────
-  // Grain is screen-space only: it adds texture without changing the fixed
-  // colour masks or making any layer travel. Reusing each noise value for a
-  // small cell keeps the cost low at the shader's 256x512 render size.
-  vec2 grainCell = floor(fragCoord * 0.65) + floor(t * 8.0);
-  float grain = fract(sin(dot(grainCell, vec2(12.9898, 78.233))) * 43758.5453);
-  grain = grain * 2.0 - 1.0;
-  col += grain * 0.012;
+  // ── Film grain ────────────────────────────────────────────────────────────
+  // Original full-resolution screen-space grain: it adds visible texture
+  // without changing the fixed colour masks or moving any layer.
+  vec2 grainUV = fragCoord + mod(t, 1.0) * 82.2;
+  float grain = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
+  col = mix(col, vec3(grain), 0.02);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.25;

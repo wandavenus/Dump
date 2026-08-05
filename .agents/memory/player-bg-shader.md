@@ -35,17 +35,19 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 opacity, palette-neighbor mixing, highlight, and shadow intensity oscillate at
 different rates. Time is never applied to layer coordinates, so the animation
 changes colour relationships without translating the layer centers or warping
-the full regions into cloud/liquid silhouettes. A very small time-varying
-deformation is limited to each mask's transition band. A subtle screen-space
-animated film grain adds texture without affecting the fixed centers.
+the full regions into cloud/liquid silhouettes. The palette crossfade reaches
+the layer centers, while a small time-varying deformation is limited to each
+mask's transition band. The original screen-space animated film grain adds
+visible texture without affecting the fixed centers.
 
 **Why:** The intended visual is living colour and inter-layer blending, not
 moving fog or liquid blobs.
 
 **How to apply:** Keep spatial masks static when tuning this shader. Animate
-only layer pulse, palette-neighbor mix, restrained highlight/shadow intensity,
-low-amplitude screen-space grain, and a few-percent edge-band radius change.
-Keep layer centers fixed; never apply motion to the full mask or its center.
+only layer pulse, stronger palette-neighbor crossfade, restrained
+highlight/shadow intensity, the original screen-space grain, and a few-percent
+edge-band radius change. Keep layer centers fixed; never apply motion to the
+full mask or its center.
 
 ### Shader downscaling
 Shader renders at 256×512 via `SizedBox` + `FittedBox(fit: BoxFit.cover)`. `RepaintBoundary` isolates the `CustomPaint` subtree. This was pre-existing (Phase before 8D).
