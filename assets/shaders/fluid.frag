@@ -51,9 +51,9 @@ void main() {
   float f2 = cos(dist2 * (1.8 * scale) + t * 0.2) * 0.35 + 0.4;
 
   float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
-  float f3 = sin(dist3 * (2.2 * scale) - t * 0.18) * 0.30 + 0.35;
+  float f3 = sin(dist3 * (2.0 * scale) - t * 0.18) * 0.30 + 0.35;
 
-  float f4 = cos(uvd.x * (2.5 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
+  float f4 = cos(uvd.x * (2.0 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
 
   // ── Palette blend ──
 
@@ -70,7 +70,7 @@ vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
 float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.20);
+col = mix(col, uHighlight, hBright * 0.08);
 
 float hDark = smoothstep(0.02, 0.2, avgField);
 col = mix(col, uShadow, hDark * 0.01);
