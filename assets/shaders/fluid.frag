@@ -40,15 +40,15 @@ void main() {
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
   // ── Scalar colour fields ──
-  float scale = 1.4;
+  float scale = 1.3;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
-  float f0 = sin(dist1 * (2.2 * scale) - t * 0.15) * 0.35 + 0.4;
+  float f0 = sin(dist1 * (2.5 * scale) - t * 0.15) * 0.35 + 0.4;
 
-  float f1 = sin(uvd.x * (1.9 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
+  float f1 = sin(uvd.x * (1.7 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
 
   float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
-  float f2 = cos(dist2 * (2.0 * scale) + t * 0.2) * 0.35 + 0.4;
+  float f2 = cos(dist2 * (1.8 * scale) + t * 0.2) * 0.35 + 0.4;
 
   float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
   float f3 = sin(dist3 * (2.2 * scale) - t * 0.18) * 0.30 + 0.35;
@@ -70,10 +70,10 @@ vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
 float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
 
 float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.30);
+col = mix(col, uHighlight, hBright * 0.20);
 
 float hDark = smoothstep(0.02, 0.2, avgField);
-col = mix(col, uShadow, hDark * 0.03);
+col = mix(col, uShadow, hDark * 0.01);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.25;
