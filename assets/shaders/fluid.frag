@@ -48,7 +48,7 @@ void main() {
   float f1 = sin(uvd.x * (1.7 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
 
   float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
-  float f2 = cos(dist2 * (1.8 * scale) + t * 0.2) * 0.35 + 0.4;
+  float f2 = cos(dist2 * (1.0 * scale) + t * 0.2) * 0.35 + 0.4;
 
   float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
   float f3 = sin(dist3 * (2.0 * scale) - t * 0.18) * 0.30 + 0.35;
