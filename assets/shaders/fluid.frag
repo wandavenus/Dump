@@ -56,7 +56,7 @@ void main() {
       0.50 + 0.33 * cos(t * 0.067 + 4.4));
 
   vec2 field0Point = vec2((uv.x - center0.x) * aspect, uv.y - center0.y) /
-                     vec2(0.52 * aspect, 0.50);
+                     vec2(0.48 * aspect, 0.46);
   vec2 field1Point = vec2((uv.x - center1.x) * aspect, uv.y - center1.y) /
                      vec2(0.52 * aspect, 0.50);
   vec2 field2Point = vec2((uv.x - center2.x) * aspect, uv.y - center2.y) /
@@ -91,13 +91,7 @@ void main() {
   layer3 *= 0.90 + 0.14 * sin(t * 0.18 + 1.0);
   layer4 *= 0.90 + 0.14 * sin(t * 0.15 + 3.4);
 
-  // Compress influence supaya satu layer ga terlalu dominan.
-   layer0 = pow(layer0, 0.65);
-   layer1 = pow(layer1, 0.65);
-   layer2 = pow(layer2, 0.65);
-   layer3 = pow(layer3, 0.65);
-   layer4 = pow(layer4, 0.65);
-
+  
   // Every basin can use every palette source. The three positive weights are
   // phase-shifted per basin, then normalized, so no layer is permanently tied
   // to dominant, secondary, or accent colour.
