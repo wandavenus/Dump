@@ -33,16 +33,18 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 ### Colour-only shader motion
 `fluid.frag` keeps three soft colour layers anchored to fixed positions. Their
 opacity, palette-neighbor mixing, highlight, and shadow intensity oscillate at
-different slow rates. Time is never applied to layer coordinates, so the
-animation changes colour relationships without translating, warping, or
-forming cloud/liquid silhouettes. Animated film grain was removed.
+different rates. Time is never applied to layer coordinates, so the animation
+changes colour relationships without translating, warping, or forming
+cloud/liquid silhouettes. A subtle screen-space animated film grain adds
+texture without affecting the fixed masks.
 
 **Why:** The intended visual is living colour and inter-layer blending, not
 moving fog or liquid blobs.
 
 **How to apply:** Keep spatial masks static when tuning this shader. Animate
-only layer pulse, palette-neighbor mix, and restrained highlight/shadow
-intensity.
+only layer pulse, palette-neighbor mix, restrained highlight/shadow intensity,
+and low-amplitude screen-space grain. Increasing speed should change temporal
+frequencies only, never coordinate expressions.
 
 ### Shader downscaling
 Shader renders at 256×512 via `SizedBox` + `FittedBox(fit: BoxFit.cover)`. `RepaintBoundary` isolates the `CustomPaint` subtree. This was pre-existing (Phase before 8D).

@@ -50,11 +50,11 @@ void main() {
                           (p - layer2Center) * vec2(0.95, 1.20)) * 2.1);
 
   // ── Colour-only motion ────────────────────────────────────────────────────
-  // Each layer breathes at a different, very slow rate. No time value is
+  // Each layer breathes at a distinct, more noticeable rate. No time value is
   // applied to coordinates, so the regions never translate or warp.
-  float pulse0 = 0.82 + 0.18 * sin(t * 0.105);
-  float pulse1 = 0.82 + 0.18 * sin(t * 0.083 + 2.1);
-  float pulse2 = 0.82 + 0.18 * sin(t * 0.067 + 4.2);
+  float pulse0 = 0.82 + 0.18 * sin(t * 0.210);
+  float pulse1 = 0.82 + 0.18 * sin(t * 0.166 + 2.1);
+  float pulse2 = 0.82 + 0.18 * sin(t * 0.134 + 4.2);
 
   layer0 *= pulse0;
   layer1 *= pulse1;
@@ -63,9 +63,9 @@ void main() {
   // Subtle colour drift happens inside each fixed layer. The shift is toward
   // a neighboring palette colour, not toward white, so artwork identity stays
   // intact while the three colours visibly mix over time.
-  float shift0 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.071 + 0.4));
-  float shift1 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.059 + 2.4));
-  float shift2 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.047 + 4.5));
+  float shift0 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.142 + 0.4));
+  float shift1 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.118 + 2.4));
+  float shift2 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.094 + 4.5));
 
   vec3 layerColor0 = mix(uColor0, uColor1, shift0);
   vec3 layerColor1 = mix(uColor1, uColor2, shift1);
@@ -73,7 +73,7 @@ void main() {
 
   // A restrained global colour exchange makes the overlap feel like colours
   // are blending, while the fixed masks prevent a liquid/cloud silhouette.
-  float exchange = 0.5 + 0.5 * sin(t * 0.041);
+  float exchange = 0.5 + 0.5 * sin(t * 0.082);
   float total = 0.34 + layer0 + layer1 + layer2;
   vec3 col = uColor0 * (0.34 + 0.06 * exchange);
   col += layerColor0 * layer0;
@@ -86,10 +86,19 @@ void main() {
   float highlightMask = exp(-dot((p - vec2(0.48, 0.30)) * vec2(1.0, 1.35),
                                  (p - vec2(0.48, 0.30)) * vec2(1.0, 1.35)) * 2.8);
   float shadowMask = 1.0 - smoothstep(0.15, 0.78, length(p - vec2(-0.10, -0.02)));
-  float highlightPulse = 0.035 + 0.035 * (0.5 + 0.5 * sin(t * 0.052 + 1.7));
-  float shadowPulse = 0.012 + 0.012 * (0.5 + 0.5 * sin(t * 0.038 + 3.0));
+  float highlightPulse = 0.035 + 0.035 * (0.5 + 0.5 * sin(t * 0.104 + 1.7));
+  float shadowPulse = 0.012 + 0.012 * (0.5 + 0.5 * sin(t * 0.076 + 3.0));
   col = mix(col, uHighlight, highlightMask * highlightPulse);
   col = mix(col, uShadow, shadowMask * shadowPulse);
+
+  // ── Fine animated grain ──────────────────────────────────────────────────
+  // Grain is screen-space only: it adds texture without changing the fixed
+  // colour masks or making any layer travel. Reusing each noise value for a
+  // small cell keeps the cost low at the shader's 256x512 render size.
+  vec2 grainCell = floor(fragCoord * 0.65) + floor(t * 8.0);
+  float grain = fract(sin(dot(grainCell, vec2(12.9898, 78.233))) * 43758.5453);
+  grain = grain * 2.0 - 1.0;
+  col += grain * 0.012;
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.25;
