@@ -448,8 +448,11 @@ optimization should be driven by measurements on the target Xiaomi Mi 9T/K20,
 especially queue saturation during artwork bursts.
 
 **Possible Optimizations**
-- Coalesce simultaneous native requests for the same `songId`.
-- Measure queue depth, rejection count, cache hits, and extraction duration.
+- Native coalescing for simultaneous requests for the same `songId` is now
+  implemented in `NativePaletteBridge`.
+- Debug metrics now sample extraction count, coalesced request count, queue
+  rejection count, and average extraction duration.
+- Dart waits 240 ms after `palette_busy` before its bounded retry.
 - Consider a dedicated/priority palette executor only if shared artwork work
   demonstrably starves palette requests.
 
@@ -458,8 +461,8 @@ Not estimated; no fixed latency or speedup claim is supported by the current
 source.
 
 **Migration Complexity**
-Low to medium for queue instrumentation/coalescing; higher for changing the
-quantization backend.
+The initial coalescing/metrics fix is complete. A dedicated or priority
+executor would still be a separate, measurement-driven change.
 
 **Risk**
 - Not on the audio thread — no real-time risk  
@@ -468,7 +471,8 @@ quantization backend.
 - Any algorithm change must bump the native cache version.
 
 **Priority**
-**Medium for instrumentation/coalescing; otherwise measure first**
+**Low for the current scope; continue monitoring metrics before changing pool
+topology**
 
 ---
 

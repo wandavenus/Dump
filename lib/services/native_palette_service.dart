@@ -236,6 +236,7 @@ class NativePaletteService {
       // Retry once so a transient null/error does not become visible as the
       // player's final background.
       for (var attempt = 0; attempt < 2; attempt++) {
+        var retryDelay = const Duration(milliseconds: 120);
         try {
           final raw = await _channel.invokeListMethod<int>(
             'extractPalette',
@@ -253,6 +254,18 @@ class NativePaletteService {
               return colors;
             }
           }
+        } on PlatformException catch (e, st) {
+          if (e.code == 'palette_busy') {
+            // Give the shared native artwork queue time to drain instead of
+            // immediately adding another request to a saturated queue.
+            retryDelay = const Duration(milliseconds: 240);
+          }
+          if (attempt == 1) {
+            debugPrint(
+              '[NativePaletteService] extraction failed for '
+              'songId=$songId: $e\n$st',
+            );
+          }
         } on Exception catch (e, st) {
           if (attempt == 1) {
             debugPrint(
@@ -263,7 +276,7 @@ class NativePaletteService {
         }
 
         if (attempt == 0) {
-          await Future<void>.delayed(const Duration(milliseconds: 120));
+          await Future<void>.delayed(retryDelay);
         }
       }
 

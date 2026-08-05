@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.palette.graphics.Palette
 import io.flutter.plugin.common.MethodChannel
@@ -95,6 +96,10 @@ import kotlin.math.sqrt
  * Timings depend on whether artwork is already cached: cache hits avoid
  * MediaStore extraction, while cache misses include artwork extraction and
  * WebP encoding in [ArtworkCacheManager].
+ *
+ * Concurrent requests for the same song ID share one native extraction job.
+ * Queue rejection and sampled extraction/coalescing metrics are tracked without
+ * increasing the bounded artwork executor size.
  */
 class NativePaletteBridge(
     private val artworkCacheManager: ArtworkCacheManager,
@@ -189,9 +194,19 @@ class NativePaletteBridge(
         val completed = AtomicBoolean(false)
     }
 
+    private class InFlightJob(
+        val songId: Int,
+        val requestIds: MutableList<Long> = mutableListOf(),
+    )
+
     private val requestIds = AtomicLong(0L)
     private val lifecycleLock = Any()
     private val pendingRequests = mutableMapOf<Long, PendingRequest>()
+    private val inFlightBySongId = mutableMapOf<Int, InFlightJob>()
+    private val extractionCount = AtomicLong(0L)
+    private val coalescedRequestCount = AtomicLong(0L)
+    private val queueRejectedCount = AtomicLong(0L)
+    private val totalExtractionDurationMs = AtomicLong(0L)
 
     @Volatile
     private var disposed = false
@@ -215,25 +230,46 @@ class NativePaletteBridge(
 
         val requestId = requestIds.incrementAndGet()
         val request = PendingRequest(result)
+        var jobToSubmit: InFlightJob? = null
         synchronized(lifecycleLock) {
             if (disposed) {
                 result.error("palette_unavailable", "Palette bridge is shutting down", null)
                 return
             }
             pendingRequests[requestId] = request
+            val existingJob = inFlightBySongId[songId]
+            if (existingJob != null) {
+                existingJob.requestIds += requestId
+                coalescedRequestCount.incrementAndGet()
+            } else {
+                jobToSubmit = InFlightJob(songId).also {
+                    it.requestIds += requestId
+                    inFlightBySongId[songId] = it
+                }
+            }
         }
 
+        val job = jobToSubmit ?: return
         try {
             executor.execute {
-                if (!isPending(requestId, request)) return@execute
+                if (!isJobActive(job)) return@execute
+                val startedAt = SystemClock.elapsedRealtime()
                 try {
-                    val colors = extractColors(songId)
-                    completeOnMain(requestId, request) {
+                    val colors = extractColors(job.songId)
+                    recordExtractionMetrics(
+                        job.songId,
+                        SystemClock.elapsedRealtime() - startedAt,
+                    )
+                    completeJobOnMain(job) {
                         it.success(colors)
                     }
                 } catch (error: OutOfMemoryError) {
-                    Log.e(TAG, "Palette extraction ran out of memory for songId=$songId", error)
-                    completeOnMain(requestId, request) {
+                    Log.e(
+                        TAG,
+                        "Palette extraction ran out of memory for songId=${job.songId}",
+                        error,
+                    )
+                    completeJobOnMain(job) {
                         it.error(
                             "palette_memory_error",
                             "Not enough memory to extract palette",
@@ -241,8 +277,8 @@ class NativePaletteBridge(
                         )
                     }
                 } catch (error: Exception) {
-                    Log.w(TAG, "Palette extraction failed for songId=$songId", error)
-                    completeOnMain(requestId, request) {
+                    Log.w(TAG, "Palette extraction failed for songId=${job.songId}", error)
+                    completeJobOnMain(job) {
                         it.error(
                             "palette_extraction_failed",
                             error.message ?: "Palette extraction failed",
@@ -252,8 +288,9 @@ class NativePaletteBridge(
                 }
             }
         } catch (error: RejectedExecutionException) {
-            Log.w(TAG, "Palette queue rejected songId=$songId", error)
-            completeOnMain(requestId, request) {
+            val rejected = queueRejectedCount.incrementAndGet()
+            Log.w(TAG, "Palette queue rejected songId=${job.songId} count=$rejected", error)
+            completeJobOnMain(job) {
                 it.error("palette_busy", "Palette extraction queue is busy", null)
             }
         }
@@ -271,6 +308,7 @@ class NativePaletteBridge(
             disposed = true
             val snapshot = pendingRequests.values.toList()
             pendingRequests.clear()
+            inFlightBySongId.clear()
             snapshot
         }
 
@@ -289,11 +327,45 @@ class NativePaletteBridge(
         }
     }
 
-    private fun isPending(requestId: Long, request: PendingRequest): Boolean =
+    private fun isJobActive(job: InFlightJob): Boolean =
         synchronized(lifecycleLock) {
-            !disposed && pendingRequests[requestId] === request &&
-                !request.completed.get()
+            !disposed &&
+                inFlightBySongId[job.songId] === job &&
+                job.requestIds.any { pendingRequests.containsKey(it) }
         }
+
+    private fun recordExtractionMetrics(songId: Int, durationMs: Long) {
+        val completed = extractionCount.incrementAndGet()
+        val totalDuration = totalExtractionDurationMs.addAndGet(durationMs)
+        if (Log.isLoggable(TAG, Log.DEBUG) && (completed == 1L || completed % 32L == 0L)) {
+            val coalesced = coalescedRequestCount.get()
+            val rejected = queueRejectedCount.get()
+            val averageMs = totalDuration / completed.coerceAtLeast(1L)
+            Log.d(
+                TAG,
+                "metrics extractions=$completed coalesced=$coalesced " +
+                    "queueRejected=$rejected avgMs=$averageMs lastSongId=$songId",
+            )
+        }
+    }
+
+    private fun completeJobOnMain(
+        job: InFlightJob,
+        completion: (MethodChannel.Result) -> Unit,
+    ) {
+        val requests = synchronized(lifecycleLock) {
+            if (disposed || inFlightBySongId[job.songId] !== job) {
+                return
+            }
+            inFlightBySongId.remove(job.songId)
+            job.requestIds.mapNotNull { id ->
+                pendingRequests[id]?.let { id to it }
+            }
+        }
+        requests.forEach { (requestId, request) ->
+            completeOnMain(requestId, request, completion)
+        }
+    }
 
     /**
      * Posts a result to the main thread and guards it with an atomic

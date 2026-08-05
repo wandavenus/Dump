@@ -89,5 +89,20 @@ returned as MethodChannel errors. Dart must not persist the fallback for these
 transient failures; a normal successful extraction that legitimately has no
 usable artwork may still return and cache the fallback.
 
+## Queue saturation protection
+
+Native requests for the same `songId` share one in-flight extraction job.
+The bridge keeps the artwork executor bounded at two threads and emits sampled
+debug metrics for extraction count, coalesced requests, queue rejections, and
+average duration. Dart uses a longer bounded retry delay after `palette_busy`.
+
+**Why:** Artwork cache work and palette extraction share the target device's
+small artwork pool. Repeating decode/MMCQ for identical requests amplifies
+bursts and makes queue saturation more likely.
+
+**How to apply:** Preserve per-song coalescing and exactly-once completion when
+adding bridge methods. Do not increase worker count without measurements from
+the target Xiaomi device.
+
 ## Build dep
 `androidx.palette:palette:1.0.0` added to android/app/build.gradle dependencies.

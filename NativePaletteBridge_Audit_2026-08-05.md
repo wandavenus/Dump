@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-05  
 **Scope:** `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt` and its direct integration points in `MainActivity.kt`, `ArtworkCacheManager.kt`, `NativePaletteService.dart`, and the Android palette dependency.  
-**Status:** Complete — findings NP-01 through NP-04 remediated after the audit;
-NP-05 through NP-07 remain open.
+**Status:** Complete — findings NP-01 through NP-05 remediated after the audit;
+NP-06 and NP-07 remain open.
 
 ## Executive summary
 
@@ -40,7 +40,7 @@ NP-04 are now fixed; the remaining open items are summarized below:
 | NP-02 | High | OOM failure handling | Medium | Fixed |
 | NP-03 | Medium | Cache version invalidation | High | Fixed |
 | NP-04 | Medium | Algorithm documentation drift | High | Fixed |
-| NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Open |
+| NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Fixed |
 | NP-06 | Medium | Test coverage gap | High | Open |
 | NP-07 | Low | Dead legacy harmony implementation | High | Open |
 
@@ -263,11 +263,10 @@ of 48 with artwork cache extraction. A palette miss can include:
 3. a second bitmap decode;
 4. Palette quantization and clustering.
 
-The Dart service deduplicates calls for the same song ID in one Dart isolate, but
-the native bridge has no per-song in-flight coalescing. Multiple callers or
-multiple engine instances can enqueue duplicate work. When the shared queue is
-full, the bridge returns `palette_busy`; Dart retries twice with a fixed 120 ms
-delay, potentially adding more queue pressure.
+Before remediation, the Dart service deduplicated calls only within one Dart
+isolate and the native bridge had no per-song in-flight coalescing. Multiple
+callers could enqueue duplicate work. Queue rejection returned `palette_busy`
+and Dart retried twice with a fixed 120 ms delay.
 
 ### Impact
 
@@ -276,15 +275,20 @@ workers. Under a large library or rapid player changes, extraction latency rises
 and `palette_busy` retries can amplify the burst. This is a performance and
 responsiveness risk on the target device, not a data-integrity issue.
 
-### Recommendation
+### Remediation status
 
-- Coalesce native requests by song ID with an in-flight map.
-- Give palette work a small dedicated bounded executor, or use a priority queue
-  so cache extraction is not starved.
-- Replace fixed retry delay with bounded backoff/jitter, or retry only after a
-  queue-rejected signal with a short cap.
-- Instrument queue depth, extraction duration, rejection count, and cache-hit
-  rate before changing pool sizes.
+NP-05 is fixed without increasing the worker count:
+
+- `NativePaletteBridge` coalesces concurrent native requests by `songId` into
+  one in-flight extraction job and fans the same result/error out to all
+  waiting MethodChannel results.
+- The bridge records sampled debug metrics for extraction count, coalesced
+  request count, queue rejection count, and average extraction duration.
+- Dart waits 240 ms after `palette_busy` before the bounded retry, reducing
+  immediate pressure on a saturated queue.
+- The existing two-thread bounded executor remains in place for the target
+  Xiaomi Mi 9T/K20. A dedicated/priority executor is intentionally deferred
+  until metrics show that coalescing is insufficient.
 
 ---
 
@@ -429,10 +433,20 @@ The following fixes were applied after the initial audit:
   cache filename, with a compatibility fallback for older/non-Android engines.
 
 Validation of these changes is tracked separately from the original audit
-findings. The remaining open items are queue coalescing/saturation, missing
-direct tests, and dead legacy harmony helpers. Documentation drift NP-04 is
-fixed across the native KDoc, Dart comments, memory notes, and active technical
-documentation.
+findings. NP-05 is fixed by native per-song request coalescing, lightweight
+debug metrics, and a longer Dart retry delay for `palette_busy`. The remaining
+open items are missing direct tests and dead legacy harmony helpers.
+
+### NP-05 remediation
+
+- Concurrent native requests for the same `songId` now share one extraction
+  job and receive the same result/error.
+- The bridge tracks extraction count, coalesced request count, queue rejection
+  count, and sampled average extraction duration in debug logs.
+- Queue rejection remains bounded and retryable; Dart waits 240 ms after
+  `palette_busy` instead of immediately adding pressure to the saturated queue.
+- The existing two-thread bounded executor is retained for the Snapdragon 730
+  target; no extra worker pool was introduced.
 
 ### Remediation validation
 
@@ -440,8 +454,6 @@ documentation.
 - `dart format --output=none lib/services/native_palette_service.dart`:
   completed successfully after formatting the updated Dart file.
 - `git diff --check`: passed.
-- `:app:compileDebugKotlin --offline`: could not run to completion because the
-  local Gradle cache lacks
-  `org.gradle.kotlin.kotlin-dsl:6.6.4`; this is an environment/dependency
-  availability issue, not a reported Kotlin source error.
+- `:app:compileDebugKotlin`: passed successfully with the Android SDK
+  environment configured. Existing unrelated deprecation warnings remain.
 - Release APK build: intentionally not run.
