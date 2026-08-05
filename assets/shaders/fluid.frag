@@ -36,19 +36,19 @@ void main() {
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
   // ── Five fixed colour layers ─────────────────────────────────────────────
-  // Centers are kept inside the visible frame. The five compact regions are
-  // distributed across the whole screen instead of being oversized blobs
-  // whose overlap washes out the palette changes.
-  vec2 layer0Point = vec2((uv.x - 0.18) * aspect, uv.y - 0.18) /
-                     vec2(0.22 * aspect, 0.21);
-  vec2 layer1Point = vec2((uv.x - 0.50) * aspect, uv.y - 0.16) /
-                     vec2(0.22 * aspect, 0.20);
-  vec2 layer2Point = vec2((uv.x - 0.80) * aspect, uv.y - 0.34) /
-                     vec2(0.20 * aspect, 0.23);
-  vec2 layer3Point = vec2((uv.x - 0.24) * aspect, uv.y - 0.68) /
-                     vec2(0.22 * aspect, 0.22);
-  vec2 layer4Point = vec2((uv.x - 0.72) * aspect, uv.y - 0.80) /
-                     vec2(0.22 * aspect, 0.18);
+  // Centers are kept inside the visible frame. The five expanded regions
+  // overlap enough to cover the entire screen without a background fill.
+  // Layer 2 is centered so the palette has a strong middle anchor.
+  vec2 layer0Point = vec2((uv.x - 0.16) * aspect, uv.y - 0.15) /
+                     vec2(0.34 * aspect, 0.31);
+  vec2 layer1Point = vec2((uv.x - 0.84) * aspect, uv.y - 0.15) /
+                     vec2(0.34 * aspect, 0.31);
+  vec2 layer2Point = vec2((uv.x - 0.50) * aspect, uv.y - 0.48) /
+                     vec2(0.36 * aspect, 0.34);
+  vec2 layer3Point = vec2((uv.x - 0.16) * aspect, uv.y - 0.84) /
+                     vec2(0.34 * aspect, 0.31);
+  vec2 layer4Point = vec2((uv.x - 0.84) * aspect, uv.y - 0.84) /
+                     vec2(0.34 * aspect, 0.31);
 
   float layer0Base = exp(-dot(layer0Point, layer0Point) * 2.0);
   float layer1Base = exp(-dot(layer1Point, layer1Point) * 2.1);
@@ -137,10 +137,8 @@ void main() {
 
   // A restrained global colour exchange makes the overlap feel like colours
   // are blending, while the fixed masks prevent a liquid/cloud silhouette.
-  float exchange = 0.5 + 0.5 * sin(t * 0.082);
-  float backgroundWeight = 0.12 + 0.04 * exchange;
-  float total = backgroundWeight + layer0 + layer1 + layer2 + layer3 + layer4;
-  vec3 col = uColor0 * backgroundWeight;
+  float total = layer0 + layer1 + layer2 + layer3 + layer4;
+  vec3 col = vec3(0.0);
   col += layerColor0 * layer0;
   col += layerColor1 * layer1;
   col += layerColor2 * layer2;
