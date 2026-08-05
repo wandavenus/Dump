@@ -76,7 +76,7 @@ float hDark = smoothstep(0.02, 0.2, avgField);
 col = mix(col, uShadow, hDark * 0.05);
 
   // ── Soft vignette ──
-  float vig = 1.0 - length(uv - 0.5) * 0.3;
+  float vig = 1.0 - length(uv - 0.5) * 0.2;
   col *= clamp(vig, 0.0, 1.0);
 
   // ── Film grain ──
