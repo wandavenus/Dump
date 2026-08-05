@@ -40,7 +40,7 @@ void main() {
   vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
 
   // ── Scalar colour fields ──
-  float scale = 1.6;
+  float scale = 1.4;
 
   float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
   float f0 = sin(dist1 * (2.2 * scale) - t * 0.15) * 0.35 + 0.4;
