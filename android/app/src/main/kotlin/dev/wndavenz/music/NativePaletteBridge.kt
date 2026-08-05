@@ -103,7 +103,7 @@ class NativePaletteBridge(
             0xFF121821.toInt(),  // shadow
         )
 
-        private const val PALETTE_TARGET_SIZE = 128
+        private const val PALETTE_TARGET_SIZE = 256
 
          /** Maximum scored clusters considered for coverage role selection. */
         private const val TOP_N = 32
@@ -228,7 +228,7 @@ class NativePaletteBridge(
 
         return try {
             val palette = Palette.from(bitmap)
-                .maximumColorCount(96)
+                .maximumColorCount(64)
                 .clearFilters()
                 .generate()
             selectBestFive(palette)
@@ -289,8 +289,8 @@ class NativePaletteBridge(
             // Softer saturation power: sat^0.8 reduces the gap between
             // very saturated (0.85→0.88) and moderately saturated (0.25→0.32).
             val vibrancy    = sat.pow(0.8)
-            // Blended score: dominant area (95%) + vibrancy (5%).
-            val baseScore   = popFactor * 0.95 + vibrancy * 0.05
+            // Blended score: dominant area (90%) + vibrancy (10%).
+            val baseScore   = popFactor * 0.90 + vibrancy * 0.10
 
             val darkBonus = if (light < 0.25) 1.20 else 1.0
             val score = baseScore * lightFactor * darkBonus
