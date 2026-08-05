@@ -41,6 +41,21 @@ families before considering aesthetic harmony.
 
 **How to apply:** Never re-add palette_generator_plus. Extending selectBestFive() in NativePaletteBridge.kt is the correct extension point. Cache version must be bumped whenever the extraction algorithm changes meaningfully.
 
+## Important failure mode
+
+The OKLab merge threshold and greedy “any member” matching can collapse an artwork
+into fewer than three clusters. If role selection treats that as a hard fallback,
+the named Palette swatches can mask the new coverage algorithm and often return
+related blue tones again.
+
+**Why:** A palette may contain only two perceptually meaningful families (for
+example, dark blue plus warm beige), but that is still a valid result for
+primary/secondary/accent. Falling back loses the warm family entirely.
+
+**How to apply:** Do not replace a valid two-family extraction with generic named
+swatches. Preserve the available distinct families and derive only the missing
+role; test the `< 3 clusters` path explicitly.
+
 **Failure handling:** Native queue rejection and extraction exceptions are
 returned as MethodChannel errors. Dart must not persist the fallback for these
 transient failures; a normal successful extraction that legitimately has no
