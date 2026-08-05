@@ -32,23 +32,23 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 
 ### Colour-only shader motion
 `fluid.frag` uses five broad Moving Gaussian Color Fields / mesh-gradient
-basins distributed across the visible frame, with a centered middle field and
-no separate background fill. Each basin moves on a bounded low-amplitude path,
-breathes independently, and blends through normalized Gaussian weights.
-Palette-neighbor mixing, highlight, shadow, and the original screen-space
-animated film grain add temporal colour variation without turning the result
-into fast fog or liquid.
+basins that can all cross the middle of the visible frame, with no separate
+background fill. Each basin moves on a bounded path, breathes independently,
+and blends through normalized Gaussian weights. Every basin independently
+reweights all three palette sources over time; no basin is permanently tied to
+dominant, secondary, or accent. Highlight, shadow, and the original
+screen-space animated film grain add temporal colour variation without turning
+the result into fast fog or liquid.
 
 **Why:** The intended visual is living colour and inter-layer blending, not
 moving fog or liquid blobs.
 
-**How to apply:** Keep spatial masks static when tuning this shader. Animate
-only bounded basin centers, Gaussian width/strength, stronger
-palette-neighbor crossfade, restrained highlight/shadow intensity, and the
-original screen-space grain. Keep all five centers in the safe interior and
-keep their Gaussian widths broad enough to overlap at the edges. Do not
-reintroduce a separate background fill unless edge coverage is intentionally
-reduced.
+**How to apply:** Tune only bounded basin centers, Gaussian width/strength,
+independently reweighted three-source palette mixing, restrained
+highlight/shadow intensity, and the original screen-space grain. Keep all five
+basin centers inside the safe interior and keep their Gaussian widths broad
+enough to overlap at the edges. Do not reintroduce a separate background fill
+unless edge coverage is intentionally reduced.
 
 ### Shader downscaling
 Shader renders at 256×512 via `SizedBox` + `FittedBox(fit: BoxFit.cover)`. `RepaintBoundary` isolates the `CustomPaint` subtree. This was pre-existing (Phase before 8D).
