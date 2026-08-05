@@ -30,6 +30,20 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 
 **Why:** Lerps ran every frame unconditionally, including during stable playback (blend=1.0). Now lerps only run during the 0.8s crossfade window.
 
+### Colour-only shader motion
+`fluid.frag` keeps three soft colour layers anchored to fixed positions. Their
+opacity, palette-neighbor mixing, highlight, and shadow intensity oscillate at
+different slow rates. Time is never applied to layer coordinates, so the
+animation changes colour relationships without translating, warping, or
+forming cloud/liquid silhouettes. Animated film grain was removed.
+
+**Why:** The intended visual is living colour and inter-layer blending, not
+moving fog or liquid blobs.
+
+**How to apply:** Keep spatial masks static when tuning this shader. Animate
+only layer pulse, palette-neighbor mix, and restrained highlight/shadow
+intensity.
+
 ### Shader downscaling
 Shader renders at 256×512 via `SizedBox` + `FittedBox(fit: BoxFit.cover)`. `RepaintBoundary` isolates the `CustomPaint` subtree. This was pre-existing (Phase before 8D).
 

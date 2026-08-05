@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.11',
+    date: '5 Agustus 2026',
+    changes: [
+      'Ubah animasi background player agar warna tetap di layer masing-masing, lalu berubah dan saling bercampur tanpa bentuk kabut atau cairan yang berpindah.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.10',
     date: '5 Agustus 2026',
     changes: [
