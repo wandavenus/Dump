@@ -228,7 +228,7 @@ class NativePaletteBridge(
 
         return try {
             val palette = Palette.from(bitmap)
-                .maximumColorCount(64)
+                .maximumColorCount(96)
                 .clearFilters()
                 .generate()
             selectBestFive(palette)
