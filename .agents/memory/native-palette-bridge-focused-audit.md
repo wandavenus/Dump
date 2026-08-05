@@ -5,16 +5,16 @@ description: Durable caveats found by a file-only review of the native palette b
 
 ## Rule
 
-The bridge's exactly-once callback logic still depends on lifecycle disposal if
-the main Handler accepts a runnable and the Looper stops dispatching it.
-Coalescing also ends when extraction completes, before callback delivery finishes,
-so a narrow duplicate-work window remains.
+Palette callbacks remain exactly-once even if the main Handler accepts but
+never dispatches a runnable, and same-song requests remain coalesced until all
+callbacks from a completed extraction are delivered.
 
-**Why:** `Handler.post()` returning `true` confirms enqueueing, not eventual
-execution, and the per-song in-flight entry is removed before result runnables
-are posted.
+**Why:** Handler enqueue success does not guarantee Looper delivery, while
+removing the completed job before callback delivery permits duplicate extraction
+work during a narrow lifecycle window.
 
-**How to apply:** Any future lifecycle hardening should preserve exactly-once
-MethodChannel completion and any coalescing fix should remain bounded and keep
-transient failures retryable. See
+**How to apply:** Preserve the bounded callback watchdog, cancel it after normal
+delivery, and keep completed jobs only until their pending request IDs are
+drained. Transient extraction failures must remain retryable and must not become
+an unbounded result cache. See
 `NativePaletteBridge_Focused_Audit_2026-08-05.md` for the full review.

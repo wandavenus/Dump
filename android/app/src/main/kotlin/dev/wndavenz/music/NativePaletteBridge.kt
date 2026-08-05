@@ -10,6 +10,11 @@ import androidx.palette.graphics.Palette
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
@@ -59,7 +64,7 @@ import kotlin.math.sqrt
  *    perceptual distance from already-selected roles prevents three shades of
  *    the same blue from consuming the palette. This preserves real secondary
  *    families such as skin, beige, green, or red instead of inventing a
- *    mathematically harmonious substitute.
+ *    mathematically related substitute.
  *    Only the top [TOP_N] (32) clusters are considered for role selection.
  *
  * 7. **Role assignment**:
@@ -105,6 +110,9 @@ class NativePaletteBridge(
     private val artworkCacheManager: ArtworkCacheManager,
     private val executor: ExecutorService,
     mainHandler: Handler = Handler(Looper.getMainLooper()),
+    private val callbackWatchdog: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "NativePaletteCallbackWatchdog").apply { isDaemon = true }
+    },
     private val extractColorsOverride: ((Int) -> List<Int>?)? = null,
 ) {
 
@@ -144,6 +152,9 @@ class NativePaletteBridge(
 
         /** Maximum hue distance for non-neutral highlight/shadow candidates. */
         private const val HUE_ANCHOR_THRESHOLD = 120f
+
+        /** Bounds the time a queued callback may keep a Dart Future pending. */
+        private const val CALLBACK_WATCHDOG_DELAY_MS = 5_000L
     }
 
     // ── Internal data models ─────────────────────────────────────────────────
@@ -168,7 +179,7 @@ class NativePaletteBridge(
      *   that may not appear in the artwork and whose perceived lightness is
      *   shifted.  The [representativeSwatch] is always a real Palette swatch —
      *   it is visually accurate, numerically stable, and carries the correct
-     *   HSL values for downstream harmony and role-assignment calculations.
+     *   HSL values for downstream hue and role-assignment calculations.
      */
     private data class ColorCluster(
         val swatches: MutableList<Palette.Swatch>,
@@ -188,17 +199,20 @@ class NativePaletteBridge(
             get() = swatches.first()
     }
 
-    private val mainHandler = mainHandler
-
     private class PendingRequest(
         val result: MethodChannel.Result,
     ) {
         val completed = AtomicBoolean(false)
+        var watchdogFuture: ScheduledFuture<*>? = null
     }
+
+    private val mainHandler = mainHandler
 
     private class InFlightJob(
         val songId: Int,
         val requestIds: MutableList<Long> = mutableListOf(),
+        var completed: Boolean = false,
+        var completion: ((MethodChannel.Result) -> Unit)? = null,
     )
 
     private val requestIds = AtomicLong(0L)
@@ -206,9 +220,11 @@ class NativePaletteBridge(
     private val pendingRequests = mutableMapOf<Long, PendingRequest>()
     private val inFlightBySongId = mutableMapOf<Int, InFlightJob>()
     private val extractionCount = AtomicLong(0L)
+    private val extractionFailureCount = AtomicLong(0L)
     private val coalescedRequestCount = AtomicLong(0L)
     private val queueRejectedCount = AtomicLong(0L)
     private val totalExtractionDurationMs = AtomicLong(0L)
+    private val maxQueueDepth = AtomicLong(0L)
 
     @Volatile
     private var disposed = false
@@ -233,6 +249,7 @@ class NativePaletteBridge(
         val requestId = requestIds.incrementAndGet()
         val request = PendingRequest(result)
         var jobToSubmit: InFlightJob? = null
+        var completedJob: InFlightJob? = null
         synchronized(lifecycleLock) {
             if (disposed) {
                 result.error("palette_unavailable", "Palette bridge is shutting down", null)
@@ -243,6 +260,9 @@ class NativePaletteBridge(
             if (existingJob != null) {
                 existingJob.requestIds += requestId
                 coalescedRequestCount.incrementAndGet()
+                if (existingJob.completed) {
+                    completedJob = existingJob
+                }
             } else {
                 jobToSubmit = InFlightJob(songId).also {
                     it.requestIds += requestId
@@ -251,22 +271,28 @@ class NativePaletteBridge(
             }
         }
 
+        completedJob?.let { job ->
+            val completion = job.completion
+            if (completion != null) {
+                completeOnMain(job, requestId, request, completion)
+            }
+            return
+        }
+
         val job = jobToSubmit ?: return
         try {
             executor.execute {
                 if (!isJobActive(job)) return@execute
                 val startedAt = SystemClock.elapsedRealtime()
+                var outcome = "success"
                 try {
                     val colors = extractColorsOverride?.invoke(job.songId)
                         ?: extractColors(job.songId)
-                    recordExtractionMetrics(
-                        job.songId,
-                        SystemClock.elapsedRealtime() - startedAt,
-                    )
                     completeJobOnMain(job) {
                         it.success(colors)
                     }
                 } catch (error: OutOfMemoryError) {
+                    outcome = "oom"
                     Log.e(
                         TAG,
                         "Palette extraction ran out of memory for songId=${job.songId}",
@@ -280,6 +306,7 @@ class NativePaletteBridge(
                         )
                     }
                 } catch (error: Exception) {
+                    outcome = "error"
                     Log.w(TAG, "Palette extraction failed for songId=${job.songId}", error)
                     completeJobOnMain(job) {
                         it.error(
@@ -288,14 +315,22 @@ class NativePaletteBridge(
                             null,
                         )
                     }
+                } finally {
+                    recordExtractionMetrics(
+                        job.songId,
+                        SystemClock.elapsedRealtime() - startedAt,
+                        outcome,
+                    )
                 }
             }
+            recordQueueDepth()
         } catch (error: RejectedExecutionException) {
             val rejected = queueRejectedCount.incrementAndGet()
             Log.w(TAG, "Palette queue rejected songId=${job.songId} count=$rejected", error)
             completeJobOnMain(job) {
                 it.error("palette_busy", "Palette extraction queue is busy", null)
             }
+            recordQueueDepth()
         }
     }
 
@@ -314,6 +349,7 @@ class NativePaletteBridge(
             inFlightBySongId.clear()
             snapshot
         }
+        callbackWatchdog.shutdownNow()
 
         requests.forEach { request ->
             if (request.completed.compareAndSet(false, true)) {
@@ -334,20 +370,33 @@ class NativePaletteBridge(
         synchronized(lifecycleLock) {
             !disposed &&
                 inFlightBySongId[job.songId] === job &&
+                !job.completed &&
                 job.requestIds.any { pendingRequests.containsKey(it) }
         }
 
-    private fun recordExtractionMetrics(songId: Int, durationMs: Long) {
+    private fun recordQueueDepth() {
+        val queueDepth = (executor as? ThreadPoolExecutor)?.queue?.size?.toLong() ?: return
+        maxQueueDepth.updateAndGet { maxOf(it, queueDepth) }
+    }
+
+    private fun recordExtractionMetrics(songId: Int, durationMs: Long, outcome: String) {
         val completed = extractionCount.incrementAndGet()
         val totalDuration = totalExtractionDurationMs.addAndGet(durationMs)
+        if (outcome != "success") {
+            extractionFailureCount.incrementAndGet()
+        }
+        recordQueueDepth()
         if (Log.isLoggable(TAG, Log.DEBUG) && (completed == 1L || completed % 32L == 0L)) {
             val coalesced = coalescedRequestCount.get()
             val rejected = queueRejectedCount.get()
             val averageMs = totalDuration / completed.coerceAtLeast(1L)
+            val queueDepth = (executor as? ThreadPoolExecutor)?.queue?.size ?: -1
             Log.d(
                 TAG,
                 "metrics extractions=$completed coalesced=$coalesced " +
-                    "queueRejected=$rejected avgMs=$averageMs lastSongId=$songId",
+                    "failures=${extractionFailureCount.get()} queueRejected=$rejected " +
+                    "avgMs=$averageMs outcome=$outcome queueDepth=$queueDepth " +
+                    "maxQueueDepth=${maxQueueDepth.get()} lastSongId=$songId",
             )
         }
     }
@@ -360,56 +409,114 @@ class NativePaletteBridge(
             if (disposed || inFlightBySongId[job.songId] !== job) {
                 return
             }
-            inFlightBySongId.remove(job.songId)
+            job.completed = true
+            job.completion = completion
             job.requestIds.mapNotNull { id ->
                 pendingRequests[id]?.let { id to it }
             }
         }
         requests.forEach { (requestId, request) ->
-            completeOnMain(requestId, request, completion)
+            completeOnMain(job, requestId, request, completion)
         }
     }
 
     /**
      * Posts a result to the main thread and guards it with an atomic
-     * exactly-once check. If the main looper is already unavailable, a final
-     * best-effort error is delivered on the worker thread instead of leaving
-     * Dart's Future unresolved.
+     * exactly-once check. A watchdog handles the rare case where the Handler
+     * accepts the runnable but its Looper stops dispatching during teardown.
      */
     private fun completeOnMain(
+        job: InFlightJob,
         requestId: Long,
         request: PendingRequest,
         completion: (MethodChannel.Result) -> Unit,
     ) {
         val deliver = Runnable {
-            synchronized(lifecycleLock) {
-                if (disposed || pendingRequests[requestId] !== request ||
-                    !request.completed.compareAndSet(false, true)
-                ) {
-                    return@Runnable
-                }
-                pendingRequests.remove(requestId)
-            }
-            try {
-                completion(request.result)
-            } catch (error: Exception) {
-                Log.w(TAG, "Failed to deliver palette result", error)
-            }
+            deliverRequest(job, requestId, request, completion, null)
         }
 
         if (!mainHandler.post(deliver)) {
-            if (request.completed.compareAndSet(false, true)) {
-                synchronized(lifecycleLock) {
-                    pendingRequests.remove(requestId)
-                }
-                try {
-                    request.result.error(
+            deliverRequest(
+                job = job,
+                requestId = requestId,
+                request = request,
+                completion = {
+                    it.error(
                         "palette_unavailable",
                         "Palette result channel is unavailable",
                         null,
                     )
-                } catch (error: Exception) {
-                    Log.w(TAG, "Failed to deliver palette fallback error", error)
+                },
+                fallbackMessage = "Handler rejected palette callback",
+            )
+            return
+        }
+
+        val watchdog = try {
+            callbackWatchdog.schedule(
+                {
+                    deliverRequest(
+                        job = job,
+                        requestId = requestId,
+                        request = request,
+                        completion = {
+                            it.error(
+                                "palette_unavailable",
+                                "Palette result channel is unavailable",
+                                null,
+                            )
+                        },
+                        fallbackMessage = "Palette callback watchdog fired",
+                    )
+                },
+                CALLBACK_WATCHDOG_DELAY_MS,
+                TimeUnit.MILLISECONDS,
+            )
+        } catch (error: RejectedExecutionException) {
+            // dispose() may shut down the watchdog between post() and schedule().
+            // The normal Handler callback remains responsible for completion.
+            Log.d(TAG, "Palette callback watchdog unavailable", error)
+            null
+        }
+
+        if (watchdog != null) {
+            synchronized(lifecycleLock) {
+                if (request.completed.get()) {
+                    watchdog.cancel(false)
+                } else {
+                    request.watchdogFuture = watchdog
+                }
+            }
+        }
+    }
+
+    private fun deliverRequest(
+        job: InFlightJob,
+        requestId: Long,
+        request: PendingRequest,
+        completion: (MethodChannel.Result) -> Unit,
+        fallbackMessage: String?,
+    ) {
+        synchronized(lifecycleLock) {
+            if (pendingRequests[requestId] !== request ||
+                !request.completed.compareAndSet(false, true)
+            ) {
+                return
+            }
+            request.watchdogFuture?.cancel(false)
+            request.watchdogFuture = null
+            pendingRequests.remove(requestId)
+        }
+        try {
+            completion(request.result)
+        } catch (error: Exception) {
+            Log.w(TAG, fallbackMessage ?: "Failed to deliver palette result", error)
+        } finally {
+            synchronized(lifecycleLock) {
+                if (job.completed &&
+                    job.requestIds.none { pendingRequests.containsKey(it) }
+                ) {
+                    inFlightBySongId.remove(job.songId)
                 }
             }
         }
@@ -526,7 +633,7 @@ class NativePaletteBridge(
 
         // Step 5: Coverage-driven role selection from top-N clusters.
         //
-        // Selecting only by hue harmony could choose three related blue
+        // Selecting only by hue could choose three related blue
         // clusters and discard a meaningful warm family. Start with the
         // highest-scoring family, then reward perceptual distance for the next
         // two roles.
