@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.10',
+    date: '5 Agustus 2026',
+    changes: [
+      'Kembalikan background kartu album di Homepage ke satu warna dominan dari artwork.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.9',
     date: '5 Agustus 2026',
     changes: [
