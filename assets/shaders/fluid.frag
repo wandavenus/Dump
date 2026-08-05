@@ -1,7 +1,7 @@
 #include <flutter/runtime_effect.glsl>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// fluid.frag  —  Atmospheric colour-field shader for the player background.
+// fluid.frag  —  Slow chromatic colour-field shader for the player background.
 //
 // Uniforms (bound in order by Dart FragmentShader.setFloat):
 //   0-1  : uSize      vec2   canvas size in logical pixels
@@ -28,61 +28,72 @@ void main() {
   vec2 uv = fragCoord / uSize;
   float t = uTime;
 
-  // ── Fix Aspect Ratio ──
+  // ── Aspect-correct coordinates ────────────────────────────────────────────
+  // The layer anchors below never move. Only their colour and blend amount
+  // changes over time, so the result feels alive without becoming fog/cloud
+  // shapes that travel across the screen.
   float aspect = uSize.x / uSize.y;
-  vec2 uvAdj = vec2(uv.x * aspect, uv.y);
+  vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  // ── Domain warp ──
-  float wX1 = sin(uvAdj.y * 2.0 + uvAdj.x * 1.0 + t * 0.180) * 0.25;
-  float wY1 = cos(uvAdj.x * 2.2 + uvAdj.y * 1.2 + t * 0.145) * 0.22;
-  float wX2 = cos((uvAdj.x + wX1) * 3.0 - t * 0.212) * 0.05;
-  float wY2 = sin((uvAdj.y + wY1) * 2.8 + t * 0.145) * 0.04;
-  vec2 uvd = uvAdj + vec2(wX1 + wX2, wY1 + wY2);
+  // ── Fixed colour layers ───────────────────────────────────────────────────
+  // These soft regions are deliberately static. The artwork palette remains
+  // recognizable while the overlap between regions gently changes colour.
+  vec2 layer0Center = vec2(-0.20, -0.18);
+  vec2 layer1Center = vec2(0.22, -0.02);
+  vec2 layer2Center = vec2(-0.08, 0.27);
 
-  // ── Scalar colour fields ──
-  float scale = 1.3;
+  float layer0 = exp(-dot((p - layer0Center) * vec2(1.05, 1.10),
+                          (p - layer0Center) * vec2(1.05, 1.10)) * 2.0);
+  float layer1 = exp(-dot((p - layer1Center) * vec2(1.15, 0.95),
+                          (p - layer1Center) * vec2(1.15, 0.95)) * 2.2);
+  float layer2 = exp(-dot((p - layer2Center) * vec2(0.95, 1.20),
+                          (p - layer2Center) * vec2(0.95, 1.20)) * 2.1);
 
-  float dist1 = length(uvd - vec2(0.5 + sin(t * 0.10) * 0.3, 0.5 + cos(t * 0.15) * 0.3));
-  float f0 = sin(dist1 * (2.5 * scale) - t * 0.15) * 0.35 + 0.4;
+  // ── Colour-only motion ────────────────────────────────────────────────────
+  // Each layer breathes at a different, very slow rate. No time value is
+  // applied to coordinates, so the regions never translate or warp.
+  float pulse0 = 0.82 + 0.18 * sin(t * 0.105);
+  float pulse1 = 0.82 + 0.18 * sin(t * 0.083 + 2.1);
+  float pulse2 = 0.82 + 0.18 * sin(t * 0.067 + 4.2);
 
-  float f1 = sin(uvd.x * (1.7 * scale) + t * 0.08) * cos(uvd.y * (2.0 * scale) - t * 0.11) * 0.30 + 0.35;
+  layer0 *= pulse0;
+  layer1 *= pulse1;
+  layer2 *= pulse2;
 
-  float dist2 = length(uvd - vec2(0.3 + cos(t * 0.13) * 0.15, 0.7 + sin(t * 0.09) * 0.15));
-  float f2 = cos(dist2 * (0.5 * scale) + t * 0.2) * 0.35 + 0.4;
+  // Subtle colour drift happens inside each fixed layer. The shift is toward
+  // a neighboring palette colour, not toward white, so artwork identity stays
+  // intact while the three colours visibly mix over time.
+  float shift0 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.071 + 0.4));
+  float shift1 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.059 + 2.4));
+  float shift2 = 0.08 + 0.10 * (0.5 + 0.5 * sin(t * 0.047 + 4.5));
 
-  float dist3 = length(uvd - vec2(0.8 - sin(t * 0.12) * 0.25, 0.2 + cos(t * 0.14) * 0.20));
-  float f3 = sin(dist3 * (2.0 * scale) - t * 0.18) * 0.30 + 0.35;
+  vec3 layerColor0 = mix(uColor0, uColor1, shift0);
+  vec3 layerColor1 = mix(uColor1, uColor2, shift1);
+  vec3 layerColor2 = mix(uColor2, uColor0, shift2);
 
-  float f4 = cos(uvd.x * (2.0 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
+  // A restrained global colour exchange makes the overlap feel like colours
+  // are blending, while the fixed masks prevent a liquid/cloud silhouette.
+  float exchange = 0.5 + 0.5 * sin(t * 0.041);
+  float total = 0.34 + layer0 + layer1 + layer2;
+  vec3 col = uColor0 * (0.34 + 0.06 * exchange);
+  col += layerColor0 * layer0;
+  col += layerColor1 * layer1;
+  col += layerColor2 * layer2;
+  col /= total;
 
-  // ── Palette blend ──
-
-// Hanya normalisasi field yang benar-benar dipakai untuk warna dasar
-float total = f0 + f1 + f2;
-float w0 = f0 / total;
-float w1 = f1 / total;
-float w2 = f2 / total;
-
-// Campur warna dasar
-vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
-
-// Highlight & shadow sebagai sentuhan halus
-float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
-
-float hBright = smoothstep(0.5, 0.8, avgField);
-col = mix(col, uHighlight, hBright * 0.08);
-
-float hDark = smoothstep(0.02, 0.2, avgField);
-col = mix(col, uShadow, hDark * 0.01);
+  // Highlight and shadow also change only in intensity. Their fixed masks add
+  // depth without creating moving ridges or drifting light patches.
+  float highlightMask = exp(-dot((p - vec2(0.48, 0.30)) * vec2(1.0, 1.35),
+                                 (p - vec2(0.48, 0.30)) * vec2(1.0, 1.35)) * 2.8);
+  float shadowMask = 1.0 - smoothstep(0.15, 0.78, length(p - vec2(-0.10, -0.02)));
+  float highlightPulse = 0.035 + 0.035 * (0.5 + 0.5 * sin(t * 0.052 + 1.7));
+  float shadowPulse = 0.012 + 0.012 * (0.5 + 0.5 * sin(t * 0.038 + 3.0));
+  col = mix(col, uHighlight, highlightMask * highlightPulse);
+  col = mix(col, uShadow, shadowMask * shadowPulse);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.25;
   col *= clamp(vig, 0.0, 1.0);
-
-  // ── Film grain ──
-  vec2 grainUV = fragCoord + mod(t, 1.0) * 82.2;
-  float grain = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
-  col = mix(col, vec3(grain), 0.02);
 
   fragColor = vec4(col, 1.0);
 }
