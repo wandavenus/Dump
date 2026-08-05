@@ -29,23 +29,22 @@ import kotlin.math.sqrt
  * 2. **Image decode** — two-pass [BitmapFactory.decodeFile]: bounds-only first to
  *    compute the minimum power-of-two [inSampleSize] that keeps the decoded
  *    bitmap ≤ [PALETTE_TARGET_SIZE] px on each side.  Decoded as ARGB_8888 so
- *    soft artwork gradients do not acquire avoidable RGB_565 banding.
+ *    soft artwork gradients do not acquire avoidable 16-bit color banding.
  *
- * 3. **MMCQ quantization** — [Palette.from] with [maximumColorCount] = 32 and
- *    no colour filters.
+ * 3. **MMCQ quantization** — [Palette.from] with [maximumColorCount] = 96 and
+ *    no colour filters. The result is a bounded list of AndroidX Palette
+ *    swatches for the selection pass.
  *
- *
- * 5. **Perceptual scoring** — each swatch is scored:
- *      score = (0.70 × pop_factor + 0.30 × sat^0.8)
- *              × lightness_factor × center_boost × dark_bonus
+ * 4. **Perceptual scoring** — each chromatic swatch is scored:
+ *      score = (0.90 × pop_factor + 0.10 × sat^0.8)
+ *              × lightness_factor × dark_bonus
  *    where:
  *      - pop_factor         = log(population+1) / log(maxPop+1)
  *      - sat                = HSL saturation
  *      - lightness_factor   = max(0.05, 1 − |lightness − 0.50| × 0.9)
  *      - dark_bonus         = 1.20 when lightness < 0.25, otherwise 1.0
- *      - center_boost       = 1.15 if color is prominent in center crop, else 1.0
  *
- * 6. **OKLab color clustering** — perceptually similar swatches are merged into
+ * 5. **OKLab color clustering** — perceptually similar swatches are merged into
  *    [ColorCluster] groups using the existing OKLab [colorSimilar] function
  *    (threshold 0.15).  This corrects a fundamental weakness of MMCQ: a single
  *    visual color family (e.g. Black + Navy + Dark Blue) is often split into
@@ -54,31 +53,45 @@ import kotlin.math.sqrt
  *    because the dark pixels are fragmented across three separate buckets.
  *    After clustering, the merged dark family competes with its full weight.
  *
- * 7. **Coverage-driven role selection** — roles are selected greedily from the
+ * 6. **Coverage-driven role selection** — roles are selected greedily from the
  *    highest-scoring clusters. Population remains the main signal, while
  *    perceptual distance from already-selected roles prevents three shades of
  *    the same blue from consuming the palette. This preserves real secondary
  *    families such as skin, beige, green, or red instead of inventing a
  *    mathematically harmonious substitute.
+ *    Only the top [TOP_N] (32) clusters are considered for role selection.
  *
- * 8. **Role assignment**:
+ * 7. **Role assignment**:
  *      primary   = largest visual family
  *      secondary = largest remaining sufficiently different family
  *      accent    = most useful remaining coverage/diversity family
  *
+ * 8. **Neutral-dominance correction** — after chromatic selection, the most
+ *    populated near-neutral swatch (HSL saturation < 0.12) can replace primary
+ *    when its population exceeds twice the selected chromatic family's merged
+ *    population. This preserves genuinely dominant white, gray, or black
+ *    artwork backgrounds.
+ *
  * 9. **Highlight + Shadow** — two extra colors from the remaining clusters:
  *      highlight = lightest saturated representative (L > 0.55, S > 0.10)
  *      shadow    = darkest saturated representative  (L < 0.45, S > 0.08)
- *    Derived from primary's hue if no suitable cluster exists.
+ *    Candidates must remain within [HUE_ANCHOR_THRESHOLD] degrees of the
+ *    primary hue. For neutral primaries, both colors are derived from primary.
+ *    If no suitable cluster exists, the corresponding color is derived from
+ *    primary.
  *
  * 10. **Output** — 5-element List<Int> [primary, secondary, accent, highlight, shadow].
- *     Existing callers that only read index 0/1/2 remain fully compatible.
+ *     Existing callers that only read indices 0/1/2 remain compatible. If the
+ *     artwork has fewer than three meaningful families, missing supporting roles
+ *     are derived from primary rather than replacing valid families with named
+ *     swatches.
  *
  * # Performance
- * The palette pass is intentionally bounded to a small bitmap. Clustering is
- * an O(n²) sweep over at most a few dozen swatches and role selection is linear
- * over the resulting clusters — negligible; no extra bitmap decoding or
- * Palette generation is required.
+ * The palette pass is intentionally bounded to a bitmap whose decoded width and
+ * height are each at most [PALETTE_TARGET_SIZE] pixels. Clustering is a greedy
+ * O(n²) sweep over the scored swatches (at most 96 from AndroidX Palette), and
+ * role selection is linear over the resulting clusters after the top-32 cap.
+ * No extra bitmap decoding or Palette generation is required.
  * Timings depend on whether artwork is already cached: cache hits avoid
  * MediaStore extraction, while cache misses include artwork extraction and
  * WebP encoding in [ArtworkCacheManager].
@@ -107,7 +120,7 @@ class NativePaletteBridge(
 
         private const val PALETTE_TARGET_SIZE = 256
 
-         /** Maximum scored clusters considered for coverage role selection. */
+        /** Maximum scored clusters considered for coverage role selection. */
         private const val TOP_N = 32
 
         /**
@@ -364,18 +377,21 @@ class NativePaletteBridge(
     // ── Colour selection (main) ───────────────────────────────────────────────
 
     /**
-     * Selects 5 perceptually rich, visually harmonious colors from [palette],
-     * using [bitmap] for center-crop spatial weighting.
+     * Selects five perceptually useful colors from [palette].
      *
-     * Returns [FALLBACK] only if no usable swatches are found.
+     * Chromatic swatches are filtered, scored primarily by population, merged
+     * by OKLab similarity, and selected with coverage/diversity weighting.
+     * A strongly dominant neutral swatch can replace the chromatic primary.
+     * Returns the named-swatch fallback only if no usable chromatic swatches
+     * exist or no clusters remain after filtering.
      */
     private fun selectBestFive(palette: Palette): List<Int> {
         val all = palette.swatches
         if (all.isEmpty()) return buildFallbackFromPalette(palette)
 
-        // Step 1: Center-crop palette for spatial weighting.
-
-        // Step 2: Filter achromatic swatches.
+        // Step 1: Filter achromatic and extreme-lightness swatches from the
+        // chromatic role-selection candidates. Neutral dominance is evaluated
+        // separately below against the complete Palette swatch list.
         val candidates = all.filter { sw ->
             val hsl = sw.hsl
             hsl[1] >= 0.10f && hsl[2] in 0.06f..0.93f
@@ -390,15 +406,10 @@ class NativePaletteBridge(
         //   Saturation is a SECONDARY boost — vibrant colors get a moderate lift
         //   but can no longer overpower a dominant background with 24x advantage.
         //
-        // Key changes from the old formula (sat^1.4 * lightFactor_steep):
-        //   • Score = 70% population + 30% vibrancy(sat^0.8)
-        //     → isolated saturated elements (hair, logo) no longer overwhelm
-        //       large background areas (lavender, teal, cream)
-        //   • lightFactor peak shifted 0.45→0.50, falloff reduced 1.6→0.9
-        //     → lighter background tones (L≈0.65-0.80) are no longer heavily
-        //       penalised — they now contribute meaningfully to the palette
-        //   • centerBoost reduced 1.4→1.15
-        //     → center subjects still get a small lift but can't dominate alone
+        // Scoring uses 90% population and 10% vibrancy. This keeps large
+        // background families dominant while still giving saturated colors a
+        // moderate lift. Lightness uses a gentle peak around L=0.50, and dark
+        // colors below L=0.25 receive a 1.20 bonus.
         val maxPop = candidates.maxOf { it.population }.toDouble().coerceAtLeast(1.0)
 
         val scored = candidates.map { sw ->
@@ -422,23 +433,25 @@ class NativePaletteBridge(
         }.sortedByDescending { it.score }
 
         // Step 4: OKLab clustering — merge swatches that are perceptually similar
-        // before harmony selection.  This corrects MMCQ fragmentation: a single
+        // before coverage/diversity selection. This corrects MMCQ fragmentation:
+        // a single
         // dark-family background (Black + Navy + Dark Blue ≈ 48 %) would otherwise
         // lose to a 28 % skin tone because its pixels are split across three small
         // buckets.  After clustering, the merged family competes with its true weight.
         //
         // Clusters are sorted by totalScore (DESC) rather than raw population because
-        // totalScore already encodes population, saturation, lightness, center
-        // weighting, and dark bonus — preserving all the advantages of the scoring
-        // formula across the merge boundary.
+        // totalScore already encodes population, saturation, lightness, and
+        // dark bonus, preserving the scoring priorities across the merge
+        // boundary.
         val clusters = mergeSimilarSwatches(scored)
             .sortedByDescending { it.totalScore }
 
         // Step 5: Coverage-driven role selection from top-N clusters.
         //
-        // The old harmony triplet could select three related blue clusters and
-        // discard a meaningful warm family. Start with the largest family, then
-        // deliberately reward perceptual distance for the next two roles.
+        // Selecting only by hue harmony could choose three related blue
+        // clusters and discard a meaningful warm family. Start with the
+        // highest-scoring family, then reward perceptual distance for the next
+        // two roles.
         val top = clusters.take(TOP_N)
         if (top.isEmpty()) return buildFallbackFromPalette(palette)
 
@@ -462,14 +475,14 @@ class NativePaletteBridge(
         }
 
         // Step 6: Neutral-dominance correction.
-        // The saturation filter (S ≥ 0.10) above intentionally discards near-
-        // achromatic pixels so they don't pollute the chromatic triplet.  But
+        // The saturation filter (S ≥ 0.10) above intentionally excludes
+        // near-achromatic pixels from chromatic role selection. But
         // for artwork whose BACKGROUND is white, gray, or another near-neutral
         // tone (e.g. an album cover with a bright logo on a white/gray canvas),
         // those background pixels are the majority of the image — yet they were
         // all filtered out, leaving only the small saturated logo to dominate.
         //
-        // Fix: after the chromatic triplet is chosen, find the most-populated
+        // Fix: after the chromatic roles are chosen, find the most-populated
         // neutral swatch (S < 0.12) across the complete lightness range. This
         // includes pure/near black and pure/near white, which were previously
         // excluded by the 0.08..0.92 window. Compare its population against
@@ -524,7 +537,7 @@ class NativePaletteBridge(
             else -> deriveAccent(primaryColor)
         }
 
-        // Step 8: Highlight + Shadow from remaining clusters.
+        // Step 7: Highlight + Shadow from remaining clusters.
         //
         // Search remaining clusters using representativeSwatch for hue,
         // saturation, and lightness — the representative is what users see,
@@ -590,8 +603,9 @@ class NativePaletteBridge(
      * The threshold 0.15 is defined inside [colorSimilar] and is not modified
      * here — it is the established calibration for this perceptual space.
      *
-     * With at most [TOP_N] candidates the sweep is bounded to ≈ 576 comparisons:
-     * no extra bitmap decoding or Palette generation is required.
+     * AndroidX Palette supplies at most 96 scored swatches. This greedy sweep
+     * therefore remains bounded by the configured Palette output size; no extra
+     * bitmap decoding or Palette generation is required.
      */
     private fun mergeSimilarSwatches(scored: List<Scored>): List<ColorCluster> {
         val clusters = mutableListOf<ColorCluster>()
@@ -667,9 +681,9 @@ class NativePaletteBridge(
 
     // ── Legacy harmony helpers ────────────────────────────────────────────────
     //
-    // Kept local for backwards-readable diagnostics and future comparisons.
-    // Role selection no longer calls these helpers because harmony alone can
-    // discard a real warm family in favour of several related blue clusters.
+     // Retained only for source-level diagnostics and future comparisons.
+     // Production role selection does not call these helpers: harmony alone can
+     // discard a real warm family in favour of several related blue clusters.
 
     /**
      * From [clusters] (pre-sorted by totalScore), evaluates all combinations
@@ -680,15 +694,15 @@ class NativePaletteBridge(
      * than an averaged hue — the representative is the color users actually
      * see, so it must drive hue matching.
      *
-     * At most [TOP_N] clusters → at most C(24,3)=2024 combinations: negligible
-     * on the already downsampled palette bitmap.
+     * This helper is not part of the production selection path. When called
+     * for diagnostics, its cost is cubic in the supplied cluster count.
      */
     private fun selectHarmoniousTriplet(clusters: List<ColorCluster>): List<ColorCluster> {
         val n = clusters.size
         // Fewer than 3 chromatic clusters → cannot form a meaningful triplet.
-        // Return emptyList() so the caller falls back to buildFallbackFromPalette()
-        // instead of receiving a 1- or 2-element list and collapsing all three
-        // roles onto the same cluster.
+         // Return emptyList() when fewer than three clusters are supplied. The
+         // production selector does not call this helper and instead preserves
+         // one/two-family artwork with derived supporting roles.
         if (n < 3) return emptyList()
 
         var bestCombo = emptyList<ColorCluster>()

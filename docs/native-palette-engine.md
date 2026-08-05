@@ -1,8 +1,9 @@
 # Native High-Quality Color Extraction Engine
 
-**Tanggal:** 24 Juli 2026  
-**Versi:** 1.4.0  
-**Menggantikan:** `palette_generator_plus` (Dart-side MMCQ via isolate)
+**Tanggal:** 24 Juli 2026
+**Versi:** 2.0.0
+**Status:** Spesifikasi implementasi aktif Android
+**Legacy predecessor:** `palette_generator_plus` (Dart-side MMCQ via isolate)
 
 ---
 
@@ -15,7 +16,7 @@
 | Color Thief (Kotlin MMCQ) | ★★★★ | ★★★★ | Sedang | ❌ Duplikat fungsi Palette API |
 | libimagequant | ★★★★★ | ★★★ | Sangat Tinggi | ❌ Dependensi C besar, build lama |
 | OpenCV clustering | ★★★★ | ★★★ | Tinggi | ❌ Library berat, overkill |
-| `palette_generator_plus` (lama) | ★★★ | ★★★ | Rendah | ❌ Dart isolate overhead, seleksi naif |
+| `palette_generator_plus` (legacy) | ★★★ | ★★★ | Rendah | ❌ Tidak lagi dipakai |
 
 ---
 
@@ -23,13 +24,21 @@
 
 1. **Kualitas sudah sangat baik** — MMCQ (Modified Median Cut Quantization) adalah algoritma mature yang digunakan oleh Google/Android di seluruh ekosistem Material Design. Hasil quantization-nya clean dan representatif.
 
-2. **Perbaikan kualitas sesungguhnya ada di selection algorithm** — bukan di quantizer. Dart `palette_generator_plus` menggunakan algoritma yang sama (MMCQ) tapi dengan seleksi warna yang naif (`swatches[0], [1], [2]`). Dengan selection algorithm baru, kualitas meningkat signifikan tanpa perlu ganti quantizer.
+2. **Perbaikan kualitas utama ada di selection algorithm** — bukan hanya di
+   quantizer. Pipeline native menggabungkan skor berbasis populasi, clustering
+   OKLab, dan pemilihan role berbasis coverage/diversity untuk menjaga family
+   warna nyata seperti navy, beige, skin tone, dan neutral tone.
 
-3. **Native Android, zero Dart overhead** — tidak ada serialisasi bytes ke Dart isolate, tidak ada `MemoryImage` decode di Dart. Semua berjalan di JVM/Kotlin thread yang sudah ada.
+3. **Native Android, tanpa decode Dart** — tidak ada serialisasi bytes ke Dart
+   isolate dan tidak ada `MemoryImage` decode di Dart. Semua ekstraksi berjalan
+   di thread Kotlin/JVM background yang sudah ada.
 
 4. **Baca langsung dari ArtworkCacheManager** — artwork sudah ada di disk sebagai WebP. Tidak ada transfer bytes lewat MethodChannel (hanya `songId: Int` yang dikirim, bukan raw bytes).
 
-5. **Sub-5ms di Snapdragon 730** — target 15ms sangat mudah dicapai. Bitmap 100×100 → MMCQ 32 swatches → selection: total ~3–8ms.
+5. **Batas kerja sesuai target device** — bitmap hasil decode dibatasi maksimal
+   256×256 px per sisi, lalu AndroidX Palette menghasilkan maksimal 96 swatch.
+   Tidak ada klaim waktu tetap; durasi bergantung pada cache artwork, decode,
+   dan beban executor.
 
 6. **Zero dependency baru di native** — `androidx.palette:palette:1.0.0` adalah library AndroidX resmi yang sudah ada di Maven Central, tidak ada FetchContent/NDK baru yang diperlukan.
 
@@ -48,27 +57,30 @@ ArtworkCacheManager.getOrExtract(songId)
     ▼
 BitmapFactory.decodeFile(path)
     │  ← Pass 1: inJustDecodeBounds = true → dapatkan dimensi
-    │  ← Hitung sampleSize (power-of-2) agar ≤ 100×100
-    │  ← Pass 2: decode dengan inSampleSize, Config = RGB_565
+    │  ← Hitung sampleSize (power-of-2) agar tiap sisi ≤ 256 px
+    │  ← Pass 2: decode dengan inSampleSize, Config = ARGB_8888
     │
     ▼
-Palette.from(bitmap).maximumColorCount(32).clearFilters().generate()
-    │  ← MMCQ quantization → hingga 32 candidate swatches
+Palette.from(bitmap).maximumColorCount(96).clearFilters().generate()
+    │  ← MMCQ quantization → hingga 96 candidate swatches
     │  ← clearFilters(): tidak buang reds/blacks/whites (shader butuh full spectrum)
     │
     ▼
-selectBestThree(palette)
-    │  ← Scoring perceptual vibrancy per swatch
-    │  ← Hue diversity enforcement (3 warna berbeda ≥ 30°)
+selectBestFive(palette)
+    │  ← Filter chromatic candidates dan skor population-led
+    │  ← Merge family dengan OKLab distance < 0.15
+    │  ← Pilih role dari maksimal 32 cluster teratas
+    │  ← Neutral-dominance correction
+    │  ← Derive secondary/accent/highlight/shadow bila diperlukan
     │
     ▼
-List<Int> [argb1, argb2, argb3]
+List<Int> [primary, secondary, accent, highlight, shadow]
     │
     ▼ (via MethodChannel)
 NativePaletteService (Dart)
     │  ← Konversi ke List<Color>
     │  ← Simpan ke LRU cache (256 entri)
-    │  ← Debounced persist ke palette_cache.json
+    │  ← Debounced persist ke palette_cache_v<native-version>.json
     │
     ▼
 fluid.frag shader (tidak diubah)
@@ -78,45 +90,76 @@ fluid.frag shader (tidak diubah)
 
 ## Palette Selection Strategy
 
-### Langkah 1 — Filter
+### Langkah 1 — Filter kandidat chromatic
 
-Buang swatch yang hampir hitam / putih / abu:
-- `saturation < 0.12` → terlalu abu-abu
-- `lightness < 0.10` → terlalu gelap  
-- `lightness > 0.92` → terlalu terang
+Untuk pemilihan role chromatic, kandidat harus memenuhi:
 
-### Langkah 2 — Perceptual Vibrancy Scoring
+- `saturation >= 0.10`
+- `lightness` berada pada `0.06..0.93`
+
+Near-neutral swatch tidak langsung dibuang dari pipeline: seluruh daftar Palette
+tetap diperiksa pada langkah neutral-dominance correction agar background putih,
+abu-abu, atau hitam yang benar-benar dominan dapat menjadi primary.
+
+### Langkah 2 — Population-led perceptual scoring
 
 ```
-score = sat^1.4 × lightnessFactor × (0.35 + 0.65 × popFactor)
+score = (0.90 × popFactor + 0.10 × sat^0.8)
+        × lightnessFactor × darkBonus
 
-lightnessFactor = max(0.05, 1.0 − |lightness − 0.45| × 1.6)
+lightnessFactor = max(0.05, 1.0 − |lightness − 0.50| × 0.9)
 popFactor       = log10(population + 1) / log10(maxPopulation + 1)
+darkBonus       = 1.20 jika lightness < 0.25, selain itu 1.0
 ```
 
-- `sat^1.4`: reward warna vibrant, penalize warna muted
-- `lightnessFactor`: prefer mid-range lightness (~0.45), penalize extremes
-- `popFactor`: log-scale population weight — warna dominan diprioritaskan tanpa mendominasi sepenuhnya
+- Populasi adalah sinyal utama agar background besar tetap menjadi mood utama.
+- Saturasi memberi boost moderat, bukan mengalahkan background yang dominan.
+- Tidak ada center crop atau spatial/center weighting.
 
-### Langkah 3 — Hue Diversity Enforcement
+### Langkah 3 — OKLab clustering
 
-Pick 3 warna dengan hue angular distance minimum, relax progressively:
+Swatch yang berdekatan secara perseptual digabung dengan greedy clustering.
+Jarak dihitung dalam OKLab dan threshold `0.15`. Population dan score seluruh
+swatch yang bergabung dijumlahkan; representative tetap merupakan swatch nyata
+dengan score individual tertinggi, bukan RGB average sintetis.
 
-```
-threshold tries: [40°, 25°, 12°, 0°]
-```
+### Langkah 4 — Coverage/diversity role selection
 
-Untuk setiap threshold: iterasi swatches (sorted by score desc), pilih swatch jika hue distance dari semua swatch yang sudah dipilih ≥ threshold. Berhenti saat 3 warna terpilih.
+Maksimal 32 cluster teratas dipakai untuk role selection:
 
-Threshold `0°` = pilih berdasarkan score saja tanpa constraint diversity (last resort).
+- `primary`: cluster dengan total score tertinggi.
+- `secondary`: cluster berikutnya yang menyeimbangkan area dan jarak
+  perseptual dari role yang sudah dipilih.
+- `accent`: cluster berikutnya dengan bobot diversity lebih besar.
 
-### Langkah 4 — Fallback Chain
+Jika hanya satu atau dua family bermakna, valid family dipertahankan. Role yang
+hilang diturunkan dari primary; hasil tidak diganti dengan tiga named swatch
+yang tidak berkaitan.
 
-Jika candidates kosong setelah filter → gunakan Palette API's named swatches:
+### Langkah 5 — Neutral-dominance correction
+
+Swatch near-neutral (`saturation < 0.12`) dari seluruh Palette dapat menggantikan
+primary jika populasinya lebih dari dua kali total population cluster chromatic
+primary. Ini mencakup near-black dan near-white.
+
+### Langkah 6 — Highlight dan shadow
+
+Cluster tersisa dapat dipakai jika:
+
+- highlight: `lightness > 0.55`, `saturation > 0.10`;
+- shadow: `lightness < 0.45`, `saturation > 0.08`;
+- hue berada dalam `120°` dari hue primary.
+
+Untuk primary neutral atau jika tidak ada kandidat yang sesuai, warna diturunkan
+dari primary.
+
+### Langkah 7 — Fallback chain
+
+Jika tidak ada kandidat chromatic, gunakan named swatches AndroidX:
 `vibrant → darkVibrant → lightVibrant → muted → darkMuted → lightMuted → dominant`
 
-Jika itu juga kosong → hardcoded fallback:
-`[0xFF2B313A, 0xFF4E657D, 0xFF7B8794]`
+Output fallback selalu 5 warna:
+`[0xFF2B313A, 0xFF4E657D, 0xFF7B8794, 0xFFABBED4, 0xFF121821]`
 
 ---
 
@@ -125,13 +168,13 @@ Jika itu juga kosong → hardcoded fallback:
 | Optimasi | Detail |
 |---|---|
 | **Two-pass BitmapFactory decode** | Pass 1 bounds-only (no pixel alloc), Pass 2 dengan `inSampleSize` yang tepat |
-| **RGB_565 config** | Setengah memory vs ARGB_8888; palette scan tidak butuh alpha channel |
-| **100×100 target size** | Cukup untuk capture semua colour region penting; 10× lebih kecil dari WebP cache (1000×1000) |
+| **ARGB_8888 config** | Mempertahankan gradient artwork tanpa banding format 565 |
+| **256×256 target size** | Batas decode per sisi untuk membatasi memory dan kerja quantization |
 | **ArtworkCacheManager reuse** | Artwork sudah di disk; tidak perlu MediaMetadataRetriever lagi di banyak kasus |
-| **Bounded executor** | Berjalan di `artworkExecutor` (2 threads, queue 48) — tidak bisa membanjiri system |
+| **Bounded executor** | Berjalan di `artworkExecutor` (2 threads, queue 48) — penolakan queue dikembalikan sebagai `palette_busy` |
 | **In-flight dedup (Dart)** | Concurrent call untuk `songId` yang sama share satu Future |
 | **LRU cache 256 entries** | Hot palettes (recently played, album cards) selalu synchronous |
-| **Disk persistence** | Debounced 800ms write → palettes survive app kill, tidak perlu ekstraksi ulang di cold start |
+| **Disk persistence** | Debounced 800ms atomic write ke cache versi native → palettes survive app kill |
 | **songId-only channel call** | Tidak ada byte transfer lewat MethodChannel (tidak seperti `getArtwork` yang kirim raw bytes) |
 
 ---
@@ -144,18 +187,23 @@ Jika itu juga kosong → hardcoded fallback:
 
 3. **MMCQ bukan K-Means** — MMCQ lebih deterministik dan lebih cepat dari K-Means, tapi pada artwork dengan gradient smooth mungkin menghasilkan candidate yang lebih sedikit dibanding K-Means dengan random init. Untuk musik pada umumnya, MMCQ sudah lebih dari cukup.
 
-4. **Monochrome artwork** — artwork hitam-putih atau near-monochrome akan melewati filter saturation, sehingga fallback chain digunakan. Hasilnya tetap swatch terbaik dari Palette API, bukan warna vivid. Ini expected behavior.
+4. **Monochrome artwork** — artwork hitam-putih atau near-monochrome dapat
+   memakai dominant neutral sebagai primary; supporting roles diturunkan dari
+   primary bila cluster chromatic tidak cukup.
 
 ---
 
 ## Future Improvement Opportunities
 
-1. **Oklab/CIECAM scoring** — ganti HSL scoring dengan perceptual color space (Oklab) untuk hue distance yang lebih akurat secara perseptual.
+1. **Queue coalescing native** — deduplikasi request bersamaan untuk `songId`
+   yang sama di sisi bridge agar burst palette tidak mengulang kerja.
 
 2. **Artwork-aware extraction** — deteksi genre/style dari artwork (misal: anime vs portrait vs landscape) dan adjust scoring weights accordingly.
 
-3. **Palette versioning** — tambahkan version key ke `palette_cache.json` sehingga saat algorithm berubah, cache lama bisa diinvalidate secara selektif.
+3. **Direct palette tests** — tambah test untuk scoring, clustering, neutral
+   correction, output 5 warna, queue rejection, dan lifecycle completion.
 
-4. **K-Means hybrid** — untuk artwork dengan distribusi warna yang sangat tidak merata, K-Means post-processing bisa memperbaiki cluster centroid setelah MMCQ initial quantization.
+4. **Remove legacy harmony helpers** — pindahkan helper harmony yang tidak
+   dipakai production ke benchmark/test atau hapus.
 
 5. **iOS native** — implementasi equivalent menggunakan Core Image / UIKit di Objective-C/Swift untuk parity kualitas di iOS.

@@ -82,6 +82,6 @@ Manages lifecycle of all `NativeModule` instances:
 | `rxdart` | ^0.28.0 | Reactive streams |
 | `path_provider` | ^2.1.5 | File system paths |
 | `scrollable_positioned_list` | ^0.3.8 | Lyrics scroll |
-| `palette_generator_plus` | ^1.0.0 | Artwork dominant color |
+| `androidx.palette:palette` | 1.0.0 (Android) | Native artwork palette extraction |
 | `native_audio_runtime` | local path | C DSP engine FFI |
 | `font_awesome_flutter` | ^11.0.0 | Icons |

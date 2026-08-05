@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-05  
 **Scope:** `android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt` and its direct integration points in `MainActivity.kt`, `ArtworkCacheManager.kt`, `NativePaletteService.dart`, and the Android palette dependency.  
-**Status:** Complete — findings NP-01, NP-02, and NP-03 remediated after the
-audit; NP-04 through NP-07 remain open.
+**Status:** Complete — findings NP-01 through NP-04 remediated after the audit;
+NP-05 through NP-07 remain open.
 
 ## Executive summary
 
@@ -13,21 +13,23 @@ executor, recycles the decoded bitmap, and preserves retryability for missing or
 temporarily unavailable artwork. The OKLab clustering and coverage-oriented role
 selection are also reasonable for the stated palette goals.
 
-The main risks are around lifecycle and contract maintenance rather than the
-palette math itself:
+The original audit risks were around lifecycle, cache contracts, documentation,
+and test/queue maintenance rather than the palette math itself. NP-01 through
+NP-04 are now fixed; the remaining open items are summarized below:
 
-1. A request can be left unresolved when `MainActivity.onDestroy()` shuts down the
+1. **Fixed —** A request could be left unresolved when `MainActivity.onDestroy()` shuts down the
    shared executor, and a running request can post a result after the Flutter
    engine/activity is being torn down.
-2. `OutOfMemoryError` is not covered by `catch (Exception)`, so a native memory
+2. **Fixed —** `OutOfMemoryError` was not covered by `catch (Exception)`, so a native memory
    failure can terminate the worker without resolving the Dart MethodChannel
    Future.
-3. `NativePaletteBridge.CACHE_VERSION` is not connected to the Dart cache filename,
+3. **Fixed —** `NativePaletteBridge.CACHE_VERSION` was not connected to the Dart cache filename,
    so bumping the native version alone does not invalidate persisted results.
-4. The algorithm documentation describes a 32-color palette, center weighting, and
-   a 70/30 score, while the implementation uses 96 colors, no center weighting,
-   and a 90/10 score.
-5. There are no tests covering the bridge contract, decode/fallback behavior,
+4. **Fixed —** The original source documentation described a 32-color palette, center
+   weighting, and a 70/30 score, while the implementation uses 96 colors, no
+   center weighting, and a 90/10 score. This documentation drift was corrected
+   after the audit.
+5. **Open —** There are no tests covering the bridge contract, decode/fallback behavior,
    lifecycle races, or palette-role selection.
 
 ## Findings summary
@@ -37,7 +39,7 @@ palette math itself:
 | NP-01 | High | Lifecycle / MethodChannel completion | High | Fixed |
 | NP-02 | High | OOM failure handling | Medium | Fixed |
 | NP-03 | Medium | Cache version invalidation | High | Fixed |
-| NP-04 | Medium | Algorithm documentation drift | High | Open |
+| NP-04 | Medium | Algorithm documentation drift | High | Fixed |
 | NP-05 | Medium | Shared queue saturation / duplicate work | Medium | Open |
 | NP-06 | Medium | Test coverage gap | High | Open |
 | NP-07 | Low | Dead legacy harmony implementation | High | Open |
@@ -220,21 +222,24 @@ The class documentation is no longer an accurate description of the code:
 - `selectBestFive()` KDoc says it uses `[bitmap]` for center-crop weighting,
   but no bitmap parameter exists.
 
-These are not merely cosmetic: they make future tuning and review unsafe because
-the intended scoring model cannot be inferred from the source reliably.
+These were documentation-only discrepancies: they made future tuning and review
+unsafe because the intended scoring model could not be inferred from the source
+reliably. The KDoc, Dart comments, memory notes, and active technical documents
+were corrected after the audit to describe the current implementation.
 
 ### Impact
 
-Future contributors can tune the wrong constants, believe center weighting is
-active when it is not, or incorrectly assess performance and cache-version
-changes.
+Before remediation, future contributors could tune the wrong constants, believe
+center weighting was active when it was not, or incorrectly assess performance
+and cache-version changes. The source documentation now states the active
+constants and selection path.
 
 ### Recommendation
 
-Either implement the documented center weighting and 32-color configuration, or
-update all KDoc/comments to describe the current 96-color, population-dominant
-90/10 implementation. Remove the unused `[bitmap]` reference. Add a small
-algorithm contract section listing the actual output and score invariants.
+Keep KDoc/comments synchronized with the current 96-color, population-dominant
+90/10 implementation. The unused `[bitmap]` reference and obsolete center/
+70/30/32-color descriptions have been removed. The output and scoring invariants
+are now documented at the native and Dart boundaries.
 
 ---
 
@@ -424,8 +429,10 @@ The following fixes were applied after the initial audit:
   cache filename, with a compatibility fallback for older/non-Android engines.
 
 Validation of these changes is tracked separately from the original audit
-findings. The remaining open items are documentation drift, queue
-coalescing/saturation, missing direct tests, and dead legacy harmony helpers.
+findings. The remaining open items are queue coalescing/saturation, missing
+direct tests, and dead legacy harmony helpers. Documentation drift NP-04 is
+fixed across the native KDoc, Dart comments, memory notes, and active technical
+documentation.
 
 ### Remediation validation
 

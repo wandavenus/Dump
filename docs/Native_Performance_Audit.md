@@ -406,56 +406,69 @@ Low (pre-alloc fix) / Medium (ByteBuffer native path)
 
 ---
 
-### 8. Palette Extractor — MMCQ Image Quantization (Dart Isolate)
+### 8. Native Palette Bridge — AndroidX Palette and perceptual role selection
 
 **File**
 ```
-lib/services/palette_extractor.dart
+android/app/src/main/kotlin/dev/wndavenz/music/NativePaletteBridge.kt
+lib/services/native_palette_service.dart
 ```
 
 **Function**
 ```
-_extract()
+extractColors() / selectBestFive()
 ```
 
 **Line Number**
 ```
-157–213
+Native bridge pipeline; Dart cache in NativePaletteService
 ```
 
 **Category**
-Image Processing — Color quantization, histogram
+Image processing — bounded decode, MMCQ quantization, perceptual selection
 
 **Why It Is Expensive**  
-The `palette_generator_plus` package runs Median-Cut Color Quantization (MMCQ) on decoded pixel data. This involves: (a) building a 3D RGB histogram over all pixels of the downscaled 112×112 image (12 544 pixels), (b) iterative median-cut subdivision of color boxes, (c) sorting and averaging. It already runs in a Dart `Isolate`, which avoids UI jank, and images are pre-scaled to 112×112. However, MMCQ on a 12 544-pixel image still requires ~500K–1M histogram operations per extraction.
+The active implementation reads cached artwork through ArtworkCacheManager,
+decodes it with a two-pass BitmapFactory path bounded to 256×256 px per side,
+and uses ARGB_8888. AndroidX Palette performs MMCQ with up to 96 swatches.
+NativePaletteBridge then applies population-led scoring, OKLab clustering, and
+coverage/diversity role selection on a bounded background executor. Dart keeps a
+256-entry LRU and debounced versioned disk cache.
 
 **Estimated CPU Cost**
-High (per call), Low (per second — runs once per unique song change)
+Bounded background work; cost depends on artwork cache hit/miss, decode size,
+quantization, and current artwork executor load.
 
 **Call Frequency**
-Once per song change (when artwork changes and result is not LRU-cached)
+Once per song change when the native/Dart caches do not already contain a result.
 
 **Native Suitability**
-Conditionally yes — only if palette extraction becomes a measurable bottleneck (e.g. during rapid song skipping). Migrating to native C (libyuv or custom NEON histogram) could reduce extraction from ~8 ms to ~1 ms. However, given the current 256-entry LRU cache and isolate isolation, this is premature unless profiling shows it contributes to UI jank.
+The current native Android path is already off the UI and audio threads. Further
+optimization should be driven by measurements on the target Xiaomi Mi 9T/K20,
+especially queue saturation during artwork bursts.
 
-**Possible Native Optimizations**
-- NEON histogram accumulation: 16 pixels/iteration with `vld4.8` interleaved RGBA load
-- Parallel bin accumulation with NEON `vaddw.s16` across 8-bit pixel values
-- Replace `palette_generator_plus` with a JNI call to Android's `Palette` API (hardware-accelerated on some Snapdragon targets) or a custom NEON implementation
+**Possible Optimizations**
+- Coalesce simultaneous native requests for the same `songId`.
+- Measure queue depth, rejection count, cache hits, and extraction duration.
+- Consider a dedicated/priority palette executor only if shared artwork work
+  demonstrably starves palette requests.
 
 **Estimated Speedup**
-5–8× for NEON histogram; overall extraction: 3–4× (sort/cut steps not SIMD-able)
+Not estimated; no fixed latency or speedup claim is supported by the current
+source.
 
 **Migration Complexity**
-High — requires replacing the Dart package with a custom Dart FFI + native C implementation; Dart FFI overhead on mobile is non-trivial for one-shot calls
+Low to medium for queue instrumentation/coalescing; higher for changing the
+quantization backend.
 
 **Risk**
 - Not on the audio thread — no real-time risk  
-- Dart FFI bridge adds ~5–10 µs overhead per call (acceptable for a one-shot operation)  
-- `palette_generator_plus` may have edge cases in MMCQ that a custom implementation must replicate
+- Queue changes must preserve retryability and MethodChannel completion during
+  Activity/engine teardown.
+- Any algorithm change must bump the native cache version.
 
 **Priority**
-**Low**
+**Medium for instrumentation/coalescing; otherwise measure first**
 
 ---
 
@@ -604,7 +617,8 @@ No — cost is immeasurable in a real profiler.
 
 ### Low
 
-- **Palette extractor** (`palette_extractor.dart:157–213`) — MMCQ quantization in Dart Isolate; already well-mitigated, only a concern under rapid song skipping
+- **Native palette bridge** (`NativePaletteBridge.kt`) — bounded background
+  extraction; monitor shared artwork queue saturation during rapid skipping
 - **LRC parser** (`lrc_parser.dart:99–164`) — regex over 500-line files; runs once per song, not measurable
 - **Crossfade sin/cos** (`CrossfadeController.kt:424–428`) — 2 trig calls/16 ms; negligible
 - **Fluid shader CPU side** (`fog_painter.dart:45–87`) — 9 lerps/frame for 800 ms; GPU-bound, Dart side already optimal
