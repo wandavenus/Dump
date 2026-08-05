@@ -55,28 +55,25 @@ void main() {
 
   float f4 = cos(uvd.x * (2.5 * scale) - t * 0.16) * sin(uvd.y * (1.8 * scale) + t * 0.12) * 0.25 + 0.30;
 
-  // ── Balanced five-colour blend ──
-  //
-  // Every palette role participates in the whole frame.  The moving fields
-  // still create broad colour basins, but a floor keeps any one role from
-  // taking over the entire screen.  This is intentionally a weighted blend,
-  // rather than a sequence of mix() overlays: overlays can make the last
-  // colour perceptually dominate even when its field is small.
-  float total = f0 + f1 + f2 + f3 + f4;
-  const float colourFloor = 0.10;
-  const float fieldContribution = 1.0 - colourFloor * 5.0;
+  // ── Palette blend ──
 
-  float w0 = colourFloor + fieldContribution * f0 / total;
-  float w1 = colourFloor + fieldContribution * f1 / total;
-  float w2 = colourFloor + fieldContribution * f2 / total;
-  float w3 = colourFloor + fieldContribution * f3 / total;
-  float w4 = colourFloor + fieldContribution * f4 / total;
+// Hanya normalisasi field yang benar-benar dipakai untuk warna dasar
+float total = f0 + f1 + f2;
+float w0 = f0 / total;
+float w1 = f1 / total;
+float w2 = f2 / total;
 
-  vec3 col = uColor0 * w0
-           + uColor1 * w1
-           + uColor2 * w2
-           + uHighlight * w3
-           + uShadow * w4;
+// Campur warna dasar
+vec3 col = uColor0 * w0 + uColor1 * w1 + uColor2 * w2;
+
+// Highlight & shadow sebagai sentuhan halus
+float avgField = (f0 + f1 + f2 + f3 + f4) / 5.0;
+
+float hBright = smoothstep(0.5, 0.8, avgField);
+col = mix(col, uHighlight, hBright * 0.40);
+
+float hDark = smoothstep(0.02, 0.2, avgField);
+col = mix(col, uShadow, hDark * 0.0);
 
   // ── Soft vignette ──
   float vig = 1.0 - length(uv - 0.5) * 0.3;
