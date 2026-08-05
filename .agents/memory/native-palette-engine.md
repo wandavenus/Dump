@@ -104,5 +104,19 @@ bursts and makes queue saturation more likely.
 adding bridge methods. Do not increase worker count without measurements from
 the target Xiaomi device.
 
+## Test contract
+
+`NativePaletteBridgeTest` is a deterministic JVM suite covering MethodChannel
+validation, coalescing, queue rejection, extraction/OOM errors, lifecycle
+completion, five-color fallback, clustering, and dominant-neutral correction.
+
+**Why:** Palette regressions and lifecycle races are otherwise difficult to
+reproduce on the target device, while AndroidX Palette inputs can be tested
+without filesystem or emulator dependencies.
+
+**How to apply:** Keep new bridge behavior testable through injected executor,
+Handler, and extractor seams; preserve the public channel contract and run the
+focused suite before changing palette selection or request lifecycle code.
+
 ## Build dep
 `androidx.palette:palette:1.0.0` added to android/app/build.gradle dependencies.
