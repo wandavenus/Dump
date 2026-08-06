@@ -159,8 +159,8 @@
   "limiter": "Limiter",
   "softClipper": "Soft Clipper",
 
-  "sectionBitPerfect": "BIT-PERFECT",
-  "bitPerfectMode": "Bit-Perfect Mode",
+  "sectionBitPerfect": "PLAYER",
+  "bitPerfectMode": "Pure Audio Mode",
   "bitPerfectActiveSubtitle": "Active — all audio processing disabled",
   "bitPerfectInactiveSubtitle": "Disable all effects & audio processing",
   "bitPerfectDescription": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",

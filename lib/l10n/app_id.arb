@@ -136,8 +136,8 @@
   "limiter": "Pembatas",
   "softClipper": "Kliping Halus",
 
-  "sectionBitPerfect": "BIT-PERFECT",
-  "bitPerfectMode": "Mode Bit-Perfect",
+  "sectionBitPerfect": "PEMUTAR",
+  "bitPerfectMode": "Mode Pemutar Bersih",
   "bitPerfectActiveSubtitle": "Aktif — semua pemrosesan audio dinonaktifkan",
   "bitPerfectInactiveSubtitle": "Nonaktifkan semua efek & pemrosesan audio",
   "bitPerfectDescription": "Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.",
