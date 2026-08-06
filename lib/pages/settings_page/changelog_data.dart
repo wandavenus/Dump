@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.14',
+    date: '7 Agustus 2026',
+    changes: [
+      'Tambahkan Noto Sans Arabic sebagai fallback font berlisensi untuk memperbaiki artefak pada glyph Arab.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.13',
     date: '7 Agustus 2026',
     changes: [
