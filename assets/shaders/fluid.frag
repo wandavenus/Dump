@@ -22,7 +22,7 @@ vec3 shiftPalette(float progress, vec3 colA, vec3 colB, vec3 colC) {
   return mix(colC, colA, smoothstep(0.0, 1.0, p - 2.0));
 }
 
-// Helper buat bypass length() & smoothstep(). No sqrt = GPU lu bisa nafas lega ¯\_(ツ)_/¯
+// Helper buat bypass length() & smoothstep(). No sqrt = GPU lu bisa nafas lega
 float getWeight(vec2 uv, vec2 p) {
   // Angka 0.59 ini kurang lebih setara radius 1.3 di setup lama lu.
   float d = max(0.0, 1.0 - dot(uv - p, uv - p) * 0.59);
@@ -50,7 +50,7 @@ void main() {
   vec3 c00 = shiftPalette(t * 0.08, uColor0, uColor1, uHighlight);
   vec3 c10 = shiftPalette(t * 0.07 + 1.0, uColor1, uColor2, uShadow);
   vec3 c01 = shiftPalette(t * 0.09 + 2.0, uColor2, uColor0, uHighlight);
-  vec3 c11 = shiftPalette(t * 0.06 + 0.5, uHighlight, uColor1, uColor2);
+  vec3 c11 = shiftPalette(t * 0.06 + 0.5, uShadow, uColor1, uColor2);
 
   float totalW = w00 + w10 + w01 + w11 + 0.001;
   vec3 col = (c00 * w00 + c10 * w10 + c01 * w01 + c11 * w11) / totalW;
