@@ -37,7 +37,7 @@ class LocalSongCard extends StatelessWidget {
               size: 170,
               borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(height: 2.5),
+            const SizedBox(height: 5),
             SizedBox(
               width: 165,
               child: Text(
