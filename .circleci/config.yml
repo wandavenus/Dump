@@ -28,7 +28,7 @@ jobs:
           name: Install C compiler (required by native_audio_runtime)
           command: |
             sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends clang
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends clang
 
       # ── Flutter SDK ──────────────────────────────────────────────────────────
       - restore_cache:
