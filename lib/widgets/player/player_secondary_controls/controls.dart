@@ -47,13 +47,13 @@ class _LyricsToggleButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
-        width: 44,
-        height: 44,
+        width: 35,
+        height: 35,
         decoration: BoxDecoration(
           color: active
               ? Colors.white.withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(11),
         ),
         child: Icon(
           CupertinoIcons.quote_bubble,
@@ -82,13 +82,13 @@ class _QueueToggleButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
-        width: 44,
-        height: 44,
+        width: 35,
+        height: 35,
         decoration: BoxDecoration(
           color: active
               ? Colors.white.withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(11),
         ),
         child: Icon(
           CupertinoIcons.list_bullet,

@@ -779,7 +779,7 @@ abstract class AppLocalizations {
   /// No description provided for @equalizerBitPerfect.
   ///
   /// In en, this message translates to:
-  /// **'Bit-Perfect'**
+  /// **'Pure Audio'**
   String get equalizerBitPerfect;
 
   /// No description provided for @playbackSpeed.
@@ -851,7 +851,7 @@ abstract class AppLocalizations {
   /// No description provided for @bitPerfectConfirmTitle.
   ///
   /// In en, this message translates to:
-  /// **'Activate Bit-Perfect Mode?'**
+  /// **'Activate Pure Audio Mode?'**
   String get bitPerfectConfirmTitle;
 
   /// No description provided for @bitPerfectConfirmBody.
