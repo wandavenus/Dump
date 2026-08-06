@@ -86,26 +86,76 @@ class _KaraokeLinePainter extends CustomPainter {
     //
     // Time is linear, so progress must be linear. No easing here; easing
     // distorts the timing perception.
-    // Keep the fill as a hard clip. A narrow saveLayer fade is not safe for
-    // bidi glyphs: repainting the whole TextPainter into a small RTL strip
-    // can leave vertical artifacts on Arabic stems.
+    // Fade effect is rendered afterwards as a soft gradient at the leading edge.
+    Rect? currentFillBounds;
     for (final box in _wordRects[cursor]) {
       final rect = box.rect;
       final clipW = rect.width * progress;
-      // Never add a zero-width clip. On RTL runs its right edge can be
-      // rasterized as a visible vertical antialias line before highlighting
-      // has started.
-      if (clipW <= 0.0) continue;
       final filled = box.direction == TextDirection.rtl
           ? Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom)
           : Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom);
       _clipPath.addRect(filled);
+      currentFillBounds = currentFillBounds == null
+          ? filled
+          : currentFillBounds.expandToInclude(filled);
     }
 
     if (!_clipPath.getBounds().isEmpty) {
       canvas.save();
       canvas.clipPath(_clipPath);
       highlight.paint(canvas, Offset.zero);
+      canvas.restore();
+    }
+
+    // ── Soft fade at the leading edge of the current word ────────────────────
+    // A narrow saveLayer strip (max 12 px) uses dstIn masking so only the
+    // highlight text pixels survive — the gradient fades from opaque (filled
+    // side) to transparent (leading edge). No full-width saveLayer needed.
+    if (currentFillBounds != null &&
+        currentFillBounds.width > 0 &&
+        progress > 0.0 &&
+        progress < 1.0) {
+      const double fadeW = 12.0;
+      final double stripW = currentFillBounds.width.clamp(0.0, fadeW);
+
+      // Leading edge is right side (LTR) or left side (RTL).
+      final currentDirection = _wordRects[cursor].isNotEmpty
+          ? _wordRects[cursor].first.direction
+          : textDirection;
+      final strip = currentDirection == TextDirection.rtl
+          ? Rect.fromLTRB(
+              currentFillBounds.left,
+              currentFillBounds.top,
+              currentFillBounds.left + stripW,
+              currentFillBounds.bottom,
+            )
+          : Rect.fromLTRB(
+              currentFillBounds.right - stripW,
+              currentFillBounds.top,
+              currentFillBounds.right,
+              currentFillBounds.bottom,
+            );
+
+      // Composite: draw highlight text, then mask with a gradient so the
+      // leading edge of the fill fades to transparent (activeColor → clear).
+      canvas.saveLayer(strip, Paint());
+      highlight.paint(canvas, Offset.zero);
+      final maskPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          // Gradient runs from filled side → leading edge.
+          Offset(
+            currentDirection == TextDirection.rtl ? strip.right : strip.left,
+            0,
+          ),
+          Offset(
+            currentDirection == TextDirection.rtl ? strip.left : strip.right,
+            0,
+          ),
+          [activeColor.withValues(alpha: 1), activeColor.withValues(alpha: 0)],
+          [0.0, 1.0],
+        )
+        ..blendMode = BlendMode.dstIn;
+      canvas.drawRect(strip, maskPaint);
       canvas.restore();
     }
   }
@@ -123,12 +173,10 @@ class _KaraokeLinePainter extends CustomPainter {
     _highlightPainter?.dispose();
 
     final style = TextStyle(
-      fontFamily: LyricsTextDirection.primaryFontFamily,
       fontSize: fontSize,
       fontWeight: FontWeight.bold,
       color: dimColor,
       height: 1.4,
-      fontFamilyFallback: LyricsTextDirection.fontFamilyFallback,
     );
     _basePainter = TextPainter(
       text: TextSpan(text: text, style: style),

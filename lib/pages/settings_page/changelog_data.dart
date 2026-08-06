@@ -20,25 +20,10 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
-    version: '1.5.14',
-    date: '7 Agustus 2026',
-    changes: [
-      'Tambahkan Noto Sans Arabic sebagai fallback font berlisensi untuk memperbaiki artefak pada glyph Arab.',
-    ],
-  ),
-  _ChangelogEntry(
-    version: '1.5.13',
-    date: '7 Agustus 2026',
-    changes: [
-      'Hilangkan garis vertikal putih yang muncul pada huruf Arab saat highlight karaoke bergerak.',
-    ],
-  ),
-  _ChangelogEntry(
     version: '1.5.12',
     date: '6 Agustus 2026',
     changes: [
       'Perbaiki highlight lirik Arab dan campuran Arab-Latin agar arah gerak serta posisi teks lebih akurat.',
-      'Hapus artefak garis vertikal putih yang muncul pada glyph Arab saat highlight bergerak.',
     ],
   ),
   _ChangelogEntry(

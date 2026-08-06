@@ -95,11 +95,9 @@ class _UnifiedKaraokeLineState extends State<_UnifiedKaraokeLine> {
         widget.text,
         textAlign: widget.textAlign,
         style: TextStyle(
-          fontFamily: LyricsTextDirection.primaryFontFamily,
           fontSize: widget.fontSize,
           height: 1.4,
           fontWeight: FontWeight.bold,
-          fontFamilyFallback: LyricsTextDirection.fontFamilyFallback,
           color: Colors.transparent,
         ),
       ),
