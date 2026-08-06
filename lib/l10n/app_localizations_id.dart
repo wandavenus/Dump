@@ -373,7 +373,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get equalizerCustom => 'Custom';
 
   @override
-  String get equalizerBitPerfect => 'Bit-Perfect';
+  String get equalizerBitPerfect => 'Audio Bersih';
 
   @override
   String get playbackSpeed => 'Kecepatan Putar';
@@ -412,7 +412,7 @@ class AppLocalizationsId extends AppLocalizations {
       'Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.';
 
   @override
-  String get bitPerfectConfirmTitle => 'Aktifkan Mode Bit-Perfect?';
+  String get bitPerfectConfirmTitle => 'Aktifkan Mode Audio Bersih?';
 
   @override
   String get bitPerfectConfirmBody =>

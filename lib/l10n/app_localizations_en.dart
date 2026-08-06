@@ -372,7 +372,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get equalizerCustom => 'Custom';
 
   @override
-  String get equalizerBitPerfect => 'Bit-Perfect';
+  String get equalizerBitPerfect => 'Pure Audio';
 
   @override
   String get playbackSpeed => 'Playback Speed';
@@ -411,7 +411,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.';
 
   @override
-  String get bitPerfectConfirmTitle => 'Activate Bit-Perfect Mode?';
+  String get bitPerfectConfirmTitle => 'Activate Pure Audio Mode?';
 
   @override
   String get bitPerfectConfirmBody =>

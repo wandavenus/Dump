@@ -99,7 +99,7 @@ class _PlayerProgressSectionState extends State<PlayerProgressSection> {
     trackHeight: 7,
     trackShape: const AppleMusicSliderTrackShape(),
     activeTrackColor: Colors.white.withValues(alpha: 0.5),
-    inactiveTrackColor: const Color(0xFF8D8D8D).withValues(alpha: 0.4),
+    inactiveTrackColor: const Color(0xFFFFFFFF).withValues(alpha: 0.3),
     thumbShape: const RoundSliderThumbShape(
       enabledThumbRadius: 0,
       disabledThumbRadius: 0,
