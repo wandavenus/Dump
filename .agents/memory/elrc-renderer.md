@@ -39,5 +39,6 @@ description: Architecture of the true word-timestamp karaoke renderer for Enhanc
 ## Bidirectional text rendering
 - Lyric lines containing Arabic script use RTL paragraph direction and right alignment; Flutter bidi layout still handles embedded Latin runs.
 - Karaoke word boxes retain each `TextBox` run direction, so Arabic words fill right-to-left while embedded Latin words keep left-to-right fill.
+- Lyrics overlay uses equal 24 px horizontal content padding, with 130 px top and 125 px bottom breathing room.
 
 **Why:** Existing char-fill renderer estimated timing from character count / line duration — inaccurate for word-timed ELRC files. True ELRC needs actual word timestamps stored through the pipeline.
