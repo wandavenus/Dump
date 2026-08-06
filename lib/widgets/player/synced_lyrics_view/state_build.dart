@@ -39,6 +39,12 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
             itemCount: widget.lyrics.length,
             itemBuilder: (context, index) {
               final isActive = index == _currentIndex;
+              final lineDirection = LyricsTextDirection.resolve(
+                widget.lyrics[index].text,
+              );
+              final lineAlign = lineDirection == TextDirection.rtl
+                  ? TextAlign.right
+                  : align;
 
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -78,13 +84,17 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                             activeColor: active,
                             dimColor: dim,
                             fontSize: fs,
-                            textAlign: align,
+                            textAlign: lineAlign,
                             textScaleFactor: MediaQuery.textScalerOf(
                               context,
                             ).scale(1.0),
-                            textDirection: Directionality.of(context),
+                            textDirection: lineDirection,
                           )
-                        : Text(widget.lyrics[index].text, textAlign: align),
+                        : Text(
+                            widget.lyrics[index].text,
+                            textAlign: lineAlign,
+                            textDirection: lineDirection,
+                          ),
                   ),
                 ),
               );
