@@ -1,5 +1,13 @@
 part of '../audio_effects_service.dart';
 
+@immutable
+class RoomPreset {
+  final String name;
+  final List<double> gains;
+  final String desc;
+  const RoomPreset({required this.name, required this.gains, required this.desc});
+}
+
 /// Central DSP settings controller — UI + state only.
 ///
 /// All audio processing (EQ, bass, spatial, speed, pitch, crossfade,
@@ -132,90 +140,101 @@ class AudioEffectsService {
   // ── Room acoustic presets ──────────────────────────────────────────────────
   // {name, eq gains [60Hz,230Hz,910Hz,3.6k,14k], description}
 
-  static const List<Map<String, dynamic>> roomPresets = [
-    {
-      'name': 'Flat',
-      'gains': [0.0, 0.0, 0.0, 0.0, 0.0],
-      'desc': 'Tanpa efek ruangan',
-    },
-    {
-      'name': 'Studio',
-      'gains': [2.0, 1.0, 0.0, -1.0, 1.0],
-      'desc': 'Rekaman studio profesional',
-    },
-    {
-      'name': 'Live Stage',
-      'gains': [3.0, 0.0, 2.0, 1.0, 2.0],
-      'desc': 'Panggung pertunjukan langsung',
-    },
-    {
-      'name': 'Concert Hall',
-      'gains': [4.0, 1.0, -1.0, 2.0, 4.0],
-      'desc': 'Aula konser klasik',
-    },
-    {
-      'name': 'Cathedral',
-      'gains': [3.0, 0.0, -2.0, 0.0, 5.0],
-      'desc': 'Gema katedral besar',
-    },
-    {
-      'name': 'Club',
-      'gains': [6.0, 3.0, 1.0, 0.0, -1.0],
-      'desc': 'Club malam dengan bass kuat',
-    },
-    {
-      'name': 'Outdoor',
-      'gains': [1.0, 0.0, 0.0, 2.0, 3.0],
-      'desc': 'Ruang terbuka di luar ruangan',
-    },
-    {
-      'name': 'Car',
-      'gains': [4.0, 2.0, 1.0, -1.0, 0.0],
-      'desc': 'Interior kabin mobil',
-    },
-    {
-      'name': 'Bathroom',
-      'gains': [0.0, 1.0, 3.0, 2.0, 1.0],
-      'desc': 'Ruang kecil dengan dinding keras',
-    },
+  static const List<RoomPreset> roomPresets = [
+    RoomPreset(name: 'Flat',        gains: [0.0, 0.0, 0.0,  0.0,  0.0], desc: 'Tanpa efek ruangan'),
+    RoomPreset(name: 'Studio',      gains: [2.0, 1.0, 0.0, -1.0,  1.0], desc: 'Rekaman studio profesional'),
+    RoomPreset(name: 'Live Stage',  gains: [3.0, 0.0, 2.0,  1.0,  2.0], desc: 'Panggung pertunjukan langsung'),
+    RoomPreset(name: 'Concert Hall',gains: [4.0, 1.0,-1.0,  2.0,  4.0], desc: 'Aula konser klasik'),
+    RoomPreset(name: 'Cathedral',   gains: [3.0, 0.0,-2.0,  0.0,  5.0], desc: 'Gema katedral besar'),
+    RoomPreset(name: 'Club',        gains: [6.0, 3.0, 1.0,  0.0, -1.0], desc: 'Club malam dengan bass kuat'),
+    RoomPreset(name: 'Outdoor',     gains: [1.0, 0.0, 0.0,  2.0,  3.0], desc: 'Ruang terbuka di luar ruangan'),
+    RoomPreset(name: 'Car',         gains: [4.0, 2.0, 1.0, -1.0,  0.0], desc: 'Interior kabin mobil'),
+    RoomPreset(name: 'Bathroom',    gains: [0.0, 1.0, 3.0,  2.0,  1.0], desc: 'Ruang kecil dengan dinding keras'),
   ];
+
+  // ── SharedPreferences keys ─────────────────────────────────────────────────
+  static const _kCrossfade        = 'crossfade';
+  static const _kPitch            = 'pitch';
+  static const _kBassBoost        = 'bassBoost';
+  static const _kSpeed            = 'speed';
+  static const _kEqEnabled        = 'eqEnabled';
+  static const _kRoomPreset       = 'roomPreset';
+  static const _kEqPreset         = 'eqPreset';
+  static const _kLyricsPath       = 'lyricsPath';
+  static const _kReplayGainMode   = 'replayGainMode';
+  static const _kReplayGainPreamp = 'replayGainPreamp';
+  static const _kRgClipProtect    = 'rgClipProtect';
+  static const _kLnEnabled        = 'lnEnabled';
+  static const _kLnTarget         = 'lnTarget';
+  static const _kCrossfeedEnabled = 'crossfeedEnabled';
+  static const _kCrossfeedAmount  = 'crossfeedAmount';
+  static const _kCompEnabled      = 'compEnabled';
+  static const _kCompThreshold    = 'compThreshold';
+  static const _kCompRatio        = 'compRatio';
+  static const _kCompAttackMs     = 'compAttackMs';
+  static const _kCompReleaseMs    = 'compReleaseMs';
+  static const _kCompKneeDb       = 'compKneeDb';
+  static const _kLimEnabled       = 'limEnabled';
+  static const _kLimThreshold     = 'limThreshold';
+  static const _kLimReleaseMs     = 'limReleaseMs';
+  static const _kNativePreampDb   = 'nativePreampDb';
+  static const _kScEnabled        = 'scEnabled';
+  static const _kScThreshold      = 'scThreshold';
+  static const _kBitPerfectMode   = 'bitPerfectMode';
+  static const _kBpmSnapEq           = 'bpmSnapEq';
+  static const _kBpmSnapBass         = 'bpmSnapBass';
+  static const _kBpmSnapSpeed        = 'bpmSnapSpeed';
+  static const _kBpmSnapPitch        = 'bpmSnapPitch';
+  static const _kBpmSnapCrossfade    = 'bpmSnapCrossfade';
+  static const _kBpmSnapRgMode       = 'bpmSnapRgMode';
+  static const _kBpmSnapLn           = 'bpmSnapLn';
+  static const _kBpmSnapCrossfeed    = 'bpmSnapCrossfeed';
+  static const _kBpmSnapCompRatio    = 'bpmSnapCompRatio';
+  static const _kBpmSnapLimThreshold = 'bpmSnapLimThreshold';
+  static const _kBpmSnapScThreshold  = 'bpmSnapScThreshold';
+  static const _kBpmSnapValid        = 'bpmSnapValid';
+  static String _kEqBand(int i)      => 'eqBand_$i';
+
+  // Cached SharedPreferences instance — initialised once in [init].
+  static late SharedPreferences _prefs;
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
+    _prefs = await SharedPreferences.getInstance();
+    final prefs = _prefs;
 
-    crossfadeDuration.value = prefs.getDouble('crossfade') ?? 0.0;
-    pitchShift.value = prefs.getDouble('pitch') ?? 0.0;
-    bassBoost.value = prefs.getInt('bassBoost') ?? 0;
-    playbackSpeed.value = prefs.getDouble('speed') ?? 1.0;
-    equalizerEnabled.value = prefs.getBool('eqEnabled') ?? false;
-    roomPreset.value = prefs.getInt('roomPreset') ?? 0;
-    eqPreset.value = prefs.getInt('eqPreset') ?? -1;
-    lyricsPath.value = prefs.getString('lyricsPath') ?? '';
+    crossfadeDuration.value = prefs.getDouble(_kCrossfade) ?? 0.0;
+    pitchShift.value = prefs.getDouble(_kPitch) ?? 0.0;
+    bassBoost.value = prefs.getInt(_kBassBoost) ?? 0;
+    playbackSpeed.value = prefs.getDouble(_kSpeed) ?? 1.0;
+    equalizerEnabled.value = prefs.getBool(_kEqEnabled) ?? false;
+    roomPreset.value = prefs.getInt(_kRoomPreset) ?? 0;
+    eqPreset.value = prefs.getInt(_kEqPreset) ?? -1;
+    lyricsPath.value = prefs.getString(_kLyricsPath) ?? '';
 
-    final rgIdx = prefs.getInt('replayGainMode') ?? 0;
+    final rgIdx = prefs.getInt(_kReplayGainMode) ?? 0;
     replayGainMode.value =
         ReplayGainMode.values[rgIdx.clamp(0, ReplayGainMode.values.length - 1)];
-    replayGainPreamp.value = prefs.getDouble('replayGainPreamp') ?? 0.0;
-    clippingProtection.value = prefs.getBool('rgClipProtect') ?? true;
-    loudnessNormEnabled.value = prefs.getBool('lnEnabled') ?? false;
-    loudnessNormTarget.value = prefs.getDouble('lnTarget') ?? -23.0;
-    crossfeedEnabled.value = prefs.getBool('crossfeedEnabled') ?? false;
-    crossfeedAmount.value = prefs.getDouble('crossfeedAmount') ?? 0.3;
-    compressorEnabled.value = prefs.getBool('compEnabled') ?? false;
-    compressorThreshold.value = prefs.getDouble('compThreshold') ?? -20.0;
-    compressorRatio.value = prefs.getDouble('compRatio') ?? 1.0;
-    compressorAttackMs.value = prefs.getDouble('compAttackMs') ?? 10.0;
-    compressorReleaseMs.value = prefs.getDouble('compReleaseMs') ?? 100.0;
-    compressorKneeDb.value = prefs.getDouble('compKneeDb') ?? 6.0;
-    limiterEnabled.value = prefs.getBool('limEnabled') ?? false;
-    limiterThreshold.value = prefs.getDouble('limThreshold') ?? 0.0;
-    limiterReleaseMs.value = prefs.getDouble('limReleaseMs') ?? 50.0;
-    nativePreampDb.value = prefs.getDouble('nativePreampDb') ?? 0.0;
-    softClipperEnabled.value = prefs.getBool('scEnabled') ?? false;
-    softClipperThreshold.value = prefs.getDouble('scThreshold') ?? 0.0;
-    bitPerfectMode.value = prefs.getBool('bitPerfectMode') ?? false;
+    replayGainPreamp.value = prefs.getDouble(_kReplayGainPreamp) ?? 0.0;
+    clippingProtection.value = prefs.getBool(_kRgClipProtect) ?? true;
+    loudnessNormEnabled.value = prefs.getBool(_kLnEnabled) ?? false;
+    loudnessNormTarget.value = prefs.getDouble(_kLnTarget) ?? -23.0;
+    crossfeedEnabled.value = prefs.getBool(_kCrossfeedEnabled) ?? false;
+    crossfeedAmount.value = prefs.getDouble(_kCrossfeedAmount) ?? 0.3;
+    compressorEnabled.value = prefs.getBool(_kCompEnabled) ?? false;
+    compressorThreshold.value = prefs.getDouble(_kCompThreshold) ?? -20.0;
+    compressorRatio.value = prefs.getDouble(_kCompRatio) ?? 1.0;
+    compressorAttackMs.value = prefs.getDouble(_kCompAttackMs) ?? 10.0;
+    compressorReleaseMs.value = prefs.getDouble(_kCompReleaseMs) ?? 100.0;
+    compressorKneeDb.value = prefs.getDouble(_kCompKneeDb) ?? 6.0;
+    limiterEnabled.value = prefs.getBool(_kLimEnabled) ?? false;
+    limiterThreshold.value = prefs.getDouble(_kLimThreshold) ?? 0.0;
+    limiterReleaseMs.value = prefs.getDouble(_kLimReleaseMs) ?? 50.0;
+    nativePreampDb.value = prefs.getDouble(_kNativePreampDb) ?? 0.0;
+    softClipperEnabled.value = prefs.getBool(_kScEnabled) ?? false;
+    softClipperThreshold.value = prefs.getDouble(_kScThreshold) ?? 0.0;
+    bitPerfectMode.value = prefs.getBool(_kBitPerfectMode) ?? false;
 
     applyAll();
     LogService.log('AudioEffects', 'Initialized');
@@ -344,21 +363,20 @@ class AudioEffectsService {
 
   static Future<void> setReplayGainMode(ReplayGainMode mode) async {
     replayGainMode.value = mode;
-    await _saveInt('replayGainMode', mode.index);
+    await _saveInt(_kReplayGainMode, mode.index);
     LogService.log('AudioEffects', 'ReplayGain mode: ${mode.name}');
   }
 
   static Future<void> setReplayGainPreamp(double db) async {
     final v = db.clamp(-15.0, 15.0);
     replayGainPreamp.value = v;
-    await _saveDouble('replayGainPreamp', v);
+    await _saveDouble(_kReplayGainPreamp, v);
     LogService.log('AudioEffects', 'ReplayGain preamp: $v dB');
   }
 
   static Future<void> setClippingProtection(bool enabled) async {
     clippingProtection.value = enabled;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('rgClipProtect', enabled);
+    await _saveBool(_kRgClipProtect, enabled);
     LogService.log('AudioEffects', 'Clipping protection: $enabled');
   }
 
@@ -366,7 +384,7 @@ class AudioEffectsService {
 
   static Future<void> setLoudnessNormEnabled(bool enabled) async {
     loudnessNormEnabled.value = enabled;
-    await _saveBool('lnEnabled', enabled);
+    await _saveBool(_kLnEnabled, enabled);
     PlaybackManager.setNativeLoudnessNormBypass(!enabled);
     if (!enabled) {
       PlaybackManager.resetNativeLoudnessNorm();
@@ -389,7 +407,7 @@ class AudioEffectsService {
   static Future<void> setLoudnessNormTarget(double lufs) async {
     final v = lufs.clamp(-36.0, -6.0);
     loudnessNormTarget.value = v;
-    await _saveDouble('lnTarget', v);
+    await _saveDouble(_kLnTarget, v);
     PlaybackManager.setNativeLoudnessNormTargetLufs(v);
     LogService.log(
       'AudioEffects',
@@ -401,7 +419,7 @@ class AudioEffectsService {
 
   static Future<void> setCrossfeedEnabled(bool enabled) async {
     crossfeedEnabled.value = enabled;
-    await _saveBool('crossfeedEnabled', enabled);
+    await _saveBool(_kCrossfeedEnabled, enabled);
     PlaybackManager.setNativeCrossfeedBypass(!enabled);
     if (enabled) {
       PlaybackManager.setNativeCrossfeedParams(
@@ -415,7 +433,7 @@ class AudioEffectsService {
   static Future<void> setCrossfeedAmount(double amount) async {
     final v = amount.clamp(0.0, 1.0);
     crossfeedAmount.value = v;
-    await _saveDouble('crossfeedAmount', v);
+    await _saveDouble(_kCrossfeedAmount, v);
     if (crossfeedEnabled.value) {
       PlaybackManager.setNativeCrossfeedParams(
         amount: v,
@@ -443,7 +461,7 @@ class AudioEffectsService {
 
   static Future<void> setCompressorEnabled(bool enabled) async {
     compressorEnabled.value = enabled;
-    await _saveBool('compEnabled', enabled);
+    await _saveBool(_kCompEnabled, enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
     if (enabled) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor: ${enabled ? 'ON' : 'OFF'}');
@@ -452,7 +470,7 @@ class AudioEffectsService {
   static Future<void> setCompressorThreshold(double db) async {
     final v = db.clamp(-60.0, 0.0);
     compressorThreshold.value = v;
-    await _saveDouble('compThreshold', v);
+    await _saveDouble(_kCompThreshold, v);
     if (compressorEnabled.value) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor threshold: $v dB');
   }
@@ -462,7 +480,7 @@ class AudioEffectsService {
   static Future<void> setCompressorAttackMs(double ms) async {
     final v = ms.clamp(0.1, 500.0);
     compressorAttackMs.value = v;
-    await _saveDouble('compAttackMs', v);
+    await _saveDouble(_kCompAttackMs, v);
     if (compressorEnabled.value) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor attack: $v ms');
   }
@@ -471,7 +489,7 @@ class AudioEffectsService {
   static Future<void> setCompressorReleaseMs(double ms) async {
     final v = ms.clamp(1.0, 2000.0);
     compressorReleaseMs.value = v;
-    await _saveDouble('compReleaseMs', v);
+    await _saveDouble(_kCompReleaseMs, v);
     if (compressorEnabled.value) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor release: $v ms');
   }
@@ -481,7 +499,7 @@ class AudioEffectsService {
   static Future<void> setCompressorKneeDb(double db) async {
     final v = db.clamp(0.0, 24.0);
     compressorKneeDb.value = v;
-    await _saveDouble('compKneeDb', v);
+    await _saveDouble(_kCompKneeDb, v);
     if (compressorEnabled.value) _pushCompressorParams();
     LogService.log('AudioEffects', 'Compressor knee: $v dB');
   }
@@ -492,11 +510,11 @@ class AudioEffectsService {
   static Future<void> setCompressorRatio(double ratio) async {
     final v = ratio.clamp(1.0, 20.0);
     compressorRatio.value = v;
-    await _saveDouble('compRatio', v);
+    await _saveDouble(_kCompRatio, v);
 
     final enabled = v > 1.0;
     compressorEnabled.value = enabled;
-    await _saveBool('compEnabled', enabled);
+    await _saveBool(_kCompEnabled, enabled);
     PlaybackManager.setNativeCompressorBypass(!enabled);
     if (enabled) _pushCompressorParams();
     LogService.log(
@@ -517,7 +535,7 @@ class AudioEffectsService {
 
   static Future<void> setLimiterEnabled(bool enabled) async {
     limiterEnabled.value = enabled;
-    await _saveBool('limEnabled', enabled);
+    await _saveBool(_kLimEnabled, enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
     if (enabled) _pushLimiterParams();
     LogService.log('AudioEffects', 'Limiter: ${enabled ? 'ON' : 'OFF'}');
@@ -527,7 +545,7 @@ class AudioEffectsService {
   static Future<void> setLimiterReleaseMs(double ms) async {
     final v = ms.clamp(1.0, 1000.0);
     limiterReleaseMs.value = v;
-    await _saveDouble('limReleaseMs', v);
+    await _saveDouble(_kLimReleaseMs, v);
     if (limiterEnabled.value) _pushLimiterParams();
     LogService.log('AudioEffects', 'Limiter release: $v ms');
   }
@@ -538,11 +556,11 @@ class AudioEffectsService {
   static Future<void> setLimiterThreshold(double db) async {
     final v = db.clamp(-24.0, 0.0);
     limiterThreshold.value = v;
-    await _saveDouble('limThreshold', v);
+    await _saveDouble(_kLimThreshold, v);
 
     final enabled = v < 0.0;
     limiterEnabled.value = enabled;
-    await _saveBool('limEnabled', enabled);
+    await _saveBool(_kLimEnabled, enabled);
     PlaybackManager.setNativeLimiterBypass(!enabled);
     if (enabled) _pushLimiterParams();
     LogService.log('AudioEffects', 'Limiter threshold: $v dB');
@@ -557,7 +575,7 @@ class AudioEffectsService {
   static Future<void> setNativePreampDb(double db) async {
     final v = db.clamp(-24.0, 24.0);
     nativePreampDb.value = v;
-    await _saveDouble('nativePreampDb', v);
+    await _saveDouble(_kNativePreampDb, v);
     final enabled = v != 0.0;
     PlaybackManager.setNativeGainBypass(!enabled);
     if (enabled) PlaybackManager.setNativeGainDb(v);
@@ -568,7 +586,7 @@ class AudioEffectsService {
 
   static Future<void> setSoftClipperEnabled(bool enabled) async {
     softClipperEnabled.value = enabled;
-    await _saveBool('scEnabled', enabled);
+    await _saveBool(_kScEnabled, enabled);
     PlaybackManager.setNativeSoftClipperBypass(!enabled);
     if (enabled) {
       PlaybackManager.setNativeSoftClipperThresholdDb(
@@ -585,11 +603,11 @@ class AudioEffectsService {
   static Future<void> setSoftClipperThreshold(double db) async {
     final v = db.clamp(-12.0, 0.0);
     softClipperThreshold.value = v;
-    await _saveDouble('scThreshold', v);
+    await _saveDouble(_kScThreshold, v);
 
     final enabled = v < 0.0;
     softClipperEnabled.value = enabled;
-    await _saveBool('scEnabled', enabled);
+    await _saveBool(_kScEnabled, enabled);
     PlaybackManager.setNativeSoftClipperBypass(!enabled);
     if (enabled) {
       PlaybackManager.setNativeSoftClipperThresholdDb(v);
@@ -611,7 +629,7 @@ class AudioEffectsService {
 
   static Future<void> setEqualizerEnabled(bool value) async {
     equalizerEnabled.value = value;
-    await _saveBool('eqEnabled', value);
+    await _saveBool(_kEqEnabled, value);
     unawaited(PlaybackManager.setEqualizerEnabled(value));
     if (value) _sendRoomPresetEq(roomPreset.value);
     LogService.log('AudioEffects', 'EQ enabled: $value');
@@ -638,8 +656,7 @@ class AudioEffectsService {
           ),
         ),
       );
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('eqBand_$bandIndex', gainDb);
+      await _prefs.setDouble(_kEqBand(bandIndex), gainDb);
       // Manual band adjustment — clear preset selection indicator.
       eqPreset.value = -1;
     } on Exception catch (e) {
@@ -652,35 +669,28 @@ class AudioEffectsService {
   static Future<void> setRoomPreset(int index) async {
     final i = index.clamp(0, roomPresets.length - 1).toInt();
     roomPreset.value = i;
-    await _saveInt('roomPreset', i);
+    await _saveInt(_kRoomPreset, i);
 
     final preset = roomPresets[i];
     if (equalizerEnabled.value) _sendRoomPresetEq(i);
 
-    LogService.log('AudioEffects', 'Room preset: ${preset['name']}');
+    LogService.log('AudioEffects', 'Room preset: ${preset.name}');
   }
 
   static void _sendRoomPresetEq(int index) {
     final i = index.clamp(0, roomPresets.length - 1).toInt();
-    final gains = roomPresets[i]['gains'] as List<double>;
+    final gains = roomPresets[i].gains;
     for (var b = 0; b < gains.length; b++) {
       unawaited(_writeEqBand(b, gains[b]));
+      unawaited(_prefs.setDouble(_kEqBand(b), gains[b]));
     }
-    unawaited(
-      SharedPreferences.getInstance().then((prefs) {
-        for (var b = 0; b < gains.length; b++) {
-          unawaited(prefs.setDouble('eqBand_$b', gains[b]));
-        }
-      }),
-    );
   }
 
   static Future<void> restoreEqualizerBands() async {
-    final prefs = await SharedPreferences.getInstance();
     final params = await getEqualizerParameters();
     if (params == null) return;
     for (var i = 0; i < params.bandCount; i++) {
-      final gain = prefs.getDouble('eqBand_$i');
+      final gain = _prefs.getDouble(_kEqBand(i));
       if (gain != null) {
         unawaited(_writeEqBand(i, gain));
       }
@@ -737,18 +747,17 @@ class AudioEffectsService {
 
     // Update notifier BEFORE async work so UI updates immediately.
     eqPreset.value = presetIndex;
-    await _saveInt('eqPreset', presetIndex);
+    await _saveInt(_kEqPreset, presetIndex);
 
     // Send gains to native; use engine params for band count + clamp range.
     final params = await getEqualizerParameters();
-    final prefs = await SharedPreferences.getInstance();
     final bandCount = params?.bandCount ?? gains.length;
     final lo = params?.minDecibels ?? -15.0;
     final hi = params?.maxDecibels ?? 15.0;
     for (var i = 0; i < bandCount && i < gains.length; i++) {
       final clamped = gains[i].clamp(lo, hi).toDouble();
       unawaited(_writeEqBand(i, clamped));
-      await prefs.setDouble('eqBand_$i', clamped);
+      await _prefs.setDouble(_kEqBand(i), clamped);
     }
     LogService.log(
       'AudioEffects',
@@ -760,7 +769,7 @@ class AudioEffectsService {
 
   static Future<void> setCrossfade(double seconds) async {
     crossfadeDuration.value = seconds;
-    await _saveDouble('crossfade', seconds);
+    await _saveDouble(_kCrossfade, seconds);
     unawaited(PlaybackManager.setCrossfadeDuration(seconds));
     LogService.log('AudioEffects', 'Crossfade: ${seconds}s');
   }
@@ -780,7 +789,7 @@ class AudioEffectsService {
     _pitchThrottle = null;
     _pendingPreviewPitch = null;
     _lastPreviewPitch = semitones;
-    await _saveDouble('pitch', semitones);
+    await _saveDouble(_kPitch, semitones);
     _sendPitch(semitones);
     LogService.log('AudioEffects', 'Pitch: $semitones semitones');
   }
@@ -834,7 +843,7 @@ class AudioEffectsService {
     _speedThrottle = null;
     _pendingPreviewSpeed = null;
     _lastPreviewSpeed = v;
-    await _saveDouble('speed', v);
+    await _saveDouble(_kSpeed, v);
     _sendSpeed(v);
     LogService.log('AudioEffects', 'Speed: ${v}x');
   }
@@ -879,7 +888,7 @@ class AudioEffectsService {
   static Future<void> setBassBoost(int strength) async {
     final v = strength.clamp(0, 1000).toInt();
     bassBoost.value = v;
-    await _saveInt('bassBoost', v);
+    await _saveInt(_kBassBoost, v);
     unawaited(PlaybackManager.setBassBoost(v));
     unawaited(PlaybackManager.setBassBoostEnabled(v > 0));
     LogService.log('AudioEffects', 'BassBoost: $v');
@@ -896,7 +905,7 @@ class AudioEffectsService {
   static Future<void> setBitPerfectMode(bool enabled) async {
     if (bitPerfectMode.value == enabled) return;
     bitPerfectMode.value = enabled;
-    await _saveBool('bitPerfectMode', enabled);
+    await _saveBool(_kBitPerfectMode, enabled);
 
     if (enabled) {
       await _snapshotBeforeBitPerfect();
@@ -921,19 +930,18 @@ class AudioEffectsService {
   }
 
   static Future<void> _snapshotBeforeBitPerfect() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('bpmSnapEq', equalizerEnabled.value);
-    await prefs.setInt('bpmSnapBass', bassBoost.value);
-    await prefs.setDouble('bpmSnapSpeed', playbackSpeed.value);
-    await prefs.setDouble('bpmSnapPitch', pitchShift.value);
-    await prefs.setDouble('bpmSnapCrossfade', crossfadeDuration.value);
-    await prefs.setInt('bpmSnapRgMode', replayGainMode.value.index);
-    await prefs.setBool('bpmSnapLn', loudnessNormEnabled.value);
-    await prefs.setBool('bpmSnapCrossfeed', crossfeedEnabled.value);
-    await prefs.setDouble('bpmSnapCompRatio', compressorRatio.value);
-    await prefs.setDouble('bpmSnapLimThreshold', limiterThreshold.value);
-    await prefs.setDouble('bpmSnapScThreshold', softClipperThreshold.value);
-    await prefs.setBool('bpmSnapValid', true);
+    await _prefs.setBool(_kBpmSnapEq, equalizerEnabled.value);
+    await _prefs.setInt(_kBpmSnapBass, bassBoost.value);
+    await _prefs.setDouble(_kBpmSnapSpeed, playbackSpeed.value);
+    await _prefs.setDouble(_kBpmSnapPitch, pitchShift.value);
+    await _prefs.setDouble(_kBpmSnapCrossfade, crossfadeDuration.value);
+    await _prefs.setInt(_kBpmSnapRgMode, replayGainMode.value.index);
+    await _prefs.setBool(_kBpmSnapLn, loudnessNormEnabled.value);
+    await _prefs.setBool(_kBpmSnapCrossfeed, crossfeedEnabled.value);
+    await _prefs.setDouble(_kBpmSnapCompRatio, compressorRatio.value);
+    await _prefs.setDouble(_kBpmSnapLimThreshold, limiterThreshold.value);
+    await _prefs.setDouble(_kBpmSnapScThreshold, softClipperThreshold.value);
+    await _prefs.setBool(_kBpmSnapValid, true);
   }
 
   static Future<void> _forceBypassEverything() async {
@@ -962,20 +970,19 @@ class AudioEffectsService {
   }
 
   static Future<void> _restoreFromBitPerfectSnapshot() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!(prefs.getBool('bpmSnapValid') ?? false)) return;
+    if (!(_prefs.getBool(_kBpmSnapValid) ?? false)) return;
 
-    final eq = prefs.getBool('bpmSnapEq') ?? false;
-    final bass = prefs.getInt('bpmSnapBass') ?? 0;
-    final speed = prefs.getDouble('bpmSnapSpeed') ?? 1.0;
-    final pitch = prefs.getDouble('bpmSnapPitch') ?? 0.0;
-    final crossfade = prefs.getDouble('bpmSnapCrossfade') ?? 0.0;
-    final rgIdx = prefs.getInt('bpmSnapRgMode') ?? 0;
-    final ln = prefs.getBool('bpmSnapLn') ?? false;
-    final crossfeed = prefs.getBool('bpmSnapCrossfeed') ?? false;
-    final compRatio = prefs.getDouble('bpmSnapCompRatio') ?? 1.0;
-    final limThresh = prefs.getDouble('bpmSnapLimThreshold') ?? 0.0;
-    final scThresh = prefs.getDouble('bpmSnapScThreshold') ?? 0.0;
+    final eq = _prefs.getBool(_kBpmSnapEq) ?? false;
+    final bass = _prefs.getInt(_kBpmSnapBass) ?? 0;
+    final speed = _prefs.getDouble(_kBpmSnapSpeed) ?? 1.0;
+    final pitch = _prefs.getDouble(_kBpmSnapPitch) ?? 0.0;
+    final crossfade = _prefs.getDouble(_kBpmSnapCrossfade) ?? 0.0;
+    final rgIdx = _prefs.getInt(_kBpmSnapRgMode) ?? 0;
+    final ln = _prefs.getBool(_kBpmSnapLn) ?? false;
+    final crossfeed = _prefs.getBool(_kBpmSnapCrossfeed) ?? false;
+    final compRatio = _prefs.getDouble(_kBpmSnapCompRatio) ?? 1.0;
+    final limThresh = _prefs.getDouble(_kBpmSnapLimThreshold) ?? 0.0;
+    final scThresh = _prefs.getDouble(_kBpmSnapScThreshold) ?? 0.0;
 
     await setEqualizerEnabled(eq);
     if (eq) await restoreEqualizerBands();
@@ -996,32 +1003,21 @@ class AudioEffectsService {
     // state is simply "not bypassed" (unity passthrough).
     PlaybackManager.setNativeGainBypass(false);
 
-    await prefs.setBool('bpmSnapValid', false);
+    await _prefs.setBool(_kBpmSnapValid, false);
   }
 
   // ── Lyrics path ───────────────────────────────────────────────────────────
 
   static Future<void> setLyricsPath(String path) async {
-    lyricsPath.value = path.trim();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('lyricsPath', path.trim());
-    LogService.log('AudioEffects', 'Lyrics path: ${path.trim()}');
+    final v = path.trim();
+    lyricsPath.value = v;
+    await _prefs.setString(_kLyricsPath, v);
+    LogService.log('AudioEffects', 'Lyrics path: $v');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static Future<void> _saveBool(String k, bool v) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setBool(k, v);
-  }
-
-  static Future<void> _saveInt(String k, int v) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setInt(k, v);
-  }
-
-  static Future<void> _saveDouble(String k, double v) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setDouble(k, v);
-  }
+  static Future<void> _saveBool(String k, bool v) => _prefs.setBool(k, v);
+  static Future<void> _saveInt(String k, int v) => _prefs.setInt(k, v);
+  static Future<void> _saveDouble(String k, double v) => _prefs.setDouble(k, v);
 }

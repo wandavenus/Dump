@@ -39,7 +39,7 @@ class _AlbumCardState extends State<_AlbumCard> {
     final cached = NativePaletteService.getSync(songId);
     if (cached != null) {
       if (mounted) {
-        setState(() => _cardColor = _dominantColor(cached));
+        setState(() => _cardColor = cached.isNotEmpty ? cached.first : _fallbackColor);
       }
       return;
     }
@@ -47,11 +47,7 @@ class _AlbumCardState extends State<_AlbumCard> {
     final colors = await NativePaletteService.get(songId);
     if (!mounted) return;
 
-    setState(() => _cardColor = _dominantColor(colors));
-  }
-
-  Color _dominantColor(List<Color> colors) {
-    return colors.isNotEmpty ? colors.first : _fallbackColor;
+    setState(() => _cardColor = colors.isNotEmpty ? colors.first : _fallbackColor);
   }
 
   @override

@@ -179,11 +179,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
-  void _toggleLyrics() {
+  void _setOverlay({bool? lyrics, bool? queue}) {
     final wasOverlay = _showLyrics || _showQueue;
     setState(() {
-      _showLyrics = !_showLyrics;
-      if (_showLyrics) _showQueue = false;
+      if (lyrics != null) { _showLyrics = lyrics; if (lyrics) _showQueue = false; }
+      if (queue  != null) { _showQueue  = queue;  if (queue)  _showLyrics = false; }
     });
     final isOverlay = _showLyrics || _showQueue;
     if (!wasOverlay && isOverlay) {
@@ -193,19 +193,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     }
   }
 
-  void _toggleQueue() {
-    final wasOverlay = _showLyrics || _showQueue;
-    setState(() {
-      _showQueue = !_showQueue;
-      if (_showQueue) _showLyrics = false;
-    });
-    final isOverlay = _showLyrics || _showQueue;
-    if (!wasOverlay && isOverlay) {
-      unawaited(_overlayAnim.forward());
-    } else if (wasOverlay && !isOverlay) {
-      unawaited(_overlayAnim.reverse());
-    }
-  }
+  void _toggleLyrics() => _setOverlay(lyrics: !_showLyrics);
+  void _toggleQueue()  => _setOverlay(queue:  !_showQueue);
 
   // ── Gesture callbacks ──────────────────────────────────────────────────────
   void _onPanStart(DragStartDetails d) {
@@ -348,8 +337,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
-    // Border radius: linear so corners snap crisply at 0
-    final radius = lerpDouble(0.0, 0.0, progress)!;
+    // Border radius: corners stay square at all progress values.
 
     // Cross-fade timing
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
@@ -407,7 +395,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                 onPanUpdate: _onPanUpdate,
                 onPanEnd: _onPanEnd,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
+                  borderRadius: BorderRadius.zero,
                   child: Stack(
                     fit: StackFit.expand,
                     clipBehavior: Clip.antiAlias,
@@ -467,17 +455,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       if (bgAlpha > 0)
                         Opacity(
                           opacity: bgAlpha,
-                          child: const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color.fromARGB(40, 0, 0, 0),
-                                  Color.fromARGB(40, 0, 0, 0),
-                                ],
-                              ),
-                            ),
+                          child: const ColoredBox(
+                            color: Color.fromARGB(40, 0, 0, 0),
                           ),
                         ),
 
