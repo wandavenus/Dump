@@ -38,11 +38,10 @@ void main() {
   vec2 p11 = vec2(1.0, 1.0) + vec2(0.20 * cos(t * 0.12), 0.20 * sin(t * 0.08)); // Bottom-Right Node
 
   // ── 2. Landai Smoothstep Weighting (Hapus Efek Bola Lampu) ───────────────
-  float w00 = smoothstep(1.3, 0.0, length(uv - p00));
-  float w10 = smoothstep(1.3, 0.0, length(uv - p10));
-  float w01 = smoothstep(1.3, 0.0, length(uv - p01));
-  float w11 = smoothstep(1.3, 0.0, length(uv - p11));
-
+  float w00 = 1.0 - smoothstep(0.0, 1.3, length(uv - p00));
+  float w10 = 1.0 - smoothstep(0.0, 1.3, length(uv - p10));
+  float w01 = 1.0 - smoothstep(0.0, 1.3, length(uv - p01));
+  float w11 = 1.0 - smoothstep(0.0, 1.3, length(uv - p11));
   // ── 3. Dynamic Color Shifting (Tiap Titik Warna Rotasi Terus) ─────────────
   // Pake shiftPalette() biar warna di tiap sudut muter lewat semua palet
   vec3 c00 = shiftPalette(t * 0.08 + 0.0, uColor0, uColor1, uHighlight);
