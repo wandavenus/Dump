@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 class LyricsTextDirection {
   LyricsTextDirection._();
 
+  static const String primaryFontFamily = 'SF Pro Text';
+  static const List<String> fontFamilyFallback = <String>['Noto Sans Arabic'];
+
   static TextDirection resolve(String text) {
     for (final rune in text.runes) {
       if (isArabicRune(rune)) return TextDirection.rtl;

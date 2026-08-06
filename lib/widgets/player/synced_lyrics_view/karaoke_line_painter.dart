@@ -123,10 +123,12 @@ class _KaraokeLinePainter extends CustomPainter {
     _highlightPainter?.dispose();
 
     final style = TextStyle(
+      fontFamily: LyricsTextDirection.primaryFontFamily,
       fontSize: fontSize,
       fontWeight: FontWeight.bold,
       color: dimColor,
       height: 1.4,
+      fontFamilyFallback: LyricsTextDirection.fontFamilyFallback,
     );
     _basePainter = TextPainter(
       text: TextSpan(text: text, style: style),

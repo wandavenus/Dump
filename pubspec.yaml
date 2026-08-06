@@ -1,7 +1,7 @@
 name: musicplayer
 description: "-"
 publish_to: 'none'
-version: 1.5.13
+version: 1.5.14
 
 environment:
   sdk: '>=3.12.2 <4.0.0'
@@ -68,3 +68,6 @@ flutter:
           weight: 700
         - asset: assets/fonts/sf_pro_text_black.otf
           weight: 900
+    - family: Noto Sans Arabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Variable.ttf
