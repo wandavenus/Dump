@@ -47,7 +47,7 @@ void main() {
   float w11 = getWeight(uv, p11);
 
   // ── 3. Dynamic Color Shifting ────────────────────────────────────────────
-  vec3 c00 = shiftPalette(t * 0.08, uColor0, uColor1, uHighlight);
+  vec3 c00 = shiftPalette(t * 0.08, uColor0, uColor1, uShadow);
   vec3 c10 = shiftPalette(t * 0.07 + 1.0, uColor1, uColor2, uShadow);
   vec3 c01 = shiftPalette(t * 0.09 + 2.0, uColor2, uColor0, uHighlight);
   vec3 c11 = shiftPalette(t * 0.06 + 0.5, uShadow, uColor1, uColor2);
