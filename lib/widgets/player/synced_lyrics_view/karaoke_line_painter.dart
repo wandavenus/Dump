@@ -1,5 +1,12 @@
 part of '../synced_lyrics_view.dart';
 
+class _KaraokeWordBox {
+  final Rect rect;
+  final TextDirection direction;
+
+  const _KaraokeWordBox(this.rect, this.direction);
+}
+
 class _KaraokeLinePainter extends CustomPainter {
   final String text;
   final List<_TimelineWord> timeline;
@@ -13,7 +20,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
   TextPainter? _basePainter;
   TextPainter? _highlightPainter;
-  List<List<Rect>> _wordRects = const [];
+  List<List<_KaraokeWordBox>> _wordRects = const [];
   double _lastWidth = -1;
 
   // ── Path di-reuse setiap frame, bukan dibuat baru ────────────────────────
@@ -68,18 +75,23 @@ class _KaraokeLinePainter extends CustomPainter {
 
     // Past words: fully filled
     for (int i = 0; i < cursor; i++) {
-      for (final rect in _wordRects[i]) {
-        _clipPath.addRect(rect);
+      for (final box in _wordRects[i]) {
+        _clipPath.addRect(box.rect);
       }
     }
 
-    // Current word: linear fill from left/right — time is linear, so progress
-    // must be linear. No easing here; easing distorts the timing perception.
+    // Current word: use each visual bidi run's direction. An Arabic line may
+    // contain Latin words, so using the paragraph direction for every rect
+    // would make those embedded words highlight backwards.
+    //
+    // Time is linear, so progress must be linear. No easing here; easing
+    // distorts the timing perception.
     // Fade effect is rendered afterwards as a soft gradient at the leading edge.
     Rect? currentFillBounds;
-    for (final rect in _wordRects[cursor]) {
+    for (final box in _wordRects[cursor]) {
+      final rect = box.rect;
       final clipW = rect.width * progress;
-      final filled = textDirection == TextDirection.rtl
+      final filled = box.direction == TextDirection.rtl
           ? Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom)
           : Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom);
       _clipPath.addRect(filled);
@@ -107,7 +119,10 @@ class _KaraokeLinePainter extends CustomPainter {
       final double stripW = currentFillBounds.width.clamp(0.0, fadeW);
 
       // Leading edge is right side (LTR) or left side (RTL).
-      final strip = textDirection == TextDirection.rtl
+      final currentDirection = _wordRects[cursor].isNotEmpty
+          ? _wordRects[cursor].first.direction
+          : textDirection;
+      final strip = currentDirection == TextDirection.rtl
           ? Rect.fromLTRB(
               currentFillBounds.left,
               currentFillBounds.top,
@@ -129,11 +144,11 @@ class _KaraokeLinePainter extends CustomPainter {
         ..shader = ui.Gradient.linear(
           // Gradient runs from filled side → leading edge.
           Offset(
-            textDirection == TextDirection.rtl ? strip.right : strip.left,
+            currentDirection == TextDirection.rtl ? strip.right : strip.left,
             0,
           ),
           Offset(
-            textDirection == TextDirection.rtl ? strip.left : strip.right,
+            currentDirection == TextDirection.rtl ? strip.left : strip.right,
             0,
           ),
           [activeColor.withValues(alpha: 1), activeColor.withValues(alpha: 0)],
@@ -196,7 +211,7 @@ class _KaraokeLinePainter extends CustomPainter {
       return;
     }
     final painter = _basePainter!;
-    final rectsList = <List<Rect>>[];
+    final rectsList = <List<_KaraokeWordBox>>[];
     var searchFrom = 0;
 
     for (final word in timeline) {
@@ -209,9 +224,13 @@ class _KaraokeLinePainter extends CustomPainter {
       final boxes = painter.getBoxesForSelection(
         TextSelection(baseOffset: index, extentOffset: searchFrom),
       );
-      rectsList.add(boxes.map((b) => b.toRect()).toList());
+      rectsList.add(
+        boxes
+            .map((b) => _KaraokeWordBox(b.toRect(), b.direction))
+            .toList(growable: false),
+      );
     }
-    _wordRects = List<List<Rect>>.unmodifiable(rectsList);
+    _wordRects = List<List<_KaraokeWordBox>>.unmodifiable(rectsList);
   }
 
   @override
