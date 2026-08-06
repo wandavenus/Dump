@@ -94,11 +94,6 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                             widget.lyrics[index].text,
                             textAlign: lineAlign,
                             textDirection: lineDirection,
-                            style: const TextStyle(
-                              fontFamily: LyricsTextDirection.primaryFontFamily,
-                              fontFamilyFallback:
-                                  LyricsTextDirection.fontFamilyFallback,
-                            ),
                           ),
                   ),
                 ),
