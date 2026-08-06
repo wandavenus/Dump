@@ -151,7 +151,7 @@
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",
-  "equalizerBitPerfect": "Bit-Perfect",
+  "equalizerBitPerfect": "Pure Audio",
   "playbackSpeed": "Playback Speed",
   "pitchShift": "Pitch Shift",
   "bassBoost": "Bass Boost",
@@ -164,7 +164,7 @@
   "bitPerfectActiveSubtitle": "Active — all audio processing disabled",
   "bitPerfectInactiveSubtitle": "Disable all effects & audio processing",
   "bitPerfectDescription": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
-  "bitPerfectConfirmTitle": "Activate Bit-Perfect Mode?",
+  "bitPerfectConfirmTitle": "Activate Pure Audio Mode?",
   "bitPerfectConfirmBody": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
 
   "sectionSystem": "SYSTEM",

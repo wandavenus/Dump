@@ -821,13 +821,13 @@ abstract class AppLocalizations {
   /// No description provided for @sectionBitPerfect.
   ///
   /// In en, this message translates to:
-  /// **'BIT-PERFECT'**
+  /// **'PLAYER'**
   String get sectionBitPerfect;
 
   /// No description provided for @bitPerfectMode.
   ///
   /// In en, this message translates to:
-  /// **'Bit-Perfect Mode'**
+  /// **'Pure Audio Mode'**
   String get bitPerfectMode;
 
   /// No description provided for @bitPerfectActiveSubtitle.

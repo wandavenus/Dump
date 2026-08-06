@@ -393,10 +393,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get softClipper => 'Soft Clipper';
 
   @override
-  String get sectionBitPerfect => 'BIT-PERFECT';
+  String get sectionBitPerfect => 'PLAYER';
 
   @override
-  String get bitPerfectMode => 'Bit-Perfect Mode';
+  String get bitPerfectMode => 'Pure Audio Mode';
 
   @override
   String get bitPerfectActiveSubtitle =>
