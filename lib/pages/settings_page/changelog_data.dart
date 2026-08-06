@@ -20,6 +20,11 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.14',
+    date: '7 Agustus 2026',
+    changes: ['Perbaiki animasi highlight karaoke untuk teks Jepang dan CJK.'],
+  ),
+  _ChangelogEntry(
     version: '1.5.13',
     date: '6 Agustus 2026',
     changes: ['Seimbangkan jarak kiri dan kanan pada tampilan lirik.'],
