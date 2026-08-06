@@ -63,6 +63,7 @@
 - [Media3 1.10.1 package migration](media3-package-migration.md) — audio processor classes moved from exoplayer.audio → common.audio; DefaultAudioProcessorChain is still public nested in DefaultAudioSink; verify via sources.jar not guessing.
 - [Crossfade repeat-all artifact](crossfade-repeat-artifact.md) — queue[0] plays ~1 s during B's fade-in when REPEAT_MODE_ALL active; fix: remove prefix items + set repeatMode=OFF AFTER setActivePlayer.
 - [Player background shader architecture](player-bg-shader.md) — TickerMode pauses shader when player collapsed; pre-computed _c0r…_c2b; paint() zero arithmetic; 256×512 + RepaintBoundary isolation.
+- [Fluid shader performance audit](fluid-shader-performance-audit.md) — main GPU hotspots are radial lengths, repeated time-only palette rotation, grain trig, and continuous refresh-rate animation.
 - [Whole-body swipe-to-dismiss sheets](swipe-to-dismiss-sheets.md) — all bottom sheets use shared `SwipeToDismissSheet` on the whole body; `DraggableScrollableSheet` log viewer is intentionally excluded.
 - [Media3 startForeground deadline](media3-service-foreground-deadline.md) — onCreate() never calls startForeground(); needsService allowlist must only include methods that guarantee reaching ensureMediaForeground(), else empty-queue cold start crashes deterministically.
 - [Lyrics hitbox fling forwarding](lyrics-hitbox-fling-forwarding.md) — forwarded drags (jumpTo-based) need onVerticalDragEnd→goBallistic() too, or they stop dead on release instead of flinging like a real scroll.
