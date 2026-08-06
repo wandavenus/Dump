@@ -394,10 +394,10 @@ class AppLocalizationsId extends AppLocalizations {
   String get softClipper => 'Kliping Halus';
 
   @override
-  String get sectionBitPerfect => 'BIT-PERFECT';
+  String get sectionBitPerfect => 'PEMUTAR';
 
   @override
-  String get bitPerfectMode => 'Mode Bit-Perfect';
+  String get bitPerfectMode => 'Mode Pemutar Bersih';
 
   @override
   String get bitPerfectActiveSubtitle =>

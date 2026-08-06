@@ -128,7 +128,7 @@
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",
-  "equalizerBitPerfect": "Bit-Perfect",
+  "equalizerBitPerfect": "Audio Bersih",
   "playbackSpeed": "Kecepatan Putar",
   "pitchShift": "Pergeseran Nada",
   "bassBoost": "Penguatan Bass",
@@ -141,7 +141,7 @@
   "bitPerfectActiveSubtitle": "Aktif — semua pemrosesan audio dinonaktifkan",
   "bitPerfectInactiveSubtitle": "Nonaktifkan semua efek & pemrosesan audio",
   "bitPerfectDescription": "Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.",
-  "bitPerfectConfirmTitle": "Aktifkan Mode Bit-Perfect?",
+  "bitPerfectConfirmTitle": "Aktifkan Mode Audio Bersih?",
   "bitPerfectConfirmBody": "Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.",
 
   "sectionSystem": "SISTEM",
