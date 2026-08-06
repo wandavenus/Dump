@@ -966,9 +966,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get glassToggleMiniPlayer => 'Mini Player';
 
   @override
-  String get glassTogglePlayerSheet => 'Player Sheet';
-
-  @override
   String get glassToggleAlbumCard => 'Album Card';
 
   @override

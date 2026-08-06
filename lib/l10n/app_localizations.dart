@@ -1910,12 +1910,6 @@ abstract class AppLocalizations {
   /// **'Mini Player'**
   String get glassToggleMiniPlayer;
 
-  /// No description provided for @glassTogglePlayerSheet.
-  ///
-  /// In en, this message translates to:
-  /// **'Player Sheet'**
-  String get glassTogglePlayerSheet;
-
   /// No description provided for @glassToggleAlbumCard.
   ///
   /// In en, this message translates to:

@@ -12,7 +12,6 @@ class ThemeController {
   static final ValueNotifier<bool> glassNavBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
-  static final ValueNotifier<bool> glassPlayerSheet = ValueNotifier(true);
   static final ValueNotifier<bool> glassAlbumCard = ValueNotifier(true);
   static final ValueNotifier<bool> glassArtistCard = ValueNotifier(true);
   static final ValueNotifier<bool> glassLibraryBar = ValueNotifier(true);
@@ -30,7 +29,6 @@ class ThemeController {
     glassNavBar.value = prefs.getBool('glass_navbar') ?? true;
     glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
     glassMiniPlayer.value = prefs.getBool('glass_mini_player') ?? true;
-    glassPlayerSheet.value = prefs.getBool('glass_player_sheet') ?? true;
     glassAlbumCard.value = prefs.getBool('glass_album_card') ?? true;
     glassArtistCard.value = prefs.getBool('glass_artist_card') ?? true;
     glassLibraryBar.value = prefs.getBool('glass_library_bar') ?? true;
@@ -64,11 +62,6 @@ class ThemeController {
   static Future<void> setGlassMiniPlayer(bool enabled) async {
     glassMiniPlayer.value = enabled;
     await _save('glass_mini_player', enabled);
-  }
-
-  static Future<void> setGlassPlayerSheet(bool enabled) async {
-    glassPlayerSheet.value = enabled;
-    await _save('glass_player_sheet', enabled);
   }
 
   static Future<void> setGlassAlbumCard(bool enabled) async {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Transisi pure fade — tidak ada zoom, scale, maupun slide.
-/// LyricsOverlay & QueueOverlay di dalam PlayerSheet dikecualikan
+/// LyricsOverlay & QueueOverlay di dalam UnifiedMorphPlayer dikecualikan
 /// karena tidak menggunakan Navigator.
 class ZoomFadeRoute<T> extends PageRouteBuilder<T> {
   final Widget page;

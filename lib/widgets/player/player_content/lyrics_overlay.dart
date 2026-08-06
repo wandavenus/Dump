@@ -57,10 +57,7 @@ class _LyricsOverlayBody extends StatelessWidget {
             return false;
           },
           // ScrollUpdateNotification (not UserScrollNotification) so this also
-          // fires for drags forwarded from outside the list itself — e.g. the
-          // bottom-controls / gesture-inset drag relays in content.dart and
-          // player_sheet/state.dart, which scroll the list programmatically
-          // via ScrollOffsetController rather than a direct user drag on it.
+          // handles drag updates forwarded from PlayerContent's controls area.
           child: NotificationListener<ScrollUpdateNotification>(
             onNotification: (notification) {
               final offset = notification.metrics.pixels;
@@ -68,11 +65,9 @@ class _LyricsOverlayBody extends StatelessWidget {
               // Only a genuine user swipe-up may expand to full mode and
               // hide the bottom controls — automatic/programmatic scrolls
               // (e.g. auto-following the current lyric line as the song
-              // plays) must never trigger that hide. A real user drag shows
-              // up either as dragDetails != null (finger directly on the
-              // list) or dragHandle.isExternalDragActive (finger on one of
-              // the bottom hit-box areas, which forwards via jumpTo and so
-              // never carries dragDetails) — so either area feels identical.
+              // plays) must never trigger that hide. A real user drag shows up
+              // either as dragDetails from the list or as the active relay
+              // flag while PlayerContent forwards the controls-area drag.
               // Collapsing back to half-view (revealing the controls again)
               // stays unrestricted, as before.
               final isGenuineUserDrag =
