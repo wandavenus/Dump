@@ -145,3 +145,6 @@ externalPort = 3000
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
 build = ["bash", "-c", "bash setup-flutter.sh && export PATH=\"/home/runner/workspace/flutter-ws/flutter/bin:$PATH\" && flutter build web --release --base-href / --no-wasm-dry-run"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-507b2fcf-43b2-4a48-8c19-fba5eb237f1b"

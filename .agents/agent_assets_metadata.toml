@@ -1,33 +1,3 @@
 uploads = []
 generated = []
-
-[[outputs]]
-id = "e3Rs4vkd1S2JXAshRkAlN"
-uri = "file://AUDIO_SYSTEM_AUDIT.md"
-type = "text"
-title = "Audio System Audit Report"
-
-[[outputs]]
-id = "zoKpC9lwN4LQwe3XgwKKL"
-uri = "file://bit_perfect_playback_report.md"
-type = "text"
-title = "Bit-Perfect Playback Feasibility Report"
-
-[[outputs]]
-id = "l_Vmb_lpWkYEq98pdPrdO"
-uri = "file://device_aaudio_offload_feasibility_report.md"
-type = "text"
-title = "AAudio/Offload Feasibility — Mi 9T/K20 (Snapdragon 730, MIUI 12)"
-
-[[outputs]]
-id = "Weqwr5panchz394_SSs8J"
-uri = "file://build/app/outputs/flutter-apk/app-debug.apk"
-type = "unspecified"
-title = "Music Player debug APK"
-
-[[outputs]]
-id = "T4VQ_vUDp7HJt5EM8j6W9"
-uri = "file://build/app/outputs/flutter-apk/app-release.apk"
-type = "unspecified"
-title = "Music Player APK Release"
-description = "APK release terbaru, dibangun dengan flutter build apk --release."
+outputs = []
