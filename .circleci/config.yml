@@ -39,14 +39,10 @@ jobs:
                 "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json" \
                 -o /tmp/flutter-releases.json
 
-              ARCHIVE=$(python3 -c "
-import json
-with open('/tmp/flutter-releases.json') as f:
-    d = json.load(f)
-h = d['current_release']['stable']
-r = next(x for x in d['releases'] if x['hash'] == h and x['channel'] == 'stable')
-print(r['archive'])
-")
+              STABLE_HASH=$(jq -r '.current_release.stable' /tmp/flutter-releases.json)
+              ARCHIVE=$(jq -r --arg h "$STABLE_HASH" \
+                '[.releases[] | select(.hash == $h and .channel == "stable")] | first | .archive' \
+                /tmp/flutter-releases.json)
               echo "▶ Downloading: $ARCHIVE"
               curl -L \
                 "https://storage.googleapis.com/flutter_infra_release/releases/$ARCHIVE" \
