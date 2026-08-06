@@ -1,7 +1,7 @@
 #include <flutter/runtime_effect.glsl>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// fluid.frag  —  Free-Flowing Organic Fluid Blend Shader (Non-Circular Motion)
+// fluid.frag  —  Pure Animated Color Field Background Shader
 // ─────────────────────────────────────────────────────────────────────────────
 
 uniform vec2  uSize;
@@ -22,62 +22,68 @@ void main() {
   float aspect = uSize.x / uSize.y;
   vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  // ── 1. Free-Flowing Chaotic Movement (Gerak Bebas Acak & Saling Silang) ────
-  // Pake kombinasi gelombang multiphase biar gak kerasa 'muter-muter' melingkar
-  vec2 center0 = vec2(
-      0.50 + 0.28 * sin(t * 0.13) + 0.12 * cos(t * 0.29 + 1.4),
-      0.50 + 0.30 * cos(t * 0.11 + 0.8) + 0.10 * sin(t * 0.23)
-  );
+  // ── 1. Color Field Anchor Nodes (Titik Pusat Warna Field) ───────────────────
+  // Dibuat 4 Field Node utama yang jalurnya saling bertabrakan & mengalir acak
+  vec2 field0 = vec2(
+      0.50 + 0.35 * sin(t * 0.11 + 0.3) + 0.10 * cos(t * 0.23),
+      0.50 + 0.35 * cos(t * 0.09 + 1.1) + 0.08 * sin(t * 0.17));
 
-  vec2 center1 = vec2(
-      0.50 + 0.32 * cos(t * 0.09 + 2.1) - 0.10 * sin(t * 0.31),
-      0.50 + 0.26 * sin(t * 0.17 + 3.5) + 0.12 * cos(t * 0.19 + 0.2)
-  );
+  vec2 field1 = vec2(
+      0.50 + 0.38 * cos(t * 0.08 + 2.5) - 0.12 * sin(t * 0.27),
+      0.50 + 0.32 * sin(t * 0.14 + 0.7) + 0.10 * cos(t * 0.19));
 
-  vec2 center2 = vec2(
-      0.50 + 0.30 * sin(t * 0.15 + 4.2) - 0.12 * cos(t * 0.27 + 1.1),
-      0.50 + 0.28 * cos(t * 0.07 + 1.7) - 0.11 * sin(t * 0.21 + 2.8)
-  );
+  vec2 field2 = vec2(
+      0.50 + 0.34 * sin(t * 0.13 + 4.1) - 0.09 * cos(t * 0.31),
+      0.50 + 0.36 * cos(t * 0.07 + 2.8) - 0.11 * sin(t * 0.21));
 
-  // ── 2. Distance & Field Calculation ──────────────────────────────────────
-  vec2 f0 = vec2((uv.x - center0.x) * aspect, uv.y - center0.y) / vec2(0.45 * aspect, 0.43);
-  vec2 f1 = vec2((uv.x - center1.x) * aspect, uv.y - center1.y) / vec2(0.45 * aspect, 0.43);
-  vec2 f2 = vec2((uv.x - center2.x) * aspect, uv.y - center2.y) / vec2(0.45 * aspect, 0.43);
+  vec2 field3 = vec2(
+      0.50 + 0.30 * cos(t * 0.10 + 1.8) + 0.14 * sin(t * 0.25),
+      0.50 + 0.30 * sin(t * 0.15 + 3.2) - 0.09 * cos(t * 0.18));
 
-  // Exponent Gaussian buat gumpalan warna
-  float l0 = exp(-dot(f0, f0) * 1.6);
-  float l1 = exp(-dot(f1, f1) * 1.6);
-  float l2 = exp(-dot(f2, f2) * 1.6);
+  // ── 2. Color Field Weighting (Jarak Piksel ke Field Nodes) ────────────────
+  // Menggunakan Squared Euclidean Distance buat interpolasi medan warna yang luas
+  float d0 = length(vec2((uv.x - field0.x) * aspect, uv.y - field0.y));
+  float d1 = length(vec2((uv.x - field1.x) * aspect, uv.y - field1.y));
+  float d2 = length(vec2((uv.x - field2.x) * aspect, uv.y - field2.y));
+  float d3 = length(vec2((uv.x - field3.x) * aspect, uv.y - field3.y));
 
-  // Intensity Breathing (Terang-redup gumpalan biar makin cair)
-  l0 *= 0.82 + 0.28 * sin(t * 0.21 + 0.5);
-  l1 *= 0.82 + 0.28 * cos(t * 0.18 + 2.2);
-  l2 *= 0.82 + 0.28 * sin(t * 0.25 + 4.1);
+  // Power curve buat bikin transisi batas medan warnanya sangat lembut (Field Effect)
+  float w0 = 1.0 / (pow(d0, 1.8) + 0.001);
+  float w1 = 1.0 / (pow(d1, 1.8) + 0.001);
+  float w2 = 1.0 / (pow(d2, 1.8) + 0.001);
+  float w3 = 1.0 / (pow(d3, 1.8) + 0.001);
 
-  // ── 3. Organic Fluid Color Blending (Saling Nyampur & Peleburan) ───────────
-  // Tiap warna dapet "resapan" warna temannya tergantung kedekatan & waktu
-  vec3 col0 = mix(uColor0, uColor1, 0.20 + 0.20 * sin(t * 0.14));
-  vec3 col1 = mix(uColor1, uColor2, 0.20 + 0.20 * cos(t * 0.12));
-  vec3 col2 = mix(uColor2, uColor0, 0.20 + 0.20 * sin(t * 0.16));
+  // Dynamic Pulsing Intensity per medan warna
+  w0 *= 0.85 + 0.15 * sin(t * 0.22);
+  w1 *= 0.85 + 0.15 * cos(t * 0.18);
+  w2 *= 0.85 + 0.15 * sin(t * 0.25);
+  w3 *= 0.85 + 0.15 * cos(t * 0.14);
 
-  float totalWeight = l0 + l1 + l2 + 0.001;
-  vec3 col = (col0 * l0 + col1 * l1 + col2 * l2) / totalWeight;
+  // ── 3. Color Field Blending ───────────────────────────────────────────────
+  // Tiap node medan warna dapet porsi warna dari palet utama secara dinamis
+  vec3 c0 = mix(uColor0, uColor1, 0.25 + 0.25 * sin(t * 0.15));
+  vec3 c1 = mix(uColor1, uColor2, 0.25 + 0.25 * cos(t * 0.11));
+  vec3 c2 = mix(uColor2, uColor0, 0.25 + 0.25 * sin(t * 0.19));
+  vec3 c3 = mix(uColor0, uColor2, 0.25 + 0.25 * cos(t * 0.13));
 
-  // ── 4. Ambient Highlight & Shadow Overlay ─────────────────────────────────
-  float lightGrad = dot(p, vec2(-0.5, -0.8)) + 0.5;
-  float hlPulse = 0.12 + 0.05 * sin(t * 0.10);
-  float shPulse = 0.15 + 0.05 * cos(t * 0.08);
+  float totalW = w0 + w1 + w2 + w3;
+  vec3 col = (c0 * w0 + c1 * w1 + c2 * w2 + c3 * w3) / totalW;
 
-  col = mix(col, uHighlight, smoothstep(0.3, 0.9, lightGrad) * hlPulse);
-  col = mix(col, uShadow, smoothstep(0.7, 0.1, lightGrad) * shPulse);
+  // ── 4. Ambient Highlight & Shadow Lighting Overlay ─────────────────────────
+  float lightGrad = dot(p, vec2(-0.4, -0.7)) + 0.5;
+  float hlPulse = 0.10 + 0.04 * sin(t * 0.12);
+  float shPulse = 0.14 + 0.04 * cos(t * 0.09);
 
-  // ── 5. Fast Dithering Film Grain ──────────────────────────────────────────
+  col = mix(col, uHighlight, smoothstep(0.2, 0.85, lightGrad) * hlPulse);
+  col = mix(col, uShadow, smoothstep(0.8, 0.15, lightGrad) * shPulse);
+
+  // ── 5. Dithering Film Grain ───────────────────────────────────────────────
   vec2 grainUV = fragCoord + mod(t, 1.0) * 82.2;
   float grain = fract(sin(dot(grainUV, vec2(127.1, 311.7))) * 43758.5453);
   col = mix(col, vec3(grain), 0.02);
 
   // ── 6. Soft Vignette ──────────────────────────────────────────────────────
-  float vig = 1.0 - length(uv - 0.5) * 0.25;
+  float vig = 1.0 - length(uv - 0.5) * 0.22;
   col *= clamp(vig, 0.0, 1.0);
 
   fragColor = vec4(col, 1.0);
