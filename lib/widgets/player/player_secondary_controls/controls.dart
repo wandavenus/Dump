@@ -53,7 +53,7 @@ class _LyricsToggleButton extends StatelessWidget {
           color: active
               ? Colors.white.withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           CupertinoIcons.quote_bubble,
@@ -88,7 +88,7 @@ class _QueueToggleButton extends StatelessWidget {
           color: active
               ? Colors.white.withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           CupertinoIcons.list_bullet,
