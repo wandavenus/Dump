@@ -45,28 +45,85 @@ extension _SyncedLyricsViewTimelineState on _SyncedLyricsViewState {
     Duration lineStart,
     Duration lineEnd,
   ) {
-    final matches = RegExp(r'\S+').allMatches(text).toList(growable: false);
+    final matches = _syntheticWordRanges(text);
     if (matches.isEmpty) return const [];
 
     final totalMs = (lineEnd - lineStart).inMilliseconds.clamp(100, 30000);
     final totalChars = matches.fold<int>(
       0,
-      (sum, m) => sum + (m.end - m.start),
+      (sum, range) => sum + range.$2 - range.$1,
     );
     var cursorMs = 0;
 
     return List<_TimelineWord>.generate(matches.length, (i) {
-      final m = matches[i];
+      final (startIndex, endIndex) = matches[i];
       final start = lineStart + Duration(milliseconds: cursorMs);
-      final share = ((m.end - m.start) / totalChars * totalMs).round();
+      final share = ((endIndex - startIndex) / totalChars * totalMs).round();
       cursorMs = i == matches.length - 1 ? totalMs : (cursorMs + share);
       final end = lineStart + Duration(milliseconds: cursorMs);
       return _TimelineWord(
-        text.substring(m.start, m.end),
+        text.substring(startIndex, endIndex),
         start,
         _safeEnd(start, end),
       );
     }, growable: false);
+  }
+
+  /// Split ordinary LRC lines into animatable units.
+  ///
+  /// Latin text remains whitespace-delimited, while Japanese/CJK text has no
+  /// spaces between words. Treating an entire CJK line as one word makes the
+  /// karaoke fill jump across the line at once, so each CJK code point gets
+  /// its own synthetic time slice.
+  List<(int, int)> _syntheticWordRanges(String text) {
+    final codePoints = <(int rune, int start, int end)>[];
+    var offset = 0;
+    for (final rune in text.runes) {
+      final end = offset + (rune > 0xFFFF ? 2 : 1);
+      codePoints.add((rune, offset, end));
+      offset = end;
+    }
+
+    final ranges = <(int, int)>[];
+    var i = 0;
+    while (i < codePoints.length) {
+      final point = codePoints[i];
+      if (_isKaraokeWhitespace(point.$1)) {
+        i++;
+        continue;
+      }
+
+      if (_isCjkKaraokeRune(point.$1)) {
+        ranges.add((point.$2, point.$3));
+        i++;
+        continue;
+      }
+
+      final start = point.$2;
+      var end = point.$3;
+      i++;
+      while (i < codePoints.length &&
+          !_isKaraokeWhitespace(codePoints[i].$1) &&
+          !_isCjkKaraokeRune(codePoints[i].$1)) {
+        end = codePoints[i].$3;
+        i++;
+      }
+      ranges.add((start, end));
+    }
+    return ranges;
+  }
+
+  bool _isKaraokeWhitespace(int rune) {
+    return String.fromCharCode(rune).trim().isEmpty;
+  }
+
+  bool _isCjkKaraokeRune(int rune) {
+    return (rune >= 0x3000 && rune <= 0x30FF) ||
+        (rune >= 0x3400 && rune <= 0x4DBF) ||
+        (rune >= 0x4E00 && rune <= 0x9FFF) ||
+        (rune >= 0xAC00 && rune <= 0xD7AF) ||
+        (rune >= 0xF900 && rune <= 0xFAFF) ||
+        (rune >= 0x20000 && rune <= 0x2FA1F);
   }
 
   Duration _safeEnd(Duration start, Duration proposed) {

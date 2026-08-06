@@ -87,17 +87,43 @@ class _KaraokeLinePainter extends CustomPainter {
     // Time is linear, so progress must be linear. No easing here; easing
     // distorts the timing perception.
     // Fade effect is rendered afterwards as a soft gradient at the leading edge.
+    final currentBoxes = _wordRects[cursor];
+    final splitProgress =
+        currentBoxes.length > 1 &&
+        currentBoxes.every(
+          (box) => box.direction == currentBoxes.first.direction,
+        );
+    final orderedBoxes = splitProgress
+        ? (List<_KaraokeWordBox>.from(currentBoxes)..sort((a, b) {
+            final horizontal = a.rect.left.compareTo(b.rect.left);
+            return currentBoxes.first.direction == TextDirection.rtl
+                ? -horizontal
+                : horizontal;
+          }))
+        : currentBoxes;
+
     Rect? currentFillBounds;
-    for (final box in _wordRects[cursor]) {
+    var consumedWidth = 0.0;
+    final totalWidth = splitProgress
+        ? orderedBoxes.fold<double>(0, (sum, box) => sum + box.rect.width)
+        : 0.0;
+    final targetWidth = totalWidth * progress;
+
+    for (final box in orderedBoxes) {
       final rect = box.rect;
-      final clipW = rect.width * progress;
+      final clipW = splitProgress
+          ? (targetWidth - consumedWidth).clamp(0.0, rect.width)
+          : rect.width * progress;
       final filled = box.direction == TextDirection.rtl
           ? Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom)
           : Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom);
-      _clipPath.addRect(filled);
-      currentFillBounds = currentFillBounds == null
-          ? filled
-          : currentFillBounds.expandToInclude(filled);
+      if (clipW > 0) {
+        _clipPath.addRect(filled);
+        currentFillBounds = currentFillBounds == null
+            ? filled
+            : currentFillBounds.expandToInclude(filled);
+      }
+      if (splitProgress) consumedWidth += rect.width;
     }
 
     if (!_clipPath.getBounds().isEmpty) {
