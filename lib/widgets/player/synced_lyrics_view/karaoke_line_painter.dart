@@ -92,6 +92,10 @@ class _KaraokeLinePainter extends CustomPainter {
     for (final box in _wordRects[cursor]) {
       final rect = box.rect;
       final clipW = rect.width * progress;
+      // Never add a zero-width clip. On RTL runs its right edge can be
+      // rasterized as a visible vertical antialias line before highlighting
+      // has started.
+      if (clipW <= 0.0) continue;
       final filled = box.direction == TextDirection.rtl
           ? Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom)
           : Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom);
