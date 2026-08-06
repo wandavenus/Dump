@@ -14,7 +14,7 @@
 - [Audio Services Deep](audio-services-deep.md) — PlaybackManager ownership; all channel names; AudioEffectsService DSP params; NativeModuleRegistry modules; pubspec deps.
 - [Settings Page Deep](settings-page-deep.md) — every settings file/widget; mutual exclusion rules (Bit-Perfect/EQ/ReplayGain/LN); ThemeController sub-toggles.
 - [App Init & Navigation](app-init-navigation.md) — full main.dart init sequence (10 steps); app_state.dart lifecycle; routing (onGenerateRoute, ZoomFadeRoute, bottom nav).
-- [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, PlayerSheet, SyncedLyricsView, progress, transport, fog shader, home sections.
+- [Player Widgets Full](player-widgets-full.md) — UnifiedMorphPlayer, SyncedLyricsView, progress, transport, fog shader, home sections.
 - [Theme, Assets & UI](theme-assets-ui.md) — ThemeController 10 toggles; fluid.frag shader; assets tree (SF Pro Text fonts, webp images); PaletteExtractor; lib/utils/.
 - [DSP Processor Params](dsp-processor-params.md) — full param ranges for all 7 processors: comp, limiter, loudness, crossfeed, replaygain, biquad, soft clipper.
 - [Android Build Config](android-build-config.md) — Manifest permissions/services; build.gradle SDK/NDK/CMake; CMakeLists targets; ProGuard keeps.
@@ -34,7 +34,7 @@
 - [Web preview rebuild + false-positive audits](web-preview-rebuild.md) — server.js serves static build/web/; Dart edits need `flutter build web --release --base-href /` rebuild to show; also lists confirmed audit false positives.
 - [Flutter DevTools debug workflow](flutter-devtools-debug.md) — debug web di port 5173 + DevTools di 9100; target web-server butuh Chrome Debug Extension untuk render penuh.
 - [Artwork cache storage location](artwork-cache-storage.md) — cache di filesDir/supportDir bukan cacheDir; getProviderSync pakai _diskCachedIds pre-scan, bukan statSync per call; _paths hanya diisi setelah async validation.
-- [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis di atas `PlayerSheetController`; player UI asli tetap pakai MiniPlayer + PlayerSheet + PlayerSheetController lama.
+- [PlayerPanelController adapter](player-panel-controller.md) — `PlayerPanelController` adalah adapter tipis; UnifiedMorphPlayer memakai PlayerSheetController sebagai backend state.
 - [MediaStore web behavior](mediastore-web.md) — `MediaStoreService.getSongs()` melempar MissingPluginException di web/browser; ini normal, semua seksi harus menangani list kosong dengan graceful empty state.
 - [LyricsSettings model](lyrics-settings.md) — LyricsSettings singleton (fontSize/textAlign/bgDim/blurStrength/activeColor/showSource/karaokeMode); init di main() setelah LogService.init().
 - [LyricsMultiProvider system](lyrics-multi-provider.md) — LyricsService refactored: LyricsFetchManager orchestrates local (Embedded, LocalFile) + 6 online providers (LRCLIB/NetEase/Kugou/Kuwo/QQMusic/Musixmatch) running in parallel; LyricsQuality enum drives priority; public API unchanged.
@@ -44,7 +44,7 @@
 - [Hybrid metadata engine](hybrid-metadata-engine.md) — jaudiotagger dihapus; diganti ExoMetadataReader (ExoPlayer MetadataRetriever) + MetadataCacheDb (SQLite, mtime-keyed); scan result ke cache bukan file.
 - [Hi-Res Audio mode](hires-audio.md) — mode 2 sekarang "Hi-Res Audio" (bukan MIUI Hi-Fi); enableHiRes() coba 5 metode: AudioManager.setParameters() berbagai key, MIUI broadcast, ContentResolver, Sony/Qualcomm parameters.
 - [Library edit mode](library-edit-mode.md) — LibraryContent StatefulWidget; ReorderableListView saat _editMode=true; urutan disimpan SharedPrefs key 'library_item_order'; proxyDecorator animasi scale saat drag.
-- [ThemeController per-component](theme-controller.md) — glassTheme=master; 9 sub-toggle: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
+- [ThemeController per-component](theme-controller.md) — glassTheme=master; component toggles mencakup NavBar, AppBar, MiniPlayer, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings.
 - [Single-engine architecture](single-engine-arch.md) — media_kit dihapus total; satu engine: Media3/ExoPlayer; AudioEngineManager adalah static facade ke Media3PlaybackBridge; registerPostSwitchCallback() tetap ada sebagai no-op stub.
 - [AudioEngine architecture](audio-engine.md) — init order: ThemeController → LogService → LyricsSettings → AudioEngine → AudioEffectsService → LyricsService.init() → AudioService.
 - [Dual-Player Architecture](dual-player-architecture.md) — fully native now; Dart DualPlayerManager + CrossfadeController are no-op stubs; all crossfade/promotion runs in Media3PlaybackService.kt Handler tick.

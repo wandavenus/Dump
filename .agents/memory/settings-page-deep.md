@@ -32,7 +32,7 @@ description: Every file in lib/pages/settings/ and shared settings widgets with 
 | `_GlassSubToggle` | Sub-toggle with glass/frosted style; part of ThemeController per-component toggles |
 
 ## ThemeController Sub-Toggles (9 components)
-`glassTheme` = master switch; individual toggles: NavBar, AppBar, MiniPlayer, PlayerSheet, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings
+`glassTheme` = master switch; individual toggles: NavBar, AppBar, MiniPlayer, AlbumCard, ArtistCard, LibraryBar, SearchBar, Settings
 
 ## Important Settings Rules
 - **Bit-Perfect mode**: master audio-bypass switch in Settings root (not inside Equalizer)

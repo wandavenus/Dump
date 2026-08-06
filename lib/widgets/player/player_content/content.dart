@@ -26,23 +26,6 @@ class PlayerContent extends StatefulWidget {
 
   @override
   State<PlayerContent> createState() => _PlayerContentState();
-
-  /// Forwards a vertical drag delta into whichever overlay (lyrics/queue) is
-  /// currently active, from outside PlayerContent's own widget tree — used by
-  /// the extra gesture-inset hit area in player_sheet/state.dart.
-  static void forwardExternalDrag(double deltaY) =>
-      _PlayerContentState.forwardExternalDrag(deltaY);
-
-  /// Forwards the drag-release velocity for the same external gesture-inset
-  /// hit area, so it can hand off into a natural fling too.
-  static void forwardExternalDragEnd(double velocity) =>
-      _PlayerContentState.forwardExternalDragEnd(velocity);
-
-  /// Marks the start of a drag forwarded from the same external gesture-inset
-  /// hit area, so the expand/collapse gating in lyrics_overlay.dart treats it
-  /// as a genuine user gesture — see [LyricsDragHandle.isExternalDragActive].
-  static void forwardExternalDragStart() =>
-      _PlayerContentState.forwardExternalDragStart();
 }
 
 class _PlayerContentState extends State<PlayerContent> {
@@ -61,48 +44,10 @@ class _PlayerContentState extends State<PlayerContent> {
   // Pixel-based relative scroller for the lyrics list. Unlike
   // [_lyricsScrollController] (which SyncedLyricsView's
   // ScrollablePositionedList never actually attaches to), this is the real
-  // scroll mechanism exposed by scrollable_positioned_list, so it's what
-  // must be used to forward external drags into the lyrics list.
+  // scroll mechanism exposed by scrollable_positioned_list.
   final _lyricsOffsetController = ScrollOffsetController();
-  // Forwards raw drag deltas directly into the lyrics list's live
-  // ScrollPosition via jumpTo — see LyricsDragHandle for why this replaces
-  // _lyricsOffsetController.animateScroll for external drag forwarding.
   final _lyricsDragHandle = LyricsDragHandle();
 
-  // Bridges drags started outside this widget's own bounds (e.g. the extra
-  // hit area covering the system gesture inset in player_sheet/state.dart,
-  // which sits outside the SafeArea and therefore can't reach this State
-  // directly) into the same forwarding logic used internally.
-  static _PlayerContentState? _current;
-
-  static void forwardExternalDragStart() {
-    final cur = _current;
-    cur?._forwardVerticalDragStart(showLyrics: cur.widget.showLyrics);
-  }
-
-  static void forwardExternalDrag(double deltaY) {
-    final cur = _current;
-    cur?._forwardVerticalDrag(
-      showLyrics: cur.widget.showLyrics,
-      showQueue: cur.widget.showQueue,
-      deltaY: deltaY,
-    );
-  }
-
-  static void forwardExternalDragEnd(double velocity) {
-    final cur = _current;
-    cur?._forwardVerticalDragEnd(
-      showLyrics: cur.widget.showLyrics,
-      showQueue: cur.widget.showQueue,
-      velocity: velocity,
-    );
-  }
-
-  // Marks a forwarded drag as "genuinely user-initiated" for as long as it
-  // lasts, so lyrics_overlay.dart's expand/collapse gating (which otherwise
-  // only trusts ScrollUpdateNotification.dragDetails != null, true only for
-  // drags directly on the Scrollable) also reacts when the user drags from
-  // one of the bottom hit-box areas instead of the list itself.
   void _forwardVerticalDragStart({required bool showLyrics}) {
     if (showLyrics) _lyricsDragHandle.isExternalDragActive = true;
   }
@@ -113,10 +58,6 @@ class _PlayerContentState extends State<PlayerContent> {
     required double deltaY,
   }) {
     if (showLyrics) {
-      // Forwarded directly to the live ScrollPosition via jumpTo — see
-      // LyricsDragHandle for why this replaces
-      // _lyricsOffsetController.animateScroll (which always drives an
-      // animation, even with Duration.zero, producing a jerky/rigid feel).
       _lyricsDragHandle.scrollByDelta(deltaY);
       return;
     }
@@ -128,11 +69,6 @@ class _PlayerContentState extends State<PlayerContent> {
     );
   }
 
-  // Releases the active list (lyrics or queue) into a natural ballistic
-  // fling once a drag forwarded from one of the bottom hit-box areas ends —
-  // otherwise a forwarded drag (driven by jumpTo, which has no built-in
-  // momentum) stops dead the instant the finger lifts, unlike scrolling the
-  // list directly.
   void _forwardVerticalDragEnd({
     required bool showLyrics,
     required bool showQueue,
@@ -148,9 +84,6 @@ class _PlayerContentState extends State<PlayerContent> {
     if (!ctrl.hasClients) return;
     final position = ctrl.position;
     if (position is ScrollPositionWithSingleContext) {
-      // Same sign convention as _jumpByDelta/_forwardVerticalDrag: the
-      // forwarded velocity is in on-screen finger space, goBallistic wants
-      // scroll-offset space, hence the negation.
       position.goBallistic(-velocity);
     }
   }
@@ -158,14 +91,12 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   void initState() {
     super.initState();
-    _current = this;
     _fetchLyricsIfNeeded();
     _restartMarquee();
   }
 
   @override
   void dispose() {
-    if (_current == this) _current = null;
     _marqueeTimer?.cancel();
     _lyricsScrollController.dispose();
     _queueScrollController.dispose();

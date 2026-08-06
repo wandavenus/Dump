@@ -34,7 +34,7 @@ description: Every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ 
 | `media_store_service.dart` | `MediaStoreService` | System MediaStore → audio file discovery (throws MissingPluginException on web — handle gracefully) |
 | `open_file_service.dart` | `OpenFileService` | External intent file opening |
 | `palette_extractor.dart` | `PaletteExtractor` | Dominant color extraction from artwork for theming |
-| `player_sheet_controller.dart` | `PlayerSheetController` | Thin adapter over `PlayerSheetController`; MiniPlayer + PlayerSheet still use old controller |
+| `player_sheet_controller.dart` | `PlayerSheetController` | Shared progress/expanded state and animation controller used by UnifiedMorphPlayer |
 | `playlist_service.dart` | `PlaylistService` | Playlist CRUD + favorites |
 | `replay_gain_service.dart` | — | ReplayGain processing entry point |
 | `scroll_to_top_service.dart` | `ScrollToTopService` | Cross-tab scroll-to-top event coordination |
@@ -130,7 +130,6 @@ Multi-provider system: `LyricsFetchManager` orchestrates local (Embedded, LocalF
 ### lib/widgets/player/
 | File | Widget | Role |
 |------|--------|------|
-| `player_sheet.dart` | `PlayerSheet` | Expandable bottom sheet player |
 | `player_progress_section.dart` | `PlayerProgressSection` | Seek bar + time indicators |
 | `synced_lyrics_view/view.dart` | `SyncedLyricsView` | Auto-scrolling synced lyrics; rawLrc param; ELRC word-level support |
 | `player_transport_controls.dart` | `PlayerTransportControls` | Play/pause/skip/repeat controls |

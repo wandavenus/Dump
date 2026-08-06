@@ -1,11 +1,11 @@
 ---
 name: PlayerPanelController adapter
-description: PlayerPanelController adalah thin adapter; player UI asli tetap pakai stack lama (MiniPlayer + PlayerSheet + PlayerSheetController).
+description: PlayerPanelController adalah thin adapter; UnifiedMorphPlayer memakai PlayerSheetController sebagai backend state.
 ---
 
 ## Aturan
-`lib/widgets/player/player_panel_controller.dart` hanya mendelegasikan ke `PlayerSheetController`. Jangan hapus `PlayerSheetController`, `player_sheet.dart`, atau `mini_player.dart` tanpa audit dependensi; `UnifiedMorphPlayer` kini menjadi widget player yang dipasang di `bottom_nav`, sementara `PlayerSheet` tersisa sebagai implementasi legacy.
+`lib/widgets/player/player_panel_controller.dart` hanya mendelegasikan ke `PlayerSheetController`. Jangan hapus `PlayerSheetController`; `UnifiedMorphPlayer` yang dipasang di `bottom_nav` masih menggunakannya sebagai sumber progress/expanded state.
 
-**Why:** `UnifiedMorphPlayer` menggantikan pemasangan langsung stack lama di `bottom_nav`, tetapi controller dan file legacy masih menjadi bagian dari kompatibilitas internal serta referensi widget lain.
+**Why:** Widget `PlayerSheet` legacy telah dihapus, tetapi controller publiknya tetap menjadi kontrak state dan kontrol untuk MorphPlayer serta pemanggil service/settings.
 
 **How to apply:** Semua widget baru (LocalSongCard, detail_sections, dsb.) memanggil `PlayerPanelController.instance.open()`. Jangan langsung import `PlayerSheetController` dari widget halaman.

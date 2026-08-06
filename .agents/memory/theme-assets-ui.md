@@ -17,7 +17,6 @@ All-static singleton (private constructor), persists via `SharedPreferences`.
 | `glassNavBar` | Bottom navigation bar |
 | `glassAppBar` | App bar |
 | `glassMiniPlayer` | Mini player strip |
-| `glassPlayerSheet` | Expanded player sheet |
 | `glassAlbumCard` | Album cards |
 | `glassArtistCard` | Artist cards |
 | `glassLibraryBar` | Library tab bar |

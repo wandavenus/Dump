@@ -1,25 +1,25 @@
 ---
 name: Player Widgets Full Map
-description: All files in lib/widgets/player/ — UnifiedMorphPlayer, PlayerSheet, MiniPlayer, SyncedLyricsView, progress, transport controls.
+description: All files in lib/widgets/player/ — UnifiedMorphPlayer, SyncedLyricsView, progress, transport controls.
 ---
 
 # Player Widgets — Full Map
 
 ## UnifiedMorphPlayer (`lib/widgets/unified_morph_player.dart`)
 
-The main persistent player component — composites MiniPlayer (collapsed) + PlayerSheet (expanded).
+The main persistent player component is `UnifiedMorphPlayer`, which morphs between
+collapsed mini-player and expanded full-player states.
 - Handles glass morphing logic via `ThemeController` values
 - `TickerMode` pauses player background shader when player collapsed (performance)
 - Player background: `lib/widgets/player/player_background/fog_painter.dart` + `artwork.dart` render `fluid.frag` GLSL shader
 - Pre-computed `_c0r…_c2b` color values; `paint()` zero arithmetic; 256×512 canvas + `RepaintBoundary` isolation
 - Shader pauses when collapsed to save CPU
 
-## PlayerSheet (`lib/widgets/player/player_sheet.dart`)
+## Legacy PlayerSheet
 
-Expandable bottom sheet containing full player UI.
-- Uses `SwipeToDismissSheet` wrapper on whole body for swipe-to-dismiss (all bottom sheets share this)
-- MiniPlayer swipe: `onPan*` (not `onVerticalDrag*`); direction locked after delta >8px; horizontal = skip track, vertical = open sheet
-- Whole-body swipe-to-dismiss: shared `SwipeToDismissSheet`; `DraggableScrollableSheet` log viewer intentionally excluded
+The old `PlayerSheet` widget and its part files were removed after the active
+navigation tree was verified to use `UnifiedMorphPlayer`. `PlayerSheetController`
+remains because it is still the state/control backend for MorphPlayer.
 
 ## SyncedLyricsView (`lib/widgets/player/synced_lyrics_view/view.dart`)
 
@@ -28,7 +28,8 @@ Auto-scrolling lyrics display synchronized with audio position.
 - ELRC word-level: `ElrcWordExtractor` parses word timestamps; binary search on `word.start`; falls back to char-fill for lines without word data
 - Auto-scroll suppression: 3s grace period after user manual scroll before resuming auto-follow
 - Bottom controls: hide ONLY on genuine user swipe-up (`ScrollUpdateNotification.dragDetails != null`); never on programmatic/auto-follow scrolls
-- Forwarded drags (jumpTo-based): `onVerticalDragEnd → goBallistic()` required or fling stops dead on release
+- Drag updates from the active list use the real scroll position; programmatic
+  auto-follow must not be treated as a genuine user swipe
 - State: pre-computes karaoke values (no per-frame allocation); `Listenable.merge` replaces 3 nested `ValueListenableBuilder`s
 - KaraokeMode: connected to renderer + toggle UI
 

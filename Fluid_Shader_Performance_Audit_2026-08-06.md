@@ -40,7 +40,7 @@ be computed once per animation tick.
 | FSA-F03 | Medium | Shadow and grain each add a per-fragment `sin()`; vignette adds another `length()` | Open |
 | FSA-F04 | Medium | Eight node-position `sin()`/`cos()` values are time-only but written in shader code | Open |
 | FSA-F05 | Medium | Animation drives the shader continuously at display refresh rate | Expected |
-| FSA-F06 | Conditional high | Legacy `PlayerSheet` wraps the shader in `ImageFiltered.blur` up to sigma 22 | Conditional |
+| FSA-F06 | Conditional high | Removed legacy `PlayerSheet` path used runtime `ImageFiltered.blur` up to sigma 22 | Resolved |
 | FSA-F07 | Low | `setFloat()` calls and `RepaintBoundary` are not the bottleneck | Informational |
 
 ## FSA-F01 — Four radial weights use expensive distance math
@@ -190,11 +190,11 @@ shader at 30 FPS or use an adaptive frame cadence while keeping the widget
 visible. Do not restore rendering while fully collapsed; the existing
 `TickerMode` gate is valuable.
 
-## FSA-F06 — Conditional runtime blur around the legacy PlayerSheet path
+## FSA-F06 — Conditional runtime blur around the legacy PlayerSheet path — Resolved
 
 **Location:** `lib/widgets/player/player_sheet/state.dart:201-213`
 
-The legacy `_SheetBody` path wraps the background in:
+The removed legacy `_SheetBody` path wrapped the background in:
 
 ```dart
 ImageFiltered(
@@ -213,8 +213,9 @@ more than the shader itself on some GPUs.
 Repository search found no construction site for `PlayerSheet`; the active
 bottom-navigation path uses `UnifiedMorphPlayer`. Therefore this is a
 conditional/legacy risk, not currently proven active runtime cost. If
-`PlayerSheet` is reintroduced, the blur should be profiled separately and not
-attributed to `fluid.frag`.
+The `PlayerSheet` widget and its part files have now been removed. This blur is
+no longer part of the active runtime path and should not be attributed to
+`fluid.frag`.
 
 ## FSA-F07 — What is already cheap or correctly optimized
 
@@ -249,7 +250,8 @@ stale source copy by themselves.
    trigonometric operation to every fragment.
 5. **Only then consider 30 FPS/adaptive updates.** This reduces total work
    without changing the shader's per-pixel complexity.
-6. **Profile the legacy blur separately** if `PlayerSheet` becomes active.
+6. **Do not profile the removed legacy blur** unless a replacement sheet is
+   introduced.
 
 ## Conclusion
 
