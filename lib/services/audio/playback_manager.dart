@@ -97,9 +97,10 @@ class PlaybackManager {
   // These two streams are intercepted to maintain the local queue mirror
   // (_currentQueue) used for artwork prefetching.  All other streams are
   // exposed as direct pass-throughs from [Media3PlaybackBridge].
-  static final _currentTrackCtrl =
+  static StreamController<Map<dynamic, dynamic>?> _currentTrackCtrl =
       StreamController<Map<dynamic, dynamic>?>.broadcast();
-  static final _queueCtrl = StreamController<List<dynamic>>.broadcast();
+  static StreamController<List<dynamic>> _queueCtrl =
+      StreamController<List<dynamic>>.broadcast();
 
   static final List<StreamSubscription<dynamic>> _subs = [];
 
@@ -140,6 +141,12 @@ class PlaybackManager {
       return;
     }
     _initialized = true;
+    if (_currentTrackCtrl.isClosed) {
+      _currentTrackCtrl = StreamController<Map<dynamic, dynamic>?>.broadcast();
+    }
+    if (_queueCtrl.isClosed) {
+      _queueCtrl = StreamController<List<dynamic>>.broadcast();
+    }
 
     // Register native modules (FFI runtime bridges — Media3 remains the only
     // active playback engine). Registration happens once, here, so
@@ -497,6 +504,13 @@ class PlaybackManager {
       await sub.cancel();
     }
     _subs.clear();
+    await _currentTrackCtrl.close();
+    await _queueCtrl.close();
+    _currentQueue = const [];
+    _lastPrefetchedIndex = -1;
+    _lastPrefetchedNextIndex = -2;
+    _prefetchingSongs.clear();
+    _activePrefetches = 0;
     await NativeDspPipeline.instance.dispose();
     await NativeModuleRegistry.disposeAll();
     _initialized = false;

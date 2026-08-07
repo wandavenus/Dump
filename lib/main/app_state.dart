@@ -11,6 +11,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     MediaCapabilitiesService.dispose();
+    SleepTimerService.dispose();
+    NativeLogBridge.dispose();
+    unawaited(AudioService.dispose());
     super.dispose();
   }
 

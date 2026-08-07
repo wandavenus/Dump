@@ -655,14 +655,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Intentionally empty — PlaybackNotificationManager owns the notification.
     }
 
-        // 1. Taruh variabel penanda ini di bagian atas class Service lu (di luar fungsi)
-    private var isPreviewMode = false
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        
-        // 2. Cek apakah ini panggilan dari overlay preview
-        isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
 
         if (intent?.action == ACTION_PLAY_URI) {
             val uriStr = intent.getStringExtra(EXTRA_URI)
@@ -684,12 +678,9 @@ class Media3PlaybackService : MediaSessionService() {
      * Android's 5-second foreground-service deadline, then reads metadata on a
      * background thread and triggers playback on the main thread.
      */
-        private fun handlePlayUri(uriStr: String) {
-        // Cuma tampilin notifikasi kalau BUKAN dalam mode preview
-        if (!isPreviewMode) {
-            notificationManager.ensureMediaForeground()
-        }
-        
+    private fun handlePlayUri(uriStr: String) {
+        notificationManager.ensureMediaForeground()
+
         ioExecutor.execute {
             val songMap = buildSongMapFromUri(uriStr)
             handler.post {

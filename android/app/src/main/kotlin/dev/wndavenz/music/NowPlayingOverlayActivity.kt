@@ -17,6 +17,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -147,16 +148,13 @@ class NowPlayingOverlayActivity : Activity() {
         t.start()
     }
 
-            private fun startPlaybackService(uriStr: String) {
+    private fun startPlaybackService(uriStr: String) {
         val svcIntent = Intent(this, Media3PlaybackService::class.java).apply {
             action = Media3PlaybackService.ACTION_PLAY_URI
             putExtra(Media3PlaybackService.EXTRA_URI, uriStr)
-            // ── Tambahin baris di bawah ini ──
-            putExtra("IS_OVERLAY_PREVIEW", true) 
         }
-        
-        // Tetep pake startService biasa biar sistem ga maksa bikin foreground notification
-        startService(svcIntent) 
+
+        ContextCompat.startForegroundService(this, svcIntent)
     }
 
 

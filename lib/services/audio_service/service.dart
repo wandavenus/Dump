@@ -236,6 +236,32 @@ class AudioService {
     BootTrace.log('EXIT  AudioService.initialize()');
   }
 
+  /// Cancels static subscriptions and listeners installed by [initialize].
+  /// Safe to call multiple times during app/test teardown.
+  static Future<void> dispose() async {
+    for (final sub in _staticSubs) {
+      await sub.cancel();
+    }
+    _staticSubs.clear();
+    AudioEffectsService.playbackSpeed.removeListener(_onSpeedChange);
+    AudioEffectsService.replayGainMode.removeListener(
+      _onReplayGainSettingChanged,
+    );
+    AudioEffectsService.replayGainPreamp.removeListener(
+      _onReplayGainSettingChanged,
+    );
+    AudioEffectsService.clippingProtection.removeListener(
+      _onReplayGainSettingChanged,
+    );
+    _playlist = [];
+    _currentIndex = 0;
+    _previousSong = null;
+    _isLoading = false;
+    _initialized = false;
+    playbackState.value = const AudioPlaybackState();
+    await PlaybackManager.dispose();
+  }
+
   static void _onReplayGainSettingChanged() {
     final song = currentSong;
     if (song != null) {

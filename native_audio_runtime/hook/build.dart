@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:code_assets/code_assets.dart';
 import 'package:native_toolchain_c/native_toolchain_c.dart';
 import 'package:logging/logging.dart';
@@ -26,6 +28,30 @@ void main(List<String> args) async {
     // no code-asset config at all, and touching `.code` unconditionally
     // throws a null-check error there. Guard on `buildCodeAssets` first so
     // web builds (which never compile this package's C sources) keep working.
+    final targetOS = input.config.buildCodeAssets
+        ? input.config.code.targetOS
+        : null;
+    final sources = <String>[
+      'src/$packageName.c',
+      'src/audio_buffer.c',
+      'src/dsp_pipeline.c',
+      'src/gain_processor.c',
+      'src/replaygain_processor.c',
+      'src/biquad_filter.c',
+      'src/comp_processor.c',
+      'src/crossfeed_processor.c',
+      'src/limiter_processor.c',
+      'src/soft_clipper_processor.c',
+      'src/loudness_processor.c',
+      'src/aaudio_probe.c',
+      if (targetOS == OS.android) 'src/native_dsp_jni.c',
+      'src/neon_kernels.S',
+    ];
+    if (targetOS == OS.linux &&
+        await _buildLinuxWithSystemClang(input, output, sources)) {
+      return;
+    }
+
     final libraries = <String>[
       if (input.config.buildCodeAssets &&
           input.config.code.targetOS == OS.android) ...[
@@ -44,34 +70,7 @@ void main(List<String> args) async {
       // native-assets toolchain. audio_buffer.c, dsp_pipeline.c, and
       // gain_processor.c are compiled as separate TUs to keep each file's
       // scope explicit (matching the header-per-file contract).
-      sources: [
-        'src/$packageName.c', // lifecycle, version, capability, module registry
-        'src/audio_buffer.c', // NarAudioBuffer — interleaved PCM buffer
-        'src/dsp_pipeline.c', // DSP processing chain
-        'src/gain_processor.c', // Gain processor (Phase 4: pipeline validator)
-        'src/replaygain_processor.c', // ReplayGain processor (Phase 8: metadata gain)
-        'src/biquad_filter.c', // Biquad coefficient computation (shared by crossfeed/loudness)
-        'src/comp_processor.c', // Compressor processor (Phase 6)
-        'src/crossfeed_processor.c', // Crossfeed processor (Phase 7)
-        'src/limiter_processor.c', // Look-ahead limiter processor (Phase 6)
-        'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
-        'src/loudness_processor.c', // Loudness Normalization (Phase 8.5)
-        'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
-        // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
-        // System.loadLibrary("native_audio_runtime") on Android; it is the
-        // JVM/JNI counterpart to the Dart FFI entry points in this same
-        // library (see native_dsp_jni.c header comment). Unlike the other
-        // files above, this one unconditionally includes <jni.h>, which only
-        // exists in an Android NDK toolchain — it must be Android-only or it
-        // breaks Linux/Windows/macOS/host-test builds of this package.
-        if (input.config.buildCodeAssets &&
-            input.config.code.targetOS == OS.android)
-          'src/native_dsp_jni.c',
-        // ARM64 NEON Assembly kernels — compiled by clang's integrated assembler.
-        // Compiled only for arm64-v8a; the file is guarded by #ifdef __aarch64__
-        // so x86_64 host builds (unit tests) get an empty translation unit.
-        'src/neon_kernels.S', // nar_gain_apply_neon, nar_biquad_stereo_neon
-      ],
+      sources: sources,
       libraries: libraries,
     );
     await cbuilder.run(
@@ -83,4 +82,69 @@ void main(List<String> args) async {
         ..onRecord.listen((record) => print(record.message)),
     );
   });
+}
+
+Future<bool> _buildLinuxWithSystemClang(
+  BuildInput input,
+  BuildOutputBuilder output,
+  List<String> sources,
+) async {
+  final clang = _findHostClang();
+  if (clang == null) return false;
+
+  final outDir = Directory.fromUri(input.outputDirectory);
+  await outDir.create(recursive: true);
+  final outFile = input.outputDirectory.resolve('lib${input.packageName}.so');
+  final sourceUris = [
+    for (final source in sources)
+      input.packageRoot.resolveUri(Uri.file(source)),
+  ];
+  final args = <String>[
+    '-fPIC',
+    '-O3',
+    '-DRELEASE',
+    '-DNDEBUG',
+    for (final source in sourceUris) source.toFilePath(),
+    '-shared',
+    '-o',
+    outFile.toFilePath(),
+    r'-Wl,-rpath,$ORIGIN',
+  ];
+  final result = await Process.run(clang, args);
+  if (result.exitCode != 0) {
+    stderr.writeln(result.stdout);
+    stderr.writeln(result.stderr);
+    throw ProcessException(
+      clang,
+      args,
+      'Linux native build failed',
+      result.exitCode,
+    );
+  }
+  output.assets.code.add(
+    CodeAsset(
+      package: input.packageName,
+      name: '${input.packageName}_bindings_generated.dart',
+      file: outFile,
+      linkMode: DynamicLoadingBundled(),
+    ),
+  );
+  output.dependencies.addAll(sourceUris);
+  return true;
+}
+
+String? _findHostClang() {
+  const candidates = <String>[
+    '/usr/bin/clang',
+    '/usr/lib/llvm-20/bin/clang',
+    '/usr/lib/llvm-19/bin/clang',
+    '/usr/lib/llvm-18/bin/clang',
+    '/usr/lib/llvm-17/bin/clang',
+    '/usr/lib/llvm-16/bin/clang',
+    '/usr/lib/llvm-15/bin/clang',
+  ];
+  for (final candidate in candidates) {
+    if (File(candidate).existsSync()) return candidate;
+  }
+  return null;
 }
