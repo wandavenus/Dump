@@ -6,6 +6,7 @@ import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
 import '../../services/song_metadata_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/duration_text.dart';
 import '../song_artwork.dart';
 import 'detail_sections.dart';
 
@@ -72,18 +73,6 @@ class _AlbumFooterState extends State<_AlbumFooter> {
     }
   }
 
-  String _formatTotalDuration(BuildContext context) {
-    final l = context.l10n;
-    final total = widget.songs.fold(
-      Duration.zero,
-      (sum, s) => sum + s.duration,
-    );
-    final h = total.inHours;
-    final m = total.inMinutes.remainder(60);
-    if (h > 0) return l.durationHoursMinutes(h, m);
-    return l.durationOnlyMinutes(m);
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -100,7 +89,7 @@ class _AlbumFooterState extends State<_AlbumFooter> {
           Text(
             l.albumSongsAndDuration(
               widget.songs.length,
-              _formatTotalDuration(context),
+              formatTotalDuration(widget.songs, l),
             ),
             style: TextStyle(
               fontSize: 12,

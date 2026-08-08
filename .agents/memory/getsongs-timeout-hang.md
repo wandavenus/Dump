@@ -38,3 +38,21 @@ startup chain (before `runApp()`). This one is a per-widget async call on the
 Home UI's first-render path, discovered separately — the same failure mode
 (unguarded MethodChannel await = block forever) can recur outside `main()`
 too, so audit both when chasing a "hangs / never shows content" report.
+
+---
+
+## Extension (8 Agustus 2026) — jalur artwork ikut di-cover
+
+Audit `Lib_Services_Optimization_Audit_2026-08-08.md` menemukan tiga jalur
+MethodChannel lain yang **belum** punya timeout padahal `getSongs` sudah:
+
+- `MediaStoreService._loadArtwork` (`getArtwork`) — Future artwork bisa
+  menggantung selamanya di `_artworkCache` → placeholder kebekuan.
+- `MediaStoreService.getArtworkPath`.
+- `MediaStoreService.deleteSong`.
+
+**Fix:** ketiganya kini memakai `.timeout(8s)` + `on TimeoutException` dengan
+fail-open (null/null/false). Konvensi sekarang: **setiap MethodChannel
+round-trip yang di-await di jalur UI/persisten WAJIB punya timeout fail-open**
+— contoh referensi: `getSongs` 20s, `ProviderHttp` 15s, FFmpeg probe 3s,
+artwork 8s.

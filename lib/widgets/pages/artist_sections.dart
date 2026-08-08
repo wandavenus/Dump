@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/duration_text.dart';
 import 'detail_sections.dart';
 
 class ArtistPageContent extends StatelessWidget {
@@ -38,15 +39,6 @@ class _ArtistFooter extends StatelessWidget {
 
   final List<LocalSong> songs;
 
-  String _formatTotalDuration(BuildContext context) {
-    final l = context.l10n;
-    final total = songs.fold(Duration.zero, (sum, s) => sum + s.duration);
-    final h = total.inHours;
-    final m = total.inMinutes.remainder(60);
-    if (h > 0) return l.durationHoursMinutes(h, m);
-    return l.durationOnlyMinutes(m);
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -75,7 +67,7 @@ class _ArtistFooter extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            _formatTotalDuration(context),
+            formatTotalDuration(songs, l),
             style: TextStyle(
               fontSize: 12,
               color: AppColors.of(context).secondaryLabel,
