@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.15',
+    date: '8 Agustus 2026',
+    changes: [
+      'Perbarui Media3 ke 1.11.0 stable dan pindahkan BitmapLoader ke androidx.media3.common.util.',
+      'Hentikan parsing artwork bawaan file (MP3/MP4/FLAC) untuk hemat memori — artwork tetap ditampilkan lewat cache internal.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.14',
     date: '7 Agustus 2026',
     changes: ['Perbaiki animasi highlight karaoke untuk teks Jepang dan CJK.'],
