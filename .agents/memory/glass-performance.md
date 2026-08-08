@@ -8,3 +8,9 @@ Use modest backdrop blur radii for surfaces that sit above moving content. `Repa
 **Why:** Large sigma values on the navbar, app bar, or mini-player glass surface can cause visible frame-time spikes during scrolling or player motion, especially on the target Snapdragon 730.
 
 **How to apply:** Keep glass blur around sigma 12 unless a measured device profile justifies more. Honor each component toggle independently, and keep the opaque fallback genuinely opaque when a glass sub-toggle is off.
+
+For surfaces that move every gesture frame, do not use animated `BoxShadow` blur. Prefer a small solid or gradient edge strip when a subtle shadow is needed.
+
+**Why:** The mini player morph runs continuously on the target Snapdragon 730; a moving blurred decoration can add raster/compositing work and cause visible frame drops.
+
+**How to apply:** Keep decorative shadows on the morph path blur-free, especially around `UnifiedMorphPlayer` and other draggable sheets.
