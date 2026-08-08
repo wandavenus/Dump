@@ -428,7 +428,15 @@ class MediaStoreService {
 
   static Future<Uint8List?> _loadArtwork(int songId) async {
     try {
-      return _channel.invokeMethod<Uint8List>('getArtwork', {'songId': songId});
+      return _channel
+          .invokeMethod<Uint8List>('getArtwork', {'songId': songId})
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      // Fail-open ke placeholder: MethodChannel tidak menjamin reply — kalau
+      // native hang (I/O kontended, MIUI membekukan process), Future artwork
+      // tidak boleh menggantung selamanya di _artworkCache.
+      LogService.error('MediaStore', 'getArtwork timed out for song $songId');
+      return null;
     } on PlatformException catch (error, stackTrace) {
       LogService.error(
         'MediaStore',
@@ -463,10 +471,15 @@ class MediaStoreService {
   /// Mengembalikan `true` jika berhasil dihapus.
   static Future<bool> deleteSong(int songId) async {
     try {
-      final result = await _channel.invokeMethod<bool>('deleteSong', {
-        'songId': songId,
-      });
+      final result = await _channel
+          .invokeMethod<bool>('deleteSong', {
+            'songId': songId,
+          })
+          .timeout(const Duration(seconds: 8));
       return result ?? false;
+    } on TimeoutException catch (error) {
+      LogService.error('MediaStore', 'deleteSong timed out: $error');
+      return false;
     } on PlatformException catch (error, stackTrace) {
       LogService.error(
         'MediaStore',
@@ -500,9 +513,14 @@ class MediaStoreService {
   static Future<String?> getArtworkPath(int songId) async {
     if (songId <= 0) return null;
     try {
-      return await _channel.invokeMethod<String>('getArtworkPath', {
-        'songId': songId,
-      });
+      return await _channel
+          .invokeMethod<String>('getArtworkPath', {
+            'songId': songId,
+          })
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException catch (e) {
+      LogService.error('MediaStore', 'getArtworkPath timeout songId=$songId: $e');
+      return null;
     } on PlatformException catch (e) {
       LogService.error('MediaStore', 'getArtworkPath error songId=$songId: $e');
       return null;
