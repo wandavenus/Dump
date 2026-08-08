@@ -979,7 +979,7 @@ class Media3PlaybackService : MediaSessionService() {
                     // format. ToFloatPcmAudioProcessor below still guarantees
                     // float input to all custom processors.
                     .setEnableFloatOutput(false)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
                     // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
                     // the custom DSP/widening/stretch stages always see PCM_FLOAT
@@ -1034,7 +1034,12 @@ class Media3PlaybackService : MediaSessionService() {
         // (title, artist, album, lyrics) so ExoPlayer's ID3 parse during demuxing
         // is redundant overhead — especially on long FLAC files (>100 MB) where
         // the ID3 scan measurably delays the initial seek.
+        // Media3 1.11.0: disable embedded-artwork parsing (MP3/MP4/FLAC).
+        // Nothing reads MediaItem.mediaMetadata.artworkData — artwork is served by
+        // ArtworkCacheManager / FallbackBitmapLoader via MediaMetadataRetriever —
+        // so skipping it saves memory on large libraries with embedded covers.
         val extractorsFactory = DefaultExtractorsFactory()
+            .setDisableArtworkMetadata(true)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 
@@ -1120,7 +1125,7 @@ class Media3PlaybackService : MediaSessionService() {
                 enableAudioTrackPlaybackParams: Boolean,
             ): DefaultAudioSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                 // No custom AudioProcessors. Media3's own SilenceSkipping/Sonic
                 // processors are still present internally (they're built into
                 // DefaultAudioSink, not this chain) but are transparent no-ops
@@ -1142,7 +1147,12 @@ class Media3PlaybackService : MediaSessionService() {
             )
         }
 
+        // Media3 1.11.0: disable embedded-artwork parsing (MP3/MP4/FLAC).
+        // Nothing reads MediaItem.mediaMetadata.artworkData — artwork is served by
+        // ArtworkCacheManager / FallbackBitmapLoader via MediaMetadataRetriever —
+        // so skipping it saves memory on large libraries with embedded covers.
         val extractorsFactory = DefaultExtractorsFactory()
+            .setDisableArtworkMetadata(true)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 
