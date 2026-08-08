@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.16',
+    date: '8 Agustus 2026',
+    changes: [
+      'Lokalisasi lengkap alur simpan QRIS (dialog + snackbar) ke EN/ID.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.15',
     date: '8 Agustus 2026',
     changes: [

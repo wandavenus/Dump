@@ -56,7 +56,7 @@ Versi di pubspec.yaml + changelog_data.dart dinaikkan ke 1.4.5 setelah penyempur
 
 ## Current completion state
 
-- ARB English dan Bahasa Indonesia memiliki 393 message key yang sama.
+- ARB English dan Bahasa Indonesia memiliki 402 message key yang sama (sejak 2026-08-08: +9 key alur QRIS di `about.dart` — `qrisSaveTitle`, `qrisSavePrompt`, `qrisGalleryDenied`, `qrisSavedToGallery`, `qrisAccessDenied`, `qrisNotEnoughSpace`, `qrisFormatUnsupported`, `qrisUnexpectedError`, `qrisSaveFailed(reason)`). Alur simpan QRIS kini full-l10n (dialog + snackbar); ini menutup F-2 dari Flutter_Widget_Best_Practices_Audit_2026-08-08.
 - `LanguageManager` menyimpan `system`, `en`, atau `id`; `null` pada locale berarti kembali mengikuti bahasa perangkat.
 - Preset Sleep Timer membentuk label dari `context.l10n` saat UI dibuat, bukan menyimpan teks bahasa tertentu di service.
 - String literal yang tersisa di UI adalah nilai teknis, simbol, nama akun/artis, email, atau data lagu demo—bukan copy yang perlu diterjemahkan.

@@ -980,6 +980,60 @@ abstract class AppLocalizations {
   /// **'Cannot open link'**
   String get cantOpenLink;
 
+  /// No description provided for @qrisSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save QR Code'**
+  String get qrisSaveTitle;
+
+  /// No description provided for @qrisSavePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the QRIS image to your gallery?'**
+  String get qrisSavePrompt;
+
+  /// No description provided for @qrisGalleryDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery permission denied — enable it in Settings › App Permissions'**
+  String get qrisGalleryDenied;
+
+  /// No description provided for @qrisSavedToGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Image saved to gallery'**
+  String get qrisSavedToGallery;
+
+  /// No description provided for @qrisAccessDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery access denied'**
+  String get qrisAccessDenied;
+
+  /// No description provided for @qrisNotEnoughSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough storage space'**
+  String get qrisNotEnoughSpace;
+
+  /// No description provided for @qrisFormatUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Format not supported'**
+  String get qrisFormatUnsupported;
+
+  /// No description provided for @qrisUnexpectedError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unexpected gallery error'**
+  String get qrisUnexpectedError;
+
+  /// No description provided for @qrisSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save: {reason}'**
+  String qrisSaveFailed(String reason);
+
   /// No description provided for @sleepTimerTitle.
   ///
   /// In en, this message translates to:
