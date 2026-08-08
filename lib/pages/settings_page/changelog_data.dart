@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.17',
+    date: '8 Agustus 2026',
+    changes: [
+      'Perkuat reliabilitas: artwork & hapus lagu kini punya timeout fail-open agar tidak menggantung selamanya.',
+      'Bersihkan dependency: hapus cached_network_image dan rxdart dari pubspec (tidak terpakai langsung).',
+      'Rapikan kode: satukan format total durasi halaman Album & Artist jadi satu helper.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.16',
     date: '8 Agustus 2026',
     changes: [
