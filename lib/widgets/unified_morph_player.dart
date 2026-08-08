@@ -397,13 +397,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         child: Stack(
           children: [
             // Lightweight top-edge shadow for the mini player. Keep this as a
-            // 2 px strip instead of BoxShadow: the sheet moves every gesture
+            // 4 px strip instead of BoxShadow: the sheet moves every gesture
             // frame, and a blur would trigger extra raster work while morphing.
             Positioned(
-              bottom: bottom + height - 2,
+              bottom: bottom + height - 4,
               left: horizMargin,
               right: horizMargin,
-              height: 2,
+              height: 4,
               child: IgnorePointer(
                 child: ColoredBox(
                   color: Colors.black.withValues(
