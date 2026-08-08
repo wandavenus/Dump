@@ -33,6 +33,16 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   final _offsetNotifier = ValueNotifier<double>(0.0);
   String _filter = '';
 
+  // ── Artwork prefetch state (viewport-aware) ───────────────────────────────
+  // The Songs tab renders hundreds of rows; without prefetch every newly
+  // scrolled-into-view song that has not been extracted yet triggers a native
+  // MethodChannel extraction while the row is visible (placeholder flash).
+  // We warm the disk path in batches ahead of the viewport instead.
+  static const int _kArtworkPrefetchBatch = 15;
+  static const double _kPrefetchTriggerExtent = 1200;
+  List<LocalSong> _currentSongs = const [];
+  int _prefetchedUpTo = 0;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +56,11 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
 
   /// Recomputes sorted artists + albums caches after songs are loaded/rescanned.
   void _updateSortedCaches(List<LocalSong> songs) {
+    // Remember the current song list for viewport-aware artwork prefetch.
+    _currentSongs = songs;
+    _prefetchedUpTo = 0;
+    unawaited(_kickArtworkPrefetch());
+
     // Artists sorted A→Z.
     final artistMap = <String, List<LocalSong>>{};
     for (final song in songs) {
@@ -87,6 +102,41 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void _onScroll() {
     final clamped = _scroll.offset.clamp(0.0, _kAnimEnd);
     if (clamped != _offsetNotifier.value) _offsetNotifier.value = clamped;
+
+    // Near the bottom → warm the next batch of artwork paths before the user
+    // reaches it. Cheap (disk probe / native extraction on background
+    // executor); ArtworkRepository dedups in-flight batches and skips
+    // already-cached IDs.
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.maxScrollExtent - position.pixels < _kPrefetchTriggerExtent) {
+      unawaited(_kickArtworkPrefetch());
+    }
+  }
+
+  /// Prefetches the next [_kArtworkPrefetchBatch] song artwork paths from
+  /// [_currentSongs]. No-op once the whole list has been warmed or while a
+  /// batch is already running (guarded here + inside
+  /// [ArtworkRepository.prefetch]).
+  Future<void> _kickArtworkPrefetch() async {
+    final songs = _currentSongs;
+    if (songs.isEmpty || _prefetchedUpTo >= songs.length) return;
+    // A batch is already warming the disk — don't advance the cursor past it.
+    // Each advance commits a range; a no-op prefetch here (in-flight guard)
+    // would leave that range un-warmed. Retry on the next scroll tick.
+    if (ArtworkRepository.instance.isPrefetching) return;
+    final from = _prefetchedUpTo;
+    final to = (from + _kArtworkPrefetchBatch).clamp(0, songs.length);
+    _prefetchedUpTo = to;
+    final ids = songs
+        .sublist(from, to)
+        .map((s) => s.id)
+        .toList(growable: false);
+    await ArtworkRepository.instance.prefetch(
+      ids,
+      limit: _kArtworkPrefetchBatch,
+      concurrency: 2,
+    );
   }
 
   void _onSearch() {

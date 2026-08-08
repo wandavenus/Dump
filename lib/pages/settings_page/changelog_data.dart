@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.18',
+    date: '9 Agustus 2026',
+    changes: [
+      'Percepat loading artwork: prefetch otomatis saat scroll list Lagu agar sampul siap sebelum terlihat.',
+      'Percepat loading artwork: prefetch sampul 3 lagu berikutnya saat ganti lagu.',
+      'Percepat prefetch artwork itu sendiri (paralel 2) untuk list lagu besar.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.17',
     date: '8 Agustus 2026',
     changes: [
