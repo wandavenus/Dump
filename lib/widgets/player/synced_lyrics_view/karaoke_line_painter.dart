@@ -25,6 +25,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
   // ── Path di-reuse setiap frame, bukan dibuat baru ────────────────────────
   final Path _clipPath = Path();
+  final Path _currentPath = Path();
 
   // ── Opsi B: Flag untuk skip _cacheWordPixels saat hanya warna berubah ───
   bool _wordRectsPrecomputed = false;
@@ -72,6 +73,7 @@ class _KaraokeLinePainter extends CustomPainter {
 
     // ── Reset path yang sama, tidak alokasi baru tiap frame ─────────────────
     _clipPath.reset();
+    _currentPath.reset();
 
     // Past words: fully filled
     for (int i = 0; i < cursor; i++) {
@@ -118,7 +120,7 @@ class _KaraokeLinePainter extends CustomPainter {
           ? Rect.fromLTRB(rect.right - clipW, rect.top, rect.right, rect.bottom)
           : Rect.fromLTRB(rect.left, rect.top, rect.left + clipW, rect.bottom);
       if (clipW > 0) {
-        _clipPath.addRect(filled);
+        _currentPath.addRect(filled);
         currentFillBounds = currentFillBounds == null
             ? filled
             : currentFillBounds.expandToInclude(filled);
@@ -134,54 +136,56 @@ class _KaraokeLinePainter extends CustomPainter {
     }
 
     // ── Soft fade at the leading edge of the current word ────────────────────
-    // A narrow saveLayer strip (max 12 px) uses dstIn masking so only the
-    // highlight text pixels survive — the gradient fades from opaque (filled
-    // side) to transparent (leading edge). No full-width saveLayer needed.
-    if (currentFillBounds != null &&
-        currentFillBounds.width > 0 &&
-        progress > 0.0 &&
-        progress < 1.0) {
-      const double fadeW = 12.0;
-      final double stripW = currentFillBounds.width.clamp(0.0, fadeW);
-
-      // Leading edge is right side (LTR) or left side (RTL).
-      final currentDirection = _wordRects[cursor].isNotEmpty
-          ? _wordRects[cursor].first.direction
-          : textDirection;
-      final strip = currentDirection == TextDirection.rtl
-          ? Rect.fromLTRB(
-              currentFillBounds.left,
-              currentFillBounds.top,
-              currentFillBounds.left + stripW,
-              currentFillBounds.bottom,
-            )
-          : Rect.fromLTRB(
-              currentFillBounds.right - stripW,
-              currentFillBounds.top,
-              currentFillBounds.right,
-              currentFillBounds.bottom,
-            );
-
-      // Composite: draw highlight text, then mask with a gradient so the
-      // leading edge of the fill fades to transparent (activeColor → clear).
-      canvas.saveLayer(strip, Paint());
+    // Render the current fill in its own layer so the mask can affect only
+    // this word, without changing already-filled words.
+    if (!_currentPath.getBounds().isEmpty && currentFillBounds != null) {
+      final currentBounds = currentFillBounds;
+      canvas.saveLayer(currentBounds, Paint());
+      canvas.clipPath(_currentPath);
       highlight.paint(canvas, Offset.zero);
-      final maskPaint = Paint()
-        ..shader = ui.Gradient.linear(
-          // Gradient runs from filled side → leading edge.
-          Offset(
-            currentDirection == TextDirection.rtl ? strip.right : strip.left,
-            0,
-          ),
-          Offset(
-            currentDirection == TextDirection.rtl ? strip.left : strip.right,
-            0,
-          ),
-          [activeColor.withValues(alpha: 1), activeColor.withValues(alpha: 0)],
-          [0.0, 1.0],
-        )
-        ..blendMode = BlendMode.dstIn;
-      canvas.drawRect(strip, maskPaint);
+
+      if (currentBounds.width > 0 && progress > 0.0 && progress < 1.0) {
+        const double fadeW = 10.0;
+        final double stripW = currentBounds.width.clamp(0.0, fadeW);
+
+        // Leading edge is right side (LTR) or left side (RTL).
+        final currentDirection = _wordRects[cursor].isNotEmpty
+            ? _wordRects[cursor].first.direction
+            : textDirection;
+        final strip = currentDirection == TextDirection.rtl
+            ? Rect.fromLTRB(
+                currentBounds.left,
+                currentBounds.top,
+                currentBounds.left + stripW,
+                currentBounds.bottom,
+              )
+            : Rect.fromLTRB(
+                currentBounds.right - stripW,
+                currentBounds.top,
+                currentBounds.right,
+                currentBounds.bottom,
+              );
+
+        // Gradient runs from the filled side to the leading edge.
+        final maskPaint = Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(
+              currentDirection == TextDirection.rtl ? strip.right : strip.left,
+              0,
+            ),
+            Offset(
+              currentDirection == TextDirection.rtl ? strip.left : strip.right,
+              0,
+            ),
+            [
+              activeColor.withValues(alpha: 1),
+              activeColor.withValues(alpha: 0),
+            ],
+            [0.0, 1.0],
+          )
+          ..blendMode = BlendMode.dstIn;
+        canvas.drawRect(strip, maskPaint);
+      }
       canvas.restore();
     }
   }
