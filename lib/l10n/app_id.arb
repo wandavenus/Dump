@@ -166,6 +166,19 @@
   "debugModeEnabled": "Mode Debug aktif",
   "cantOpenLink": "Tidak bisa membuka link",
 
+  "qrisSaveTitle": "Simpan QR Code",
+  "qrisSavePrompt": "Simpan gambar QRIS ke galeri?",
+  "qrisGalleryDenied": "Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi",
+  "qrisSavedToGallery": "Gambar berhasil disimpan ke galeri",
+  "qrisAccessDenied": "Akses galeri ditolak",
+  "qrisNotEnoughSpace": "Ruang penyimpanan penuh",
+  "qrisFormatUnsupported": "Format tidak didukung",
+  "qrisUnexpectedError": "Error tidak terduga dari galeri",
+  "qrisSaveFailed": "Gagal menyimpan: {reason}",
+  "@qrisSaveFailed": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
+
   "sleepTimerTitle": "Sleep Timer",
   "cancelTimer": "Batalkan",
   "sleepTimerActive": "Sleep Timer Aktif",

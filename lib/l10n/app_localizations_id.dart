@@ -483,6 +483,36 @@ class AppLocalizationsId extends AppLocalizations {
   String get cantOpenLink => 'Tidak bisa membuka link';
 
   @override
+  String get qrisSaveTitle => 'Simpan QR Code';
+
+  @override
+  String get qrisSavePrompt => 'Simpan gambar QRIS ke galeri?';
+
+  @override
+  String get qrisGalleryDenied =>
+      'Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi';
+
+  @override
+  String get qrisSavedToGallery => 'Gambar berhasil disimpan ke galeri';
+
+  @override
+  String get qrisAccessDenied => 'Akses galeri ditolak';
+
+  @override
+  String get qrisNotEnoughSpace => 'Ruang penyimpanan penuh';
+
+  @override
+  String get qrisFormatUnsupported => 'Format tidak didukung';
+
+  @override
+  String get qrisUnexpectedError => 'Error tidak terduga dari galeri';
+
+  @override
+  String qrisSaveFailed(String reason) {
+    return 'Gagal menyimpan: $reason';
+  }
+
+  @override
   String get sleepTimerTitle => 'Sleep Timer';
 
   @override
