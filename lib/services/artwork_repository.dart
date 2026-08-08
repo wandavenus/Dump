@@ -342,39 +342,69 @@ class ArtworkRepository {
   // Guards against overlapping prefetch batches stepping on each other.
   bool _prefetching = false;
 
+  /// Whether a prefetch batch is currently in flight.
+  ///
+  /// Callers that track their own progress cursor should check this before
+  /// advancing it: [prefetch] returns immediately when a batch is running
+  /// (in-flight guard), so advancing the cursor on a skipped call would leave
+  /// that range un-warmed. Retry on the next scroll tick instead.
+  bool get isPrefetching => _prefetching;
+
   /// Warms the disk cache for [songIds] so artwork is likely already on disk
   /// by the time the user scrolls to it, reducing how often the fallback
   /// icon is visible.
   ///
   /// Deliberately conservative for mid-range devices (e.g. Snapdragon 730,
   /// 6 GB RAM): only resolves [getPath] (disk path), never decodes bitmaps
-  /// into memory via [getProvider]. Runs sequentially, one song at a time,
-  /// with a small delay between each so it never competes with the UI
-  /// thread or saturates storage I/O. Silently skips songs already cached.
-  Future<void> prefetch(List<int> songIds, {int limit = 8}) async {
+  /// into memory via [getProvider]. Processes IDs in small parallel batches
+  /// ([concurrency], default 2) with a short delay between batches so it
+  /// never competes with the UI thread or saturates storage I/O. Silently
+  /// skips songs already cached.
+  Future<void> prefetch(
+    List<int> songIds, {
+    int limit = 8,
+    int concurrency = 2,
+  }) async {
     if (_prefetching || songIds.isEmpty) return;
     _prefetching = true;
     try {
       // De-duplicate and filter invalid IDs before starting the loop.
       final uniqueIds = songIds.where((id) => id > 0).toSet().toList();
+      final targets = uniqueIds.take(limit).toList(growable: false);
 
-      for (final id in uniqueIds.take(limit)) {
-        // Skip if already in memory cache.
-        if (_paths.containsKey(id)) continue;
+      // Resolve in small parallel batches. Disk probes are cheap and the
+      // native extractor runs on its own executor, so 2 concurrent resolves
+      // roughly halve total prefetch time while staying far below anything
+      // that could contend with the UI thread or storage I/O on a Snapdragon
+      // 730 (the previous strictly-sequential loop capped at 8 IDs/120 ms
+      // each was needlessly slow for long lists).
+      for (var i = 0; i < targets.length; i += concurrency) {
+        final batch = targets.sublist(
+          i,
+          i + concurrency > targets.length ? targets.length : i + concurrency,
+        );
 
-        try {
-          // Resolve path (triggers disk check or native extraction).
-          await getPath(id);
-        } on Exception catch (_) {
-          // Never let a single failed extraction abort the batch.
-        }
-        // Yield back to the event loop between items so scrolling/animation
+        await Future.wait([for (final id in batch) _prefetchOne(id)]);
+
+        // Yield back to the event loop between batches so scrolling/animation
         // frames are never blocked by this low-priority background work.
-        // 120ms is a safe window for mid-range devices to process other UI events.
-        await Future<void>.delayed(const Duration(milliseconds: 120));
+        // 60ms is a safe window for mid-range devices to process other UI events.
+        await Future<void>.delayed(const Duration(milliseconds: 60));
       }
     } finally {
       _prefetching = false;
+    }
+  }
+
+  Future<void> _prefetchOne(int id) async {
+    // Skip if already in memory cache.
+    if (_paths.containsKey(id)) return;
+
+    try {
+      // Resolve path (triggers disk check or native extraction).
+      await getPath(id);
+    } on Exception catch (_) {
+      // Never let a single failed extraction abort the batch.
     }
   }
 
