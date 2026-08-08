@@ -396,22 +396,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         clipper: _BottomRevealClipper(clipVisibleHeight),
         child: Stack(
           children: [
-            // Lightweight top-edge shadow for the mini player. Keep this as a
-            // 4 px strip instead of BoxShadow: the sheet moves every gesture
-            // frame, and a blur would trigger extra raster work while morphing.
-            Positioned(
-              bottom: bottom + height - 4,
-              left: horizMargin,
-              right: horizMargin,
-              height: 4,
-              child: IgnorePointer(
-                child: ColoredBox(
-                  color: Colors.black.withValues(
-                    alpha: 0.13 * (1.0 - progress).clamp(0.0, 1.0),
-                  ),
-                ),
-              ),
-            ),
             Positioned(
               bottom: bottom,
               left: horizMargin,
