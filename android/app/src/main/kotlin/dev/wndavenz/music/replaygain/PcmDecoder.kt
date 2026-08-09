@@ -94,6 +94,11 @@ object PcmDecoder {
         val info = MediaCodec.BufferInfo()
         var eos = false
         var aborted = false
+        // N-3: reuse one grow-only ShortArray for all output buffers instead
+        // of allocating a fresh one per chunk. MediaCodec output-buffer sizes
+        // are essentially constant for a given track/codec, so after the
+        // first chunk this allocates nothing for the rest of the decode.
+        var chunk = ShortArray(0)
 
         try {
             while (!eos && !aborted) {
@@ -127,8 +132,8 @@ object PcmDecoder {
 
                         val remaining = sb.remaining()
                         if (remaining > 0) {
-                            val chunk = ShortArray(remaining)
-                            sb.get(chunk)
+                            if (chunk.size < remaining) chunk = ShortArray(remaining)
+                            sb.get(chunk, 0, remaining)
                             val frameCount = remaining / channels
                             if (frameCount > 0 && !feed(chunk, frameCount)) {
                                 aborted = true

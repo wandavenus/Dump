@@ -110,3 +110,4 @@
 - [MediaSession metadata sync on crossfade](mediasession-metadata-sync.md) — switchTo() harus fire onMediaItemTransition+onMediaMetadataChanged ke registeredListeners secara sinkron agar MIUI media widget tidak lag.
 - [Glass rendering performance](glass-performance.md) — gunakan sigma blur moderat; RepaintBoundary tidak menghapus biaya BackdropFilter saat backdrop bergerak.
 - [Crossfade cancellation and volume](crossfade-cancel-and-volume.md) — cancel harus memulihkan full queue; target volume fade wajib dinamis dan mengikuti user volume/ducking.
+- [Perf 1.5.20: library payload + isolate parse](perf-library-payload-neon.md) — getSongs native kirim JSON string (bukan List<Map> codec); parse/persist di compute; PcmDecoder buffer grow-only; soft-clip tanhf → rasional C¹; item NEON limiter/comp/matrix dicek & ditolak (deskripsi audit usang vs kode aktual).

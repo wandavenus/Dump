@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.20',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat load library: payload getSongs dikirim native sebagai satu string JSON (bukan ribuan Map lewat codec) dan parsing + encode cache dipindah ke isolate (compute) — refresh library besar tidak lagi nge-jank UI thread.',
+      'ReplayGain scan: buffer PCM MediaCodec di-reuse (grow-only) — tidak ada alokasi ShortArray per chunk selama decode.',
+      'DSP soft clipper: ganti tanhf() dengan aproksimasi rasional cepat (C¹, bounded, error <2.5%) — jalur clip tanpa transcendental.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.19',
     date: '9 Agustus 2026',
     changes: [
