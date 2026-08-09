@@ -39,9 +39,9 @@ class StretchManager {
     private var pitchTarget: Float = 0f
     private var smoothingTimer: Timer? = null
 
-    private val tickMs: Long = 24L
-    private val smoothingFactor: Float = 0.08f
-    private val settleEpsilon: Float = 0.0015f
+    private val tickMs: Long = 16L
+    private val smoothingFactor: Float = 0.05f
+    private val settleEpsilon: Float = 0.001f
 
     fun createProcessor(): SignalsmithStretchAudioProcessor {
         val p = SignalsmithStretchAudioProcessor()
