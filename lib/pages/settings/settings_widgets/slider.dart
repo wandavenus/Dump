@@ -8,10 +8,20 @@ class SettingsSliderRow extends StatefulWidget {
   final double max;
   final int divisions;
   final Future<void> Function(double) onChanged;
+
+  /// Optional lightweight callback for live previews while dragging. Unlike
+  /// [onChanged], this must not perform persistence or other expensive I/O.
   final ValueChanged<double>? onChangedLive;
   final bool showReset;
   final VoidCallback? onReset;
+
+  /// Saat true, slider disembunyikan di balik baris header yang bisa diketuk.
+  /// Subtitle tampil sebagai value-hint di header saat collapsed.
   final bool expandable;
+
+  /// Deskripsi singkat yang menjelaskan fungsi fitur ini ke user. Tampil di
+  /// bawah slider dengan style redup/italic. Opsional — kalau null, tidak
+  /// ada baris tambahan yang dirender.
   final String? description;
 
   const SettingsSliderRow({
@@ -39,10 +49,12 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   bool _expanded = false;
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
+
+  // Tracks the in-flight drag value so the thumb moves smoothly during a
+  // drag gesture. Set on onChanged, cleared on onChangeEnd. The expensive
+  // callback (widget.onChanged) is only called once on release — avoids
+  // firing async I/O (SharedPreferences, native audio calls) every frame.
   double? _dragValue;
-  Timer? _livePreviewThrottle;
-  double? _pendingLivePreviewValue;
-  double? _lastLivePreviewValue;
 
   @override
   void initState() {
@@ -56,7 +68,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
 
   @override
   void dispose() {
-    _livePreviewThrottle?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -64,29 +75,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   void _toggle() {
     setState(() => _expanded = !_expanded);
     unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
-  }
-
-  void _scheduleLivePreview(double value) {
-    final callback = widget.onChangedLive;
-    if (callback == null) return;
-
-    _pendingLivePreviewValue = value;
-
-    if (_livePreviewThrottle == null) {
-      _lastLivePreviewValue = value;
-      _pendingLivePreviewValue = null;
-      callback(value);
-      _livePreviewThrottle = Timer(const Duration(milliseconds: 48), () {
-        _livePreviewThrottle = null;
-        final pending = _pendingLivePreviewValue;
-        if (pending == null) return;
-        _pendingLivePreviewValue = null;
-        if (pending != _lastLivePreviewValue) {
-          _lastLivePreviewValue = pending;
-          callback(pending);
-        }
-      });
-    }
   }
 
   Widget _buildSlider(AppThemeExtension c) => SliderTheme(
@@ -104,19 +92,15 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           .toDouble(),
       min: widget.min,
       max: widget.max,
-      // Live-preview controls use a continuous gesture. Other sliders keep
-      // their configured discrete divisions.
+      // Continuous drag keeps the audio preview smooth. Commit-time snapping
+      // still comes from the slider's value range and the final onChangeEnd.
       divisions: widget.onChangedLive == null ? widget.divisions : null,
       onChanged: (v) {
         setState(() => _dragValue = v);
-        _scheduleLivePreview(v);
+        widget.onChangedLive?.call(v);
       },
       onChangeEnd: (v) {
         setState(() => _dragValue = null);
-        _livePreviewThrottle?.cancel();
-        _livePreviewThrottle = null;
-        _pendingLivePreviewValue = null;
-        _lastLivePreviewValue = null;
         unawaited(widget.onChanged(v));
       },
     ),
@@ -126,6 +110,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
 
+    // ── Non-expandable: layout asli ──────────────────────────────────────────
     if (!widget.expandable) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -176,11 +161,13 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
       );
     }
 
+    // ── Expandable: accordion ────────────────────────────────────────────────
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header — selalu terlihat, bisa diketuk
           InkWell(
             onTap: _toggle,
             borderRadius: BorderRadius.circular(8),
@@ -208,6 +195,8 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               ),
             ),
           ),
+
+          // Konten collapsible — fade + naik/turun
           SizeTransition(
             sizeFactor: _ctrl,
             alignment: Alignment.topCenter,
