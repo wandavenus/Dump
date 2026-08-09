@@ -34,9 +34,14 @@ class QueueManager(
     var activeQueueIndex: Int = 0
         private set
 
+    // Set only when insertNext happens while crossfade owns a temporary one-item timeline.
+    // The priority is applied after rebuildPlayerQueue() restores the full timeline.
+    private var pendingPlayNextIndex: Int = C.INDEX_UNSET
+
     // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
+        pendingPlayNextIndex = C.INDEX_UNSET
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         val p = getPlayer() ?: return
@@ -45,6 +50,7 @@ class QueueManager(
     }
 
     fun setTrack(target: Int) {
+        pendingPlayNextIndex = C.INDEX_UNSET
         activeQueueIndex = target.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
         getPlayer()?.seekToDefaultPosition(activeQueueIndex)
     }
@@ -64,8 +70,13 @@ class QueueManager(
                     forceNextInShuffleOrder(player, insertIdx)
                 }
             }
+            pendingPlayNextIndex = C.INDEX_UNSET
         } else {
-            log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress)")
+            // The player timeline is intentionally not mutated during promotion.
+            // Remember the exact inserted queue index so rebuildPlayerQueue() can
+            // apply the same shuffle-priority operation after promotion.
+            pendingPlayNextIndex = insertIdx
+            log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress); pending priority=$insertIdx")
         }
         saveQueue()
         emitAll(true)
@@ -90,6 +101,7 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.removeAt(index)
         queue = mutable
+        pendingPlayNextIndex = C.INDEX_UNSET
 
         when {
             index < activeQueueIndex                          -> activeQueueIndex--
@@ -117,6 +129,7 @@ class QueueManager(
         val item    = mutable.removeAt(oldIndex)
         mutable.add(newIndex, item)
         queue = mutable
+        pendingPlayNextIndex = C.INDEX_UNSET
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.moveMediaItem(oldIndex, newIndex)
@@ -155,6 +168,10 @@ class QueueManager(
         if (queue.isEmpty()) return
         try {
             if (p.mediaItemCount == queue.size) {
+                if (pendingPlayNextIndex in queue.indices && p.shuffleModeEnabled) {
+                    forceNextInShuffleOrder(p, pendingPlayNextIndex)
+                }
+                pendingPlayNextIndex = C.INDEX_UNSET
                 log("rebuildPlayerQueue: player already has ${queue.size} items — skipping expansion")
                 return
             }
@@ -177,6 +194,11 @@ class QueueManager(
             if (suffix.isNotEmpty()) {
                 p.addMediaItems(activeQueueIndex + 1, suffix.map { MediaItemFactory.from(it) })
             }
+
+            if (pendingPlayNextIndex in queue.indices && p.shuffleModeEnabled) {
+                forceNextInShuffleOrder(p, pendingPlayNextIndex)
+            }
+            pendingPlayNextIndex = C.INDEX_UNSET
 
             CrossfadeTimelineLogger.stamp(
                 "rebuildPlayerQueue: POST-addMediaItems" +
