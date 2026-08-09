@@ -56,6 +56,13 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   // firing async I/O (SharedPreferences, native audio calls) every frame.
   double? _dragValue;
 
+  // Live preview throttling: emit at most one preview every short interval,
+  // then coalesce the latest dragged value so the user gets smooth motion
+  // without spamming the native layer on every pointer tick.
+  Timer? _livePreviewThrottle;
+  double? _pendingLivePreviewValue;
+  double? _lastLivePreviewValue;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +75,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
 
   @override
   void dispose() {
+    _livePreviewThrottle?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -75,6 +83,31 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   void _toggle() {
     setState(() => _expanded = !_expanded);
     unawaited(_expanded ? _ctrl.forward() : _ctrl.reverse());
+  }
+
+  void _scheduleLivePreview(double value) {
+    final callback = widget.onChangedLive;
+    if (callback == null) return;
+
+    _pendingLivePreviewValue = value;
+
+    // Emit the first drag update immediately so the slider feels responsive,
+    // then coalesce the rest into one update per window.
+    if (_livePreviewThrottle == null) {
+      _lastLivePreviewValue = value;
+      _pendingLivePreviewValue = null;
+      callback(value);
+      _livePreviewThrottle = Timer(const Duration(milliseconds: 48), () {
+        _livePreviewThrottle = null;
+        final pending = _pendingLivePreviewValue;
+        if (pending == null) return;
+        _pendingLivePreviewValue = null;
+        if (pending != _lastLivePreviewValue) {
+          _lastLivePreviewValue = pending;
+          callback(pending);
+        }
+      });
+    }
   }
 
   Widget _buildSlider(AppThemeExtension c) => SliderTheme(
@@ -95,10 +128,14 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
       divisions: widget.divisions,
       onChanged: (v) {
         setState(() => _dragValue = v);
-        widget.onChangedLive?.call(v);
+        _scheduleLivePreview(v);
       },
       onChangeEnd: (v) {
         setState(() => _dragValue = null);
+        _livePreviewThrottle?.cancel();
+        _livePreviewThrottle = null;
+        _pendingLivePreviewValue = null;
+        _lastLivePreviewValue = null;
         unawaited(widget.onChanged(v));
       },
     ),
@@ -187,6 +224,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 220),
+                    child: const Icon(Icons.expand_more, size: 18),
                   ),
                 ],
               ),
