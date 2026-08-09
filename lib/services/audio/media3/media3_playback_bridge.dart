@@ -300,11 +300,11 @@ class Media3PlaybackBridge {
 
   /// Insert [song] immediately after the currently playing track.
   static Future<void> insertNext(LocalSong song) =>
-      _invoke<void>('insertNext', {'song': song.toMap()});
+      _invoke<void>('insertNext', {'item': song.toMap()});
 
   /// Append [song] at the end of the queue.
   static Future<void> appendToQueue(LocalSong song) =>
-      _invoke<void>('appendToQueue', {'song': song.toMap()});
+      _invoke<void>('appendToQueue', {'item': song.toMap()});
 
   /// Remove the item at [index] from the queue.
   static Future<void> removeFromQueue(int index) =>
