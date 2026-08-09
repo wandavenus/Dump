@@ -8,20 +8,10 @@ class SettingsSliderRow extends StatefulWidget {
   final double max;
   final int divisions;
   final Future<void> Function(double) onChanged;
-
-  /// Optional lightweight callback for live previews while dragging. Unlike
-  /// [onChanged], this must not perform persistence or other expensive I/O.
   final ValueChanged<double>? onChangedLive;
   final bool showReset;
   final VoidCallback? onReset;
-
-  /// Saat true, slider disembunyikan di balik baris header yang bisa diketuk.
-  /// Subtitle tampil sebagai value-hint di header saat collapsed.
   final bool expandable;
-
-  /// Deskripsi singkat yang menjelaskan fungsi fitur ini ke user. Tampil di
-  /// bawah slider dengan style redup/italic. Opsional — kalau null, tidak
-  /// ada baris tambahan yang dirender.
   final String? description;
 
   const SettingsSliderRow({
@@ -49,11 +39,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   bool _expanded = false;
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-
-  // Tracks the in-flight drag value so the thumb moves smoothly during a
-  // drag gesture. Set on onChanged, cleared on onChangeEnd. The expensive
-  // callback (widget.onChanged) is only called once on release — avoids
-  // firing async I/O (SharedPreferences, native audio calls) every frame.
   double? _dragValue;
 
   @override
@@ -92,8 +77,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           .toDouble(),
       min: widget.min,
       max: widget.max,
-      // Continuous drag keeps the audio preview smooth. Commit-time snapping
-      // still comes from the slider's value range and the final onChangeEnd.
       divisions: widget.onChangedLive == null ? widget.divisions : null,
       onChanged: (v) {
         setState(() => _dragValue = v);
@@ -110,7 +93,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
 
-    // ── Non-expandable: layout asli ──────────────────────────────────────────
     if (!widget.expandable) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -161,13 +143,11 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
       );
     }
 
-    // ── Expandable: accordion ────────────────────────────────────────────────
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header — selalu terlihat, bisa diketuk
           InkWell(
             onTap: _toggle,
             borderRadius: BorderRadius.circular(8),
@@ -185,18 +165,10 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                     widget.subtitle,
                     style: TextStyle(color: c.secondaryLabel, fontSize: 13),
                   ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 220),
-                    child: const Icon(Icons.expand_more, size: 18),
-                  ),
                 ],
               ),
             ),
           ),
-
-          // Konten collapsible — fade + naik/turun
           SizeTransition(
             sizeFactor: _ctrl,
             alignment: Alignment.topCenter,
