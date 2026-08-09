@@ -26,6 +26,7 @@ const List<_ChangelogEntry> _changelogEntries = [
       'Percepat ekstraksi artwork native: JPEG kecil disalin mentah ke cache tanpa decode-reencode (kualitas asli, ekstraksi hampir instan).',
       'Tambah 1 thread ekstraksi artwork (2 → 3) agar batch prefetch lebih cepat selesai.',
       'Bersihkan kode mati: hapus jalur getArtwork (bytes) yang tidak pernah dipanggil Flutter.',
+      'FallbackBitmapLoader (artwork notifikasi/lock-screen): reuse cache artwork persisten + decode dibatasi 512px agar tidak pernah decode full-size.',
     ],
   ),
   _ChangelogEntry(

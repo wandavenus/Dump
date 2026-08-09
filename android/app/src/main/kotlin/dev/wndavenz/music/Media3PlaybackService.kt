@@ -257,6 +257,13 @@ class Media3PlaybackService : MediaSessionService() {
             onSeek        = { transportCommands.seekNative(it) },
             onSetTrack    = { transportCommands.setTrackNative(it) },
         )
+        // ART-01: artwork cache shared between notification and full-player pipelines.
+        // Initialised BEFORE the MediaSession is built so FallbackBitmapLoader (the
+        // session's BitmapLoader) can reuse it.  Same on-disk cache directory
+        // ({filesDir}/artwork/) as MainActivity's ArtworkCacheManager, so cache hits
+        // from Full Player warm-up are served here without re-extraction.
+        serviceArtworkCache = ArtworkCacheManager(this)
+
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
             // Explicit unique ID prevents "Session ID must be unique" crash when
@@ -266,8 +273,9 @@ class Media3PlaybackService : MediaSessionService() {
             // Use FallbackBitmapLoader so MediaSessionLegacyStub (Bluetooth / lock screen)
             // can load album art even for songs whose embedded artwork has not been indexed
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
-            // albumart content URI first, then falls back to MediaMetadataRetriever.
-            .setBitmapLoader(FallbackBitmapLoader(this))
+            // albumart content URI first, then falls back to the shared artwork cache
+            // (extract + persist on miss — raw-copied JPEG since 1.5.19).
+            .setBitmapLoader(FallbackBitmapLoader(this, serviceArtworkCache))
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -296,11 +304,6 @@ class Media3PlaybackService : MediaSessionService() {
                 .setDisplayName("Next")
                 .build(),
         ))
-
-        // ART-01: initialise artwork cache for notification fallback pipeline.
-        // Shares the same on-disk WebP cache ({filesDir}/artwork/) as MainActivity's
-        // ArtworkCacheManager so cache hits from Full Player warm-up are reused here.
-        serviceArtworkCache = ArtworkCacheManager(this)
 
         // Wire feature modules ────────────────────────────────────────────────
 
