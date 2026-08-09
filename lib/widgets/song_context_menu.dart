@@ -11,7 +11,6 @@ import '../pages/album_page.dart';
 import '../pages/artist_page.dart';
 import '../services/artwork_repository.dart';
 import '../services/audio_service.dart';
-import '../services/next_track_service.dart';
 import '../services/media_store_service.dart';
 import '../services/playlist_service.dart';
 import '../services/replay_gain_service.dart';
@@ -102,6 +101,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ── Drag handle ──────────────────────────────────────────────
               const SizedBox(height: 8),
               Container(
                 width: 36,
@@ -112,6 +112,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // ── Song header ──────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -152,6 +154,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 ),
               ),
               const SizedBox(height: 12),
+
+              // ── Grup 1: Pemutaran ─────────────────────────────────────────
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.play_fill,
@@ -170,7 +174,7 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 label: context.l10n.playNext,
                 onTap: () {
                   Navigator.pop(context);
-                  unawaited(NextTrackService.playNext(widget.song));
+                  AudioService.addToQueueNext(widget.song);
                 },
               ),
               _insetDivider(c),
@@ -182,6 +186,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                   AudioService.addToQueue(widget.song);
                 },
               ),
+
+              // ── Grup 2: Library ───────────────────────────────────────────
               _insetDivider(c),
               _MenuItem(
                 icon: _isFavorite
@@ -209,6 +215,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 label: context.l10n.addToPlaylistMenu,
                 onTap: () => _showAddToPlaylist(context),
               ),
+
+              // ── Grup 3: Navigasi ──────────────────────────────────────────
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.music_albums_fill,
@@ -221,6 +229,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                 label: context.l10n.openArtist,
                 onTap: _openArtist,
               ),
+
+              // ── Grup 4: Informasi ─────────────────────────────────────────
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.info_circle,
@@ -230,6 +240,8 @@ class _SongContextMenuState extends State<SongContextMenu> {
                   _showSongInfo(context);
                 },
               ),
+
+              // ── Grup 5: Hapus ─────────────────────────────────────────────
               _insetDivider(c),
               _MenuItem(
                 icon: CupertinoIcons.trash,
@@ -245,3 +257,155 @@ class _SongContextMenuState extends State<SongContextMenu> {
       ),
     );
   }
+
+  static Widget _insetDivider(AppThemeExtension c) =>
+      Divider(height: 1, thickness: 0.5, color: c.separator, indent: 52);
+
+  // ── Hapus dari Perangkat ───────────────────────────────────────────────────
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    if (!mounted) return;
+
+    navigator.pop();
+
+    final c = AppColors.of(context);
+    final l = context.l10n;
+    final deleted = await MediaStoreService.deleteSong(widget.song.id);
+    if (deleted) {
+      MediaStoreService.clearSongsCache();
+      ArtworkRepository.instance.evict(widget.song.id);
+      SongMetadataService.invalidate(widget.song.id);
+      unawaited(ReplayGainService.invalidate(widget.song.id));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.songDeletedMsg),
+          backgroundColor: c.surface2,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.songDeleteFailedMsg),
+          backgroundColor: c.surface2,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // ── Tambah ke Daftar Putar ─────────────────────────────────────────────────
+
+  void _showAddToPlaylist(BuildContext context) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useRootNavigator: true,
+        builder: (_) => _AddToPlaylistSheet(
+          song: widget.song,
+          tabNavigator: widget.tabNavigator,
+        ),
+      ),
+    );
+  }
+
+  // ── Buka Album ─────────────────────────────────────────────────────────────
+
+  Future<void> _openAlbum() async {
+    final nav = widget.tabNavigator;
+    Navigator.pop(context);
+    try {
+      final allSongs = await MediaStoreService.getSongs();
+      final albumSongs = allSongs
+          .where((s) => s.album == widget.song.album)
+          .toList();
+      unawaited(
+        nav.push(
+          ZoomFadeRoute<void>(
+            settings: RouteSettings(
+              arguments: {'album': widget.song, 'songs': albumSongs},
+            ),
+            page: const AlbumPage(),
+          ),
+        ),
+      );
+    } on Exception catch (_) {}
+  }
+
+  // ── Buka Artis ─────────────────────────────────────────────────────────────
+
+  Future<void> _openArtist() async {
+    final nav = widget.tabNavigator;
+    Navigator.pop(context);
+    try {
+      final allSongs = await MediaStoreService.getSongs();
+      final artistSongs = allSongs
+          .where((s) => s.artist == widget.song.artist)
+          .toList();
+      unawaited(
+        nav.push(
+          ZoomFadeRoute<void>(
+            settings: RouteSettings(arguments: artistSongs),
+            page: const ArtistPage(),
+          ),
+        ),
+      );
+    } on Exception catch (_) {}
+  }
+
+  // ── Informasi Lagu ─────────────────────────────────────────────────────────
+
+  void _showSongInfo(BuildContext context) {
+    final c = AppColors.of(context);
+    final l = context.l10n;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: c.surface,
+          title: Text(
+            l.songInformation,
+            style: TextStyle(color: c.primaryLabel, fontSize: 17),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _InfoRow(label: l.fieldTitle, value: widget.song.title),
+              _InfoRow(label: l.fieldArtist, value: widget.song.artist),
+              _InfoRow(label: l.fieldAlbum, value: widget.song.album),
+              _InfoRow(
+                label: l.fieldDuration,
+                value: _formatDuration(widget.song.duration),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                l.close,
+                style: TextStyle(
+                  color: Theme.of(dialogContext).colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '${d.inHours > 0 ? '${d.inHours}:' : ''}$m:$s';
+  }
+}
+
+// Extracted to part files — see song_context_menu/ directory.
