@@ -3,13 +3,13 @@ package dev.wndavenz.music
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import androidx.media3.common.util.BitmapLoader
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
+import java.io.File
 import java.util.concurrent.Executors
 
 /**
@@ -31,17 +31,25 @@ import java.util.concurrent.Executors
  *   1. Fast path  — open the artworkUri via ContentResolver (works for songs whose
  *      art MediaStore has already indexed).
  *   2. Fallback   — parse albumId from the URI, query MediaStore for any track with
- *      that albumId, then extract the embedded picture from the audio file directly
- *      via MediaMetadataRetriever.  No deprecated DATA column is used — the song is
- *      identified by its MediaStore content URI so scoped-storage rules are respected.
+ *      that albumId, then serve that song's artwork from the shared persistent cache
+ *      (ArtworkCacheManager.getOrExtract): a cache hit returns the stored bytes
+ *      immediately — raw-copied JPEG for most songs since 1.5.19 — and a cache miss
+ *      runs the exact same extract-and-persist pipeline as the full player.  No
+ *      MediaMetadataRetriever is used here, and no deprecated DATA column is read —
+ *      the song is identified by its MediaStore content URI so scoped-storage rules
+ *      are respected.
  *
- * Bitmap size: artwork is decoded at up to MAX_PX on the longest side via a two-pass
- * BitmapFactory decode (bounds first, then scaled), keeping memory usage bounded.
+ * Bitmap size: every decode path (URI stream, cached bytes, byte-array API) uses a
+ * two-pass BitmapFactory decode capped at MAX_PX on the longest side (bounds first,
+ * then sampled), keeping memory usage bounded instead of allocating full-size art.
  *
  * Thread-safety: all work is executed on a single daemon thread; the SettableFuture
  * is always resolved (set or setException) before the thread task ends.
  */
-class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
+class FallbackBitmapLoader(
+    private val context: Context,
+    private val artworkCache: ArtworkCacheManager,
+) : BitmapLoader {
 
     companion object {
         private const val TAG    = "FallbackBitmapLoader"
@@ -56,7 +64,7 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
          * Why: MediaSessionLegacyStub calls loadBitmap(artworkUri) again on every
          * metadata/queue update, not just once per track — without this cache, a
          * song confirmed to have zero artwork pays a full ContentResolver open +
-         * MediaStore query + MediaMetadataRetriever attempt every single time.
+         * MediaStore query + artwork extraction attempt every single time.
          *
          * Safe because: cache lives only for the process lifetime (cleared on app
          * restart), so if MediaStore later indexes new artwork for an albumId
@@ -85,7 +93,9 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
         val future = SettableFuture.create<Bitmap>()
         executor.execute {
             try {
-                val bmp = BitmapFactory.decodeByteArray(data, 0, data.size)
+                // E-A: cap at MAX_PX like every other path — never allocate a
+                // full-size bitmap for a small notification/lock-screen image.
+                val bmp = decodeCapped(data)
                     ?: throw IllegalArgumentException("BitmapFactory returned null for byte array")
                 future.set(bmp)
             } catch (e: Exception) {
@@ -101,7 +111,7 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
 
         // Short-circuit: this albumId was already confirmed to have no artwork
         // (neither MediaStore-indexed nor embedded) earlier this session — skip
-        // the ContentResolver + MediaStore query + MediaMetadataRetriever work
+        // the ContentResolver + MediaStore query + artwork extraction work
         // entirely instead of repeating a known-failed lookup.
         if (albumId != null && noArtworkCache.contains(albumId)) {
             future.setException(Exception("No artwork resolved for: $uri (cached)"))
@@ -157,7 +167,7 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
 
     /**
      * Fallback path: parse albumId from [uri], find a matching MediaStore track,
-     * and extract its embedded picture via MediaMetadataRetriever.
+     * and serve that song's artwork from the shared persistent cache.
      *
      * Expected URI format: content://media/external/audio/albumart/{albumId}
      */
@@ -170,32 +180,34 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
             Log.d(TAG, "No MediaStore track found for albumId=$albumId")
             return null
         }
+        val songId = songUri.lastPathSegment?.toLongOrNull()?.toInt() ?: run {
+            Log.d(TAG, "Cannot parse songId from $songUri")
+            return null
+        }
+        // Same pipeline as the in-app artwork: cache hit serves the stored bytes
+        // immediately (raw-copied JPEG for most songs since 1.5.19 E-A); cache miss
+        // extracts + persists here.  No MediaMetadataRetriever round-trip and never
+        // a full-size decode — [decodeCapped] caps at MAX_PX below.
+        val cachedPath = artworkCache.getOrExtract(songId) ?: run {
+            Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
+            return null
+        }
         return try {
-            // MediaMetadataRetriever implements AutoCloseable since API 29 (Android 10).
-            // setDataSource(Context, Uri) respects scoped storage on Android 10+.
-            MediaMetadataRetriever().use { mmr ->
-                mmr.setDataSource(context, songUri)
-                val bytes = mmr.embeddedPicture
-                if (bytes != null) {
-                    Log.d(TAG, "Embedded artwork extracted for albumId=$albumId")
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                } else {
-                    Log.d(TAG, "No embedded artwork for albumId=$albumId")
-                    null
-                }
-            }
+            val bytes = File(cachedPath).readBytes()
+            decodeCapped(bytes)
         } catch (e: Exception) {
-            Log.w(TAG, "Embedded extraction failed for albumId=$albumId: ${e.message}")
+            Log.w(TAG, "Failed to read cached artwork for albumId=$albumId: ${e.message}")
             null
         }
     }
 
     /**
      * Returns the content URI of the first MediaStore track that belongs to
-     * [albumId], or null if not found.
+     * [albumId], or null if not found.  The numeric id in the returned URI is
+     * the songId used to look up the shared artwork cache.
      *
      * Uses the track's _ID (not the deprecated DATA column) so the result URI
-     * is safe to pass to MediaMetadataRetriever.setDataSource(Context, Uri).
+     * respects scoped storage and maps directly to an ArtworkCacheManager entry.
      */
     private fun songUriForAlbumId(albumId: Long): Uri? {
         val projection = arrayOf(MediaStore.Audio.Media._ID)
@@ -215,6 +227,23 @@ class FallbackBitmapLoader(private val context: Context) : BitmapLoader {
             Log.w(TAG, "MediaStore query failed for albumId=$albumId: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Two-pass decode capped at [MAX_PX] on the longest side — bounds pass first
+     * (zero pixel allocation), then a sampled decode.  The E-A equivalent for the
+     * BitmapLoader contract (which must return a Bitmap): decode only what the
+     * notification/lock-screen actually renders, never a full-size embedded image.
+     */
+    private fun decodeCapped(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, MAX_PX)
+        return BitmapFactory.decodeByteArray(
+            bytes, 0, bytes.size,
+            BitmapFactory.Options().apply { inSampleSize = sample },
+        )
     }
 
     /** Smallest power-of-two sample size so neither dimension exceeds [maxPx]. */

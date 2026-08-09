@@ -47,6 +47,17 @@ Lesson: cek `grep -rn 'getArtwork\b' lib/ test/` dulu sebelum hapus native —
 `getArtworkPath` mengandung substring `getArtwork`, jadi pola harus pakai
 word-boundary agar tidak false positive.
 
+## FallbackBitmapLoader (notification/lock-screen) — reuse cache + decode cap
+
+`BitmapLoader` wajib return `Bitmap`, jadi "raw-copy" di sini diterjemahkan
+jadi: (1) jangan extract/decode ulang — pakai cache persisten yang isinya raw
+JPEG, dan (2) jangan pernah decode full-size. `tryEmbedded` sekarang:
+`songUriForAlbumId` → parse songId → `artworkCache.getOrExtract(songId)` (hit
+langsung, miss extract+persist) → baca bytes file → `decodeCapped` (bounds →
+`computeSampleSize` → ≤ MAX_PX 512). MMR tidak lagi dipakai di loader;
+`decodeBitmap(data)` juga di-cap. `serviceArtworkCache` di Media3PlaybackService
+wajib di-init SEBELUM `MediaSession.Builder` (loader di-inject ke builder).
+
 ## Validasi
 
 - `flutter analyze lib test` → No issues found.
