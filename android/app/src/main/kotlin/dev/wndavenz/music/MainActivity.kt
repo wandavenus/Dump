@@ -50,7 +50,10 @@ class MainActivity : FlutterActivity() {
     // decoding or UI work on MIUI 12.
     private val artworkExecutor: ExecutorService = boundedExecutor(
         name = "artwork-cache",
-        threads = 2,
+        // E-B: 3 workers — the Dart batch prefetch already runs 2 concurrent
+        // extractions; the third slot keeps concurrent queue-change/scroll
+        // requests from stalling that batch on mid-range devices.
+        threads = 3,
         queueCapacity = 48,
     )
     private val metadataExecutor: ExecutorService = boundedExecutor(
@@ -376,21 +379,6 @@ class MainActivity : FlutterActivity() {
                                     result.error("songs_query_error", e.message, null)
                                 }
                             }
-                        }
-                    }
-
-                    "getArtwork" -> {
-                        val songId = call.argument<Int>("songId") ?: 0
-                        submitBackground(
-                            artworkExecutor,
-                            onRejected = {
-                                postToFlutter {
-                                    result.error("artwork_cache_busy", "Artwork queue is busy", null)
-                                }
-                            },
-                        ) {
-                            val artwork = getArtwork(songId)
-                            postToFlutter { result.success(artwork) }
                         }
                     }
 
@@ -1161,20 +1149,6 @@ class MainActivity : FlutterActivity() {
             ContextCompat.checkSelfPermission(this,
                 Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }
-
-    private fun getArtwork(songId: Int): ByteArray? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            val uri = Uri.withAppendedPath(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
-            retriever.setDataSource(this, uri)
-            retriever.embeddedPicture
-        } catch (_: Exception) {
-            null
-        } finally {
-            retriever.release()
-        }
-    }
 
     private fun getAudioMetadata(path: String?, songId: Int): Map<String, String?> {
         val retriever = MediaMetadataRetriever()

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,11 +13,6 @@ class MediaStoreService {
   static const MethodChannel _channel = MethodChannel(
     'musicplayer/media_store',
   );
-  static const int _maxArtworkCacheEntries = 80;
-
-  static final LinkedHashMap<int, Future<Uint8List?>> _artworkCache =
-      LinkedHashMap<int, Future<Uint8List?>>();
-
   static List<LocalSong>? _songsCache;
 
   /// Synchronous read of the warm-up cache. Non-null after [warmUp] completes
@@ -411,59 +405,6 @@ class MediaStoreService {
     );
   }
 
-  static Future<Uint8List?> getArtwork(int songId) {
-    if (songId <= 0) return Future<Uint8List?>.value();
-
-    final cachedArtwork = _artworkCache.remove(songId);
-    if (cachedArtwork != null) {
-      _artworkCache[songId] = cachedArtwork;
-      return cachedArtwork;
-    }
-
-    final artworkFuture = _loadArtwork(songId);
-    _artworkCache[songId] = artworkFuture;
-    _trimArtworkCache();
-    return artworkFuture;
-  }
-
-  static Future<Uint8List?> _loadArtwork(int songId) async {
-    try {
-      return _channel
-          .invokeMethod<Uint8List>('getArtwork', {'songId': songId})
-          .timeout(const Duration(seconds: 8));
-    } on TimeoutException {
-      // Fail-open ke placeholder: MethodChannel tidak menjamin reply — kalau
-      // native hang (I/O kontended, MIUI membekukan process), Future artwork
-      // tidak boleh menggantung selamanya di _artworkCache.
-      LogService.error('MediaStore', 'getArtwork timed out for song $songId');
-      return null;
-    } on PlatformException catch (error, stackTrace) {
-      LogService.error(
-        'MediaStore',
-        'Failed to load artwork for song $songId: $error',
-        stackTrace: stackTrace.toString(),
-      );
-      return null;
-    } on Object catch (error, stackTrace) {
-      LogService.error(
-        'MediaStore',
-        'Invalid artwork payload for song $songId: $error',
-        stackTrace: stackTrace.toString(),
-      );
-      return null;
-    }
-  }
-
-  static void _trimArtworkCache() {
-    while (_artworkCache.length > _maxArtworkCacheEntries) {
-      _artworkCache.remove(_artworkCache.keys.first)?.ignore();
-    }
-  }
-
-  static void clearArtworkCache() {
-    _artworkCache.clear();
-  }
-
   /// Menghapus lagu dari perangkat secara permanen.
   ///
   /// Pada Android 11+ akan menampilkan dialog konfirmasi sistem.
@@ -472,9 +413,7 @@ class MediaStoreService {
   static Future<bool> deleteSong(int songId) async {
     try {
       final result = await _channel
-          .invokeMethod<bool>('deleteSong', {
-            'songId': songId,
-          })
+          .invokeMethod<bool>('deleteSong', {'songId': songId})
           .timeout(const Duration(seconds: 8));
       return result ?? false;
     } on TimeoutException catch (error) {
@@ -514,12 +453,13 @@ class MediaStoreService {
     if (songId <= 0) return null;
     try {
       return await _channel
-          .invokeMethod<String>('getArtworkPath', {
-            'songId': songId,
-          })
+          .invokeMethod<String>('getArtworkPath', {'songId': songId})
           .timeout(const Duration(seconds: 8));
     } on TimeoutException catch (e) {
-      LogService.error('MediaStore', 'getArtworkPath timeout songId=$songId: $e');
+      LogService.error(
+        'MediaStore',
+        'getArtworkPath timeout songId=$songId: $e',
+      );
       return null;
     } on PlatformException catch (e) {
       LogService.error('MediaStore', 'getArtworkPath error songId=$songId: $e');
