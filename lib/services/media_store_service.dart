@@ -119,6 +119,15 @@ class MediaStoreService {
       return cachedSongs;
     }
 
+    // No persisted cache is available. This is still an automatic startup
+    // reconciliation, so honor the same failure backoff used by the cached
+    // path. Explicit callers can bypass this by calling refreshSongs().
+    final lastFailure = _lastFailedReconcile;
+    if (lastFailure != null &&
+        DateTime.now().difference(lastFailure) <= _reconcileRetryBackoff) {
+      return const <LocalSong>[];
+    }
+
     return refreshSongs();
   }
 
