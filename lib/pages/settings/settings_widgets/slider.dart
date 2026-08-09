@@ -8,20 +8,10 @@ class SettingsSliderRow extends StatefulWidget {
   final double max;
   final int divisions;
   final Future<void> Function(double) onChanged;
-
-  /// Optional lightweight callback for live previews while dragging. Unlike
-  /// [onChanged], this must not perform persistence or other expensive I/O.
   final ValueChanged<double>? onChangedLive;
   final bool showReset;
   final VoidCallback? onReset;
-
-  /// Saat true, slider disembunyikan di balik baris header yang bisa diketuk.
-  /// Subtitle tampil sebagai value-hint di header saat collapsed.
   final bool expandable;
-
-  /// Deskripsi singkat yang menjelaskan fungsi fitur ini ke user. Tampil di
-  /// bawah slider dengan style redup/italic. Opsional — kalau null, tidak
-  /// ada baris tambahan yang dirender.
   final String? description;
 
   const SettingsSliderRow({
@@ -49,16 +39,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   bool _expanded = false;
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-
-  // Tracks the in-flight drag value so the thumb moves smoothly during a
-  // drag gesture. Set on onChanged, cleared on onChangeEnd. The expensive
-  // callback (widget.onChanged) is only called once on release — avoids
-  // firing async I/O (SharedPreferences, native audio calls) every frame.
   double? _dragValue;
-
-  // Live preview throttling: emit at most one preview every short interval,
-  // then coalesce the latest dragged value so the user gets smooth motion
-  // without spamming the native layer on every pointer tick.
   Timer? _livePreviewThrottle;
   double? _pendingLivePreviewValue;
   double? _lastLivePreviewValue;
@@ -91,8 +72,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
 
     _pendingLivePreviewValue = value;
 
-    // Emit the first drag update immediately so the slider feels responsive,
-    // then coalesce the rest into one update per window.
     if (_livePreviewThrottle == null) {
       _lastLivePreviewValue = value;
       _pendingLivePreviewValue = null;
@@ -125,7 +104,9 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
           .toDouble(),
       min: widget.min,
       max: widget.max,
-      divisions: widget.divisions,
+      // Live-preview controls use a continuous gesture. Other sliders keep
+      // their configured discrete divisions.
+      divisions: widget.onChangedLive == null ? widget.divisions : null,
       onChanged: (v) {
         setState(() => _dragValue = v);
         _scheduleLivePreview(v);
@@ -145,7 +126,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
 
-    // ── Non-expandable: layout asli ──────────────────────────────────────────
     if (!widget.expandable) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -196,13 +176,11 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
       );
     }
 
-    // ── Expandable: accordion ────────────────────────────────────────────────
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header — selalu terlihat, bisa diketuk
           InkWell(
             onTap: _toggle,
             borderRadius: BorderRadius.circular(8),
@@ -230,8 +208,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               ),
             ),
           ),
-
-          // Konten collapsible — fade + naik/turun
           SizeTransition(
             sizeFactor: _ctrl,
             alignment: Alignment.topCenter,
