@@ -1,9 +1,9 @@
 package dev.wndavenz.music.effects
 
-import android.os.Handler
-import android.os.Looper
 import androidx.media3.common.util.UnstableApi
 import dev.wndavenz.music.events.NativeLogger
+import java.util.Timer
+import kotlin.concurrent.scheduleAtFixedRate
 
 /**
  * Manages [SignalsmithStretchAudioProcessor] instances (playback speed +
@@ -34,14 +34,14 @@ class StretchManager {
 
     private val processors = mutableListOf<SignalsmithStretchAudioProcessor>()
     private val lock = Any()
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var pendingSpeed: Float? = null
-    private var pendingPitchSemitones: Float? = null
-    private var flushScheduled = false
 
-    private val flushRunnable = Runnable {
-        flushPendingTargets()
-    }
+    private var speedTarget: Float = 1f
+    private var pitchTarget: Float = 0f
+    private var smoothingTimer: Timer? = null
+
+    private val tickMs: Long = 16L
+    private val smoothingFactor: Float = 0.18f
+    private val settleEpsilon: Float = 0.0025f
 
     fun createProcessor(): SignalsmithStretchAudioProcessor {
         val p = SignalsmithStretchAudioProcessor()
@@ -69,74 +69,85 @@ class StretchManager {
     }
 
     fun setSpeed(newSpeed: Float) {
-        val v = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
-        synchronized(lock) {
-            speed = v
-            pendingSpeed = v
-            scheduleFlushLocked()
-        }
+        speedTarget = if (newSpeed.isFinite() && newSpeed > 0f) newSpeed else 1f
+        ensureSmoothingLoop()
     }
 
     fun setPitchSemitones(newSemitones: Float) {
-        val v = if (newSemitones.isFinite()) newSemitones else 0f
+        pitchTarget = if (newSemitones.isFinite()) newSemitones else 0f
+        ensureSmoothingLoop()
+    }
+
+    private fun ensureSmoothingLoop() {
         synchronized(lock) {
-            pitchSemitones = v
-            pendingPitchSemitones = v
-            scheduleFlushLocked()
+            if (smoothingTimer != null) return
+            smoothingTimer = Timer("StretchManager", /* isDaemon = */ true).apply {
+                scheduleAtFixedRate(0L, tickMs) {
+                    val snapshot: List<SignalsmithStretchAudioProcessor>
+                    val currentSpeed: Float
+                    val currentPitch: Float
+                    val targetSpeed: Float
+                    val targetPitch: Float
+                    val keepRunning: Boolean
+
+                    synchronized(lock) {
+                        val nextSpeed = stepToward(speed, speedTarget, smoothingFactor)
+                        val nextPitch = stepToward(pitchSemitones, pitchTarget, smoothingFactor)
+
+                        val speedChanged = nextSpeed != speed
+                        val pitchChanged = nextPitch != pitchSemitones
+
+                        speed = nextSpeed
+                        pitchSemitones = nextPitch
+
+                        snapshot = processors.toList()
+                        currentSpeed = speed
+                        currentPitch = pitchSemitones
+                        targetSpeed = speedTarget
+                        targetPitch = pitchTarget
+                        keepRunning =
+                            absDiff(currentSpeed, targetSpeed) > settleEpsilon ||
+                            absDiff(currentPitch, targetPitch) > settleEpsilon
+
+                        if (!keepRunning) {
+                            smoothingTimer?.cancel()
+                            smoothingTimer = null
+                        }
+
+                        // Avoid pointless native chatter when the value did not move.
+                        if (!speedChanged && !pitchChanged) return@scheduleAtFixedRate
+                    }
+
+                    snapshot.forEach { p ->
+                        p.setSpeed(currentSpeed)
+                        p.setPitchSemitones(currentPitch)
+                    }
+
+                    NativeLogger.emit(
+                        "info", "Stretch",
+                        "[Stretch] smoothed update speed=$currentSpeed pitch=${currentPitch}st targetSpeed=$targetSpeed targetPitch=${targetPitch}st appliedTo=${snapshot.size}",
+                    )
+                }
+            }
         }
     }
+
+    private fun stepToward(current: Float, target: Float, factor: Float): Float {
+        val next = current + (target - current) * factor
+        return when {
+            absDiff(next, target) <= settleEpsilon -> target
+            else -> next
+        }
+    }
+
+    private fun absDiff(a: Float, b: Float): Float = kotlin.math.abs(a - b)
 
     fun releaseAll() {
-        val count: Int
         synchronized(lock) {
+            smoothingTimer?.cancel()
+            smoothingTimer = null
             processors.clear()
-            pendingSpeed = null
-            pendingPitchSemitones = null
-            flushScheduled = false
-            count = processors.size
         }
-        mainHandler.removeCallbacks(flushRunnable)
-        NativeLogger.emit("info", "Stretch", "[Stretch] releaseAll — all processors cleared count=$count")
-    }
-
-    private fun scheduleFlushLocked() {
-        if (flushScheduled) return
-        flushScheduled = true
-        mainHandler.removeCallbacks(flushRunnable)
-        mainHandler.postDelayed(flushRunnable, 16L)
-    }
-
-    private fun flushPendingTargets() {
-        val speedToApply: Float?
-        val pitchToApply: Float?
-        val snapshot: List<SignalsmithStretchAudioProcessor>
-        synchronized(lock) {
-            flushScheduled = false
-            speedToApply = pendingSpeed
-            pitchToApply = pendingPitchSemitones
-            pendingSpeed = null
-            pendingPitchSemitones = null
-            snapshot = processors.toList()
-        }
-
-        if (speedToApply == null && pitchToApply == null) return
-
-        if (speedToApply != null) {
-            snapshot.forEach { it.setSpeed(speedToApply) }
-            NativeLogger.emit(
-                "info", "Stretch",
-                "[Stretch] speed changed speed=$speedToApply pitch=${pitchSemitones}st appliedTo=${snapshot.size} " +
-                    "hashes=${snapshot.map { System.identityHashCode(it) }}",
-            )
-        }
-
-        if (pitchToApply != null) {
-            snapshot.forEach { it.setPitchSemitones(pitchToApply) }
-            NativeLogger.emit(
-                "info", "Stretch",
-                "[Stretch] pitch changed speed=$speed pitch=${pitchToApply}st appliedTo=${snapshot.size} " +
-                    "hashes=${snapshot.map { System.identityHashCode(it) }}",
-            )
-        }
+        NativeLogger.emit("info", "Stretch", "[Stretch] releaseAll — all processors cleared count=0")
     }
 }
