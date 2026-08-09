@@ -39,9 +39,9 @@ class StretchManager {
     private var pitchTarget: Float = 0f
     private var smoothingTimer: Timer? = null
 
-    private val tickMs: Long = 16L
-    private val smoothingFactor: Float = 0.18f
-    private val settleEpsilon: Float = 0.0025f
+    private val tickMs: Long = 24L
+    private val smoothingFactor: Float = 0.08f
+    private val settleEpsilon: Float = 0.0015f
 
     fun createProcessor(): SignalsmithStretchAudioProcessor {
         val p = SignalsmithStretchAudioProcessor()
@@ -88,34 +88,23 @@ class StretchManager {
                     val currentPitch: Float
                     val targetSpeed: Float
                     val targetPitch: Float
-                    val keepRunning: Boolean
 
                     synchronized(lock) {
-                        val nextSpeed = stepToward(speed, speedTarget, smoothingFactor)
-                        val nextPitch = stepToward(pitchSemitones, pitchTarget, smoothingFactor)
-
-                        val speedChanged = nextSpeed != speed
-                        val pitchChanged = nextPitch != pitchSemitones
-
-                        speed = nextSpeed
-                        pitchSemitones = nextPitch
+                        speed = stepToward(speed, speedTarget, smoothingFactor)
+                        pitchSemitones = stepToward(pitchSemitones, pitchTarget, smoothingFactor)
 
                         snapshot = processors.toList()
                         currentSpeed = speed
                         currentPitch = pitchSemitones
                         targetSpeed = speedTarget
                         targetPitch = pitchTarget
-                        keepRunning =
-                            absDiff(currentSpeed, targetSpeed) > settleEpsilon ||
-                            absDiff(currentPitch, targetPitch) > settleEpsilon
 
-                        if (!keepRunning) {
+                        if (absDiff(currentSpeed, targetSpeed) <= settleEpsilon &&
+                            absDiff(currentPitch, targetPitch) <= settleEpsilon
+                        ) {
                             smoothingTimer?.cancel()
                             smoothingTimer = null
                         }
-
-                        // Avoid pointless native chatter when the value did not move.
-                        if (!speedChanged && !pitchChanged) return@scheduleAtFixedRate
                     }
 
                     snapshot.forEach { p ->
