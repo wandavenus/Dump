@@ -155,15 +155,20 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               padding: const EdgeInsets.symmetric(vertical: 13),
               child: Row(
                 children: [
-                  Expanded(
+                  Flexible(
                     child: Text(
                       widget.title,
                       style: TextStyle(color: c.primaryLabel, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    widget.subtitle,
-                    style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      widget.subtitle,
+                      style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
