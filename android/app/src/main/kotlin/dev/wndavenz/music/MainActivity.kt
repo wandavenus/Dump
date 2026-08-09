@@ -26,6 +26,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import org.json.JSONObject
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -1193,8 +1194,8 @@ class MainActivity : FlutterActivity() {
     // and unpack accordingly.  On API 30+ devices the disc may also be in a
     // separate DISC_NUMBER column — we prefer it when present.
 
-    private fun getSongs(): List<Map<String, Any?>> {
-        if (!hasMediaPermission()) return emptyList()
+    private fun getSongs(): String {
+        if (!hasMediaPermission()) return "[]"
 
         // Build projection dynamically based on API level.
         // Columns must be guarded carefully — including a non-existent column
@@ -1328,7 +1329,49 @@ class MainActivity : FlutterActivity() {
         lastSongRefs = songRefs
         MetadataPrescanner.start(this, songRefs, metadataCacheDb)
 
-        return songs
+        return songsToJson(songs)
+    }
+
+    /**
+     * Compact JSON serialization of the song list for the Flutter side.
+     *
+     * B (payload): the whole library is sent as ONE JSON string instead of a
+     * deeply nested List<Map> MethodChannel payload. StandardMessageCodec
+     * tags every nested map/string/int with per-value type markers, so for a
+     * large library the codec cost on BOTH sides is several times the raw
+     * data size; a single String is one channel message. It also lets the
+     * Dart side decode in a background isolate (compute), keeping the parse
+     * off the UI thread.
+     *
+     * Single-pass StringBuilder + JSONObject.quote() (proper escaping) — no
+     * JSONArray/JSONObject intermediate allocation churn per song.
+     */
+    private fun songsToJson(songs: List<Map<String, Any?>>): String {
+        val sb = StringBuilder(songs.size * 96)
+        sb.append('[')
+        for ((i, map) in songs.withIndex()) {
+            if (i > 0) sb.append(',')
+            sb.append('{')
+            var first = true
+            for ((k, v) in map) {
+                if (!first) sb.append(',')
+                first = false
+                sb.append(JSONObject.quote(k)).append(':')
+                when (v) {
+                    null -> sb.append("null")
+                    is Boolean -> sb.append(v)
+                    is Int -> sb.append(v)
+                    is Long -> sb.append(v)
+                    is Double -> sb.append(v)
+                    is Float -> sb.append(v)
+                    is String -> sb.append(JSONObject.quote(v))
+                    else -> sb.append(JSONObject.quote(v.toString()))
+                }
+            }
+            sb.append('}')
+        }
+        sb.append(']')
+        return sb.toString()
     }
 
     override fun onDestroy() {
