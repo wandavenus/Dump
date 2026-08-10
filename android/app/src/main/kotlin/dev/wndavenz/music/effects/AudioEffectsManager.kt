@@ -293,7 +293,7 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                 // This is the actual hardware-reported center frequency for each band,
                 // which varies by device and Android version.
                 "frequencies" to List(numBands) { b ->
-                    (eq.getCenterFreq(b.toShort()) / 1000).toInt()
+                    eq.getCenterFreq(b.toShort()) / 1000
                 }
             )
         } catch (_: Exception) { defaultEqualizerParameters() }

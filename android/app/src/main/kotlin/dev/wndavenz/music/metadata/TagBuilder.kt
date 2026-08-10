@@ -95,7 +95,7 @@ internal class TagBuilder {
 
             // ── ID3v2 CommentFrame (COMM) ─────────────────────────────────────
             is CommentFrame -> {
-                val text = entry.text?.trim()?.takeIf { it.isNotBlank() } ?: return
+                val text = entry.text.trim().takeIf { it.isNotBlank() } ?: return
                 // Prefer standard comments (blank/null description) over
                 // iTunes-style entries that use description as a namespaced key.
                 if (comment == null || entry.description.isNullOrBlank()) {
