@@ -100,24 +100,55 @@ class PlaybackNotificationManager(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (isForeground) return
         ensureChannel()
+
+        val session = getSession()
         val track = getCurrentTrack()
-        val notification = buildNotification(getSession(), track, getIsPlaying(), bitmap = null)
+        val sessionArtworkUri = resolveSessionArtworkUri(session)
+        val notification = buildNotification(
+            session = session,
+            track = track,
+            isPlaying = getIsPlaying(),
+            bitmap = null,
+            showLargeIcon = sessionArtworkUri == null,
+        )
         startForegroundWith(notification)
-        refreshAsync()
+
+        // Only prewarm / fetch a bitmap when Session artwork is not available.
+        if (sessionArtworkUri == null) {
+            refreshAsync()
+        }
     }
 
     fun refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val sess = getSession() ?: return
         ensureChannel()
+
         val track = getCurrentTrack()
         val isPlaying = getIsPlaying()
+        val sessionArtworkUri = resolveSessionArtworkUri(sess)
+
+        // Plan B: when the MediaSession already exposes artwork metadata, let
+        // MediaStyle / SystemUI render it directly and do not inject a largeIcon.
+        if (!sessionArtworkUri.isNullOrBlank()) {
+            postNotification(
+                buildNotification(
+                    session = sess,
+                    track = track,
+                    isPlaying = isPlaying,
+                    bitmap = null,
+                    showLargeIcon = false,
+                )
+            )
+            return
+        }
+
         val artUri = track?.get("artworkUri") as? String
         val songId = (track?.get("id") as? Number)?.toInt() ?: 0
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         val cached = cacheKey?.let { bitmapCache.get(it) }
         val hasCached = cacheKey == null || bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)
-        postNotification(buildNotification(sess, track, isPlaying, cached))
+        postNotification(buildNotification(sess, track, isPlaying, cached, showLargeIcon = true))
 
         if (!hasCached && cacheKey != null) {
             refreshAsync(artUri, songId, track, isPlaying)
@@ -169,7 +200,7 @@ class PlaybackNotificationManager(
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
                 try {
-                    postNotification(buildNotification(sess, track, isPlaying, bmp))
+                    postNotification(buildNotification(sess, track, isPlaying, bmp, showLargeIcon = true))
                 } catch (e: Exception) {
                     NativeLogger.emit("warn", "Notification", "async refresh failed: ${e.message}")
                 }
@@ -199,6 +230,7 @@ class PlaybackNotificationManager(
         track: Map<String, Any?>?,
         isPlaying: Boolean,
         bitmap: Bitmap?,
+        showLargeIcon: Boolean,
     ): android.app.Notification {
         val title = track?.get("title") as? String ?: "Music Player"
         val artist = track?.get("artist") as? String ?: ""
@@ -220,7 +252,9 @@ class PlaybackNotificationManager(
         }
 
         launchPendingIntent?.let { builder.setContentIntent(it) }
-        bitmap?.let { builder.setLargeIcon(it) }
+        if (showLargeIcon) {
+            bitmap?.let { builder.setLargeIcon(it) }
+        }
 
         if (session != null) {
             builder
@@ -231,6 +265,19 @@ class PlaybackNotificationManager(
                 .setStyle(MediaStyleNotificationHelper.MediaStyle(session).setShowActionsInCompactView(0, 1, 2))
         }
         return builder.build()
+    }
+
+    private fun resolveSessionArtworkUri(session: MediaSession?): String? {
+        val player = session?.player ?: return null
+
+        val itemArtworkUri = runCatching {
+            player.currentMediaItem?.mediaMetadata?.artworkUri?.toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+        if (itemArtworkUri != null) return itemArtworkUri
+
+        return runCatching {
+            player.mediaMetadata.artworkUri?.toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
     private fun notificationIconColor(): Int {
