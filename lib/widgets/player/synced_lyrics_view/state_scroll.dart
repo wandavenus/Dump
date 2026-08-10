@@ -45,7 +45,10 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
       unawaited(
         _itemScrollController.scrollTo(
           index: index,
-          duration: const Duration(milliseconds: 200),
+          // Finish the list movement just before the 180 ms highlight style
+          // transition completes, so the new active line is already settled
+          // when its highlight reaches the end of its transition.
+          duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
           alignment: 0.2,
         ),
