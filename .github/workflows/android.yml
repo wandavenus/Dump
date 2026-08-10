@@ -60,14 +60,15 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-pub --no-fatal-warnings --no-fatal-infos
 
-      - run: >
+      - name: Build release APK
+        run: >
           flutter build apk
           --release
           --target-platform android-arm64
           --no-pub
           --obfuscate
-          --split-debug-info=build/debug-info  
-      
+          --split-debug-info=build/debug-info
+
       - name: Rename APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
@@ -93,3 +94,19 @@ jobs:
 
             ${{ steps.commit.outputs.message }}
           files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
+
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping-${{ github.run_number }}
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload Flutter debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-debug-info-${{ github.run_number }}
+          path: build/debug-info
+          if-no-files-found: error
+          retention-days: 90
