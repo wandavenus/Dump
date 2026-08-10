@@ -27,6 +27,7 @@ const List<_ChangelogEntry> _changelogEntries = [
       'Artwork kecil tidak lagi di-upscale ke 1024px (tetap resolusi asli, tajam; sistem yang melakukan scaling akhir) dan decode memakai ARGB_8888 agar art yang sudah persegi 1024px tidak di-letterbox ulang.',
       'Artwork hasil prewarm kini langsung tampil saat lagu tersebut sudah diputar (repost otomatis), tidak menunggu siklus refresh berikutnya.',
       'Prewarm artwork lagu berikutnya juga berlaku di ganti-lagu non-crossfade (next/prev/akhir lagu): artwork dimuat saat lagu berganti sehingga window artwork kosong di transisi non-crossfade ikut hilang; generation load kini per-lagu agar prewarm lagu berikutnya tidak membatalkan hasil load lagu yang sedang diputar.',
+      'Guard skip next/prev terlalu cepat: tekan next/prev beruntun searah dalam 500ms diabaikan sehingga tidak terjadi kaskade crossfade-cancel + preload paksa + refresh artwork session + refresh notifikasi (bikin stutter); ganti arah (next → prev) tetap jalan, watchdog recovery tetap dieksekusi (force).',
     ],
   ),
   _ChangelogEntry(

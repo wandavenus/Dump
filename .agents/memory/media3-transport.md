@@ -36,3 +36,17 @@ add actions manually.
 ## Packages removed
 `just_audio: ^0.10.5` and `audio_service: ^0.18.18` had zero imports in lib/ — pure dead entries.
 `BackgroundAudioHandler` kept as a no-op shim; its static callbacks remain wired for future use.
+
+## Rapid skip guard (SKIP-01, 1.5.28)
+- All next/prev entry points (Flutter UI `skipNext`/`skipPrevious` MethodChannel, notification
+  `ACTION_SKIP_NEXT/PREV`, MediaSession/AVRCP via `ActivePlayerProxy.onSkipNext/onSkipPrev`)
+  funnel through `TransportCommands.handleSkipNext`/`handleSkipPrevious` — the guard lives there,
+  not in any individual caller.
+- `SKIP_THROTTLE_MS = 500` (TransportCommands companion): a same-direction repeat inside the
+  window is dropped (verbose log) BEFORE any side effect — sleep-timer cancel, crossfade cancel,
+  standby rebuild, `preloadNextTrack(force)`, session-artwork replace, notification refresh.
+  Direction switch (next → prev) is never throttled (undo gesture).
+- `skipNextNative(force)` / `skipPrevNative(force)` bypass the guard. The stuck-playback watchdog
+  (`transportState.onStuck` retry 2) calls `skipNextNative(force = true)` so a genuinely
+  undecodable file always advances even right after a user skip. End-of-track auto-advance is
+  internal to ExoPlayer and never routes through the guard.

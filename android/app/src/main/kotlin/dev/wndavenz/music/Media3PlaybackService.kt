@@ -511,9 +511,12 @@ class Media3PlaybackService : MediaSessionService() {
                         p.prepare()
                     } else {
                         // Attempt 2: the file itself is undecodable — skip it.
+                        // force = true bypasses the rapid-skip guard (SKIP-01): a
+                        // stuck decoder must always recover, even if the user just
+                        // pressed next within the throttle window.
                         NativeLogger.emit("warn", "Watchdog",
                             "Re-prepare had no effect — skipping to next track")
-                        transportCommands.skipNextNative()
+                        transportCommands.skipNextNative(force = true)
                     }
                 }
             },
