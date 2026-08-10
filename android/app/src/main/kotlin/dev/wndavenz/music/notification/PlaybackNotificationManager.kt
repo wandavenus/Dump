@@ -129,7 +129,7 @@ class PlaybackNotificationManager(
         val songId = (track?.get("id") as? Number)?.toInt() ?: 0
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         val cached = cacheKey?.let { bitmapCache.get(it) }
-        val hasCached = cacheKey == null || bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)
+        val hasCached = cacheKey == null || cached != null || isInNoArtworkCache(cacheKey)
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
         if (!hasCached && cacheKey != null) {
@@ -158,8 +158,24 @@ class PlaybackNotificationManager(
                 if (generation != artworkLoadGeneration) return@post
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 NativeLogger.emit("debug", "Notification", "prewarmArtwork done: cacheKey=$cacheKey bmp=${bmp != null}")
+                // If the prewarmed track became the current track while loading
+                // (e.g. user hit next), refresh() saw our in-flight key and
+                // skipped its own async load — repost so the artwork appears
+                // immediately instead of waiting for the next refresh cycle.
+                if (cacheKey != null && cacheKey == currentTrackCacheKey()) {
+                    val sess = getSession() ?: return@post
+                    postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
+                }
             }
         }
+    }
+
+    /** Cache key of the current track (artworkUri, else "song:$id"). */
+    private fun currentTrackCacheKey(): String? {
+        val track = getCurrentTrack()
+        (track?.get("artworkUri") as? String)?.let { return it }
+        val id = (track?.get("id") as? Number)?.toInt() ?: 0
+        return if (id > 0) "song:$id" else null
     }
 
     private fun refreshAsync(
@@ -311,7 +327,10 @@ class PlaybackNotificationManager(
             if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
 
             val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, NOTIF_ART_PX)
-            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val decodeOpts = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
             service.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, decodeOpts)
             }
@@ -329,28 +348,35 @@ class PlaybackNotificationManager(
             bytes,
             0,
             bytes.size,
-            BitmapFactory.Options().apply { inSampleSize = sample },
+            BitmapFactory.Options().apply {
+                inSampleSize = sample
+                // ARGB_8888 so already-square art hits the fast path in
+                // normalizeNotificationArtwork() instead of being re-letterboxed.
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            },
         )
     }
 
     private fun normalizeNotificationArtwork(source: Bitmap): Bitmap {
         if (source.width <= 0 || source.height <= 0) return source
-        if (source.width == NOTIF_ART_PX && source.height == NOTIF_ART_PX && source.config == Bitmap.Config.ARGB_8888) {
-            return source
-        }
+        // Never upscale: letterbox onto a square capped at NOTIF_ART_PX but no
+        // larger than the source, so small art stays native-sharp and the system
+        // does the final scaling instead of a wasted upscale pass.
+        val target = minOf(NOTIF_ART_PX, maxOf(source.width, source.height))
+        if (source.width == target && source.height == target) return source
 
-        val out = Bitmap.createBitmap(NOTIF_ART_PX, NOTIF_ART_PX, Bitmap.Config.ARGB_8888)
+        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         canvas.drawColor(Color.BLACK)
 
         val scale = minOf(
-            NOTIF_ART_PX.toFloat() / source.width.toFloat(),
-            NOTIF_ART_PX.toFloat() / source.height.toFloat(),
+            target.toFloat() / source.width.toFloat(),
+            target.toFloat() / source.height.toFloat(),
         )
         val drawnW = source.width * scale
         val drawnH = source.height * scale
-        val left = (NOTIF_ART_PX - drawnW) / 2f
-        val top = (NOTIF_ART_PX - drawnH) / 2f
+        val left = (target - drawnW) / 2f
+        val top = (target - drawnH) / 2f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
         return out
