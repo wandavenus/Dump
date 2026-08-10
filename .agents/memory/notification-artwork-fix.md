@@ -11,7 +11,8 @@ collapsed + MediaSessionLegacyStub (Bluetooth). SystemUI/MIUI shade & lock
 screen merender **MediaSession metadata artworkData/ART_URI langsung** (tanpa
 largeIcon dan tanpa BitmapLoader app). Fix sesungguhnya ada di
 [`session-artwork-metadata.md`](session-artwork-metadata.md) — publish artworkData
-full-res persegi via `Player.setMediaMetadata()`. Jangan kembalikan logika
+full-res persegi dengan replace current MediaItem (`Player.replaceMediaItems`;
+`Player.setMediaMetadata` TIDAK ada di Media3). Jangan kembalikan logika
 "resolveSessionArtworkUri" (commit 8a157cf) yang membiarkan SystemUI decode URI
 albumart low-res.
 
