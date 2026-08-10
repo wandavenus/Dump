@@ -45,9 +45,8 @@ extension _SyncedLyricsViewScrollState on _SyncedLyricsViewState {
       unawaited(
         _itemScrollController.scrollTo(
           index: index,
-          // Let the line movement ease into the highlight slightly more slowly
-          // so the transition does not feel like the queue snaps into place.
-          duration: const Duration(milliseconds: 220),
+          // Slow the line's travel into the highlight for a softer transition.
+          duration: const Duration(milliseconds: 500),
           curve: Curves.easeOutCubic,
           alignment: 0.2,
         ),
