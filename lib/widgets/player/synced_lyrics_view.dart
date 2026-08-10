@@ -28,6 +28,49 @@ part 'synced_lyrics_view/karaoke_line_painter.dart';
 /// [ScrollPosition] is currently live inside a [SyncedLyricsView].
 ///
 /// [ScrollOffsetController.animateScroll] (the mechanism `scrollable_positioned_list`
-/// exposes publicly) always drives the scroll via an animated scroll. The
-/// handle bypasses that path for forwarded drag gestures so the lyrics track
-/// the finger 1:1.
+/// exposes publicly) always drives the scroll via an animated
+/// `DrivenScrollActivity`, even with `Duration.zero` — there is no direct
+/// `jumpTo`-equivalent on it. Calling it once per drag-update event spins up a
+/// fresh animation every time, which feels laggy/rigid compared to a real
+/// finger-tracking scroll. This handle instead captures the actual
+/// [BuildContext] of the live internal `Scrollable` (via `ScrollNotification.context`)
+/// and calls [ScrollPosition.jumpTo] on it directly — the same primitive a
+/// normal drag-to-scroll list uses, so it tracks the finger 1:1 and fires the
+/// same scroll notifications a genuine user scroll would.
+class LyricsDragHandle {
+  _SyncedLyricsViewState? _state;
+
+  /// True while a drag is forwarded from the controls/relay area inside
+  /// PlayerContent. Those updates use jumpTo and therefore do not carry
+  /// ScrollUpdateNotification.dragDetails.
+  bool isExternalDragActive = false;
+
+  void _attach(_SyncedLyricsViewState state) => _state = state;
+
+  void _detach(_SyncedLyricsViewState state) {
+    if (_state == state) _state = null;
+  }
+
+  /// Scrolls the live list by [deltaY] pixels (positive = finger moved down,
+  /// content should move up — matches the sign convention of
+  /// [DragUpdateDetails.delta.dy]).
+  void scrollByDelta(double deltaY) => _state?._jumpByDelta(deltaY);
+
+  /// Releases the live list into a normal ballistic fling on drag-release,
+  /// so a forwarded drag decelerates naturally instead of stopping dead —
+  /// matching the feel of scrolling the list directly. [primaryVelocity] is
+  /// the raw on-screen finger velocity (e.g. from
+  /// `DragEndDetails.primaryVelocity`); this negates it internally to match
+  /// [scrollByDelta]'s sign convention.
+  void flingByVelocity(double primaryVelocity) =>
+      _state?._flingByVelocity(-primaryVelocity);
+
+  /// Tells the live lyrics list that its viewport is about to change size.
+  ///
+  /// The expand/collapse design intentionally changes the parent layout in
+  /// one step. Saving the current pixel offset before that layout pass lets
+  /// the list restore the same visible lyric afterwards instead of appearing
+  /// to jump when the bottom controls fade away.
+  void preservePositionForViewportResize() =>
+      _state?._prepareForViewportResize();
+}
