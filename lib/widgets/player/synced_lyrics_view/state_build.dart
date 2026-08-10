@@ -59,15 +59,15 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               final phase = Curves.easeOut.transform(
                 _lineTransitionController.value,
               );
-              final rubber =
-                  11.0 * math.sin(math.pi * phase) * distanceFactor;
+              final rubber = 11.0 * math.sin(math.pi * phase) * distanceFactor;
               final settle = Curves.easeOutBack.transform(
                 _lineTransitionController.value,
               );
               final overshoot =
                   2.5 * math.sin(math.pi * 1.5 * settle) * distanceFactor;
               final lead = index < _currentIndex ? 0.72 : 1.0;
-              final lineOffset = direction *
+              final lineOffset =
+                  direction *
                   (rubber + overshoot) *
                   lead *
                   (isActive ? 0.18 : 1.0);
@@ -77,10 +77,13 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               // behind. Every line returns to its original 1.0x size.
               final distanceFromActive = (index - _currentIndex).abs();
               final stagger = (distanceFromActive * 0.10).clamp(0.0, 0.45);
-              final scaleProgress = ((t - stagger) / (1.0 - stagger))
-                  .clamp(0.0, 1.0);
-              final scalePulse =
-                  math.sin(math.pi * Curves.easeOut.transform(scaleProgress));
+              final scaleProgress = ((t - stagger) / (1.0 - stagger)).clamp(
+                0.0,
+                1.0,
+              );
+              final scalePulse = math.sin(
+                math.pi * Curves.easeOut.transform(scaleProgress),
+              );
               final scale = 1.0 + (0.045 * scalePulse);
 
               return Transform.translate(
