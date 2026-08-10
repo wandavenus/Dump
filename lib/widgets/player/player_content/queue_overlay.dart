@@ -23,7 +23,7 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   @override
   void didUpdateWidget(_QueueOverlayBody old) {
     super.didUpdateWidget(old);
-    // Auto-scroll to current track when the overlay becomes visible.
+    // Position the current track when the overlay becomes visible.
     if (widget.isVisible && !old.isVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
     }
@@ -32,21 +32,17 @@ class _QueueOverlayBodyState extends State<_QueueOverlayBody> {
   void _scrollToCurrent() {
     if (!widget.scrollController.hasClients) return;
     final idx = AudioService.playbackState.value.currentIndex;
-    if (idx <= 0) return;
-    // Standard ListTile height (with subtitle) is ~72 px.
-    // Scroll so the item above current is visible, centring the current row.
-    const itemH = 72.0;
-    final target = ((idx - 1) * itemH).clamp(
+    if (idx < 0) return;
+
+    // _QueueRow is 60 px tall: 44 px artwork + 8 px vertical padding on each side.
+    // Place the current row in the vertical center of the viewport without animation.
+    const itemH = 60.0;
+    final viewportH = widget.scrollController.position.viewportDimension;
+    final target = (idx * itemH - (viewportH - itemH) / 2).clamp(
       0.0,
       widget.scrollController.position.maxScrollExtent,
     );
-    unawaited(
-      widget.scrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOut,
-      ),
-    );
+    widget.scrollController.jumpTo(target);
   }
 
   @override
