@@ -5,10 +5,20 @@ description: Two-stage artwork fallback in PlaybackNotificationManager + TTL-bas
 
 # Notification Artwork Fix
 
-## Rule
+## UPDATE 1.5.27 — jalur ini BUKAN yang merender bug zoom+pecah
+`loadBitmap()` / largeIcon / BitmapLoader hanya menyentuh jalur notifikasi
+collapsed + MediaSessionLegacyStub (Bluetooth). SystemUI/MIUI shade & lock
+screen merender **MediaSession metadata artworkData/ART_URI langsung** (tanpa
+largeIcon dan tanpa BitmapLoader app). Fix sesungguhnya ada di
+[`session-artwork-metadata.md`](session-artwork-metadata.md) — publish artworkData
+full-res persegi via `Player.setMediaMetadata()`. Jangan kembalikan logika
+"resolveSessionArtworkUri" (commit 8a157cf) yang membiarkan SystemUI decode URI
+albumart low-res.
+
+## Rule (jalur notifikasi + Bluetooth, tetap berlaku)
 `PlaybackNotificationManager.loadBitmap()` now has two stages:
-1. ContentResolver (artUri dari MediaStore albumart URI)
-2. `ArtworkCacheManager.getOrExtract(songId)` — same pipeline as Full Player
+1. Embedded full-res via MediaMetadataRetriever (uncommitted 1.5.27)
+2. ContentResolver (artUri dari MediaStore albumart URI) / `ArtworkCacheManager.getOrExtract(songId)`
 
 `noArtworkUris` (permanent blacklist) diganti `noArtworkTimestamps: HashMap<String, Long>` dengan TTL 30 detik.
 

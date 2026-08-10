@@ -3,6 +3,11 @@ package dev.wndavenz.music
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
@@ -28,20 +33,25 @@ import java.util.concurrent.Executors
  *   This prevents album art from appearing on Bluetooth devices and the lock screen.
  *
  * Strategy (two-pass, fully off-main-thread):
- *   1. Fast path  — open the artworkUri via ContentResolver (works for songs whose
- *      art MediaStore has already indexed).
- *   2. Fallback   — parse albumId from the URI, query MediaStore for any track with
- *      that albumId, then serve that song's artwork from the shared persistent cache
- *      (ArtworkCacheManager.getOrExtract): a cache hit returns the stored bytes
+ *   1. Embedded first — parse albumId from the URI, find the MediaStore track, then
+ *      decode the FULL-RESOLUTION embedded picture straight from the audio file via
+ *      MediaMetadataRetriever (sharpest possible source; the persistent cache only
+ *      stores ≤1000 px copies).  MediaStore's own albumart URI is NOT preferred:
+ *      it is a low-res thumbnail (often ≤512 px) that SystemUI upscales → blurry.
+ *   2. Fallback    — the shared persistent cache (ArtworkCacheManager.getOrExtract),
+ *      then the original artworkUri via ContentResolver (for songs whose art
+ *      MediaStore has already indexed).  A cache hit returns the stored bytes
  *      immediately — raw-copied JPEG for most songs since 1.5.19 — and a cache miss
- *      runs the exact same extract-and-persist pipeline as the full player.  No
- *      MediaMetadataRetriever is used here, and no deprecated DATA column is read —
- *      the song is identified by its MediaStore content URI so scoped-storage rules
- *      are respected.
+ *      runs the same extract-and-persist pipeline as the full player.  No deprecated
+ *      DATA column is read — the song is identified by its MediaStore content URI so
+ *      scoped-storage rules are respected.
  *
- * Bitmap size: every decode path (URI stream, cached bytes, byte-array API) uses a
- * two-pass BitmapFactory decode capped at MAX_PX on the longest side (bounds first,
- * then sampled), keeping memory usage bounded instead of allocating full-size art.
+ * Bitmap size & shape: every decode path (URI stream, cached bytes, byte-array API)
+ * uses a two-pass BitmapFactory decode capped at MAX_PX on the longest side (bounds
+ * first, then sampled) AND is letterboxed onto a MAX_PX×MAX_PX square with a black
+ * background.  SystemUI / MIUI media templates center-crop non-square bitmaps to
+ * fill the artwork area — that crop is exactly what makes album art look "zoomed".
+ * Pre-letterboxing to a square keeps the full image visible and sharp.
  *
  * Thread-safety: all work is executed on a single daemon thread; the SettableFuture
  * is always resolved (set or setException) before the thread task ends.
@@ -54,7 +64,7 @@ class FallbackBitmapLoader(
     companion object {
         private const val TAG    = "FallbackBitmapLoader"
         /** Max longest side for decoded bitmaps — matches PlaybackNotificationManager. */
-        private const val MAX_PX = 512
+        private const val MAX_PX = 1024
 
         /**
          * Session-lifetime negative cache: albumIds confirmed to have NO resolvable
@@ -120,7 +130,9 @@ class FallbackBitmapLoader(
 
         executor.execute {
             try {
-                val bmp = tryUri(uri) ?: tryEmbedded(uri)
+                // Embedded first: sharpest source (full-res embedded picture).
+                // MediaStore albumart URI second: low-res thumbnail fallback.
+                val bmp = tryEmbedded(uri) ?: tryUri(uri)
                 if (bmp != null) {
                     future.set(bmp)
                 } else {
@@ -140,34 +152,10 @@ class FallbackBitmapLoader(
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * Fast path: open [uri] via ContentResolver and decode with size capping.
-     * Returns null on any failure (URI not found, IO error, decode failure).
-     */
-    private fun tryUri(uri: Uri): Bitmap? {
-        return try {
-            // Pass 1: read bounds only (zero pixel allocation).
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, boundsOpts)
-            }
-            // If bounds are invalid the URI content was not a decodable image.
-            if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
-
-            // Pass 2: decode at reduced size.
-            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
-            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, decodeOpts)
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
-            null
-        }
-    }
-
-    /**
-     * Fallback path: parse albumId from [uri], find a matching MediaStore track,
-     * and serve that song's artwork from the shared persistent cache.
+     * Fallback path (now primary): parse albumId from [uri], find a matching
+     * MediaStore track, and decode that song's FULL-RESOLUTION embedded artwork
+     * straight from the audio file.  Falls back to the shared persistent cache
+     * (≤1000 px copies) if the direct decode fails.
      *
      * Expected URI format: content://media/external/audio/albumart/{albumId}
      */
@@ -184,10 +172,17 @@ class FallbackBitmapLoader(
             Log.d(TAG, "Cannot parse songId from $songUri")
             return null
         }
-        // Same pipeline as the in-app artwork: cache hit serves the stored bytes
-        // immediately (raw-copied JPEG for most songs since 1.5.19 E-A); cache miss
-        // extracts + persists here.  No MediaMetadataRetriever round-trip and never
-        // a full-size decode — [decodeCapped] caps at MAX_PX below.
+
+        // 1) Full-resolution embedded picture — no cache round-trip, no ≤1000 px
+        //    cap, no WebP re-encode. This is the sharpest artwork the file has.
+        val fullRes = embeddedRawBytes(songId)
+        if (fullRes != null) {
+            val bmp = decodeCapped(fullRes)
+            if (bmp != null) return bmp
+        }
+
+        // 2) Persistent cache fallback (raw-copied JPEG for ≤1000 px art, WebP 85
+        //    re-encode beyond that) — same pipeline as the in-app player.
         val cachedPath = artworkCache.getOrExtract(songId) ?: run {
             Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
             return null
@@ -229,21 +224,104 @@ class FallbackBitmapLoader(
         }
     }
 
+    /** Reads the embedded picture bytes directly from the audio file (full-res). */
+    private fun embeddedRawBytes(songId: Int): ByteArray? {
+        val mmr = MediaMetadataRetriever()
+        return try {
+            val uri = Uri.withAppendedPath(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString()
+            )
+            mmr.setDataSource(context, uri)
+            mmr.embeddedPicture
+        } catch (e: Exception) {
+            Log.d(TAG, "Embedded extraction failed for songId=$songId: ${e.message}")
+            null
+        } finally {
+            // Always release, even if setDataSource()/embeddedPicture throws.
+            // Relying on the finalizer here is known to cause
+            // MediaMetadataRetriever.finalize() TimeoutException crashes in
+            // apps that load artwork inside a scrolling grid/RecyclerView.
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // Cleanup must not mask the original extraction result/error.
+            }
+        }
+    }
+
+    /**
+     * Fast path: open [uri] via ContentResolver and decode with size capping.
+     * Returns null on any failure (URI not found, IO error, decode failure).
+     * The MediaStore albumart URI is the low-res thumbnail — used only as the
+     * last resort after [tryEmbedded] fails.
+     */
+    private fun tryUri(uri: Uri): Bitmap? {
+        return try {
+            // Pass 1: read bounds only (zero pixel allocation).
+            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, boundsOpts)
+            }
+            // If bounds are invalid the URI content was not a decodable image.
+            if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
+
+            // Pass 2: decode at reduced size.
+            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOpts)
+            } ?: return null
+            normalizeSquare(decoded, MAX_PX)
+        } catch (e: Exception) {
+            Log.d(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
+            null
+        }
+    }
+
     /**
      * Two-pass decode capped at [MAX_PX] on the longest side — bounds pass first
-     * (zero pixel allocation), then a sampled decode.  The E-A equivalent for the
-     * BitmapLoader contract (which must return a Bitmap): decode only what the
-     * notification/lock-screen actually renders, never a full-size embedded image.
+     * (zero pixel allocation), then a sampled decode — then letterboxed onto a
+     * [MAX_PX]×[MAX_PX] square so SystemUI never center-crops non-square art.
      */
     private fun decodeCapped(bytes: ByteArray): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, MAX_PX)
-        return BitmapFactory.decodeByteArray(
+        val decoded = BitmapFactory.decodeByteArray(
             bytes, 0, bytes.size,
             BitmapFactory.Options().apply { inSampleSize = sample },
+        ) ?: return null
+        return normalizeSquare(decoded, MAX_PX)
+    }
+
+    /**
+     * Letterboxes [source] onto a [maxPx]×[maxPx] square with a black background.
+     * SystemUI / MIUI media templates fill the artwork area by center-cropping
+     * non-square bitmaps — pre-letterboxing keeps the full image visible instead
+     * of zoomed. Mirrors PlaybackNotificationManager.normalizeNotificationArtwork.
+     */
+    private fun normalizeSquare(source: Bitmap, maxPx: Int): Bitmap {
+        if (source.width <= 0 || source.height <= 0) return source
+        if (source.width == maxPx && source.height == maxPx && source.config == Bitmap.Config.ARGB_8888) {
+            return source
+        }
+
+        val out = Bitmap.createBitmap(maxPx, maxPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(Color.BLACK)
+
+        val scale = minOf(
+            maxPx.toFloat() / source.width.toFloat(),
+            maxPx.toFloat() / source.height.toFloat(),
         )
+        val drawnW = source.width * scale
+        val drawnH = source.height * scale
+        val left = (maxPx - drawnW) / 2f
+        val top = (maxPx - drawnH) / 2f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
+        return out
     }
 
     /** Smallest power-of-two sample size so neither dimension exceeds [maxPx]. */

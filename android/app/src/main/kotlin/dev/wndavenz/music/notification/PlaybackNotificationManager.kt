@@ -103,20 +103,14 @@ class PlaybackNotificationManager(
 
         val session = getSession()
         val track = getCurrentTrack()
-        val sessionArtworkUri = resolveSessionArtworkUri(session)
         val notification = buildNotification(
             session = session,
             track = track,
             isPlaying = getIsPlaying(),
             bitmap = null,
-            showLargeIcon = sessionArtworkUri == null,
         )
         startForegroundWith(notification)
-
-        // Only prewarm / fetch a bitmap when Session artwork is not available.
-        if (sessionArtworkUri == null) {
-            refreshAsync()
-        }
+        refreshAsync()
     }
 
     fun refresh() {
@@ -126,29 +120,17 @@ class PlaybackNotificationManager(
 
         val track = getCurrentTrack()
         val isPlaying = getIsPlaying()
-        val sessionArtworkUri = resolveSessionArtworkUri(sess)
 
-        // Plan B: when the MediaSession already exposes artwork metadata, let
-        // MediaStyle / SystemUI render it directly and do not inject a largeIcon.
-        if (!sessionArtworkUri.isNullOrBlank()) {
-            postNotification(
-                buildNotification(
-                    session = sess,
-                    track = track,
-                    isPlaying = isPlaying,
-                    bitmap = null,
-                    showLargeIcon = false,
-                )
-            )
-            return
-        }
-
+        // Always render our own normalized bitmap via setLargeIcon. An explicit
+        // largeIcon overrides MediaStyleNotificationHelper's auto-rendered session
+        // artwork, which would otherwise decode the low-res MediaStore album-art
+        // thumbnail (≤512 px, non-square) → SystemUI center-crop = zoom + pixelation.
         val artUri = track?.get("artworkUri") as? String
         val songId = (track?.get("id") as? Number)?.toInt() ?: 0
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         val cached = cacheKey?.let { bitmapCache.get(it) }
         val hasCached = cacheKey == null || bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)
-        postNotification(buildNotification(sess, track, isPlaying, cached, showLargeIcon = true))
+        postNotification(buildNotification(sess, track, isPlaying, cached))
 
         if (!hasCached && cacheKey != null) {
             refreshAsync(artUri, songId, track, isPlaying)
@@ -200,7 +182,7 @@ class PlaybackNotificationManager(
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
                 try {
-                    postNotification(buildNotification(sess, track, isPlaying, bmp, showLargeIcon = true))
+                    postNotification(buildNotification(sess, track, isPlaying, bmp))
                 } catch (e: Exception) {
                     NativeLogger.emit("warn", "Notification", "async refresh failed: ${e.message}")
                 }
@@ -230,7 +212,6 @@ class PlaybackNotificationManager(
         track: Map<String, Any?>?,
         isPlaying: Boolean,
         bitmap: Bitmap?,
-        showLargeIcon: Boolean,
     ): android.app.Notification {
         val title = track?.get("title") as? String ?: "Music Player"
         val artist = track?.get("artist") as? String ?: ""
@@ -252,9 +233,7 @@ class PlaybackNotificationManager(
         }
 
         launchPendingIntent?.let { builder.setContentIntent(it) }
-        if (showLargeIcon) {
-            bitmap?.let { builder.setLargeIcon(it) }
-        }
+        bitmap?.let { builder.setLargeIcon(it) }
 
         if (session != null) {
             builder
@@ -267,40 +246,28 @@ class PlaybackNotificationManager(
         return builder.build()
     }
 
-    private fun resolveSessionArtworkUri(session: MediaSession?): String? {
-        val player = session?.player ?: return null
-
-        val itemArtworkUri = runCatching {
-            player.currentMediaItem?.mediaMetadata?.artworkUri?.toString()
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-        if (itemArtworkUri != null) return itemArtworkUri
-
-        return runCatching {
-            player.mediaMetadata.artworkUri?.toString()
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
-
     private fun notificationIconColor(): Int {
         val nightMode = service.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         return if (nightMode == Configuration.UI_MODE_NIGHT_YES) Color.WHITE else Color.BLACK
     }
 
     private fun loadBitmap(artUri: String?, songId: Int): Bitmap? {
+        // 1) Full-resolution embedded artwork decoded straight from the file.
         if (songId > 0) {
             val original = loadOriginalEmbeddedBitmap(songId)
             if (original != null) return original
         }
 
-        val fromUri = tryUri(artUri)
-        if (fromUri != null) return fromUri
-
+        // 2) App's persistent artwork cache (extracted embedded art, ≤1000 px).
+        //    Higher quality than the MediaStore album-art thumbnail, so prefer
+        //    it over the URI below.
         if (artworkCacheManager != null && songId > 0) {
             try {
                 val path = artworkCacheManager.getOrExtract(songId)
                 if (path != null) {
                     val bmp = BitmapFactory.decodeFile(path)
                     if (bmp != null) {
-                        NativeLogger.emit("debug", "Notification", "artwork loaded via cache fallback for songId=$songId")
+                        NativeLogger.emit("debug", "Notification", "artwork loaded via cache for songId=$songId")
                         return bmp
                     }
                 }
@@ -309,7 +276,8 @@ class PlaybackNotificationManager(
             }
         }
 
-        return null
+        // 3) MediaStore album-art thumbnail URI — lowest resolution, last resort.
+        return tryUri(artUri)
     }
 
     private fun loadOriginalEmbeddedBitmap(songId: Int): Bitmap? {

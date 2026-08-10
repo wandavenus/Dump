@@ -115,6 +115,10 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
     // ART-01: artwork cache shared between notification and full-player pipelines.
     private lateinit var serviceArtworkCache:  ArtworkCacheManager
+    // Session artwork (SystemUI/MIUI media card, lock screen): high-res square
+    // artworkData bytes published into the MediaSession metadata — SystemUI
+    // renders the session's ART bytes, NOT the notification largeIcon.
+    private lateinit var sessionArtworkProvider: SessionArtworkProvider
 
     // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
     // Shut down in onDestroy() so tasks don't outlive the service.
@@ -263,6 +267,10 @@ class Media3PlaybackService : MediaSessionService() {
         // ({filesDir}/artwork/) as MainActivity's ArtworkCacheManager, so cache hits
         // from Full Player warm-up are served here without re-extraction.
         serviceArtworkCache = ArtworkCacheManager(this)
+        // Session artwork provider: produces the full-res square letterboxed
+        // bytes published as MediaSession metadata (artworkData) so SystemUI /
+        // MIUI render sharp art instead of the low-res MediaStore albumart URI.
+        sessionArtworkProvider = SessionArtworkProvider(this, serviceArtworkCache)
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
@@ -569,6 +577,7 @@ class Media3PlaybackService : MediaSessionService() {
         // When Flutter subscribes to any event stream, push the full current state
         EventEmitter.setOnSubscribeCallback { transportState.emitAll(emitQueue = true) }
 
+
         // Attach listener to primary player
         primaryPlayer?.let { attachPlayerListener(it) }
 
@@ -630,6 +639,11 @@ class Media3PlaybackService : MediaSessionService() {
 
         restoreQueueFromPrefs()
 
+        // Publish the restored track's high-res square artwork to the session
+        // metadata (SystemUI/MIUI media card) — no transition may fire until
+        // the user resumes, so refresh explicitly.
+        scheduleSessionArtworkRefresh()
+
         NativeLogger.emit(
             "info", "Media3",
             "onCreate: ExoPlayer ready (Android SDK ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
@@ -641,6 +655,60 @@ class Media3PlaybackService : MediaSessionService() {
         // now is it safe for Dart to push settings that reach into effectsManager /
         // queueManager / crossfadeController. See ServiceReadyGate doc comment.
         ServiceReadyGate.markReady()
+    }
+
+    // ── Session artwork metadata (SystemUI / MIUI media card) ─────────────────
+
+    /**
+     * Publishes the current track's high-resolution square artwork as
+     * MediaSession metadata (`artworkData`) on the main thread.
+     *
+     * WHY: SystemUI / MIUI media surfaces (notification shade card, lock screen
+     * media controls) render artwork from the MediaSession metadata — not from
+     * the notification's setLargeIcon and not through Media3's BitmapLoader.
+     * MediaItemFactory only sets artworkUri = content://media/.../albumart/{id}
+     * (the low-res MediaStore thumbnail), which SystemUI upscales + center-crops
+     * → zoomed & pixelated art. Publishing full-res square letterboxed bytes
+     * makes every consumer (SystemUI, MIUI, MediaStyleNotificationHelper,
+     * MediaSessionLegacyStub/Bluetooth) render the same sharp square.
+     */
+    private fun scheduleSessionArtworkRefresh() {
+        handler.post { refreshSessionArtwork() }
+    }
+
+    private fun refreshSessionArtwork() {
+        val p = activePlayer ?: return
+        val track = transportState.currentTrackMap() ?: return
+        val songId = (track["id"] as? Number)?.toInt() ?: 0
+        val artUri = track["artworkUri"] as? String
+        val mediaId = p.currentMediaItem?.mediaId ?: return
+
+        // No artwork source for this track: clear any artworkData left over from
+        // the previous track so stale art is never shown for a song without art.
+        if (songId <= 0 && artUri.isNullOrBlank()) {
+            runCatching { p.setMediaMetadata(MediaMetadata.Builder().build()) }
+            return
+        }
+
+        sessionArtworkProvider.provide(songId, artUri) { bytes ->
+            handler.post {
+                // Ignore stale results (track changed while we were loading).
+                if (p !== activePlayer || p.currentMediaItem?.mediaId != mediaId) return@post
+                if (bytes == null) {
+                    // Art expected but unavailable — clear stale bytes from the
+                    // previous track instead of leaving them in the session.
+                    runCatching { p.setMediaMetadata(MediaMetadata.Builder().build()) }
+                    return@post
+                }
+                runCatching {
+                    p.setMediaMetadata(MediaMetadata.Builder().setArtworkData(bytes).build())
+                }.onFailure {
+                    NativeLogger.emit("warn", "Media3", "setMediaMetadata(artworkData) failed: ${it.message}")
+                }
+                NativeLogger.emit("debug", "Media3",
+                    "session artworkData updated (${bytes.size}B) mediaId=$mediaId")
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -1212,6 +1280,7 @@ class Media3PlaybackService : MediaSessionService() {
 
     transportState.emitAll()
     notificationManager.refresh()
+    if (playbackState == Player.STATE_READY) scheduleSessionArtworkRefresh()
 
     if (playbackState == Player.STATE_READY &&
         crossfadeController.crossfadeDurationSec > 0f) {
@@ -1276,6 +1345,9 @@ class Media3PlaybackService : MediaSessionService() {
                 queueSync.save()
                 transportState.emitAll()
                 notificationManager.refresh()
+                // Publish the new track's high-res square art to the MediaSession
+                // metadata for SystemUI / MIUI media surfaces.
+                scheduleSessionArtworkRefresh()
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
