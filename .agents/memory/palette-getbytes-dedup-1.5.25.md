@@ -17,3 +17,7 @@ Catatan: baca file yang sama oleh Flutter ImageCache (FileImage) DAN BitmapFacto
 ### Fix (1.5.25, murni Dart)
 
 `getBytes` di-refactor: `_bytesInFlight` map (pola identik `_inFlight` di `getPath`) — pemanggil konkuren untuk songId sama berbagi satu read future; owner's `finally` yang menghapus entry. `evict()` ikut membersihkan `_bytesInFlight`. LRU `_bytes` dan perilaku error (evict + re-extract saat file stale) tidak berubah.
+
+### Dihapus total (1.5.26)
+
+Karena `getBytes` tetap 0 pemanggil (lib/test/android), jalur itu dihapus total: `getBytes`, `_readBytesFromDisk`, cache `_bytes` + `_bytesInFlight`, cleanup di `evict()`/`clearMemory()`, dan import `dart:typed_data` (Uint8List tak lagi dipakai di file). Jangan reintroduksi — pipeline warna apa pun harus lewat native (artwork dibaca langsung dari ArtworkCacheManager).

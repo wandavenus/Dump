@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.26',
+    date: '10 Agustus 2026',
+    changes: [
+      'Bersihkan dead code: hapus getBytes() beserta cache bytes-nya dari ArtworkRepository — tidak ada satu pun pemanggil di seluruh repo (preseden hapus getArtwork 1.5.19); jalur palette yang aktif sepenuhnya native jadi tidak terpengaruh.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.25',
     date: '10 Agustus 2026',
     changes: [
