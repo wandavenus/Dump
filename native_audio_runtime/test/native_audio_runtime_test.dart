@@ -112,6 +112,19 @@ void main() {
     );
   });
 
+  test('registerModule rejects IDs that would be truncated natively', () async {
+    await NativeAudioRuntime.instance.initialize();
+    final longModuleId = 'm' * 64;
+
+    final status = NativeAudioRuntime.instance.registerModule(longModuleId);
+
+    expect(status, NativeRuntimeStatus.invalidArgument);
+    expect(
+      NativeAudioRuntime.instance.registeredModuleIds,
+      isNot(contains(longModuleId)),
+    );
+  });
+
   test('registerModule before initialize reports notInitialized', () async {
     await NativeAudioRuntime.instance.dispose();
     final status = NativeAudioRuntime.instance.registerModule(
