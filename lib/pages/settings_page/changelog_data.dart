@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.28',
+    date: '10 Agustus 2026',
+    changes: [
+      'Optimasi jalur artwork notifikasi/lock-screen (hasil audit): FallbackBitmapLoader kini punya cache positif per-album (skip query MediaStore + ekstraksi ulang saat lagu dari album sama diputar lagi) dan probe hingga 3 lagu untuk album kompilasi yang tiap lagunya punya artwork beda.',
+      'Artwork kecil tidak lagi di-upscale ke 1024px (tetap resolusi asli, tajam; sistem yang melakukan scaling akhir) dan decode memakai ARGB_8888 agar art yang sudah persegi 1024px tidak di-letterbox ulang.',
+      'Artwork hasil prewarm kini langsung tampil saat lagu tersebut sudah diputar (repost otomatis), tidak menunggu siklus refresh berikutnya.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.27',
     date: '10 Agustus 2026',
     changes: [

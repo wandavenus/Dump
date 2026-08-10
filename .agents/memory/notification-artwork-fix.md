@@ -31,3 +31,12 @@ albumart low-res.
 - Disk cache di `{filesDir}/artwork/` dishare antara `MainActivity` dan `Media3PlaybackService` (path sama, dua instance terpisah, OK).
 - Cache key: `artUri ?: "song:$songId"` — konsisten di `bitmapCache` (LruCache) dan `noArtworkTimestamps`.
 - `FallbackBitmapLoader` tetap untuk Bluetooth/lock-screen via Media3 `BitmapLoader` — tidak diubah.
+
+## UPDATE 1.5.28 — optimasi minor hasil audit (2 file)
+1. **Cache positif per-album** (`albumArtworkCache`, LruCache 4 album) di FallbackBitmapLoader — album yang sudah resolve art tidak di-query ulang (MediaStore + MediaMetadataRetriever) saat MediaSessionLegacyStub memanggil loadBitmap lagi per metadata/queue update. Negative cache (`noArtworkCache`) tetap.
+2. **Probe multi-track** (`songIdsForAlbum`, MAX_ALBUM_PROBE=3) — album kompilasi: art diambil dari lagu pertama yang punya embedded art, bukan cuma lagu pertama di query.
+3. **Never-upscale** di `normalizeSquare` + `normalizeNotificationArtwork` — letterbox canvas = min(maxPx, sisi terpanjang source); art kecil tetap resolusi asli (tidak ada upscale pass sia-sia).
+4. **`inPreferredConfig = ARGB_8888`** di semua decode — art yang sudah 1024×1024 persegi langsung return di fast-path, tidak di-reletterbox (hemat ~4MB alokasi per panggilan).
+5. **Prewarm repost**: kalau lagu yang di-prewarm sudah jadi current track saat load selesai (user pencet next), notifikasi langsung repost — tidak menunggu refresh berikutnya.
+6. **Hapus double lookup** `bitmapCache.get()` di `refresh()`.
+Catatan: `SessionArtworkProvider.letterboxSquare` sengaja tetap 1024 tetap (session artwork dipakai SystemUI render BESAR, ukuran seragam 1024 lebih aman).
