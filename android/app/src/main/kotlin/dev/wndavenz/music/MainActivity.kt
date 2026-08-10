@@ -62,12 +62,15 @@ class MainActivity : FlutterActivity() {
         threads = 2,
         queueCapacity = 32,
     )
-    // TagLib mutates whole metadata regions. Keep all ReplayGain mutations on
-    // one worker so repeated UI actions cannot rewrite the same MediaStore file
-    // concurrently, while unrelated metadata reads remain parallel.
+    // TagLib mutates whole metadata regions. Two workers (R-C, 1.5.21): each
+    // write→verify cycle runs on its own per-song MediaStore fd, so two different
+    // files can be mutated in parallel while the same file is never touched by
+    // two workers at once — library-wide tag writes finish roughly 2× faster.
+    // MetadataCacheDb (SQLite) already serializes its own writes internally,
+    // and it is already hit from 2 concurrent scan threads today.
     private val replayGainWriteExecutor: ExecutorService = boundedExecutor(
         name = "rg-write",
-        threads = 1,
+        threads = 2,
         queueCapacity = 16,
     )
     private val replayGainScanExecutor: ExecutorService = boundedExecutor(
@@ -786,6 +789,51 @@ class MainActivity : FlutterActivity() {
                                         return@requestReplayGainWriteAccess
                                     }
                                     submitRemove()
+                                }
+                            }
+                        }
+                    }
+
+                    // ── ReplayGain batch tag write (R-B, 1.5.21) ────────────
+                    // One channel call that writes measured gain/peak for many
+                    // songs via the same write→close→reopen→verify→(restore)
+                    // protocol as the single-song "writeReplayGain" — per-song
+                    // result maps keep identical error semantics (plus a
+                    // `songId` so Dart can invalidate exactly what succeeded).
+                    // Callers MUST have pre-authorized write access for every
+                    // songId via requestReplayGainWriteAccessBatch first (the
+                    // Dart scanLibrary batch flow does); songs not
+                    // pre-authorized simply fail per-song with
+                    // WRITE_ACCESS_DENIED (openFd fails) instead of triggering
+                    // per-file system dialogs.
+                    "writeReplayGainBatch" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val requests = (call.arguments as? List<Map<String, Any?>>)
+                            ?: emptyList()
+                        if (requests.isEmpty()) {
+                            result.success(emptyList<Map<String, Any?>>())
+                        } else {
+                            val songIds = requests.mapNotNull {
+                                (it["songId"] as? Number)?.toInt()
+                            }
+                            // Consume the pre-authorization for all ids up front
+                            // (same skip-grant semantics as the single-song path).
+                            batchPreAuthorizedSongIds.removeAll(songIds)
+                            submitBackground(
+                                replayGainWriteExecutor,
+                                onRejected = {
+                                    postToFlutter {
+                                        result.error("metadata_busy", "Metadata queue is busy", null)
+                                    }
+                                },
+                            ) {
+                                try {
+                                    val maps = replayGainBridge.writeReplayGainBatch(requests)
+                                    postToFlutter { result.success(maps) }
+                                } catch (e: Exception) {
+                                    postToFlutter {
+                                        result.error("write_error", e.message, null)
+                                    }
                                 }
                             }
                         }

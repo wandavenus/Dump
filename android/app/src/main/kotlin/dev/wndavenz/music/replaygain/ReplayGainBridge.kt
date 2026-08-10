@@ -195,6 +195,27 @@ class ReplayGainBridge(
         return mapOf("success" to (error == ReplayGainError.NONE), "error" to error.name)
     }
 
+    /**
+     * Handles `writeReplayGainBatch` — the batch counterpart of
+     * [writeReplayGain] (R-B, 1.5.21). Every element must be a valid
+     * single-song write args map with the exact same contract as
+     * [writeReplayGain]; each element is processed through that same
+     * write→close→reopen→verify→(restore) protocol, so per-song
+     * success/error semantics are preserved and one bad file never fails the
+     * whole batch. Each result map additionally carries its `songId` so the
+     * Dart caller can invalidate exactly the songs that were written.
+     *
+     * Callers must have pre-authorized write access for every songId via
+     * MainActivity's `requestReplayGainWriteAccessBatch` first — songs that
+     * were not granted simply resolve `WRITE_ACCESS_DENIED` in their own slot
+     * (openFd fails) without any per-file dialog.
+     */
+    fun writeReplayGainBatch(requests: List<Map<String, Any?>>): List<Map<String, Any?>> =
+        requests.map { request ->
+            val songId = (request["songId"] as? Number)?.toInt()
+            mapOf("songId" to songId) + writeReplayGain(request)
+        }
+
     /** Handles `removeReplayGain`. Requires `songId` — see [writeReplayGain]. */
     fun removeReplayGain(path: String, songId: Int?): Map<String, Any?> {
         if (songId == null) return mapOf("success" to false, "error" to "INVALID_ARGUMENT")
