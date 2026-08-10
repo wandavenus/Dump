@@ -5,15 +5,17 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.content.res.Configuration
 import android.content.pm.ServiceInfo
-import android.graphics.Color
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.SystemClock
+import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
@@ -40,11 +42,11 @@ import java.util.concurrent.Executors
  *        first without artwork, then update once the bitmap is ready. A generation
  *        counter prevents stale async results from overwriting a newer notification.
  * NS-04: launchPendingIntent is cached as a lazy val — no rebuild on every refresh.
- * ART-01: loadBitmap() now has a two-stage fallback pipeline:
- *         1. ContentResolver (MediaStore album art URI)
- *         2. ArtworkCacheManager.getOrExtract(songId) — same pipeline as Full Player
- *        This ensures Notification, Lock Screen, Bluetooth, and Android Auto all draw
- *        artwork from the same source as the in-app Full Player and Mini Player.
+ * ART-01: loadBitmap() now has a notification-first pipeline:
+ *         1. original embedded artwork bytes (direct from file)
+ *         2. ContentResolver (MediaStore album art URI)
+ *         3. ArtworkCacheManager.getOrExtract(songId) — same pipeline as Full Player
+ *        This keeps notification artwork crisp without changing the in-app artwork cache.
  * ART-02: noArtworkUris replaced with a TTL-based map (30 s). Transient failures
  *         (e.g. MediaStore not yet ready on cold start) are retried after expiry
  *         instead of being permanently blocked until app restart.
@@ -358,23 +360,22 @@ class PlaybackNotificationManager(
     }
 
     /**
-     * ART-01: Two-stage artwork loading pipeline — mirrors the Full Player's artwork strategy.
+     * Notification-only artwork loading pipeline.
      *
-     * Stage 1 — ContentResolver (fast path):
-     *   Opens the MediaStore album-art URI directly via ContentResolver with a two-pass
-     *   BitmapFactory decode (bounds first, then scaled to NOTIF_ART_PX). Works for songs
-     *   whose artwork MediaStore has already indexed.
+     * Priority order:
+     *   1. original embedded artwork bytes from the file itself
+     *   2. MediaStore album-art URI
+     *   3. ArtworkCacheManager fallback (same shared pipeline as the player)
      *
-     * Stage 2 — ArtworkCacheManager (fallback):
-     *   Delegates to the same ArtworkCacheManager used by the Full Player.
-     *   It first checks a persistent WebP disk cache ({filesDir}/artwork/{songId}.webp),
-     *   then extracts embedded artwork via MediaMetadataRetriever as a last resort.
-     *   This covers songs in non-standard directories and cold-start scenarios where
-     *   MediaStore hasn't indexed artwork yet.
-     *
-     * Returns null only after both stages have been exhausted.
+     * The embedded-bytes path is used first so the notification can stay crisp
+     * without changing the in-app artwork cache or the list artwork behavior.
      */
     private fun loadBitmap(artUri: String?, songId: Int): Bitmap? {
+        if (songId > 0) {
+            val original = loadOriginalEmbeddedBitmap(songId)
+            if (original != null) return original
+        }
+
         // Stage 1: ContentResolver
         val fromUri = tryUri(artUri)
         if (fromUri != null) return fromUri
@@ -398,6 +399,32 @@ class PlaybackNotificationManager(
         }
 
         return null
+    }
+
+    /**
+     * Loads artwork bytes directly from the audio file itself, bypassing MediaStore
+     * and the shared WebP cache. This is notification-specific so it can prefer
+     * the original source without changing the player/list artwork path.
+     */
+    private fun loadOriginalEmbeddedBitmap(songId: Int): Bitmap? {
+        val mmr = MediaMetadataRetriever()
+        return try {
+            val uri = Uri.withAppendedPath(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                songId.toString(),
+            )
+            mmr.setDataSource(service, uri)
+            val raw = mmr.embeddedPicture ?: return null
+            decodeCapped(raw, NOTIF_ART_PX)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // ignore
+            }
+        }
     }
 
     /**
@@ -432,6 +459,23 @@ class PlaybackNotificationManager(
                 BitmapFactory.decodeStream(it, null, decodeOpts)
             }
         } catch (_: Exception) { null }
+    }
+
+    /**
+     * Decode [bytes] to a Bitmap, keeping neither dimension above [maxPx].
+     * Bounds pass first, then sampled decode.
+     */
+    private fun decodeCapped(bytes: ByteArray, maxPx: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, maxPx)
+        return BitmapFactory.decodeByteArray(
+            bytes,
+            0,
+            bytes.size,
+            BitmapFactory.Options().apply { inSampleSize = sample },
+        )
     }
 
     // ── noArtwork TTL helpers ─────────────────────────────────────────────────
