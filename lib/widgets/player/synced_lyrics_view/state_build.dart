@@ -23,7 +23,10 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
         return false;
       },
       child: ListenableBuilder(
-        listenable: _settingsListenable,
+        listenable: Listenable.merge([
+          _settingsListenable,
+          _lineTransitionController,
+        ]),
         builder: (context, _) {
           final double fs = LyricsSettings.fontSize.value;
           final double lineSpacing = LyricsSettings.lineSpacing.value;
@@ -31,6 +34,10 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
           final TextAlign align = LyricsSettings.resolvedTextAlign;
           final bool karaokeOn = LyricsSettings.karaokeMode.value;
           final Color dim = Colors.white.withValues(alpha: 0.35);
+          final t = Curves.easeOutBack.transform(
+            _lineTransitionController.value,
+          );
+          final direction = _currentIndex >= _previousIndex ? 1.0 : -1.0;
 
           return ScrollablePositionedList.builder(
             itemScrollController: _itemScrollController,
@@ -46,55 +53,73 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   ? TextAlign.right
                   : align;
 
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  final targetPos = widget.lyrics[index].timestamp;
+              // The list still performs the normal centering scroll. This
+              // transform adds a small distance-dependent elastic offset so
+              // nearby lines settle at slightly different rates instead of
+              // visually moving as one rigid block.
+              final distance = (index - _currentIndex).abs().toDouble();
+              final distanceFactor = 1.0 / (1.0 + distance * 0.45);
+              final phase = Curves.easeOut.transform(
+                _lineTransitionController.value,
+              );
+              final rubber =
+                  11.0 * math.sin(math.pi * phase) * distanceFactor;
+              final lead = index < _currentIndex ? 0.72 : 1.0;
+              final lineOffset =
+                  direction * rubber * lead * (isActive ? 0.18 : 1.0);
 
-                  // Kunci target posisinya di sini beb
-                  _pendingSeekPos = targetPos;
+              return Transform.translate(
+                offset: Offset(0, lineOffset),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    final targetPos = widget.lyrics[index].timestamp;
 
-                  // ── Optimistic update biar UI langsung loncat duluan ───
-                  _anchorPos = targetPos;
-                  _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+                    // Kunci target posisinya di sini beb
+                    _pendingSeekPos = targetPos;
 
-                  _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
-                  _karaokeController.updatePosition(targetPos);
-                  // ──────────────────────────────────────────────────────
+                    // ── Optimistic update biar UI langsung loncat duluan ───
+                    _anchorPos = targetPos;
+                    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-                  unawaited(AudioService.seek(targetPos));
-                },
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: lineSpacing),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    style: TextStyle(
-                      fontSize: fs,
-                      fontWeight: FontWeight.bold,
-                      color: isActive ? active : dim,
-                      height: 1.4,
+                    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
+                    _karaokeController.updatePosition(targetPos);
+                    // ──────────────────────────────────────────────────────
+
+                    unawaited(AudioService.seek(targetPos));
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: lineSpacing),
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      style: TextStyle(
+                        fontSize: fs,
+                        fontWeight: FontWeight.bold,
+                        color: isActive ? active : dim,
+                        height: 1.4,
+                      ),
+                      child: isActive && karaokeOn
+                          ? _UnifiedKaraokeLine(
+                              key: ValueKey(_currentIndex),
+                              text: widget.lyrics[index].text,
+                              timeline: _wordTimelines[index],
+                              controller: _karaokeController,
+                              activeColor: active,
+                              dimColor: dim,
+                              fontSize: fs,
+                              textAlign: lineAlign,
+                              textScaleFactor: MediaQuery.textScalerOf(
+                                context,
+                              ).scale(1.0),
+                              textDirection: lineDirection,
+                            )
+                          : Text(
+                              widget.lyrics[index].text,
+                              textAlign: lineAlign,
+                              textDirection: lineDirection,
+                            ),
                     ),
-                    child: isActive && karaokeOn
-                        ? _UnifiedKaraokeLine(
-                            key: ValueKey(_currentIndex),
-                            text: widget.lyrics[index].text,
-                            timeline: _wordTimelines[index],
-                            controller: _karaokeController,
-                            activeColor: active,
-                            dimColor: dim,
-                            fontSize: fs,
-                            textAlign: lineAlign,
-                            textScaleFactor: MediaQuery.textScalerOf(
-                              context,
-                            ).scale(1.0),
-                            textDirection: lineDirection,
-                          )
-                        : Text(
-                            widget.lyrics[index].text,
-                            textAlign: lineAlign,
-                            textDirection: lineDirection,
-                          ),
                   ),
                 ),
               );
