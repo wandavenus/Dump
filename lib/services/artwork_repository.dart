@@ -42,6 +42,8 @@ class ArtworkRepository {
   final LinkedHashMap<int, Uint8List> _bytes = LinkedHashMap();
   // Deduplicate concurrent requests for the same songId.
   final Map<int, Future<String?>> _inFlight = {};
+  // Deduplicate concurrent disk reads of the same artwork file (getBytes).
+  final Map<int, Future<Uint8List?>> _bytesInFlight = {};
 
   // ── Disk cache directory + pre-scanned ID set ──────────────────────────────
 
@@ -256,6 +258,24 @@ class ArtworkRepository {
       return cached;
     }
 
+    // Deduplicate: concurrent callers for the same songId share one disk read
+    // instead of each calling File.readAsBytes() on the same artwork file.
+    // The owner's finally block removes the entry once the read completes;
+    // the shared-future path never removes it itself.
+    if (_bytesInFlight.containsKey(songId)) {
+      return _bytesInFlight[songId];
+    }
+
+    final future = _readBytesFromDisk(songId);
+    _bytesInFlight[songId] = future;
+    try {
+      return await future;
+    } finally {
+      _bytesInFlight.remove(songId); // ignore: unawaited_futures
+    }
+  }
+
+  Future<Uint8List?> _readBytesFromDisk(int songId) async {
     final path = await getPath(songId);
     if (path == null) return null;
 
@@ -514,6 +534,7 @@ class ArtworkRepository {
     _providers.remove(songId);
     _bytes.remove(songId);
     unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
+    unawaited(_bytesInFlight.remove(songId) ?? Future<Uint8List?>.value());
   }
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).

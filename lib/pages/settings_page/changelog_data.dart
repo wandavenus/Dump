@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.25',
+    date: '10 Agustus 2026',
+    changes: [
+      'Audit jalur palette: konfirmasi tidak ada baca-disk ganda — dedup sudah ada di semua layer (Dart _pending, native inFlightBySongId, lock per-song ArtworkCacheManager, _prefetchingSongs).',
+      'getBytes() kini memakai dedup in-flight (_bytesInFlight) — pemanggil konkuren untuk lagu yang sama berbagi satu baca file, bukan baca ganda.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.24',
     date: '10 Agustus 2026',
     changes: [
