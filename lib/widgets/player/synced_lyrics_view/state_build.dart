@@ -56,7 +56,9 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               // The list still performs the normal centering scroll. This
               // transform adds a small distance-dependent elastic offset so
               // nearby lines settle at slightly different rates instead of
-              // visually moving as one rigid block.
+              // visually moving as one rigid block. The damped overshoot makes
+              // the lines travel slightly past the rest position, then spring
+              // back by a small amount for a subtle rubber-like finish.
               final distance = (index - _currentIndex).abs().toDouble();
               final distanceFactor = 1.0 / (1.0 + distance * 0.45);
               final phase = Curves.easeOut.transform(
@@ -64,9 +66,16 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               );
               final rubber =
                   11.0 * math.sin(math.pi * phase) * distanceFactor;
+              final settle = Curves.easeOutBack.transform(
+                _lineTransitionController.value,
+              );
+              final overshoot =
+                  2.5 * math.sin(math.pi * 1.5 * settle) * distanceFactor;
               final lead = index < _currentIndex ? 0.72 : 1.0;
-              final lineOffset =
-                  direction * rubber * lead * (isActive ? 0.18 : 1.0);
+              final lineOffset = direction *
+                  (rubber + overshoot) *
+                  lead *
+                  (isActive ? 0.18 : 1.0);
 
               return Transform.translate(
                 offset: Offset(0, lineOffset),
