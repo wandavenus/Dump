@@ -719,7 +719,9 @@ class Media3PlaybackService : MediaSessionService() {
         runCatching {
             val item = p.currentMediaItem ?: return@runCatching
             if (item.mediaId != mediaId) return@runCatching
-            val meta = item.mediaMetadata.buildUpon().setArtworkData(bytes).build()
+            val meta = item.mediaMetadata.buildUpon()
+            .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .build()
             if (meta.artworkData.contentEquals(item.mediaMetadata.artworkData)) return@runCatching
             val index = p.currentMediaItemIndex
             if (index == C.INDEX_UNSET) return@runCatching
