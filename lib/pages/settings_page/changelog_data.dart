@@ -20,6 +20,13 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.27',
+    date: '10 Agustus 2026',
+    changes: [
+      'Fix total bug artwork notifikasi yang zoom + pecah (MIUI): akar masalahnya SystemUI/MIUI membaca artwork dari metadata MediaSession, bukan dari largeIcon notifikasi — kini artworkData full-res persegi (letterbox 1024px) dipublikasikan ke MediaSession via SessionArtworkProvider (embedded-first, cache per lagu), sehingga shade notifikasi, lock screen, dan Bluetooth semuanya tampil tajam tanpa crop.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.26',
     date: '10 Agustus 2026',
     changes: [
