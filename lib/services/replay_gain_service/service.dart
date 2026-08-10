@@ -924,13 +924,17 @@ class ReplayGainService {
         payload,
       );
       final results = raw ?? const <Map<dynamic, dynamic>>[];
+      // The native side always returns one result per request, but never treat
+      // a short/null reply as success — pad with false so callers can't
+      // mistake missing results for written songs.
       final ok = <bool>[];
       final toInvalidate = <int>[];
-      for (final r in results) {
-        final success = r['success'] == true;
+      for (var i = 0; i < requests.length; i++) {
+        final r = i < results.length ? results[i] : null;
+        final success = r?['success'] == true;
         ok.add(success);
         if (success) {
-          final songId = (r['songId'] as num?)?.toInt();
+          final songId = (r?['songId'] as num?)?.toInt();
           if (songId != null) toInvalidate.add(songId);
         }
       }
@@ -947,14 +951,34 @@ class ReplayGainService {
     }
   }
 
-  /// Flushes [pending] via one native batch tag-write call; returns the number
-  /// of songs whose write failed. Empty list → 0 without any channel call.
+  /// Flushes [pending] via native batch tag-write calls; returns the number of
+  /// songs whose write failed. Empty list → 0 without any channel call.
+  ///
+  /// The list is split in half and both halves are sent as two concurrent
+  /// channel calls: the native write executor has 2 workers, so both batches
+  /// run in parallel on different files (each write/verify cycle uses its own
+  /// per-song MediaStore fd). This is what actually makes the 2-worker write
+  /// executor pay off for library-wide writes — a single sequential batch call
+  /// would otherwise use only one worker, and one giant message for a large
+  /// library. A single-request list skips the split (one call).
   static Future<int> _flushPendingWrites(
     List<ReplayGainWriteRequest> pending,
   ) async {
     if (pending.isEmpty) return 0;
-    final results = await writeReplayGainBatch(pending);
-    return results.where((ok) => !ok).length;
+    final List<List<ReplayGainWriteRequest>> batches;
+    if (pending.length == 1) {
+      batches = [pending];
+    } else {
+      final mid = pending.length ~/ 2;
+      batches = [pending.sublist(0, mid), pending.sublist(mid)];
+    }
+    final results = await Future.wait(
+      batches.map((batch) => writeReplayGainBatch(batch)),
+    );
+    return results.fold<int>(
+      0,
+      (sum, batchResults) => sum + batchResults.where((ok) => !ok).length,
+    );
   }
 }
 
