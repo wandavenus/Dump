@@ -1,5 +1,6 @@
 package dev.wndavenz.music.transport
 
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
@@ -87,6 +88,34 @@ class TransportCommands(
     private val onSpeedChanged: (Float) -> Unit = {},
     private val onPitchSemitonesChanged: (Float) -> Unit = {},
 ) {
+
+    // ── Rapid skip guard (SKIP-01) ───────────────────────────────────────────
+    // Every next/prev entry point (Flutter UI, notification action, Bluetooth
+    // AVRCP, MediaSession media buttons) funnels through handleSkipNext /
+    // handleSkipPrevious below. Each skip is heavy on the MIUI 12 target:
+    // crossfade cancel + standby rebuild + seekToNext + preloadNextTrack(force)
+    // + session-artwork replaceMediaItems + notification refresh. Rapid same-
+    // direction presses inside the window would cascade all of that within a
+    // few hundred ms — audible stutter and wasted work. Same-direction repeats
+    // inside the window are dropped; switching direction (next → prev "undo")
+    // is always allowed. Automatic paths (watchdog recovery, end-of-track
+    // advancement) bypass the guard via force = true.
+    private companion object {
+        /** Window in which a same-direction next/prev press counts as a rapid repeat. */
+        const val SKIP_THROTTLE_MS = 500L
+    }
+    private var lastSkipDir = 0          // +1 = next, -1 = prev, 0 = none yet
+    private var lastSkipAtMs = 0L        // SystemClock.elapsedRealtime() of last executed skip
+
+    /** True when [dir] repeats the previous skip direction inside the throttle window. */
+    private fun isRapidSkipRepeat(dir: Int): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (dir == lastSkipDir && now - lastSkipAtMs < SKIP_THROTTLE_MS) return true
+        lastSkipDir = dir
+        lastSkipAtMs = now
+        return false
+    }
+
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
         when (call.method) {
@@ -565,7 +594,13 @@ class TransportCommands(
         queueManager.rebuildPlayerQueue()
     }
 
-    private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
+    private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result, force: Boolean = false) {
+        // SKIP-01: drop rapid same-direction repeats BEFORE any side effects
+        // (sleep-timer cancel, crossfade cancel, preload churn).
+        if (!force && isRapidSkipRepeat(-1)) {
+            log("verbose", "skipPrevious dropped (rapid repeat)")
+            result.success(null); return
+        }
         sleepTimerManager.cancel()
 
         // Capture before cancel() + clearStandbyQueue() erase this information.
@@ -610,7 +645,13 @@ class TransportCommands(
         result.success(null)
     }
 
-    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
+    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result, force: Boolean = false) {
+        // SKIP-01: drop rapid same-direction repeats BEFORE any side effects
+        // (sleep-timer cancel, crossfade cancel, preload churn).
+        if (!force && isRapidSkipRepeat(+1)) {
+            log("verbose", "skipNext dropped (rapid repeat)")
+            result.success(null); return
+        }
         sleepTimerManager.cancel()
 
         // Capture before cancel() + clearStandbyQueue() erase this information.
@@ -691,8 +732,12 @@ class TransportCommands(
     fun playNative()     { getPlayer()?.let { handlePlay(it, noopResult) } }
     fun pauseNative()    { getPlayer()?.let { handlePause(it, noopResult) } }
     fun stopNative()     { getPlayer()?.let { handleStop(it, noopResult) } }
-    fun skipNextNative() { getPlayer()?.let { handleSkipNext(it, noopResult) } }
-    fun skipPrevNative() { getPlayer()?.let { handleSkipPrevious(it, noopResult) } }
+    fun skipNextNative(force: Boolean = false) {
+        getPlayer()?.let { handleSkipNext(it, noopResult, force) }
+    }
+    fun skipPrevNative(force: Boolean = false) {
+        getPlayer()?.let { handleSkipPrevious(it, noopResult, force) }
+    }
 
     fun seekNative(posMs: Long) {
         val p = getPlayer() ?: return
