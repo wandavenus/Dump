@@ -53,7 +53,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   ? TextAlign.right
                   : align;
 
-              // Keep the existing per-line rubber movement unchanged.
+              // Existing rubber movement: unchanged.
               final distance = (index - _currentIndex).abs().toDouble();
               final distanceFactor = 1.0 / (1.0 + distance * 0.45);
               final phase = Curves.easeOut.transform(
@@ -72,12 +72,16 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   lead *
                   (isActive ? 0.18 : 1.0);
 
-              // New effect only: the newly highlighted line grows slightly,
-              // then returns to its original size. It does not affect the
-              // existing scroll/rubber movement or its timing.
-              final scale = isActive
-                  ? 1.0 + (0.045 * math.sin(math.pi * t))
-                  : 1.0;
+              // Scale pulse follows the same movement order: lines closer to
+              // the active line reach their peak earlier; farther lines lag
+              // behind. Every line returns to its original 1.0x size.
+              final distanceFromActive = (index - _currentIndex).abs();
+              final stagger = (distanceFromActive * 0.10).clamp(0.0, 0.45);
+              final scaleProgress = ((t - stagger) / (1.0 - stagger))
+                  .clamp(0.0, 1.0);
+              final scalePulse =
+                  math.sin(math.pi * Curves.easeOut.transform(scaleProgress));
+              final scale = 1.0 + (0.045 * scalePulse);
 
               return Transform.translate(
                 offset: Offset(0, lineOffset),
@@ -88,21 +92,14 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
                       final targetPos = widget.lyrics[index].timestamp;
-
-                      // Kunci target posisinya di sini beb
                       _pendingSeekPos = targetPos;
-
-                      // ── Optimistic update biar UI langsung loncat duluan ───
                       _anchorPos = targetPos;
                       _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-
                       _maybeUpdateCurrentLine(
                         targetPos,
                         allowBinarySearch: true,
                       );
                       _karaokeController.updatePosition(targetPos);
-                      // ──────────────────────────────────────────────────────
-
                       unawaited(AudioService.seek(targetPos));
                     },
                     child: Padding(
