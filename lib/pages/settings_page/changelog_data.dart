@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.22',
+    date: '10 Agustus 2026',
+    changes: [
+      'Perbaiki batch write ReplayGain: hasil scan kini ditulis dalam 2 panggilan paralel (memakai 2 worker native sekaligus) — write library besar tidak lagi serial di 1 thread, dan payload channel per panggilan ikut terbatas.',
+      'writeReplayGainBatch defensif: balasan channel yang kosong/terpotong kini dihitung gagal, bukan diam-diam dianggap sukses.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.21',
     date: '10 Agustus 2026',
     changes: [
