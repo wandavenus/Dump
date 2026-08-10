@@ -38,15 +38,25 @@ class PlaylistPage extends StatefulWidget {
 class _PlaylistPageState extends State<PlaylistPage> {
   List<LocalSong> _songs = [];
   bool _loading = true;
+  late String _playlistName;
   final _scroll = ScrollController();
   final _offsetNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
     super.initState();
+    _playlistName = widget.name;
     unawaited(_load());
     _scroll.addListener(_onScroll);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
+  }
+
+  @override
+  void didUpdateWidget(covariant PlaylistPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.name != widget.name) {
+      _playlistName = widget.name;
+    }
   }
 
   void _onRescan() {
@@ -130,7 +140,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (widget.userPlaylist == null) return;
     final c = AppColors.of(context);
     final l = context.l10n;
-    final controller = TextEditingController(text: widget.name);
+    final controller = TextEditingController(text: _playlistName);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -174,7 +184,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
       final playlist = widget.userPlaylist;
       if (playlist == null) return;
       await PlaylistService.renamePlaylist(playlist.id, result);
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _playlistName = result);
     }
   }
 
@@ -192,7 +202,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
             style: TextStyle(color: dc.primaryLabel),
           ),
           content: Text(
-            l.deletePlaylistBody(widget.name),
+            l.deletePlaylistBody(_playlistName),
             style: TextStyle(color: dc.secondaryLabel),
           ),
           actions: [
@@ -242,7 +252,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: FadingTitleAppBar(
-        title: widget.name,
+        title: _playlistName,
         scrollOffsetListenable: _offsetNotifier,
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
@@ -295,7 +305,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LargePageTitle(title: widget.name),
+                      LargePageTitle(title: _playlistName),
                       const HeaderDivider(),
                       _PlayAllButton(count: _songs.length, onTap: _playAll),
                     ],

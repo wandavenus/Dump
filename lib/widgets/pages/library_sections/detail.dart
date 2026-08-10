@@ -33,6 +33,25 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   final _offsetNotifier = ValueNotifier<double>(0.0);
   String _filter = '';
 
+  // ── Artwork prefetch state (viewport-aware) ───────────────────────────────
+  // The Songs tab renders hundreds of rows; without prefetch every newly
+  // scrolled-into-view song that has not been extracted yet triggers a native
+  // MethodChannel extraction while the row is visible (placeholder flash).
+  // We warm the disk path in batches ahead of the viewport instead.
+  static const int _kArtworkPrefetchBatch = 15;
+  static const double _kPrefetchTriggerExtent = 1200;
+  // Viewport-aware pre-decode geometry: 55 px tile + padding + divider ≈ 61 px/row.
+  static const double _kRowExtent = 61.0;
+  static const int _kDecodeAhead = 10; // rows at/below the first visible row
+  static const int _kDecodeBehind = 8; // rows above it
+  List<LocalSong> _currentSongs = const [];
+  int _prefetchedUpTo = 0;
+  // ── Viewport-aware pre-decode state (latest-wins, coalesced) ──────────────
+  int _lastDecodeAnchor = -1;
+  int? _pendingDecodeAnchor;
+  bool _decodeRunning = false;
+  int _smallArtworkPx = 460;
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +61,22 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
     _scroll.addListener(_onScroll);
     _searchController.addListener(_onSearch);
     MediaStoreService.rescanNotifier.addListener(_onRescan);
+    // Same target size SongArtwork uses for 55 px tiles, so the pre-decoded
+    // ResizeImage key exactly matches what the tile will request.
+    _smallArtworkPx = ArtworkRepository.instance.resolveTargetPx(55);
   }
 
   /// Recomputes sorted artists + albums caches after songs are loaded/rescanned.
   void _updateSortedCaches(List<LocalSong> songs) {
+    // Remember the current song list for viewport-aware artwork prefetch.
+    _currentSongs = songs;
+    _prefetchedUpTo = 0;
+    // Indexes changed — drop any pending decode window; it will re-arm on
+    // the next scroll tick.
+    _lastDecodeAnchor = -1;
+    _pendingDecodeAnchor = null;
+    unawaited(_kickArtworkPrefetch());
+
     // Artists sorted A→Z.
     final artistMap = <String, List<LocalSong>>{};
     for (final song in songs) {
@@ -87,6 +118,103 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
   void _onScroll() {
     final clamped = _scroll.offset.clamp(0.0, _kAnimEnd);
     if (clamped != _offsetNotifier.value) _offsetNotifier.value = clamped;
+
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+
+    // Viewport-aware pre-decode: whenever the first visible row changes,
+    // decode artwork for the visible rows + a small window ahead/behind into
+    // Flutter's ImageCache so tiles render with zero decode latency.
+    // Bounded (≈18 rows), visible-first, coalesced during fast flings, and
+    // skipped while a search filter is active (the filter changes the index
+    // mapping, making anchor math unreliable).
+    if (_filter.isEmpty && _currentSongs.isNotEmpty) {
+      final anchor = (position.pixels / _kRowExtent).floor();
+      if (anchor >= 0 && anchor != _lastDecodeAnchor) {
+        _lastDecodeAnchor = anchor;
+        _requestDecodeAround(anchor);
+      }
+    }
+
+    // Near the bottom → warm the next batch of artwork paths before the user
+    // reaches it. Cheap (disk probe / native extraction on background
+    // executor); ArtworkRepository dedups in-flight batches and skips
+    // already-cached IDs.
+    if (position.maxScrollExtent - position.pixels < _kPrefetchTriggerExtent) {
+      unawaited(_kickArtworkPrefetch());
+    }
+  }
+
+  /// Prefetches the next [_kArtworkPrefetchBatch] song artwork paths from
+  /// [_currentSongs]. No-op once the whole list has been warmed or while a
+  /// batch is already running (guarded here + inside
+  /// [ArtworkRepository.prefetch]).
+  Future<void> _kickArtworkPrefetch() async {
+    final songs = _currentSongs;
+    if (songs.isEmpty || _prefetchedUpTo >= songs.length) return;
+    // A batch is already warming the disk — don't advance the cursor past it.
+    // Each advance commits a range; a no-op prefetch here (in-flight guard)
+    // would leave that range un-warmed. Retry on the next scroll tick.
+    if (ArtworkRepository.instance.isPrefetching) return;
+    final from = _prefetchedUpTo;
+    final to = (from + _kArtworkPrefetchBatch).clamp(0, songs.length);
+    _prefetchedUpTo = to;
+    final ids = songs
+        .sublist(from, to)
+        .map((s) => s.id)
+        .toList(growable: false);
+    await ArtworkRepository.instance.prefetch(
+      ids,
+      limit: _kArtworkPrefetchBatch,
+      concurrency: 2,
+    );
+  }
+
+  /// Requests a decode prewarm window around [anchor] (index of the first
+  /// visible row). Latest-wins: during a fast fling, intermediate anchors are
+  /// coalesced — only the most recent anchor is actually decoded.
+  void _requestDecodeAround(int anchor) {
+    _pendingDecodeAnchor = anchor;
+    unawaited(_drainDecodeRequests());
+  }
+
+  /// Processes the most recent pending decode anchor, then re-checks for a
+  /// newer one (so rapid scroll events don't queue up stale windows).
+  Future<void> _drainDecodeRequests() async {
+    if (_decodeRunning) return;
+    _decodeRunning = true;
+    try {
+      while (_pendingDecodeAnchor != null && mounted) {
+        final anchor = _pendingDecodeAnchor!;
+        _pendingDecodeAnchor = null;
+
+        final songs = _currentSongs;
+        if (songs.isEmpty) break;
+
+        // Visible-first ordering: rows at/ahead of the anchor first, then
+        // rows behind. predecode() dedups + keeps this order, so the most
+        // relevant artwork is decoded first.
+        final ids = <int>[];
+        for (
+          var i = anchor;
+          i < songs.length && i < anchor + _kDecodeAhead;
+          i++
+        ) {
+          ids.add(songs[i].id);
+        }
+        for (var i = anchor - 1; i >= 0 && i >= anchor - _kDecodeBehind; i--) {
+          ids.add(songs[i].id);
+        }
+        if (ids.isEmpty) break;
+
+        await ArtworkRepository.instance.predecode(
+          ids,
+          targetSizePx: _smallArtworkPx,
+        );
+      }
+    } finally {
+      _decodeRunning = false;
+    }
   }
 
   void _onSearch() {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/painting.dart';
@@ -38,8 +37,6 @@ class ArtworkRepository {
   final LinkedHashMap<int, String> _paths = LinkedHashMap();
   // Reuse FileImage objects to avoid repeated object allocation.
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
-  // Reuse artwork bytes to avoid repeated disk reads.
-  final LinkedHashMap<int, Uint8List> _bytes = LinkedHashMap();
   // Deduplicate concurrent requests for the same songId.
   final Map<int, Future<String?>> _inFlight = {};
 
@@ -244,42 +241,6 @@ class ArtworkRepository {
     return _wrapProvider(songId, path, targetSizePx);
   }
 
-  /// Returns raw bytes for [songId]'s artwork, reading from the cached WebP
-  /// file.  Use this for image-processing pipelines that require a
-  /// [Uint8List] (e.g. [PaletteExtractor]).
-  ///
-  /// Returns null when the song has no artwork or the file cannot be read.
-  Future<Uint8List?> getBytes(int songId) async {
-    final cached = _bytes.remove(songId);
-    if (cached != null) {
-      _bytes[songId] = cached;
-      return cached;
-    }
-
-    final path = await getPath(songId);
-    if (path == null) return null;
-
-    try {
-      final bytes = await File(path).readAsBytes();
-
-      _bytes[songId] = bytes;
-
-      while (_bytes.length > _maxEntries) {
-        _bytes.remove(_bytes.keys.first);
-      }
-
-      return bytes;
-    } on Exception catch (_) {
-      // File read failed — the path is stale (e.g. native LRU evicted the file
-      // while Dart still held a memory reference).  Evict all cached references
-      // so the next call goes through the full resolve → re-extract path instead
-      // of returning the same dead path again.
-      evict(songId);
-      _diskCachedIds.remove(songId);
-      return null;
-    }
-  }
-
   // ── Flutter ImageCache pre-warm ────────────────────────────────────────────
 
   /// Resolves [songIds] into Flutter's [ImageCache] before the first frame,
@@ -342,39 +303,154 @@ class ArtworkRepository {
   // Guards against overlapping prefetch batches stepping on each other.
   bool _prefetching = false;
 
+  /// Whether a prefetch batch is currently in flight.
+  ///
+  /// Callers that track their own progress cursor should check this before
+  /// advancing it: [prefetch] returns immediately when a batch is running
+  /// (in-flight guard), so advancing the cursor on a skipped call would leave
+  /// that range un-warmed. Retry on the next scroll tick instead.
+  bool get isPrefetching => _prefetching;
+
   /// Warms the disk cache for [songIds] so artwork is likely already on disk
   /// by the time the user scrolls to it, reducing how often the fallback
   /// icon is visible.
   ///
   /// Deliberately conservative for mid-range devices (e.g. Snapdragon 730,
   /// 6 GB RAM): only resolves [getPath] (disk path), never decodes bitmaps
-  /// into memory via [getProvider]. Runs sequentially, one song at a time,
-  /// with a small delay between each so it never competes with the UI
-  /// thread or saturates storage I/O. Silently skips songs already cached.
-  Future<void> prefetch(List<int> songIds, {int limit = 8}) async {
+  /// into memory via [getProvider]. Processes IDs in small parallel batches
+  /// ([concurrency], default 2) with a short delay between batches so it
+  /// never competes with the UI thread or saturates storage I/O. Silently
+  /// skips songs already cached.
+  Future<void> prefetch(
+    List<int> songIds, {
+    int limit = 8,
+    int concurrency = 2,
+  }) async {
     if (_prefetching || songIds.isEmpty) return;
     _prefetching = true;
     try {
       // De-duplicate and filter invalid IDs before starting the loop.
       final uniqueIds = songIds.where((id) => id > 0).toSet().toList();
+      final targets = uniqueIds.take(limit).toList(growable: false);
 
-      for (final id in uniqueIds.take(limit)) {
-        // Skip if already in memory cache.
-        if (_paths.containsKey(id)) continue;
+      // Resolve in small parallel batches. Disk probes are cheap and the
+      // native extractor runs on its own executor, so 2 concurrent resolves
+      // roughly halve total prefetch time while staying far below anything
+      // that could contend with the UI thread or storage I/O on a Snapdragon
+      // 730 (the previous strictly-sequential loop capped at 8 IDs/120 ms
+      // each was needlessly slow for long lists).
+      for (var i = 0; i < targets.length; i += concurrency) {
+        final batch = targets.sublist(
+          i,
+          i + concurrency > targets.length ? targets.length : i + concurrency,
+        );
 
-        try {
-          // Resolve path (triggers disk check or native extraction).
-          await getPath(id);
-        } on Exception catch (_) {
-          // Never let a single failed extraction abort the batch.
-        }
-        // Yield back to the event loop between items so scrolling/animation
+        await Future.wait([for (final id in batch) _prefetchOne(id)]);
+
+        // Yield back to the event loop between batches so scrolling/animation
         // frames are never blocked by this low-priority background work.
-        // 120ms is a safe window for mid-range devices to process other UI events.
-        await Future<void>.delayed(const Duration(milliseconds: 120));
+        // 60ms is a safe window for mid-range devices to process other UI events.
+        await Future<void>.delayed(const Duration(milliseconds: 60));
       }
     } finally {
       _prefetching = false;
+    }
+  }
+
+  Future<void> _prefetchOne(int id) async {
+    // Skip if already in memory cache.
+    if (_paths.containsKey(id)) return;
+
+    try {
+      // Resolve path (triggers disk check or native extraction).
+      await getPath(id);
+    } on Exception catch (_) {
+      // Never let a single failed extraction abort the batch.
+    }
+  }
+
+  // ── Viewport-aware pre-decode (ImageCache warm-up) ─────────────────────────
+
+  // Guards against overlapping predecode batches (mirrors [_prefetching]).
+  bool _predecoding = false;
+  // IDs currently being decoded — prevents duplicate concurrent decodes of
+  // the same songId from separate predecode requests.
+  final Set<int> _decoding = {};
+
+  /// Decodes artwork for [songIds] into Flutter's [ImageCache] so rows that
+  /// are (or are about to become) visible render with zero decode latency.
+  ///
+  /// Unlike [prefetch] (which only resolves the disk *path*), this actually
+  /// decodes the bitmap into memory — callers should therefore pass only a
+  /// small viewport window (visible rows + a few ahead/behind), never the
+  /// whole library, to avoid pushing large numbers of bitmaps into memory.
+  ///
+  /// IDs that have not been extracted yet go through the normal
+  /// resolve → native extraction → disk → decode path (bounded by
+  /// [concurrency]); IDs already resident in [ImageCache] at the requested
+  /// size are skipped via a key lookup. Flutter's engine performs the actual
+  /// image decode on a background thread, so this never blocks the UI
+  /// isolate, and no new workers/threads are added.
+  Future<void> predecode(
+    List<int> songIds, {
+    int? targetSizePx,
+    int concurrency = 2,
+    int limit = 20,
+  }) async {
+    if (_predecoding || songIds.isEmpty) return;
+    _predecoding = true;
+    try {
+      // Deduplicate and preserve caller order (callers pass visible-first,
+      // so take(limit) keeps the most relevant rows).
+      final uniqueIds = songIds.where((id) => id > 0).toSet().toList();
+      final targets = uniqueIds.take(limit).toList(growable: false);
+
+      for (var i = 0; i < targets.length; i += concurrency) {
+        final batch = targets.sublist(
+          i,
+          i + concurrency > targets.length ? targets.length : i + concurrency,
+        );
+
+        await Future.wait([
+          for (final id in batch) _predecodeOne(id, targetSizePx),
+        ]);
+
+        // Yield back to the event loop between batches so scroll/animation
+        // frames are never blocked (same policy as prefetch).
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+      }
+    } finally {
+      _predecoding = false;
+    }
+  }
+
+  Future<void> _predecodeOne(int id, int? targetSizePx) async {
+    if (!_decoding.add(id)) return; // already being decoded by another request
+
+    try {
+      // Full resolve (memory → disk → native extraction) then decode.
+      final provider = await getProvider(id, targetSizePx: targetSizePx);
+      if (provider == null) return; // song has no artwork
+
+      // Skip if the exact requested size is already resident in ImageCache.
+      if (await _imageCached(provider)) return;
+
+      await _decodeIntoImageCache(provider);
+    } on Exception catch (_) {
+      // Never let a single decode failure abort the batch.
+    } finally {
+      _decoding.remove(id);
+    }
+  }
+
+  /// Whether [provider] (at its exact cache key) is already in [ImageCache]
+  /// — lets predecode skip work that is already done or in flight.
+  Future<bool> _imageCached(ImageProvider provider) async {
+    try {
+      final key = await provider.obtainKey(ImageConfiguration.empty);
+      return PaintingBinding.instance.imageCache.containsKey(key);
+    } on Exception catch (_) {
+      return false;
     }
   }
 
@@ -397,7 +473,6 @@ class ArtworkRepository {
   void evict(int songId) {
     _paths.remove(songId);
     _providers.remove(songId);
-    _bytes.remove(songId);
     unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
   }
 
@@ -405,7 +480,6 @@ class ArtworkRepository {
   void clearMemory() {
     _paths.clear();
     _providers.clear();
-    _bytes.clear();
 
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();

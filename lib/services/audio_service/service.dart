@@ -384,6 +384,11 @@ class AudioService {
       }
     }
 
+    // Warm the artwork paths for the next few queue entries so the mini
+    // player / queue overlay can swap instantly when the track advances.
+    // Fire-and-forget: prefetch is guarded, deduped, and runs on background.
+    unawaited(_prefetchUpcomingArtwork(index));
+
     _setState(
       playbackState.value.copyWith(
         currentSong: song,
@@ -433,6 +438,30 @@ class AudioService {
   }
 
   // ── Playback ──────────────────────────────────────────────────────────[...]
+
+  /// Pre-fetches artwork disk paths for the [count] songs after [index] in
+  /// the current queue. Best-effort: skipped on web, guarded inside
+  /// [ArtworkRepository.prefetch] (dedup + in-flight guard), and never blocks
+  /// playback. Helps the mini player / queue overlay swap artwork with zero
+  /// placeholder when the track advances.
+  static Future<void> _prefetchUpcomingArtwork(
+    int index, {
+    int count = 3,
+  }) async {
+    if (kIsWeb || _playlist.isEmpty) return;
+    final start = index + 1;
+    final end = (start + count).clamp(0, _playlist.length);
+    if (start >= end) return;
+    final ids = _playlist
+        .sublist(start, end)
+        .map((s) => s.id)
+        .toList(growable: false);
+    await ArtworkRepository.instance.prefetch(
+      ids,
+      limit: count,
+      concurrency: 2,
+    );
+  }
 
   static Future<void> playSongAt({
     required List<LocalSong> playlist,
@@ -755,6 +784,10 @@ class AudioService {
           'syncFromNative: artwork prewarm error: $e',
         );
       }
+
+      // Warm the artwork paths for the next few queue entries so the mini
+      // player / queue overlay can swap instantly when the track advances.
+      unawaited(_prefetchUpcomingArtwork(index));
 
       _setState(
         playbackState.value.copyWith(

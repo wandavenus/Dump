@@ -482,6 +482,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cantOpenLink => 'Cannot open link';
 
   @override
+  String get qrisSaveTitle => 'Save QR Code';
+
+  @override
+  String get qrisSavePrompt => 'Save the QRIS image to your gallery?';
+
+  @override
+  String get qrisGalleryDenied =>
+      'Gallery permission denied — enable it in Settings › App Permissions';
+
+  @override
+  String get qrisSavedToGallery => 'Image saved to gallery';
+
+  @override
+  String get qrisAccessDenied => 'Gallery access denied';
+
+  @override
+  String get qrisNotEnoughSpace => 'Not enough storage space';
+
+  @override
+  String get qrisFormatUnsupported => 'Format not supported';
+
+  @override
+  String get qrisUnexpectedError => 'Unexpected gallery error';
+
+  @override
+  String qrisSaveFailed(String reason) {
+    return 'Failed to save: $reason';
+  }
+
+  @override
   String get sleepTimerTitle => 'Sleep Timer';
 
   @override

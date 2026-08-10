@@ -65,22 +65,25 @@ Future<void> _confirmSaveQris(
   required BuildContext pageContext,
 }) async {
   const tag = 'QrisSave';
+  // Ambil l10n dari halaman Settings (bukan sheet) agar konsisten dan tetap
+  // valid sepanjang alur dialog + snackbar, termasuk setelah async gap.
+  final l = pageContext.l10n;
 
   // ── Dialog konfirmasi ──────────────────────────────────────────────────────
   final confirmed = await showCupertinoDialog<bool>(
     context: context,
     builder: (_) => CupertinoAlertDialog(
-      title: const Text('Simpan QR Code'),
-      content: const Text('Simpan gambar QRIS ke galeri?'),
+      title: Text(l.qrisSaveTitle),
+      content: Text(l.qrisSavePrompt),
       actions: [
         CupertinoDialogAction(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Batal'),
+          child: Text(l.cancel),
         ),
         CupertinoDialogAction(
           isDefaultAction: true,
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Simpan'),
+          child: Text(l.save),
         ),
       ],
     ),
@@ -113,9 +116,7 @@ Future<void> _confirmSaveQris(
           'Permission denied by user',
           level: LogLevel.warning,
         );
-        showSnack(
-          'Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi',
-        );
+        showSnack(l.qrisGalleryDenied);
         return;
       }
     }
@@ -152,24 +153,24 @@ Future<void> _confirmSaveQris(
     await Gal.putImage(tempFile.path);
     LogService.log(tag, 'Gal.putImage() selesai — sukses');
 
-    showSnack('Gambar berhasil disimpan ke galeri');
+    showSnack(l.qrisSavedToGallery);
   } on GalException catch (e, st) {
     // Tangani setiap tipe GalException secara spesifik
     final reason = switch (e.type) {
-      GalExceptionType.accessDenied => 'Akses galeri ditolak',
-      GalExceptionType.notEnoughSpace => 'Ruang penyimpanan penuh',
-      GalExceptionType.notSupportedFormat => 'Format tidak didukung',
-      GalExceptionType.unexpected => 'Error tidak terduga dari galeri',
+      GalExceptionType.accessDenied => l.qrisAccessDenied,
+      GalExceptionType.notEnoughSpace => l.qrisNotEnoughSpace,
+      GalExceptionType.notSupportedFormat => l.qrisFormatUnsupported,
+      GalExceptionType.unexpected => l.qrisUnexpectedError,
     };
     LogService.error(
       tag,
       'GalException [${e.type.name}]: $e',
       stackTrace: st.toString(),
     );
-    showSnack('Gagal menyimpan: $reason (${e.type.name})');
+    showSnack(l.qrisSaveFailed('$reason (${e.type.name})'));
   } on Object catch (e, st) {
     LogService.error(tag, 'Unexpected error: $e', stackTrace: st.toString());
-    showSnack('Gagal menyimpan: $e');
+    showSnack(l.qrisSaveFailed('$e'));
   } finally {
     // Hapus temp file setelah selesai (sukses maupun gagal)
     try {

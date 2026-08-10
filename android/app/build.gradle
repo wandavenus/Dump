@@ -30,9 +30,9 @@ if (flutterVersionName == null) {
 // maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
 // Maven Central that includes prebuilt libffmpegJNI.so for all ABIs (including
 // arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
-// media3 deps so Gradle resolves everything to our pinned 1.10.1 versions.
+// media3 deps so Gradle resolves everything to our pinned stable versions.
 // License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
-def media3_version = "1.11.0-rc01"
+def media3_version = "1.11.0"
 
 android {
     namespace "dev.wndavenz.music"
@@ -147,7 +147,7 @@ dependencies {
     implementation "androidx.media3:media3-container:$media3_version"
     // Phase 9 — Jellyfin prebuilt FFmpeg decoder (ALAC + other formats).
     // Excludes Jellyfin's transitive media3 deps (1.9.0) so Gradle resolves
-    // everything to our pinned 1.10.1. The arm64-v8a .so is extracted
+    // everything to our pinned stable versions. The arm64-v8a .so is extracted
     // automatically from the AAR; other ABIs are stripped by abiFilters above.
     implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
         exclude group: 'androidx.media3', module: 'media3-decoder'

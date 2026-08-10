@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,11 +13,6 @@ class MediaStoreService {
   static const MethodChannel _channel = MethodChannel(
     'musicplayer/media_store',
   );
-  static const int _maxArtworkCacheEntries = 80;
-
-  static final LinkedHashMap<int, Future<Uint8List?>> _artworkCache =
-      LinkedHashMap<int, Future<Uint8List?>>();
-
   static List<LocalSong>? _songsCache;
 
   /// Synchronous read of the warm-up cache. Non-null after [warmUp] completes
@@ -86,7 +80,10 @@ class MediaStoreService {
       final file = File(path);
       await file.parent.create(recursive: true);
       final tmp = File('$path.tmp');
-      await tmp.writeAsString(jsonEncode(songs.map((s) => s.toMap()).toList()));
+      // G: JSON encode in a background isolate — for a large library the
+      // encode is tens of ms of CPU that must not jank the UI thread.
+      final encoded = await compute(_encodeSongsJson, songs);
+      await tmp.writeAsString(encoded);
       await tmp.rename(path); // atomic — never leaves a half-written cache.
     } on Exception catch (_) {
       // Best-effort — a failed save just means next cold start falls back
@@ -120,6 +117,15 @@ class MediaStoreService {
         }
       }
       return cachedSongs;
+    }
+
+    // No persisted cache is available. This is still an automatic startup
+    // reconciliation, so honor the same failure backoff used by the cached
+    // path. Explicit callers can bypass this by calling refreshSongs().
+    final lastFailure = _lastFailedReconcile;
+    if (lastFailure != null &&
+        DateTime.now().difference(lastFailure) <= _reconcileRetryBackoff) {
+      return const <LocalSong>[];
     }
 
     return refreshSongs();
@@ -180,15 +186,17 @@ class MediaStoreService {
       // A generous but finite timeout guarantees this call always terminates,
       // matching the fail-open convention already used for the FFmpeg probe
       // and artwork prewarm elsewhere in the startup path.
-      final List<dynamic>? songs = await _channel
-          .invokeListMethod<dynamic>('getSongs')
+      // B: the native side now returns the whole library as ONE JSON string
+      // (compact channel payload — no per-song codec type-tag overhead), and
+      // G: the parse runs in a background isolate via compute() instead of
+      // mapping the full library on the UI thread during a refresh/rescan.
+      final String? songsJson = await _channel
+          .invokeMethod<String>('getSongs')
           .timeout(const Duration(seconds: 20));
 
-      final parsedSongs = (songs ?? const <dynamic>[])
-          .whereType<Map<dynamic, dynamic>>()
-          .map(LocalSong.fromMap)
-          .where((song) => song.path.isNotEmpty)
-          .toList(growable: false);
+      final parsedSongs = (songsJson == null || songsJson.isEmpty)
+          ? const <LocalSong>[]
+          : await compute(_parseSongsJson, songsJson);
 
       _songsCache = parsedSongs;
       _liveRefreshed = true;
@@ -411,51 +419,6 @@ class MediaStoreService {
     );
   }
 
-  static Future<Uint8List?> getArtwork(int songId) {
-    if (songId <= 0) return Future<Uint8List?>.value();
-
-    final cachedArtwork = _artworkCache.remove(songId);
-    if (cachedArtwork != null) {
-      _artworkCache[songId] = cachedArtwork;
-      return cachedArtwork;
-    }
-
-    final artworkFuture = _loadArtwork(songId);
-    _artworkCache[songId] = artworkFuture;
-    _trimArtworkCache();
-    return artworkFuture;
-  }
-
-  static Future<Uint8List?> _loadArtwork(int songId) async {
-    try {
-      return _channel.invokeMethod<Uint8List>('getArtwork', {'songId': songId});
-    } on PlatformException catch (error, stackTrace) {
-      LogService.error(
-        'MediaStore',
-        'Failed to load artwork for song $songId: $error',
-        stackTrace: stackTrace.toString(),
-      );
-      return null;
-    } on Object catch (error, stackTrace) {
-      LogService.error(
-        'MediaStore',
-        'Invalid artwork payload for song $songId: $error',
-        stackTrace: stackTrace.toString(),
-      );
-      return null;
-    }
-  }
-
-  static void _trimArtworkCache() {
-    while (_artworkCache.length > _maxArtworkCacheEntries) {
-      _artworkCache.remove(_artworkCache.keys.first)?.ignore();
-    }
-  }
-
-  static void clearArtworkCache() {
-    _artworkCache.clear();
-  }
-
   /// Menghapus lagu dari perangkat secara permanen.
   ///
   /// Pada Android 11+ akan menampilkan dialog konfirmasi sistem.
@@ -463,10 +426,13 @@ class MediaStoreService {
   /// Mengembalikan `true` jika berhasil dihapus.
   static Future<bool> deleteSong(int songId) async {
     try {
-      final result = await _channel.invokeMethod<bool>('deleteSong', {
-        'songId': songId,
-      });
+      final result = await _channel
+          .invokeMethod<bool>('deleteSong', {'songId': songId})
+          .timeout(const Duration(seconds: 8));
       return result ?? false;
+    } on TimeoutException catch (error) {
+      LogService.error('MediaStore', 'deleteSong timed out: $error');
+      return false;
     } on PlatformException catch (error, stackTrace) {
       LogService.error(
         'MediaStore',
@@ -500,9 +466,15 @@ class MediaStoreService {
   static Future<String?> getArtworkPath(int songId) async {
     if (songId <= 0) return null;
     try {
-      return await _channel.invokeMethod<String>('getArtworkPath', {
-        'songId': songId,
-      });
+      return await _channel
+          .invokeMethod<String>('getArtworkPath', {'songId': songId})
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException catch (e) {
+      LogService.error(
+        'MediaStore',
+        'getArtworkPath timeout songId=$songId: $e',
+      );
+      return null;
     } on PlatformException catch (e) {
       LogService.error('MediaStore', 'getArtworkPath error songId=$songId: $e');
       return null;
@@ -517,9 +489,19 @@ class MediaStoreService {
 }
 
 /// Top-level helper for [compute] to parse song list JSON in a background isolate.
+///
+/// Applies the same `.where((song) => song.path.isNotEmpty)` filter the live
+/// refresh path used before the isolate migration: MediaStore rows without a
+/// resolvable file path cannot be played and must never reach the UI list.
 List<LocalSong> _parseSongsJson(String json) {
   final decoded = jsonDecode(json) as List<dynamic>;
   return decoded
       .map((m) => LocalSong.fromMap(Map<dynamic, dynamic>.from(m as Map)))
+      .where((song) => song.path.isNotEmpty)
       .toList(growable: false);
 }
+
+/// Top-level helper for [compute]: serializes [songs] to the JSON cache
+/// format in a background isolate (keeps the encode off the UI thread).
+String _encodeSongsJson(List<LocalSong> songs) =>
+    jsonEncode([for (final s in songs) s.toMap()]);

@@ -4,6 +4,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   final ItemScrollController _itemScrollController = ItemScrollController();
   int _currentIndex = 0;
+  int _previousIndex = 0;
 
   Duration _anchorPos = Duration.zero;
   int _anchorWallMs = 0;
@@ -11,6 +12,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   double _speed = 1.0;
 
   late final Ticker _frameTicker;
+  late final AnimationController _lineTransitionController;
   StreamSubscription<Duration>? _posSub;
 
   // ── Format-agnostic karaoke renderer state ───────────────────────────────
@@ -23,8 +25,8 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
   Duration? _pendingSeekPos;
   // BuildContext of the currently-live internal ScrollablePositionedList
   // Scrollable, captured from the last ScrollNotification. Used by
-  // _jumpByDelta (state_scroll.dart) to reach the real ScrollPosition
-  // directly instead of going through ScrollOffsetController.animateScroll.
+  // _jumpByDelta (state_scroll.dart) to reach the real ScrollPosition directly
+  // instead of going through ScrollOffsetController.animateScroll.
   BuildContext? liveScrollContext;
   // ── Single merged listenable for all display settings ─────────────────────
   late final Listenable _settingsListenable;
@@ -72,6 +74,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     widget.dragHandle?._attach(this);
     WidgetsBinding.instance.addObserver(this);
     _frameTicker = createTicker(_onFrameTick);
+    _lineTransitionController = AnimationController(
+      vsync: this,
+      // Slow only the per-line elastic motion so it settles more gently.
+      // The list movement remains independently controlled at 160 ms.
+      duration: const Duration(milliseconds: 520),
+    );
 
     _settingsListenable = Listenable.merge([
       LyricsSettings.fontSize,
@@ -88,6 +96,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     _anchorPos = s.position;
     _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
     _currentIndex = _computeLineIndex(s.position);
+    _previousIndex = _currentIndex;
     _activateTimelineForCurrentLine(s.position);
 
     if (_isPlaying) unawaited(_frameTicker.start());
@@ -143,6 +152,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
 
       final currentPos = _interpolatedPosition;
       _currentIndex = _computeLineIndex(currentPos);
+      _previousIndex = _currentIndex;
       _activateTimelineForCurrentLine(currentPos);
     }
 
@@ -161,6 +171,7 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView>
     unawaited(_posSub?.cancel() ?? Future<void>.value());
     AudioService.playbackState.removeListener(_onPlaybackState);
     _frameTicker.dispose();
+    _lineTransitionController.dispose();
     _karaokeController.dispose();
     _scrollResumeTimer?.cancel();
     super.dispose();

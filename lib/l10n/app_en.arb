@@ -192,6 +192,19 @@
   "debugModeEnabled": "Debug mode enabled",
   "cantOpenLink": "Cannot open link",
 
+  "qrisSaveTitle": "Save QR Code",
+  "qrisSavePrompt": "Save the QRIS image to your gallery?",
+  "qrisGalleryDenied": "Gallery permission denied — enable it in Settings › App Permissions",
+  "qrisSavedToGallery": "Image saved to gallery",
+  "qrisAccessDenied": "Gallery access denied",
+  "qrisNotEnoughSpace": "Not enough storage space",
+  "qrisFormatUnsupported": "Format not supported",
+  "qrisUnexpectedError": "Unexpected gallery error",
+  "qrisSaveFailed": "Failed to save: {reason}",
+  "@qrisSaveFailed": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
+
   "sleepTimerTitle": "Sleep Timer",
   "cancelTimer": "Cancel",
   "sleepTimerActive": "Sleep Timer Active",

@@ -45,12 +45,28 @@ static _Atomic int32_t _sc_bypass;
 // Output bounded by threshold + range = 1.0 (0 dBFS) ✓.
 // tanhf is called only for exceeding samples — transparent for the rest ✓.
 
+// Fast rational approximation of tanh for z ∈ [0, 3] (N-1):
+//   tanh(z) ≈ z·(27 + z²) / (27 + 9·z²)
+// Properties preserved vs. tanhf (verified numerically, see memory note):
+//   • tanh(0) = 0, derivative 1 → C¹ continuity at the clip threshold ✓
+//   • exactly 1.0 at z = 3, and monotonic on [0, 3] → clamping at 3 keeps
+//     the output bounded by threshold + range = 1.0 (0 dBFS) ✓
+//   • max |error| ≈ 0.024 vs true tanhf, confined to the compressed
+//     "excess" region — inaudible for a waveshaper ✓
+// Replaces the tanhf() transcendental (≈15–25 ns/call on Cortex-A76) in the
+// per-sample clip path with ~4 arithmetic ops.
+static inline float _fast_tanh(float z) {
+  if (z >= 3.0f) return 1.0f;
+  const float z2 = z * z;
+  return z * (27.0f + z2) / (27.0f + 9.0f * z2);
+}
+
 static inline float _soft_clip(float x, float threshold, float range) {
   const float sign  = x < 0.0f ? -1.0f : 1.0f;
   const float abs_x = x < 0.0f ? -x : x;
   const float excess = abs_x - threshold;
   // range * tanh(excess / range): asymptotes to ±range ≈ ±(1 - threshold)
-  return sign * (threshold + range * tanhf(excess / range));
+  return sign * (threshold + range * _fast_tanh(excess / range));
 }
 
 // ── VTable implementations ────────────────────────────────────────────────────

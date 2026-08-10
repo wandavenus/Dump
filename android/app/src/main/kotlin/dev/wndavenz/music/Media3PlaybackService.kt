@@ -115,6 +115,10 @@ class Media3PlaybackService : MediaSessionService() {
     private lateinit var shutdownCoordinator:  ServiceShutdownCoordinator
     // ART-01: artwork cache shared between notification and full-player pipelines.
     private lateinit var serviceArtworkCache:  ArtworkCacheManager
+    // Session artwork (SystemUI/MIUI media card, lock screen): high-res square
+    // artworkData bytes published into the MediaSession metadata — SystemUI
+    // renders the session's ART bytes, NOT the notification largeIcon.
+    private lateinit var sessionArtworkProvider: SessionArtworkProvider
 
     // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
     // Shut down in onDestroy() so tasks don't outlive the service.
@@ -257,6 +261,17 @@ class Media3PlaybackService : MediaSessionService() {
             onSeek        = { transportCommands.seekNative(it) },
             onSetTrack    = { transportCommands.setTrackNative(it) },
         )
+        // ART-01: artwork cache shared between notification and full-player pipelines.
+        // Initialised BEFORE the MediaSession is built so FallbackBitmapLoader (the
+        // session's BitmapLoader) can reuse it.  Same on-disk cache directory
+        // ({filesDir}/artwork/) as MainActivity's ArtworkCacheManager, so cache hits
+        // from Full Player warm-up are served here without re-extraction.
+        serviceArtworkCache = ArtworkCacheManager(this)
+        // Session artwork provider: produces the full-res square letterboxed
+        // bytes published as MediaSession metadata (artworkData) so SystemUI /
+        // MIUI render sharp art instead of the low-res MediaStore albumart URI.
+        sessionArtworkProvider = SessionArtworkProvider(this, serviceArtworkCache)
+
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
             // Explicit unique ID prevents "Session ID must be unique" crash when
@@ -266,8 +281,9 @@ class Media3PlaybackService : MediaSessionService() {
             // Use FallbackBitmapLoader so MediaSessionLegacyStub (Bluetooth / lock screen)
             // can load album art even for songs whose embedded artwork has not been indexed
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
-            // albumart content URI first, then falls back to MediaMetadataRetriever.
-            .setBitmapLoader(FallbackBitmapLoader(this))
+            // albumart content URI first, then falls back to the shared artwork cache
+            // (extract + persist on miss — raw-copied JPEG since 1.5.19).
+            .setBitmapLoader(FallbackBitmapLoader(this, serviceArtworkCache))
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -296,11 +312,6 @@ class Media3PlaybackService : MediaSessionService() {
                 .setDisplayName("Next")
                 .build(),
         ))
-
-        // ART-01: initialise artwork cache for notification fallback pipeline.
-        // Shares the same on-disk WebP cache ({filesDir}/artwork/) as MainActivity's
-        // ArtworkCacheManager so cache hits from Full Player warm-up are reused here.
-        serviceArtworkCache = ArtworkCacheManager(this)
 
         // Wire feature modules ────────────────────────────────────────────────
 
@@ -566,6 +577,7 @@ class Media3PlaybackService : MediaSessionService() {
         // When Flutter subscribes to any event stream, push the full current state
         EventEmitter.setOnSubscribeCallback { transportState.emitAll(emitQueue = true) }
 
+
         // Attach listener to primary player
         primaryPlayer?.let { attachPlayerListener(it) }
 
@@ -627,6 +639,11 @@ class Media3PlaybackService : MediaSessionService() {
 
         restoreQueueFromPrefs()
 
+        // Publish the restored track's high-res square artwork to the session
+        // metadata (SystemUI/MIUI media card) — no transition may fire until
+        // the user resumes, so refresh explicitly.
+        scheduleSessionArtworkRefresh()
+
         NativeLogger.emit(
             "info", "Media3",
             "onCreate: ExoPlayer ready (Android SDK ${Build.VERSION.SDK_INT} / MIUI=${isMiui()})"
@@ -638,6 +655,80 @@ class Media3PlaybackService : MediaSessionService() {
         // now is it safe for Dart to push settings that reach into effectsManager /
         // queueManager / crossfadeController. See ServiceReadyGate doc comment.
         ServiceReadyGate.markReady()
+    }
+
+    // ── Session artwork metadata (SystemUI / MIUI media card) ─────────────────
+
+    /**
+     * Publishes the current track's high-resolution square artwork as
+     * MediaSession metadata (`artworkData`) on the main thread.
+     *
+     * WHY: SystemUI / MIUI media surfaces (notification shade card, lock screen
+     * media controls) render artwork from the MediaSession metadata — not from
+     * the notification's setLargeIcon and not through Media3's BitmapLoader.
+     * MediaItemFactory only sets artworkUri = content://media/.../albumart/{id}
+     * (the low-res MediaStore thumbnail), which SystemUI upscales + center-crops
+     * → zoomed & pixelated art. Publishing full-res square letterboxed bytes
+     * makes every consumer (SystemUI, MIUI, MediaStyleNotificationHelper,
+     * MediaSessionLegacyStub/Bluetooth) render the same sharp square.
+     */
+    private fun scheduleSessionArtworkRefresh() {
+        handler.post { refreshSessionArtwork() }
+    }
+
+    private fun refreshSessionArtwork() {
+        val p = activePlayer ?: return
+        val track = transportState.currentTrackMap() ?: return
+        val songId = (track["id"] as? Number)?.toInt() ?: 0
+        val artUri = track["artworkUri"] as? String
+        val currentItem = p.currentMediaItem ?: return
+        val mediaId = currentItem.mediaId
+
+        // No artwork source for this track: drop any artworkData left over from
+        // the previous track so stale art is never shown for a song without art.
+        if (songId <= 0 && artUri.isNullOrBlank()) {
+            publishSessionArtwork(p, mediaId, bytes = null)
+            return
+        }
+
+        sessionArtworkProvider.provide(songId, artUri) { bytes ->
+            handler.post {
+                // Ignore stale results (track changed while we were loading).
+                if (p !== activePlayer || p.currentMediaItem?.mediaId != mediaId) return@post
+                publishSessionArtwork(p, mediaId, bytes)
+            }
+        }
+    }
+
+    /**
+     * Seamlessly swaps the current MediaItem for a copy carrying [bytes] as
+     * `artworkData` (or with artworkData dropped when [bytes] is null). Media3
+     * then broadcasts `onMediaMetadataChanged`, which the MediaSession forwards
+     * to SystemUI / MIUI / lock screen / Bluetooth.
+     *
+     * Why `replaceMediaItems` and not a player-level setter: Media3 has no
+     * `Player.setMediaMetadata` / `MediaSession.setMediaMetadata` API. Replacing
+     * the current item with an identical source keeps the period UID unchanged,
+     * so the position is preserved, playback continues seamlessly, and no
+     * `onMediaItemTransition` fires — only the metadata broadcast.
+     */
+    private fun publishSessionArtwork(p: Player, mediaId: String, bytes: ByteArray?) {
+        runCatching {
+            val item = p.currentMediaItem ?: return@runCatching
+            if (item.mediaId != mediaId) return@runCatching
+            val meta = item.mediaMetadata.buildUpon().setArtworkData(bytes).build()
+            if (meta.artworkData == item.mediaMetadata.artworkData) return@runCatching
+            val index = p.currentMediaItemIndex
+            if (index == C.INDEX_UNSET) return@runCatching
+            val updated = item.buildUpon().setMediaMetadata(meta).build()
+            p.replaceMediaItems(index, index + 1, listOf(updated))
+        }.onFailure {
+            NativeLogger.emit("warn", "Media3", "session artworkData update failed: ${it.message}")
+        }
+        if (bytes != null) {
+            NativeLogger.emit("debug", "Media3",
+                "session artworkData updated (${bytes.size}B) mediaId=$mediaId")
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -979,7 +1070,7 @@ class Media3PlaybackService : MediaSessionService() {
                     // format. ToFloatPcmAudioProcessor below still guarantees
                     // float input to all custom processors.
                     .setEnableFloatOutput(false)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
                     // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
                     // the custom DSP/widening/stretch stages always see PCM_FLOAT
@@ -1034,7 +1125,12 @@ class Media3PlaybackService : MediaSessionService() {
         // (title, artist, album, lyrics) so ExoPlayer's ID3 parse during demuxing
         // is redundant overhead — especially on long FLAC files (>100 MB) where
         // the ID3 scan measurably delays the initial seek.
+        // Media3 1.11.0: disable embedded-artwork parsing (MP3/MP4/FLAC).
+        // Nothing reads MediaItem.mediaMetadata.artworkData — artwork is served by
+        // ArtworkCacheManager / FallbackBitmapLoader via MediaMetadataRetriever —
+        // so skipping it saves memory on large libraries with embedded covers.
         val extractorsFactory = DefaultExtractorsFactory()
+            .setDisableArtworkMetadata(true)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 
@@ -1120,7 +1216,7 @@ class Media3PlaybackService : MediaSessionService() {
                 enableAudioTrackPlaybackParams: Boolean,
             ): DefaultAudioSink = DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                 // No custom AudioProcessors. Media3's own SilenceSkipping/Sonic
                 // processors are still present internally (they're built into
                 // DefaultAudioSink, not this chain) but are transparent no-ops
@@ -1142,7 +1238,12 @@ class Media3PlaybackService : MediaSessionService() {
             )
         }
 
+        // Media3 1.11.0: disable embedded-artwork parsing (MP3/MP4/FLAC).
+        // Nothing reads MediaItem.mediaMetadata.artworkData — artwork is served by
+        // ArtworkCacheManager / FallbackBitmapLoader via MediaMetadataRetriever —
+        // so skipping it saves memory on large libraries with embedded covers.
         val extractorsFactory = DefaultExtractorsFactory()
+            .setDisableArtworkMetadata(true)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
         val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory)
 
@@ -1199,6 +1300,7 @@ class Media3PlaybackService : MediaSessionService() {
 
     transportState.emitAll()
     notificationManager.refresh()
+    if (playbackState == Player.STATE_READY) scheduleSessionArtworkRefresh()
 
     if (playbackState == Player.STATE_READY &&
         crossfadeController.crossfadeDurationSec > 0f) {
@@ -1263,6 +1365,22 @@ class Media3PlaybackService : MediaSessionService() {
                 queueSync.save()
                 transportState.emitAll()
                 notificationManager.refresh()
+                // Prewarm the FOLLOWING track's artwork: refresh() above starts the
+                // current track's art load only now, at transition time. Without
+                // crossfade's 1500 ms Phase-1 prewarm, the next transition would hit
+                // the same blank-art window; prewarming now hides it. Generation is
+                // per cache key, so this cannot discard the current track's in-flight
+                // async load.
+                val nextIdx = p.nextMediaItemIndex
+                if (nextIdx != C.INDEX_UNSET && nextIdx in queueManager.queue.indices) {
+                    val nextTrack = queueManager.queue[nextIdx]
+                    val nextSongId = (nextTrack["id"] as? Number)?.toInt() ?: 0
+                    val nextArtUri = nextTrack["artworkUri"] as? String
+                    notificationManager.prewarmArtwork(nextSongId, nextArtUri)
+                }
+                // Publish the new track's high-res square art to the MediaSession
+                // metadata for SystemUI / MIUI media surfaces.
+                scheduleSessionArtworkRefresh()
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {

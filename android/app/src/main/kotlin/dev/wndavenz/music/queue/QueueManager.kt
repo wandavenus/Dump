@@ -1,7 +1,9 @@
 package dev.wndavenz.music.queue
 
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ShuffleOrder
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.utils.MediaItemFactory
@@ -32,12 +34,14 @@ class QueueManager(
     var activeQueueIndex: Int = 0
         private set
 
+    // Set only when insertNext happens while crossfade owns a temporary one-item timeline.
+    // The priority is applied after rebuildPlayerQueue() restores the full timeline.
+    private var pendingPlayNextIndex: Int = C.INDEX_UNSET
+
     // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
-        // LOW-08: Callers MUST cancel any active crossfade before calling setQueue.
-        // TransportCommands.dispatch("setQueue") enforces this via crossfadeController.cancel().
-        // Calling setQueue mid-crossfade would abruptly interrupt the fading audio.
+        pendingPlayNextIndex = C.INDEX_UNSET
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         val p = getPlayer() ?: return
@@ -46,6 +50,7 @@ class QueueManager(
     }
 
     fun setTrack(target: Int) {
+        pendingPlayNextIndex = C.INDEX_UNSET
         activeQueueIndex = target.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
         getPlayer()?.seekToDefaultPosition(activeQueueIndex)
     }
@@ -59,9 +64,19 @@ class QueueManager(
         queue = mutable
 
         if (!isCrossfadeInProgress()) {
-            getPlayer()?.addMediaItem(insertIdx, MediaItemFactory.from(item))
+            getPlayer()?.let { player ->
+                player.addMediaItem(insertIdx, MediaItemFactory.from(item))
+                if (player.shuffleModeEnabled) {
+                    forceNextInShuffleOrder(player, insertIdx)
+                }
+            }
+            pendingPlayNextIndex = C.INDEX_UNSET
         } else {
-            log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress)")
+            // The player timeline is intentionally not mutated during promotion.
+            // Remember the exact inserted queue index so rebuildPlayerQueue() can
+            // apply the same shuffle-priority operation after promotion.
+            pendingPlayNextIndex = insertIdx
+            log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress); pending priority=$insertIdx")
         }
         saveQueue()
         emitAll(true)
@@ -86,8 +101,8 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.removeAt(index)
         queue = mutable
+        pendingPlayNextIndex = C.INDEX_UNSET
 
-        // Adjust activeQueueIndex
         when {
             index < activeQueueIndex                          -> activeQueueIndex--
             index == activeQueueIndex && queue.isEmpty()      -> activeQueueIndex = 0
@@ -114,6 +129,7 @@ class QueueManager(
         val item    = mutable.removeAt(oldIndex)
         mutable.add(newIndex, item)
         queue = mutable
+        pendingPlayNextIndex = C.INDEX_UNSET
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.moveMediaItem(oldIndex, newIndex)
@@ -121,7 +137,6 @@ class QueueManager(
             log("reorderQueue: list updated, skipping p.moveMediaItem (crossfade in progress)")
         }
 
-        // Adjust activeQueueIndex to follow the moved item
         activeQueueIndex = when {
             oldIndex == activeQueueIndex                                   -> newIndex
             oldIndex < activeQueueIndex && newIndex >= activeQueueIndex    -> activeQueueIndex - 1
@@ -148,38 +163,15 @@ class QueueManager(
 
     // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
-    /**
-     * Option B: incremental queue rebuild via addMediaItems().
-     *
-     * After a crossfade promotion the new active player has exactly 1 MediaItem
-     * (the track loaded by PreloadManager at index 0). Its MediaSourceHolder UID
-     * is the one currently held by the active MediaPeriod and audio renderer.
-     *
-     * We expand the queue by inserting the items that belong BEFORE and AFTER that
-     * single item using two addMediaItems() calls. Internally, addMediaItems() calls
-     * addMediaSourcesInternal() which inserts new MediaSourceHolder objects into
-     * mediaSourceHolderSnapshots WITHOUT clearing the list. The playing holder's UID
-     * is unchanged, so the active MediaPeriod remains valid and handleMediaSourceListInfoRefreshed()
-     * resolves the new window index without invoking resetInternal() or disableRenderers().
-     *
-     * Contrast with setMediaItems(), which calls setMediaSourcesInternal(), clears
-     * mediaSourceHolderSnapshots entirely, allocates new UIDs for every item including
-     * the one currently playing, then forces resetInternal() + disableRenderers() —
-     * the direct cause of the 50–200 ms audible dropout documented in CROSSFADE_OPTION_B_DESIGN.md.
-     *
-     * Edge cases:
-     *   queue.size == 1          → both prefix and suffix are empty; no calls made.
-     *   activeQueueIndex == 0    → prefix empty; only suffix call is made.
-     *   activeQueueIndex == last → suffix empty; only prefix call is made.
-     *   p.mediaItemCount already == queue.size → already fully populated; skip.
-     */
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
         if (queue.isEmpty()) return
         try {
-            // Guard: if the promoted player already holds the full queue (unexpected but
-            // safe to detect), skip expansion to avoid redundant addMediaItems() calls.
             if (p.mediaItemCount == queue.size) {
+                if (pendingPlayNextIndex in queue.indices && p.shuffleModeEnabled) {
+                    forceNextInShuffleOrder(p, pendingPlayNextIndex)
+                }
+                pendingPlayNextIndex = C.INDEX_UNSET
                 log("rebuildPlayerQueue: player already has ${queue.size} items — skipping expansion")
                 return
             }
@@ -193,20 +185,20 @@ class QueueManager(
                 p
             )
 
-            // Items that belong before the currently playing track in the full queue.
-            // Inserting at index 0 shifts the current item's window index from 0 to
-            // activeQueueIndex. The MediaSourceHolder UID of the playing item is unchanged.
             val prefix = queue.subList(0, activeQueueIndex)
             if (prefix.isNotEmpty()) {
                 p.addMediaItems(0, prefix.map { MediaItemFactory.from(it) })
             }
 
-            // Items that belong after the currently playing track.
-            // Inserted at activeQueueIndex + 1; current item stays at activeQueueIndex.
             val suffix = queue.subList(activeQueueIndex + 1, queue.size)
             if (suffix.isNotEmpty()) {
                 p.addMediaItems(activeQueueIndex + 1, suffix.map { MediaItemFactory.from(it) })
             }
+
+            if (pendingPlayNextIndex in queue.indices && p.shuffleModeEnabled) {
+                forceNextInShuffleOrder(p, pendingPlayNextIndex)
+            }
+            pendingPlayNextIndex = C.INDEX_UNSET
 
             CrossfadeTimelineLogger.stamp(
                 "rebuildPlayerQueue: POST-addMediaItems" +
@@ -220,6 +212,59 @@ class QueueManager(
             log("rebuildPlayerQueue failed: ${e.message}")
             CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")
         }
+    }
+
+    /**
+     * Makes the item inserted by "Putar Selanjutnya" the immediate next item
+     * without disabling shuffle or replacing the rest of the randomized order.
+     *
+     * Media3 keeps shuffle order as a separate permutation of the original
+     * playlist indices. Inserting a media item preserves the existing shuffled
+     * order as far as possible, so simply inserting at currentIndex + 1 does
+     * NOT guarantee that item is next while shuffle is enabled. We therefore
+     * move only the requested index to immediately after the current index in
+     * the existing shuffle permutation. The remainder of the permutation is
+     * unchanged.
+     */
+    private fun forceNextInShuffleOrder(player: ExoPlayer, priorityIndex: Int) {
+        val currentIndex = player.currentMediaItemIndex
+        val order = player.shuffleOrder
+        val length = order.length
+
+        if (length != player.mediaItemCount ||
+            currentIndex == C.INDEX_UNSET ||
+            priorityIndex !in 0 until length ||
+            currentIndex !in 0 until length ||
+            currentIndex == priorityIndex) {
+            return
+        }
+
+        val permutation = ArrayList<Int>(length)
+        var index = order.firstIndex
+        while (index != C.INDEX_UNSET && permutation.size < length) {
+            permutation += index
+            index = order.getNextIndex(index)
+        }
+        if (permutation.size != length ||
+            permutation.toSet().size != length ||
+            currentIndex !in permutation ||
+            priorityIndex !in permutation) {
+            log("insertNext: invalid shuffle permutation — leaving Media3 order unchanged")
+            return
+        }
+
+        permutation.remove(priorityIndex)
+        val currentPosition = permutation.indexOf(currentIndex)
+        if (currentPosition < 0) return
+        permutation.add(currentPosition + 1, priorityIndex)
+
+        val customOrder = ShuffleOrder.DefaultShuffleOrder(
+            permutation.toIntArray(),
+            System.nanoTime(),
+        )
+        player.setShuffleOrder(customOrder)
+
+        log("insertNext: shuffle priority → current=$currentIndex next=$priorityIndex")
     }
 
     private fun log(msg: String) = NativeLogger.emit("info", "Queue", msg)

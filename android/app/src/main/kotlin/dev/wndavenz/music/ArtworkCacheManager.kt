@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
@@ -23,6 +24,8 @@ import kotlin.concurrent.withLock
  *  - Zero MediaStore I/O on subsequent app launches (cache hit returns path immediately).
  *  - Atomic writes: artwork is saved to `{id}.webp.tmp` then renamed so a partial write
  *    is never visible as a valid cache entry.
+ *  - Zero re-encode fast path: embedded JPEG art already ≤ MAX_ARTWORK_SIZE is copied to
+ *    cache byte-for-byte (no decode/re-encode), so cache-miss extraction is near-instant.
  *  - Thread-safe: [getOrExtract] may be called from any thread (used from a background
  *    thread in the MethodChannel handler to avoid blocking the Flutter UI thread).
  *  - LRU eviction via [cleanupIfNeeded]: when cache > 500 MB, deletes oldest files
@@ -37,7 +40,20 @@ class ArtworkCacheManager(private val context: Context) {
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
         private const val WEBP_QUALITY  = 85
         private const val MAX_ARTWORK_SIZE = 1000
+        // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
+        // artwork up to this size (and ≤ MAX_ARTWORK_SIZE on both sides) is
+        // byte-copied into the cache instead of paying the 50–150 ms
+        // decode → scale → re-encode WebP round-trip.
+        private const val MAX_RAW_COPY_BYTES = 400 * 1024
+        // A1 (1.5.21): LRU bookkeeping (listFiles + size sum over the whole
+        // cache dir) runs at most once per this window instead of after every
+        // single extraction.
+        private const val CLEANUP_THROTTLE_MS = 15_000L
     }
+
+    // A1 (1.5.21): monotonic timestamp of the last LRU eviction pass.
+    @Volatile
+    private var lastCleanupAtMs = 0L
 
     // Lazily create the persistent cache directory on first access.
     // Uses filesDir (app support directory) so files survive MIUI/system cleanup.
@@ -80,8 +96,9 @@ class ArtworkCacheManager(private val context: Context) {
      * Returns the absolute path to `{cacheDir}/artwork/{songId}.webp`.
      *
      * Fast path (cache hit): file exists → return path immediately.
-     * Slow path (cache miss): extract via MediaMetadataRetriever → encode WebP 85 →
-     *   write atomically → return path.
+     * Slow path (cache miss): extract via MediaMetadataRetriever → write atomically →
+     *   return path. Small JPEG art is raw-copied without decode/re-encode; larger or
+     *   non-JPEG art is scaled to MAX_ARTWORK_SIZE and encoded WebP 85.
      * Returns null only when artwork cannot be extracted (song has no embedded art).
      *
      * Thread-safety note: the per-songId lock is acquired before extraction and
@@ -118,14 +135,23 @@ class ArtworkCacheManager(private val context: Context) {
 
                 val raw = extractRawBytes(songId) ?: return@withLock null
 
-                val ok = saveAsWebP(raw, target)
+                // E-A fast path (extended in 1.5.21 to PNG/WebP): small decodable
+                // artwork ≤ MAX_ARTWORK_SIZE and ≤ MAX_RAW_COPY_BYTES is written to
+                // cache byte-for-byte — no 50–150 ms decode → re-encode WebP round-trip
+                // and no quality loss from double compression. Larger or non-
+                // raw-copyable art still goes through the two-pass scaled WebP encode.
+                val ok = if (isRawCopyCandidate(raw)) {
+                    saveRaw(raw, target)
+                } else {
+                    saveAsWebP(raw, target)
+                }
 
-if (ok) {
-    touch(target)
-    target.absolutePath
-} else {
-    null
-}
+                if (ok) {
+                    touch(target)
+                    target.absolutePath
+                } else {
+                    null
+                }
             }
         } finally {
             // Remove from map only after the lock is fully released by withLock,
@@ -140,7 +166,18 @@ if (ok) {
         // caller consuming the returned path.
         if (result != null) {
             val lockedIds = globalLock.withLock { songLocks.keys.toSet() }
-            cleanupIfNeeded(activeQueueIds + lockedIds)
+            // A1 (1.5.21): throttle the LRU eviction pass to at most once per
+            // CLEANUP_THROTTLE_MS. The previous code scanned the whole cache
+            // directory (listFiles + size sum) after EVERY successful extraction
+            // — with 3 concurrent extraction threads, a large batch/prefetch
+            // turned that into repeated O(n) directory scans dozens of times per
+            // second. The 500 MB cap is a soft ceiling; evicting a few seconds
+            // later changes nothing user-visible.
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastCleanupAtMs >= CLEANUP_THROTTLE_MS) {
+                lastCleanupAtMs = now
+                cleanupIfNeeded(activeQueueIds + lockedIds)
+            }
         }
 
         return result
@@ -271,6 +308,90 @@ if (ok) {
             false
         } finally {
             bitmap?.recycle()
+            if (!ok) {
+                try {
+                    tmp.delete()
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    /**
+     * True when [raw] starts with a JPEG SOI marker (FF D8 FF) — the embedded
+     * art format used by the vast majority of real-world music files.
+     */
+    private fun isJpeg(raw: ByteArray): Boolean =
+        raw.size >= 3 &&
+            raw[0] == 0xFF.toByte() &&
+            raw[1] == 0xD8.toByte() &&
+            raw[2] == 0xFF.toByte()
+
+    /** True when [raw] starts with the PNG signature (89 50 4E 47). */
+    private fun isPng(raw: ByteArray): Boolean =
+        raw.size >= 8 &&
+            raw[0] == 0x89.toByte() &&
+            raw[1] == 0x50.toByte() &&
+            raw[2] == 0x4E.toByte() &&
+            raw[3] == 0x47.toByte()
+
+    /** True when [raw] is a RIFF container holding a WEBP payload. */
+    private fun isWebp(raw: ByteArray): Boolean =
+        raw.size >= 12 &&
+            raw[0] == 'R'.code.toByte() &&
+            raw[1] == 'I'.code.toByte() &&
+            raw[2] == 'F'.code.toByte() &&
+            raw[3] == 'F'.code.toByte() &&
+            raw[8] == 'W'.code.toByte() &&
+            raw[9] == 'E'.code.toByte() &&
+            raw[10] == 'B'.code.toByte() &&
+            raw[11] == 'P'.code.toByte()
+
+    /**
+     * True when [raw] is a raw-copy candidate: decodable JPEG/PNG/WebP, no
+     * larger than [MAX_ARTWORK_SIZE] on either side, and small enough that
+     * byte-copying beats a decode → scale → re-encode WebP round-trip (which
+     * costs 50–150 ms per song on mid-range devices and degrades quality via
+     * double compression).
+     *
+     * The bounds-only decode (zero pixel allocation) also guards the raw-copy
+     * path: a corrupt payload (valid magic bytes, broken image data) must never
+     * be committed to cache as-is, so anything that fails here falls back to
+     * the WebP path, which reports failure cleanly.
+     */
+    private fun isRawCopyCandidate(raw: ByteArray): Boolean {
+        if (raw.size > MAX_RAW_COPY_BYTES) return false
+        if (!isJpeg(raw) && !isPng(raw) && !isWebp(raw)) return false
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
+        return bounds.outWidth in 1..MAX_ARTWORK_SIZE &&
+            bounds.outHeight in 1..MAX_ARTWORK_SIZE
+    }
+
+    /**
+     * Raw-copy fast path: writes the original embedded bytes to [target]
+     * atomically (tmp + rename) without the decode → scale → re-encode WebP
+     * round-trip, which costs 100–300 ms per song on mid-range devices and
+     * degrades quality via double compression.
+     *
+     * The file keeps its `.webp` extension for cache bookkeeping (LRU cleanup
+     * filters on it); every reader — Flutter's FileImage and BitmapFactory —
+     * sniffs content magic bytes, not extensions, so a JPEG payload decodes
+     * correctly end-to-end.
+     */
+    private fun saveRaw(raw: ByteArray, target: File): Boolean {
+        val tmp = File(target.parent, "${target.name}.tmp")
+        var ok = false
+        return try {
+            FileOutputStream(tmp).use { out ->
+                out.write(raw)
+                out.flush()
+            }
+            ok = tmp.renameTo(target)
+            ok
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save raw artwork for ${target.name}: ${e.message}")
+            false
+        } finally {
             if (!ok) {
                 try {
                     tmp.delete()

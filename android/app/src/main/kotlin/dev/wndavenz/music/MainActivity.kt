@@ -26,6 +26,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import org.json.JSONObject
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -50,7 +51,10 @@ class MainActivity : FlutterActivity() {
     // decoding or UI work on MIUI 12.
     private val artworkExecutor: ExecutorService = boundedExecutor(
         name = "artwork-cache",
-        threads = 2,
+        // E-B: 3 workers — the Dart batch prefetch already runs 2 concurrent
+        // extractions; the third slot keeps concurrent queue-change/scroll
+        // requests from stalling that batch on mid-range devices.
+        threads = 3,
         queueCapacity = 48,
     )
     private val metadataExecutor: ExecutorService = boundedExecutor(
@@ -58,12 +62,15 @@ class MainActivity : FlutterActivity() {
         threads = 2,
         queueCapacity = 32,
     )
-    // TagLib mutates whole metadata regions. Keep all ReplayGain mutations on
-    // one worker so repeated UI actions cannot rewrite the same MediaStore file
-    // concurrently, while unrelated metadata reads remain parallel.
+    // TagLib mutates whole metadata regions. Two workers (R-C, 1.5.21): each
+    // write→verify cycle runs on its own per-song MediaStore fd, so two different
+    // files can be mutated in parallel while the same file is never touched by
+    // two workers at once — library-wide tag writes finish roughly 2× faster.
+    // MetadataCacheDb (SQLite) already serializes its own writes internally,
+    // and it is already hit from 2 concurrent scan threads today.
     private val replayGainWriteExecutor: ExecutorService = boundedExecutor(
         name = "rg-write",
-        threads = 1,
+        threads = 2,
         queueCapacity = 16,
     )
     private val replayGainScanExecutor: ExecutorService = boundedExecutor(
@@ -376,21 +383,6 @@ class MainActivity : FlutterActivity() {
                                     result.error("songs_query_error", e.message, null)
                                 }
                             }
-                        }
-                    }
-
-                    "getArtwork" -> {
-                        val songId = call.argument<Int>("songId") ?: 0
-                        submitBackground(
-                            artworkExecutor,
-                            onRejected = {
-                                postToFlutter {
-                                    result.error("artwork_cache_busy", "Artwork queue is busy", null)
-                                }
-                            },
-                        ) {
-                            val artwork = getArtwork(songId)
-                            postToFlutter { result.success(artwork) }
                         }
                     }
 
@@ -802,6 +794,51 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    // ── ReplayGain batch tag write (R-B, 1.5.21) ────────────
+                    // One channel call that writes measured gain/peak for many
+                    // songs via the same write→close→reopen→verify→(restore)
+                    // protocol as the single-song "writeReplayGain" — per-song
+                    // result maps keep identical error semantics (plus a
+                    // `songId` so Dart can invalidate exactly what succeeded).
+                    // Callers MUST have pre-authorized write access for every
+                    // songId via requestReplayGainWriteAccessBatch first (the
+                    // Dart scanLibrary batch flow does); songs not
+                    // pre-authorized simply fail per-song with
+                    // WRITE_ACCESS_DENIED (openFd fails) instead of triggering
+                    // per-file system dialogs.
+                    "writeReplayGainBatch" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val requests = (call.arguments as? List<Map<String, Any?>>)
+                            ?: emptyList()
+                        if (requests.isEmpty()) {
+                            result.success(emptyList<Map<String, Any?>>())
+                        } else {
+                            val songIds = requests.mapNotNull {
+                                (it["songId"] as? Number)?.toInt()
+                            }
+                            // Consume the pre-authorization for all ids up front
+                            // (same skip-grant semantics as the single-song path).
+                            batchPreAuthorizedSongIds.removeAll(songIds)
+                            submitBackground(
+                                replayGainWriteExecutor,
+                                onRejected = {
+                                    postToFlutter {
+                                        result.error("metadata_busy", "Metadata queue is busy", null)
+                                    }
+                                },
+                            ) {
+                                try {
+                                    val maps = replayGainBridge.writeReplayGainBatch(requests)
+                                    postToFlutter { result.success(maps) }
+                                } catch (e: Exception) {
+                                    postToFlutter {
+                                        result.error("write_error", e.message, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // ── Metadata cache diagnostics ──────────────────────────
                     "getMetadataCacheInfo" -> {
                         result.success(mapOf(
@@ -1162,20 +1199,6 @@ class MainActivity : FlutterActivity() {
                 Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }
 
-    private fun getArtwork(songId: Int): ByteArray? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            val uri = Uri.withAppendedPath(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
-            retriever.setDataSource(this, uri)
-            retriever.embeddedPicture
-        } catch (_: Exception) {
-            null
-        } finally {
-            retriever.release()
-        }
-    }
-
     private fun getAudioMetadata(path: String?, songId: Int): Map<String, String?> {
         val retriever = MediaMetadataRetriever()
         return try {
@@ -1219,8 +1242,8 @@ class MainActivity : FlutterActivity() {
     // and unpack accordingly.  On API 30+ devices the disc may also be in a
     // separate DISC_NUMBER column — we prefer it when present.
 
-    private fun getSongs(): List<Map<String, Any?>> {
-        if (!hasMediaPermission()) return emptyList()
+    private fun getSongs(): String {
+        if (!hasMediaPermission()) return "[]"
 
         // Build projection dynamically based on API level.
         // Columns must be guarded carefully — including a non-existent column
@@ -1354,7 +1377,49 @@ class MainActivity : FlutterActivity() {
         lastSongRefs = songRefs
         MetadataPrescanner.start(this, songRefs, metadataCacheDb)
 
-        return songs
+        return songsToJson(songs)
+    }
+
+    /**
+     * Compact JSON serialization of the song list for the Flutter side.
+     *
+     * B (payload): the whole library is sent as ONE JSON string instead of a
+     * deeply nested List<Map> MethodChannel payload. StandardMessageCodec
+     * tags every nested map/string/int with per-value type markers, so for a
+     * large library the codec cost on BOTH sides is several times the raw
+     * data size; a single String is one channel message. It also lets the
+     * Dart side decode in a background isolate (compute), keeping the parse
+     * off the UI thread.
+     *
+     * Single-pass StringBuilder + JSONObject.quote() (proper escaping) — no
+     * JSONArray/JSONObject intermediate allocation churn per song.
+     */
+    private fun songsToJson(songs: List<Map<String, Any?>>): String {
+        val sb = StringBuilder(songs.size * 96)
+        sb.append('[')
+        for ((i, map) in songs.withIndex()) {
+            if (i > 0) sb.append(',')
+            sb.append('{')
+            var first = true
+            for ((k, v) in map) {
+                if (!first) sb.append(',')
+                first = false
+                sb.append(JSONObject.quote(k)).append(':')
+                when (v) {
+                    null -> sb.append("null")
+                    is Boolean -> sb.append(v)
+                    is Int -> sb.append(v)
+                    is Long -> sb.append(v)
+                    is Double -> sb.append(v)
+                    is Float -> sb.append(v)
+                    is String -> sb.append(JSONObject.quote(v))
+                    else -> sb.append(JSONObject.quote(v.toString()))
+                }
+            }
+            sb.append('}')
+        }
+        sb.append(']')
+        return sb.toString()
     }
 
     override fun onDestroy() {

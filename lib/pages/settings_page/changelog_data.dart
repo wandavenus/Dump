@@ -20,6 +20,126 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.28',
+    date: '10 Agustus 2026',
+    changes: [
+      'Optimasi jalur artwork notifikasi/lock-screen (hasil audit): FallbackBitmapLoader kini punya cache positif per-album (skip query MediaStore + ekstraksi ulang saat lagu dari album sama diputar lagi) dan probe hingga 3 lagu untuk album kompilasi yang tiap lagunya punya artwork beda.',
+      'Artwork kecil tidak lagi di-upscale ke 1024px (tetap resolusi asli, tajam; sistem yang melakukan scaling akhir) dan decode memakai ARGB_8888 agar art yang sudah persegi 1024px tidak di-letterbox ulang.',
+      'Artwork hasil prewarm kini langsung tampil saat lagu tersebut sudah diputar (repost otomatis), tidak menunggu siklus refresh berikutnya.',
+      'Prewarm artwork lagu berikutnya juga berlaku di ganti-lagu non-crossfade (next/prev/akhir lagu): artwork dimuat saat lagu berganti sehingga window artwork kosong di transisi non-crossfade ikut hilang; generation load kini per-lagu agar prewarm lagu berikutnya tidak membatalkan hasil load lagu yang sedang diputar.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.27',
+    date: '10 Agustus 2026',
+    changes: [
+      'Fix total bug artwork notifikasi yang zoom + pecah (MIUI): akar masalahnya SystemUI/MIUI membaca artwork dari metadata MediaSession, bukan dari largeIcon notifikasi — kini artworkData full-res persegi (letterbox 1024px) dipublikasikan ke MediaSession via SessionArtworkProvider (embedded-first, cache per lagu), sehingga shade notifikasi, lock screen, dan Bluetooth semuanya tampil tajam tanpa crop.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.26',
+    date: '10 Agustus 2026',
+    changes: [
+      'Bersihkan dead code: hapus getBytes() beserta cache bytes-nya dari ArtworkRepository — tidak ada satu pun pemanggil di seluruh repo (preseden hapus getArtwork 1.5.19); jalur palette yang aktif sepenuhnya native jadi tidak terpengaruh.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.25',
+    date: '10 Agustus 2026',
+    changes: [
+      'Audit jalur palette: konfirmasi tidak ada baca-disk ganda — dedup sudah ada di semua layer (Dart _pending, native inFlightBySongId, lock per-song ArtworkCacheManager, _prefetchingSongs).',
+      'getBytes() kini memakai dedup in-flight (_bytesInFlight) — pemanggil konkuren untuk lagu yang sama berbagi satu baca file, bukan baca ganda.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.24',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat loading artwork saat scroll list Lagu: sampul area terlihat + jendela depan/belakang (±18 lagu) kini benar-benar di-decode ke ImageCache Flutter (sebelumnya hanya warm-up path) — tile muncul tanpa placeholder flash.',
+      'Pre-decode viewport-aware: prioritas lagu terlihat dulu baru yang di depan/belakang; request ter-coalesce saat fling cepat (latest-wins); dilewati saat pencarian aktif.',
+      'Pre-decode anti-duplikat: lagu yang sudah ada di ImageCache atau sedang di-decode dilewati — tidak ada decode ganda saat scroll.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.23',
+    date: '10 Agustus 2026',
+    changes: [
+      'Amankan batch write ReplayGain: dedup songId sebelum ditulis (duplikat tidak pernah ditulis 2× / ditulis paralel di file yang sama).',
+      'Batch write kini dikerjakan per-chunk tetap (250 lagu/call) lewat 2 worker paralel — payload channel terbatas dan kedua worker tetap sibuk untuk library besar.',
+      'writeReplayGainBatch anti-gagal: kegagalan non-channel (mis. channel tertutup) tidak lagi membatalkan hasil batch lainnya.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.22',
+    date: '10 Agustus 2026',
+    changes: [
+      'Perbaiki batch write ReplayGain: hasil scan kini ditulis dalam 2 panggilan paralel (memakai 2 worker native sekaligus) — write library besar tidak lagi serial di 1 thread, dan payload channel per panggilan ikut terbatas.',
+      'writeReplayGainBatch defensif: balasan channel yang kosong/terpotong kini dihitung gagal, bukan diam-diam dianggap sukses.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.21',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat penulisan ReplayGain library: seluruh hasil scan ditulis dalam SATU panggilan native batch (bukan 1 round-trip MethodChannel per lagu) — overhead channel untuk library ribuan lagu hilang.',
+      'Percepat penulisan ReplayGain: worker tulis jadi 2 — dua lagu berbeda boleh ditulis+verifikasi paralel (fd per file terpisah).',
+      'Percepat ekstraksi artwork: LRU tidak lagi scan ulang folder cache tiap lagu (throttle 15 detik).',
+      'Percepat ekstraksi artwork: jalur raw-copy (tanpa decode-reencode) diperluas ke PNG/WebP kecil (≤1000px, ≤400KB) — bukan hanya JPEG.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.20',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat load library: payload getSongs dikirim native sebagai satu string JSON (bukan ribuan Map lewat codec) dan parsing + encode cache dipindah ke isolate (compute) — refresh library besar tidak lagi nge-jank UI thread.',
+      'ReplayGain scan: buffer PCM MediaCodec di-reuse (grow-only) — tidak ada alokasi ShortArray per chunk selama decode.',
+      'DSP soft clipper: ganti tanhf() dengan aproksimasi rasional cepat (C¹, bounded, error <2.5%) — jalur clip tanpa transcendental.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.19',
+    date: '9 Agustus 2026',
+    changes: [
+      'Percepat ekstraksi artwork native: JPEG kecil disalin mentah ke cache tanpa decode-reencode (kualitas asli, ekstraksi hampir instan).',
+      'Tambah 1 thread ekstraksi artwork (2 → 3) agar batch prefetch lebih cepat selesai.',
+      'Bersihkan kode mati: hapus jalur getArtwork (bytes) yang tidak pernah dipanggil Flutter.',
+      'FallbackBitmapLoader (artwork notifikasi/lock-screen): reuse cache artwork persisten + decode dibatasi 512px agar tidak pernah decode full-size.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.18',
+    date: '9 Agustus 2026',
+    changes: [
+      'Percepat loading artwork: prefetch otomatis saat scroll list Lagu agar sampul siap sebelum terlihat.',
+      'Percepat loading artwork: prefetch sampul 3 lagu berikutnya saat ganti lagu.',
+      'Percepat prefetch artwork itu sendiri (paralel 2) untuk list lagu besar.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.17',
+    date: '8 Agustus 2026',
+    changes: [
+      'Perkuat reliabilitas: artwork & hapus lagu kini punya timeout fail-open agar tidak menggantung selamanya.',
+      'Bersihkan dependency: hapus cached_network_image dan rxdart dari pubspec (tidak terpakai langsung).',
+      'Rapikan kode: satukan format total durasi halaman Album & Artist jadi satu helper.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.16',
+    date: '8 Agustus 2026',
+    changes: [
+      'Lokalisasi lengkap alur simpan QRIS (dialog + snackbar) ke EN/ID.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.15',
+    date: '8 Agustus 2026',
+    changes: [
+      'Perbarui Media3 ke 1.11.0 stable dan pindahkan BitmapLoader ke androidx.media3.common.util.',
+      'Hentikan parsing artwork bawaan file (MP3/MP4/FLAC) untuk hemat memori — artwork tetap ditampilkan lewat cache internal.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.14',
     date: '7 Agustus 2026',
     changes: ['Perbaiki animasi highlight karaoke untuk teks Jepang dan CJK.'],

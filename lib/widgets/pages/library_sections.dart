@@ -7,6 +7,7 @@ import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/local_song.dart';
+import '../../services/artwork_repository.dart';
 import '../../services/audio_service.dart';
 import '../../services/history_service.dart';
 import '../../services/media_store_service.dart';
