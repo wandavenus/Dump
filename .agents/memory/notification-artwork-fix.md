@@ -39,4 +39,5 @@ albumart low-res.
 4. **`inPreferredConfig = ARGB_8888`** di semua decode — art yang sudah 1024×1024 persegi langsung return di fast-path, tidak di-reletterbox (hemat ~4MB alokasi per panggilan).
 5. **Prewarm repost**: kalau lagu yang di-prewarm sudah jadi current track saat load selesai (user pencet next), notifikasi langsung repost — tidak menunggu refresh berikutnya.
 6. **Hapus double lookup** `bitmapCache.get()` di `refresh()`.
+7. **Prewarm non-crossfade + generation per-key** — di `Media3PlaybackService.onMediaItemTransition`, artwork lagu berikutnya (`p.nextMediaItemIndex` → `queueManager.queue`) ikut di-prewarm via `notificationManager.prewarmArtwork` (sebelumnya hanya CrossfadeController Phase-1 yang prewarm). `artworkLoadGeneration` global diganti `artworkLoadGenerations` per-cacheKey supaya prewarm lagu berikutnya tidak men-discard hasil async load lagu yang sedang diputar (race lintas-key).
 Catatan: `SessionArtworkProvider.letterboxSquare` sengaja tetap 1024 tetap (session artwork dipakai SystemUI render BESAR, ukuran seragam 1024 lebih aman).

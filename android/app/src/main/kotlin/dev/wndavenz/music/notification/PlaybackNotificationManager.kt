@@ -59,7 +59,14 @@ class PlaybackNotificationManager(
 
     private val bitmapCache = android.util.LruCache<String, Bitmap>(10)
     private val noArtworkTimestamps = HashMap<String, Long>(64)
-    private var artworkLoadGeneration = 0L
+    /**
+     * Latest load generation per cache key. Generation is scoped per key so a
+     * prewarm of the NEXT track cannot discard the CURRENT track's in-flight
+     * async result — the crossfade prewarm and the transition-time prewarm run
+     * back to back with different keys. Entries are removed when a load finishes;
+     * all access happens on the main thread.
+     */
+    private val artworkLoadGenerations = HashMap<String, Long>()
     private var pendingAsyncCacheKey: String? = null
     private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "artwork-loader").also { it.isDaemon = true }
@@ -150,12 +157,14 @@ class PlaybackNotificationManager(
         if (cacheKey == pendingAsyncCacheKey) return
 
         pendingAsyncCacheKey = cacheKey
-        val generation = ++artworkLoadGeneration
+        val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
+        artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
             val bmp = loadBitmap(nextArtUri, nextSongId)?.let(::normalizeNotificationArtwork)
             handler.post {
                 pendingAsyncCacheKey = null
-                if (generation != artworkLoadGeneration) return@post
+                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 NativeLogger.emit("debug", "Notification", "prewarmArtwork done: cacheKey=$cacheKey bmp=${bmp != null}")
                 // If the prewarmed track became the current track while loading
@@ -189,12 +198,14 @@ class PlaybackNotificationManager(
         if (cacheKey == pendingAsyncCacheKey) return
         pendingAsyncCacheKey = cacheKey
 
-        val generation = ++artworkLoadGeneration
+        val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
+        artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
             val bmp = loadBitmap(artUri, songId)?.let(::normalizeNotificationArtwork)
             handler.post {
                 pendingAsyncCacheKey = null
-                if (generation != artworkLoadGeneration) return@post
+                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
                 try {
