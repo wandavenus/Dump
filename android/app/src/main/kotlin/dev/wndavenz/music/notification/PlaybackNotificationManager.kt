@@ -484,8 +484,9 @@ class PlaybackNotificationManager(
         const val ACTION_SKIP_PREV  = "dev.wndavenz.music.ACTION_SKIP_PREV"
         const val ACTION_STOP       = "dev.wndavenz.music.ACTION_STOP"
 
-        /** Target long edge for notification artwork in pixels. 512 px is crisp at 3× density. */
-        private const val NOTIF_ART_PX = 512
+        /** Target long edge for notification artwork in pixels. 1024 px keeps the
+         *  large icon crisp after the notification template scales it down. */
+        private const val NOTIF_ART_PX = 1024
 
         /**
          * ART-02: TTL for the no-artwork cache. Entries older than this are retried.
