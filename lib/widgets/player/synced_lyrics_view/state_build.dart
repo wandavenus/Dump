@@ -53,12 +53,7 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   ? TextAlign.right
                   : align;
 
-              // The list still performs the normal centering scroll. This
-              // transform adds a small distance-dependent elastic offset so
-              // nearby lines settle at slightly different rates instead of
-              // visually moving as one rigid block. The damped overshoot makes
-              // the lines travel slightly past the rest position, then spring
-              // back by a small amount for a subtle rubber-like finish.
+              // Keep the existing per-line rubber movement unchanged.
               final distance = (index - _currentIndex).abs().toDouble();
               final distanceFactor = 1.0 / (1.0 + distance * 0.45);
               final phase = Curves.easeOut.transform(
@@ -77,57 +72,71 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   lead *
                   (isActive ? 0.18 : 1.0);
 
+              // New effect only: the newly highlighted line grows slightly,
+              // then returns to its original size. It does not affect the
+              // existing scroll/rubber movement or its timing.
+              final scale = isActive
+                  ? 1.0 + (0.045 * math.sin(math.pi * t))
+                  : 1.0;
+
               return Transform.translate(
                 offset: Offset(0, lineOffset),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    final targetPos = widget.lyrics[index].timestamp;
+                child: Transform.scale(
+                  scale: scale,
+                  alignment: Alignment.center,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      final targetPos = widget.lyrics[index].timestamp;
 
-                    // Kunci target posisinya di sini beb
-                    _pendingSeekPos = targetPos;
+                      // Kunci target posisinya di sini beb
+                      _pendingSeekPos = targetPos;
 
-                    // ── Optimistic update biar UI langsung loncat duluan ───
-                    _anchorPos = targetPos;
-                    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+                      // ── Optimistic update biar UI langsung loncat duluan ───
+                      _anchorPos = targetPos;
+                      _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
 
-                    _maybeUpdateCurrentLine(targetPos, allowBinarySearch: true);
-                    _karaokeController.updatePosition(targetPos);
-                    // ──────────────────────────────────────────────────────
+                      _maybeUpdateCurrentLine(
+                        targetPos,
+                        allowBinarySearch: true,
+                      );
+                      _karaokeController.updatePosition(targetPos);
+                      // ──────────────────────────────────────────────────────
 
-                    unawaited(AudioService.seek(targetPos));
-                  },
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: lineSpacing),
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
-                      style: TextStyle(
-                        fontSize: fs,
-                        fontWeight: FontWeight.bold,
-                        color: isActive ? active : dim,
-                        height: 1.4,
+                      unawaited(AudioService.seek(targetPos));
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: lineSpacing),
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        style: TextStyle(
+                          fontSize: fs,
+                          fontWeight: FontWeight.bold,
+                          color: isActive ? active : dim,
+                          height: 1.4,
+                        ),
+                        child: isActive && karaokeOn
+                            ? _UnifiedKaraokeLine(
+                                key: ValueKey(_currentIndex),
+                                text: widget.lyrics[index].text,
+                                timeline: _wordTimelines[index],
+                                controller: _karaokeController,
+                                activeColor: active,
+                                dimColor: dim,
+                                fontSize: fs,
+                                textAlign: lineAlign,
+                                textScaleFactor: MediaQuery.textScalerOf(
+                                  context,
+                                ).scale(1.0),
+                                textDirection: lineDirection,
+                              )
+                            : Text(
+                                widget.lyrics[index].text,
+                                textAlign: lineAlign,
+                                textDirection: lineDirection,
+                              ),
                       ),
-                      child: isActive && karaokeOn
-                          ? _UnifiedKaraokeLine(
-                              key: ValueKey(_currentIndex),
-                              text: widget.lyrics[index].text,
-                              timeline: _wordTimelines[index],
-                              controller: _karaokeController,
-                              activeColor: active,
-                              dimColor: dim,
-                              fontSize: fs,
-                              textAlign: lineAlign,
-                              textScaleFactor: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(1.0),
-                              textDirection: lineDirection,
-                            )
-                          : Text(
-                              widget.lyrics[index].text,
-                              textAlign: lineAlign,
-                              textDirection: lineDirection,
-                            ),
                     ),
                   ),
                 ),
