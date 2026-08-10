@@ -1365,6 +1365,19 @@ class Media3PlaybackService : MediaSessionService() {
                 queueSync.save()
                 transportState.emitAll()
                 notificationManager.refresh()
+                // Prewarm the FOLLOWING track's artwork: refresh() above starts the
+                // current track's art load only now, at transition time. Without
+                // crossfade's 1500 ms Phase-1 prewarm, the next transition would hit
+                // the same blank-art window; prewarming now hides it. Generation is
+                // per cache key, so this cannot discard the current track's in-flight
+                // async load.
+                val nextIdx = p.nextMediaItemIndex
+                if (nextIdx != C.INDEX_UNSET && nextIdx in queueManager.queue.indices) {
+                    val nextTrack = queueManager.queue[nextIdx]
+                    val nextSongId = (nextTrack["id"] as? Number)?.toInt() ?: 0
+                    val nextArtUri = nextTrack["artworkUri"] as? String
+                    notificationManager.prewarmArtwork(nextSongId, nextArtUri)
+                }
                 // Publish the new track's high-res square art to the MediaSession
                 // metadata for SystemUI / MIUI media surfaces.
                 scheduleSessionArtworkRefresh()
