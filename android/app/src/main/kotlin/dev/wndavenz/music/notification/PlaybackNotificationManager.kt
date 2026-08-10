@@ -220,7 +220,7 @@ class PlaybackNotificationManager(
         }
 
         launchPendingIntent?.let { builder.setContentIntent(it) }
-        bitmap?.let { builder.setLargeIcon(normalizeNotificationArtwork(it)) }
+        bitmap?.let { builder.setLargeIcon(it) }
 
         if (session != null) {
             builder
@@ -320,21 +320,25 @@ class PlaybackNotificationManager(
 
     private fun normalizeNotificationArtwork(source: Bitmap): Bitmap {
         if (source.width <= 0 || source.height <= 0) return source
-        if (source.width == source.height && source.config == Bitmap.Config.ARGB_8888) return source
+        if (source.width == NOTIF_ART_PX && source.height == NOTIF_ART_PX && source.config == Bitmap.Config.ARGB_8888) {
+            return source
+        }
 
-        val side = maxOf(source.width, source.height)
-        val normalized = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(normalized)
-        canvas.drawColor(Color.TRANSPARENT)
+        val out = Bitmap.createBitmap(NOTIF_ART_PX, NOTIF_ART_PX, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(Color.BLACK)
 
-        val scale = minOf(side.toFloat() / source.width.toFloat(), side.toFloat() / source.height.toFloat())
+        val scale = minOf(
+            NOTIF_ART_PX.toFloat() / source.width.toFloat(),
+            NOTIF_ART_PX.toFloat() / source.height.toFloat(),
+        )
         val drawnW = source.width * scale
         val drawnH = source.height * scale
-        val left = (side - drawnW) / 2f
-        val top = (side - drawnH) / 2f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        val left = (NOTIF_ART_PX - drawnW) / 2f
+        val top = (NOTIF_ART_PX - drawnH) / 2f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
-        return normalized
+        return out
     }
 
     private fun isInNoArtworkCache(key: String): Boolean {
