@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.21',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat penulisan ReplayGain library: seluruh hasil scan ditulis dalam SATU panggilan native batch (bukan 1 round-trip MethodChannel per lagu) — overhead channel untuk library ribuan lagu hilang.',
+      'Percepat penulisan ReplayGain: worker tulis jadi 2 — dua lagu berbeda boleh ditulis+verifikasi paralel (fd per file terpisah).',
+      'Percepat ekstraksi artwork: LRU tidak lagi scan ulang folder cache tiap lagu (throttle 15 detik).',
+      'Percepat ekstraksi artwork: jalur raw-copy (tanpa decode-reencode) diperluas ke PNG/WebP kecil (≤1000px, ≤400KB) — bukan hanya JPEG.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.20',
     date: '10 Agustus 2026',
     changes: [

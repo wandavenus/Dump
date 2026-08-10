@@ -381,6 +381,42 @@ class ReplayGainService {
     LocalSong song, {
     bool writeTags = false,
   }) async {
+    final scan = await _scanTrackResult(song);
+    if (scan == null) return null;
+
+    final integratedLufs = scan.integratedLufs;
+    if (writeTags && integratedLufs != null) {
+      final wrote = await writeReplayGain(
+        song: song,
+        trackGainDb: scan.data.gainDb,
+        trackPeak: scan.data.peakLinear ?? 0.0,
+        trackIntegratedLufs: integratedLufs,
+        expectedFileSize: scan.identity.size,
+        expectedFileMtimeMs: scan.identity.mtimeMs,
+      );
+      if (!wrote) return null;
+      final afterWrite = await _fileIdentity(song.path);
+      if (afterWrite == null) return null;
+      _cacheIdentity[song.id] = afterWrite;
+      _cache[song.id] = scan.data;
+      await _saveToPrefs(song.id, scan.data, afterWrite);
+    } else {
+      _cacheIdentity[song.id] = scan.identity;
+      _cache[song.id] = scan.data;
+      await _saveToPrefs(song.id, scan.data, scan.identity);
+    }
+    return scan.data;
+  }
+
+  /// Runs one native single-track scan with the identity guarded the same way
+  /// [scanOneSong] used to: identity before → scanTrack → identity after — a
+  /// change mid-scan (file replaced/edited) discards the measurement.
+  ///
+  /// Returns null when the file cannot be decoded or changed during the scan.
+  /// [integratedLufs] is kept out of [LoudnessData] (which deliberately stores
+  /// only gain/peak) because the batched tag-write path needs the raw LUFS
+  /// value to persist R128 fields.
+  static Future<_TrackScan?> _scanTrackResult(LocalSong song) async {
     if (kIsWeb || song.path.isEmpty) return null;
     try {
       final before = await _fileIdentity(song.path);
@@ -401,45 +437,27 @@ class ReplayGainService {
       if (afterScan != before) {
         LogService.warn(
           'ReplayGain',
-          'scanOneSong "${song.title}" discarded: file changed during scan',
+          '_scanTrackResult "${song.title}" discarded: file changed during scan',
         );
         return null;
       }
-      final data = LoudnessData(
-        gainDb: gainDb,
-        peakLinear: cleanPeak,
-        source: LoudnessSource.replayGainTrack,
+      return _TrackScan(
+        data: LoudnessData(
+          gainDb: gainDb,
+          peakLinear: cleanPeak,
+          source: LoudnessSource.replayGainTrack,
+        ),
+        integratedLufs: integratedLufs,
+        identity: before,
       );
-
-      if (writeTags && integratedLufs != null) {
-        final wrote = await writeReplayGain(
-          song: song,
-          trackGainDb: gainDb,
-          trackPeak: cleanPeak ?? 0.0,
-          trackIntegratedLufs: integratedLufs,
-          expectedFileSize: before.size,
-          expectedFileMtimeMs: before.mtimeMs,
-        );
-        if (!wrote) return null;
-        final afterWrite = await _fileIdentity(song.path);
-        if (afterWrite == null) return null;
-        _cacheIdentity[song.id] = afterWrite;
-        _cache[song.id] = data;
-        await _saveToPrefs(song.id, data, afterWrite);
-      } else {
-        _cacheIdentity[song.id] = before;
-        _cache[song.id] = data;
-        await _saveToPrefs(song.id, data, before);
-      }
-      return data;
     } on PlatformException catch (e) {
       LogService.warn(
         'ReplayGain',
-        'scanOneSong "${song.title}": ${e.code} – ${e.message}',
+        '_scanTrackResult "${song.title}": ${e.code} – ${e.message}',
       );
       return null;
     } on Object catch (e) {
-      LogService.warn('ReplayGain', 'scanOneSong "${song.title}": $e');
+      LogService.warn('ReplayGain', '_scanTrackResult "${song.title}": $e');
       return null;
     }
   }
@@ -508,8 +526,17 @@ class ReplayGainService {
     const concurrency = 2;
     var failed = 0;
 
+    // R-B (1.5.21): measurements destined for permanent tags are collected
+    // here and written in ONE native batch call when the scan finishes (see
+    // _flushPendingWrites) — no per-song MethodChannel round trip.
+    final pendingWrites = <ReplayGainWriteRequest>[];
+
     for (var base = 0; base < toScan.length; base += concurrency) {
       if (_cancelRequested) {
+        // Still persist whatever was already measured — the old per-song flow
+        // wrote tags as songs completed, so cancellation must not silently
+        // drop results the user asked to write.
+        failed += await _flushPendingWrites(pendingWrites);
         scanProgress.value = scanProgress.value.copyWith(
           done: base,
           running: false,
@@ -536,17 +563,41 @@ class ReplayGainService {
       // actually granted in the pre-authorization above — declined songs
       // still get scanned (for in-app normalization) but skip the file
       // write, and critically do NOT trigger a fallback per-file dialog.
-      final results = await Future.wait(
-        chunk.map(
-          (s) => scanOneSong(
-            s,
-            writeTags: writeTags && (writeAccessById[s.id] ?? false),
-          ),
-        ),
-      );
+      // Fire both scans concurrently; _scanTrackResult never throws (catches
+      // all). Measurements are cached immediately; songs whose write access
+      // was granted in the pre-authorization are collected for the batched
+      // tag write — declined songs still get scanned (for in-app
+      // normalization) but skip the file write, and critically do NOT
+      // trigger a fallback per-file dialog.
+      final scans = await Future.wait(chunk.map((s) => _scanTrackResult(s)));
 
-      for (final r in results) {
-        if (r == null) failed++;
+      for (var i = 0; i < scans.length; i++) {
+        final scan = scans[i];
+        final song = chunk[i];
+        if (scan == null) {
+          failed++;
+          continue;
+        }
+        // Same cache bookkeeping as scanOneSong's writeTags:false path.
+        _cacheIdentity[song.id] = scan.identity;
+        _cache[song.id] = scan.data;
+        await _saveToPrefs(song.id, scan.data, scan.identity);
+
+        final integratedLufs = scan.integratedLufs;
+        if (writeTags &&
+            (writeAccessById[song.id] ?? false) &&
+            integratedLufs != null) {
+          pendingWrites.add(
+            ReplayGainWriteRequest(
+              song: song,
+              trackGainDb: scan.data.gainDb,
+              trackPeak: scan.data.peakLinear ?? 0.0,
+              trackIntegratedLufs: integratedLufs,
+              expectedFileSize: scan.identity.size,
+              expectedFileMtimeMs: scan.identity.mtimeMs,
+            ),
+          );
+        }
       }
 
       scanProgress.value = scanProgress.value.copyWith(done: end);
@@ -557,6 +608,11 @@ class ReplayGainService {
         await Future<void>.delayed(const Duration(milliseconds: 20));
       }
     }
+
+    // R-B (1.5.21): persist every scanned measurement in ONE native batch
+    // call instead of one writeReplayGain round trip per song — the single
+    // biggest channel-overhead win for library-wide "scan + write" runs.
+    failed += await _flushPendingWrites(pendingWrites);
 
     scanProgress.value = BatchScanProgress(
       done: toScan.length,
@@ -823,6 +879,124 @@ class ReplayGainService {
       return false;
     }
   }
+
+  /// Writes measured loudness for many songs in ONE native channel call.
+  ///
+  /// Batch counterpart of [writeReplayGain] (R-B, 1.5.21) used by
+  /// [scanLibrary]: without it a library-wide "scan + write permanently" run
+  /// pays a full MethodChannel round trip per song for the write itself — on
+  /// a 1,000-song library that is ~1,000 cross-process calls of pure overhead
+  /// stacked on top of the already-dominant PCM scan time.
+  ///
+  /// Every request must carry values measured by a prior scan; the native
+  /// side re-validates each song's file identity before mutating
+  /// (STALE_SCAN semantics preserved per song), and per-song success/error is
+  /// kept so one bad file never fails the whole batch. Callers MUST
+  /// pre-authorize write access for every song id via [requestBatchWriteAccess]
+  /// first — songs that were not granted fail with WRITE_ACCESS_DENIED in
+  /// their own result slot.
+  ///
+  /// Returns one bool per request, in the same order. Successful writes have
+  /// their in-memory/prefs cache entries invalidated so the next [resolve]
+  /// re-reads the fresh tags.
+  static Future<List<bool>> writeReplayGainBatch(
+    List<ReplayGainWriteRequest> requests,
+  ) async {
+    if (kIsWeb || requests.isEmpty) return const [];
+    final payload = <Map<String, Object?>>[
+      for (final r in requests)
+        {
+          'path': r.song.path,
+          'songId': r.song.id,
+          'trackGainDb': r.trackGainDb,
+          'trackPeak': r.trackPeak,
+          'integratedLufs': r.trackIntegratedLufs,
+          'fileSize': r.expectedFileSize,
+          'fileMtimeMs': r.expectedFileMtimeMs,
+          'albumGainDb': r.albumGainDb,
+          'albumPeak': r.albumPeak,
+          'albumIntegratedLufs': r.albumIntegratedLufs,
+        },
+    ];
+    try {
+      final raw = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+        'writeReplayGainBatch',
+        payload,
+      );
+      final results = raw ?? const <Map<dynamic, dynamic>>[];
+      final ok = <bool>[];
+      final toInvalidate = <int>[];
+      for (final r in results) {
+        final success = r['success'] == true;
+        ok.add(success);
+        if (success) {
+          final songId = (r['songId'] as num?)?.toInt();
+          if (songId != null) toInvalidate.add(songId);
+        }
+      }
+      if (toInvalidate.isNotEmpty) {
+        await Future.wait([for (final id in toInvalidate) invalidate(id)]);
+      }
+      return ok;
+    } on PlatformException catch (e) {
+      LogService.warn(
+        'ReplayGain',
+        'writeReplayGainBatch (${requests.length} songs): ${e.code} – ${e.message}',
+      );
+      return List.filled(requests.length, false);
+    }
+  }
+
+  /// Flushes [pending] via one native batch tag-write call; returns the number
+  /// of songs whose write failed. Empty list → 0 without any channel call.
+  static Future<int> _flushPendingWrites(
+    List<ReplayGainWriteRequest> pending,
+  ) async {
+    if (pending.isEmpty) return 0;
+    final results = await writeReplayGainBatch(pending);
+    return results.where((ok) => !ok).length;
+  }
+}
+
+// ── Internal scan + batch-write types ──────────────────────────────────────────
+
+/// Private result of [_scanTrackResult]: the cached [LoudnessData] plus the
+/// raw LUFS value and file identity needed to persist tags later.
+class _TrackScan {
+  const _TrackScan({
+    required this.data,
+    required this.integratedLufs,
+    required this.identity,
+  });
+
+  final LoudnessData data;
+  final double? integratedLufs;
+  final _ReplayGainFileIdentity identity;
+}
+
+/// One song's tag-write request for [ReplayGainService.writeReplayGainBatch].
+class ReplayGainWriteRequest {
+  const ReplayGainWriteRequest({
+    required this.song,
+    required this.trackGainDb,
+    required this.trackPeak,
+    required this.trackIntegratedLufs,
+    this.expectedFileSize,
+    this.expectedFileMtimeMs,
+    this.albumGainDb,
+    this.albumPeak,
+    this.albumIntegratedLufs,
+  });
+
+  final LocalSong song;
+  final double trackGainDb;
+  final double trackPeak;
+  final double trackIntegratedLufs;
+  final int? expectedFileSize;
+  final int? expectedFileMtimeMs;
+  final double? albumGainDb;
+  final double? albumPeak;
+  final double? albumIntegratedLufs;
 }
 
 // ── Album scan result types ────────────────────────────────────────────────────

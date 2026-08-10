@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
@@ -39,7 +40,20 @@ class ArtworkCacheManager(private val context: Context) {
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
         private const val WEBP_QUALITY  = 85
         private const val MAX_ARTWORK_SIZE = 1000
+        // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
+        // artwork up to this size (and ≤ MAX_ARTWORK_SIZE on both sides) is
+        // byte-copied into the cache instead of paying the 50–150 ms
+        // decode → scale → re-encode WebP round-trip.
+        private const val MAX_RAW_COPY_BYTES = 400 * 1024
+        // A1 (1.5.21): LRU bookkeeping (listFiles + size sum over the whole
+        // cache dir) runs at most once per this window instead of after every
+        // single extraction.
+        private const val CLEANUP_THROTTLE_MS = 15_000L
     }
+
+    // A1 (1.5.21): monotonic timestamp of the last LRU eviction pass.
+    @Volatile
+    private var lastCleanupAtMs = 0L
 
     // Lazily create the persistent cache directory on first access.
     // Uses filesDir (app support directory) so files survive MIUI/system cleanup.
@@ -121,9 +135,12 @@ class ArtworkCacheManager(private val context: Context) {
 
                 val raw = extractRawBytes(songId) ?: return@withLock null
 
-                // E-A fast path: JPEG already ≤ MAX_ARTWORK_SIZE is written to cache
-                // byte-for-byte (no 100–300 ms decode → re-encode WebP round-trip).
-                val ok = if (isJpeg(raw) && jpegFitsLimit(raw)) {
+                // E-A fast path (extended in 1.5.21 to PNG/WebP): small decodable
+                // artwork ≤ MAX_ARTWORK_SIZE and ≤ MAX_RAW_COPY_BYTES is written to
+                // cache byte-for-byte — no 50–150 ms decode → re-encode WebP round-trip
+                // and no quality loss from double compression. Larger or non-
+                // raw-copyable art still goes through the two-pass scaled WebP encode.
+                val ok = if (isRawCopyCandidate(raw)) {
                     saveRaw(raw, target)
                 } else {
                     saveAsWebP(raw, target)
@@ -149,7 +166,18 @@ class ArtworkCacheManager(private val context: Context) {
         // caller consuming the returned path.
         if (result != null) {
             val lockedIds = globalLock.withLock { songLocks.keys.toSet() }
-            cleanupIfNeeded(activeQueueIds + lockedIds)
+            // A1 (1.5.21): throttle the LRU eviction pass to at most once per
+            // CLEANUP_THROTTLE_MS. The previous code scanned the whole cache
+            // directory (listFiles + size sum) after EVERY successful extraction
+            // — with 3 concurrent extraction threads, a large batch/prefetch
+            // turned that into repeated O(n) directory scans dozens of times per
+            // second. The 500 MB cap is a soft ceiling; evicting a few seconds
+            // later changes nothing user-visible.
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastCleanupAtMs >= CLEANUP_THROTTLE_MS) {
+                lastCleanupAtMs = now
+                cleanupIfNeeded(activeQueueIds + lockedIds)
+            }
         }
 
         return result
@@ -298,14 +326,41 @@ class ArtworkCacheManager(private val context: Context) {
             raw[1] == 0xD8.toByte() &&
             raw[2] == 0xFF.toByte()
 
+    /** True when [raw] starts with the PNG signature (89 50 4E 47). */
+    private fun isPng(raw: ByteArray): Boolean =
+        raw.size >= 8 &&
+            raw[0] == 0x89.toByte() &&
+            raw[1] == 0x50.toByte() &&
+            raw[2] == 0x4E.toByte() &&
+            raw[3] == 0x47.toByte()
+
+    /** True when [raw] is a RIFF container holding a WEBP payload. */
+    private fun isWebp(raw: ByteArray): Boolean =
+        raw.size >= 12 &&
+            raw[0] == 'R'.code.toByte() &&
+            raw[1] == 'I'.code.toByte() &&
+            raw[2] == 'F'.code.toByte() &&
+            raw[3] == 'F'.code.toByte() &&
+            raw[8] == 'W'.code.toByte() &&
+            raw[9] == 'E'.code.toByte() &&
+            raw[10] == 'B'.code.toByte() &&
+            raw[11] == 'P'.code.toByte()
+
     /**
-     * Bounds-only decode (zero pixel allocation) confirming [raw] is decodable
-     * and no larger than [MAX_ARTWORK_SIZE] on either side. Guards the raw-copy
-     * path: a corrupt JPEG (valid magic bytes, broken payload) must never be
-     * committed to cache as-is, so anything that fails here falls back to the
-     * WebP path, which reports failure cleanly.
+     * True when [raw] is a raw-copy candidate: decodable JPEG/PNG/WebP, no
+     * larger than [MAX_ARTWORK_SIZE] on either side, and small enough that
+     * byte-copying beats a decode → scale → re-encode WebP round-trip (which
+     * costs 50–150 ms per song on mid-range devices and degrades quality via
+     * double compression).
+     *
+     * The bounds-only decode (zero pixel allocation) also guards the raw-copy
+     * path: a corrupt payload (valid magic bytes, broken image data) must never
+     * be committed to cache as-is, so anything that fails here falls back to
+     * the WebP path, which reports failure cleanly.
      */
-    private fun jpegFitsLimit(raw: ByteArray): Boolean {
+    private fun isRawCopyCandidate(raw: ByteArray): Boolean {
+        if (raw.size > MAX_RAW_COPY_BYTES) return false
+        if (!isJpeg(raw) && !isPng(raw) && !isWebp(raw)) return false
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
         return bounds.outWidth in 1..MAX_ARTWORK_SIZE &&
