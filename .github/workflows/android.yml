@@ -96,7 +96,7 @@ jobs:
           files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
 
       - name: Upload R8 mapping
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: r8-mapping-${{ github.run_number }}
           path: android/app/build/outputs/mapping/release/mapping.txt
@@ -104,7 +104,7 @@ jobs:
           retention-days: 90
 
       - name: Upload Flutter debug symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flutter-debug-info-${{ github.run_number }}
           path: build/debug-info
