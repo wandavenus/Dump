@@ -6,6 +6,10 @@
 # Add custom -keep rules here only when required by reflection,
 # serialization, JNI, or third-party libraries.
 
+# Keep source file and line number attributes so R8 mapping can restore
+# useful Java/Kotlin stack traces with original file/line information.
+-keepattributes SourceFile,LineNumberTable
+
 # Media3 FFmpeg decoder extension is discovered by DefaultRenderersFactory via
 # reflection. Keep the renderer, library wrapper, decoder classes, and native
 # method names so release builds can instantiate FfmpegAudioRenderer and load
