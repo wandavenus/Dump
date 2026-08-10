@@ -139,7 +139,7 @@ class PlaybackNotificationManager(
         val hasCached = cacheKey == null || cached != null || isInNoArtworkCache(cacheKey)
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
-        if (!hasCached && cacheKey != null) {
+        if (!hasCached) {
             refreshAsync(artUri, songId, track, isPlaying)
         }
     }
@@ -171,7 +171,7 @@ class PlaybackNotificationManager(
                 // (e.g. user hit next), refresh() saw our in-flight key and
                 // skipped its own async load — repost so the artwork appears
                 // immediately instead of waiting for the next refresh cycle.
-                if (cacheKey != null && cacheKey == currentTrackCacheKey()) {
+                if (cacheKey == currentTrackCacheKey()) {
                     val sess = getSession() ?: return@post
                     postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
                 }

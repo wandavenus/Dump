@@ -52,7 +52,7 @@ extension _SyncedLyricsViewIndexingState on _SyncedLyricsViewState {
     _previousIndex = _currentIndex;
     _currentIndex = activeIndex;
     _activateTimelineForCurrentLine(position);
-    _lineTransitionController.forward(from: 0.0);
+    unawaited(_lineTransitionController.forward(from: 0.0));
     if (mounted) _refresh();
     _scrollToCenter(_currentIndex, animate: true);
   }

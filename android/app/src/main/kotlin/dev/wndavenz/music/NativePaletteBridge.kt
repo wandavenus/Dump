@@ -713,12 +713,12 @@ class NativePaletteBridge(
         // and derive only the missing supporting blue tone.
         val primaryColor = primaryCluster.representativeSwatch.rgb
         val secondaryColor = when {
-            accentCluster != null -> secondaryCluster!!.representativeSwatch.rgb
+            accentCluster != null -> secondaryCluster?.representativeSwatch?.rgb ?: deriveSecondary(primaryColor)
             else -> deriveSecondary(primaryColor)
         }
         val accentColor = when {
-            accentCluster != null -> accentCluster!!.representativeSwatch.rgb
-            secondaryCluster != null -> secondaryCluster!!.representativeSwatch.rgb
+            accentCluster != null -> accentCluster.representativeSwatch.rgb
+            secondaryCluster != null -> secondaryCluster.representativeSwatch.rgb
             else -> deriveAccent(primaryColor)
         }
 
