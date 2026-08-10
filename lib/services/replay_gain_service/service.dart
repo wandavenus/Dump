@@ -486,7 +486,14 @@ class ReplayGainService {
     if (scanProgress.value.running) return;
 
     final toScan = <LocalSong>[];
+    final seenIds = <int>{};
     for (final song in songs) {
+      // Defensive dedup (1.5.23): a duplicated songId in the input must never
+      // be scanned twice nor queued twice for tag writing — a duplicated write
+      // request could even land in two different parallel batches and race on
+      // the same file. MediaStore rows are unique by _ID today, but nothing
+      // downstream should depend on the caller never passing duplicates.
+      if (!seenIds.add(song.id)) continue;
       final c = _cache[song.id];
       final identity = await _fileIdentity(song.path);
       if (c == null ||
@@ -948,37 +955,68 @@ class ReplayGainService {
         'writeReplayGainBatch (${requests.length} songs): ${e.code} – ${e.message}',
       );
       return List.filled(requests.length, false);
+    } on Object catch (e) {
+      // Never let a non-PlatformException (channel closed, malformed payload,
+      // etc.) reject this Future: callers run two batches under a shared
+      // Future.wait, and one rejected future must not discard the other
+      // batch's already-completed results.
+      LogService.warn(
+        'ReplayGain',
+        'writeReplayGainBatch (${requests.length} songs): $e',
+      );
+      return List.filled(requests.length, false);
     }
   }
+
+  /// Max requests per native batch channel call (1.5.23): keeps every message
+  /// payload bounded (~40–50 KB) and lets a 2-way parallel pool keep both
+  /// native write workers saturated instead of one giant 50/50 split that
+  /// idles the faster worker at the tail.
+  static const int _writeChunkSize = 250;
 
   /// Flushes [pending] via native batch tag-write calls; returns the number of
   /// songs whose write failed. Empty list → 0 without any channel call.
   ///
-  /// The list is split in half and both halves are sent as two concurrent
-  /// channel calls: the native write executor has 2 workers, so both batches
-  /// run in parallel on different files (each write/verify cycle uses its own
-  /// per-song MediaStore fd). This is what actually makes the 2-worker write
-  /// executor pay off for library-wide writes — a single sequential batch call
-  /// would otherwise use only one worker, and one giant message for a large
-  /// library. A single-request list skips the split (one call).
+  /// Deduplicates by [LocalSong.id] first (a duplicated songId must never be
+  /// written twice — let alone concurrently by two workers on the same file),
+  /// then processes requests in fixed-size chunks (≤ [_writeChunkSize]) through
+  /// a 2-way parallel pool that mirrors the two native write workers: both stay
+  /// busy for large libraries, and every channel message payload stays bounded.
   static Future<int> _flushPendingWrites(
     List<ReplayGainWriteRequest> pending,
   ) async {
     if (pending.isEmpty) return 0;
-    final List<List<ReplayGainWriteRequest>> batches;
-    if (pending.length == 1) {
-      batches = [pending];
-    } else {
-      final mid = pending.length ~/ 2;
-      batches = [pending.sublist(0, mid), pending.sublist(mid)];
+
+    final seen = <int>{};
+    final unique = <ReplayGainWriteRequest>[
+      for (final r in pending)
+        if (seen.add(r.song.id)) r,
+    ];
+
+    var failures = 0;
+    var next = 0;
+    Future<void> worker() async {
+      while (next < unique.length) {
+        final start = next;
+        final end = start + _writeChunkSize < unique.length
+            ? start + _writeChunkSize
+            : unique.length;
+        next = end;
+        final results = await writeReplayGainBatch(unique.sublist(start, end));
+        failures += results.where((ok) => !ok).length;
+      }
     }
-    final results = await Future.wait(
-      batches.map((batch) => writeReplayGainBatch(batch)),
-    );
-    return results.fold<int>(
-      0,
-      (sum, batchResults) => sum + batchResults.where((ok) => !ok).length,
-    );
+
+    try {
+      // Two concurrent channel calls → two native executor tasks → both write
+      // workers run in parallel on different files (each write/verify cycle
+      // uses its own per-song MediaStore fd). writeReplayGainBatch never
+      // throws, so neither worker can take the other down.
+      await Future.wait(<Future<void>>[worker(), worker()]);
+    } on Object catch (e) {
+      LogService.warn('ReplayGain', '_flushPendingWrites: $e');
+    }
+    return failures;
   }
 }
 

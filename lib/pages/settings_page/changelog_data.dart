@@ -20,6 +20,24 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.24',
+    date: '10 Agustus 2026',
+    changes: [
+      'Percepat loading artwork saat scroll list Lagu: sampul area terlihat + jendela depan/belakang (±18 lagu) kini benar-benar di-decode ke ImageCache Flutter (sebelumnya hanya warm-up path) — tile muncul tanpa placeholder flash.',
+      'Pre-decode viewport-aware: prioritas lagu terlihat dulu baru yang di depan/belakang; request ter-coalesce saat fling cepat (latest-wins); dilewati saat pencarian aktif.',
+      'Pre-decode anti-duplikat: lagu yang sudah ada di ImageCache atau sedang di-decode dilewati — tidak ada decode ganda saat scroll.',
+    ],
+  ),
+  _ChangelogEntry(
+    version: '1.5.23',
+    date: '10 Agustus 2026',
+    changes: [
+      'Amankan batch write ReplayGain: dedup songId sebelum ditulis (duplikat tidak pernah ditulis 2× / ditulis paralel di file yang sama).',
+      'Batch write kini dikerjakan per-chunk tetap (250 lagu/call) lewat 2 worker paralel — payload channel terbatas dan kedua worker tetap sibuk untuk library besar.',
+      'writeReplayGainBatch anti-gagal: kegagalan non-channel (mis. channel tertutup) tidak lagi membatalkan hasil batch lainnya.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.22',
     date: '10 Agustus 2026',
     changes: [
