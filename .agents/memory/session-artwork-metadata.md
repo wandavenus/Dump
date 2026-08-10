@@ -18,27 +18,36 @@ LargeIcon letterboxing di `PlaybackNotificationManager` dan BitmapLoader
 ## Fix (1.5.27)
 Publish `MediaMetadata.artworkData` = artwork full-res (embedded-first via
 MediaMetadataRetriever), letterbox persegi 1024px, encode JPEG 90, ke metadata
-**player-level** session via `ExoPlayer.setMediaMetadata()` (aman saat play,
-tidak reset stream). Consumer yang prefer ART bytes (MediaStyleNotificationHelper,
-SystemUI, MIUI, MediaSessionLegacyStub/Bluetooth) langsung render tajam.
+session via **replace MediaItem saat ini dengan salinan ber-artworkData**
+(`Player.replaceMediaItems(index, index+1, [updatedItem])`). Media3 TIDAK punya
+`Player.setMediaMetadata` / `MediaSession.setMediaMetadata` (percobaan pertama
+pakai API itu gagal build: "Unresolved reference 'setMediaMetadata'"). Replace
+item ber-source identik (buildUpon, uid sama) → period UID tetap → posisi
+terjaga, playback seamless, tidak memicu `onMediaItemTransition`, hanya
+broadcast `onMediaMetadataChanged`. Consumer yang prefer ART bytes
+(MediaStyleNotificationHelper, SystemUI, MIUI, MediaSessionLegacyStub/
+Bluetooth) langsung render tajam.
 
 - `SessionArtworkProvider.kt` (baru): produce square bytes; fast-path raw
   passthrough kalau source sudah persegi & ≤1024 (tanpa decode/re-encode);
   cache LruCache 12 lagu; single daemon thread; callback selalu terpanggil.
-- `Media3PlaybackService.refreshSessionArtwork()`: ambil id + artworkUri dari
-  `transportState.currentTrackMap()`, panggil provider, post ke main handler,
-  `activePlayerProxy.setMediaMetadata(...)` (ForwardingPlayer → ExoPlayer).
-  Kalau lagu tanpa art / gagal load → set metadata kosong (clear stale art
-  lagu sebelumnya).
+- `Media3PlaybackService.refreshSessionArtwork()` → `publishSessionArtwork()`:
+  ambil id + artworkUri dari `transportState.currentTrackMap()`, panggil
+  provider, post ke main handler, lalu `player.replaceMediaItems(index,
+  index+1, [item.buildUpon().setMediaMetadata(meta-artworkData).build()])`.
+  Guard mediaId untuk hasil stale; lagu tanpa art / gagal load → replace
+  dengan salinan tanpa artworkData (clear stale art lagu sebelumnya).
 - Hook: `onMediaItemTransition`, `onPlaybackStateChanged(STATE_READY)`,
   setelah `restoreQueueFromPrefs()` di onCreate.
-- Merge semantics: field item-level menang atas player-level per-field. Item
-  punya artworkUri (low-res) tapi artworkData null → merged punya artworkData
-  high-res dari player → consumer pakai bytes. Tidak perlu ubah MediaItemFactory.
+- artworkData diisi LANGSUNG di current item saat replace (bukan merge
+  player-level), jadi konsumen session melihat artworkUri low-res + artworkData
+  high-res; yang prefer bytes memakai artworkData. Tidak perlu ubah
+  MediaItemFactory.
 
 ## Catatan
-- `setDisableArtworkMetadata(true)` di extractors tetap (item artworkData tak
-  dipakai); kita set player-level, bukan item-level.
-- `Player.setMediaMetadata` ada sejak Media3 1.1; proyek pakai 1.11.0.
+- `setDisableArtworkMetadata(true)` di extractors tetap (extractor tak perlu
+  baca artwork file); kita isi artworkData langsung di item saat replace.
+- `Player.setMediaMetadata` / `MediaSession.setMediaMetadata` TIDAK ada di
+  Media3 1.11.0 — jangan dipakai lagi; pakai `Player.replaceMediaItems`.
 - LargeIcon + FallbackBitmapLoader (uncommitted 1.5.27) tetap berguna untuk
   jalur notifikasi collapsed + Bluetooth fallback URI — saling melengkapi.

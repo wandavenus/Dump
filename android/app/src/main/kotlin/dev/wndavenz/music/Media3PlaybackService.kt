@@ -681,12 +681,13 @@ class Media3PlaybackService : MediaSessionService() {
         val track = transportState.currentTrackMap() ?: return
         val songId = (track["id"] as? Number)?.toInt() ?: 0
         val artUri = track["artworkUri"] as? String
-        val mediaId = p.currentMediaItem?.mediaId ?: return
+        val currentItem = p.currentMediaItem ?: return
+        val mediaId = currentItem.mediaId
 
-        // No artwork source for this track: clear any artworkData left over from
+        // No artwork source for this track: drop any artworkData left over from
         // the previous track so stale art is never shown for a song without art.
         if (songId <= 0 && artUri.isNullOrBlank()) {
-            runCatching { p.setMediaMetadata(MediaMetadata.Builder().build()) }
+            publishSessionArtwork(p, mediaId, bytes = null)
             return
         }
 
@@ -694,20 +695,39 @@ class Media3PlaybackService : MediaSessionService() {
             handler.post {
                 // Ignore stale results (track changed while we were loading).
                 if (p !== activePlayer || p.currentMediaItem?.mediaId != mediaId) return@post
-                if (bytes == null) {
-                    // Art expected but unavailable — clear stale bytes from the
-                    // previous track instead of leaving them in the session.
-                    runCatching { p.setMediaMetadata(MediaMetadata.Builder().build()) }
-                    return@post
-                }
-                runCatching {
-                    p.setMediaMetadata(MediaMetadata.Builder().setArtworkData(bytes).build())
-                }.onFailure {
-                    NativeLogger.emit("warn", "Media3", "setMediaMetadata(artworkData) failed: ${it.message}")
-                }
-                NativeLogger.emit("debug", "Media3",
-                    "session artworkData updated (${bytes.size}B) mediaId=$mediaId")
+                publishSessionArtwork(p, mediaId, bytes)
             }
+        }
+    }
+
+    /**
+     * Seamlessly swaps the current MediaItem for a copy carrying [bytes] as
+     * `artworkData` (or with artworkData dropped when [bytes] is null). Media3
+     * then broadcasts `onMediaMetadataChanged`, which the MediaSession forwards
+     * to SystemUI / MIUI / lock screen / Bluetooth.
+     *
+     * Why `replaceMediaItems` and not a player-level setter: Media3 has no
+     * `Player.setMediaMetadata` / `MediaSession.setMediaMetadata` API. Replacing
+     * the current item with an identical source keeps the period UID unchanged,
+     * so the position is preserved, playback continues seamlessly, and no
+     * `onMediaItemTransition` fires — only the metadata broadcast.
+     */
+    private fun publishSessionArtwork(p: Player, mediaId: String, bytes: ByteArray?) {
+        runCatching {
+            val item = p.currentMediaItem ?: return@runCatching
+            if (item.mediaId != mediaId) return@runCatching
+            val meta = item.mediaMetadata.buildUpon().setArtworkData(bytes).build()
+            if (meta.artworkData == item.mediaMetadata.artworkData) return@runCatching
+            val index = p.currentMediaItemIndex
+            if (index == C.INDEX_UNSET) return@runCatching
+            val updated = item.buildUpon().setMediaMetadata(meta).build()
+            p.replaceMediaItems(index, index + 1, listOf(updated))
+        }.onFailure {
+            NativeLogger.emit("warn", "Media3", "session artworkData update failed: ${it.message}")
+        }
+        if (bytes != null) {
+            NativeLogger.emit("debug", "Media3",
+                "session artworkData updated (${bytes.size}B) mediaId=$mediaId")
         }
     }
 
