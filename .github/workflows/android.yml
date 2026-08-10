@@ -69,14 +69,6 @@ jobs:
           --obfuscate
           --split-debug-info=build/debug-info
 
-      - name: Verify R8 outputs
-        run: |
-          echo "=== mapping files ==="
-          find android/app/build -type f \( -name "mapping.txt" -o -name "seeds.txt" -o -name "usage.txt" \) -print
-
-          echo "=== mapping directories ==="
-          find android/app/build -type d -path "*/outputs/mapping/*" -print
-
       - name: Rename APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
@@ -102,19 +94,3 @@ jobs:
 
             ${{ steps.commit.outputs.message }}
           files: build/app/outputs/flutter-apk/Dump-${{ github.run_number }}.apk
-
-      - name: Upload R8 mapping
-        uses: actions/upload-artifact@v7
-        with:
-          name: r8-mapping-${{ github.run_number }}
-          path: android/app/build/outputs/mapping/release/mapping.txt
-          if-no-files-found: error
-          retention-days: 90
-
-      - name: Upload Flutter debug symbols
-        uses: actions/upload-artifact@v7
-        with:
-          name: flutter-debug-info-${{ github.run_number }}
-          path: build/debug-info
-          if-no-files-found: error
-          retention-days: 90
