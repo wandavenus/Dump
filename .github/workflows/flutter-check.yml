@@ -4,7 +4,6 @@ name: Flutter Check
 # ran automatically. Now runs on push/PR touching app code.
 on:
   push:
-    branches: [ main ]
     paths:
       - 'android/**'
       - 'lib/**'
