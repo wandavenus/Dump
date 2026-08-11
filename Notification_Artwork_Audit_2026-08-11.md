@@ -4,132 +4,184 @@
 
 Audit read-only terhadap jalur artwork Android:
 
-- `PlaybackNotificationManager` — custom foreground notification, `largeIcon`, async loading, prewarm, and caches.
+- `PlaybackNotificationManager` — custom foreground notification, `largeIcon`, async loading, prewarm, dan cache.
 - `SessionArtworkProvider` — high-resolution `MediaMetadata.artworkData`.
 - `FallbackBitmapLoader` — Media3 legacy/Bluetooth/lock-screen bitmap loading.
-- `Media3PlaybackService` and `ActivePlayerProxy` — lifecycle, player transitions, and metadata publication.
+- `ArtworkCacheManager` — persistent disk cache dan concurrency.
+- `Media3PlaybackService` / `ActivePlayerProxy` — lifecycle, transition, crossfade, dan publikasi metadata.
 
-No production code was changed as part of this audit.
+Tidak ada kode produksi yang diubah sebagai bagian dari audit ini.
 
 ## Executive summary
 
-The architecture correctly recognizes that MIUI/SystemUI can render MediaSession artwork rather than the notification `largeIcon`, and it provides separate fallbacks for embedded artwork, the shared artwork cache, and MediaStore. The main remaining correctness risk is an asynchronous notification race: a result for the previous track can be posted after a rapid track transition and temporarily restore the old title/artwork.
+Pendekatan `MediaSession.artworkData` sudah benar dan mengatasi akar masalah MIUI/SystemUI yang melakukan upscale/crop pada `artworkUri` MediaStore beresolusi rendah. Jalur embedded-artwork-first, bounds decode, letterboxing, TTL negative cache, dan in-flight dedup pada `SessionArtworkProvider` juga sudah ada.
 
-There is also an actual cross-thread access problem in the session artwork byte cache, plus a fallback path that can upscale a small MediaStore thumbnail to 1024×1024. These can cause intermittent behavior or preserve pixelation when the higher-quality sources are unavailable.
+Masih ada tiga risiko utama: hasil async notifikasi dapat menimpa lagu aktif dengan artwork/title lama, refresh artwork Session tidak dipanggil eksplisit saat promosi crossfade, dan dua instance `ArtworkCacheManager` berbagi file disk tetapi tidak berbagi lock proses. Ada gap tambahan untuk file yang dibuka dari aplikasi eksternal dan lifecycle executor.
 
 ## Findings
 
-### P1 — Stale async notification result can overwrite the current track
+### P1 — Hasil async notifikasi dapat menampilkan lagu sebelumnya
 
 **Evidence**
 
 - `android/app/src/main/kotlin/dev/wndavenz/music/notification/PlaybackNotificationManager.kt:190-217`
-- `android/app/src/main/kotlin/dev/wndavenz/music/notification/PlaybackNotificationManager.kt:123-145`
+- `refreshAsync()` menangkap `track` dan `isPlaying` saat enqueue.
+- Saat selesai, callback hanya memvalidasi generation untuk `cacheKey`; callback normal tidak memvalidasi `cacheKey == currentTrackCacheKey()`.
 
-`refreshAsync()` captures `track` and `isPlaying` for the track that initiated the load. When the worker finishes, it checks only the generation for that artwork cache key, then posts:
+**Failure sequence**
 
-```kotlin
-postNotification(buildNotification(sess, track, isPlaying, bmp))
-```
-
-It does not verify that `cacheKey` is still `currentTrackCacheKey()`. A rapid A → B transition can therefore produce this sequence:
-
-1. Track A starts an async artwork load.
-2. Track B becomes current and refreshes the notification.
-3. Track A's load completes and posts A's captured title/artwork.
-4. Track B eventually posts its own result.
-
-This creates a visible stale notification window and may leave the notification wrong if the newer load fails or is delayed.
-
-**Recommendation**
-
-Before posting an async result, require the loaded key to still match the current track. Prefer rebuilding the notification from the current track at completion time rather than using the captured `track` and `isPlaying`; retain the generation check for same-key cancellation.
-
-### P1 — `SessionArtworkProvider.bytesCache` is accessed from multiple threads without synchronization
-
-**Evidence**
-
-- `android/app/src/main/kotlin/dev/wndavenz/music/SessionArtworkProvider.kt:61-93`
-- `android/app/src/main/kotlin/dev/wndavenz/music/SessionArtworkProvider.kt:69-87`
-
-`bytesCache` is an Android `LruCache`, which is not thread-safe. `provide()` reads it synchronously on the caller thread, normally the service handler/main thread, while the executor reads and writes the same cache. There is no lock or thread confinement around these operations.
-
-The same method also has no in-flight deduplication. Multiple refresh triggers before the first worker stores the bytes can queue repeated extraction/encoding work on the single provider executor.
+1. Artwork track A mulai dimuat.
+2. User skip ke track B; notifikasi B diposting.
+3. Worker A selesai.
+4. Callback memanggil `buildNotification(sess, track, isPlaying, bmp)` memakai map A yang sudah stale.
 
 **Impact**
 
-- Potential cache map races under repeated transition/READY callbacks.
-- Avoidable repeated `MediaMetadataRetriever` and JPEG work during rapid transitions.
+Notification title/artist/large icon dapat kembali sebentar ke track A. Per-key generation tidak mencegah cross-track stale result karena generation A masih valid.
 
 **Recommendation**
 
-Use a synchronized cache access boundary (or confine all cache access to the provider executor), and add a per-song in-flight map so repeated requests share one result.
+Pada completion, validasi identitas track aktif dengan cache key dan ID/media identity yang stabil. Jangan post captured `track`; rebuild dari `getCurrentTrack()` dan `getIsPlaying()` pada saat completion. Jika stale, drop result atau trigger refresh untuk current track.
 
-### P2 — Session fallback can upscale a low-resolution MediaStore thumbnail
+---
+
+### P1 — Promosi crossfade tidak menjadwalkan refresh artwork Session secara eksplisit
 
 **Evidence**
 
-- `android/app/src/main/kotlin/dev/wndavenz/music/SessionArtworkProvider.kt:150-158`
-- `android/app/src/main/kotlin/dev/wndavenz/music/SessionArtworkProvider.kt:161-175`
-- `android/app/src/main/kotlin/dev/wndavenz/music/SessionArtworkProvider.kt:183-205`
+- `android/app/src/main/kotlin/dev/wndavenz/music/crossfade/CrossfadeController.kt:307-335`
+- `android/app/src/main/kotlin/dev/wndavenz/music/Media3PlaybackService.kt:678-703`
+- Refresh Session dipanggil saat queue restore, `STATE_READY`, dan regular `onMediaItemTransition` (`Media3PlaybackService.kt:1308, 1388`).
 
-When embedded artwork and the persistent cache are unavailable, `rawFromUri()` reads the MediaStore album-art thumbnail. For a non-square source, `letterboxSquare()` always creates a 1024×1024 canvas and scales the source to fit it. A small 256×512 thumbnail can therefore become a 1024×1024 `artworkData` payload without adding detail.
+Saat crossfade mempromosikan standby, service memanggil `switchSessionPlayer()`, `emitAll()`, dan `refreshNotification()`, tetapi tidak memanggil `scheduleSessionArtworkRefresh()` tepat setelah identity active player berubah. Callback READY/transition dari standby dapat sudah terjadi ketika standby masih dianggap inactive.
 
-This is a fallback-only issue, but it can reintroduce pixelation in precisely the cases where the high-resolution sources failed.
+**Impact**
+
+MIUI/SystemUI dapat menerima title track baru lebih dulu tetapi mempertahankan `artworkData` track lama sampai callback lain memicu refresh.
 
 **Recommendation**
 
-Use a never-upscale target based on the source's longest side, matching the notification/fallback bitmap behavior, or avoid publishing the low-resolution URI result as `artworkData` and leave it only as an `artworkUri` fallback.
+Jadikan setiap active-player promotion memicu `scheduleSessionArtworkRefresh()` setelah `ActivePlayerProxy.switchTo()` selesai. Pertahankan guard player/mediaId pada hasil async.
 
-### P2 — Negative legacy artwork cache has no refresh window
+---
+
+### P1 — Persistent cache antar-Activity/service tidak memakai lock proses yang sama
 
 **Evidence**
 
-- `android/app/src/main/kotlin/dev/wndavenz/music/FallbackBitmapLoader.kt:77-92`
-- `android/app/src/main/kotlin/dev/wndavenz/music/FallbackBitmapLoader.kt:140-146`
-- `android/app/src/main/kotlin/dev/wndavenz/music/FallbackBitmapLoader.kt:149-169`
+- `MainActivity` membuat `ArtworkCacheManager` di `MainActivity.kt:130`.
+- `Media3PlaybackService` membuat instance lain di `Media3PlaybackService.kt:269`.
+- `songLocks` dan `globalLock` adalah field instance di `ArtworkCacheManager.kt:74-77`.
+- Kedua instance menulis `{filesDir}/artwork/{songId}.webp` dan temp path `{songId}.webp.tmp`.
 
-`noArtworkCache` is a static process-wide set keyed only by album ID. Once an album fails both embedded and URI resolution, later calls immediately fail for that album until the process restarts. If MediaStore indexes artwork later, or the file is updated while the service remains alive, the legacy/Bluetooth path will not retry.
+Lock saat ini aman untuk concurrency di dalam satu instance, tetapi tidak mengoordinasikan Activity dan service yang mengakses file sama secara bersamaan.
+
+**Impact**
+
+Dua ekstraksi lagu yang sama dapat berjalan paralel dan berbagi nama temp file. Salah satu writer dapat rename/delete temp file writer lain, menghasilkan cache miss berulang atau file cache yang tidak valid.
 
 **Recommendation**
 
-Replace the permanent process-lifetime negative entry with a short TTL, or invalidate it on a MediaStore/library rescan or artwork-cache update. Keep the bounded positive cache.
+Gunakan process-wide lock/in-flight registry keyed by song ID atau satu shared cache owner. Tambahkan temp filename unik per writer dan validasi decode pada final cache hit.
 
-### P2 — Global pending key can permit duplicate queued loads
+---
+
+### P1 — Playback dari file eksternal tidak membawa sumber artwork ke service
 
 **Evidence**
 
-- `android/app/src/main/kotlin/dev/wndavenz/music/notification/PlaybackNotificationManager.kt:60-70`
-- `android/app/src/main/kotlin/dev/wndavenz/music/notification/PlaybackNotificationManager.kt:153-179`
-- `android/app/src/main/kotlin/dev/wndavenz/music/notification/PlaybackNotificationManager.kt:190-217`
+- `Media3PlaybackService.buildSongMapFromUri()` mengembalikan `id=0` dan `albumId=0` (`Media3PlaybackService.kt:838-846`).
+- `TrackMapper` hanya membuat `artworkUri` dari positive `albumId` (`utils/TrackMapper.kt:31-33`).
+- `PlaybackNotificationManager` dan `SessionArtworkProvider` hanya mencoba embedded artwork jika memiliki `songId > 0`.
 
-`pendingAsyncCacheKey` is a single key, while the executor can have work for multiple cache keys queued. When the first job completes, its handler callback clears `pendingAsyncCacheKey` even if a later-key job is still queued or running. A subsequent refresh for that later key can enqueue duplicate work.
+Overlay Activity memang membaca embedded artwork sendiri, tetapi track map yang dipakai service tidak menyimpan source URI/path artwork.
 
-The per-key generation check prevents stale cache insertion, so this is primarily a latency/CPU issue rather than an artwork correctness issue.
+**Impact**
+
+File MP3/FLAC yang dibuka dari Telegram/file manager dapat menampilkan artwork di overlay tetapi tidak di notification, lock screen, atau MediaSession.
 
 **Recommendation**
 
-Track in-flight keys independently from completion, or use a per-key in-flight map/future. Keep the existing per-key generation guard.
+Simpan source URI/path pada external-playback track map dan tambahkan source-based cache key serta embedded extraction dari URI tersebut ketika tidak ada MediaStore song ID.
+
+---
+
+### P2 — `pendingAsyncCacheKey` global masih memungkinkan duplicate load antar-key
+
+**Evidence**
+
+- `PlaybackNotificationManager.kt:69-70, 153-179, 190-217`
+- Hanya ada satu slot `pendingAsyncCacheKey`.
+- Completion setiap request mengosongkan slot tanpa memastikan slot tersebut masih milik request yang selesai.
+
+Jika A dan B berada di queue berbeda, completion A dapat menghapus penanda B sehingga refresh B berikutnya enqueue duplicate load. Generation per-key mencegah cache insertion stale, tetapi tidak mencegah I/O duplikat.
+
+**Recommendation**
+
+Ganti slot tunggal dengan set/map in-flight per cache key dan hapus hanya token request yang cocok.
+
+---
+
+### P2 — Fallback cache pada compilation album hanya mencoba track pertama
+
+**Evidence**
+
+- `FallbackBitmapLoader.tryEmbedded()` memprobe hingga tiga song ID (`FallbackBitmapLoader.kt:213-219`).
+- Persistent cache fallback hanya memanggil `getOrExtract(songIds.first())` (`FallbackBitmapLoader.kt:221-229`).
+
+**Impact**
+
+Jika hanya track kedua/ketiga memiliki artwork cache yang valid, loader tetap mengembalikan no-artwork.
+
+**Recommendation**
+
+Iterasikan semua ID yang sudah diprobe untuk persistent cache fallback, tetap dengan batas `MAX_ALBUM_PROBE`.
+
+---
+
+### P2 — Artwork executor tidak memiliki lifecycle shutdown eksplisit
+
+**Evidence**
+
+- Executor dibuat di `PlaybackNotificationManager.kt:71-73`.
+- Executor lain dibuat di `FallbackBitmapLoader.kt:100-102` dan `SessionArtworkProvider.kt:61-63`.
+- `Media3PlaybackService.onDestroy()` men-shutdown `ioExecutor`, tetapi tidak menutup executor artwork.
+
+Thread daemon tidak menahan proses tetap hidup, tetapi queued work dan callback dapat bertahan melewati service teardown atau service restart.
+
+**Recommendation**
+
+Tambahkan `close()` idempotent pada komponen artwork untuk membatalkan/menolak callback setelah close dan shutdown executor saat teardown service.
 
 ## Verified strengths
 
-- The notification path prefers embedded artwork, then the shared persistent cache, and uses the MediaStore URI only as a last resort.
-- Notification and legacy bitmap paths use bounds-first decoding and cap the longest dimension.
-- Non-square artwork is letterboxed before the notification/legacy bitmap is returned.
-- Session artwork clears old `artworkData` when no source can be resolved.
-- Session artwork callbacks verify both the active player and `mediaId` before replacing the current MediaItem.
-- Crossfade and non-crossfade transitions both prewarm the next notification artwork.
-- `FallbackBitmapLoader` releases `MediaMetadataRetriever` in `finally`.
+- Notification path memprioritaskan embedded artwork, lalu persistent cache, lalu MediaStore URI sebagai fallback terakhir.
+- Notification, fallback, dan session path menggunakan bounds-first decode dengan batas dimensi.
+- Non-square artwork di-letterbox dan current `SessionArtworkProvider.letterboxSquare()` tidak meng-upscale source kecil.
+- `SessionArtworkProvider` saat ini sudah memakai lock untuk `LruCache` dan in-flight dedup per request key.
+- Negative cache `FallbackBitmapLoader` dan notification path memiliki TTL 30 detik.
+- Session result memvalidasi active player dan `mediaId` sebelum `replaceMediaItems()`.
+- `artworkData` di-clear untuk track tanpa source artwork.
+- `FallbackBitmapLoader` me-release `MediaMetadataRetriever` di `finally`.
+- Crossfade dan non-crossfade transition sama-sama melakukan prewarm artwork notifikasi.
 
 ## Test gap
 
-There are no focused tests covering the asynchronous artwork state machine. The highest-value regression tests should model:
+Belum ada focused test untuk state machine artwork async. Regression test bernilai tinggi:
 
-1. A's load completing after an A → B transition.
-2. Duplicate requests for the same session artwork while the first request is in flight.
-3. A negative legacy cache entry becoming retryable after its TTL/invalidation.
-4. A small non-square URI fallback not being upscaled.
+1. Load A selesai setelah transisi A→B dan tidak boleh mem-post A.
+2. Dua request Session artwork untuk key sama saat in-flight harus satu extraction.
+3. Promosi crossfade wajib memicu Session artwork refresh.
+4. Dua `ArtworkCacheManager` pada song ID sama tidak boleh merusak temp/final cache.
+5. External URI dengan embedded art harus sampai ke notification dan MediaSession.
+
+## Verification
+
+- `git diff --check`: passed.
+- `./gradlew :app:testDebugUnitTest`: blocked by Android SDK environment.
+- `./gradlew :app:compileDebugKotlin`: reached Gradle configuration but failed with `SDK location not found`; `android/local.properties` tidak menunjuk SDK yang tersedia.
+- Tidak ada runtime Mi 9T/MIUI 12 validation di environment ini.
 
 ## Audit conclusion
 
-The high-resolution MediaSession metadata approach is directionally correct and addresses the original MIUI zoom/pixelation root cause for embedded/cache artwork. The stale async notification result is the most urgent remaining issue because it directly affects visible track correctness during normal rapid-skip behavior. The cache synchronization/deduplication issue should be fixed alongside it before relying on the artwork pipeline under repeated transitions.
+High-resolution MediaSession metadata sudah menjadi fondasi yang tepat untuk mengatasi zoom/pixelation. Temuan paling urgent adalah stale async notification result dan refresh artwork yang hilang pada crossfade promotion. Setelah dua hal itu, process-wide cache coordination dan external-file artwork source perlu diperbaiki agar jalur notifikasi konsisten pada rapid skip, crossfade, dan playback dari file manager.
