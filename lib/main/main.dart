@@ -15,6 +15,15 @@ Future<void> main() async {
           ),
         );
       }
+
+      // Resolve the audio permission before the first MediaStore query.
+      // On a fresh install Android can otherwise return an empty library,
+      // which gets consumed by the initial widgets before the permission
+      // dialog completes. Waiting here makes the first query authoritative.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await _requestAudioPermission();
+      }
+
       await Future.wait([
         LanguageManager.instance.init(),
         ThemeController.init(),
@@ -101,7 +110,7 @@ Future<void> main() async {
       unawaited(AudioService.syncFromNative());
       runApp(const MyApp());
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        unawaited(_requestPermissionsThenOpenPendingUri());
+        unawaited(OpenFileService.checkInitialUri());
       }
     },
     (Object error, StackTrace stack) {
@@ -114,35 +123,11 @@ Future<void> main() async {
   );
 }
 
-Future<void> _requestPermissionsThenOpenPendingUri() async {
-  var audioWasGranted = false;
+Future<void> _requestAudioPermission() async {
   try {
-    audioWasGranted = await Permission.audio.isGranted;
     await Permission.storage.request();
     await Permission.audio.request();
   } on Exception catch (e) {
     LogService.warn('Permissions', 'Request failed: $e');
   }
-
-  // Only reconcile MediaStore when this startup actually transitioned the
-  // audio permission from not-granted to granted. On normal launches this
-  // avoids an unnecessary full MediaStore scan while preserving the first-run
-  // fix: the scan happens only after Android has granted READ_MEDIA_AUDIO.
-  if (!audioWasGranted && await Permission.audio.isGranted) {
-    try {
-      await MediaStoreService.refreshSongs();
-      MediaStoreService.rescanNotifier.value++;
-    } on Exception catch (e) {
-      LogService.warn(
-        'MediaStore',
-        'Initial post-permission refresh failed: $e',
-      );
-      LogService.error(
-        'MediaStore',
-        'Initial post-permission refresh exception: $e',
-      );
-    }
-  }
-
-  await OpenFileService.checkInitialUri();
 }
