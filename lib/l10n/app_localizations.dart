@@ -758,95 +758,47 @@ abstract class AppLocalizations {
   /// **'Failed to scan songs'**
   String get scanFailed;
 
-  /// No description provided for @rgWriteTagsToggle.
+  /// No description provided for @rgRemoveTagsAction.
   ///
   /// In en, this message translates to:
-  /// **'Write Tags to Files'**
-  String get rgWriteTagsToggle;
+  /// **'Remove ReplayGain Tags'**
+  String get rgRemoveTagsAction;
 
-  /// No description provided for @rgWriteTagsToggleDesc.
+  /// No description provided for @rgRemoveConfirmTitle.
   ///
   /// In en, this message translates to:
-  /// **'Permanently write the measured gain into each file\'s own tags (requires write access)'**
-  String get rgWriteTagsToggleDesc;
+  /// **'Remove ReplayGain Tags?'**
+  String get rgRemoveConfirmTitle;
 
-  /// No description provided for @rgWriteTagsConfirmBody.
+  /// No description provided for @rgRemoveConfirmBody.
   ///
   /// In en, this message translates to:
-  /// **'ReplayGain tags will also be written permanently into the files. All other metadata is preserved. Continue?'**
-  String get rgWriteTagsConfirmBody;
+  /// **'ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.'**
+  String get rgRemoveConfirmBody;
 
-  /// No description provided for @rgWriteTrackAction.
+  /// No description provided for @rgRemoveRunning.
   ///
   /// In en, this message translates to:
-  /// **'Write Tags'**
-  String get rgWriteTrackAction;
+  /// **'Removing ReplayGain tags...'**
+  String get rgRemoveRunning;
 
-  /// No description provided for @rgRemoveTrackAction.
+  /// No description provided for @rgRemoveLibrarySuccess.
   ///
   /// In en, this message translates to:
-  /// **'Remove Tags'**
-  String get rgRemoveTrackAction;
+  /// **'{count} songs cleaned'**
+  String rgRemoveLibrarySuccess(int count);
 
-  /// No description provided for @rgScanning.
+  /// No description provided for @rgRemoveLibraryPartial.
   ///
   /// In en, this message translates to:
-  /// **'Measuring loudness...'**
-  String get rgScanning;
-
-  /// No description provided for @rgWriteSuccess.
-  ///
-  /// In en, this message translates to:
-  /// **'ReplayGain tags written'**
-  String get rgWriteSuccess;
-
-  /// No description provided for @rgWriteFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to write ReplayGain tags'**
-  String get rgWriteFailed;
-
-  /// No description provided for @rgRemoveSuccess.
-  ///
-  /// In en, this message translates to:
-  /// **'ReplayGain tags removed'**
-  String get rgRemoveSuccess;
+  /// **'{removed} cleaned, {failed} failed'**
+  String rgRemoveLibraryPartial(int removed, int failed);
 
   /// No description provided for @rgRemoveFailed.
   ///
   /// In en, this message translates to:
   /// **'Failed to remove ReplayGain tags'**
   String get rgRemoveFailed;
-
-  /// No description provided for @rgUnsupportedFormat.
-  ///
-  /// In en, this message translates to:
-  /// **'Writing ReplayGain is not supported for this format (MP3/FLAC/OGG/OPUS only)'**
-  String get rgUnsupportedFormat;
-
-  /// No description provided for @rgAlbumWriteAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Scan & Write Album Gain'**
-  String get rgAlbumWriteAction;
-
-  /// No description provided for @rgAlbumWriteSuccess.
-  ///
-  /// In en, this message translates to:
-  /// **'{count} songs written with album gain'**
-  String rgAlbumWriteSuccess(int count);
-
-  /// No description provided for @rgAlbumWritePartial.
-  ///
-  /// In en, this message translates to:
-  /// **'{written} written, {failed} failed'**
-  String rgAlbumWritePartial(int written, int failed);
-
-  /// No description provided for @rgAlbumWriteFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to write album gain'**
-  String get rgAlbumWriteFailed;
 
   /// No description provided for @sectionEqualizer.
   ///

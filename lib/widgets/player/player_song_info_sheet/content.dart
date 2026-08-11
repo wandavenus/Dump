@@ -3,24 +3,12 @@ part of '../player_song_info_sheet.dart';
 class _SongInfoContent extends StatelessWidget {
   final SongInfo songInfo;
 
-  /// The backing [LocalSong] — needed for the ReplayGain write/remove actions.
-  final LocalSong song;
-
-  /// Invoked after a successful tag write/remove so the parent can re-fetch
-  /// [songInfo] and show the freshly-written values.
-  final VoidCallback? onTagsChanged;
-
   /// Live audio format from ExoPlayer's decoder (via audioFormat EventChannel).
   /// When non-null, its values supersede the file-metadata equivalents in the
   /// AUDIO QUALITY section — they reflect what is actually being decoded now.
   final Map<String, dynamic>? liveFormat;
 
-  const _SongInfoContent({
-    required this.songInfo,
-    required this.song,
-    this.onTagsChanged,
-    this.liveFormat,
-  });
+  const _SongInfoContent({required this.songInfo, this.liveFormat});
 
   String _localizedLoudnessSource(BuildContext context, String source) {
     final l = context.l10n;
@@ -226,36 +214,6 @@ class _SongInfoContent extends StatelessWidget {
             const SizedBox(height: 16),
           ],
 
-          // ── ReplayGain tag actions (F1) ───────────────────────────────────
-          // Write measured loudness into the file's own tags, or strip the
-          // existing RG/R128 tags. Only MP3/FLAC/OGG/OPUS are writable.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _writeReplayGainTags(context),
-                    icon: const Icon(Icons.save_alt_rounded, size: 16),
-                    label: Text(l.rgWriteTrackAction),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _removeReplayGainTags(context),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                    label: Text(l.rgRemoveTrackAction),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
           // ── Embedded content ─────────────────────────────────────────────
           if (songInfo.hasEmbeddedLyrics) ...[
             _InfoSection(
@@ -370,44 +328,6 @@ class _SongInfoContent extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  // ── ReplayGain write/remove handlers (F1) ─────────────────────────────────
-
-  Future<void> _writeReplayGainTags(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final l = context.l10n;
-    final ext = song.path.split('.').last.toLowerCase();
-    if (ext != 'mp3' && ext != 'flac' && ext != 'ogg' && ext != 'oga' && ext != 'opus') {
-      messenger.showSnackBar(SnackBar(content: Text(l.rgUnsupportedFormat)));
-      return;
-    }
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(l.rgScanning),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    // scanOneSong(writeTags: true) measures loudness and writes it into the
-    // file's tags; null means the scan or the write failed.
-    final result = await ReplayGainService.scanOneSong(song, writeTags: true);
-    if (!context.mounted) return;
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(content: Text(result != null ? l.rgWriteSuccess : l.rgWriteFailed)),
-    );
-    onTagsChanged?.call();
-  }
-
-  Future<void> _removeReplayGainTags(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final l = context.l10n;
-    final ok = await ReplayGainService.removeReplayGainTags(song);
-    if (!context.mounted) return;
-    messenger.showSnackBar(
-      SnackBar(content: Text(ok ? l.rgRemoveSuccess : l.rgRemoveFailed)),
-    );
-    onTagsChanged?.call();
   }
 
   // ── Live-format display helpers ───────────────────────────────────────────

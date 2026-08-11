@@ -148,30 +148,22 @@
   },
   "scanFailed": "Failed to scan songs",
 
-  "rgWriteTagsToggle": "Write Tags to Files",
-  "rgWriteTagsToggleDesc": "Permanently write the measured gain into each file's own tags (requires write access)",
-  "rgWriteTagsConfirmBody": "ReplayGain tags will also be written permanently into the files. All other metadata is preserved. Continue?",
-  "rgWriteTrackAction": "Write Tags",
-  "rgRemoveTrackAction": "Remove Tags",
-  "rgScanning": "Measuring loudness...",
-  "rgWriteSuccess": "ReplayGain tags written",
-  "rgWriteFailed": "Failed to write ReplayGain tags",
-  "rgRemoveSuccess": "ReplayGain tags removed",
-  "rgRemoveFailed": "Failed to remove ReplayGain tags",
-  "rgUnsupportedFormat": "Writing ReplayGain is not supported for this format (MP3/FLAC/OGG/OPUS only)",
-  "rgAlbumWriteAction": "Scan & Write Album Gain",
-  "rgAlbumWriteSuccess": "{count} songs written with album gain",
-  "@rgAlbumWriteSuccess": {
+  "rgRemoveTagsAction": "Remove ReplayGain Tags",
+  "rgRemoveConfirmTitle": "Remove ReplayGain Tags?",
+  "rgRemoveConfirmBody": "ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.",
+  "rgRemoveRunning": "Removing ReplayGain tags...",
+  "rgRemoveLibrarySuccess": "{count} songs cleaned",
+  "@rgRemoveLibrarySuccess": {
     "placeholders": { "count": { "type": "int" } }
   },
-  "rgAlbumWritePartial": "{written} written, {failed} failed",
-  "@rgAlbumWritePartial": {
+  "rgRemoveLibraryPartial": "{removed} cleaned, {failed} failed",
+  "@rgRemoveLibraryPartial": {
     "placeholders": {
-      "written": { "type": "int" },
+      "removed": { "type": "int" },
       "failed": { "type": "int" }
     }
   },
-  "rgAlbumWriteFailed": "Failed to write album gain",
+  "rgRemoveFailed": "Failed to remove ReplayGain tags",
 
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",

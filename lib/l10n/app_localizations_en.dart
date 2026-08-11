@@ -363,56 +363,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanFailed => 'Failed to scan songs';
 
   @override
-  String get rgWriteTagsToggle => 'Write Tags to Files';
+  String get rgRemoveTagsAction => 'Remove ReplayGain Tags';
 
   @override
-  String get rgWriteTagsToggleDesc =>
-      'Permanently write the measured gain into each file\'s own tags (requires write access)';
+  String get rgRemoveConfirmTitle => 'Remove ReplayGain Tags?';
 
   @override
-  String get rgWriteTagsConfirmBody =>
-      'ReplayGain tags will also be written permanently into the files. All other metadata is preserved. Continue?';
+  String get rgRemoveConfirmBody =>
+      'ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.';
 
   @override
-  String get rgWriteTrackAction => 'Write Tags';
+  String get rgRemoveRunning => 'Removing ReplayGain tags...';
 
   @override
-  String get rgRemoveTrackAction => 'Remove Tags';
+  String rgRemoveLibrarySuccess(int count) {
+    return '$count songs cleaned';
+  }
 
   @override
-  String get rgScanning => 'Measuring loudness...';
-
-  @override
-  String get rgWriteSuccess => 'ReplayGain tags written';
-
-  @override
-  String get rgWriteFailed => 'Failed to write ReplayGain tags';
-
-  @override
-  String get rgRemoveSuccess => 'ReplayGain tags removed';
+  String rgRemoveLibraryPartial(int removed, int failed) {
+    return '$removed cleaned, $failed failed';
+  }
 
   @override
   String get rgRemoveFailed => 'Failed to remove ReplayGain tags';
-
-  @override
-  String get rgUnsupportedFormat =>
-      'Writing ReplayGain is not supported for this format (MP3/FLAC/OGG/OPUS only)';
-
-  @override
-  String get rgAlbumWriteAction => 'Scan & Write Album Gain';
-
-  @override
-  String rgAlbumWriteSuccess(int count) {
-    return '$count songs written with album gain';
-  }
-
-  @override
-  String rgAlbumWritePartial(int written, int failed) {
-    return '$written written, $failed failed';
-  }
-
-  @override
-  String get rgAlbumWriteFailed => 'Failed to write album gain';
 
   @override
   String get sectionEqualizer => 'EQUALIZER';

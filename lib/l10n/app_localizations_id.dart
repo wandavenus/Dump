@@ -364,56 +364,30 @@ class AppLocalizationsId extends AppLocalizations {
   String get scanFailed => 'Gagal memindai lagu';
 
   @override
-  String get rgWriteTagsToggle => 'Tulis Tag ke File';
+  String get rgRemoveTagsAction => 'Hapus Tag ReplayGain';
 
   @override
-  String get rgWriteTagsToggleDesc =>
-      'Tulis gain hasil pengukuran secara permanen ke tag file (butuh izin tulis)';
+  String get rgRemoveConfirmTitle => 'Hapus Tag ReplayGain?';
 
   @override
-  String get rgWriteTagsConfirmBody =>
-      'Tag ReplayGain juga akan ditulis permanen ke file. Metadata lain tetap utuh. Lanjutkan?';
+  String get rgRemoveConfirmBody =>
+      'Tag ReplayGain/R128 akan dihapus dari semua lagu di library. Metadata lain tetap utuh.';
 
   @override
-  String get rgWriteTrackAction => 'Tulis Tag';
+  String get rgRemoveRunning => 'Menghapus tag ReplayGain...';
 
   @override
-  String get rgRemoveTrackAction => 'Hapus Tag';
+  String rgRemoveLibrarySuccess(int count) {
+    return '$count lagu dibersihkan';
+  }
 
   @override
-  String get rgScanning => 'Mengukur loudness...';
-
-  @override
-  String get rgWriteSuccess => 'Tag ReplayGain ditulis';
-
-  @override
-  String get rgWriteFailed => 'Gagal menulis tag ReplayGain';
-
-  @override
-  String get rgRemoveSuccess => 'Tag ReplayGain dihapus';
+  String rgRemoveLibraryPartial(int removed, int failed) {
+    return '$removed dibersihkan, $failed gagal';
+  }
 
   @override
   String get rgRemoveFailed => 'Gagal menghapus tag ReplayGain';
-
-  @override
-  String get rgUnsupportedFormat =>
-      'Menulis ReplayGain tidak didukung untuk format ini (hanya MP3/FLAC/OGG/OPUS)';
-
-  @override
-  String get rgAlbumWriteAction => 'Scan & Tulis Album Gain';
-
-  @override
-  String rgAlbumWriteSuccess(int count) {
-    return '$count lagu ditulis dengan album gain';
-  }
-
-  @override
-  String rgAlbumWritePartial(int written, int failed) {
-    return '$written ditulis, $failed gagal';
-  }
-
-  @override
-  String get rgAlbumWriteFailed => 'Gagal menulis album gain';
 
   @override
   String get sectionEqualizer => 'EQUALIZER';
