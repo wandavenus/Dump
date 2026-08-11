@@ -122,8 +122,8 @@ class ArtworkRepository {
     // `path_provider` (and `dart:io.Directory`) have no implementation on the
     // web preview build — this cache is disk-backed and Android/desktop-only.
     // Skip entirely there so a MissingPluginException never aborts the
-    // startup `Future.wait` (BootTrace.step rethrows, which would otherwise
-    // stop `main()` from ever reaching `runApp()`).
+    // startup `Future.wait` (which would otherwise stop `main()` from ever
+    // reaching `runApp()`).
     if (kIsWeb) return;
 
     try {
@@ -469,11 +469,14 @@ class ArtworkRepository {
   // ── Memory cache management ────────────────────────────────────────────────
 
   /// Remove [songId] from memory caches (e.g. after a library change).
-  /// The disk file is NOT deleted; call native cleanupIfNeeded for that.
+  /// A2 fix: also drops the native on-disk entry ({songId}.webp) so a deleted
+  /// song's old artwork never resurfaces; the file is re-extracted on demand
+  /// if the song is ever read again.
   void evict(int songId) {
     _paths.remove(songId);
     _providers.remove(songId);
     unawaited(_inFlight.remove(songId) ?? Future<String?>.value());
+    unawaited(MediaStoreService.deleteArtworkCache(songId));
   }
 
   /// Flush the entire memory cache (e.g. in response to a low-memory callback).

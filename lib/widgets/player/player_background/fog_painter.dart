@@ -12,24 +12,36 @@ part of '../player_background.dart';
 //     It increments _blend toward 1 over _kBlendDuration seconds.
 //   • Both setColors() and advanceBlend() immediately recompute the 15
 //     pre-interpolated colour floats (_c0r … _c4b) so paint() performs no
-//     arithmetic at all — just 18 setFloat() calls and 1 drawRect().
+//     lerps.
 //   • Rapid song skips are handled correctly: setColors() always captures the
 //     mid-transition interpolated position so there is no visual snap.
 //
+// Time-dependent shader work (F4 fix):
+//   All values that only depend on the clock — mesh node positions, the
+//   palette-rotated node colours, the ambient-shadow phase and the film-grain
+//   phase — are computed here in Dart (float64) each paint and uploaded as
+//   uniforms. fluid.frag no longer receives uTime, so GPU float32 precision
+//   cannot degrade over long uptimes and no periodic wrap artifact exists.
+//
 // Uniform layout (matches fluid.frag declaration order):
-//   0-1   uSize       canvas size
-//   2     uTime       monotonic seconds
-//   3-5   uColor0     primary   (colors[0])
-//   6-8   uColor1     secondary (colors[1])
-//   9-11  uColor2     accent    (colors[2])
-//   12-14 uHighlight  highlight (colors[3])
-//   15-17 uShadow     shadow    (colors[4])
+//   0-1    uSize         canvas size
+//   2-3    uNode0        node 0 position
+//   4-5    uNode1        node 1 position
+//   6-7    uNode2        node 2 position
+//   8-9    uNode3        node 3 position
+//   10-12  uNodeColor0   node 0 colour (palette-rotated)
+//   13-15  uNodeColor1   node 1 colour
+//   16-18  uNodeColor2   node 2 colour
+//   19-21  uNodeColor3   node 3 colour
+//   22-24  uShadow       shadow tint (ambient blend target)
+//   25     uShadowPhase  (t * 0.2) mod 2π
+//   26     uGrainPhase   t mod 1.0
 //
 // Per-frame cost:
-//   • 0 lerps in paint() + 18 setFloat() calls + 1 drawRect() — negligible.
-//   • All heavy work (trig × 131 072 pixels) runs on the GPU.
-//   • Lerp arithmetic is paid at most once per tick (in advanceBlend), and
-//     only while a crossfade is in progress; it is skipped once blend = 1.
+//   • paint() runs a handful of double-precision trig calls (9 sin/cos), 27
+//     setFloat() calls and 1 drawRect() — negligible on the CPU.
+//   • All per-fragment work in the shader is now pure blending; time-only math
+//     is never repeated across the 131,072 fragments.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ShaderPainter extends CustomPainter {
@@ -50,7 +62,7 @@ class _ShaderPainter extends CustomPainter {
 
   /// Advance colour crossfade.  [realDt] is elapsed time in real seconds.
   /// Pre-computes the interpolated colour floats when blend actually changes so
-  /// paint() has zero arithmetic to do.
+  /// paint() has zero lerp arithmetic to do.
   void advanceBlend(double realDt) {
     if (_blend < 1.0) {
       _blend = (_blend + realDt / _kBlendDuration).clamp(0.0, 1.0);
@@ -178,26 +190,65 @@ class _ShaderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Pre-computed colour floats — no arithmetic here.
+    final t = _time;
+
+    // Current interpolated palette (mirrors the old uniform inputs
+    // uColor0 … uShadow): [0]=primary [1]=secondary [2]=accent [3]=highlight
+    // [4]=shadow.
+    final pal0 = [_c0r, _c0g, _c0b];
+    final pal1 = [_c1r, _c1g, _c1b];
+    final pal2 = [_c2r, _c2g, _c2b];
+    final pal3 = [_c3r, _c3g, _c3b];
+    final pal4 = [_c4r, _c4g, _c4b];
+
+    // Mesh node positions — identical formulas to the old in-shader code.
+    final n0x = 0.20 * math.sin(t * 0.11);
+    final n0y = 0.20 * math.cos(t * 0.13);
+    final n1x = 1.0 + 0.20 * math.cos(t * 0.09);
+    final n1y = 0.20 * math.sin(t * 0.15);
+    final n2x = 0.20 * math.sin(t * 0.14);
+    final n2y = 1.0 + 0.20 * math.cos(t * 0.10);
+    final n3x = 1.0 + 0.20 * math.cos(t * 0.12);
+    final n3y = 1.0 + 0.20 * math.sin(t * 0.08);
+
+    // Node colours — exact port of the old in-shader shiftPalette() calls.
+    final c00 = _shiftPalette(t * 0.08, pal0, pal1, pal4);
+    final c10 = _shiftPalette(t * 0.07 + 1.0, pal1, pal2, pal4);
+    final c01 = _shiftPalette(t * 0.09 + 2.0, pal2, pal0, pal3);
+    final c11 = _shiftPalette(t * 0.06 + 0.5, pal4, pal1, pal2);
+
+    // Bounded phases keep GPU float32 sin()/fract() exact forever.
+    final shadowPhase = (t * 0.2) % (2.0 * math.pi);
+    final grainPhase = t - t.floorToDouble(); // t mod 1.0
+
     shader
       ..setFloat(0, size.width)
       ..setFloat(1, size.height)
-      ..setFloat(2, _time)
-      ..setFloat(3, _c0r) // uColor0.r    primary
-      ..setFloat(4, _c0g) // uColor0.g
-      ..setFloat(5, _c0b) // uColor0.b
-      ..setFloat(6, _c1r) // uColor1.r    secondary
-      ..setFloat(7, _c1g) // uColor1.g
-      ..setFloat(8, _c1b) // uColor1.b
-      ..setFloat(9, _c2r) // uColor2.r    accent
-      ..setFloat(10, _c2g) // uColor2.g
-      ..setFloat(11, _c2b) // uColor2.b
-      ..setFloat(12, _c3r) // uHighlight.r highlight
-      ..setFloat(13, _c3g) // uHighlight.g
-      ..setFloat(14, _c3b) // uHighlight.b
-      ..setFloat(15, _c4r) // uShadow.r    shadow
-      ..setFloat(16, _c4g) // uShadow.g
-      ..setFloat(17, _c4b); // uShadow.b
+      ..setFloat(2, n0x) // uNode0
+      ..setFloat(3, n0y)
+      ..setFloat(4, n1x) // uNode1
+      ..setFloat(5, n1y)
+      ..setFloat(6, n2x) // uNode2
+      ..setFloat(7, n2y)
+      ..setFloat(8, n3x) // uNode3
+      ..setFloat(9, n3y)
+      ..setFloat(10, c00[0]) // uNodeColor0
+      ..setFloat(11, c00[1])
+      ..setFloat(12, c00[2])
+      ..setFloat(13, c10[0]) // uNodeColor1
+      ..setFloat(14, c10[1])
+      ..setFloat(15, c10[2])
+      ..setFloat(16, c01[0]) // uNodeColor2
+      ..setFloat(17, c01[1])
+      ..setFloat(18, c01[2])
+      ..setFloat(19, c11[0]) // uNodeColor3
+      ..setFloat(20, c11[1])
+      ..setFloat(21, c11[2])
+      ..setFloat(22, pal4[0]) // uShadow
+      ..setFloat(23, pal4[1])
+      ..setFloat(24, pal4[2])
+      ..setFloat(25, shadowPhase) // uShadowPhase
+      ..setFloat(26, grainPhase); // uGrainPhase
 
     _paint.shader = shader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), _paint);
@@ -205,4 +256,31 @@ class _ShaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ShaderPainter old) => true;
+
+  // ── Helpers (exact ports of the old fluid.frag functions) ────────────────
+
+  static double _smoothstep(double e0, double e1, double x) {
+    final t = ((x - e0) / (e1 - e0)).clamp(0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+  }
+
+  /// Port of fluid.frag's shiftPalette: 3-colour rotation with smoothstep.
+  static List<double> _shiftPalette(
+    double progress,
+    List<double> colA,
+    List<double> colB,
+    List<double> colC,
+  ) {
+    final p = (progress * 0.333333) % 1.0 * 3.0; // fract(progress / 3) * 3
+    if (p < 1.0) {
+      final f = _smoothstep(0.0, 1.0, p);
+      return [_lerp(colA[0], colB[0], f), _lerp(colA[1], colB[1], f), _lerp(colA[2], colB[2], f)];
+    }
+    if (p < 2.0) {
+      final f = _smoothstep(0.0, 1.0, p - 1.0);
+      return [_lerp(colB[0], colC[0], f), _lerp(colB[1], colC[1], f), _lerp(colB[2], colC[2], f)];
+    }
+    final f = _smoothstep(0.0, 1.0, p - 2.0);
+    return [_lerp(colC[0], colA[0], f), _lerp(colC[1], colA[1], f), _lerp(colC[2], colA[2], f)];
+  }
 }

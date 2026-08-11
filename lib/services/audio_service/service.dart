@@ -80,11 +80,7 @@ class AudioService {
   // ── Initialization ────────────────────────────────────────────────────────
 
   static void initialize() {
-    BootTrace.log('ENTER AudioService.initialize()');
     if (_initialized) {
-      BootTrace.log(
-        'EXIT  AudioService.initialize() — already initialized, no-op',
-      );
       return;
     }
     _initialized = true;
@@ -233,7 +229,6 @@ class AudioService {
     }
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
-    BootTrace.log('EXIT  AudioService.initialize()');
   }
 
   static void _onReplayGainSettingChanged() {
@@ -630,7 +625,10 @@ class AudioService {
       _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    unawaited(PlaybackManager.insertNext(song));
+    _queueMutationGuard(
+      () => PlaybackManager.insertNext(song),
+      'insertNext "${song.title}"',
+    );
     LogService.log('AudioService', 'Queued next: "${song.title}"');
   }
 
@@ -641,10 +639,34 @@ class AudioService {
       _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    unawaited(PlaybackManager.appendToQueue(song));
+    _queueMutationGuard(
+      () => PlaybackManager.appendToQueue(song),
+      'appendToQueue "${song.title}"',
+    );
     LogService.log(
       'AudioService',
       'Queued at end: "${song.title}" (${_playlist.length})',
+    );
+  }
+
+  /// F5 fix: optimistic queue mutations (addToQueueNext / addToQueue /
+  /// reorderQueue) update Dart state first for instant UI feedback. If the
+  /// native call fails, re-sync from the engine so the mirror converges back
+  /// to the authoritative queue instead of staying divergent.
+  static void _queueMutationGuard(
+    Future<void> Function() mutation,
+    String label,
+  ) {
+    unawaited(
+      mutation().catchError((Object e, StackTrace st) {
+        LogService.log(
+          'AudioService',
+          'Queue mutation failed ($label) — re-syncing from native: $e',
+          level: LogLevel.warning,
+          stackTrace: st.toString(),
+        );
+        unawaited(syncFromNative());
+      }),
     );
   }
 
@@ -682,7 +704,10 @@ class AudioService {
       ),
     );
 
-    unawaited(PlaybackManager.reorderQueue(oldIndex, adjustedNew));
+    _queueMutationGuard(
+      () => PlaybackManager.reorderQueue(oldIndex, adjustedNew),
+      'reorderQueue [$oldIndex] → [$adjustedNew]',
+    );
     LogService.log(
       'AudioService',
       'Queue reordered: [$oldIndex] → [$adjustedNew]',

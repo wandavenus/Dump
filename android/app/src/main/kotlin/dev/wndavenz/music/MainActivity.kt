@@ -92,6 +92,9 @@ class MainActivity : FlutterActivity() {
     // onActivityResult. We park the MethodChannel result here and resolve it
     // when the user dismisses the dialog.
     private var pendingDeleteResult: MethodChannel.Result? = null
+    // A2 fix: remember which song the in-flight delete dialog refers to so the
+    // artwork cache entry can be dropped when the deletion succeeds.
+    private var pendingDeleteSongId: Int? = null
     private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
 
     // Requests a MediaStore write grant (system dialog) before a ReplayGain
@@ -410,6 +413,15 @@ class MainActivity : FlutterActivity() {
                     "setActiveQueueIds" -> {
                         val ids = call.argument<List<Int>>("ids")?.toSet() ?: emptySet()
                         artworkCacheManager.setActiveQueueIds(ids)
+                        result.success(null)
+                    }
+
+                    "deleteArtworkCache" -> {
+                        // A2 fix: Dart-side ArtworkRepository.evict() (called on
+                        // song delete) also drops the on-disk cache entry so a
+                        // deleted/replaced song's old artwork never resurfaces.
+                        val songId = call.argument<Int>("songId") ?: 0
+                        artworkCacheManager.delete(songId)
                         result.success(null)
                     }
 
@@ -894,6 +906,7 @@ class MainActivity : FlutterActivity() {
                                         contentResolver, listOf(contentUri),
                                     )
                                     pendingDeleteResult = result
+                                    pendingDeleteSongId = songId
                                     startIntentSenderForResult(
                                         pi.intentSender,
                                         DELETE_REQUEST_CODE,
@@ -934,6 +947,9 @@ class MainActivity : FlutterActivity() {
                                         false
                                     }
                                     postToFlutter { result.success(deleted) }
+                                    // A2 fix: drop the persistent artwork entry
+                                    // for the deleted song (pre-API 30 path).
+                                    if (deleted) artworkCacheManager.delete(songId)
                                 }
                             }
                         }
@@ -952,6 +968,10 @@ class MainActivity : FlutterActivity() {
             val deleted = resultCode == android.app.Activity.RESULT_OK
             pendingDeleteResult?.success(deleted)
             pendingDeleteResult = null
+            // A2 fix: drop the persistent artwork entry for the deleted song
+            // (Android 11+ dialog path).
+            if (deleted) pendingDeleteSongId?.let { artworkCacheManager.delete(it) }
+            pendingDeleteSongId = null
             return
         }
         if (replayGainWriteGate.handleActivityResult(requestCode, resultCode)) return

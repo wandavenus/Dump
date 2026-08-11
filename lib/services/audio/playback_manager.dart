@@ -7,7 +7,6 @@ import 'package:native_audio_runtime/native_audio_runtime.dart';
 import '../native_palette_service.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
-import '../boot_trace.dart';
 import 'media3/media3_playback_bridge.dart';
 import '../native/bridges/native_dsp_bridge.dart';
 import '../native/bridges/ffmpeg_decoder_bridge.dart';
@@ -132,11 +131,7 @@ class PlaybackManager {
   // ── Init ──────────────────────────────────────────────────────────────────
 
   static Future<void> initialize() async {
-    BootTrace.log('ENTER PlaybackManager.initialize()');
     if (_initialized) {
-      BootTrace.log(
-        'EXIT  PlaybackManager.initialize() — already initialized, no-op',
-      );
       return;
     }
     _initialized = true;
@@ -147,9 +142,7 @@ class PlaybackManager {
     // See lib/services/native/NATIVE_BRIDGES.md and NATIVE_RUNTIME.md.
     NativeModuleRegistry.register(NativeDspBridge.instance);
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
-    BootTrace.log('BEFORE await NativeModuleRegistry.initializeAll()');
     await NativeModuleRegistry.initializeAll();
-    BootTrace.log('AFTER  await NativeModuleRegistry.initializeAll()');
 
     // Initialize the Phase 4.5 native DSP pipeline (C-side: dsp_pipeline.c +
     // gain_processor.c). Wired into Media3's audio thread via
@@ -158,29 +151,21 @@ class PlaybackManager {
     // NativeDspAudioProcessor passes audio unchanged when the pipeline has not
     // yet been initialized (fail-open: nar_dsp_pipeline_process_raw returns
     // NATIVE_RUNTIME_ERROR_NOT_INITIALIZED without touching the buffer).
-    BootTrace.log('BEFORE try/await NativeDspPipeline.instance.initialize()');
     try {
       await NativeDspPipeline.instance.initialize();
-      BootTrace.log(
-        'AFTER  await NativeDspPipeline.instance.initialize() — ok',
-      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline initialized'
             ' (${NativeDspPipeline.instance.processorCount} processor(s))',
       );
-    } on Exception catch (e, st) {
+    } on Exception catch (e) {
       // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
       // MissingPluginException, or other platform-level errors — all non-fatal.
-      BootTrace.log(
-        'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st',
-      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline unavailable (non-fatal): $e',
       );
     }
-
     // Subscribe to currentTrack: forward events and trigger artwork prefetch.
     _subs.add(
       Media3PlaybackBridge.currentTrackStream.listen((event) {

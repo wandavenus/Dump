@@ -1,6 +1,25 @@
 name: "CodeQL Advanced"
 
+# N3 fix: previously dispatch-only — the security scan (security-extended +
+# security-and-quality) never ran automatically. Now runs on push/PR touching
+# native/Android code plus a weekly schedule.
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'native_audio_runtime/**'
+      - 'lib/**'
+      - '.github/workflows/codeql.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'native_audio_runtime/**'
+      - 'lib/**'
+      - '.github/workflows/codeql.yml'
+  schedule:
+    - cron: '0 3 * * 1'   # weekly: Monday 03:00 UTC
   workflow_dispatch:
 
 permissions:
