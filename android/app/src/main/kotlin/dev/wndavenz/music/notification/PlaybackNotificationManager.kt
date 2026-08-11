@@ -9,7 +9,10 @@ import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -136,7 +139,8 @@ class PlaybackNotificationManager(
         val track = getCurrentTrack()
         val isPlaying = getIsPlaying()
 
-        // Always render our own bitmap via setLargeIcon. An explicit
+        // Always render our own normalized (square letterboxed) bitmap via
+        // setLargeIcon. An explicit
         // largeIcon overrides MediaStyleNotificationHelper's auto-rendered session
         // artwork, which would otherwise decode the low-res MediaStore album-art
         // thumbnail (≤512 px, non-square) → SystemUI center-crop = zoom + pixelation.
@@ -168,7 +172,7 @@ class PlaybackNotificationManager(
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
-            val bmp = loadBitmap(nextArtUri, nextSongId)
+            val bmp = loadBitmap(nextArtUri, nextSongId)?.let(::normalizeNotificationArtwork)
             handler.post {
                 inFlightLoads.remove(cacheKey)
                 if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
@@ -204,7 +208,7 @@ class PlaybackNotificationManager(
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
-            val bmp = loadBitmap(artUri, songId)
+            val bmp = loadBitmap(artUri, songId)?.let(::normalizeNotificationArtwork)
             handler.post {
                 inFlightLoads.remove(cacheKey)
                 if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
@@ -380,9 +384,36 @@ class PlaybackNotificationManager(
             bytes.size,
             BitmapFactory.Options().apply {
                 inSampleSize = sample
+                // ARGB_8888 so already-square art hits the fast path in
+                // normalizeNotificationArtwork() instead of being re-letterboxed.
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             },
         )
+    }
+
+    private fun normalizeNotificationArtwork(source: Bitmap): Bitmap {
+        if (source.width <= 0 || source.height <= 0) return source
+        // Never upscale: letterbox onto a square capped at NOTIF_ART_PX but no
+        // larger than the source, so small art stays native-sharp and the system
+        // does the final scaling instead of a wasted upscale pass.
+        val target = minOf(NOTIF_ART_PX, maxOf(source.width, source.height))
+        if (source.width == target && source.height == target) return source
+
+        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(Color.BLACK)
+
+        val scale = minOf(
+            target.toFloat() / source.width.toFloat(),
+            target.toFloat() / source.height.toFloat(),
+        )
+        val drawnW = source.width * scale
+        val drawnH = source.height * scale
+        val left = (target - drawnW) / 2f
+        val top = (target - drawnH) / 2f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
+        return out
     }
 
     private fun isInNoArtworkCache(key: String): Boolean {

@@ -731,10 +731,21 @@ class Media3PlaybackService : MediaSessionService() {
         runCatching {
             val item = p.currentMediaItem ?: return@runCatching
             if (item.mediaId != mediaId) return@runCatching
-            val meta = item.mediaMetadata.buildUpon()
-            .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-            .build()
-            if (meta.artworkData.contentEquals(item.mediaMetadata.artworkData)) return@runCatching
+            val metaBuilder = item.mediaMetadata.buildUpon()
+                .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            if (bytes == null) {
+                // ZOOM-01: never leave the low-res MediaStore album-art URI
+                // (≤512 px, non-square) as the ONLY artwork source. Renderers
+                // that fall back to ART_URI upscale + center-crop it — exactly
+                // the "artwork zooms / pixelates when playing" bug. No art is
+                // better than zoomed art; a later successful refresh
+                // repopulates artworkData (and the URI stays for sources that
+                // can still resolve, e.g. embedded art via BitmapLoader).
+                metaBuilder.setArtworkUri(null)
+            }
+            val meta = metaBuilder.build()
+            if (meta.artworkData.contentEquals(item.mediaMetadata.artworkData) &&
+                meta.artworkUri == item.mediaMetadata.artworkUri) return@runCatching
             val index = p.currentMediaItemIndex
             if (index == C.INDEX_UNSET) return@runCatching
             val updated = item.buildUpon().setMediaMetadata(meta).build()
@@ -1349,6 +1360,16 @@ class Media3PlaybackService : MediaSessionService() {
                 else           transportState.stopPositionTicker()
                 transportState.emitAll()
                 notificationManager.refresh()
+                // ZOOM-01: pressing play can make SystemUI / MIUI switch the
+                // shade media card to session-driven rendering. If artworkData
+                // is missing at that moment (async publish still in flight,
+                // item rebuilt by queue rebuild, cold start), the renderer
+                // falls back to the low-res ART_URI → zoom + pixelation. Play
+                // also never fired a READY/transition event, so nothing else
+                // would heal it. Re-publish the current track's square art on
+                // every play press — a cache hit resolves synchronously, so
+                // this is effectively free in the steady state.
+                if (isPlaying) scheduleSessionArtworkRefresh()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
