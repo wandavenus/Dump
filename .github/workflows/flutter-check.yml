@@ -1,6 +1,26 @@
 name: Flutter Check
 
+# N3 fix: previously dispatch-only — the lint + debug-assemble check never
+# ran automatically. Now runs on push/PR touching app code.
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/flutter-check.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/flutter-check.yml'
   workflow_dispatch:
 
 concurrency:

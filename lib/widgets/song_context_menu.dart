@@ -275,6 +275,10 @@ class _SongContextMenuState extends State<SongContextMenu> {
     final deleted = await MediaStoreService.deleteSong(widget.song.id);
     if (deleted) {
       MediaStoreService.clearSongsCache();
+      // F1 fix: notify every mounted list (MusicList, album/artist/home/
+      // search/browse sections, playlist page) so the deleted song disappears
+      // from the UI immediately instead of lingering until a manual rescan.
+      MediaStoreService.rescanNotifier.value++;
       ArtworkRepository.instance.evict(widget.song.id);
       SongMetadataService.invalidate(widget.song.id);
       unawaited(ReplayGainService.invalidate(widget.song.id));

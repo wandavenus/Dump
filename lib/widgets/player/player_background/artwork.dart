@@ -14,8 +14,8 @@ part of '../player_background.dart';
 //
 // Time handling:
 //   An AnimationController (30-minute loop) drives the animation.
-//   Time is accumulated monotonically via a listener so the shader's uTime
-//   coordinate never resets — no visual snap at the loop boundary.
+//   Time is accumulated monotonically via a listener so the shader clock never
+//   resets — no visual snap at the loop boundary.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ProceduralFogBackground extends StatefulWidget {
@@ -69,9 +69,19 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
   // ── Shader loading (once per widget lifetime) ─────────────────────────────
 
   Future<void> _loadShader() async {
-    final program = await ui.FragmentProgram.fromAsset(
-      'assets/shaders/fluid.frag',
-    );
+    // F2 fix: a missing/corrupt shader asset or a compile failure on an
+    // exotic GPU must never become an unhandled async error. Keeping
+    // _painter null is safe — build() already falls back to a dark
+    // background while the shader is unavailable.
+    ui.FragmentProgram? program;
+    try {
+      program = await ui.FragmentProgram.fromAsset(
+        'assets/shaders/fluid.frag',
+      );
+    } on Exception catch (e) {
+      debugPrint('fluid.frag failed to load: $e');
+      return;
+    }
     if (!mounted) return;
 
     final shader = program.fragmentShader();
@@ -94,6 +104,11 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
       var dt = v - _prev;
       if (dt < 0.0) dt += 1.0; // controller looped (30 min boundary)
       final realDt = dt * 1800.0; // convert to real seconds (1 unit ≈ 1 s)
+      // F4 fix: uTime is never sent to the GPU. Every time-dependent shader
+      // value (node positions, palette rotation, phases) is computed in Dart
+      // (float64) from this unbounded clock and uploaded as uniforms, so GPU
+      // float32 precision cannot degrade and no wrap discontinuity is possible
+      // even after weeks of uptime.
       _t += realDt;
       _painter?.setTime(_t); // single field write — no state rebuild
       _painter?.advanceBlend(realDt); // advances colour crossfade if active

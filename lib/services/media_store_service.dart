@@ -463,6 +463,19 @@ class MediaStoreService {
     }
   }
 
+  /// Deletes the native persistent artwork cache entry for [songId]
+  /// (A2 fix — see ArtworkRepository.evict). Fire-and-forget: errors are
+  /// logged, never thrown.
+  static Future<void> deleteArtworkCache(int songId) async {
+    if (songId <= 0) return;
+    try {
+      await _channel
+          .invokeMethod<void>('deleteArtworkCache', {'songId': songId});
+    } on Exception catch (e) {
+      LogService.error('MediaStore', 'deleteArtworkCache error songId=$songId: $e');
+    }
+  }
+
   static Future<String?> getArtworkPath(int songId) async {
     if (songId <= 0) return null;
     try {

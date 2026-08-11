@@ -165,6 +165,12 @@ class SessionArtworkProvider(
 
     private fun buildBytes(songId: Int, artUri: String?): ByteArray? {
         val raw = (if (songId > 0) rawEmbedded(songId) else null)
+            // A1 fix: files played outside the MediaStore library (opened via
+            // the overlay / ACTION_PLAY_URI) carry songId = 0 but a real audio
+            // URI in artworkSource — read the embedded picture straight from
+            // that URI so notification / lock screen / SystemUI surfaces get
+            // artwork instead of none.
+            ?: (if (songId <= 0) rawEmbeddedFromUri(artUri) else null)
             ?: rawFromCache(songId)
             ?: rawFromUri(artUri)
             ?: return null
@@ -194,6 +200,30 @@ class SessionArtworkProvider(
             mmr.embeddedPicture
         } catch (e: Exception) {
             NativeLogger.emit("debug", "SessionArt", "embedded extraction failed songId=$songId: ${e.message}")
+            null
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // Cleanup must not mask the original result/error.
+            }
+        }
+    }
+
+    /**
+     * Reads the full-resolution embedded picture from an arbitrary audio URI
+     * (content:// or file://) — used for external files that have no MediaStore
+     * song ID (A1 fix). Returns null when the URI is not an audio file or has
+     * no embedded picture.
+     */
+    private fun rawEmbeddedFromUri(uriStr: String?): ByteArray? {
+        if (uriStr.isNullOrBlank()) return null
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(context, Uri.parse(uriStr))
+            mmr.embeddedPicture
+        } catch (e: Exception) {
+            NativeLogger.emit("debug", "SessionArt", "embedded extraction failed for uri=$uriStr: ${e.message}")
             null
         } finally {
             try {
