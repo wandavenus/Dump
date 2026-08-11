@@ -53,6 +53,9 @@ class AppThemes {
         ),
       ),
       snackBarTheme: SnackBarThemeData(
+        backgroundColor: isDark
+            ? const Color(0xFF2C2C2E)
+            : Colors.white,
         contentTextStyle: TextStyle(
           color: isDark ? Colors.white : Colors.black,
         ),
