@@ -139,7 +139,8 @@ class FallbackBitmapLoader(
         val albumId = parseAlbumId(uri)
 
         // Short-circuit: this albumId was already confirmed to have no artwork
-        // (neither MediaStore-indexed nor embedded) earlier this session — skip
+        // (neither MediaStore-indexed nor embedded) within the negative-cache TTL —
+        // skip
         // the ContentResolver + MediaStore query + artwork extraction work
         // entirely instead of repeating a known-failed lookup.
         if (albumId != null && isNoArtworkCached(albumId)) {
