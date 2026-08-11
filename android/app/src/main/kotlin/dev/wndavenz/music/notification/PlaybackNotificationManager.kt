@@ -306,6 +306,12 @@ class PlaybackNotificationManager(
         if (songId > 0) {
             val original = loadOriginalEmbeddedBitmap(songId)
             if (original != null) return original
+        } else {
+            // A1 fix: external files (overlay / ACTION_PLAY_URI) have songId = 0
+            // but carry the audio URI in artUri — read the embedded picture from
+            // that URI so the notification gets artwork for them too.
+            val original = loadOriginalEmbeddedFromUri(artUri)
+            if (original != null) return original
         }
 
         // 2) App's persistent artwork cache (extracted embedded art, ≤1000 px).
@@ -335,6 +341,28 @@ class PlaybackNotificationManager(
         return try {
             val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
             mmr.setDataSource(service, uri)
+            val raw = mmr.embeddedPicture ?: return null
+            decodeCapped(raw, NOTIF_ART_PX)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // ignore
+            }
+        }
+    }
+
+    /**
+     * A1 fix: reads the embedded picture from an arbitrary audio URI
+     * (content:// or file://) for files that have no MediaStore song ID.
+     */
+    private fun loadOriginalEmbeddedFromUri(artUri: String?): Bitmap? {
+        if (artUri.isNullOrBlank()) return null
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(service, Uri.parse(artUri))
             val raw = mmr.embeddedPicture ?: return null
             decodeCapped(raw, NOTIF_ART_PX)
         } catch (_: Exception) {

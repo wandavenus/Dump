@@ -120,8 +120,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
         return HistoryService.getRecentlyPlayedIds();
       case SmartPlaylistType.mostPlayed:
         final counts = await HistoryService.getPlayCounts();
+        // F6 fix: tolerate corrupt/non-int counts instead of throwing.
         final sorted = counts.entries.toList()
-          ..sort((a, b) => (b.value as int).compareTo(a.value as int));
+          ..sort(
+            (a, b) =>
+                ((b.value as num?)?.toInt() ?? 0)
+                    .compareTo((a.value as num?)?.toInt() ?? 0),
+          );
         return sorted
             .map((e) => int.tryParse(e.key) ?? 0)
             .where((id) => id != 0)
