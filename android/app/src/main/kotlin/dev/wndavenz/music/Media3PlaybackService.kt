@@ -842,6 +842,7 @@ class Media3PlaybackService : MediaSessionService() {
             "album"    to album,
             "albumId"  to 0,
             "path"     to uriStr,
+            "artworkSource" to uriStr,
             "duration" to durationMs,
         )
     }
