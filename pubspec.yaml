@@ -1,7 +1,7 @@
 name: musicplayer
 description: "-"
 publish_to: 'none'
-version: 1.5.28
+version: 1.5.29
 
 environment:
   sdk: '>=3.12.2 <4.0.0'

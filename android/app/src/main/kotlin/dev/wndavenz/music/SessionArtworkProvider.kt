@@ -88,6 +88,12 @@ class SessionArtworkProvider(
      * called exactly once; null means no artwork could be resolved.
      */
     fun provide(songId: Int, artUri: String?, onResult: (ByteArray?) -> Unit) {
+        if (executor.isShutdown) {
+            // Teardown: never enqueue new work after close(). Resolve with null
+            // so the "onResult is always called exactly once" contract holds.
+            onResult(null)
+            return
+        }
         val requestKey = requestKey(songId, artUri)
         var cached: ByteArray? = null
         var shouldStart = false
@@ -144,6 +150,14 @@ class SessionArtworkProvider(
 
     private fun requestKey(songId: Int, artUri: String?): String =
         if (songId > 0) "song:$songId" else "uri:${artUri.orEmpty()}"
+
+    /**
+     * Shuts down the executor and rejects new requests. Idempotent; called from
+     * the service's onDestroy so queued extraction cannot outlive teardown.
+     */
+    fun close() {
+        executor.shutdown()
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

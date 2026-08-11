@@ -120,6 +120,10 @@ class FallbackBitmapLoader(
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
+        if (executor.isShutdown) {
+            future.setException(IllegalStateException("FallbackBitmapLoader is closed"))
+            return future
+        }
         executor.execute {
             try {
                 // E-A: cap at MAX_PX like every other path — never allocate a
@@ -136,6 +140,10 @@ class FallbackBitmapLoader(
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
+        if (executor.isShutdown) {
+            future.setException(IllegalStateException("FallbackBitmapLoader is closed"))
+            return future
+        }
         val albumId = parseAlbumId(uri)
 
         // Short-circuit: this albumId was already confirmed to have no artwork
@@ -219,18 +227,22 @@ class FallbackBitmapLoader(
         }
 
         // 2) Persistent cache fallback (raw-copied JPEG for ≤1000 px art, WebP 85
-        //    re-encode beyond that) — same pipeline as the in-app player.
-        val cachedPath = artworkCache.getOrExtract(songIds.first()) ?: run {
-            Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
-            return null
+        //    re-encode beyond that) — same pipeline as the in-app player. Iterate
+        //    every probed songId (not just the first) so a compilation album whose
+        //    only cached art belongs to track 2/3 still resolves instead of being
+        //    reported as no-artwork.
+        for (songId in songIds) {
+            val cachedPath = artworkCache.getOrExtract(songId) ?: continue
+            try {
+                val bytes = File(cachedPath).readBytes()
+                val bmp = decodeCapped(bytes)
+                if (bmp != null) return bmp
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read cached artwork for albumId=$albumId songId=$songId: ${e.message}")
+            }
         }
-        return try {
-            val bytes = File(cachedPath).readBytes()
-            decodeCapped(bytes)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to read cached artwork for albumId=$albumId: ${e.message}")
-            null
-        }
+        Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
+        return null
     }
 
     /**
@@ -388,4 +400,12 @@ class FallbackBitmapLoader(
      * URI. Returns null if the last path segment is not numeric (unexpected URI shape).
      */
     private fun parseAlbumId(uri: Uri): Long? = uri.lastPathSegment?.toLongOrNull()
+
+    /**
+     * Shuts down the executor and rejects new loads. Idempotent; called from the
+     * service's onDestroy so queued I/O cannot outlive service teardown.
+     */
+    fun close() {
+        executor.shutdown()
+    }
 }

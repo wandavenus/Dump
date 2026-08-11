@@ -20,6 +20,17 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.29',
+    date: '11 Agustus 2026',
+    changes: [
+      'Perbaikan temuan audit artwork notifikasi (batch 2): hasil load artwork async tidak lagi bisa menimpa notifikasi lagu yang sedang diputar dengan judul/artis/art lagu lama saat user skip cepat — sebelum repost, key hasil divalidasi masih milik lagu aktif dan data notifikasi diambil ulang dari lagu aktif, bukan dari hasil tangkapan lama.',
+      'Slot in-flight artwork tunggal diganti in-flight per-lagu: load lagu A yang selesai tidak lagi menghapus penanda load lagu B, sehingga lagu yang sama tidak pernah dimuat dua kali bersamaan (tidak ada I/O duplikat).',
+      'Promosi crossfade kini memicu refresh artwork MediaSession (artworkData) secara eksplisit — SystemUI/MIUI tidak lagi menyimpan artwork lagu lama di shade/lock screen setelah crossfade selesai (event READY standby player yang ter-drop guard isActiveEvent tidak lagi membuat refresh terlewat).',
+      'Album kompilasi: fallback cache persistent kini memeriksa semua lagu yang diprobed (bukan hanya lagu pertama) — artwork yang hanya ada di cache lagu 2/3 tetap tampil.',
+      'Executor artwork (notifikasi, session artworkData, Bluetooth/lock-screen BitmapLoader) kini di-shutdown saat service dihancurkan — tidak ada load I/O yang bertahan melewati teardown service.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.28',
     date: '10 Agustus 2026',
     changes: [
