@@ -19,7 +19,6 @@ class ArtworkRepository {
   final LinkedHashMap<int, String> _paths = LinkedHashMap();
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
   final Map<int, Future<String?>> _inFlight = {};
-
   final Map<int, int> _cacheGeneration = {};
   final Map<int, Future<void>> _pendingDeletes = {};
 
@@ -145,7 +144,12 @@ class ArtworkRepository {
       if (!seen.add(id)) continue;
       final provider = getProviderSync(id, targetSizePx: targetSizePx);
       if (provider == null) continue;
-      warmups.add(_decodeIntoImageCache(provider).timeout(timeout, onTimeout: () {}));
+      warmups.add(
+        _decodeIntoImageCache(provider).timeout(
+          timeout,
+          onTimeout: () {},
+        ),
+      );
     }
     if (warmups.isNotEmpty) await Future.wait(warmups);
   }
@@ -280,7 +284,7 @@ class ArtworkRepository {
   Future<String?> _resolvePath(int songId) async {
     final expected = await diskPath(songId);
     final file = File(expected);
-    final stat = await file.stat();
+    final stat = file.statSync();
     if (stat.type != FileSystemEntityType.notFound && stat.size > 0) {
       _diskCachedIds.add(songId);
       _addToMemory(songId, expected);
