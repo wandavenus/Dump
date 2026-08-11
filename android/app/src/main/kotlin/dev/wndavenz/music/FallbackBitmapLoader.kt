@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.LruCache
@@ -75,7 +76,7 @@ class FallbackBitmapLoader(
         private const val POSITIVE_CACHE_ALBUMS = 4
 
         /**
-         * Session-lifetime negative cache: albumIds confirmed to have NO resolvable
+         * TTL-based negative cache: albumIds confirmed to have NO resolvable
          * artwork (neither MediaStore-indexed nor embedded in the file). Populated
          * only after both [tryUri] and [tryEmbedded] fail for a given albumId.
          *
@@ -84,12 +85,12 @@ class FallbackBitmapLoader(
          * song confirmed to have zero artwork pays a full ContentResolver open +
          * MediaStore query + artwork extraction attempt every single time.
          *
-         * Safe because: cache lives only for the process lifetime (cleared on app
-         * restart), so if MediaStore later indexes new artwork for an albumId
-         * (e.g. after a rescan), the worst case is it stays "no artwork" until the
-         * next cold start — never a permanent or persisted false negative.
+         * Safe because: entries expire after [NO_ARTWORK_TTL_MS], so if MediaStore
+         * later indexes new artwork for an albumId (e.g. after a rescan), the
+         * loader retries without requiring an app restart.
          */
-        private val noArtworkCache = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+        private val noArtworkCache = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+        private const val NO_ARTWORK_TTL_MS = 30_000L
     }
 
     /**
@@ -141,7 +142,7 @@ class FallbackBitmapLoader(
         // (neither MediaStore-indexed nor embedded) earlier this session — skip
         // the ContentResolver + MediaStore query + artwork extraction work
         // entirely instead of repeating a known-failed lookup.
-        if (albumId != null && noArtworkCache.contains(albumId)) {
+        if (albumId != null && isNoArtworkCached(albumId)) {
             future.setException(Exception("No artwork resolved for: $uri (cached)"))
             return future
         }
@@ -158,7 +159,9 @@ class FallbackBitmapLoader(
                     if (cached == null && albumId != null) albumArtworkCache.put(albumId, bmp)
                     future.set(bmp)
                 } else {
-                    if (albumId != null) noArtworkCache.add(albumId)
+                    if (albumId != null) {
+                        noArtworkCache[albumId] = SystemClock.elapsedRealtime()
+                    }
                     // setException so Media3 knows there is no artwork — it will not
                     // retry, and MediaSessionLegacyStub will simply show no art rather
                     // than logging a fresh warning on every tick.
@@ -169,6 +172,15 @@ class FallbackBitmapLoader(
             }
         }
         return future
+    }
+
+    private fun isNoArtworkCached(albumId: Long): Boolean {
+        val failedAt = noArtworkCache[albumId] ?: return false
+        if (SystemClock.elapsedRealtime() - failedAt > NO_ARTWORK_TTL_MS) {
+            noArtworkCache.remove(albumId, failedAt)
+            return false
+        }
+        return true
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
