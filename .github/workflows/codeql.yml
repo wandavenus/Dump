@@ -75,6 +75,15 @@ jobs:
         if: matrix.build-mode == 'manual'
         uses: android-actions/setup-android@v3
 
+      # The Android module declares these exact native tool versions.
+      # setup-android does not guarantee that CMake 3.22.1 / NDK 28.2 are
+      # installed on the runner, while the Gradle externalNativeBuild task
+      # requires them during assembleDebug.
+      - name: Install Android native build tools
+        if: matrix.build-mode == 'manual'
+        run: |
+          sdkmanager "cmake;3.22.1" "ndk;28.2.13676358"
+
       - name: Setup Gradle
         if: matrix.build-mode == 'manual'
         uses: gradle/actions/setup-gradle@v4
@@ -111,7 +120,7 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
 
       - name: Build Native C++ Code
@@ -119,7 +128,7 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew clean externalNativeBuildDebug --no-daemon --stacktrace
+          ./gradlew externalNativeBuildDebug --no-daemon --stacktrace
 
 
       ##################################################
