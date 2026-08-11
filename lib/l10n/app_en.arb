@@ -148,6 +148,31 @@
   },
   "scanFailed": "Failed to scan songs",
 
+  "rgWriteTagsToggle": "Write Tags to Files",
+  "rgWriteTagsToggleDesc": "Permanently write the measured gain into each file's own tags (requires write access)",
+  "rgWriteTagsConfirmBody": "ReplayGain tags will also be written permanently into the files. All other metadata is preserved. Continue?",
+  "rgWriteTrackAction": "Write Tags",
+  "rgRemoveTrackAction": "Remove Tags",
+  "rgScanning": "Measuring loudness...",
+  "rgWriteSuccess": "ReplayGain tags written",
+  "rgWriteFailed": "Failed to write ReplayGain tags",
+  "rgRemoveSuccess": "ReplayGain tags removed",
+  "rgRemoveFailed": "Failed to remove ReplayGain tags",
+  "rgUnsupportedFormat": "Writing ReplayGain is not supported for this format (MP3/FLAC/OGG/OPUS only)",
+  "rgAlbumWriteAction": "Scan & Write Album Gain",
+  "rgAlbumWriteSuccess": "{count} songs written with album gain",
+  "@rgAlbumWriteSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rgAlbumWritePartial": "{written} written, {failed} failed",
+  "@rgAlbumWritePartial": {
+    "placeholders": {
+      "written": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "rgAlbumWriteFailed": "Failed to write album gain",
+
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",

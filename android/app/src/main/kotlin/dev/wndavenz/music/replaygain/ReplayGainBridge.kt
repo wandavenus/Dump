@@ -38,28 +38,44 @@ class ReplayGainBridge(
 
     /** Handles `scanTrack` (also backs the legacy `scanReplayGain` case name). */
     fun scanTrack(path: String): Map<String, Any?> {
+        // F3 (RG-01): snapshot the file identity BEFORE decoding. If the file
+        // is replaced/edited while the scan runs, the measurement describes the
+        // OLD content — caching it under the new mtime would poison the SQLite
+        // cache (getReplayGainTags would serve the stale measurement until the
+        // file changes again). The Dart caller independently discards the
+        // result via its own before/after identity check, but the cache write
+        // here must be guarded on its own too.
+        val mtimeBefore = MetadataCacheDb.mtime(path)
         val result = ReplayGainService.scanTrack(path)
             ?: return mapOf("success" to false, "error" to "scan_failed")
 
-        // Update SQLite cache immediately so getReplayGainTags() reflects the
-        // fresh measurement even before/without writing tags to the file.
         val mtime = MetadataCacheDb.mtime(path)
-        val existing = metadataCacheDb.getByPath(path, mtime)
-        val gainStr = formatGain(result.recommendedGainDb)
-        val peakStr = formatPeak(dbToLinear(result.samplePeakDbfs))
-        metadataCacheDb.putByPath(
-            path, mtime,
-            MetadataCacheDb.CachedEntry(
-                rgTrackGain = gainStr,
-                rgTrackPeak = peakStr,
-                rgAlbumGain = existing?.rgAlbumGain,
-                rgAlbumPeak = existing?.rgAlbumPeak,
-                r128Track = existing?.r128Track,
-                r128Album = existing?.r128Album,
-                iTunNorm = existing?.iTunNorm,
-                lyrics = existing?.lyrics,
-            ),
-        )
+        if (mtimeBefore != 0L && mtimeBefore == mtime) {
+            // File unchanged across the scan — safe to cache. Update SQLite
+            // cache immediately so getReplayGainTags() reflects the fresh
+            // measurement even before/without writing tags to the file.
+            val existing = metadataCacheDb.getByPath(path, mtime)
+            val gainStr = formatGain(result.recommendedGainDb)
+            val peakStr = formatPeak(dbToLinear(result.samplePeakDbfs))
+            metadataCacheDb.putByPath(
+                path, mtime,
+                MetadataCacheDb.CachedEntry(
+                    rgTrackGain = gainStr,
+                    rgTrackPeak = peakStr,
+                    rgAlbumGain = existing?.rgAlbumGain,
+                    rgAlbumPeak = existing?.rgAlbumPeak,
+                    r128Track = existing?.r128Track,
+                    r128Album = existing?.r128Album,
+                    iTunNorm = existing?.iTunNorm,
+                    lyrics = existing?.lyrics,
+                ),
+            )
+        } else {
+            // F3: file changed (or vanished) mid-scan — do not cache the stale
+            // measurement. Result is still returned; the Dart identity guard
+            // decides whether to discard it.
+            Log.w(TAG, "scanTrack: file changed during scan, not caching: $path")
+        }
 
         return mapOf(
             "success" to true,
@@ -74,6 +90,9 @@ class ReplayGainBridge(
 
     /** Handles `scanAlbum`. [paths] must all belong to the same album. */
     fun scanAlbum(paths: List<String>): Map<String, Any?> {
+        // F3 (RG-01): snapshot every file's identity BEFORE the album decode,
+        // then only cache tracks whose file survived the scan unchanged.
+        val mtimeBefore = paths.associateWith { MetadataCacheDb.mtime(it) }
         val albumResult = ReplayGainService.scanAlbum(paths)
 
         // Cache each successfully-scanned track with both its own track gain
@@ -81,6 +100,11 @@ class ReplayGainBridge(
         // data for every song in the album without a second native round-trip.
         albumResult.trackResults.forEach { (path, trackLoudness) ->
             val mtime = MetadataCacheDb.mtime(path)
+            val before = mtimeBefore[path]
+            if (before == null || before == 0L || before != mtime) {
+                Log.w(TAG, "scanAlbum: file changed during scan, not caching: $path")
+                return@forEach
+            }
             val existing = metadataCacheDb.getByPath(path, mtime)
             metadataCacheDb.putByPath(
                 path, mtime,

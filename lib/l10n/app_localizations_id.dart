@@ -364,6 +364,58 @@ class AppLocalizationsId extends AppLocalizations {
   String get scanFailed => 'Gagal memindai lagu';
 
   @override
+  String get rgWriteTagsToggle => 'Tulis Tag ke File';
+
+  @override
+  String get rgWriteTagsToggleDesc =>
+      'Tulis gain hasil pengukuran secara permanen ke tag file (butuh izin tulis)';
+
+  @override
+  String get rgWriteTagsConfirmBody =>
+      'Tag ReplayGain juga akan ditulis permanen ke file. Metadata lain tetap utuh. Lanjutkan?';
+
+  @override
+  String get rgWriteTrackAction => 'Tulis Tag';
+
+  @override
+  String get rgRemoveTrackAction => 'Hapus Tag';
+
+  @override
+  String get rgScanning => 'Mengukur loudness...';
+
+  @override
+  String get rgWriteSuccess => 'Tag ReplayGain ditulis';
+
+  @override
+  String get rgWriteFailed => 'Gagal menulis tag ReplayGain';
+
+  @override
+  String get rgRemoveSuccess => 'Tag ReplayGain dihapus';
+
+  @override
+  String get rgRemoveFailed => 'Gagal menghapus tag ReplayGain';
+
+  @override
+  String get rgUnsupportedFormat =>
+      'Menulis ReplayGain tidak didukung untuk format ini (hanya MP3/FLAC/OGG/OPUS)';
+
+  @override
+  String get rgAlbumWriteAction => 'Scan & Tulis Album Gain';
+
+  @override
+  String rgAlbumWriteSuccess(int count) {
+    return '$count lagu ditulis dengan album gain';
+  }
+
+  @override
+  String rgAlbumWritePartial(int written, int failed) {
+    return '$written ditulis, $failed gagal';
+  }
+
+  @override
+  String get rgAlbumWriteFailed => 'Gagal menulis album gain';
+
+  @override
   String get sectionEqualizer => 'EQUALIZER';
 
   @override

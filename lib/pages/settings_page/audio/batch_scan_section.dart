@@ -8,13 +8,18 @@ class _BatchScanSection extends StatefulWidget {
 }
 
 class _BatchScanSectionState extends State<_BatchScanSection> {
+  /// Whether the next scan should also write the measured gain permanently
+  /// into each file's tags (F1: makes the whole native TagLib write path
+  /// reachable from the UI instead of dead code).
+  bool _writeTags = false;
+
   Future<void> _confirmAndStartScan(BuildContext context) async {
     final l = context.l10n;
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (_) => CupertinoAlertDialog(
         title: Text(l.scanLibraryConfirmTitle),
-        content: Text(l.scanLibraryConfirmBody),
+        content: Text(_writeTags ? l.rgWriteTagsConfirmBody : l.scanLibraryConfirmBody),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
@@ -44,10 +49,9 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
         ).showSnackBar(SnackBar(content: Text(l.noSongsInLibrary)));
         return;
       }
-      // Library scan is read/compute-only. Permanent tag changes must go
-      // through the explicit write action so a scan cannot unexpectedly
-      // rewrite user files.
-      unawaited(ReplayGainService.scanLibrary(songs));
+      // Read/compute-only by default; the explicit write toggle (F1) opts in
+      // to permanent tag writes (one batch permission dialog on Android 11+).
+      unawaited(ReplayGainService.scanLibrary(songs, writeTags: _writeTags));
     } on Exception catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -70,8 +74,59 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
             onScanAgain: () => _confirmAndStartScan(context),
           );
         }
-        return _ScanIdleRow(onTap: () => _confirmAndStartScan(context));
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ScanWriteTagsToggle(
+              value: _writeTags,
+              onChanged: (v) => setState(() => _writeTags = v),
+            ),
+            _ScanIdleRow(onTap: () => _confirmAndStartScan(context)),
+          ],
+        );
       },
+    );
+  }
+}
+
+/// Explicit opt-in row for permanently writing measured gain into file tags.
+class _ScanWriteTagsToggle extends StatelessWidget {
+  const _ScanWriteTagsToggle({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final c = AppColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.rgWriteTagsToggle,
+                  style: TextStyle(color: c.primaryLabel, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l.rgWriteTagsToggleDesc,
+                  style: TextStyle(color: c.secondaryLabel, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: const Color(0xFFF92D48),
+          ),
+        ],
+      ),
     );
   }
 }
