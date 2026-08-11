@@ -20,11 +20,7 @@ class ArtworkRepository {
   final LinkedHashMap<int, FileImage> _providers = LinkedHashMap();
   final Map<int, Future<String?>> _inFlight = {};
 
-  // Generation is incremented on explicit eviction. A result started before
-  // that eviction belongs to the old generation and must never be published.
   final Map<int, int> _cacheGeneration = {};
-
-  // New lookups wait for the invalidation delete to finish before probing disk.
   final Map<int, Future<void>> _pendingDeletes = {};
 
   String? _cacheDirPath;
