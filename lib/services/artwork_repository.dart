@@ -120,7 +120,7 @@ class ArtworkRepository {
         return path;
       } finally {
         if (identical(_inFlight[songId], future)) {
-          _inFlight.remove(songId);
+          unawaited(_inFlight.remove(songId));
         }
       }
     }
@@ -269,7 +269,7 @@ class ArtworkRepository {
     _pendingDeletes[songId] = deleteFuture;
     unawaited(deleteFuture.whenComplete(() {
       if (identical(_pendingDeletes[songId], deleteFuture)) {
-        _pendingDeletes.remove(songId);
+        unawaited(_pendingDeletes.remove(songId));
       }
     }));
   }
