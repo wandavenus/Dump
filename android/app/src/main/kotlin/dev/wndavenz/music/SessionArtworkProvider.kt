@@ -243,9 +243,7 @@ class SessionArtworkProvider(
 
     /**
      * Letterboxes [source] onto a [maxPx]×[maxPx] square with a black
-     * background so SystemUI / MIUI never center-crops the art. Mirrors
-     * PlaybackNotificationManager.normalizeNotificationArtwork so every
-     * surface renders the same shape.
+     * background so SystemUI / MIUI never center-crops the art.
      */
     private fun letterboxSquare(source: Bitmap, maxPx: Int): Bitmap {
         if (source.width <= 0 || source.height <= 0) return source
