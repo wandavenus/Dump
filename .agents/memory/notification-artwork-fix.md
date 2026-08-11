@@ -49,3 +49,14 @@ Catatan: `SessionArtworkProvider.letterboxSquare` sengaja tetap 1024 tetap (sess
 4. **Album kompilasi cache fallback** — `FallbackBitmapLoader.tryEmbedded()` iterasi SEMUA `songIds` (bukan `songIds.first()`) untuk `artworkCache.getOrExtract()`; decode gagal di satu track lanjut ke track berikutnya. (P2 #6)
 5. **Executor shutdown** — `PlaybackNotificationManager.close()`, `SessionArtworkProvider.close()`, `FallbackBitmapLoader.close()` dipanggil di `Media3PlaybackService.onDestroy()` (idempotent); `provide()`/`loadBitmap()`/`decodeBitmap()` resolve null/exception saat executor sudah shutdown, `prewarmArtwork`/`refreshAsync` di-guard `closed`. (P2 #7)
 6. **Pull 78715ae sudah menutup P1 #3** (process-wide lock + unique temp file + `isUsableCacheFile` di ArtworkCacheManager) **dan P1 #4** (`artworkSource` dibawa buildSongMapFromUri → TrackMapper → MediaItemFactory untuk file eksternal).
+
+## UPDATE 1.5.29b — ZOOM-01: zoom artwork muncul SAAT PLAYING (user repro, menunggu konfirmasi device)
+Gejala user: artwork notifikasi normal saat lagu PAUSED, tapi langsung zoom/membesar saat PLAY ditekan. Mekanisme yang dicocokkan ke kode:
+1. `MediaItemFactory` selalu set `artworkUri = content://media/external/audio/albumart/{albumId}` (low-res ≤512px, non-persegi); `artworkData` 1024 persegi hanya masuk asinkron via `publishSessionArtwork()` → `replaceMediaItems()`.
+2. Saat PLAYING, SystemUI/MIUI shade media card beralih ke session-driven → kalau `artworkData` absen (window async, item di-rebuild `rebuildPlayerQueue`, publish ter-drop), renderer jatuh ke `artworkUri` low-res → upscale + center-crop = zoom+pecah. Saat PAUSED card tidak aktif/renders dari largeIcon → normal.
+3. `onIsPlayingChanged(true)` SEBELUMNYA TIDAK memanggil `scheduleSessionArtworkRefresh()` → play tidak pernah menyembuhkan artworkData yang hilang.
+Fix 3 lapis (ZOOM-01):
+- **PNM**: `normalizeNotificationArtwork` dipulihkan (eksperimen hapus-letterbox di-revert — largeIcon wajib persegi agar tidak bisa di-center-crop).
+- **publishSessionArtwork**: saat `bytes == null`, `artworkUri` ikut di-null-kan (jangan biarkan URI low-res jadi satu-satunya sumber art; no-art > zoomed-art; URI dead karena buildBytes cuma null kalau embedded+cache+URI semuanya gagal). Early-return dibandingkan artworkData DAN artworkUri.
+- **onIsPlayingChanged(true)** → `scheduleSessionArtworkRefresh()` (cache hit = sinkron, murah).
+Belum di-changelog — tunggu konfirmasi device; kalau zoom masih muncul, cek apakah kartu shade MIUI membaca `artworkUri` langsung dari `MediaItem` di `MediaMetadata` saat `artworkData` ada tapi kecil (<1024).
