@@ -359,8 +359,7 @@ class FallbackBitmapLoader(
      * Letterboxes [source] onto a square with a black background, capped at
      * [maxPx]×[maxPx]. SystemUI / MIUI media templates fill the artwork area by
      * center-cropping non-square bitmaps — pre-letterboxing keeps the full image
-     * visible instead of zoomed. Mirrors
-     * PlaybackNotificationManager.normalizeNotificationArtwork.
+     * visible instead of zoomed.
      *
      * Never upscales: the canvas is no larger than the source's longest side
      * (capped at [maxPx]), so small art stays at native resolution and the
