@@ -735,79 +735,50 @@ class ReplayGainService {
     }
   }
 
-  // ── Album scan + permanent tag write (F1) ──────────────────────────────────
+  // ── Library-wide tag removal (Settings → Audio Normalize) ──────────────────
 
-  /// Scans every song in [songs] (one album) AND writes the measured
-  /// loudness permanently into each file's tags in one user action:
-  /// per-track REPLAYGAIN_TRACK_GAIN/_PEAK (+ R128_TRACK_GAIN for Opus) plus
-  /// the shared REPLAYGAIN_ALBUM_GAIN/_PEAK (+ R128_ALBUM_GAIN for Opus).
+  /// Removes REPLAYGAIN_*/R128_* tags from every song in [songs] (the whole
+  /// library, as passed from Settings) with at most one batch write-access
+  /// grant dialog (Android 11+). Per-song failures (declined permission,
+  /// unsupported format, stale scan) never fail the batch; files without any
+  /// loudness tags are no-ops and count as removed.
   ///
-  /// Flow: snapshot identities → [scanAlbum] → pre-authorize write access for
-  /// the whole batch (one system dialog on Android 11+) → write each track
-  /// with its pre-scan identity as the STALE_SCAN guard, so a file that
-  /// changed between scan and write is rejected instead of clobbered.
-  ///
-  /// Returns the number of songs written/failed. Write failures are per-song:
-  /// unsupported format, declined permission, or stale scan never fail the
-  /// whole album.
-  static Future<AlbumWriteResult> scanAlbumAndWriteTags(
+  /// Returns how many songs were cleaned and how many failed.
+  static Future<RemoveRgResult> removeReplayGainFromLibrary(
     List<LocalSong> songs,
   ) async {
     if (kIsWeb || songs.isEmpty) {
-      return const AlbumWriteResult(written: 0, failed: 0);
+      return const RemoveRgResult(removed: 0, failed: 0);
     }
 
-    // 1. Pre-scan identities — doubles as the per-track stale guard for the
-    //    write step (writeReplayGain validates expected size/mtime).
-    final beforeById = <int, _ReplayGainFileIdentity?>{};
+    // Defensive dedup — a duplicated songId must never be removed twice (or
+    // race on the same file through two channel calls).
+    final unique = <LocalSong>[];
+    final seen = <int>{};
     for (final s in songs) {
-      beforeById[s.id] = await _fileIdentity(s.path);
+      if (seen.add(s.id)) unique.add(s);
     }
 
-    // 2. Scan (per-track loudness + shared album gain).
-    final result = await scanAlbum(songs);
-    if (!result.hasData) {
-      return AlbumWriteResult(written: 0, failed: songs.length);
-    }
+    // One batch grant for the whole library; declined songs fail per-song.
+    final granted = await requestBatchWriteAccess(
+      unique.map((s) => s.id).toList(),
+    );
 
-    // 3. One dialog (Android 11+) covering every scanned track.
-    final ids = result.trackResults.keys.toList();
-    final granted = await requestBatchWriteAccess(ids);
-
-    // 4. Write each track; per-song failures never fail the album.
-    final hasAlbum = result.albumIntegratedLufs != null &&
-        result.albumIntegratedLufs!.isFinite;
-    var written = 0;
+    var removed = 0;
     var failed = 0;
-    for (final entry in result.trackResults.entries) {
-      final track = entry.value;
-      final prior = beforeById[track.song.id];
-      final lufs = track.trackIntegratedLufs;
-      if (prior == null ||
-          lufs == null ||
-          !lufs.isFinite ||
-          !(granted[track.song.id] ?? false)) {
+    for (final song in unique) {
+      if (!(granted[song.id] ?? false)) {
         failed++;
         continue;
       }
-      final ok = await writeReplayGain(
-        song: track.song,
-        trackGainDb: track.trackGainDb,
-        trackPeak: track.trackPeak ?? 0.0,
-        trackIntegratedLufs: lufs,
-        albumGainDb: hasAlbum ? result.albumGainDb : null,
-        albumPeak: hasAlbum ? result.albumPeak : null,
-        albumIntegratedLufs: hasAlbum ? result.albumIntegratedLufs : null,
-        expectedFileSize: prior.size,
-        expectedFileMtimeMs: prior.mtimeMs,
-      );
+      final ok = await removeReplayGainTags(song);
       if (ok) {
-        written++;
+        removed++;
       } else {
         failed++;
       }
     }
-    return AlbumWriteResult(written: written, failed: failed);
+    return RemoveRgResult(removed: removed, failed: failed);
   }
 
   // ── Batch write-access pre-authorization ───────────────────────────────────
@@ -1163,11 +1134,11 @@ class TrackLoudnessResult {
   final double? trackIntegratedLufs;
 }
 
-/// Result of a [ReplayGainService.scanAlbumAndWriteTags] call.
-class AlbumWriteResult {
-  const AlbumWriteResult({required this.written, required this.failed});
+/// Result of a [ReplayGainService.removeReplayGainFromLibrary] call.
+class RemoveRgResult {
+  const RemoveRgResult({required this.removed, required this.failed});
 
-  final int written;
+  final int removed;
   final int failed;
 }
 
