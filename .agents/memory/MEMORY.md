@@ -1,3 +1,4 @@
+ - [Notification artwork audit lessons](notification-artwork-audit-lessons.md) — async completion must validate current track identity; shared main/worker caches need synchronization and in-flight deduplication.
 - [Memory Update Protocol](memory-update-protocol.md) — WAJIB: update memory di akhir setiap sesi kerja yang mengubah repo (file baru, refactor, param baru, arsitektur berubah, dll).
 - [Session Artwork Metadata (artworkData)](session-artwork-metadata.md) — fix zoom+pecah artwork notifikasi (1.5.27): SystemUI/MIUI render MediaSession artworkData, bukan largeIcon; publish square 1024px bytes via Player.replaceMediaItems (ganti current item, seamless) + SessionArtworkProvider.
 - [Flutter refinement roadmap](flutter-refinement-roadmap.md) — Flutter tetap menjadi framework utama; penyempurnaan dilakukan bertahap tanpa migrasi Compose.
