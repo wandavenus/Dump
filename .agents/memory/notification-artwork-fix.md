@@ -70,3 +70,6 @@ Belum di-changelog — tunggu konfirmasi device.
 - Semua MediaItem (restore queue, standby crossfade, insert, rebuild) lewat satu `MediaItemFactory.from()` — satu titik ubah.
 - Komentar doc `SessionArtworkProvider` class + `scheduleSessionArtworkRefresh` KDoc di-update (artworkUri tidak lagi di-set).
 Kalau device masih zoom, tersisa hipotesis: kartu MIUI membaca `artworkUri` dari track-map Dart/overlay (bukan session) — cek jalur overlay player.
+
+## UPDATE 1.5.29d — Overlay player (NowPlayingOverlayActivity) ikut ZOOM-01
+Overlay floating window (buka file audio dari file manager/Telegram) decode embedded art VIA `BitmapFactory.decodeByteArray(bytes, 0, bytes.size)` — FULL-SIZE tanpa cap dan tanpa normalisasi — lalu render di `ImageView` 56dp `scaleType=centerCrop` → art non-persegi di-crop, art kecil di-upscale (zoom/pecah), art raksasa berisiko OOM. Fix: helper `decodeCappedSquare(bytes)` — bounds-first decode cap `MAX_ART_PX=1024` (sisi terpanjang, ARGB_8888) + letterbox persegi never-upscale (pola sama dengan `normalizeNotificationArtwork`); `MediaMetadataRetriever.release()` dipindah ke `finally`. Catatan: jalur Flutter in-app (`SongArtwork`/`ArtworkRepository`) sudah aman — pakai `getArtworkPath(songId)` → cache WebP ≤1000px, `LocalSong.artworkUri` di Dart tidak pernah dibaca UI (dead field).

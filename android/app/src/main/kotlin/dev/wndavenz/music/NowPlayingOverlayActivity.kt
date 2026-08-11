@@ -5,6 +5,10 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -220,8 +224,8 @@ class NowPlayingOverlayActivity : Activity() {
         var artist = "Unknown Artist"
         var art: Bitmap? = null
 
+        val r = MediaMetadataRetriever()
         try {
-            val r = MediaMetadataRetriever()
             if (uriStr.startsWith("content://")) {
                 r.setDataSource(applicationContext, Uri.parse(uriStr))
             } else {
@@ -234,12 +238,66 @@ class NowPlayingOverlayActivity : Activity() {
             r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?.takeIf { it.isNotBlank() }?.let { artist = it }
             r.embeddedPicture?.let { bytes ->
-                art = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                // ZOOM-01: cap + letterbox to square (never upscale) so the
+                // 56dp centerCrop ImageView can never crop or blow up
+                // small/non-square art (mirrors
+                // PlaybackNotificationManager.normalizeNotificationArtwork).
+                art = decodeCappedSquare(bytes)
             }
-            r.release()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        } finally {
+            try {
+                r.release()
+            } catch (_: Exception) {
+                // Cleanup must not mask the metadata read result.
+            }
+        }
 
         return Meta(title, artist, art)
+    }
+
+    /**
+     * Decodes embedded artwork [bytes] capped at [MAX_ART_PX] on the longest
+     * side (bounds-first decode — never allocates a full-size bitmap for a
+     * 56dp thumbnail) and letterboxes it onto a square with a black
+     * background so `centerCrop` in the layout is always a no-op.
+     */
+    private fun decodeCappedSquare(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sample = 1
+        while ((bounds.outWidth / sample) > MAX_ART_PX ||
+               (bounds.outHeight / sample) > MAX_ART_PX) {
+            sample *= 2
+        }
+        val decoded = BitmapFactory.decodeByteArray(
+            bytes, 0, bytes.size,
+            BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            },
+        ) ?: return null
+
+        // Never upscale: canvas = min(MAX_ART_PX, source longest side).
+        val target = minOf(MAX_ART_PX, maxOf(decoded.width, decoded.height))
+        if (decoded.width == target && decoded.height == target) return decoded
+
+        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(Color.BLACK)
+        val scale = minOf(
+            target.toFloat() / decoded.width.toFloat(),
+            target.toFloat() / decoded.height.toFloat(),
+        )
+        val drawnW = decoded.width * scale
+        val drawnH = decoded.height * scale
+        val left = (target - drawnW) / 2f
+        val top = (target - drawnH) / 2f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        canvas.drawBitmap(decoded, null, RectF(left, top, left + drawnW, top + drawnH), paint)
+        return out
     }
 
     private fun extractAudioUri(intent: Intent?): String? {
@@ -264,6 +322,9 @@ class NowPlayingOverlayActivity : Activity() {
     }
 
     companion object {
+        /** Max longest side for overlay art — same cap as the notification path. */
+        private const val MAX_ART_PX = 1024
+
         private val AUDIO_EXTENSIONS = setOf(
             "mp3", "flac", "wav", "ogg", "opus", "aac", "m4a", "m4b",
             "wma", "aiff", "aif", "ape", "mka", "dsf", "dff", "alac"
