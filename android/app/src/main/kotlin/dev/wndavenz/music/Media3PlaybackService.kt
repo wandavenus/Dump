@@ -681,11 +681,12 @@ class Media3PlaybackService : MediaSessionService() {
      * WHY: SystemUI / MIUI media surfaces (notification shade card, lock screen
      * media controls) render artwork from the MediaSession metadata — not from
      * the notification's setLargeIcon and not through Media3's BitmapLoader.
-     * MediaItemFactory only sets artworkUri = content://media/.../albumart/{id}
-     * (the low-res MediaStore thumbnail), which SystemUI upscales + center-crops
-     * → zoomed & pixelated art. Publishing full-res square letterboxed bytes
-     * makes every consumer (SystemUI, MIUI, MediaStyleNotificationHelper,
-     * MediaSessionLegacyStub/Bluetooth) render the same sharp square.
+     * MediaItemFactory no longer sets artworkUri (the low-res albumart
+     * thumbnail caused upscale + center-crop zoom, ZOOM-01), so artworkData is
+     * the only artwork source in the metadata. Publishing full-res square
+     * letterboxed bytes makes every consumer (SystemUI, MIUI,
+     * MediaStyleNotificationHelper, MediaSessionLegacyStub/Bluetooth) render
+     * the same sharp square.
      */
     private fun scheduleSessionArtworkRefresh() {
         handler.post { refreshSessionArtwork() }

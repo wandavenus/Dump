@@ -59,4 +59,14 @@ Fix 3 lapis (ZOOM-01):
 - **PNM**: `normalizeNotificationArtwork` dipulihkan (eksperimen hapus-letterbox di-revert — largeIcon wajib persegi agar tidak bisa di-center-crop).
 - **publishSessionArtwork**: saat `bytes == null`, `artworkUri` ikut di-null-kan (jangan biarkan URI low-res jadi satu-satunya sumber art; no-art > zoomed-art; URI dead karena buildBytes cuma null kalau embedded+cache+URI semuanya gagal). Early-return dibandingkan artworkData DAN artworkUri.
 - **onIsPlayingChanged(true)** → `scheduleSessionArtworkRefresh()` (cache hit = sinkron, murah).
-Belum di-changelog — tunggu konfirmasi device; kalau zoom masih muncul, cek apakah kartu shade MIUI membaca `artworkUri` langsung dari `MediaItem` di `MediaMetadata` saat `artworkData` ada tapi kecil (<1024).
+Belum di-changelog — tunggu konfirmasi device.
+
+## UPDATE 1.5.29c — artworkUri DIHAPUS dari metadata MediaItem (ZOOM-01 decisive)
+`MediaItemFactory.from()` TIDAK lagi set `MediaMetadata.artworkUri` (sebelumnya `content://media/external/audio/albumart/{albumId}` low-res ≤512px). Konsekuensi:
+- SystemUI/MIUI session-driven card hanya punya `artworkData` (1024 persegi) atau tidak ada art — **tidak mungkin lagi fallback ke thumbnail low-res** (zoom source hilang di akar).
+- **App-internal track-map `artworkUri` TETAP ada** (`TrackMapper`, `LocalSong` Dart, PNM cache key + URI fallback, `refreshSessionArtwork` URI source) — itu tidak bocor ke session, tetap dipakai untuk notifikasi/overlay.
+- `publishSessionArtwork` masih punya guard `setArtworkUri(null)` saat bytes==null — sekarang no-op defensif (metadata tak pernah punya URI), biarkan.
+- Bluetooth/lock-screen (MediaSessionLegacyStub): art lewat `artworkData` (byte-array path BitmapLoader) — URI path hilang, tapi itu jalur low-res yang justru jadi masalah; lagu tanpa artworkData tampil tanpa art (lebih baik dari zoom).
+- Semua MediaItem (restore queue, standby crossfade, insert, rebuild) lewat satu `MediaItemFactory.from()` — satu titik ubah.
+- Komentar doc `SessionArtworkProvider` class + `scheduleSessionArtworkRefresh` KDoc di-update (artworkUri tidak lagi di-set).
+Kalau device masih zoom, tersisa hipotesis: kartu MIUI membaca `artworkUri` dari track-map Dart/overlay (bukan session) — cek jalur overlay player.

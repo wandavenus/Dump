@@ -18,16 +18,20 @@ object MediaItemFactory {
             path.startsWith("content://") || path.startsWith("file://") -> path.toUri()
             else -> Uri.fromFile(java.io.File(path))
         }
-        val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
-        val artworkUri = if (albumId > 0)
-            Uri.parse("content://media/external/audio/albumart/$albumId")
-        else (map["artworkSource"] as? String)?.let { Uri.parse(it) }
 
+        // ZOOM-01: do NOT set MediaMetadata.artworkUri. The only URI we could
+        // attach is the low-res MediaStore album-art thumbnail
+        // (content://media/external/audio/albumart/{albumId}, often ≤512 px,
+        // non-square) — SystemUI / MIUI media surfaces decode ART_URI and
+        // upscale + center-crop it → the "artwork zooms / pixelates when
+        // playing" bug. High-res square art is published separately as
+        // artworkData (SessionArtworkProvider / publishSessionArtwork); with
+        // no ART_URI in the metadata, a renderer can only show artworkData or
+        // no art — never the blown-up thumbnail.
         val metaBuilder = MediaMetadata.Builder()
             .setTitle(map["title"] as? String)
             .setArtist(map["artist"] as? String)
             .setAlbumTitle(map["album"] as? String)
-        if (artworkUri != null) metaBuilder.setArtworkUri(artworkUri)
 
         return MediaItem.Builder()
             .setMediaId((map["id"] ?: path).toString())

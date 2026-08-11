@@ -26,12 +26,14 @@ import java.util.concurrent.Executors
  *   SystemUI / MIUI media surfaces (notification shade media card, lock screen
  *   media controls) do NOT render `Notification.Builder.setLargeIcon()`. They
  *   connect to the MediaSession and decode `METADATA_KEY_ART` (artworkData)
- *   or `METADATA_KEY_ART_URI` themselves. MediaItemFactory only sets
+ *   or `METADATA_KEY_ART_URI` themselves. MediaItemFactory used to set
  *   artworkUri = `content://media/external/audio/albumart/{albumId}` — the
- *   low-res MediaStore thumbnail (often ≤512 px, non-square). SystemUI then
- *   upscales + center-crops it to fill the large media-artwork slot →
- *   the zoomed & pixelated art the user sees. Large-icon letterboxing can
- *   never fix that path because it is bypassed entirely.
+ *   low-res MediaStore thumbnail (often ≤512 px, non-square) — and SystemUI
+ *   upscaled + center-cropped it to fill the large media-artwork slot → the
+ *   zoomed & pixelated art the user sees. artworkUri is therefore NO LONGER
+ *   set in the metadata (ZOOM-01); artworkData is the only artwork source.
+ *   Large-icon letterboxing can never fix this path because it is bypassed
+ *   entirely.
  *
  * Fix: publish `artworkData` = the full-resolution embedded picture,
  * letterboxed onto a square (so no renderer ever center-crops it) and capped
