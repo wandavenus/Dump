@@ -77,7 +77,11 @@ Future<void> main() async {
       NativeLogBridge.init();
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
-        LogService.error('Flutter', details.exceptionAsString(), stackTrace: details.stack?.toString());
+        LogService.error(
+          'Flutter',
+          details.exceptionAsString(),
+          stackTrace: details.stack?.toString(),
+        );
       };
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
         LogService.error('Dart', error.toString(), stackTrace: stack.toString());
@@ -111,7 +115,7 @@ Future<void> main() async {
 }
 
 Future<void> _requestPermissionsThenOpenPendingUri() async {
-  bool audioWasGranted = false;
+  var audioWasGranted = false;
   try {
     audioWasGranted = await Permission.audio.isGranted;
     await Permission.storage.request();
@@ -128,11 +132,14 @@ Future<void> _requestPermissionsThenOpenPendingUri() async {
     try {
       await MediaStoreService.refreshSongs();
       MediaStoreService.rescanNotifier.value++;
-    } catch (e, stackTrace) {
+    } on Exception catch (e) {
       LogService.warn(
         'MediaStore',
         'Initial post-permission refresh failed: $e',
-        stackTrace: stackTrace.toString(),
+      );
+      LogService.error(
+        'MediaStore',
+        'Initial post-permission refresh exception: $e',
       );
     }
   }
