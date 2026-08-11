@@ -20,7 +20,8 @@ object MediaItemFactory {
         }
         val albumId = (map["albumId"] as? Number)?.toLong() ?: 0L
         val artworkUri = if (albumId > 0)
-            Uri.parse("content://media/external/audio/albumart/$albumId") else null
+            Uri.parse("content://media/external/audio/albumart/$albumId")
+        else (map["artworkSource"] as? String)?.let { Uri.parse(it) }
 
         val metaBuilder = MediaMetadata.Builder()
             .setTitle(map["title"] as? String)

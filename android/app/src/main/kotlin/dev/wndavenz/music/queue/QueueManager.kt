@@ -28,6 +28,7 @@ class QueueManager(
     private val isCrossfadeInProgress: () -> Boolean,
     private val saveQueue:             () -> Unit,
     private val emitAll:               (emitQueue: Boolean) -> Unit,
+    private val onQueueIdsChanged:     (Set<Int>) -> Unit = {},
 ) {
     var queue: List<Map<String, Any?>> = emptyList()
         private set
@@ -44,6 +45,7 @@ class QueueManager(
         pendingPlayNextIndex = C.INDEX_UNSET
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+        notifyQueueIdsChanged()
         val p = getPlayer() ?: return
         p.setMediaItems(items.map { MediaItemFactory.from(it) }, activeQueueIndex, posMs)
         p.prepare()
@@ -62,6 +64,7 @@ class QueueManager(
         val insertIdx = (activeQueueIndex + 1).coerceIn(0, queue.size)
         mutable.add(insertIdx, item)
         queue = mutable
+        notifyQueueIdsChanged()
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.let { player ->
@@ -86,6 +89,7 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.add(item)
         queue = mutable
+        notifyQueueIdsChanged()
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.addMediaItem(MediaItemFactory.from(item))
@@ -101,6 +105,7 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.removeAt(index)
         queue = mutable
+        notifyQueueIdsChanged()
         pendingPlayNextIndex = C.INDEX_UNSET
 
         when {
@@ -129,6 +134,7 @@ class QueueManager(
         val item    = mutable.removeAt(oldIndex)
         mutable.add(newIndex, item)
         queue = mutable
+        notifyQueueIdsChanged()
         pendingPlayNextIndex = C.INDEX_UNSET
 
         if (!isCrossfadeInProgress()) {
@@ -268,4 +274,12 @@ class QueueManager(
     }
 
     private fun log(msg: String) = NativeLogger.emit("info", "Queue", msg)
+
+    private fun notifyQueueIdsChanged() {
+        onQueueIdsChanged(
+            queue.mapNotNull { item ->
+                (item["id"] as? Number)?.toInt()?.takeIf { it > 0 }
+            }.toSet(),
+        )
+    }
 }
