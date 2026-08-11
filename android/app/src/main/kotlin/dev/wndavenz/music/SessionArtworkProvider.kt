@@ -69,28 +69,81 @@ class SessionArtworkProvider(
     private val bytesCache = LruCache<Int, ByteArray>(MAX_CACHED_TRACKS)
 
     /**
+     * LruCache is not thread-safe. Calls to [provide] normally originate on the
+     * service handler while the actual extraction runs on [executor], so both
+     * cache access and the in-flight registry use this lock.
+     */
+    private val cacheLock = Any()
+
+    /**
+     * Requests currently being resolved, keyed by songId (or the artwork URI
+     * when no songId is available). Multiple refresh callbacks for the same
+     * artwork share one extraction and all receive the same result.
+     */
+    private val inFlight = mutableMapOf<String, MutableList<(ByteArray?) -> Unit>>()
+
+    /**
      * Resolves square artwork bytes for [songId] / [artUri] and invokes
      * [onResult] (possibly synchronously on a cache hit). [onResult] is always
      * called exactly once; null means no artwork could be resolved.
      */
     fun provide(songId: Int, artUri: String?, onResult: (ByteArray?) -> Unit) {
-        if (songId > 0) {
-            bytesCache.get(songId)?.let { cached ->
-                onResult(cached)
-                return
+        val requestKey = requestKey(songId, artUri)
+        var cached: ByteArray? = null
+        var shouldStart = false
+        synchronized(cacheLock) {
+            if (songId > 0) {
+                cached = bytesCache.get(songId)
+            }
+            if (cached == null) {
+                val waiters = inFlight[requestKey]
+                if (waiters != null) {
+                    waiters += onResult
+                } else {
+                    inFlight[requestKey] = mutableListOf(onResult)
+                    shouldStart = true
+                }
             }
         }
+
+        cached?.let {
+            onResult(it)
+            return
+        }
+        if (!shouldStart) return
+
         executor.execute {
-            val bytes = if (songId > 0) {
-                bytesCache.get(songId) ?: buildBytes(songId, artUri).also { hit ->
-                    if (hit != null) bytesCache.put(songId, hit)
+            val bytes = try {
+                val existing = if (songId > 0) {
+                    synchronized(cacheLock) { bytesCache.get(songId) }
+                } else {
+                    null
                 }
-            } else {
-                buildBytes(songId, artUri)
+                existing ?: buildBytes(songId, artUri).also { hit ->
+                    if (hit != null && songId > 0) {
+                        synchronized(cacheLock) { bytesCache.put(songId, hit) }
+                    }
+                }
+            } catch (e: Exception) {
+                NativeLogger.emit(
+                    "debug",
+                    "SessionArt",
+                    "artwork request failed songId=$songId: ${e.message}",
+                )
+                null
             }
-            onResult(bytes)
+
+            val waiters = synchronized(cacheLock) {
+                inFlight.remove(requestKey).orEmpty().toList()
+            }
+            waiters.forEach { waiter ->
+                runCatching { waiter(bytes) }
+            }
         }
     }
+
+    private fun requestKey(songId: Int, artUri: String?): String =
+        if (songId > 0) "song:$songId" else "uri:${artUri.orEmpty()}"
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
@@ -182,23 +235,26 @@ class SessionArtworkProvider(
      */
     private fun letterboxSquare(source: Bitmap, maxPx: Int): Bitmap {
         if (source.width <= 0 || source.height <= 0) return source
-        if (source.width == maxPx && source.height == maxPx &&
-            source.config == Bitmap.Config.ARGB_8888) {
+        // Never upscale a low-resolution URI fallback. SystemUI performs the
+        // final display scaling; enlarging a small MediaStore thumbnail here
+        // only preserves its pixelation in a larger payload.
+        val target = minOf(maxPx, maxOf(source.width, source.height))
+        if (source.width == target && source.height == target) {
             return source
         }
 
-        val out = Bitmap.createBitmap(maxPx, maxPx, Bitmap.Config.ARGB_8888)
+        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         canvas.drawColor(Color.BLACK)
 
         val scale = minOf(
-            maxPx.toFloat() / source.width.toFloat(),
-            maxPx.toFloat() / source.height.toFloat(),
+            target.toFloat() / source.width.toFloat(),
+            target.toFloat() / source.height.toFloat(),
         )
         val drawnW = source.width * scale
         val drawnH = source.height * scale
-        val left = (maxPx - drawnW) / 2f
-        val top = (maxPx - drawnH) / 2f
+        val left = (target - drawnW) / 2f
+        val top = (target - drawnH) / 2f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
         return out
