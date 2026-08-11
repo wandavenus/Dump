@@ -1,16 +1,13 @@
 part of '../main.dart';
 
 Future<void> main() async {
-  BootTrace.log('ENTER main()');
   // ── Zone guard — wraps SELURUH startup + runtime ──────────────────────────
   // Menangkap semua Future/Stream error yang tidak punya .catchError dari
   // inisialisasi awal hingga app berjalan. LogService mungkin belum init
   // saat error paling awal terjadi — debugPrint sebagai fallback.
   await runZonedGuarded(
     () async {
-      BootTrace.log('BEFORE WidgetsFlutterBinding.ensureInitialized()');
       WidgetsFlutterBinding.ensureInitialized();
-      BootTrace.log('AFTER  WidgetsFlutterBinding.ensureInitialized()');
 
       if (!kIsWeb) {
         unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
@@ -27,45 +24,32 @@ Future<void> main() async {
       // Empat service ini independen satu sama lain (masing-masing hanya
       // memuat pengaturan sendiri dari SharedPreferences), jadi dijalankan
       // paralel untuk mempercepat waktu ke first frame.
-      BootTrace.log(
-        'BEFORE Future.wait([ThemeController.init, LogService.init, '
-        'LyricsSettings.init, UpNextSettings.init, WatermarkService.init, '
-        'ArtworkRepository.warmUp, NativePaletteService.warmUp, '
-        'MediaStoreService.warmUp, HistoryService.warmUp])',
-      );
       await Future.wait([
-        BootTrace.step('LanguageManager.init', LanguageManager.instance.init),
-        BootTrace.step('ThemeController.init', ThemeController.init),
-        BootTrace.step('LogService.init', LogService.init),
-        BootTrace.step('LyricsSettings.init', LyricsSettings.init),
-        BootTrace.step('UpNextSettings.init', UpNextSettings.init),
-        BootTrace.step('WatermarkService.init', WatermarkService.init),
+        LanguageManager.instance.init(),
+        ThemeController.init(),
+        LogService.init(),
+        LyricsSettings.init(),
+        UpNextSettings.init(),
+        WatermarkService.init(),
         // Resolves the artwork cache-directory path up front so SongArtwork's
         // synchronous disk check (getProviderSync) works from the very first
         // frame — cached cover art then never flashes a placeholder on cold
         // start (app killed / removed from recents).
-        BootTrace.step(
-          'ArtworkRepository.warmUp',
-          ArtworkRepository.instance.warmUp,
-        ),
+        ArtworkRepository.instance.warmUp(),
         // Persisted palette colours (album card backgrounds, player background
         // shader) so they render instantly on cold start too, matching the
         // artwork image's own instant-render behaviour above.
-        BootTrace.step(
-          'NativePaletteService.warmUp',
-          NativePaletteService.warmUp,
-        ),
+        NativePaletteService.warmUp(),
         // Hydrates the last-known song list from disk so the very first frame
         // can render the full library (and each song's cached artwork)
         // immediately instead of a spinner while MediaStore re-enumerates.
         // A live MediaStore query still runs right after, in the background.
-        BootTrace.step('MediaStoreService.warmUp', MediaStoreService.warmUp),
+        MediaStoreService.warmUp(),
         // Hydrates recently-played IDs and artist play counts from
         // SharedPreferences so the home sections can render instantly (no
         // spinner) on the first frame — same rationale as MediaStoreService.warmUp.
-        BootTrace.step('HistoryService.warmUp', HistoryService.warmUp),
+        HistoryService.warmUp(),
       ]);
-      BootTrace.log('AFTER  Future.wait([...warm-up services...])');
 
       // ── Pre-warm Flutter's ImageCache for home-screen artwork ───────────────
       // After all warmUps above, _diskCachedIds and song/history caches are
@@ -208,69 +192,29 @@ Future<void> main() async {
       // Order matters: PlaybackManager harus diinisialisasi pertama
       // agar EventChannel stream siap sebelum AudioEffectsService.
       // DeviceDsp (DSP capability helper) diinisialisasi setelahnya.
-      BootTrace.log('BEFORE await PlaybackManager.initialize()');
-      await BootTrace.step(
-        'PlaybackManager.initialize',
-        PlaybackManager.initialize,
-      );
-      BootTrace.log('AFTER  await PlaybackManager.initialize()');
-
-      BootTrace.log('BEFORE await DeviceDsp.initialize()');
-      await BootTrace.step('DeviceDsp.initialize', DeviceDsp.initialize);
-      BootTrace.log('AFTER  await DeviceDsp.initialize()');
-
-      BootTrace.log('BEFORE await AudioEffectsService.init()');
-      await BootTrace.step(
-        'AudioEffectsService.init',
-        AudioEffectsService.init,
-      );
-      BootTrace.log('AFTER  await AudioEffectsService.init()');
-
-      BootTrace.log('BEFORE LyricsService.init() (sync)');
+      await PlaybackManager.initialize();
+      await DeviceDsp.initialize();
+      await AudioEffectsService.init();
       LyricsService.init();
-      BootTrace.log('AFTER  LyricsService.init() (sync)');
-
-      BootTrace.log('BEFORE await MediaCapabilitiesService.initialize()');
-      await BootTrace.step(
-        'MediaCapabilitiesService.initialize',
-        MediaCapabilitiesService.initialize,
-      );
-      BootTrace.log('AFTER  await MediaCapabilitiesService.initialize()');
-
-      BootTrace.log('BEFORE AudioService.initialize() (sync)');
+      await MediaCapabilitiesService.initialize();
       AudioService.initialize();
-      BootTrace.log('AFTER  AudioService.initialize() (sync)');
-
-      BootTrace.log('BEFORE AudioFocusService.initialize() (sync)');
       AudioFocusService.initialize();
-      BootTrace.log('AFTER  AudioFocusService.initialize() (sync)');
-
-      BootTrace.log('BEFORE SleepTimerService.initialize() (sync)');
       SleepTimerService.initialize();
-      BootTrace.log('AFTER  SleepTimerService.initialize() (sync)');
 
       // Sync playback state dari engine aktif sebelum merender UI.
       unawaited(AudioService.syncFromNative());
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        BootTrace.log('BEFORE await Permission.storage.request()');
-        await Permission.storage.request();
-        BootTrace.log('AFTER  await Permission.storage.request()');
-        BootTrace.log('BEFORE await Permission.audio.request()');
-        await Permission.audio.request();
-        BootTrace.log('AFTER  await Permission.audio.request()');
-      }
-
-      // Drain URI from the intent that cold-started the app.
-      // Must come AFTER permissions and AudioService.initialize() because
-      // _playUri calls AudioService.playSongAt().
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        unawaited(OpenFileService.checkInitialUri());
-      }
-
-      BootTrace.log('BEFORE runApp(MyApp)');
       runApp(const MyApp());
-      BootTrace.log('AFTER  runApp(MyApp) — main() reached the end');
+
+      // F2 fix: permission requests no longer run BEFORE runApp (where a
+      // first-launch system dialog would hold the app on the splash screen
+      // with no Flutter frame). They now run right after the first frame is
+      // scheduled, and the pending open-file URI is drained only after the
+      // requests finish — preserving the original ordering (permissions →
+      // checkInitialUri) without blocking startup.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        unawaited(_requestPermissionsThenOpenPendingUri());
+      }
     },
     (Object error, StackTrace stack) {
       // Zone handler: fallback ke debugPrint jika LogService belum selesai init.
@@ -285,4 +229,19 @@ Future<void> main() async {
       }
     },
   );
+}
+
+/// Requests storage/audio permissions, then drains the URI from the intent
+/// that (cold-)started the app. Runs after [runApp] so the permission dialog
+/// never blocks the first frame (F2 fix). Fire-and-forget from [main].
+Future<void> _requestPermissionsThenOpenPendingUri() async {
+  try {
+    await Permission.storage.request();
+    await Permission.audio.request();
+  } on Exception catch (e) {
+    LogService.warn('Permissions', 'Request failed: $e');
+  }
+  // Must come after AudioService.initialize() (done above) because _playUri
+  // calls AudioService.playSongAt().
+  await OpenFileService.checkInitialUri();
 }

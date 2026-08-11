@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
-# build-ffmpeg-jni.sh
+# build-ffmpeg-jni.sh — FALLBACK ONLY (do not run for normal builds)
 #
-# Builds the Media3 FFmpeg decoder extension as a local Gradle module at
-# android/decoder-ffmpeg/ so the app can play ALAC (and other FFmpeg-backed
-# formats) without relying on the platform MediaCodec decoder.
+# ⚠️  PRODUCTION BUILD PATH: the app consumes the Jellyfin prebuilt AAR
+#     (org.jellyfin.media3:media3-ffmpeg-decoder) declared in
+#     android/app/build.gradle. The local :decoder-ffmpeg sub-module is NOT
+#     included by android/settings.gradle and is NOT used by normal builds.
+#
+#     Run this script ONLY as a fallback if the Jellyfin AAR becomes
+#     unavailable (see .agents/memory/ffmpeg-decoder-phase9.md). It builds
+#     the Media3 FFmpeg decoder extension as a local Gradle module at
+#     android/decoder-ffmpeg/ from the androidx/media source tree.
+#
+#     After running it you MUST manually re-wire the module before it takes
+#     effect (the automated wiring was removed when the Jellyfin AAR
+#     replaced it):
+#       1. Add `include ":decoder-ffmpeg"` to android/settings.gradle
+#       2. Replace the Jellyfin dependency in android/app/build.gradle with
+#          `implementation project(':decoder-ffmpeg')`
+#     Also note the module is built against media3 $MEDIA3_TAG, which may
+#     differ from the app's pinned media3 version — verify on first use.
 #
 # Why this script exists
 # ──────────────────────
@@ -159,8 +174,12 @@ echo ""
 echo "✓ Done!  android/decoder-ffmpeg/ is ready."
 echo "  AAR size: $(du -h "$OUTPUT_MODULE/libs/media3-decoder-ffmpeg-release.aar" | cut -f1)"
 echo ""
-echo "Next steps:"
-echo "  flutter build apk --release"
+echo "⚠️  FALLBACK MODULE — not wired into the build by default."
+echo "Next steps (manual, required):"
+echo "  1. Add include \":decoder-ffmpeg\" to android/settings.gradle"
+echo "  2. Replace the Jellyfin AAR dependency in android/app/build.gradle"
+echo "     with: implementation project(':decoder-ffmpeg')"
+echo "  3. flutter build apk --release"
 echo ""
 echo "Verify in the debug log:"
 echo "  Ffmpeg: available=true supported=ALAC"

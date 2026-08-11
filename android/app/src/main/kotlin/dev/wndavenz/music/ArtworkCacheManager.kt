@@ -214,6 +214,26 @@ class ArtworkCacheManager(private val context: Context) {
         }
     }
 
+    /**
+     * Deletes the persistent cache entry for [songId] (e.g. after the song is
+     * removed from the library). The file is re-extracted on the next
+     * [getOrExtract] call. Safe to call concurrently with extraction: worst
+     * case a concurrent writer recreates the file, which is correct for a
+     * song that still exists. A2 fix — previously the on-disk entry could
+     * only ever leave via LRU eviction, so a deleted/replaced song's old
+     * artwork could linger indefinitely.
+     */
+    fun delete(songId: Int) {
+        if (songId <= 0) return
+        try {
+            val target = File(cacheDir, "$songId.webp")
+            if (target.exists()) target.delete()
+        } catch (_: Exception) {
+            // Best-effort: a failed delete only costs a stale file that LRU
+            // cleanup will eventually evict.
+        }
+    }
+
     // ── Diagnostics ────────────────────────────────────────────────────────────
 
     fun cacheCount(): Int =

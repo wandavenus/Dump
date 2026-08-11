@@ -12,8 +12,10 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
         └── ProceduralFogBackground (SingleTickerProviderStateMixin)
               └── AnimationController (30-min loop)
                     └── _ShaderPainter (CustomPainter, repaint: controller)
-                          ├── advanceBlend() → _recompute() → writes _c0r…_c2b
-                          └── paint() → 0 lerps, 12 setFloat(), drawRect()
+                          ├── advanceBlend() → _recompute() → writes _c0r…_c4b
+                          └── paint() → precomputes time-only values on CPU
+                                        (node positions/colours, shadow & grain
+                                        phases), 27 setFloat(), drawRect()
 ```
 
 ## Key decisions
@@ -26,9 +28,12 @@ TickerMode(enabled: blurSigma > 0.5)   ← pauses when player collapsed
 **How to apply:** TickerMode must stay in `_SheetBody.build()` wrapping the `ClipRect > ImageFiltered > AnimatedBlurredPlayerBackground` chain. If the background widget is restructured, verify TickerMode still wraps the subtree containing `_ProceduralFogBackgroundState`.
 
 ### Pre-computed colour floats (Phase 8D)
-`_ShaderPainter` holds 9 pre-computed fields (`_c0r`…`_c2b`). Updated by `_recompute()`, called from `setColors()` and `advanceBlend()` only. `paint()` reads them directly — zero arithmetic per frame.
+`_ShaderPainter` holds 15 pre-computed fields (`_c0r`…`_c4b`, five palette colours). Updated by `_recompute()`, called from `setColors()` and `advanceBlend()` only. `paint()` reads them directly — zero lerp arithmetic per frame.
 
 **Why:** Lerps ran every frame unconditionally, including during stable playback (blend=1.0). Now lerps only run during the 0.8s crossfade window.
+
+### Time-only work is precomputed on the CPU (2026-08-11, F4)
+`fluid.frag` no longer takes `uTime`. Mesh node positions, the four `shiftPalette()` node colours, the ambient-shadow phase (`t*0.2 mod 2π`) and the film-grain phase (`t mod 1`) are computed in Dart (float64) inside `paint()` and uploaded as uniforms (layout 0–26, see `fog_painter.dart` header). **Why:** the old per-fragment `sin/cos/smoothstep/mix` repeated identical time-only math across all 131,072 fragments, and an unbounded GPU `uTime` degrades float32 precision. A `uTime % 200π` wrap was tried first but is NOT an exact period for the `fract()` terms (`200π·k/3 ∉ ℤ`), so it caused a periodic palette jump — do not reintroduce a wrap; keep time-only math on the CPU.
 
 ### Colour-only shader motion
 `fluid.frag` uses five broad Moving Gaussian Color Fields / mesh-gradient

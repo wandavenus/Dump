@@ -95,8 +95,11 @@ class HistoryService {
 
   static Future<List<int>> getRecentlyPlayedIds() async {
     final prefs = await _getPrefs();
+    // F6 fix: drop unparseable entries instead of throwing — a corrupt/legacy
+    // prefs value must not crash the home sections that call this.
     final ids = (prefs.getStringList(_recentKey) ?? [])
-        .map(int.parse)
+        .map(int.tryParse)
+        .whereType<int>()
         .toList(growable: false);
     // Keep in-memory cache current so sync getter stays valid after any caller.
     _cachedRecentIds = ids;

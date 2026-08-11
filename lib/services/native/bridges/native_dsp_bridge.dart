@@ -2,7 +2,7 @@ import 'package:native_audio_runtime/native_audio_runtime.dart';
 
 import '../contracts/native_module.dart';
 import '../models/native_module_status.dart';
-import '../../boot_trace.dart';
+import '../../log_service.dart';
 
 /// FFI bridge for a future native C++ DSP module.
 ///
@@ -74,28 +74,19 @@ class NativeDspBridge implements NativeModule {
 
   @override
   Future<void> initialize() async {
-    BootTrace.log('ENTER NativeDspBridge.initialize()');
     if (_status != NativeModuleStatus.uninitialized) {
-      BootTrace.log(
-        'EXIT  NativeDspBridge.initialize() — already $_status, no-op',
-      );
       return;
     }
 
     try {
       // Shared singleton — idempotent even if FfmpegDecoderBridge already
       // initialized it first (registration order comes from PlaybackManager).
-      BootTrace.log('BEFORE await NativeAudioRuntime.instance.initialize()');
       await NativeAudioRuntime.instance.initialize();
-      BootTrace.log('AFTER  await NativeAudioRuntime.instance.initialize()');
 
       if (!NativeAudioRuntime.instance.isAvailable) {
         // Web, or the native library failed to load — no exception, just
         // "unavailable", matching this module's own stub-era contract.
         _status = NativeModuleStatus.unavailable;
-        BootTrace.log(
-          'EXIT  NativeDspBridge.initialize() — runtime unavailable',
-        );
         return;
       }
 
@@ -105,10 +96,12 @@ class NativeDspBridge implements NativeModule {
         NativeRuntimeStatus.duplicateModule => NativeModuleStatus.available,
         _ => NativeModuleStatus.unavailable,
       };
-      BootTrace.log('EXIT  NativeDspBridge.initialize() — status=$_status');
     } on Object catch (e, st) {
       // Catches all throwables including FFI errors and platform exceptions.
-      BootTrace.log('EXCEPTION in NativeDspBridge.initialize(): $e\n$st');
+      LogService.verbose(
+        'NativeDspBridge',
+        'initialize failed: $e\n$st',
+      );
       _status = NativeModuleStatus.error;
     }
   }

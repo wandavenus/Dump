@@ -10,6 +10,13 @@ time-only shader work as a candidate for per-tick precomputation. The dominant
 fragment costs are radial distance falloffs, repeated palette rotation, grain
 hashing, and continuous refresh-rate animation.
 
+**Status (2026-08-11):** the two highest-priority items are now done — squared-
+distance falloffs (`getWeight`, no sqrt) and moving `shiftPalette()` + node
+motion out of the fragment path. `fluid.frag` takes precomputed uniforms only
+(node positions, node colours, shadow/grain phases) and no longer declares
+uTime; the Dart painter computes those values per tick. Grain hashing and
+refresh-rate animation remain as documented below.
+
 **Why:** On the target Snapdragon 730, even the downscaled shader executes about
 131,072 fragments per frame; repeated square roots and trigonometric work are
 multiplied by every visible frame.

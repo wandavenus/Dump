@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../contracts/native_module.dart';
 import '../models/native_module_status.dart';
-import '../../boot_trace.dart';
+import '../../log_service.dart';
 
 /// Capability snapshot reported by the native FFmpeg decoder module.
 ///
@@ -187,11 +187,7 @@ class FfmpegDecoderBridge implements NativeModule {
 
   @override
   Future<void> initialize() async {
-    BootTrace.log('ENTER FfmpegDecoderBridge.initialize()');
     if (_status != NativeModuleStatus.uninitialized) {
-      BootTrace.log(
-        'EXIT  FfmpegDecoderBridge.initialize() — already $_status, no-op',
-      );
       return;
     }
 
@@ -226,52 +222,33 @@ class FfmpegDecoderBridge implements NativeModule {
     // never be able to block Home from rendering, so it now runs in the
     // background with a hard timeout instead of being awaited here.
     unawaited(_probeCapabilities());
-    BootTrace.log(
-      'EXIT  FfmpegDecoderBridge.initialize() — returns immediately, '
-      '_probeCapabilities() fired unawaited in background',
-    );
   }
 
   /// Runs the native `queryStatus` round-trip in the background and updates
   /// [_capabilities]/[_status] whenever it resolves (or times out). Must
   /// never be awaited from [initialize] — see the comment there.
   Future<void> _probeCapabilities() async {
-    BootTrace.log(
-      'ENTER FfmpegDecoderBridge._probeCapabilities() (background)',
-    );
-    final sw = Stopwatch()..start();
     try {
       // Automatic capability detection — availability, native library
       // version if loaded, and which of the Phase 9 target codecs the
       // bundled FFmpeg build actually supports. Hard timeout guarantees this
       // always settles even if the native side never replies.
-      BootTrace.log(
-        'BEFORE await _channel.invokeMethod(queryStatus).timeout(3s)',
-      );
       final result = await _channel
           .invokeMethod<Map<dynamic, dynamic>>('queryStatus')
           .timeout(const Duration(seconds: 3));
-      BootTrace.log(
-        'AFTER  await _channel.invokeMethod(queryStatus) (${sw.elapsedMilliseconds}ms) '
-        'result=$result',
-      );
       _capabilities = result != null
           ? FfmpegDecoderCapabilities.fromMap(result)
           : FfmpegDecoderCapabilities.unavailable;
       _status = _capabilities.available
           ? NativeModuleStatus.available
           : NativeModuleStatus.unavailable;
-      BootTrace.log(
-        'EXIT  FfmpegDecoderBridge._probeCapabilities() — status=$_status, '
-        'available=${_capabilities.available}',
-      );
     } on Object catch (e, st) {
       // Channel missing/failed/timed out (e.g. platform not Android, or the
       // native reply never arrived) — fail open, already the default above.
       // Uses Object (not Exception) to also catch TimeoutException and Errors.
-      BootTrace.log(
-        'EXCEPTION/TIMEOUT in FfmpegDecoderBridge._probeCapabilities() '
-        'after ${sw.elapsedMilliseconds}ms: $e\n$st',
+      LogService.verbose(
+        'FfmpegDecoderBridge',
+        '_probeCapabilities failed: $e\n$st',
       );
       _capabilities = FfmpegDecoderCapabilities.unavailable;
       _status = NativeModuleStatus.unavailable;

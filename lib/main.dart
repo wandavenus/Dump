@@ -24,7 +24,6 @@ import 'package:musicplayer/services/lyrics_service.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
 import 'package:musicplayer/services/watermark_service.dart';
 import 'package:musicplayer/services/open_file_service.dart';
-import 'package:musicplayer/services/boot_trace.dart';
 import 'package:musicplayer/services/language_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
