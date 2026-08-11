@@ -44,3 +44,35 @@ music file creates an avoidable data-loss and permission surprise.
 
 **How to apply:** keep `scanLibrary()`'s default `writeTags` false and do not
 enable it from a generic “scan library” button.
+
+---
+
+## RG-01 (2026-08-11) — cache poisoning + UI-unreachable write path
+
+**Findings:**
+1. `ReplayGainBridge.scanTrack`/`scanAlbum` cached scan results with a mtime
+   captured AFTER decoding — a file replaced mid-scan got its stale measurement
+   cached under the NEW mtime, poisoning SQLite (`getReplayGainTags`) until the
+   file changed again. Dart `_scanTrackResult` already had a before/after guard;
+   the Kotlin cache write did not, and `scanAlbum` had no guard anywhere.
+2. The entire native TagLib write path (`writeReplayGain(Batch)`, `scanAlbum`,
+   `removeReplayGainTags`, `MediaStoreWriteGate`) had ZERO UI callers —
+   `scanLibrary()` was the only entry and always ran with `writeTags: false`.
+
+**Fixes:**
+- `ReplayGainBridge` captures mtime BEFORE each scan and skips the cache write
+  when the file changed mid-scan (result is still returned; Dart's identity
+  guard decides). Same guard added to Dart `scanAlbum` (cache only when
+  before/after identity matches).
+- F1 UI reachability: (a) Scan Library section gained an explicit
+  “Write Tags to Files” toggle → `scanLibrary(writeTags: true)`;
+  (b) Song Info sheet gained Write/Remove ReplayGain tag actions
+  (`scanOneSong(writeTags: true)` / `removeReplayGainTags`);
+  (c) Album page gained “Scan & Write Album Gain” → new
+  `ReplayGainService.scanAlbumAndWriteTags()` (before-identities → scanAlbum →
+  batch pre-auth → per-track write with album gain, STALE_SCAN-guarded per
+  track, per-song failure isolation). New l10n keys `rg*` (en+id, regenerated).
+
+**How to apply next time:** any future scan+cache or scan+write orchestration
+must snapshot the file identity before the scan and re-check it before caching
+or mutating; never key a fresh cache row on a post-scan mtime alone.

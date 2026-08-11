@@ -39,6 +39,15 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
     );
   }
 
+  /// Re-fetches song info after a ReplayGain tag write/remove so the sheet
+  /// shows the freshly-written tag values (F1).
+  void _refreshSongInfo() {
+    if (!mounted) return;
+    setState(() {
+      _songInfoFuture = SongMetadataService.getSongInfo(widget.song);
+    });
+  }
+
   @override
   void dispose() {
     (_formatSub?.cancel())?.ignore();
@@ -89,7 +98,9 @@ class _PlayerSongInfoSheetState extends State<PlayerSongInfoSheet> {
                             ? const _LoadingSongInfo()
                             : _SongInfoContent(
                                 songInfo: songInfo,
+                                song: widget.song,
                                 liveFormat: _liveFormat,
+                                onTagsChanged: _refreshSongInfo,
                               ),
                       );
                     },

@@ -758,6 +758,96 @@ abstract class AppLocalizations {
   /// **'Failed to scan songs'**
   String get scanFailed;
 
+  /// No description provided for @rgWriteTagsToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Write Tags to Files'**
+  String get rgWriteTagsToggle;
+
+  /// No description provided for @rgWriteTagsToggleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently write the measured gain into each file\'s own tags (requires write access)'**
+  String get rgWriteTagsToggleDesc;
+
+  /// No description provided for @rgWriteTagsConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain tags will also be written permanently into the files. All other metadata is preserved. Continue?'**
+  String get rgWriteTagsConfirmBody;
+
+  /// No description provided for @rgWriteTrackAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Write Tags'**
+  String get rgWriteTrackAction;
+
+  /// No description provided for @rgRemoveTrackAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Tags'**
+  String get rgRemoveTrackAction;
+
+  /// No description provided for @rgScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Measuring loudness...'**
+  String get rgScanning;
+
+  /// No description provided for @rgWriteSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain tags written'**
+  String get rgWriteSuccess;
+
+  /// No description provided for @rgWriteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to write ReplayGain tags'**
+  String get rgWriteFailed;
+
+  /// No description provided for @rgRemoveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain tags removed'**
+  String get rgRemoveSuccess;
+
+  /// No description provided for @rgRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove ReplayGain tags'**
+  String get rgRemoveFailed;
+
+  /// No description provided for @rgUnsupportedFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing ReplayGain is not supported for this format (MP3/FLAC/OGG/OPUS only)'**
+  String get rgUnsupportedFormat;
+
+  /// No description provided for @rgAlbumWriteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan & Write Album Gain'**
+  String get rgAlbumWriteAction;
+
+  /// No description provided for @rgAlbumWriteSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs written with album gain'**
+  String rgAlbumWriteSuccess(int count);
+
+  /// No description provided for @rgAlbumWritePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{written} written, {failed} failed'**
+  String rgAlbumWritePartial(int written, int failed);
+
+  /// No description provided for @rgAlbumWriteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to write album gain'**
+  String get rgAlbumWriteFailed;
+
   /// No description provided for @sectionEqualizer.
   ///
   /// In en, this message translates to:

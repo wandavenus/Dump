@@ -125,6 +125,31 @@
   "scanPartial": "{succeeded} berhasil, {failed} gagal",
   "scanFailed": "Gagal memindai lagu",
 
+  "rgWriteTagsToggle": "Tulis Tag ke File",
+  "rgWriteTagsToggleDesc": "Tulis gain hasil pengukuran secara permanen ke tag file (butuh izin tulis)",
+  "rgWriteTagsConfirmBody": "Tag ReplayGain juga akan ditulis permanen ke file. Metadata lain tetap utuh. Lanjutkan?",
+  "rgWriteTrackAction": "Tulis Tag",
+  "rgRemoveTrackAction": "Hapus Tag",
+  "rgScanning": "Mengukur loudness...",
+  "rgWriteSuccess": "Tag ReplayGain ditulis",
+  "rgWriteFailed": "Gagal menulis tag ReplayGain",
+  "rgRemoveSuccess": "Tag ReplayGain dihapus",
+  "rgRemoveFailed": "Gagal menghapus tag ReplayGain",
+  "rgUnsupportedFormat": "Menulis ReplayGain tidak didukung untuk format ini (hanya MP3/FLAC/OGG/OPUS)",
+  "rgAlbumWriteAction": "Scan & Tulis Album Gain",
+  "rgAlbumWriteSuccess": "{count} lagu ditulis dengan album gain",
+  "@rgAlbumWriteSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "rgAlbumWritePartial": "{written} ditulis, {failed} gagal",
+  "@rgAlbumWritePartial": {
+    "placeholders": {
+      "written": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "rgAlbumWriteFailed": "Gagal menulis album gain",
+
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",

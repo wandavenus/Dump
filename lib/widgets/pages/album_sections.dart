@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../extensions/localization_extension.dart';
 import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
+import '../../services/replay_gain_service.dart';
 import '../../services/song_metadata_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/duration_text.dart';
@@ -26,6 +27,7 @@ class AlbumPageContent extends StatelessWidget {
           AlbumHero(album: album),
           PlayShuffleButtons(songs: songs),
           SongListSection(songs: songs),
+          _AlbumRgWriteRow(songs: songs),
           Divider(
             color: AppColors.of(context).subtleSeparator,
             thickness: 0.4,
@@ -35,6 +37,85 @@ class AlbumPageContent extends StatelessWidget {
           _MoreByArtist(currentAlbum: album),
           SizedBox(height: bottomClearance),
         ],
+      ),
+    );
+  }
+}
+
+// ─── ReplayGain: scan album + write gain (F1) ────────────────────────────────
+
+/// One-tap "scan this album and write the measured gain permanently into
+/// every song's tags". Reaches the previously-UI-unreachable scanAlbum +
+/// album-gain write path; per-song failures never fail the whole album.
+class _AlbumRgWriteRow extends StatefulWidget {
+  const _AlbumRgWriteRow({required this.songs});
+
+  final List<LocalSong> songs;
+
+  @override
+  State<_AlbumRgWriteRow> createState() => _AlbumRgWriteRowState();
+}
+
+class _AlbumRgWriteRowState extends State<_AlbumRgWriteRow> {
+  bool _busy = false;
+
+  Future<void> _scanAndWrite() async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l.rgScanning),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    final result = await ReplayGainService.scanAlbumAndWriteTags(widget.songs);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    messenger.hideCurrentSnackBar();
+    final Text message;
+    if (result.failed == 0) {
+      message = Text(l.rgAlbumWriteSuccess(result.written));
+    } else if (result.written == 0) {
+      message = Text(l.rgAlbumWriteFailed);
+    } else {
+      message = Text(l.rgAlbumWritePartial(result.written, result.failed));
+    }
+    messenger.showSnackBar(SnackBar(content: message));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final c = AppColors.of(context);
+    return InkWell(
+      onTap: _busy ? null : _scanAndWrite,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              _busy
+                  ? Icons.hourglass_top_rounded
+                  : Icons.graphic_eq_rounded,
+              color: c.primaryLabel.withValues(alpha: 0.55),
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l.rgAlbumWriteAction,
+                style: TextStyle(color: c.primaryLabel, fontSize: 14),
+              ),
+            ),
+            if (_busy)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
       ),
     );
   }
