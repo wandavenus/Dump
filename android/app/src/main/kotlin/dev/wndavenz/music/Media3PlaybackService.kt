@@ -119,6 +119,9 @@ class Media3PlaybackService : MediaSessionService() {
     // artworkData bytes published into the MediaSession metadata — SystemUI
     // renders the session's ART bytes, NOT the notification largeIcon.
     private lateinit var sessionArtworkProvider: SessionArtworkProvider
+    // Media3 session BitmapLoader (Bluetooth / lock-screen artwork). Kept as a
+    // field so onDestroy can shut its executor down with the other artwork I/O.
+    private lateinit var fallbackBitmapLoader:   FallbackBitmapLoader
 
     // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
     // Shut down in onDestroy() so tasks don't outlive the service.
@@ -271,6 +274,7 @@ class Media3PlaybackService : MediaSessionService() {
         // bytes published as MediaSession metadata (artworkData) so SystemUI /
         // MIUI render sharp art instead of the low-res MediaStore albumart URI.
         sessionArtworkProvider = SessionArtworkProvider(this, serviceArtworkCache)
+        fallbackBitmapLoader = FallbackBitmapLoader(this, serviceArtworkCache)
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
@@ -283,7 +287,7 @@ class Media3PlaybackService : MediaSessionService() {
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
             // albumart content URI first, then falls back to the shared artwork cache
             // (extract + persist on miss — raw-copied JPEG since 1.5.19).
-            .setBitmapLoader(FallbackBitmapLoader(this, serviceArtworkCache))
+            .setBitmapLoader(fallbackBitmapLoader)
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -460,6 +464,14 @@ class Media3PlaybackService : MediaSessionService() {
                 activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
                 activeOffloadListener = newOffloadListener
                 activePlayer?.addAudioOffloadListener(newOffloadListener)
+
+                // ART-REFRESH-01: the promoted player already fired its
+                // STATE_READY / transition while still "standby", and those were
+                // dropped by the isActiveEvent() guard — so no listener callback
+                // will republish the session artwork after promotion. Refresh it
+                // explicitly so SystemUI / MIUI never keep the previous track's
+                // artworkData after a crossfade.
+                scheduleSessionArtworkRefresh()
 
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: EXIT (offload listener swapped)", activePlayer)
@@ -881,6 +893,14 @@ class Media3PlaybackService : MediaSessionService() {
         bitPerfectModeOn     = false
         activePlayer         = null
         session              = null
+        // Shut down the artwork executors (notification largeIcon loader, session
+        // artworkData provider, Bluetooth/lock-screen BitmapLoader) so queued I/O
+        // cannot outlive service teardown. close() is idempotent; each component
+        // also guards its completion callbacks against a null session / closed
+        // state, so late results are dropped instead of posted to a dead session.
+        notificationManager.close()
+        sessionArtworkProvider.close()
+        fallbackBitmapLoader.close()
         super.onDestroy()
     }
 

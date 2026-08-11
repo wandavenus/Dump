@@ -67,7 +67,16 @@ class PlaybackNotificationManager(
      * all access happens on the main thread.
      */
     private val artworkLoadGenerations = HashMap<String, Long>()
-    private var pendingAsyncCacheKey: String? = null
+    /**
+     * Cache keys with an in-flight async load (prewarm or refresh). Unlike the
+     * old single `pendingAsyncCacheKey` slot, one entry per key means a finished
+     * request for key A can never clear the in-flight marker of key B, so the
+     * same key can never be loaded twice concurrently.
+     */
+    private val inFlightLoads = HashSet<String>()
+    /** Set by [close]; rejects new async work after service teardown. */
+    @Volatile
+    private var closed = false
     private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "artwork-loader").also { it.isDaemon = true }
     }
@@ -117,7 +126,9 @@ class PlaybackNotificationManager(
             bitmap = null,
         )
         startForegroundWith(notification)
-        refreshAsync()
+        val artUri = track?.get("artworkUri") as? String
+        val songId = (track?.get("id") as? Number)?.toInt() ?: 0
+        refreshAsync(artUri, songId)
     }
 
     fun refresh() {
@@ -140,7 +151,7 @@ class PlaybackNotificationManager(
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
         if (!hasCached) {
-            refreshAsync(artUri, songId, track, isPlaying)
+            refreshAsync(artUri, songId)
         }
     }
 
@@ -151,19 +162,19 @@ class PlaybackNotificationManager(
     }
 
     fun prewarmArtwork(nextSongId: Int, nextArtUri: String?) {
+        if (closed) return
         val cacheKey = nextArtUri ?: if (nextSongId > 0) "song:$nextSongId" else null
         if (cacheKey == null) return
         if (bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)) return
-        if (cacheKey == pendingAsyncCacheKey) return
+        if (!inFlightLoads.add(cacheKey)) return
 
-        pendingAsyncCacheKey = cacheKey
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
             val bmp = loadBitmap(nextArtUri, nextSongId)?.let(::normalizeNotificationArtwork)
             handler.post {
-                pendingAsyncCacheKey = null
-                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                inFlightLoads.remove(cacheKey)
+                if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
                 artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 NativeLogger.emit("debug", "Notification", "prewarmArtwork done: cacheKey=$cacheKey bmp=${bmp != null}")
@@ -187,34 +198,45 @@ class PlaybackNotificationManager(
         return if (id > 0) "song:$id" else null
     }
 
-    private fun refreshAsync(
-        artUri: String? = getCurrentTrack()?.get("artworkUri") as? String,
-        songId: Int = (getCurrentTrack()?.get("id") as? Number)?.toInt() ?: 0,
-        track: Map<String, Any?>? = getCurrentTrack(),
-        isPlaying: Boolean = getIsPlaying(),
-    ) {
+    private fun refreshAsync(artUri: String?, songId: Int) {
+        if (closed) return
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         if (cacheKey == null) return
-        if (cacheKey == pendingAsyncCacheKey) return
-        pendingAsyncCacheKey = cacheKey
+        if (!inFlightLoads.add(cacheKey)) return
 
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
             val bmp = loadBitmap(artUri, songId)?.let(::normalizeNotificationArtwork)
             handler.post {
-                pendingAsyncCacheKey = null
-                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                inFlightLoads.remove(cacheKey)
+                if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
                 artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
+                // Never post a stale result: a load for a track the user already
+                // skipped away from must not overwrite the current notification
+                // with old title/artist/art (rapid-skip flicker). The bitmap was
+                // cached above under its own key, so the next play of this track
+                // still gets an instant cache hit — and prewarmArtwork() handles
+                // the "became current while loading" repost case.
+                if (cacheKey != currentTrackCacheKey()) return@post
                 try {
-                    postNotification(buildNotification(sess, track, isPlaying, bmp))
+                    postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
                 } catch (e: Exception) {
                     NativeLogger.emit("warn", "Notification", "async refresh failed: ${e.message}")
                 }
             }
         }
+    }
+
+    /**
+     * Shuts down the artwork executor and rejects new loads. Idempotent; safe
+     * to call from the service's onDestroy during teardown.
+     */
+    fun close() {
+        closed = true
+        artworkExecutor.shutdown()
     }
 
     private fun postNotification(notification: android.app.Notification) {
