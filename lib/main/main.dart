@@ -111,22 +111,30 @@ Future<void> main() async {
 }
 
 Future<void> _requestPermissionsThenOpenPendingUri() async {
+  bool audioWasGranted = false;
   try {
+    audioWasGranted = await Permission.audio.isGranted;
     await Permission.storage.request();
     await Permission.audio.request();
   } on Exception catch (e) {
     LogService.warn('Permissions', 'Request failed: $e');
   }
 
-  try {
-    await MediaStoreService.refreshSongs();
-    MediaStoreService.rescanNotifier.value++;
-  } catch (e, stackTrace) {
-    LogService.warn(
-      'MediaStore',
-      'Initial post-permission refresh failed: $e',
-      stackTrace: stackTrace.toString(),
-    );
+  // Only reconcile MediaStore when this startup actually transitioned the
+  // audio permission from not-granted to granted. On normal launches this
+  // avoids an unnecessary full MediaStore scan while preserving the first-run
+  // fix: the scan happens only after Android has granted READ_MEDIA_AUDIO.
+  if (!audioWasGranted && await Permission.audio.isGranted) {
+    try {
+      await MediaStoreService.refreshSongs();
+      MediaStoreService.rescanNotifier.value++;
+    } catch (e, stackTrace) {
+      LogService.warn(
+        'MediaStore',
+        'Initial post-permission refresh failed: $e',
+        stackTrace: stackTrace.toString(),
+      );
+    }
   }
 
   await OpenFileService.checkInitialUri();
