@@ -11,16 +11,13 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.pow
-import kotlin.math.sqrt
 
 /**
  * Native color extraction bridge — replaces `palette_generator_plus`.
@@ -158,62 +155,10 @@ class NativePaletteBridge(
     }
 
     // ── Internal data models ─────────────────────────────────────────────────
-
-    /** A scored swatch — score is the perceptual importance of this color. */
-    private data class Scored(val swatch: Palette.Swatch, val score: Double)
-
-    /**
-     * A group of perceptually similar [Palette.Swatch] objects merged by
-     * OKLab distance.
-     *
-     * Why clustering exists:
-     *   Palette's MMCQ quantization splits visually identical or near-identical
-     *   color families (e.g. Black + Navy + Dark Blue on the same dark
-     *   background) into multiple separate swatches.  Each swatch covers only
-     *   a fraction of the true color family's area, so it scores below a
-     *   single contiguous bright region even when the dark family is actually
-     *   more dominant.  Merging them restores the correct population weight.
-     *
-     * Why representative swatches instead of RGB averages:
-     *   Averaging sRGB channels mixes gamma-encoded values, producing a color
-     *   that may not appear in the artwork and whose perceived lightness is
-     *   shifted.  The [representativeSwatch] is always a real Palette swatch —
-     *   it is visually accurate, numerically stable, and carries the correct
-     *   HSL values for downstream hue and role-assignment calculations.
-     */
-    private data class ColorCluster(
-        val swatches: MutableList<Palette.Swatch>,
-        var totalPopulation: Int,
-        var totalScore: Double,
-    ) {
-        /**
-         * The swatch with the highest individual score within this cluster.
-         * This is the color returned to Flutter and used for hue calculations.
-         *
-         * [mergeSimilarSwatches] iterates the pre-scored list in descending
-         * score order, so the first swatch added to each cluster is always the
-         * highest-scored one — no later entry can have a higher score.
-         * The list is always non-empty by construction.
-         */
-        val representativeSwatch: Palette.Swatch
-            get() = swatches.first()
-    }
-
-    private class PendingRequest(
-        val result: MethodChannel.Result,
-    ) {
-        val completed = AtomicBoolean(false)
-        var watchdogFuture: ScheduledFuture<*>? = null
-    }
+    // Scored, ColorCluster, PendingRequest, InFlightJob dipindah ke
+    // NativePaletteModels.kt (visibility: internal).
 
     private val mainHandler = mainHandler
-
-    private class InFlightJob(
-        val songId: Int,
-        val requestIds: MutableList<Long> = mutableListOf(),
-        var completed: Boolean = false,
-        var completion: ((MethodChannel.Result) -> Unit)? = null,
-    )
 
     private val requestIds = AtomicLong(0L)
     private val lifecycleLock = Any()
@@ -864,66 +809,9 @@ class NativePaletteBridge(
         return rank(distinct).takeUnless { it == null } ?: rank(remaining)
     }
 
-    /**
-     * Returns true if [rgb1] and [rgb2] are perceptually close, using the
-     * OKLab color space for a uniform perceptual distance metric.
-     *
-     * OKLab is lightweight (two 3×3 matrix multiplications + cube-root) and
-     * self-contained — no extra dependencies needed.  It is far more reliable
-     * than RGB Euclidean distance for hue-similar-but-brightness-different
-     * pairs (e.g. dark purple vs bright purple) that mislead RGB matching.
-     *
-     * Threshold 0.15 ≈ a "clearly similar" perceptual step in OKLab's
-     * normalised [0, 1] lightness range.
-     */
-    private fun colorSimilar(rgb1: Int, rgb2: Int, threshold: Float = 0.15f): Boolean {
-        return perceptualDistance(rgb1, rgb2) < threshold
-    }
-
-    private fun perceptualDistance(rgb1: Int, rgb2: Int): Float {
-        val (l1, a1, b1) = rgbToOklab(rgb1)
-        val (l2, a2, b2) = rgbToOklab(rgb2)
-        val dSq = (l1 - l2) * (l1 - l2) +
-            (a1 - a2) * (a1 - a2) +
-            (b1 - b2) * (b1 - b2)
-        return sqrt(dSq)
-    }
-
-    /**
-     * Converts an ARGB integer to OKLab (L, a, b).
-     *
-     * Pipeline: sRGB → linear RGB (gamma expand) → LMS (via M1) → LMS^(1/3) → Lab (via M2).
-     * Coefficients from https://bottosson.github.io/posts/oklab/
-     */
-    private fun rgbToOklab(rgb: Int): Triple<Float, Float, Float> {
-        // sRGB channels in [0, 1]
-        val r = srgbToLinear(((rgb shr 16) and 0xFF) / 255f)
-        val g = srgbToLinear(((rgb shr 8) and 0xFF) / 255f)
-        val b = srgbToLinear((rgb and 0xFF) / 255f)
-
-        // M1: linear sRGB → LMS
-        val l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b
-        val m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b
-        val s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b
-
-        // Cube root
-        val lc = cbrt(l); val mc = cbrt(m); val sc = cbrt(s)
-
-        // M2: LMS^(1/3) → OKLab
-        return Triple(
-            0.2104542553f * lc + 0.7936177850f * mc - 0.0040720468f * sc,
-            1.9779984951f * lc - 2.4285922050f * mc + 0.4505937099f * sc,
-            0.0259040371f * lc + 0.7827717662f * mc - 0.8086757660f * sc,
-        )
-    }
-
-    /** Expands sRGB gamma ([0,1] → linear). */
-    private fun srgbToLinear(c: Float): Float =
-        if (c <= 0.04045f) c / 12.92f else ((c + 0.055f) / 1.055f).pow(2.4f)
-
-    /** Cube root that handles negative values correctly. */
-    private fun cbrt(x: Float): Float =
-        if (x >= 0f) x.pow(1f / 3f) else -(-x).pow(1f / 3f)
+    // ── Pure color-science helpers ───────────────────────────────────────────
+    // colorSimilar, perceptualDistance, rgbToOklab, srgbToLinear, cbrt dipindah
+    // ke ColorScience.kt (top-level internal functions).
 
     // ── Derived highlight / shadow ────────────────────────────────────────────
 

@@ -511,3 +511,33 @@ API publik & perilaku tidak berubah, diverifikasi `flutter analyze lib`
 Total (final setelah revert changelog): 2 file besar dipecah jadi 6 file kecil
 (`unified_morph_player` + `band_slider`); −0 baris bersih (kode hanya pindah
 lokasi), perilaku identik.
+
+---
+
+# Refactor (sesi ini) — Tier 1 Kotlin: split `NativePaletteBridge`
+
+Kotlin tidak punya mekanisme `part`; split = pindahkan class/fungsi ke file baru
+dengan visibility `internal` (satu modul app). Hanya kandidat yang benar-benar
+stateless yang dieksekusi.
+
+### Data models → `NativePaletteModels.kt` (baru, 62 baris)
+
+- `NativePaletteBridge.kt` 1.040 → **928 baris** (−112).
+- `Scored`, `ColorCluster`, `PendingRequest`, `InFlightJob` (sebelumnya nested
+  `private`) → `internal` top-level di file baru. `ColorCluster.representativeSwatch`
+  dan semua KDoc dipertahankan utuh.
+- Import `ScheduledFuture`/`AtomicBoolean` dihapus dari bridge (hanya dipakai
+  `PendingRequest`). `Palette`/`MethodChannel`/`pow` tetap (dipakai di tempat lain).
+
+### Pure color-science → `ColorScience.kt` (baru, 68 baris)
+
+- `colorSimilar`, `perceptualDistance`, `rgbToOklab`, `srgbToLinear`, `cbrt`
+  (sebelumnya `private fun` member) → `internal fun` top-level. Import `sqrt`
+  dihapus dari bridge; `pow` tetap (line 611 `sat.pow(0.8)`).
+- Call site di class (`mergeSimilarSwatches`, `chooseCoverageCluster`) tetap
+  resolve — top-level `internal` di package yang sama bisa dipanggil langsung.
+- `kotlin.math.cbrt` tidak di-import; `cbrt(Float)` custom tanpa bentrok.
+
+Verifikasi: definisi tunggal per simbol (grep), tidak ada referensi stale,
+`NativePaletteBridgeTest.kt` tidak menyentuh simbol yang dipindah. Kotlin tidak
+bisa dikompilasi di environment ini (tanpa Android SDK) — verifikasi manual.
