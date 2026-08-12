@@ -381,3 +381,61 @@ RC-3, SKIP-01, WD-01, ZOOM-01, R-B/R-C 1.5.21, Phase 4.5/9, Item 2/3/6/7/8/10).
   Saat Flutter membuka aplikasi, notifikasi kembali normal.
 
 *K4 (NIT) tidak diubah — tidak diminta.*
+
+---
+
+# Perbaikan diterapkan (sesi ini) — batch aman: D1, D2, D3, D5, D7, K4
+
+### D1 ✅ — `HistoryService`: `int.parse` → `tryParse` (konsisten dengan F6)
+
+- **File:** `lib/services/history_service.dart` (`warmUp` ±:51, `trackPlay` write-through ±:92).
+- **Perubahan:** kedua tempat memakai `int.tryParse` + `whereType<int>` seperti
+  `getRecentlyPlayedIds`. Entri korup/legacy di-drop, tidak throw.
+- **Verifikasi:** `flutter analyze` bersih. Behavior normal tidak berubah (data
+  selalu ditulis sendiri oleh `trackPlay`).
+
+### D2 ✅ — `PlaylistService.createPlaylist`: id unik
+
+- **File:** `lib/services/playlist_service.dart:44` (import `dart:math` ditambah).
+- **Perubahan:** id = `<ms epoch>_<random 32-bit dari Random.secure()>` — tidak
+  lagi kolisi untuk dua playlist di milidetik yang sama. Prefiks timestamp
+  dipertahankan untuk debuggability.
+- **Verifikasi:** analyzer bersih; id tetap string, semua operasi pakai
+  string-equality (`indexWhere((p) => p.id == id)`) — tidak ada dependensi format.
+
+### D3 ✅ — `ScrollToTopService`: bounds-check indeks
+
+- **File:** `lib/services/scroll_to_top_service.dart:11,14`.
+- **Perubahan:** helper `_clampIndex` — `signal()`/`trigger()` di-clamp ke
+  `0..length-1` alih-alih meng-index langsung (anti `RangeError`).
+- **Verifikasi:** analyzer bersih; caller hari ini (0–4) tidak terpengaruh.
+
+### D5 ✅ — `NativePaletteService._persist`: stop self-reschedule saat path null
+
+- **File:** `lib/services/native_palette_service.dart` (`_persist` ±:158).
+- **Perubahan:** `if (path == null) { _dirty = false; return; }` — tidak ada lagi
+  `Timer(800ms, _persist)` tanpa batas. Hasil tetap aman di `_cache` memori;
+  ekstraksi berikutnya (setelah `warmUp` set path) memicu `_schedulePersist()` lagi.
+- **Verifikasi:** analyzer bersih.
+
+### D7 ✅ — `fetch_manager.dart`: hapus `unawaited` lokal yang menaungi `dart:async`
+
+- **File:** `lib/services/lyrics_service/fetch_manager.dart` (fungsi di :302 dihapus).
+- **Perubahan:** `import 'dart:async'` sudah ada → `unawaited(...)` di :168 kini
+  memakai versi resmi. `_saveToDisk`/`putDisk` sudah try/catch internal, jadi
+  tidak ada error yang lolos.
+- **Verifikasi:** analyzer bersih (`// ignore_for_file: unawaited_futures` tetap
+  ada di header file).
+
+### K4 ✅ — `NowPlayingOverlayActivity`: release semua future MediaController
+
+- **File:** `android/app/src/main/kotlin/dev/wndavenz/music/NowPlayingOverlayActivity.kt`
+  (`controllerFuture` → `controllerFutures` list; `onDestroy` release semua + clear).
+- **Perubahan:** tiap retry `connectController()` menambah future ke list; teardown
+  me-release setiap future (termasuk yang gagal) alih-alih hanya yang terakhir.
+  Semua akses di main thread (retry lewat handler), jadi `mutableListOf` aman.
+- **Verifikasi:** manual (Kotlin tidak bisa dikompilasi di environment ini —
+  Android SDK tidak tersedia); perubahan lokal & tidak menyentuh API lain.
+
+*D6 (`Future.delayed` 15s tanpa cancel) dan D4 (`transient` mati) sengaja tidak
+ikut — butuh sentuhan lebih / kosmetik, dampak aktual nol.*

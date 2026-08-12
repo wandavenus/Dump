@@ -51,7 +51,11 @@ class NowPlayingOverlayActivity : Activity() {
 
     // ── Playback ──────────────────────────────────────────────────────────────
     private val handler = Handler(Looper.getMainLooper())
-    private var controllerFuture: ListenableFuture<MediaController>? = null
+    // K4 fix: every connect retry creates its own ListenableFuture; keep ALL of
+    // them so onDestroy can release each one. A single-field approach only
+    // released the latest future, leaking the failed retry futures. All access
+    // happens on the main thread (connectController retries via the handler).
+    private val controllerFutures = mutableListOf<ListenableFuture<MediaController>>()
     private var controller: MediaController? = null
     private var connectRetries = 0
     private var isOpeningMainApp = false
@@ -169,7 +173,7 @@ class NowPlayingOverlayActivity : Activity() {
     private fun connectController() {
         val token = SessionToken(this, ComponentName(this, Media3PlaybackService::class.java))
         val future = MediaController.Builder(this, token).buildAsync()
-        controllerFuture = future
+        controllerFutures += future
         future.addListener({
             try {
                 controller = future.get()
@@ -190,7 +194,9 @@ class NowPlayingOverlayActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
-        controllerFuture?.let { MediaController.releaseFuture(it) }
+        // K4 fix: release every connect attempt, not just the last one.
+        controllerFutures.forEach { MediaController.releaseFuture(it) }
+        controllerFutures.clear()
         controller = null
 
         // Interrupt background metadata thread so it does not continue holding

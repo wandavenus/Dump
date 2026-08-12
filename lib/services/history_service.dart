@@ -47,8 +47,11 @@ class HistoryService {
   static Future<void> warmUp() async {
     try {
       final prefs = await _getPrefs();
+      // D1 fix: same tolerant pattern as [getRecentlyPlayedIds] — a corrupt /
+      // legacy entry must not abort warm-up (the F6 fix already uses tryParse).
       _cachedRecentIds = (prefs.getStringList(_recentKey) ?? [])
-          .map(int.parse)
+          .map(int.tryParse)
+          .whereType<int>()
           .toList(growable: false);
       _cachedArtistCounts = _decodeMap(
         prefs.getString(_artistPlayCountKey) ?? '{}',
@@ -89,7 +92,13 @@ class HistoryService {
     ]);
 
     // Write-through: keep in-memory caches in sync so sync getters stay valid.
-    _cachedRecentIds = recent.map(int.parse).toList(growable: false);
+    // D1 fix: entries are always written by [trackPlay] as integers, but a
+    // corrupt/legacy value must be dropped (tryParse) instead of throwing —
+    // matching [getRecentlyPlayedIds].
+    _cachedRecentIds = recent
+        .map(int.tryParse)
+        .whereType<int>()
+        .toList(growable: false);
     _cachedArtistCounts = artistCounts;
   }
 
