@@ -299,6 +299,7 @@ class LyricsFetchManager {
   }
 }
 
-void unawaited(Future<void> future) {
-  // Intentionally not awaited
-}
+// D7 fix: the local `unawaited` that shadowed dart:async's is removed — it
+// silently swallowed any error escaping _saveToDisk. The dart:async import
+// above now provides `unawaited`; _saveToDisk/putDisk already guard their own
+// I/O with try/catch, so no error can escape.

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,10 +39,16 @@ class PlaylistService {
     await prefs.setString(_playlistsKey, Playlist.encodeList(playlists));
   }
 
+  static final _idRandom = Random.secure();
+
   static Future<Playlist> createPlaylist(String name) async {
     final playlists = await getPlaylists();
     final playlist = Playlist(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      // D2 fix: ms-epoch alone collides for two playlists created in the same
+      // millisecond. Keep the timestamp for debuggability and add a random
+      // suffix so ids are unique even under rapid creation.
+      id:
+          '${DateTime.now().millisecondsSinceEpoch}_${_idRandom.nextInt(1 << 32)}',
       name: name,
       songIds: [],
       createdAt: DateTime.now(),
