@@ -93,7 +93,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       unawaited(
         _prewarmEntryArtwork(song).then((_) {
           if (mounted && _currentSong?.id == song.id) {
-            _entryAnim.forward(from: 0.0);
+            unawaited(_entryAnim.forward(from: 0.0));
           }
         }),
       );
@@ -172,7 +172,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         unawaited(
           _prewarmEntryArtwork(appearedSong).then((_) {
             if (mounted && _currentSong?.id == appearedSong.id) {
-              _entryAnim.forward(from: 0.0);
+              unawaited(_entryAnim.forward(from: 0.0));
             }
           }),
         );
