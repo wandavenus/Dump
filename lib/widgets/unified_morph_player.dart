@@ -161,12 +161,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         (_currentSong?.id != song?.id);
 
     if (songChanged) {
+      final hadPreviousSong = _currentSong != null;
       _currentSong = song;
       needsRebuild = true;
 
-      // Entry animation: decode the exact mini-player artwork first,
-      // then start the slide-up animation only after the bitmap is ready.
-      if (song != null) {
+      // Entry animation is only for the mini player first appearing.
+      // Do not restart it when switching directly from one song to another.
+      if (!hadPreviousSong && song != null) {
         final appearedSong = song;
 
         unawaited(
