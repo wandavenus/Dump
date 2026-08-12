@@ -439,3 +439,75 @@ RC-3, SKIP-01, WD-01, ZOOM-01, R-B/R-C 1.5.21, Phase 4.5/9, Item 2/3/6/7/8/10).
 
 *D6 (`Future.delayed` 15s tanpa cancel) dan D4 (`transient` mati) sengaja tidak
 ikut — butuh sentuhan lebih / kosmetik, dampak aktual nol.*
+
+---
+
+# Refactor (sesi ini) — Tier 1 split file besar
+
+Split mekanik, API publik tidak berubah, diverifikasi `flutter analyze lib`
+(**No issues found**).
+
+### ReplayGain models → `replay_gain_service/models.dart`
+
+- `service.dart` 1.219 → **1.076 baris**; `models.dart` baru 143 baris
+  (`_TrackScan`, `ReplayGainWriteRequest`, `TrackLoudnessResult`, `RemoveRgResult`,
+  `AlbumScanResult`, `BatchScanProgress`).
+- Part baru `part 'replay_gain_service/models.dart';` di library entry
+  (`replay_gain_service.dart:24`). Konsumen (impor library file) tidak berubah.
+
+### `EqualizerParameters` → `audio/equalizer_parameters.dart`
+
+- `playback_manager.dart` 847 → **831 baris**; file baru 22 baris.
+- Re-export (`export 'equalizer_parameters.dart';`) + import internal;
+  komentar split-plan di file diperbarui. 3 konsumen eksternal tidak berubah.
+
+### Android EQ models → `audio/media3/equalizer_models.dart`
+
+- `media3_playback_bridge.dart` 490 → **467 baris**; file baru 32 baris
+  (`AndroidEqualizerParameters`, `AndroidEqualizerBand`).
+- Re-export + import internal. `AndroidEqualizerBand.setGain` tetap memakai
+  `Media3PlaybackBridge.setEqualizerBandGain` (circular import legal di Dart,
+  terverifikasi analyzer).
+
+Total: −150 baris dari 3 file inti, tanpa perubahan perilaku apa pun.
+
+---
+
+# Refactor (sesi ini) — Tier 2 split via `part` files
+
+Semua split mekanik/data-only via pola `part of` yang sudah dipakai repo,
+API publik & perilaku tidak berubah, diverifikasi `flutter analyze lib`
+(**No issues found**).
+
+### Changelog data per-era → 6 part files — **DI-REVERT**
+
+> ⚠️ Split changelog **dibatalkan** atas permintaan user (sesi yang sama).
+> Status final: `changelog_data.dart` kembali ke versi asli **536 baris**
+> (semua entri inline, identik dengan HEAD), 6 part file era dihapus, dan
+> 6 deklarasi `part 'settings_page/changelog_data_*'` dihilangkan dari
+> `settings_page.dart`. `flutter analyze lib` → **No issues found**.
+>
+> Alasan revert: user menilai pemecahan changelog tidak diperlukan —
+> entri changelog cukup ditambahkan langsung di satu file.
+
+### `unified_morph_player.dart` → 2 part files
+
+- `unified_morph_player.dart` 807 → **758 baris** (state utama utuh).
+- Part baru: `unified_morph_player/playback_content.dart` (45 baris,
+  `_PlaybackContent`), `unified_morph_player/bottom_reveal_clipper.dart`
+  (16 baris, `_BottomRevealClipper`).
+- Deklarasi `part` di `unified_morph_player.dart:19-20`; kedua class masih
+  private ke library yang sama, jadi call site di `_buildMorph` tidak berubah.
+
+### `band_slider.dart` → 2 part files
+
+- `band_slider.dart` 524 → **212 baris** (`_EqBandSliderSection` + helper
+  `_formatHz`).
+- Part baru: `equalizer_page/band_slider_vertical.dart` (185 baris,
+  `_VerticalBandSlider` + State), `equalizer_page/band_track_painter.dart`
+  (137 baris, `_BandTrackPainter`).
+- Deklarasi `part` ditambahkan di `equalizer_page.dart:25-26`.
+
+Total (final setelah revert changelog): 2 file besar dipecah jadi 6 file kecil
+(`unified_morph_player` + `band_slider`); −0 baris bersih (kode hanya pindah
+lokasi), perilaku identik.

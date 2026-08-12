@@ -22,4 +22,6 @@ import 'settings_widgets.dart';
 
 part 'equalizer_page/page.dart';
 part 'equalizer_page/band_slider.dart';
+part 'equalizer_page/band_slider_vertical.dart';
+part 'equalizer_page/band_track_painter.dart';
 part 'equalizer_page/preset_chips.dart';

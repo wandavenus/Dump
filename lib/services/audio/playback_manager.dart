@@ -4,6 +4,11 @@ import 'dart:async';
 
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 
+// EqualizerParameters lives in its own file; re-exported so existing
+// `import 'playback_manager.dart'` callers keep resolving it here.
+export 'equalizer_parameters.dart';
+
+import 'equalizer_parameters.dart';
 import '../native_palette_service.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
@@ -22,34 +27,13 @@ import '../native/native_module_registry.dart';
 // it would create part files with ~50 lines each and no reduction in coupling.
 //
 // When these sections grow enough to justify extraction, use `part`/`part of`:
-//   1. EqualizerParameters + EQ setters  → playback_manager/equalizer.dart
-//   2. Volume / duck / ReplayGain logic  → playback_manager/volume.dart
-//   3. DSP pipeline wiring               → playback_manager/dsp.dart
-//   4. Queue / shuffle / repeat helpers  → playback_manager/queue.dart
+//   1. Volume / duck / ReplayGain logic  → playback_manager/volume.dart
+//   2. DSP pipeline wiring               → playback_manager/dsp.dart
+//   3. Queue / shuffle / repeat helpers  → playback_manager/queue.dart
 //
 // Prerequisite: each section must be at least ~150 lines and have no cross-
 // section field references that would need to become shared state.
-
-// ─── Equalizer parameter type ─────────────────────────────────────────────────
-
-class EqualizerParameters {
-  final double minDecibels;
-  final double maxDecibels;
-  final int bandCount;
-
-  /// Center frequency (Hz) of each band, in band order. May be shorter than
-  /// [bandCount] or empty when the engine did not report frequencies (e.g.
-  /// before the first audio session) — callers should fall back to a
-  /// standard 5-band frequency set in that case.
-  final List<int> centerFrequenciesHz;
-
-  const EqualizerParameters({
-    required this.minDecibels,
-    required this.maxDecibels,
-    required this.bandCount,
-    this.centerFrequenciesHz = const [],
-  });
-}
+// (EqualizerParameters was already extracted to equalizer_parameters.dart.)
 
 // ─── PlaybackManager ─────────────────────────────────────────────────────────
 
