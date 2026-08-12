@@ -120,7 +120,7 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew clean assembleDebug --no-build-cache --no-daemon --stacktrace
 
 
       - name: Build Native C++ Code
