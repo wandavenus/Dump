@@ -161,13 +161,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         (_currentSong?.id != song?.id);
 
     if (songChanged) {
-      final hadPreviousSong = _currentSong != null;
       _currentSong = song;
       needsRebuild = true;
 
-      // Entry animation is only for the mini player first appearing.
-      // Do not restart it when switching directly from one song to another.
-      if (!hadPreviousSong && song != null) {
+      // Entry animation: decode the exact mini-player artwork first,
+      // then start the slide-up animation only after the bitmap is ready.
+      if (song != null) {
         final appearedSong = song;
 
         unawaited(
@@ -405,4 +404,409 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // makes it look like it emerges from behind/inside the bar as it slides
     // up, instead of momentarily poking out below the bar's top edge. Fully
     // relaxes to full-screen the moment the user starts expanding the sheet,
-    // so it... (content unchanged except trigger condition)
+    // so it never interferes with the full-player view.
+    final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
+    final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
+    final height = lerpDouble(miniH, screenH, t)!;
+    // Border radius: linear so corners snap crisply at 0
+    final radius = lerpDouble(0.0, 0.0, progress)!;
+
+    // Cross-fade timing
+    final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
+    final fullAlpha = ((progress - 0.12) / 0.38).clamp(0.0, 1.0);
+    final bgAlpha = (progress / 0.35).clamp(0.0, 1.0);
+
+    // ── Artwork morph positions ──────────────────────────────────────────────
+    const miniArtSize = 46.3;
+    const miniArtLeft = 12.0;
+    const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
+
+    final largeCoverSize = (screenW - 44.0).clamp(260.0, 390.0);
+    final artFullLeft = (screenW - largeCoverSize) / 2;
+
+    // Estimate PlayerContent artwork vertical position at full screen.
+    // Layout stack: SafeArea.top + Padding(12) + PlayerContent.Padding(25) = topInset
+    // Bottom controls ≈ 244 px.
+    final topInset = safeTop + 37.0;
+    const bottomCtrlH = 244.0;
+    final shFull = screenH - topInset - bottomCtrlH;
+    final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
+    final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
+    final artFullTop = topInset + coverTopLocal;
+
+    // Quadratic Bézier arc: artwork swings right then curves up to final pos.
+    // Control point pulled right of artFullLeft so the path bulges rightward
+    // before settling — keeps the overall diagonal feel ("tetap diagonal").
+    final cpLeft = artFullLeft + screenW * 0.17; // ≈ 67 px on 393-wide screen
+    final cpTop = lerpDouble(
+      miniArtTop,
+      artFullTop,
+      0.15,
+    )!; // low start → late lift
+    final bmt = 1.0 - t;
+    final artLeft =
+        bmt * bmt * miniArtLeft + 2 * bmt * t * cpLeft + t * t * artFullLeft;
+    final artTop =
+        bmt * bmt * miniArtTop + 2 * bmt * t * cpTop + t * t * artFullTop;
+    final artSize = lerpDouble(miniArtSize, largeCoverSize, t)!;
+    final artRadius = lerpDouble(4.0, 12.0, t)!;
+
+    return Positioned.fill(
+      child: ClipRect(
+        clipper: _BottomRevealClipper(clipVisibleHeight),
+        child: Stack(
+          children: [
+            Positioned(
+              bottom: bottom,
+              left: horizMargin,
+              right: horizMargin,
+              height: height,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: _onPanStart,
+                onPanUpdate: _onPanUpdate,
+                onPanEnd: _onPanEnd,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.antiAlias,
+                    children: [
+                      // ── Dark base (glass-aware at mini state) ──────────────────
+                      // BackdropFilter is isolated in its own RepaintBoundary so it
+                      // does not re-composite when the rest of the player animates.
+                      ValueListenableBuilder<bool>(
+                        valueListenable: ThemeController.glassTheme,
+                        builder: (_, masterGlass, _) => ValueListenableBuilder<bool>(
+                          valueListenable: ThemeController.glassMiniPlayer,
+                          builder: (_, compGlass, _) {
+                            // Use glass only when fully at rest in mini state.
+                            // Threshold 0.05 collapses the glass before drag starts
+                            // so BackdropFilter never runs during the morph animation.
+                            final useGlass =
+                                masterGlass && compGlass && progress < 0.02;
+                            if (useGlass) {
+                              final c = AppColors.of(context);
+                              return RepaintBoundary(
+                                child: ClipRect(
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(
+                                      sigmaX: 24,
+                                      sigmaY: 24,
+                                    ),
+                                    blendMode: BlendMode.srcOver,
+                                    child: ColoredBox(color: c.glassNavTint),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ColoredBox(
+                              color: AppColors.of(context).surface,
+                            );
+                          },
+                        ),
+                      ),
+
+                      // ── Pre-blurred artwork background (fades in with progress) ────
+                      // AnimatedBlurredPlayerBackground now serves a cached ui.Image
+                      // blit — no runtime ImageFilter cost per frame.
+                      // The outer ImageFiltered(blurSigma) that previously changed
+                      // every drag frame is removed; the inner artwork is already at
+                      // sigma 28 which is visually equivalent.
+                      if (bgAlpha > 0)
+                        Opacity(
+                          opacity: bgAlpha,
+                          child: RepaintBoundary(
+                            child: AnimatedBlurredPlayerBackground(
+                              songId: song.id,
+                            ),
+                          ),
+                        ),
+
+                      // ── Gradient overlay ───────────────────────────────────────────
+                      if (bgAlpha > 0)
+                        Opacity(
+                          opacity: bgAlpha,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color.fromARGB(40, 0, 0, 0),
+                                  Color.fromARGB(40, 0, 0, 0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // ── Full player content (slides up from bottom + fades in) ──────
+                      // All UI elements (except the morphing artwork above) enter as a
+                      // single unit: they slide up from the bottom of the screen to their
+                      // final positions as the sheet expands. The translation is driven by
+                      // the same eased `t` used for the rest of the morph so the motion
+                      // stays perfectly in sync with the gesture.
+                      if (fullAlpha > 0)
+                        Transform.translate(
+                          offset: Offset(0, screenH * (1.0 - t)),
+                          child: Opacity(
+                            opacity: fullAlpha,
+                            child: IgnorePointer(
+                              ignoring: progress < 0.45,
+                              child: SafeArea(
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: _PlaybackContent(
+                                    song: song,
+                                    formatTime: _formatTime,
+                                    showLyrics: _showLyrics,
+                                    onLyricsToggle: _toggleLyrics,
+                                    showQueue: _showQueue,
+                                    onQueueToggle: _toggleQueue,
+                                    // Unified player owns the artwork for all states;
+                                    // PlayerContent always hides its own artwork widget.
+                                    hideArtwork: true,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // ── Morphing artwork (mini → full → overlay thumbnail) ─────────
+                      // Single artwork widget handles all three states via _overlayAnim,
+                      // so there is no crossfade between two separate artwork widgets.
+                      AnimatedBuilder(
+                        animation: _overlayAnim,
+                        builder: (context, _) {
+                          final overlayT = Curves.easeInOutCubic.transform(
+                            _overlayAnim.value,
+                          );
+
+                          // Absolute position of the small thumbnail when overlay is active.
+                          // PlayerContent starts at: safeTop + SafeArea(top) + Padding(12) + Padding(25) = safeTop + 37.
+                          // Thumbnail is at Stack offset top: -0.5, left: 32 (= _playerHorizontalPadding).
+                          const smallLeft = 32.0;
+                          const smallSize = 55.0;
+                          const smallRadius = 3.0;
+                          final smallTop = safeTop + 36.5;
+
+                          // When the sheet is closing from overlay mode (_overlayAnim=1, progress→0),
+                          // scale down the thumbnail's influence proportionally with t so the artwork
+                          // smoothly flies from the small-thumbnail position to the mini-player
+                          // position instead of staying frozen at the top-left corner while the sheet
+                          // slides away.
+                          final effectiveOverlayT = (overlayT * t).clamp(
+                            0.0,
+                            1.0,
+                          );
+
+                          final finalLeft = lerpDouble(
+                            artLeft,
+                            smallLeft,
+                            effectiveOverlayT,
+                          )!;
+                          final finalTop = lerpDouble(
+                            artTop,
+                            smallTop,
+                            effectiveOverlayT,
+                          )!;
+                          final finalSize = lerpDouble(
+                            artSize,
+                            smallSize,
+                            effectiveOverlayT,
+                          )!;
+                          final finalRadius = lerpDouble(
+                            artRadius,
+                            smallRadius,
+                            effectiveOverlayT,
+                          )!;
+                          // Shadow grows with sheet-open progress (t) and fades away in thumbnail mode.
+                          final shadowBase = t * (1.0 - effectiveOverlayT);
+                          final shadowAlpha = 0.20 * shadowBase;
+                          final shadowBlur = 20.0 * shadowBase;
+                          final shadowOff = 10.0 * shadowBase;
+
+                          // Pulse scale uses raw overlayT (not effectiveOverlayT) so the suppression
+                          // only lifts once the overlay animation itself has fully reversed, not
+                          // during a sheet-close where _overlayAnim stays at 1.
+                          // Uses _isPlaying field — rebuilt by setState only on play/pause, not position ticks.
+                          final targetScale = overlayT > 0.5
+                              ? 1.0
+                              : (_isPlaying ? 1.0 : 0.96);
+
+                          return Positioned(
+                            left: finalLeft,
+                            top: finalTop,
+                            width: finalSize,
+                            height: finalSize,
+                            child: AnimatedScale(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              scale: targetScale,
+                              child: Container(
+                                // Shadow in background so it renders behind the artwork.
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: shadowAlpha,
+                                      ),
+                                      blurRadius: shadowBlur,
+                                      offset: Offset(0, shadowOff),
+                                    ),
+                                  ],
+                                ),
+                                // Hairline border in foreground so it paints ON TOP of the artwork
+                                // and covers any antialiasing gaps left by ClipRRect at the corners.
+                                // This matches the approach used in ArtworkHairlineBorder.
+                                foregroundDecoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                    finalRadius,
+                                  ),
+                                  border: Border.all(
+                                    color: kArtworkHairlineColor,
+                                    width: kArtworkHairlineWidth,
+                                    strokeAlign: BorderSide.strokeAlignInside,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    finalRadius,
+                                  ),
+                                  child: SongArtwork(
+                                    songId: song.id,
+                                    size: artSize,
+                                    borderRadius: BorderRadius.zero,
+                                    // Hairline already drawn on the outer Container above —
+                                    // avoids a doubled/mismatched stroke here.
+                                    showBorder: false,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // ── Mini player overlay (fades out in first 28% of progress) ───
+                      if (miniAlpha > 0)
+                        Opacity(
+                          opacity: miniAlpha,
+                          child: IgnorePointer(
+                            ignoring: progress > 0.08,
+                            child: _buildMiniOverlay(context, song, progress),
+                          ),
+                        ),
+
+                      // ── Collapse chevron (top-left of full player) ─────────────────
+                    ],
+                  ),
+                ),
+              ),
+            ), // closes inner Positioned
+          ],
+        ), // closes inner Stack
+      ), // closes ClipRect
+    ); // closes Positioned.fill
+  }
+
+  // ── Mini player overlay (identik dengan MiniPlayer asli) ───────────────────
+  // Uses _isPlaying field instead of AudioPlaybackState parameter —
+  // only rebuilt on song/isPlaying changes, not on position ticks.
+  Widget _buildMiniOverlay(
+    BuildContext context,
+    LocalSong song,
+    double progress,
+  ) {
+    final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
+
+    final miniContentOffset = -5.0 * (1.0 - miniContentAlpha);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Swipe arrow hint (kiri = prev, kanan = next)
+
+        // Row utama: [artwork spacer] [title] [controls]
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              // Spacer untuk morphing artwork (46 px lebar + 10 px gap)
+              const SizedBox(width: 56),
+
+              // Judul lagu dengan Hero tag
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _animateTo(1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, miniContentOffset),
+                    child: Opacity(
+                      opacity: miniContentAlpha,
+                      child: Hero(
+                        tag: PlayerHeroTags.title(song),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Text(
+                            song.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.of(context).primaryLabel,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Play / Pause — uses _isPlaying field
+              Transform.translate(
+                offset: Offset(0, miniContentOffset),
+                child: Opacity(
+                  opacity: miniContentAlpha,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => _isPlaying
+                            ? AudioService.pause()
+                            : AudioService.play(),
+                        icon: Icon(
+                          _isPlaying
+                              ? CupertinoIcons.pause_fill
+                              : CupertinoIcons.play_fill,
+                          size: 31,
+                          color: AppColors.of(context).primaryLabel,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: AudioService.skipNext,
+                        icon: Icon(
+                          CupertinoIcons.forward_fill,
+                          size: 30,
+                          color: AppColors.of(context).primaryLabel,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── _PlaybackContent & _BottomRevealClipper ────────────────────────────────
+// Dipindah ke part file (lihat deklarasi `part` di atas):
+//   unified_morph_player/playback_content.dart
+//   unified_morph_player/bottom_reveal_clipper.dart
