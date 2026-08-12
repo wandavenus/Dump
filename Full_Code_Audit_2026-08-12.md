@@ -329,5 +329,55 @@ RC-3, SKIP-01, WD-01, ZOOM-01, R-B/R-C 1.5.21, Phase 4.5/9, Item 2/3/6/7/8/10).
 
 ---
 
-*Audit selesai: `lib/` (277 file Dart) + `android/` (42 file Kotlin). Tidak ada
-kode yang diubah oleh audit ini.*
+*Audit selesai: `lib/` (277 file Dart) + `android/` (42 file Kotlin).*
+
+---
+
+# Perbaikan diterapkan (sesi ini) — K1, K2, K3
+
+### K1 ✅ — `MetadataPrescanner`: generation counter menggantikan flag boolean
+
+- **File:** `android/app/src/main/kotlin/dev/wndavenz/music/metadata/MetadataPrescanner.kt`
+- **Perubahan:** field `cancelled: Boolean` dihapus; diganti `AtomicLong generation`.
+  - `start()`: `val myGeneration = generation.incrementAndGet()` (klaim atomik) →
+    worker berhenti saat `generation.get() != myGeneration` di setiap iterasi loop
+    dan sebelum `Thread.sleep`.
+  - `cancel()`: `generation.incrementAndGet()` tanpa syarat — scan yang hidup
+    berhenti di batas file berikutnya walau pun `running` sempat salah dibersihkan
+    worker lama.
+  - `running` hanya dibersihkan oleh worker yang masih memegang generation
+    terbaru (`if (generation.get() == myGeneration) running = false`).
+- **Efek:** start+start dan start+cancel berurutan tidak lagi memproduksi dua scan
+  paralel, `isRunning` tidak lagi salah, dan `cancel()` saat playback mulai selalu
+  efektif.
+
+### K2 ✅ — `getSongExtendedTags`: mtime di-sample sebelum read
+
+- **File:** `android/app/src/main/kotlin/dev/wndavenz/music/MainActivity.kt`
+  (handler `"getSongExtendedTags"`, ±:576).
+- **Perubahan:** `val mtime = MetadataCacheDb.mtime(path)` dipindah ke **sebelum**
+  `ExoMetadataReader.read(...)`; kondisi cache-populate menjadi
+  `if (mtime != 0L && metadataCacheDb.getByPath(path, mtime) == null)`
+  (`mtime == 0L` ⇔ file tidak ada — sentinel yang sama dipakai `MetadataPrescanner`).
+- **Efek:** selaras dengan `getReplayGainTags`/`getEmbeddedLyrics`. Jika file berubah
+  saat read, cache menyimpan mtime lama + bytes baru → lookup berikutnya miss dan
+  re-read (self-healing); tidak ada lagi ikatan tags stale di bawah mtime baru.
+
+### K3 ✅ — Suppression notifikasi di preview mode
+
+- **File:**
+  - `notification/PlaybackNotificationManager.kt` — field `@Volatile suppressed` +
+    `setSuppressed(value)`; guard `if (suppressed) return` di `ensureMediaForeground()`,
+    `if (suppressed && !isForeground) return` di `refresh()` dan `postNotification()`
+    (postNotification sebagai pengaman untuk callback async/prewarm).
+  - `Media3PlaybackService.kt` — `onStartCommand` memanggil
+    `notificationManager.setSuppressed(isPreviewMode)` setelah membaca extra;
+    `handle()` (MethodChannel) membatalkan preview mode + unsuppress saat Flutter
+    mengambil alih (overlay native tidak pernah memakai channel ini).
+- **Efek:** preview file-manager tidak lagi memunculkan notifikasi media (sebelumnya
+  guard di `handlePlayUri` tidak efektif karena `handlePlay` → `ensureMediaForeground()`
+  dan semua listener `refresh()` tetap membuatnya). Notifikasi yang **sudah tampil**
+  tetap ter-update saat preview menimpa playback aktif (tidak ada stale track).
+  Saat Flutter membuka aplikasi, notifikasi kembali normal.
+
+*K4 (NIT) tidak diubah — tidak diminta.*

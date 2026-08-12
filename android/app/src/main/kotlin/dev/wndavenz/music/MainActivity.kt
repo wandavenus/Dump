@@ -572,10 +572,18 @@ class MainActivity : FlutterActivity() {
                             },
                         ) {
                             try {
+                                // K2 fix: sample mtime BEFORE the read (same ordering as
+                                // getReplayGainTags/getEmbeddedLyrics). If the file changes
+                                // mid-read, the cache stores the OLD mtime with the NEW tag
+                                // bytes, so the next lookup misses and re-reads (self-healing).
+                                // The previous ordering (read then mtime) could bind stale tag
+                                // bytes to the NEW mtime and serve them until the file changed
+                                // again. mtime == 0L means the file does not exist — skip
+                                // caching in that case.
+                                val mtime = MetadataCacheDb.mtime(path)
                                 val tags = ExoMetadataReader.read(this, path)
                                 // Opportunistically populate RG/lyrics cache if not present
-                                val mtime = MetadataCacheDb.mtime(path)
-                                if (File(path).exists() && metadataCacheDb.getByPath(path, mtime) == null) {
+                                if (mtime != 0L && metadataCacheDb.getByPath(path, mtime) == null) {
                                     metadataCacheDb.putByPath(path, mtime, MetadataCacheDb.CachedEntry(
                                         rgTrackGain = tags.rgTrackGain,
                                         rgTrackPeak = tags.rgTrackPeak,
