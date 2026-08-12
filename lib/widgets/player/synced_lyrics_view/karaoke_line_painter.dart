@@ -145,7 +145,7 @@ class _KaraokeLinePainter extends CustomPainter {
       highlight.paint(canvas, Offset.zero);
 
       if (currentBounds.width > 0 && progress > 0.0 && progress < 1.0) {
-        const double fadeW = 10.0;
+        const double fadeW = 20.0;
         final double stripW = currentBounds.width.clamp(0.0, fadeW);
 
         // Leading edge is right side (LTR) or left side (RTL).
