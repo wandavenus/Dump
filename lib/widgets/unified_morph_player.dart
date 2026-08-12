@@ -6,6 +6,7 @@ import '../models/local_song.dart';
 import '../theme/app_colors.dart';
 import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
+import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
 import '../themes/theme_controller.dart';
 import 'player/player_background.dart';
@@ -88,10 +89,51 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // → bottom is negative → mini player is hidden below the screen until the next
     // playback event fires (which never comes if nothing changes).
     if (_currentSong != null) {
-      unawaited(_entryAnim.forward(from: 0.0));
-    }
+  final song = _currentSong!;
+  unawaited(
+    _prewarmEntryArtwork(song).then((_) {
+      if (mounted && _currentSong?.id == song.id) {
+        _entryAnim.forward(from: 0.0);
+      }
+    }),
+  );
+}
   }
 
+  Future<void> _prewarmEntryArtwork(LocalSong song) async {
+  final repo = ArtworkRepository.instance;
+  final targetPx = repo.resolveTargetPx(46.3);
+
+  final provider = repo.getProviderSync(
+    song.id,
+    targetSizePx: targetPx,
+  );
+
+  if (provider == null) return;
+
+  final completer = Completer<void>();
+  final stream = provider.resolve(ImageConfiguration.empty);
+
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (_, _) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) completer.complete();
+    },
+    onError: (_, _) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) completer.complete();
+    },
+  );
+
+  stream.addListener(listener);
+
+  await completer.future.timeout(
+    const Duration(milliseconds: 3000),
+    onTimeout: () {},
+  );
+}
+  
   @override
   void dispose() {
     _overlayAnim.dispose();
@@ -112,30 +154,42 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final isPlaying = state.isPlaying;
 
     // Entry animation: first song appears (was null, now non-null).
-    if (_currentSong == null && song != null) {
-      unawaited(_entryAnim.forward(from: 0.0));
-    }
+if (_currentSong == null && song != null) {
+  final appearedSong = song;
+
+  unawaited(
+    _prewarmEntryArtwork(appearedSong).then((_) {
+      if (mounted && _currentSong?.id == appearedSong.id) {
+        _entryAnim.forward(from: 0.0);
+      }
+    }),
+  );
+}
 
     var needsRebuild = false;
 
-    // Song identity changed (including null → non-null and vice-versa).
-    final songChanged =
-        (_currentSong == null) != (song == null) ||
-        (_currentSong?.id != song?.id);
-    if (songChanged) {
-      _currentSong = song;
-      needsRebuild = true;
-    }
+// Song identity changed.
+final songChanged =
+    (_currentSong == null) != (song == null) ||
+    (_currentSong?.id != song?.id);
 
-    // Play / Pause state changed.
-    if (_isPlaying != isPlaying) {
-      _isPlaying = isPlaying;
-      needsRebuild = true;
-    }
+if (songChanged) {
+  _currentSong = song;
+  needsRebuild = true;
 
-    if (needsRebuild && mounted) setState(() {});
+  // Entry animation: first song appears.
+  if (song != null) {
+    final appearedSong = song;
+
+    unawaited(
+      _prewarmEntryArtwork(appearedSong).then((_) {
+        if (mounted && _currentSong?.id == appearedSong.id) {
+          _entryAnim.forward(from: 0.0);
+        }
+      }),
+    );
   }
-
+}
   void _onReleaseAnimTick() {
     // easeOutCubic applied in listener so we drive the raw controller linearly
     final u = 1.0 - _releaseAnim.value;
