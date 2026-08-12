@@ -13,6 +13,12 @@ import 'player/player_content.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
 
+// Part files (same library — private types shared):
+//   unified_morph_player/playback_content.dart   → _PlaybackContent
+//   unified_morph_player/bottom_reveal_clipper.dart → _BottomRevealClipper
+part 'unified_morph_player/playback_content.dart';
+part 'unified_morph_player/bottom_reveal_clipper.dart';
+
 class UnifiedMorphPlayer extends StatefulWidget {
   const UnifiedMorphPlayer({super.key});
 
@@ -746,62 +752,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 }
 
-// ── _PlaybackContent ─────────────────────────────────────────────────────────
-// Narrow VLB wrapper around PlayerContent.
-// Responsibility: subscribe to AudioService.playbackState and pass the full
-// state to PlayerContent — isolating position-tick rebuilds to this subtree
-// only, so the morph layout in _UnifiedMorphPlayerState is NOT rebuilt on
-// every 100 ms position update.
-class _PlaybackContent extends StatelessWidget {
-  final LocalSong song;
-  final String Function(Duration) formatTime;
-  final bool showLyrics;
-  final VoidCallback onLyricsToggle;
-  final bool showQueue;
-  final VoidCallback onQueueToggle;
-  final bool hideArtwork;
-
-  const _PlaybackContent({
-    required this.song,
-    required this.formatTime,
-    required this.showLyrics,
-    required this.onLyricsToggle,
-    required this.showQueue,
-    required this.onQueueToggle,
-    this.hideArtwork = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<AudioPlaybackState>(
-      valueListenable: AudioService.playbackState,
-      builder: (context, playbackState, _) {
-        return PlayerContent(
-          song: song,
-          playbackState: playbackState,
-          formatTime: formatTime,
-          showLyrics: showLyrics,
-          onLyricsToggle: onLyricsToggle,
-          showQueue: showQueue,
-          onQueueToggle: onQueueToggle,
-          hideArtwork: hideArtwork,
-        );
-      },
-    );
-  }
-}
-
-// ── Reveal clipper used by the mini-player entry animation ───────────────────
-// Clips away everything at/below a given height so the mini player appears to
-// rise from behind/inside the bottom nav bar instead of sliding on top of it.
-class _BottomRevealClipper extends CustomClipper<Rect> {
-  final double visibleHeight;
-  const _BottomRevealClipper(this.visibleHeight);
-
-  @override
-  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, visibleHeight);
-
-  @override
-  bool shouldReclip(covariant _BottomRevealClipper oldClipper) =>
-      oldClipper.visibleHeight != visibleHeight;
-}
+// ── _PlaybackContent & _BottomRevealClipper ────────────────────────────────
+// Dipindah ke part file (lihat deklarasi `part` di atas):
+//   unified_morph_player/playback_content.dart
+//   unified_morph_player/bottom_reveal_clipper.dart

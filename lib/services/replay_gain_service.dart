@@ -21,6 +21,7 @@ import '../models/loudness_data.dart';
 import 'log_service.dart';
 
 part 'replay_gain_service/service.dart';
+part 'replay_gain_service/models.dart';
 
 /// File identity used to prevent a cached or scanned value from being applied
 /// to a newer file at the same MediaStore id.
