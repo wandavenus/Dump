@@ -3,6 +3,7 @@ package dev.wndavenz.music.metadata
 import android.content.Context
 import android.os.Process
 import android.util.Log
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Background metadata pre-scanner.
@@ -22,6 +23,16 @@ import android.util.Log
  * cancels the previous scan and starts a new one.
  *
  * Thread-safety: [start] and [cancel] may be called from any thread.
+ *
+ * K1 fix: cancellation/supersession uses a monotonic generation counter
+ * instead of a boolean flag. The old `cancelled` flag raced: `start()` reset
+ * it while the previous worker thread was still alive, so that thread could
+ * read `cancelled == false`, keep scanning (two scans at once), and clear
+ * `running` out from under the replacement scan — which in turn made a later
+ * `cancel()` a silent no-op. Each worker captures the generation it started
+ * with and stops as soon as it no longer matches the current generation.
+ * [start] claims its generation atomically, so two concurrent `start()` calls
+ * can never produce two workers with the same generation either.
  */
 object MetadataPrescanner {
 
@@ -30,8 +41,14 @@ object MetadataPrescanner {
 
     data class SongRef(val id: Int, val path: String)
 
-    @Volatile private var cancelled = false
-    @Volatile private var running   = false
+    /**
+     * Monotonic generation counter. Both [start] and [cancel] bump it; a
+     * worker thread treats `generation != myGeneration` as "I was superseded
+     * or cancelled — stop". AtomicLong makes the claim in [start] atomic, so
+     * concurrent starts get distinct generations.
+     */
+    private val generation = AtomicLong(0L)
+    @Volatile private var running = false
 
     /** True while a scan is in progress. */
     val isRunning: Boolean get() = running
@@ -45,12 +62,19 @@ object MetadataPrescanner {
      * @param cache    The shared [MetadataCacheDb] instance.
      */
     fun start(context: Context, songs: List<SongRef>, cache: MetadataCacheDb) {
-        cancel()   // stop any previous scan
+        // Claim a fresh generation: any previously running worker sees the
+        // mismatch at its next loop check and stops, even if it was still
+        // alive when this call ran (K1 race fix).
+        val myGeneration = generation.incrementAndGet()
 
-        if (songs.isEmpty()) return
+        if (songs.isEmpty()) {
+            // Still bumped the generation so a stale scan is cancelled, matching
+            // the old `cancel()`-first semantics; nothing new to run.
+            if (running) running = false
+            return
+        }
 
-        cancelled = false
-        running   = true
+        running = true
 
         val appContext = context.applicationContext
 
@@ -65,7 +89,7 @@ object MetadataPrescanner {
             Log.d(TAG, "Pre-scan started — ${songs.size} songs to check")
 
             for (song in songs) {
-                if (cancelled) break
+                if (generation.get() != myGeneration) break
                 if (song.path.isBlank()) continue
 
                 try {
@@ -99,7 +123,7 @@ object MetadataPrescanner {
                     scanned++
 
                     // Brief yield so we don't dominate I/O bandwidth
-                    if (!cancelled) Thread.sleep(INTER_FILE_DELAY_MS)
+                    if (generation.get() == myGeneration) Thread.sleep(INTER_FILE_DELAY_MS)
 
                 } catch (e: InterruptedException) {
                     break
@@ -109,9 +133,12 @@ object MetadataPrescanner {
                 }
             }
 
-            running = false
+            // Only the worker that still owns the current generation clears
+            // `running` — a superseded worker must not reset it while the
+            // replacement scan is still in progress.
+            if (generation.get() == myGeneration) running = false
             Log.d(TAG, "Pre-scan finished — " +
-                "scanned=$scanned skipped=$skipped errors=$errors cancelled=$cancelled")
+                "scanned=$scanned skipped=$skipped errors=$errors cancelled=${generation.get() != myGeneration}")
 
         }.apply {
             name     = "metadata-prescanner"
@@ -125,8 +152,12 @@ object MetadataPrescanner {
      * Returns immediately; the background thread stops at the next file boundary.
      */
     fun cancel() {
+        // Bump the generation unconditionally: even if `running` was left stale
+        // by a racing superseded worker, the live scan (if any) still observes
+        // the mismatch and stops. A scan started concurrently right after this
+        // call is a fresh scan and is not affected.
+        generation.incrementAndGet()
         if (running) {
-            cancelled = true
             Log.d(TAG, "Pre-scan cancelled")
         }
     }

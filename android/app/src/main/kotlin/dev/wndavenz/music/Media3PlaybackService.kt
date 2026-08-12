@@ -783,6 +783,12 @@ class Media3PlaybackService : MediaSessionService() {
         
         // 2. Cek apakah ini panggilan dari overlay preview
         isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
+        // K3 fix: propagate preview mode to the notification manager so
+        // playNative()/player listeners can never start a foreground
+        // notification during the file-manager preview (previously only the
+        // first ensureMediaForeground() in handlePlayUri was guarded, while
+        // handlePlay and every listener refresh() still created it).
+        notificationManager.setSuppressed(isPreviewMode)
 
         if (intent?.action == ACTION_PLAY_URI) {
             val uriStr = intent.getStringExtra(EXTRA_URI)
@@ -919,6 +925,13 @@ class Media3PlaybackService : MediaSessionService() {
     // ── MethodChannel entry point ─────────────────────────────────────────────
 
     fun handle(call: MethodCall, result: MethodChannel.Result) {
+        // K3 fix: any MethodChannel call means the Flutter app is now driving
+        // playback (the native overlay preview never uses this channel) — leave
+        // preview mode and allow the notification to be created again.
+        if (isPreviewMode) {
+            isPreviewMode = false
+            notificationManager.setSuppressed(false)
+        }
         // "release" is handled here rather than in TransportCommands because it
         // must call stopSelf() — a service-level operation not available to
         // TransportCommands.  This mirrors the ACTION_STOP notification-button

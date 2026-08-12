@@ -77,6 +77,23 @@ class PlaybackNotificationManager(
     /** Set by [close]; rejects new async work after service teardown. */
     @Volatile
     private var closed = false
+    /**
+     * K3 fix: while suppressed (file-manager preview mode), the manager never
+     * CREATES a foreground notification. Updates to an already-showing
+     * notification are still allowed, so a preview that overrides active
+     * playback does not leave a stale track on screen.
+     */
+    @Volatile
+    private var suppressed = false
+
+    /**
+     * K3 fix: enable/disable notification suppression. The service wires this
+     * to preview mode (IS_OVERLAY_PREVIEW) and clears it as soon as the
+     * Flutter app starts driving playback through the MethodChannel.
+     */
+    fun setSuppressed(value: Boolean) {
+        suppressed = value
+    }
     private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "artwork-loader").also { it.isDaemon = true }
     }
@@ -114,6 +131,8 @@ class PlaybackNotificationManager(
 
     fun ensureMediaForeground() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // K3 fix: never start a foreground notification while suppressed.
+        if (suppressed) return
         if (isForeground) return
         ensureChannel()
 
@@ -133,6 +152,9 @@ class PlaybackNotificationManager(
 
     fun refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // K3 fix: never start a foreground notification while suppressed; an
+        // already-showing notification keeps updating.
+        if (suppressed && !isForeground) return
         val sess = getSession() ?: return
         ensureChannel()
 
@@ -241,6 +263,10 @@ class PlaybackNotificationManager(
     }
 
     private fun postNotification(notification: android.app.Notification) {
+        // K3 fix: belt-and-suspenders for async refresh()/prewarm completions
+        // that resolve after suppression was enabled — never create a
+        // foreground from an async callback either.
+        if (suppressed && !isForeground) return
         try {
             if (!isForeground) startForegroundWith(notification) else notificationManager.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
