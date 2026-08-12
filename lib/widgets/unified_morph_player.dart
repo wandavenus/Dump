@@ -89,51 +89,51 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // → bottom is negative → mini player is hidden below the screen until the next
     // playback event fires (which never comes if nothing changes).
     if (_currentSong != null) {
-  final song = _currentSong!;
-  unawaited(
-    _prewarmEntryArtwork(song).then((_) {
-      if (mounted && _currentSong?.id == song.id) {
-        _entryAnim.forward(from: 0.0);
-      }
-    }),
-  );
-}
+      final song = _currentSong!;
+      unawaited(
+        _prewarmEntryArtwork(song).then((_) {
+          if (mounted && _currentSong?.id == song.id) {
+            _entryAnim.forward(from: 0.0);
+          }
+        }),
+      );
+    }
   }
 
   Future<void> _prewarmEntryArtwork(LocalSong song) async {
-  final repo = ArtworkRepository.instance;
-  final targetPx = repo.resolveTargetPx(46.3);
+    final repo = ArtworkRepository.instance;
+    final targetPx = repo.resolveTargetPx(46.3);
 
-  final provider = repo.getProviderSync(
-    song.id,
-    targetSizePx: targetPx,
-  );
+    final provider = repo.getProviderSync(
+      song.id,
+      targetSizePx: targetPx,
+    );
 
-  if (provider == null) return;
+    if (provider == null) return;
 
-  final completer = Completer<void>();
-  final stream = provider.resolve(ImageConfiguration.empty);
+    final completer = Completer<void>();
+    final stream = provider.resolve(ImageConfiguration.empty);
 
-  late final ImageStreamListener listener;
-  listener = ImageStreamListener(
-    (_, _) {
-      stream.removeListener(listener);
-      if (!completer.isCompleted) completer.complete();
-    },
-    onError: (_, _) {
-      stream.removeListener(listener);
-      if (!completer.isCompleted) completer.complete();
-    },
-  );
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
 
-  stream.addListener(listener);
+    stream.addListener(listener);
 
-  await completer.future.timeout(
-    const Duration(milliseconds: 3000),
-    onTimeout: () {},
-  );
-}
-  
+    await completer.future.timeout(
+      const Duration(milliseconds: 3000),
+      onTimeout: () {},
+    );
+  }
+
   @override
   void dispose() {
     _overlayAnim.dispose();
@@ -153,43 +153,43 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final song = state.currentSong;
     final isPlaying = state.isPlaying;
 
-    // Entry animation: first song appears (was null, now non-null).
-if (_currentSong == null && song != null) {
-  final appearedSong = song;
-
-  unawaited(
-    _prewarmEntryArtwork(appearedSong).then((_) {
-      if (mounted && _currentSong?.id == appearedSong.id) {
-        _entryAnim.forward(from: 0.0);
-      }
-    }),
-  );
-}
-
     var needsRebuild = false;
 
-// Song identity changed.
-final songChanged =
-    (_currentSong == null) != (song == null) ||
-    (_currentSong?.id != song?.id);
+    // Song identity changed (including null → non-null and vice-versa).
+    final songChanged =
+        (_currentSong == null) != (song == null) ||
+        (_currentSong?.id != song?.id);
 
-if (songChanged) {
-  _currentSong = song;
-  needsRebuild = true;
+    if (songChanged) {
+      _currentSong = song;
+      needsRebuild = true;
 
-  // Entry animation: first song appears.
-  if (song != null) {
-    final appearedSong = song;
+      // Entry animation: decode the exact mini-player artwork first,
+      // then start the slide-up animation only after the bitmap is ready.
+      if (song != null) {
+        final appearedSong = song;
 
-    unawaited(
-      _prewarmEntryArtwork(appearedSong).then((_) {
-        if (mounted && _currentSong?.id == appearedSong.id) {
-          _entryAnim.forward(from: 0.0);
-        }
-      }),
-    );
+        unawaited(
+          _prewarmEntryArtwork(appearedSong).then((_) {
+            if (mounted && _currentSong?.id == appearedSong.id) {
+              _entryAnim.forward(from: 0.0);
+            }
+          }),
+        );
+      }
+    }
+
+    // Play / Pause state changed.
+    if (_isPlaying != isPlaying) {
+      _isPlaying = isPlaying;
+      needsRebuild = true;
+    }
+
+    if (needsRebuild && mounted) {
+      setState(() {});
+    }
   }
-}
+
   void _onReleaseAnimTick() {
     // easeOutCubic applied in listener so we drive the raw controller linearly
     final u = 1.0 - _releaseAnim.value;
@@ -714,7 +714,7 @@ if (songChanged) {
     ); // closes Positioned.fill
   }
 
-  // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
+  // ── Mini player overlay (identik dengan MiniPlayer asli) ───────────────────
   // Uses _isPlaying field instead of AudioPlaybackState parameter —
   // only rebuilt on song/isPlaying changes, not on position ticks.
   Widget _buildMiniOverlay(
