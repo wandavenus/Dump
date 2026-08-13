@@ -34,6 +34,10 @@ class SleepTimerManager(
     private var timerRunnable: Runnable? = null
     private var tickRunnable: Runnable? = null
     private var fadeRunnable: Runnable? = null
+    // K11 fix: the player's volume when the fade started — restored when the
+    // fade completes or is cancelled, instead of a hardcoded 1.0f that ignores
+    // the user's actual volume (e.g. 0.3).
+    private var fadeInitialVolume = 1.0f
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -141,6 +145,7 @@ class SleepTimerManager(
         val totalSteps  = 20
         val stepMs      = 1000L
         val initialVol  = player.volume.coerceAtLeast(0.01f)
+        fadeInitialVolume = initialVol.coerceIn(0f, 1f)
         var step        = 0
 
         val runnable = object : Runnable {
@@ -152,7 +157,7 @@ class SleepTimerManager(
                     // Use the same captured reference for both operations so
                     // a concurrent player swap can't affect the wrong player.
                     p?.pause()
-                    p?.volume = 1.0f
+                    p?.volume = fadeInitialVolume
                     fadeRunnable = null
                     log("Sleep fade-out complete — paused, volume restored")
                     return
@@ -167,11 +172,18 @@ class SleepTimerManager(
         log("Sleep fade-out started: ${totalSteps}s")
     }
 
-    /** Cancel any running fade and restore player volume to 1.0. */
+    /**
+     * Cancel any running fade and restore the pre-fade volume.
+     * K11 fix: only restores volume when a fade was actually in progress —
+     * previously this also snapped a non-fading player's volume to 1.0f
+     * whenever a new timer was started (startDuration/startEndOfSong), and
+     * always restored to 1.0f instead of the user's volume.
+     */
     private fun cancelFadeOut() {
+        val hadActiveFade = fadeRunnable != null
         fadeRunnable?.let { handler.removeCallbacks(it) }
         fadeRunnable = null
-        getPlayer()?.volume = 1.0f
+        if (hadActiveFade) getPlayer()?.volume = fadeInitialVolume
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────

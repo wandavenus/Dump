@@ -3,6 +3,7 @@ package dev.wndavenz.music.events
 import android.os.Handler
 import android.os.Looper
 import io.flutter.plugin.common.EventChannel
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Central event bus for all playback-related EventChannel streams.
@@ -15,7 +16,12 @@ import io.flutter.plugin.common.EventChannel
  * MainActivity still accesses this via Media3PlaybackService.Events (companion alias).
  */
 object EventEmitter {
-    private val sinks = mutableMapOf<String, EventChannel.EventSink?>()
+    // K4 fix: all production callers today emit on the main thread, but this
+    // map is also read/written from onListen/onCancel and nothing enforces the
+    // main-thread contract. ConcurrentHashMap removes the latent
+    // ConcurrentModificationException / visibility risk without changing
+    // behavior (it implements MutableMap, so the operators below are unchanged).
+    private val sinks = ConcurrentHashMap<String, EventChannel.EventSink?>()
 
     /** Called whenever a new Flutter listener subscribes to any stream. */
     private var onSubscribe: (() -> Unit)? = null

@@ -38,6 +38,13 @@ class ArtworkCacheManager(private val context: Context) {
         private const val CACHE_SUBDIR  = "artwork"
         private const val MAX_BYTES     = 500L * 1024 * 1024   // 500 MB hard cap
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
+        // K9 fix: orphaned `*.tmp` files older than this are removed by the
+        // cleanup pass. The write path deletes its own tmp in `finally`, but a
+        // process kill / crash mid-write leaves one behind forever. One hour is
+        // far beyond any live write's lifetime, so the age gate is safe even
+        // though Activity and playback service share the dir without a
+        // cross-instance lock.
+        private const val TMP_MAX_AGE_MS = 60L * 60 * 1000
         private const val WEBP_QUALITY  = 85
         private const val MAX_ARTWORK_SIZE = 1000
         // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
@@ -192,6 +199,10 @@ class ArtworkCacheManager(private val context: Context) {
      * Call after a batch of extractions.
      */
     fun cleanupIfNeeded(activeQueueIds: Set<Int> = emptySet()) {
+        // K9 fix: sweep orphaned tmp files on every cleanup pass, before the
+        // size check (they only exist after interrupted writes and never count
+        // toward the webp size budget, so the old code never removed them).
+        sweepStaleTmpFiles()
         val files = cacheDir.listFiles { f -> f.extension == "webp" } ?: return
         val total = files.sumOf { it.length() }
         if (total <= MAX_BYTES) return
@@ -211,6 +222,25 @@ class ArtworkCacheManager(private val context: Context) {
                 remaining -= sz
                 Log.d(TAG, "Evicted ${f.name} (${sz / 1024} KB)")
             }
+        }
+    }
+
+    /**
+     * K9 fix: deletes orphaned `*.tmp` files left by interrupted/failed writes.
+     * Only files older than [TMP_MAX_AGE_MS] are removed — a live writer's tmp
+     * is by definition recent, so this cannot race the "do not delete a second
+     * instance's active temp file" rule documented at cacheDir.
+     */
+    private fun sweepStaleTmpFiles() {
+        val cutoff = System.currentTimeMillis() - TMP_MAX_AGE_MS
+        try {
+            cacheDir.listFiles { f -> f.name.endsWith(".tmp") }?.forEach { f ->
+                if (f.lastModified() < cutoff && f.delete()) {
+                    Log.d(TAG, "Removed stale tmp ${f.name}")
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort sweep — never fail the caller.
         }
     }
 
