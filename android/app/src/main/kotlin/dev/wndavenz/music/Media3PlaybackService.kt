@@ -253,8 +253,9 @@ class Media3PlaybackService : MediaSessionService() {
         // new player on crossfade promotion so lock-screen and BT controllers remain in sync.
         // transportCommands is lateinit but fully initialised before any external controller
         // can connect (connections only happen after onCreate() returns).
+        val initialPlayer = requireNotNull(primaryPlayer)
         activePlayerProxy = ActivePlayerProxy(
-            initialPlayer = initialPlayer,
+        initialPlayer = initialPlayer,
             onPlay        = { transportCommands.playNative() },
             onPause       = { transportCommands.pauseNative() },
             onSkipNext    = { transportCommands.skipNextNative() },
