@@ -216,7 +216,71 @@ active player.
 
 ---
 
+## Fix batch P3 — K3, K4, K9, K11 — DITERAPKAN (2026-08-13)
+
+Batch 4 fix paling aman (lokal, tanpa ubah API/konstruksi service). Kotlin
+tidak bisa dikompilasi di environment ini — verifikasi statis + grep.
+
+### K3 — Snapshot queue kosong di-clear, bukan di-skip
+
+**File:** `queue/QueueSync.kt`
+
+1. `save()` saat `queue.isEmpty()` tidak lagi `return` — sekarang memanggil
+   `clearPersistedSnapshot()` yang menulis `edit().clear().apply()` pada
+   `media3_queue_prefs` (coalescing `pendingSave` + executor sama seperti save
+   biasa, jadi burst tetap 1 I/O dan snapshot terbaru selalu menang).
+2. `restore()` sudah return null untuk snapshot kosong — menulis array kosong
+   pun efeknya sama; `clear()` sekalian membersihkan repeat/shuffle/posisi basi.
+3. Jalur yang tetap aman: `handlePlayUri` → `setQueue` non-kosong → save biasa;
+   `removeFromQueue` sampai kosong → clear (persis kondisi yang dimau).
+
+### K4 — `EventEmitter.sinks` → `ConcurrentHashMap`
+
+**File:** `events/EventEmitter.kt`
+
+`mutableMapOf` diganti `ConcurrentHashMap` (import ditambah). Semua operator
+(`sinks[name] = ...`, `sinks[name]?.success(...)`) tetap valid — implement
+`MutableMap`. Kontrak main-thread tetap, tapi race/CME potensial dari caller
+background di masa depan hilang. `EventEmitterTest` hanya memakai API publik —
+tidak tersentuh.
+
+### K9 — Sweep file `.tmp` artwork yang orphan
+
+**File:** `ArtworkCacheManager.kt`
+
+1. Konstanta `TMP_MAX_AGE_MS = 60 menit` di companion.
+2. `cleanupIfNeeded()` memanggil `sweepStaleTmpFiles()` sebelum size-check,
+   jadi sweep jalan di setiap pass LRU (throttle 15 s) tanpa menunggu cache
+   melewati 500 MB.
+3. Hanya file `*.tmp` dengan `lastModified < cutoff` yang dihapus — age-gate
+   menjaga aturan "jangan hapus tmp milik instance lain" yang didokumentasikan
+   di `cacheDir` (writer hidup pasti recent).
+
+### K11 — Sleep-timer restore volume ke nilai pre-fade, bukan `1.0f`
+
+**File:** `sleep_timer/SleepTimerManager.kt`
+
+1. Field baru `fadeInitialVolume` di-set dari `player.volume` saat fade mulai.
+2. Fade complete → `p?.volume = fadeInitialVolume` (bukan `1.0f`).
+3. `cancelFadeOut()` hanya restore volume saat fade benar-benar berjalan
+   (`hadActiveFade`) — sekaligus memperbaiki efek samping lama di mana
+   `startDuration()`/`startEndOfSong()` tanpa fade aktif ikut menyentak volume
+   ke `1.0f`.
+
+### Verifikasi
+
+- `grep`: tidak ada sisa `volume = 1.0f` di SleepTimerManager (hanya komentar);
+  `clearPersistedSnapshot` terdefinisi sekali + dipanggil sekali;
+  `ConcurrentHashMap` ter-import dan dipakai; `sweepStaleTmpFiles`/`TMP_MAX_AGE_MS`
+  terdefinisi + dipanggil. `git diff --check` pass.
+- `EventEmitterTest` (satu-satunya test yang menyentuh simbol diubah) hanya
+  memakai API publik — tidak perlu diubah.
+
+---
+
 ### K3 (P3) — `QueueSync.save()` early-return pada queue kosong → prefs menyimpan queue basi yang di-restore saat system-restart
+
+**Status: FIXED** — lihat "Fix batch P3" di atas.
 
 **File:** `QueueSync.kt:58` — `if (queue.isEmpty()) return`
 
@@ -233,6 +297,10 @@ fitur "kosongkan queue" di sisi Dart yang belum saya verifikasi eksistensinya).
 ---
 
 ### K4 (P3) — `EventEmitter.sinks` / `ServiceReadyGate.sink` tanpa sinkronisasi
+
+**Status: FIXED (EventEmitter)** — `sinks` kini `ConcurrentHashMap`; lihat
+"Fix batch P3" di atas. `ServiceReadyGate.sink` sengaja tidak diubah (kontrak
+main-thread, single-writer, dan sudah @Volatile).
 
 **File:** `EventEmitter.kt:16-31`, `ServiceReadyGate.kt`
 
@@ -305,6 +373,8 @@ data jaga oleh mtime, jadi dampak praktis kecil, tapi modelnya ambigu.
 
 ### K9 (P3) — File `.tmp` artwork tidak pernah dibersihkan
 
+**Status: FIXED** — lihat "Fix batch P3" di atas.
+
 **File:** `ArtworkCacheManager.kt` — `uniqueTempFile`, `saveRaw`/`saveAsWebP` finally, `cacheDir` lazy init, `cleanupIfNeeded` (filter `.webp`)
 
 Writer gagal → `.tmp` tersisa. `cacheDir` sengaja tidak menghapus tmp (komentar
@@ -333,6 +403,8 @@ strengths).
 ---
 
 ### K11 (P3) — Sleep-timer fade mengembalikan volume ke 1.0f hardcoded
+
+**Status: FIXED** — lihat "Fix batch P3" di atas.
 
 **File:** `SleepTimerManager.kt` — `startFadeOut` (:160-185) & `cancelFadeOut`
 

@@ -55,7 +55,15 @@ class QueueSync(
      */
     fun save() {
         val queue = getQueue()
-        if (queue.isEmpty()) return
+        if (queue.isEmpty()) {
+            // K3 fix: a session that ends with an empty queue must clear the
+            // persisted snapshot instead of keeping the last non-empty one
+            // forever. Previously the stale snapshot was restored whenever the
+            // system restarted the service (START_STICKY null intent), bringing
+            // back a queue the user had already emptied.
+            clearPersistedSnapshot()
+            return
+        }
 
         // Capture on main thread — ExoPlayer state must not be read off-thread.
         val p          = getPlayer()
@@ -71,6 +79,30 @@ class QueueSync(
         val boundedIdx = idx.coerceIn(0, (snapshot.size - 1).coerceAtLeast(0))
 
         val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode, shuffle) }
+        pendingSave.set(task)
+        saveExecutor.execute {
+            val t = pendingSave.getAndSet(null) ?: return@execute
+            t.run()
+        }
+    }
+
+    /**
+     * Clears the persisted queue snapshot (coalesced like [save]).
+     * [restore] already returns null for an empty snapshot, so an empty
+     * write would have the same effect — clearing the keys outright is
+     * simpler and removes stale repeat/shuffle/position values too.
+     */
+    private fun clearPersistedSnapshot() {
+        val task = Runnable {
+            try {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+            } catch (e: Exception) {
+                handler.post {
+                    NativeLogger.emit("warn", "QueueSync", "clear failed: ${e.message}")
+                }
+            }
+        }
         pendingSave.set(task)
         saveExecutor.execute {
             val t = pendingSave.getAndSet(null) ?: return@execute
