@@ -775,6 +775,23 @@ class AudioService {
         songs.length - 1,
       );
       final isPlaying = snapshot['isPlaying'] as bool? ?? false;
+
+      // B fix: setelah app di-kill, service native me-restore queue lama dalam
+      // keadaan paused/idle (restoreQueueFromPrefs di onCreate / service yang
+      // masih hidup karena stopWithTask=false). Menerbitkan lagu hasil-restore
+      // itu saat cold start membuat mini player tampak "nyangkut" di lagu
+      // sebelumnya. Skip publikasi currentSong HANYA saat (a) UI belum punya
+      // lagu (populasi pertama dari snapshot) dan (b) tidak ada playback
+      // aktif — yaitu queue hasil restore, bukan sesi playback sungguhan.
+      //
+      // _playlist tetap di-mirror supaya jalur resume via notifikasi
+      // (currentTrack event → _onNativeCurrentTrackChanged) bisa me-resolve
+      // lagu begitu user benar-benar melanjutkan (play dari notification /
+      // media button). Kasus lain tidak tersentuh: app resume setelah pause
+      // (currentSong != null) dan resume saat masih playing (isPlaying=true)
+      // tetap memublikasikan lagu seperti biasa.
+      final suppressRestoredSong =
+          playbackState.value.currentSong == null && !isPlaying;
       final stateStr = snapshot['processingState'] as String? ?? 'idle';
       final positionMs = (snapshot['positionMs'] as num?)?.toInt() ?? 0;
       final durationMs = (snapshot['durationMs'] as num?)?.toInt() ?? 0;
@@ -816,7 +833,7 @@ class AudioService {
 
       _setState(
         playbackState.value.copyWith(
-          currentSong: song,
+          currentSong: suppressRestoredSong ? null : song,
           currentIndex: index,
           currentPlaylist: _playlist,
           isPlaying: isPlaying,
@@ -838,23 +855,36 @@ class AudioService {
             'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
       );
 
-      // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
-      try {
-        await _ReplayGainApplicator.apply(song).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () {
-            LogService.verbose(
-              'AudioService',
-              'syncFromNative: replay gain apply timeout (2s) — skipping',
-            );
-            return;
-          },
-        );
-      } on Exception catch (e) {
-        LogService.verbose(
+      if (suppressRestoredSong) {
+        LogService.log(
           'AudioService',
-          'syncFromNative: replay gain apply error: $e',
+          'syncFromNative: restored queue idle — currentSong suppressed '
+              'until real playback starts',
         );
+      }
+
+      // Skip ReplayGain when the restored song is suppressed — nothing is
+      // playing; the applicator re-runs from _syncCurrentTrackFromNative as
+      // soon as the user resumes or starts a new track.
+      if (!suppressRestoredSong) {
+        // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
+        try {
+          await _ReplayGainApplicator.apply(song).timeout(
+            const Duration(seconds: 2),
+            onTimeout: () {
+              LogService.verbose(
+                'AudioService',
+                'syncFromNative: replay gain apply timeout (2s) — skipping',
+              );
+              return;
+            },
+          );
+        } on Exception catch (e) {
+          LogService.verbose(
+            'AudioService',
+            'syncFromNative: replay gain apply error: $e',
+          );
+        }
       }
     } on Object catch (e, st) {
       LogService.warn('AudioService', 'syncFromNative error: $e\n$st');
