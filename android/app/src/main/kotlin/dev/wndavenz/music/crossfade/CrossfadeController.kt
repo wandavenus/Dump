@@ -57,6 +57,10 @@ class CrossfadeController(
     private val getQueue:             () -> List<Map<String, Any?>>,
     private val getActiveQueueIndex:  () -> Int,
     private val setActiveQueueIndex:  (Int) -> Unit,
+    // K1 fix: restores the promoted player's one-item timeline after a
+    // mid-fade cancel (headphones unplugged / audio focus lost). Wired to
+    // QueueManager.rebuildPlayerQueue() in Media3PlaybackService.
+    private val rebuildPromotedQueue: () -> Unit = {},
     private val onCrossfadeComplete:  () -> Unit,
     private val emitAll:              () -> Unit,
     private val refreshNotification:  () -> Unit,
@@ -162,8 +166,14 @@ class CrossfadeController(
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         crossfadeFadeRunnable = null
 
+        // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
+        // promoted standby owns a one-item timeline until the fade completes;
+        // cancelling mid-fade (headphones unplugged, audio focus lost) would
+        // otherwise leave that one-item timeline as the active queue.
+        val wasMidFade = crossfadeInProgress
+
         // Stop the old player if we're mid-fade
-        if (crossfadeInProgress) {
+        if (wasMidFade) {
             CrossfadeTimelineLogger.stamp(
                 "CrossfadeController.cancel(): mid-fade cancel resetVolume=$resetVolume",
                 getActivePlayer())
@@ -182,6 +192,13 @@ class CrossfadeController(
         promotionOwner       = null
 
         if (resetVolume) getActivePlayer()?.volume = getVolumeBeforeDuck().coerceIn(0f, 1f)
+
+        // K1 fix: rebuild the authoritative queue on the promoted player after a
+        // mid-fade cancel so next/prev navigation never stays locked on a single
+        // track. rebuildPlayerQueue() skips when the timeline is already full, so
+        // paths that restore explicitly (TransportCommands pause/stop/skip,
+        // setQueue, shutdown) are unaffected no-ops.
+        if (wasMidFade) rebuildPromotedQueue()
     }
 
     /**

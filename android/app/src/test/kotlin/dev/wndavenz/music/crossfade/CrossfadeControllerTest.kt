@@ -63,6 +63,7 @@ class CrossfadeControllerTest {
         activeIndex:   Int = 0,
         volumeBeforeDuck: Float = 1f,
         hasAudioFocus: Boolean = true,
+        rebuildPromotedQueue: () -> Unit = {},
     ) = CrossfadeController(
         handler              = mockHandler,
         getActivePlayer      = { activePlayer },
@@ -76,6 +77,7 @@ class CrossfadeControllerTest {
         getQueue             = { queue },
         getActiveQueueIndex  = { activeIndex },
         setActiveQueueIndex  = { },
+        rebuildPromotedQueue = rebuildPromotedQueue,
         onCrossfadeComplete  = { crossfadeCompleteCalls++ },
         emitAll              = { emitAllCalls++ },
         refreshNotification  = { refreshNotifCalls++ },
@@ -190,6 +192,42 @@ class CrossfadeControllerTest {
         // Just confirming no exception is thrown.
     }
 
+    // K1 fix: a mid-fade cancel (headphones unplugged / audio focus lost) must
+    // rebuild the promoted player's one-item timeline back to the full queue,
+    // otherwise next/prev navigation stays locked on a single track.
+
+    @Test fun `C06 cancel mid-fade invokes rebuildPromotedQueue exactly once`() {
+        var rebuilds = 0
+        val ctrl = makeControllerWithImmediateTrigger(rebuildPromotedQueue = { rebuilds++ })
+        ctrl.maybeCrossfadeOut()   // beginCrossfade → promoted standby owns 1-item timeline
+        assertTrue(ctrl.crossfadeInProgress)
+
+        ctrl.cancel(resetVolume = false)
+
+        assertEquals(1, rebuilds)
+    }
+
+    @Test fun `C07 cancel when not mid-fade does not invoke rebuildPromotedQueue`() {
+        var rebuilds = 0
+        val ctrl = makeController(rebuildPromotedQueue = { rebuilds++ })
+        ctrl.cancel(resetVolume = false)  // no crossfade started → no promotion to repair
+        assertEquals(0, rebuilds)
+    }
+
+    @Test fun `C08 cancel mid-fade rebuilds queue AND restores volume`() {
+        var rebuilds = 0
+        val ctrl = makeControllerWithImmediateTrigger(
+            rebuildPromotedQueue = { rebuilds++ },
+            volumeBeforeDuck = 0.9f,
+        )
+        ctrl.maybeCrossfadeOut()
+
+        ctrl.cancel(resetVolume = true)
+
+        assertEquals(1, rebuilds)
+        verify(mockActivePlayer).volume = 0.9f
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // D. resetPromotionState()
     // ═════════════════════════════════════════════════════════════════════════
@@ -280,11 +318,17 @@ class CrossfadeControllerTest {
     // is a no-op in the JVM stub, so state changes before the post are visible.
     // ═════════════════════════════════════════════════════════════════════════
 
-    private fun makeControllerWithImmediateTrigger(): CrossfadeController {
+    private fun makeControllerWithImmediateTrigger(
+        rebuildPromotedQueue: () -> Unit = {},
+        volumeBeforeDuck: Float = 1f,
+    ): CrossfadeController {
         // 3 s fade, 2.8 s remaining → inside the (crossMs + 250) window
         whenever(mockActivePlayer.duration).thenReturn(10_000L)
         whenever(mockActivePlayer.currentPosition).thenReturn(7_200L)
-        return makeController().also { it.setDuration(3f) }
+        return makeController(
+            rebuildPromotedQueue = rebuildPromotedQueue,
+            volumeBeforeDuck = volumeBeforeDuck,
+        ).also { it.setDuration(3f) }
     }
 
     @Test fun `F01 crossfadeInProgress set to true when beginCrossfade triggers`() {
