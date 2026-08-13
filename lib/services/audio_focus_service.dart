@@ -17,7 +17,7 @@ class AudioFocusService {
     LogService.log('AudioFocus', 'Initialized');
   }
 
-  static void onFocusLoss({bool transient = false}) {
+  static void onFocusLoss() {
     AudioSessionHandler.onAppPause();
   }
 
