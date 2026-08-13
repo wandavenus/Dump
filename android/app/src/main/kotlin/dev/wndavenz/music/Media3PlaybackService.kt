@@ -242,12 +242,10 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
         )
-        // LOW-07 fix: track the initial offload listener so it can be removed before
-        // adding a new one on crossfade completion (prevents listener accumulation).
-        activeOffloadListener = offloadManager.makeOffloadListener()
-        val initialPlayer   = primaryPlayer   ?: return
-        val offloadListener = activeOffloadListener ?: return
-        initialPlayer.addAudioOffloadListener(offloadListener)
+        // K2 fix: attach the single tracked offload listener to the initial active
+        // player. attachOffloadListenerTo() keeps exactly one AudioOffloadListener
+        // in the whole service and migrates it whenever the active player changes.
+        attachOffloadListenerTo(primaryPlayer)
 
         // Build MediaSession
         // CRIT-01 fix: MediaSession always uses activePlayerProxy — never replaced by a raw
@@ -419,6 +417,14 @@ class Media3PlaybackService : MediaSessionService() {
             getQueue            = { queueManager.queue },
             getActiveQueueIndex = { queueManager.activeQueueIndex },
             setActiveQueueIndex = { idx -> queueManager.setActiveQueueIndex(idx) },
+            // K1 fix: restores the full queue on the promoted player after a mid-fade
+            // cancel (headphones unplugged / audio focus lost). Without this, the
+            // promoted standby's one-item timeline stays active and next/prev
+            // navigation is locked to a single track until the queue is mutated.
+            // rebuildPlayerQueue() is a no-op when the timeline is already full, so
+            // paths that restore explicitly (TransportCommands pause/stop/skip,
+            // setQueue, shutdown) are unaffected.
+            rebuildPromotedQueue = { queueManager.rebuildPlayerQueue() },
             onCrossfadeComplete = {
                 // ── Dropout investigation: snapshot player state at the start of this callback.
                 // Everything from here through the end of the lambda is a potential dropout cause.
@@ -457,13 +463,15 @@ class Media3PlaybackService : MediaSessionService() {
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
                 offloadManager.onCrossfadeComplete()
-                // LOW-07 fix: remove the old offload listener before adding the new one.
-                // Previously a new listener was added on every crossfade without removing
-                // the previous one, causing accumulation across many crossfades.
-                val newOffloadListener = offloadManager.makeOffloadListener()
-                activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
-                activeOffloadListener = newOffloadListener
-                activePlayer?.addAudioOffloadListener(newOffloadListener)
+                // K2 fix: migrate the single tracked offload listener to the promoted
+                // player. The old LOW-07 swap only removed the tracked listener from the
+                // NEW active player — a no-op, because it was attached to the previous
+                // active player — while createConfiguredPlayer() kept adding an untracked
+                // listener to every standby, so the active player accumulated one
+                // listener per crossfade (duplicate offloadState events + linear growth).
+                // attachOffloadListenerTo() removes the old listener from every live
+                // player and attaches exactly one fresh listener to the target.
+                attachOffloadListenerTo(activePlayer)
 
                 // ART-REFRESH-01: the promoted player already fired its
                 // STATE_READY / transition while still "standby", and those were
@@ -767,6 +775,30 @@ class Media3PlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    /**
+     * K2 fix: keeps exactly ONE AudioOffloadListener in the entire service.
+     *
+     * Removes the previously tracked listener from every live player (whichever
+     * physical slot it was attached to — primary, secondary or bit-perfect),
+     * then attaches a fresh listener to [player].
+     *
+     * Why this is safe: AudioOffloadManager.makeOffloadListener() is a pure
+     * observer of onOffloadedPlayback(Boolean) — listener identity only matters
+     * for add/remove bookkeeping. Re-creating the listener on migration keeps
+     * the OS grant/reject callback surface intact on the active player while
+     * guaranteeing zero accumulation across crossfades (K2 audit finding).
+     */
+    private fun attachOffloadListenerTo(player: ExoPlayer?) {
+        activeOffloadListener?.let { old ->
+            primaryPlayer?.removeAudioOffloadListener(old)
+            secondaryPlayer?.removeAudioOffloadListener(old)
+            bitPerfectPlayer?.removeAudioOffloadListener(old)
+        }
+        val fresh = offloadManager.makeOffloadListener()
+        activeOffloadListener = fresh
+        player?.addAudioOffloadListener(fresh)
+    }
 
     /**
      * Block Media3's DefaultMediaNotificationProvider from managing the foreground
@@ -1223,12 +1255,13 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
-                // Attach the offload listener when available (offloadManager is initialised
-                // after the primary player in onCreate; secondary players are always created
-                // after that point so the guard below covers the race-free case).
-                if (::offloadManager.isInitialized) {
-                    addAudioOffloadListener(offloadManager.makeOffloadListener())
-                }
+                // K2 fix: no offload listener is attached here. createConfiguredPlayer()
+                // previously attached an untracked listener to every player it created
+                // (primary + every crossfade standby), which the promoted player never
+                // shed — accumulating one listener per crossfade. The single tracked
+                // listener now lives only in attachOffloadListenerTo(), called whenever
+                // the active player changes (onCreate, onCrossfadeComplete, bit-perfect
+                // switches).
             }
 
         val ffmpegStatus = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.queryStatus()
