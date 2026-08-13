@@ -541,3 +541,63 @@ stateless yang dieksekusi.
 Verifikasi: definisi tunggal per simbol (grep), tidak ada referensi stale,
 `NativePaletteBridgeTest.kt` tidak menyentuh simbol yang dipindah. Kotlin tidak
 bisa dikompilasi di environment ini (tanpa Android SDK) — verifikasi manual.
+
+---
+
+# Fix (sesi ini) — lagu "nyangkut" di lagu sebelumnya setelah app di-kill
+
+## Root cause (confirmed, bukan tebakan)
+
+Rantai eksekusi lengkap:
+
+1. **Persistensi queue** — `QueueSync.save()` (`queue/QueueSync.kt:56-99`)
+   menulis queue + index + posisi ke `SharedPreferences("media3_queue_prefs")`
+   di tiap mutasi queue (`TransportCommands.kt` `setQueue`/`setTrack`) dan saat
+   teardown service (`ServiceShutdownCoordinator.saveQueue`).
+2. **Service survive / restore saat relaunch** — dua jalur, hasil sama:
+   - Service tetap hidup: `AndroidManifest.xml:80` `stopWithTask="false"` +
+     `START_STICKY` (`Media3PlaybackService.kt:803`). Queue lama masih di memori.
+   - Proses mati: `onCreate` → `restoreQueueFromPrefs()`
+     (`Media3PlaybackService.kt:655`, impl `:1866-1882`) → queue lama di-set
+     (paused) + `transportState.emitAll(emitQueue = true)`.
+3. **Cold start** — `main.dart:110` → `AudioService.syncFromNative()`
+   (`service.dart:744+`) → `getPlaybackSnapshot()` (`TransportCommands.kt:444-490`)
+   mengembalikan `queueManager.queue` (lagu lama) → `_setState(currentSong: lagu
+   lama)` → `UnifiedMorphPlayer` (`unified_morph_player.dart:84-85,152-175`)
+   menampilkan lagu lama di mini player.
+4. User play lagu baru → `playSongAt` (`service.dart:461`) ganti `currentSong`
+   secara optimistik → UI pindah. Maka terasa "nyangkut lalu berubah".
+
+**Verdict:** confirmed behavior — fitur resume-queue yang sengaja dibuat
+(komentar `QueueSync.kt:15`), tapi salah UX setelah app di-kill. Audio tidak
+auto-play; hanya state UI yang terpublikasi.
+
+## Perbaikan (opsi B — Dart-side, paling kecil)
+
+- **File:** `lib/services/audio_service/service.dart` — `syncFromNative()`.
+- **Guard baru `suppressRestoredSong`:**
+  `playbackState.value.currentSong == null && !isPlaying`.
+  - `currentSong == null` → populasi pertama dari snapshot (cold start),
+    bukan resume setelah pause di dalam app (state Dart sudah terisi).
+  - `!isPlaying` → queue hasil restore yang idle, bukan playback aktif.
+- **Efek:** saat kondisi itu terpenuhi, `currentSong` tidak dipublikasikan
+  (tetap null) → mini player tidak muncul dengan lagu lama. `_playlist`/
+  `currentIndex` tetap di-mirror; ReplayGain applicator di-skip (re-run otomatis
+  lewat `_syncCurrentTrackFromNative` saat playback mulai).
+- **Jalur yang tidak rusak (diverifikasi):**
+  - Resume via notifikasi/media button: `p.play()` → `emitAll()`
+    (`TransportState.kt:183` emit `currentTrack`) → `_onNativeCurrentTrackChanged`
+    → `_syncCurrentTrackFromNative` → `currentSong` ter-set. `_playlist` sudah
+    terisi dari snapshot → resolve index berhasil.
+  - App resume setelah pause di dalam app: `currentSong != null` → guard false.
+  - Resume saat masih playing: `isPlaying=true` → guard false.
+  - Race `onCreate`-emit saat service baru dibuat selama `getPlaybackSnapshot`:
+    `_onNativeCurrentTrackChanged` early-return saat `_playlist.isEmpty` —
+    event restore terjatuh aman, lalu guard `syncFromNative` yang berlaku.
+  - `_queueMutationGuard` re-sync (`service.dart:668`): state sudah punya lagu
+    → guard false → full sync normal.
+- **Verifikasi:** `flutter analyze lib` → **No issues found** (1.6s).
+- **Catatan:** fix ini hanya menyembunyikan lagu restore sampai ada aksi nyata;
+  queue di native tetap ter-restore (resume via notifikasi tetap jalan). Kalau
+  mau perilaku "habis di-kill = benar-benar fresh" (queue kosong), itu opsi A
+  (native-side, tidak disentuh di sesi ini).
