@@ -601,3 +601,41 @@ auto-play; hanya state UI yang terpublikasi.
   queue di native tetap ter-restore (resume via notifikasi tetap jalan). Kalau
   mau perilaku "habis di-kill = benar-benar fresh" (queue kosong), itu opsi A
   (native-side, tidak disentuh di sesi ini).
+
+---
+
+## Perbaikan (opsi A — native-side, queue restore hanya saat restart sistem)
+
+**File:** `android/app/src/main/kotlin/dev/wndavenz/music/Media3PlaybackService.kt`
+
+- **`onCreate()` (≈:654):** `restoreQueueFromPrefs()` **dihapus**. Launch
+  user-initiated sekarang selalu mulai dengan queue kosong — tidak ada lagi
+  queue sesi sebelumnya yang di-resurrect ke memori native maupun UI.
+- **`onStartCommand()` (≈:790):** restore dipindah ke sini dan di-gate dengan
+  `if (intent == null) { restoreQueueFromPrefs() }`. `START_STICKY` mengirim
+  intent null saat sistem me-recreate service setelah mematikan proses — itu
+  satu-satunya jalur restore yang tersisa. Semua start non-null
+  (Flutter `play`/`setQueue`, aksi notifikasi/BT, `ACTION_PLAY_URI`) membangun
+  queue sendiri → tidak restore.
+- **Safety check foreground-service deadline:** `setQueue` →
+  `notificationManager.refresh()` → `postNotification()` →
+  `startForegroundWith()` → `startForeground()`; `play` →
+  `TransportCommands.handlePlay` → `ensureMediaForeground()`. Keduanya
+  memenuhi deadline 5s bahkan tanpa restore — perilaku identik dengan jalur
+  fresh-install yang sudah ada sebelumnya (tidak pernah ada queue untuk
+  di-restore).
+- **Perilaku yang dipertahankan:** sistem restart (proses dibunuh sistem) tetap
+  restore queue paused + notifikasi muncul (`else` branch
+  `handleNotificationAction(null)` → `ensureMediaForeground` saat
+  `mediaItemCount > 0`); media button setelah system restart tetap jalan di
+  queue hasil restore; fix B tetap menyembunyikan currentSong saat Flutter
+  re-attach dalam kondisi idle.
+- **Konsekuensi yang disengaja (sesuai permintaan):** resume posisi setelah
+  user manual relaunch hilang — "habis di-kill = fresh".
+- **Catatan edge:** media button saat proses mati tapi SEBELUM START_STICKY
+  restart (non-null intent) tidak me-restore queue — window sempit dan jarang;
+  restore tetap terjadi pada null-intent restart.
+- **Verifikasi:** Kotlin tidak bisa dikompilasi di environment ini (Android SDK
+  tidak tersedia) — verifikasi manual: diff minimal 2 region, urutan lifecycle
+  `onCreate` → `onStartCommand` aman, semua jalur startForeground terkonfirmasi,
+  tidak ada test yang menyentuh jalur restore.
