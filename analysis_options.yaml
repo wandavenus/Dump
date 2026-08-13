@@ -12,6 +12,13 @@ analyzer:
     - native_audio_runtime/test/**
     - native_audio_runtime/tool/**
     - flutter-ws/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
   errors:
     invalid_annotation_target: ignore
