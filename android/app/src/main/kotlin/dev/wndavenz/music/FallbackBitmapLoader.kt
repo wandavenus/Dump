@@ -3,10 +3,6 @@ package dev.wndavenz.music
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.SystemClock
@@ -318,7 +314,7 @@ class FallbackBitmapLoader(
 
             // Pass 2: decode at reduced size. ARGB_8888 so already-square art can
             // skip the letterbox copy in normalizeSquare().
-            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
+            val sample = BitmapUtils.computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
             val decodeOpts = BitmapFactory.Options().apply {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -326,7 +322,7 @@ class FallbackBitmapLoader(
             val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOpts)
             } ?: return null
-            normalizeSquare(decoded, MAX_PX)
+            BitmapUtils.normalizeSquare(decoded, MAX_PX)
         } catch (e: Exception) {
             Log.d(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
             null
@@ -334,65 +330,14 @@ class FallbackBitmapLoader(
     }
 
     /**
-     * Two-pass decode capped at [MAX_PX] on the longest side — bounds pass first
-     * (zero pixel allocation), then a sampled decode — then letterboxed onto a
-     * [MAX_PX]×[MAX_PX] square so SystemUI never center-crops non-square art.
+     * Two-pass decode capped at [MAX_PX] on the longest side, then letterboxed
+     * onto a [MAX_PX]×[MAX_PX] square so SystemUI never center-crops non-square
+     * art. Shared helpers live in [BitmapUtils].
      */
-    private fun decodeCapped(bytes: ByteArray): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, MAX_PX)
-        val decoded = BitmapFactory.decodeByteArray(
-            bytes, 0, bytes.size,
-            BitmapFactory.Options().apply {
-                inSampleSize = sample
-                // ARGB_8888 so already-square art hits the fast path in
-                // normalizeSquare() instead of being re-letterboxed.
-                inPreferredConfig = Bitmap.Config.ARGB_8888
-            },
-        ) ?: return null
-        return normalizeSquare(decoded, MAX_PX)
-    }
+    private fun decodeCapped(bytes: ByteArray): Bitmap? =
+        BitmapUtils.decodeCapped(bytes, MAX_PX)?.let { BitmapUtils.normalizeSquare(it, MAX_PX) }
 
-    /**
-     * Letterboxes [source] onto a square with a black background, capped at
-     * [maxPx]×[maxPx]. SystemUI / MIUI media templates fill the artwork area by
-     * center-cropping non-square bitmaps — pre-letterboxing keeps the full image
-     * visible instead of zoomed.
-     *
-     * Never upscales: the canvas is no larger than the source's longest side
-     * (capped at [maxPx]), so small art stays at native resolution and the
-     * system does the final scaling instead of us adding an upscale pass.
-     */
-    private fun normalizeSquare(source: Bitmap, maxPx: Int): Bitmap {
-        if (source.width <= 0 || source.height <= 0) return source
-        val target = minOf(maxPx, maxOf(source.width, source.height))
-        if (source.width == target && source.height == target) return source
 
-        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(out)
-        canvas.drawColor(Color.BLACK)
-
-        val scale = minOf(
-            target.toFloat() / source.width.toFloat(),
-            target.toFloat() / source.height.toFloat(),
-        )
-        val drawnW = source.width * scale
-        val drawnH = source.height * scale
-        val left = (target - drawnW) / 2f
-        val top = (target - drawnH) / 2f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
-        canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
-        return out
-    }
-
-    /** Smallest power-of-two sample size so neither dimension exceeds [maxPx]. */
-    private fun computeSampleSize(w: Int, h: Int, maxPx: Int): Int {
-        var s = 1
-        while ((w / s) > maxPx || (h / s) > maxPx) s = s shl 1
-        return s
-    }
 
     /**
      * Parses the albumId from an expected `content://media/external/audio/albumart/{albumId}`

@@ -639,3 +639,57 @@ auto-play; hanya state UI yang terpublikasi.
   tidak tersedia) — verifikasi manual: diff minimal 2 region, urutan lifecycle
   `onCreate` → `onStartCommand` aman, semua jalur startForeground terkonfirmasi,
   tidak ada test yang menyentuh jalur restore.
+
+---
+
+## Perbaikan — Tier 2 Kotlin (BitmapUtils) + D6 + D4
+
+### Tier 2 Kotlin — konsolidasi helper bitmap duplikat ke `BitmapUtils.kt`
+
+Sebelumnya `computeSampleSize`, `decodeCapped`, dan letterbox-to-square
+di-copy-paste di `FallbackBitmapLoader` (pakai `shl 1`) dan
+`PlaybackNotificationManager` (pakai `*= 2`) — hasil identik tapi dua salinan
+yang bisa drift.
+
+- **`BitmapUtils.kt` (baru, 80 baris, `internal object` di package
+  `dev.wndavenz.music`):**
+  - `computeSampleSize(w, h, maxPx)` — power-of-two downscale.
+  - `decodeCapped(bytes, maxPx)` — two-pass decode (bounds → sampled, ARGB_8888).
+  - `normalizeSquare(source, maxPx)` — letterbox hitam ke square, never upscale.
+- **`FallbackBitmapLoader.kt` (410 → 355):** ketiga helper private dihapus;
+  `decodeCapped` tetap sebagai delegate tipis (decode + normalize kombinasi
+  khusus class ini); `tryUri` memanggil `BitmapUtils.*` langsung; 4 import
+  (`Canvas`, `Color`, `Paint`, `RectF`) dihapus karena hanya dipakai helper
+  yang pindah.
+- **`PlaybackNotificationManager.kt` (505 → 456):** `decodeCapped`,
+  `normalizeNotificationArtwork`, `computeSampleSize` dihapus; semua call site
+  (`decodeCapped(raw, NOTIF_ART_PX)` ×2, `computeSampleSize(...)`,
+  `?.let(::normalizeNotificationArtwork)` ×2 →
+  `?.let { BitmapUtils.normalizeSquare(it, NOTIF_ART_PX) }`) pindah ke
+  `BitmapUtils`; import `BitmapUtils` ditambah, 3 import tidak terpakai dihapus.
+- **Verifikasi (manual — Android SDK tidak tersedia):** tidak ada referensi
+  stale (`private fun decodeCapped|normalizeSquare|computeSampleSize` = 0 sisa),
+  `BitmapFactory` masih dipakai kedua file, `BitmapUtils` terdefinisi tepat satu
+  kali, tidak ada test yang menyentuh helper yang dipindah. Perilaku identik:
+  isi helper = salinan persis kode lama, hanya lokasi yang berubah.
+- **Catatan:** `SessionArtworkProvider` (`decodeCapped` + `letterboxSquare`) dan
+  `NowPlayingOverlayActivity` (`decodeCappedSquare`) punya salinan serupa dengan
+  perbedaan kecil (tanpa override ARGB_8888; decode+letterbox dalam satu fungsi).
+  SENG AJA tidak diikutkan agar scope konsolidasi tetap dua file yang disetujui —
+  bisa jadi follow-up terpisah.
+
+### D6 — Timer deadline 15s di `_runParallel` sekarang di-cancel
+
+`lib/services/lyrics_service/fetch_manager.dart` — `Future.delayed(_globalDeadline)`
+di `Future.any` diganti `Timer(_globalDeadline, ...)` yang men-complete
+`allDoneCompleter` (semantik timeout 15s identik), di-cancel di `finally`
+begitu semua provider/upgrade-window selesai. Tidak ada lagi timer menganggur
+≤15s per fetch paralel. `flutter analyze lib` → No issues found.
+
+### D4 — Parameter `transient` mati dihapus dari `AudioFocusService.onFocusLoss`
+
+`lib/services/audio_focus_service.dart` — parameter `{bool transient = false}`
+yang tidak pernah memengaruhi perilaku dihapus; verifikasi grep: tidak ada
+caller `onFocusLoss` sama sekali di `lib/` (wrapper backward-compat, hanya
+`AudioSessionHandler.onAppPause()`). API jujur sekarang: tidak ada parameter
+yang seolah-olah mengubah perilaku. `flutter analyze lib` → No issues found.
