@@ -652,11 +652,17 @@ class Media3PlaybackService : MediaSessionService() {
 
         instance = this
 
-        restoreQueueFromPrefs()
+        // Plan A: the persisted queue is no longer restored here. A normal
+        // user-initiated launch must start with an empty queue ("killed app =
+        // fresh state") instead of resurrecting the previous session's tracks
+        // in native memory and the UI. restoreQueueFromPrefs() is now invoked
+        // only from onStartCommand() when the intent is null, i.e. the system
+        // restarted the service after killing the process (START_STICKY).
 
         // Publish the restored track's high-res square artwork to the session
         // metadata (SystemUI/MIUI media card) — no transition may fire until
-        // the user resumes, so refresh explicitly.
+        // the user resumes, so refresh explicitly. No-op when the queue is
+        // empty (user-initiated launch).
         scheduleSessionArtworkRefresh()
 
         NativeLogger.emit(
@@ -666,8 +672,8 @@ class Media3PlaybackService : MediaSessionService() {
         transportState.emitAll()
 
         // Cold-start race fix: everything above (player, session, managers,
-        // transportCommands, queue restore) is fully wired at this point — only
-        // now is it safe for Dart to push settings that reach into effectsManager /
+        // transportCommands) is fully wired at this point — only now is it safe
+        // for Dart to push settings that reach into effectsManager /
         // queueManager / crossfadeController. See ServiceReadyGate doc comment.
         ServiceReadyGate.markReady()
     }
@@ -780,6 +786,16 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+
+        // Plan A: restore the persisted queue only on a system restart.
+        // START_STICKY redelivers a null intent when the system recreates the
+        // service after killing the process. Every non-null start is
+        // user/app initiated (Flutter play/setQueue, notification/BT action,
+        // ACTION_PLAY_URI) and builds its own queue, so restoring here would
+        // re-show the previous session's song in a fresh launch.
+        if (intent == null) {
+            restoreQueueFromPrefs()
+        }
         
         // 2. Cek apakah ini panggilan dari overlay preview
         isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
