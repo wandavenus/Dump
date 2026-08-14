@@ -359,6 +359,30 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeProcess(
         return -1;
     }
 
+    // FIX Temuan #N4 (defensive): a non-null direct-buffer address does not
+    // bound the address range — verify the buffer CAPACITIES cover exactly
+    // what this call will read/write. Current Kotlin callers always size
+    // buffers to frames × channels × sizeof(float) (and Media3's
+    // replaceOutputBuffer grows as needed), so this never trips on the real
+    // path; it turns a hypothetical OOB into a clean fail-open -1.
+    {
+        const jlong inCapBytes = env->GetDirectBufferCapacity(inputBuffer);
+        const jlong outCapBytes = env->GetDirectBufferCapacity(outputBuffer);
+        const jlong inNeededBytes =
+            static_cast<jlong>(inputFrames) * h->channels * static_cast<jlong>(sizeof(float));
+        const jlong outNeededBytes =
+            static_cast<jlong>(outputFrames) * h->channels * static_cast<jlong>(sizeof(float));
+        if (inCapBytes < 0 || outCapBytes < 0 ||
+            inCapBytes < inNeededBytes || outCapBytes < outNeededBytes) {
+            slog(env, "error", "nativeProcess direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
+                                   " inCap=" + std::to_string(inCapBytes) +
+                                   " inNeed=" + std::to_string(inNeededBytes) +
+                                   " outCap=" + std::to_string(outCapBytes) +
+                                   " outNeed=" + std::to_string(outNeededBytes));
+            return -1;
+        }
+    }
+
     // FIX Temuan #6 (LOW): frame-counter throttle — no syscall on audio thread.
     h->totalFramesProcessed += static_cast<uint64_t>(inputFrames > 0 ? inputFrames : 0);
     const uint64_t logIntervalFrames = h->sampleRate > 0.0f
@@ -518,6 +542,19 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativePrime(
         return -1;
     }
 
+    // FIX Temuan #N4 (defensive): same capacity guard as nativeProcess.
+    {
+        const jlong inCapBytes = env->GetDirectBufferCapacity(inputBuffer);
+        const jlong inNeededBytes =
+            static_cast<jlong>(inputFrames) * h->channels * static_cast<jlong>(sizeof(float));
+        if (inCapBytes < 0 || inCapBytes < inNeededBytes) {
+            slog(env, "error", "nativePrime direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
+                                   " inCap=" + std::to_string(inCapBytes) +
+                                   " inNeed=" + std::to_string(inNeededBytes));
+            return -1;
+        }
+    }
+
     slog(env, "info", "nativePrime pointer=" + ptrToHex(handlePtr) +
          " primeFrames=" + std::to_string(inputFrames));
 
@@ -562,6 +599,19 @@ Java_dev_wndavenz_music_effects_SignalsmithStretchAudioProcessor_nativeFlush(
     if (outSamples == nullptr) {
         slog(env, "error", "nativeFlush GetDirectBufferAddress returned null pointer=" + ptrToHex(handlePtr));
         return -1;
+    }
+
+    // FIX Temuan #N4 (defensive): same capacity guard as nativeProcess.
+    {
+        const jlong outCapBytes = env->GetDirectBufferCapacity(outputBuffer);
+        const jlong outNeededBytes =
+            static_cast<jlong>(outputFrames) * h->channels * static_cast<jlong>(sizeof(float));
+        if (outCapBytes < 0 || outCapBytes < outNeededBytes) {
+            slog(env, "error", "nativeFlush direct-buffer capacity too small pointer=" + ptrToHex(handlePtr) +
+                                   " outCap=" + std::to_string(outCapBytes) +
+                                   " outNeed=" + std::to_string(outNeededBytes));
+            return -1;
+        }
     }
 
     slog(env, "info", "flush() pointer=" + ptrToHex(handlePtr) + " frames=" + std::to_string(outputFrames));
