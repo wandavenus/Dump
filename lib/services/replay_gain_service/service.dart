@@ -112,6 +112,13 @@ class ReplayGainService {
   static Future<void> invalidate(int songId) async {
     _cache.remove(songId);
     _cacheIdentity.remove(songId);
+    // RG-1 fix: also drop any in-flight resolve() for this song. Otherwise a
+    // resolve that started BEFORE the invalidation (e.g. the song-info sheet
+    // while a batch remove is running) would be re-joined by the next caller
+    // and deliver/refill pre-invalidation data. The stale value it may still
+    // write on completion is bound to the OLD file identity and rejected by
+    // every later resolve(), but the result should not be handed out at all.
+    _inFlight.remove(songId); // ignore: unawaited_futures
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
       prefs.remove('rg_${songId}_gain'),
@@ -496,8 +503,15 @@ class ReplayGainService {
       if (!seenIds.add(song.id)) continue;
       final c = _cache[song.id];
       final identity = await _fileIdentity(song.path);
+      // N2 fix: skip when the CURRENT file version already has a real
+      // loudness value cached (measured by a previous scan or parsed from
+      // the file's own tags). The old `c.gainDb == 0.0` check re-decoded
+      // songs whose cached data happened to be exactly 0 dB (a "+0.00 dB"
+      // tag, or a measurement of exactly −18 LUFS) on every batch scan.
+      // `hasData` (source != none) is the right test: `LoudnessData.none()`
+      // (no tags / nothing cached yet) is still measured, as before.
       if (c == null ||
-          c.gainDb == 0.0 ||
+          !c.hasData ||
           identity == null ||
           _cacheIdentity[song.id] != identity) {
         toScan.add(song);
