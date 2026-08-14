@@ -36,7 +36,7 @@ object EventEmitter {
             onSubscribe?.invoke()
         }
         override fun onCancel(arguments: Any?) {
-            sinks[name] = null
+            sinks.remove(name)
         }
     }
 
