@@ -59,6 +59,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   LocalSong? _currentSong;
   bool _isPlaying = false;
 
+  // True while the reverse entry animation (session end / notification STOP)
+  // is playing. The last song stays rendered until the animation completes
+  // (_entryAnim reaches dismissed), then _currentSong is nulled so the widget
+  // unmounts. A new song arriving mid-exit cancels it and slides back up.
+  bool _exiting = false;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -74,7 +80,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     _entryAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
-    );
+    )..addStatusListener(_onEntryStatusChanged);
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
     // Single listener replaces the old _onSongAppeared + playbackState VLB.
     // Only setState when song identity or isPlaying changes — never on position ticks.
@@ -162,21 +168,38 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     if (songChanged) {
       final hadPreviousSong = _currentSong != null;
-      _currentSong = song;
-      needsRebuild = true;
 
-      // Entry animation is only for the mini player first appearing.
-      // Do not restart it when switching directly from one song to another.
-      if (!hadPreviousSong && song != null) {
+      if (hadPreviousSong && song == null) {
+        // Session ended (notification STOP): keep the last song rendered while
+        // the reverse entry animation plays; _currentSong is nulled on
+        // completion so the mini player unmounts cleanly.
+        _startExitAnimation();
+        needsRebuild = true;
+      } else if (!hadPreviousSong && song != null) {
+        // First song of a session — cancel any in-progress exit and slide up.
+        _cancelExit();
+        _currentSong = song;
+        needsRebuild = true;
         final appearedSong = song;
 
         unawaited(
           _prewarmEntryArtwork(appearedSong).then((_) {
-            if (mounted && _currentSong?.id == appearedSong.id) {
+            if (mounted && _currentSong?.id == appearedSong.id && !_exiting) {
               unawaited(_entryAnim.forward(from: 0.0));
             }
           }),
         );
+      } else {
+        // Direct song A → song B switch. Also covers a new song interrupting
+        // an in-progress exit — restart the slide-up from zero so the player
+        // doesn't stay at a partially-hidden position.
+        final wasExiting = _exiting;
+        _cancelExit();
+        _currentSong = song;
+        needsRebuild = true;
+        if (wasExiting) {
+          unawaited(_entryAnim.forward(from: 0.0));
+        }
       }
     }
 
@@ -197,6 +220,39 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final eased = 1.0 - u * u * u;
     final value = _animStartVal + (_animTarget - _animStartVal) * eased;
     PlayerSheetController.setProgress(value.clamp(0.0, 1.0));
+  }
+
+  // ── Exit animation (session end / notification STOP) ───────────────────────
+
+  /// Plays the reverse of the entry slide-up: the mini player slides back down
+  /// below the nav bar. The widget unmounts only after the animation completes
+  /// (see [_onEntryStatusChanged]).
+  void _startExitAnimation() {
+    _exiting = true;
+    // Collapse any open full player first so the exit is a clean mini-player
+    // slide-down, and the next session starts from the collapsed mini state.
+    PlayerSheetController.setProgress(0.0);
+    unawaited(_entryAnim.reverse());
+  }
+
+  /// Aborts an in-progress exit (e.g. a new song starts). The entry controller
+  /// keeps its current value; callers restart the slide-up explicitly.
+  void _cancelExit() {
+    if (_exiting) {
+      _exiting = false;
+      _entryAnim.stop();
+    }
+  }
+
+  void _onEntryStatusChanged(AnimationStatus status) {
+    // Reverse animation finished → the mini player is fully hidden below the
+    // screen; drop the last song so build() unmounts the widget.
+    if (status == AnimationStatus.dismissed && _exiting) {
+      _exiting = false;
+      if (mounted) {
+        setState(() => _currentSong = null);
+      }
+    }
   }
 
   void _animateTo(double target) {

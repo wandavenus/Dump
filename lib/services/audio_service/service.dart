@@ -262,11 +262,29 @@ class AudioService {
           .whereType<Map<dynamic, dynamic>>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
-      // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
-      // playlist rather than keeping a stale list from the previous session.
+      // MED-02 + STOP-session fix: propagate empty queue so Flutter state
+      // reflects the cleared playlist rather than keeping a stale list from the
+      // previous session. A native empty-queue event means the session is over
+      // (notification STOP clears the queue before tearing the service down), so
+      // the FULL mirror is reset — including currentSong — letting the mini/full
+      // player collapse with its reverse entry animation instead of keeping a
+      // stale song whose transport commands are no-ops against an empty player.
       if (songs.isEmpty) {
         _playlist = List<LocalSong>.unmodifiable([]);
-        _setState(playbackState.value.copyWith(currentPlaylist: const []));
+        _currentIndex = 0;
+        _previousSong = null;
+        _setState(
+          playbackState.value.copyWith(
+            currentPlaylist: const [],
+            clearCurrentSong: true,
+            currentIndex: 0,
+            isPlaying: false,
+            processingState: ProcessingState.idle,
+            position: Duration.zero,
+            duration: Duration.zero,
+            clearNextTrackIndex: true,
+          ),
+        );
         unawaited(ArtworkRepository.setActiveQueueIds([]));
         return;
       }
