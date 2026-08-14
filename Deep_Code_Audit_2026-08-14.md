@@ -138,7 +138,7 @@ setelah setiap `file.save()`). `dup()` gagal hanya di-log.
 | D5 (palette self-reschedule timer) | **FIXED** — guard `_dirty=false` di `_persist`. |
 | D6 (lyrics 15s timer leak) | **FIXED** — `Future.delayed` diganti `Timer` eksplisit + `cancel()` di `finally` (`fetch_manager.dart:261-275`). |
 | F3/F5/F6, LOW-06, MED-02, A2, R-B 1.5.21/1.5.23 | Terverifikasi masih ada di tempat (identity before/after scan, queue-mutation guard + re-sync, drop unparseable prefs, timeout startup 5s/2s, empty-queue propagation, artwork eviction on delete, batched write path + chunk 250 + dedup). |
-| Artwork (11/08): stale async notification, crossfade session refresh, process-wide lock, external-file artwork | Belum diaudit ulang mendalam di putaran ini (sudah diaudit 11/08); rekomendasi di laporan tersebut masih berlaku. |
+| Artwork (11/08): stale async notification, crossfade session refresh, process-wide lock, external-file artwork | **FIXED** — diaudit ulang penuh: (1) stale async notification di-drop via `cacheKey == currentTrackCacheKey()` + rebuild dari current track (`PlaybackNotificationManager`); (2) crossfade session refresh ditambahkan di `switchSessionPlayer` (ART-REFRESH-02, `Media3PlaybackService`), melengkapi `onCrossfadeComplete`; (3) lock extraction process-wide (companion object) + temp file unik per writer + `activeQueueIds` ikut process-wide; (4) external-file artwork: `artworkSource` dari `buildSongMapFromUri`, fallback `TrackMapper`, `loadOriginalEmbeddedFromUri` (notification) dan `rawEmbeddedFromUri` (session). |
 
 ---
 

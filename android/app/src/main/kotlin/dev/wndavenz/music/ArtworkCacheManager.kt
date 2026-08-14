@@ -62,6 +62,15 @@ class ArtworkCacheManager(private val context: Context) {
         private val processGlobalLock = ReentrantLock()
         private val processSongLocks = HashMap<Int, ReentrantLock>()
         private val processInFlightSongIds = HashSet<Int>()
+
+        // Active-queue song IDs: never evicted during LRU cleanup.
+        // Written by Flutter via setActiveQueueIds(); read during cleanupIfNeeded().
+        // Process-wide (companion) so the playback service instance sees the same
+        // protected set that the Activity instance was given — otherwise the
+        // service's cleanupIfNeeded() would run with an empty queue set and could
+        // evict a queued song's artwork during a >500 MB LRU pass.
+        @Volatile
+        private var activeQueueIds: Set<Int> = emptySet()
     }
 
     // A1 (1.5.21): monotonic timestamp of the last LRU eviction pass.
@@ -79,11 +88,6 @@ class ArtworkCacheManager(private val context: Context) {
         // second instance may otherwise delete an active writer's temp file.
     }
 }
-
-    // Active-queue song IDs: never evicted during LRU cleanup.
-    // Written by Flutter via setActiveQueueIds(); read during cleanupIfNeeded().
-    @Volatile
-    private var activeQueueIds: Set<Int> = emptySet()
 
     // ── Public API ─────────────────────────────────────────────────────────────
 
