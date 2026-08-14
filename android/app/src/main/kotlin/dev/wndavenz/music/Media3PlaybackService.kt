@@ -1056,7 +1056,17 @@ class Media3PlaybackService : MediaSessionService() {
                 transportState.stopPositionTicker()
                 audioFocusManager.abandon()
                 notificationManager.stopForeground()
-                transportState.emitAll()
+                // Session-over semantics: drop the in-memory queue and publish a
+                // cleared snapshot (empty queue + null current track) so Flutter
+                // collapses the mini player with its reverse entry animation
+                // instead of keeping stale transport state whose commands are
+                // no-ops against an empty ExoPlayer. performTeardown()'s
+                // saveQueue() then also clears the persisted queue, so neither
+                // the UI nor a later START_STICKY restart resurrects the
+                // finished session. The mini player returns only when the user
+                // starts a new queue from the library.
+                queueManager.clearQueue()
+                transportState.emitAll(emitQueue = true)
                 NativeLogger.emit("info", "Media3", "transport: stop (notification/BT)")
                 stopSelf()
             }

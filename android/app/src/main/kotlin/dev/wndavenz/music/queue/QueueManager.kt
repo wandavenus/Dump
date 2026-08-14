@@ -57,6 +57,19 @@ class QueueManager(
         getPlayer()?.seekToDefaultPosition(activeQueueIndex)
     }
 
+    /**
+     * Session-over clear (notification STOP): empties the queue bookkeeping
+     * WITHOUT touching the player. The player is left untouched so no
+     * listener emissions / notification refresh fire during the clear (the
+     * service is torn down moments later, releasing both players).
+     */
+    fun clearQueue() {
+        pendingPlayNextIndex = C.INDEX_UNSET
+        queue = emptyList()
+        activeQueueIndex = 0
+        notifyQueueIdsChanged()
+    }
+
     // ── Queue mutations ───────────────────────────────────────────────────────
 
     fun insertNext(item: Map<String, Any?>) {
