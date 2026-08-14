@@ -409,6 +409,18 @@ class Media3PlaybackService : MediaSessionService() {
                 catch (e: Exception) {
                     NativeLogger.emit("warn", "Media3", "ActivePlayerProxy.switchTo failed: ${e.message}")
                 }
+                // ART-REFRESH-02: republish the session artworkData on EVERY active-
+                // player promotion, not just at onCrossfadeComplete. The promoted
+                // standby fired its READY/transition while still inactive and those
+                // were dropped by the isActiveEvent() guard, so without this the
+                // MediaSession keeps the PREVIOUS track's artwork whenever the fade
+                // never completes — e.g. a mid-fade cancel (headphones unplugged /
+                // audio focus lost) leaves the promoted player active and paused with
+                // stale session art indefinitely. Publishing at promotion time also
+                // makes SystemUI/MIUI show the incoming track's art from fade start
+                // instead of waiting for the fade to finish. refreshSessionArtwork()
+                // re-checks activePlayer + mediaId, so a stale publish is dropped.
+                scheduleSessionArtworkRefresh()
             },
             preloadManager      = preloadManager,
             getVolumeBeforeDuck = { audioFocusManager.volumeBeforeDuck },
