@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.30',
+    date: '14 Agustus 2026',
+    changes: [
+      'Artwork MediaSession (lock screen / shade notifikasi) kini di-refresh pada setiap pergantian active player, termasuk saat crossfade dibatalkan di tengah jalan (headphone dicabut / fokus audio hilang) — artwork lagu lama tidak lagi tertinggal padahal lagu baru sudah aktif.',
+      'Verifikasi audit artwork 08/11: temuan stale async notification, lock proses-wide cache, dan artwork file eksternal sudah tertutup di versi sebelumnya; gap refresh artwork saat pembatalan crossfade ditutup di versi ini.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.29',
     date: '11 Agustus 2026',
     changes: [
