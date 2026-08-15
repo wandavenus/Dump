@@ -310,7 +310,7 @@ RC-3, SKIP-01, WD-01, ZOOM-01, R-B/R-C 1.5.21, Phase 4.5/9, Item 2/3/6/7/8/10).
   guard bila active player berubah mid-fade; `stampDual` di setiap titik kritis.
 - **PreloadManager:** guard `current.mediaItemCount < queue.size` mencegah
   `nextMediaItemIndex` temporer (1-item promotion) menimpa `preloadedQueueIndex`.
-- **AudioOffloadManager:** observer-only sesuai Media3 1.10.1 (API scheduling
+- **AudioOffloadManager:** observer-only sesuai Media3 1.1.0 (API scheduling
   dihapus — terdokumentasi, no-op eksplisit).
 - **StereoWidening / Signalsmith:** `volatile` matrix, `NOT_SET` bypass,
   fail-open, EOS flush, bypass-ring prime saat bypass→STFT, `onFlush`/`onReset`
