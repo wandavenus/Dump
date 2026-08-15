@@ -553,6 +553,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sleepFadeOut => 'Music will fade out slowly when the timer ends';
 
   @override
+  String get sleepFadingOut => 'Fading out…';
+
+  @override
   String get timerAfterSong => 'Timer: stop after this song';
 
   @override

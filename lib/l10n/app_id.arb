@@ -201,6 +201,7 @@
   "sleepTimerActive": "Sleep Timer Aktif",
   "sleepAfterSong": "Berhenti setelah lagu ini selesai",
   "sleepFadeOut": "Musik akan memudar perlahan saat timer habis",
+  "sleepFadingOut": "Memudar…",
   "timerAfterSong": "Timer: berhenti setelah lagu ini",
   "timerDuration": "Timer: {label}",
 
