@@ -775,7 +775,20 @@ class AudioService {
         },
       );
 
-      if (snapshot == null) return;
+      if (snapshot == null) {
+        // F3 fix: the sleep timer lives inside the native service, so when the
+        // snapshot is unavailable (service not running / not responding) there
+        // is provably no armed timer. Reset the mirror instead of leaving a
+        // stale "active" state with a frozen countdown.
+        SleepTimerService.resetToInactive();
+        _setState(
+          playbackState.value.copyWith(
+            sleepTimerActive: false,
+            sleepTimerRemainingMs: 0,
+          ),
+        );
+        return;
+      }
 
       final rawQueue = snapshot['queue'];
       if (rawQueue == null) return;

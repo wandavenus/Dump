@@ -354,6 +354,8 @@ class Media3PlaybackService : MediaSessionService() {
             getPlayer  = { activePlayer },
             stopTicker = { transportState.stopPositionTicker() },
             emitAll    = { transportState.emitAll() },
+            // F2: sleep fade must never write volume during a crossfade.
+            isCrossfadeActive = { crossfadeController.crossfadeInProgress },
         )
 
         queueManager = QueueManager(
@@ -506,6 +508,13 @@ class Media3PlaybackService : MediaSessionService() {
             // prewarm window so refresh() at crossfade start finds a bitmapCache hit.
             prewarmNotificationArtwork = { songId, artUri ->
                 notificationManager.prewarmArtwork(songId, artUri)
+            },
+            // F1 (sleep timer): while the end-of-song timer is armed, block
+            // crossfade so the current track plays out to its natural end and
+            // the existing STATE_ENDED / transition trigger can fire. See
+            // CrossfadeController.maybeCrossfadeOut() for the full rationale.
+            isEndOfSongSleepTimerActive = {
+                sleepTimerManager.sleepTimerActive && sleepTimerManager.sleepEndOfSong
             },
         )
 

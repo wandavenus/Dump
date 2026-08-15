@@ -28,6 +28,12 @@ class SleepTimerService {
   static final ValueNotifier<Duration?> remaining = ValueNotifier(null);
   static final ValueNotifier<bool> isActive = ValueNotifier(false);
 
+  /// True while the 20-second fade-out is running (timer already fired,
+  /// volume still ramping down). Kept separate from [isActive] — which stays
+  /// true during the fade so the sheet keeps showing a cancel button — so the
+  /// active card can render "Fading out…" instead of a 00:00 countdown.
+  static final ValueNotifier<bool> isFading = ValueNotifier(false);
+
   static bool get endOfSongMode => _mode == SleepTimerMode.endOfSong;
 
   // ── Initialize (subscribe to native stream) ───────────────────────────────
@@ -36,10 +42,12 @@ class SleepTimerService {
     unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = PlaybackManager.sleepTimerStream.listen((map) {
       final active = map['active'] as bool? ?? false;
+      final fading = map['fading'] as bool? ?? false;
       final endOfSong = map['endOfSong'] as bool? ?? false;
       final remainingMs = (map['remainingMs'] as num?)?.toInt() ?? 0;
 
       isActive.value = active;
+      isFading.value = fading;
 
       if (!active) {
         remaining.value = null;
@@ -59,6 +67,7 @@ class SleepTimerService {
   static void startDuration(Duration duration) {
     _mode = SleepTimerMode.duration;
     isActive.value = true;
+    isFading.value = false;
     remaining.value = duration;
     unawaited(PlaybackManager.setSleepTimer(duration.inMilliseconds));
     LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min');
@@ -69,6 +78,7 @@ class SleepTimerService {
   static void startEndOfSong() {
     _mode = SleepTimerMode.endOfSong;
     isActive.value = true;
+    isFading.value = false;
     remaining.value = null;
     unawaited(PlaybackManager.setSleepTimerEndOfSong());
     LogService.log('SleepTimer', 'End-of-song mode');
@@ -79,9 +89,21 @@ class SleepTimerService {
   static void cancel() {
     _mode = null;
     isActive.value = false;
+    isFading.value = false;
     remaining.value = null;
     unawaited(PlaybackManager.cancelSleepTimer());
     LogService.log('SleepTimer', 'Cancelled');
+  }
+
+  /// F3 safety net: called when a native snapshot is unavailable (service is
+  /// not running / not responding). The timer lives inside the service, so a
+  /// dead service provably has no armed timer — reset the mirror instead of
+  /// leaving a stale "active" state with a frozen countdown.
+  static void resetToInactive() {
+    _mode = null;
+    isActive.value = false;
+    isFading.value = false;
+    remaining.value = null;
   }
 
   // ── Dispose ───────────────────────────────────────────────────────────────
@@ -89,6 +111,10 @@ class SleepTimerService {
   static void dispose() {
     unawaited(_sub?.cancel() ?? Future<void>.value());
     _sub = null;
+    isActive.value = false;
+    isFading.value = false;
+    remaining.value = null;
+    _mode = null;
   }
 
   // ── Quick presets (unchanged from previous impl) ──────────────────────────

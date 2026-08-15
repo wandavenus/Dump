@@ -72,6 +72,10 @@ class CrossfadeController(
     // idle for artwork, so this moves the load earlier and eliminates the blank-artwork
     // window at crossfade start.  Nullable to keep the parameter optional/backward-compat.
     private val prewarmNotificationArtwork: ((songId: Int, artUri: String?) -> Unit)? = null,
+    // F1 (sleep timer): while the end-of-song sleep timer is armed, crossfade must not
+    // start — the current track plays out to its natural end so the existing
+    // STATE_ENDED / transition trigger can fire. See maybeCrossfadeOut().
+    private val isEndOfSongSleepTimerActive: () -> Boolean = { false },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -111,6 +115,13 @@ class CrossfadeController(
      */
     fun maybeCrossfadeOut() {
         if (crossfadeDurationSec <= 0f || promotionTriggered || crossfadeInProgress) return
+        // F1 (sleep timer): never start a crossfade while the end-of-song timer is armed.
+        // During a crossfade the promoted standby's transition is PLAYLIST_CHANGED (not
+        // AUTO) and the old player's STATE_ENDED is dropped by the isActiveEvent() guard,
+        // so the end-of-song trigger would only fire at the end of the LAST queue item
+        // (or never, with repeat-all). Letting the track play out naturally preserves the
+        // "stop at this song's boundary" semantics.
+        if (isEndOfSongSleepTimerActive()) return
         val p = getActivePlayer() ?: return
 
         val dur = p.duration

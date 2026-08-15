@@ -1106,6 +1106,12 @@ abstract class AppLocalizations {
   /// **'Music will fade out slowly when the timer ends'**
   String get sleepFadeOut;
 
+  /// No description provided for @sleepFadingOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Fading out…'**
+  String get sleepFadingOut;
+
   /// No description provided for @timerAfterSong.
   ///
   /// In en, this message translates to:

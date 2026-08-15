@@ -21,6 +21,7 @@ import 'media_store_service.dart';
 import 'history_service.dart';
 import 'log_service.dart';
 import 'loudness_source_resolver.dart';
+import 'sleep_timer_service.dart';
 
 part 'audio_service/service.dart';
 part 'audio_service/replay_gain_applicator.dart';

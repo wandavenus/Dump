@@ -227,6 +227,7 @@
   "sleepTimerActive": "Sleep Timer Active",
   "sleepAfterSong": "Stop after this song ends",
   "sleepFadeOut": "Music will fade out slowly when the timer ends",
+  "sleepFadingOut": "Fading out…",
   "timerAfterSong": "Timer: stop after this song",
   "timerDuration": "Timer: {label}",
   "@timerDuration": {

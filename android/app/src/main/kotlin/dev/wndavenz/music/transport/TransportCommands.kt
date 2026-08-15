@@ -500,6 +500,11 @@ class TransportCommands(
     // ── Transport helpers ─────────────────────────────────────────────────────
 
     private fun handlePlay(p: ExoPlayer, result: MethodChannel.Result) {
+        // F2 fix: pressing play mid fade-out means "I'm still awake" — cancel the
+        // sleep fade (and the already-fired timer) so the music stays up instead of
+        // being re-paused when the fade would have completed. An armed,
+        // not-yet-fired timer is left untouched.
+        sleepTimerManager.cancelFadeOnly()
         val granted = audioFocusManager.request()
         if (granted) {
             if (p.playbackState == Player.STATE_ENDED && p.mediaItemCount > 0) {
@@ -532,6 +537,10 @@ class TransportCommands(
     }
 
     private fun handlePause(p: ExoPlayer, result: MethodChannel.Result) {
+        // F2 fix: an explicit pause supersedes a running sleep fade-out — stop the
+        // fade so it can't keep writing volume to the paused player for the rest of
+        // the 20-second window (and restore the pre-fade volume).
+        sleepTimerManager.cancelFadeOnly()
         // A promoted player temporarily contains only the incoming item. Cancel
         // first and restore the full queue, otherwise resuming after pause can
         // lock navigation to that one item and the pending fade can continue
