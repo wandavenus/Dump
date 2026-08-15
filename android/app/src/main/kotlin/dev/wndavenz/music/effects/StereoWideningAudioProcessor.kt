@@ -12,7 +12,7 @@ private const val LOG_TAG = "StereoWideningProc"
 /**
  * Custom AudioProcessor implementing stereo widening via a 2×2 mixing matrix.
  *
- * Preferred over ChannelMixingAudioProcessor (moved to androidx.media3.common.audio in 1.10.1)
+ * Preferred over ChannelMixingAudioProcessor (androidx.media3.common.audio, added in Media3 1.0.0)
  * because ChannelMixingAudioProcessor only handles PCM-16 and throws UnhandledAudioFormatException
  * for other formats, while this processor gracefully returns NOT_SET (bypass) for unsupported
  * formats and also handles PCM-float (used when DefaultRenderersFactory float output is enabled).

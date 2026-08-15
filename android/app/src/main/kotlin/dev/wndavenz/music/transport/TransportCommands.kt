@@ -482,7 +482,7 @@ class TransportCommands(
                     "sleepTimerRemainingMs" to if (st.sleepTimerActive && !st.sleepEndOfSong)
                         (st.sleepTimerEndMs - System.currentTimeMillis()).coerceAtLeast(0L)
                     else 0L,
-                    // Audio format fields (Media3 1.10.1 — Format.NO_VALUE = -1 sentinel)
+                    // Audio format fields (Media3 1.11.0 — Format.NO_VALUE = -1 sentinel)
                     "audioSampleRate"   to (fmt?.sampleRate?.takeIf   { it != Format.NO_VALUE } ?: 0),
                     "audioChannelCount" to (fmt?.channelCount?.takeIf { it != Format.NO_VALUE } ?: 0),
                     "audioBitrate"      to (fmt?.bitrate?.takeIf      { it != Format.NO_VALUE } ?: 0),

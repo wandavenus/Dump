@@ -233,7 +233,7 @@ class Media3PlaybackService : MediaSessionService() {
             // Read crossfadeDurationSec directly from the controller so
             // onCrossfadeComplete() always gets the live, authoritative value.
             getCrossfadeDurationSec  = { crossfadeController.crossfadeDurationSec },
-            // Media3 1.10.1: experimentalSetOffloadSchedulingEnabled removed;
+            // Media3 1.1.0: experimentalSetOffloadSchedulingEnabled removed;
             // scheduling is now managed internally.  Only osGranted is reported.
             onOffloadStateChanged    = { osGranted ->
                 EventEmitter.emit(
@@ -607,8 +607,9 @@ class Media3PlaybackService : MediaSessionService() {
             getPlaybackStats = {
                 val statsListener = statsListeners[activePlayer]
                 statsListener?.getPlaybackStats()?.let { stats ->
-                    // totalBufferingTimeMs and totalErrorCount were removed in Media3 1.10.1;
-                    // return 0 so the Flutter UI still renders the stats sheet correctly.
+                    // PlaybackStats has no totalBufferingTimeMs/totalErrorCount fields
+                    // (buffering is getTotalRebufferTimeMs(), errors are fatalErrorCount/
+                    // nonFatalErrorCount); report 0 so the Flutter stats sheet renders.
                     mapOf(
                         "totalPlayTimeMs"      to stats.totalPlayTimeMs,
                         "totalBufferingTimeMs" to 0L,
@@ -1136,7 +1137,7 @@ class Media3PlaybackService : MediaSessionService() {
         // no-op when the input is already PCM_FLOAT). ToInt16PcmAudioProcessor converts
         // back to 16-bit before Media3's internal SilenceSkipping/Sonic stage, so the
         // custom chain's float-domain assumptions never leak downstream. Both are
-        // public @UnstableApi BaseAudioProcessor subclasses (Media3 1.10.1,
+        // public @UnstableApi BaseAudioProcessor subclasses (Media3 1.11.0,
         // androidx.media3.exoplayer.audio / androidx.media3.common.audio) — stateful,
         // so a fresh instance is required per ExoPlayer/player build, same as the
         // other processors in this chain.
@@ -1181,7 +1182,7 @@ class Media3PlaybackService : MediaSessionService() {
         // DefaultRenderersFactory for injecting custom AudioProcessors.
         //
         // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in
-        // Media3 1.10.1. It accepts a vararg of user AudioProcessors to insert BEFORE
+        // Media3 1.11.0. It accepts a vararg of user AudioProcessors to insert BEFORE
         // its own SilenceSkippingAudioProcessor and SonicAudioProcessor. All features
         // — native DSP, stereo widening, skip-silence, and playback speed — are preserved.
         val renderersFactory = object : DefaultRenderersFactory(this) {
@@ -1480,15 +1481,19 @@ class Media3PlaybackService : MediaSessionService() {
                 }
                 if (!isActiveEvent()) return
 
-                // Manual skip cancels end-of-song sleep timer
-                if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                // Manual skip (seek to another item) or playlist rebuild cancels
+                // the end-of-song sleep timer; automatic advances (AUTO) and
+                // repeat-one loops (REPEAT) fire it instead.
+                if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
+                        reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) &&
                     sleepTimerManager.sleepTimerActive &&
                     sleepTimerManager.sleepEndOfSong) {
                     sleepTimerManager.cancel()
                 }
 
-                // End-of-song sleep timer fires on auto-transition
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                // End-of-song sleep timer fires on auto-advance or repeat-one loop
+                if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                        reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) &&
                     sleepTimerManager.sleepEndOfSong &&
                     sleepTimerManager.sleepTimerActive) {
                     NativeLogger.emit("info", "Media3",
@@ -1558,7 +1563,7 @@ class Media3PlaybackService : MediaSessionService() {
                 transportState.emitAll()
             }
 
-            // ── Media3 1.10.1 — additional Player.Listener callbacks ──────────
+            // ── Media3 1.11.0 — additional Player.Listener callbacks ──────────
 
             /**
              * Fired whenever ExoPlayer's software volume changes (e.g. during
@@ -1840,7 +1845,7 @@ class Media3PlaybackService : MediaSessionService() {
              * pipeline was fully recreated — the platform must fill the new
              * AudioTrack's buffer before audio resumes, which is the dropout gap.
              *
-             * Verified against Media3 1.10.1 source:
+             * Verified against Media3 1.11.0 source:
              *   AnalyticsListener.java line 1148–1150
              *   AudioSink.AudioTrackConfig fields: encoding, sampleRate, offload, bufferSize
              */
@@ -1868,7 +1873,7 @@ class Media3PlaybackService : MediaSessionService() {
              * pinpoints which operation in the post-crossfade callback chain forced an
              * AudioTrack recreation.
              *
-             * Verified against Media3 1.10.1 source:
+             * Verified against Media3 1.11.0 source:
              *   AnalyticsListener.java line 1159–1161
              */
             override fun onAudioTrackReleased(
