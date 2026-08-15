@@ -128,8 +128,8 @@ internal class ActivePlayerProxy(
     // _current points to the promoted standby player, so every state getter must
     // be overridden here or it will return stale data from the original player.
     //
-    // CE-05 (crash fix): PlayerWrapper.createPositionInfo() (Media3 1.10.1,
-    // line 879) reads THREE values from the proxy and cross-checks them:
+    // CE-05 (crash fix): PlayerWrapper.createPositionInfo() (Media3 1.11.0,
+    // line 866) reads THREE values from the proxy and cross-checks them:
     //
     //   currentMediaItemIndex  — index into the current timeline
     //   currentTimeline        — used to look up the window at that index

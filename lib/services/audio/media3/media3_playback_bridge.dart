@@ -96,7 +96,7 @@ class Media3PlaybackBridge {
   ///   `osGranted` — whether the OS has granted hardware offload on the active
   ///                 player at this moment.
   ///
-  /// NOTE (Media3 1.10.1): The former `scheduling` key has been removed.
+  /// NOTE (Media3 1.1.0): The former `scheduling` key has been removed.
   /// `experimentalSetOffloadSchedulingEnabled` no longer exists; Media3 now
   /// manages CPU scheduling internally when the OS grants offload.
   static final Stream<Map<dynamic, dynamic>> offloadStateStream =
@@ -383,7 +383,7 @@ class Media3PlaybackBridge {
 
   /// Send the user's "Audio Offload Scheduling" preference to native.
   ///
-  /// NOTE (Media3 1.10.1): `experimentalSetOffloadSchedulingEnabled` was removed
+  /// NOTE (Media3 1.1.0): `experimentalSetOffloadSchedulingEnabled` was removed
   /// from ExoPlayer. The native handler acknowledges this call as a no-op and
   /// logs a diagnostic message. The method is retained here so the Dart settings
   /// toggle continues to work without a MethodChannel removal.

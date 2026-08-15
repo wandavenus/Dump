@@ -27,12 +27,12 @@ bisa dikompilasi di environment ini — tanpa Android SDK).
   selama end-of-song armed, crossfade tidak pernah dimulai → lagu berjalan ke akhir
   alami → trigger `STATE_ENDED`/AUTO-transition yang sudah ada bekerja (termasuk
   repeat-all). Di-wire dari `Media3PlaybackService.kt:514-519`.
-  - Catatan: kasus **repeat-one** + end-of-song (loop native dengan reason `REPEAT`)
-    adalah batasan pre-existing yang TIDAK diperbaiki di turn ini (blok
-    `onMediaItemTransition` berada di luar jangkauan edit aman). Fix satu baris:
-    sertakan `MEDIA_ITEM_TRANSITION_REASON_REPEAT` pada kondisi fire, dan
-    eksklusikan dari kondisi cancel (ganti `reason != AUTO` menjadi
-    `reason == SEEK || reason == PLAYLIST_CHANGED`).
+  - **Bonus: repeat-one + end-of-song juga diperbaiki** (bug pre-existing yang
+    ditemukan saat audit: loop native memicu `MEDIA_ITEM_TRANSITION_REASON_REPEAT`,
+    yang oleh kondisi lama `reason != AUTO` dianggap "manual skip" sehingga
+    timer di-cancel di loop pertama). `onMediaItemTransition` sekarang membatalkan
+    timer hanya untuk `SEEK` / `PLAYLIST_CHANGED`, dan menembak untuk
+    `AUTO` / `REPEAT` (`Media3PlaybackService.kt:1483-1498`).
 - **F2 → FIXED** — `SleepTimerManager.startFadeOut` kini selalu mengarah ke player
   yang di-capture, bukan `getPlayer()` per-tick; guard baru `isCrossfadeActive()`
   (`SleepTimerManager.kt:31-36`, di-wire `Media3PlaybackService.kt:356-357`)
