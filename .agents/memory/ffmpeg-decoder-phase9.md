@@ -28,10 +28,10 @@ description: How the official Media3 FFmpeg decoder extension was wired in, and 
   **How to apply:** if upgrading, check https://central.sonatype.com/artifact/
   org.jellyfin.media3/media3-ffmpeg-decoder for the latest version tag.
 
-- **Jellyfin AAR is based on Media3 1.9.0; app uses 1.10.1.** To avoid Gradle
+- **Jellyfin AAR is based on Media3 1.9.0; app uses 1.11.0.** To avoid Gradle
   version conflict, the Jellyfin dep excludes its transitive `media3-decoder`
   and `media3-exoplayer` deps so Gradle resolves everything to the pinned
-  1.10.1. The FFmpeg decoder extension interfaces (`DecoderAudioRenderer`,
+  1.11.0. The FFmpeg decoder extension interfaces (`DecoderAudioRenderer`,
   `SimpleDecoder`) are stable between minor versions.
   ```groovy
   implementation('org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1') {
