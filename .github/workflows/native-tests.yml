@@ -11,6 +11,8 @@ on:
     branches: [ main ]
     paths:
       - 'native_audio_runtime/src/**'
+      - 'native_audio_runtime/test/**'
+      - '.github/workflows/native-tests.yml'
 
 jobs:
   native-test:
