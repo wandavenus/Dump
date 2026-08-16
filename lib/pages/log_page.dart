@@ -98,7 +98,20 @@ class _LogPageState extends State<LogPage> {
     search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
   ).reversed.toList();
 
-  int _countLevel(LogLevel l) => LogService.countByLevel(l);
+  // L-6 fix: per-level chip counts follow the active category/search filter
+  // so the badge numbers match the entries actually listed below.
+  int _countLevel(LogLevel l) => LogService.countByLevel(
+    l,
+    category: _categoryFilter,
+    search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+  );
+
+  /// Total entries under the active category/search filter (all levels) —
+  /// what the "ALL" chip shows.
+  int get _filteredTotal => LogService.getLogs(
+    category: _categoryFilter,
+    search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+  ).length;
 
   Color _levelColor(LogLevel l) => switch (l) {
     LogLevel.error => const Color(0xFFF92D48),
@@ -220,7 +233,7 @@ class _LogPageState extends State<LogPage> {
             levelFilter: _levelFilter,
             categoryFilter: _categoryFilter,
             categories: categories,
-            totalCount: LogService.logCount.value,
+            totalCount: _filteredTotal,
             countLevel: _countLevel,
             levelColor: _levelColor,
             searchController: _searchCtrl,

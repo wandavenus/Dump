@@ -247,3 +247,30 @@ Kedua temuan P3 di atas sudah diperbaiki. Ringkasan perubahan (9 file, +260/−1
 Verifikasi: `flutter analyze` (root) → No issues found; `dart analyze lib` (nested package)
 → No issues found; `git diff --check` bersih. Kotlin tidak dikompilasi (tidak ada Android
 SDK di environment) — perlu `./gradlew :app:compileDebugKotlin` di mesin dengan SDK.
+
+---
+
+## Fix log 2 — 2026-08-16 (NR-3, NR-4, NR-5, BP-09, L-6, L-7)
+
+Sisa temuan note-level ditutup:
+
+- **NR-3 (capability table)** — `native_audio_runtime/src/native_audio_runtime.c`:
+  `dsp.equalizer` → 0 (PEQ 32-band sudah dihapus; Band EQ memakai Equalizer sistem),
+  `scan.loudness_ebur128` → 1 (loudness_processor.c mengimplementasikan EBU R128/BS.1770-4
+  real-time), version string `0.1.0-phase8` → `0.1.0-phase8.5`.
+- **NR-4 (doc drift slot)** — komentar slot C header + facade Dart dikoreksi ke urutan
+  registrasi aktual: gain=0, replaygain=1, loudness=2, comp=3, crossfeed=4, limiter=5,
+  soft_clipper=6. NR-5: komentar ownership `native_dsp_jni.c` diperjelas.
+- **BP-09 (volume antar player)** — `ActivePlayerProxy.switchTo()` kini menyalin
+  `_current.volume` ke player baru. Menutup gap bit-perfect: clean player (volume default
+  1.0) dan restored player (volume stale) sekarang volume-transparent saat toggle mode;
+  crossfade tidak terpengaruh (standby di-zero sebelum switchTo dan fade mengambil alih
+  volume pada tick berikutnya).
+- **L-6 (badge filter)** — `LogService.countByLevel` menerima `category`/`search`;
+  LogPage melewati filter aktif → chip jumlah level + chip ALL konsisten dengan daftar.
+- **L-7 (memori stack trace)** — `LogService.log` membatasi stack trace per entri
+  (head 3000 char + marker truncation) → worst case ring buffer 5000 entri tidak lagi
+  bisa membengkak puluhan MB.
+
+Sisa open (by design / device-dependent, tidak diubah): RG-2 (granularitas mtime FAT32/
+exFAT), N5 (dua cache), N6 (gating block ≤400 ms).

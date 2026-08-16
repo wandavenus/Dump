@@ -92,6 +92,16 @@ internal class ActivePlayerProxy(
         if (newPlayer === _current) return
         val snapshot = registeredListeners.toList()
         snapshot.forEach { _current.removeListener(it) }
+        // BP-09 fix: carry the user volume across player switches.
+        // ExoPlayer instances are independent — a fresh player (the bit-perfect
+        // clean player, or a restored pre-bit-perfect player) starts at its own
+        // default volume (1.0 / stale), so without this copy a volume < 1.0 set
+        // by the user jumps to full volume on switch and is only recovered the
+        // next time the slider is touched. Copying old → new is safe for the
+        // crossfade path too: beginCrossfade() zeroes the standby before
+        // switchTo() and the equal-power fade re-owns the volume on its very
+        // next tick (~16 ms), so the interim value is inaudible.
+        newPlayer.volume = _current.volume.coerceIn(0f, 1f)
         _current = newPlayer
         snapshot.forEach { _current.addListener(it) }
 

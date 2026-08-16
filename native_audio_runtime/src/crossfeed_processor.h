@@ -1,8 +1,8 @@
 // Crossfeed Processor — Phase 7.
 //
 // Frequency-dependent headphone crossfeed processor.
-// Registers as "dsp.crossfeed" at pipeline slot 3 (after dsp.compressor,
-// before dsp.limiter).
+// Registers as "dsp.crossfeed" at pipeline slot 4 (0-indexed; after
+// dsp.compressor at slot 3, before dsp.limiter at slot 5).
 //
 // ── Purpose ───────────────────────────────────────────────────────────────────
 //
