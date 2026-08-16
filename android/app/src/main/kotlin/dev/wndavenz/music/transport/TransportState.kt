@@ -47,6 +47,15 @@ class TransportState(
      * Wired to Media3PlaybackService which decides whether to re-prepare or skip.
      */
     private val onStuck: (retryCount: Int) -> Unit = {},
+    /**
+     * Returns the DSP stream slot (0 = primaryPlayer, 1 = secondaryPlayer)
+     * of the currently ACTIVE player. Wired by Media3PlaybackService, which
+     * owns the physical player variables; defaults to 0 for callers that
+     * don't know (single-player sessions). Reported inside the currentTrack
+     * map so Flutter can apply per-stream ReplayGain gain and loudness
+     * resets to the correct DSP stream during crossfade (NAR-4 / NAR-5).
+     */
+    private val getActiveStreamSlot: () -> Int = { 0 },
 ) {
     private val positionUpdateMs = 200L
     private var lastEmittedRepeatMode: String? = null
@@ -236,5 +245,6 @@ class TransportState(
         queue                = queueManager.queue,
         activeQueueIndex     = queueManager.activeQueueIndex,
         crossfadeDurationSec = crossfadeController.crossfadeDurationSec,
+        streamSlot           = getActiveStreamSlot(),
     )
 }

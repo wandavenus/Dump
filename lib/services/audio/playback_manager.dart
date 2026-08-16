@@ -617,6 +617,37 @@ class PlaybackManager {
     );
   }
 
+  /// Apply a ReplayGain gain value to ONE DSP stream slot (NAR-4 fix).
+  ///
+  /// During crossfade the two ExoPlayer instances (slot 0 = primary, slot 1 =
+  /// standby) play concurrently with potentially different ReplayGain
+  /// metadata. Use this when the caller knows which physical stream a track
+  /// is assigned to, so each stream keeps its own track's gain during the
+  /// preload + fade-in window instead of "last-writes-wins" on a shared knob.
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Out-of-range values are clamped to 0 by the native layer.
+  ///
+  /// Identical fail-open contract to [setNativeReplayGain]: returns
+  /// [NativeRuntimeStatus.notInitialized]'s index when the pipeline is
+  /// unavailable, never throws.
+  static int setNativeReplayGainForStream({
+    required int streamSlot,
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) {
+    if (!_dspGuard('setNativeReplayGainForStream')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeReplayGain.instance.setGainForStream(
+      streamSlot: streamSlot,
+      gainDb: gainDb,
+      peakLinear: peakLinear,
+      useClippingProtection: useClippingProtection,
+    );
+  }
+
   /// Bypass (`true`) or engage (`false`) the native ReplayGain DSP processor.
   /// Thread-safe atomic store. No-op (never throws) when the pipeline is
   /// unavailable.
@@ -686,12 +717,28 @@ class PlaybackManager {
       ? NativeLoudnessNorm.instance.appliedGainDb
       : 0.0;
 
-  /// Reset the loudness analyzer and smooth gain back to unity.
-  /// Must be called on every track change so each track is measured fresh.
-  /// No-op when the pipeline is unavailable.
+  /// Reset the loudness analyzer for BOTH stream slots and smooth gain back
+  /// to unity. Used when the feature is turned off / torn down — a full
+  /// clean slate is desired. Must not be used on a track change while
+  /// crossfade is active, because it would clobber the concurrently
+  /// preloading standby stream's gating history — use
+  /// [resetNativeLoudnessNormForStream] there instead. No-op when the
+  /// pipeline is unavailable.
   static void resetNativeLoudnessNorm() {
     if (!_dspGuard('resetNativeLoudnessNorm')) return;
-    NativeLoudnessNorm.instance.reset();
+    NativeLoudnessNorm.instance.resetStream(0);
+    NativeLoudnessNorm.instance.resetStream(1);
+  }
+
+  /// Reset the loudness analyzer for ONE stream slot and smooth gain back
+  /// to unity (NAR-5 fix). Must be called on every track change so each
+  /// track is measured fresh, scoped to the physical stream the new track
+  /// actually plays on — the other stream (preloading standby or still-
+  /// fading primary) keeps its own gating history. No-op when the pipeline
+  /// is unavailable.
+  static void resetNativeLoudnessNormForStream(int streamSlot) {
+    if (!_dspGuard('resetNativeLoudnessNormForStream')) return;
+    NativeLoudnessNorm.instance.resetStream(streamSlot);
   }
 
   // ── Soft Clipper ────────────────────────────────────────────────────────

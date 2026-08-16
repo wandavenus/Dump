@@ -99,6 +99,7 @@ class NativeLoudnessNorm {
   double get measuredLufs => -99.0;
   double get appliedGainDb => 0.0;
   void reset() {}
+  void resetStream(int streamSlot) {}
 }
 
 // ── NativeReplayGain stub ─────────────────────────────────────────────────────
@@ -110,6 +111,13 @@ class NativeReplayGain {
   static final NativeReplayGain instance = NativeReplayGain._();
 
   int setGain({
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
+
+  int setGainForStream({
+    required int streamSlot,
     required double gainDb,
     double peakLinear = 0.0,
     bool useClippingProtection = true,

@@ -549,6 +549,16 @@ class Media3PlaybackService : MediaSessionService() {
             queueManager        = queueManager,
             crossfadeController = crossfadeController,
             sleepTimerManager   = sleepTimerManager,
+            // NAR-4/NAR-5: report which DSP stream slot the ACTIVE player is
+            // bound to. Slot is by physical variable (primaryPlayer = 0,
+            // secondaryPlayer = 1) and never changes for a given ExoPlayer
+            // instance — active/standby role flips on every crossfade
+            // promotion while the player object does not. The bit-perfect
+            // clean player is a third instance with no DSP chain; it reports
+            // slot 0 (matching the DSP-less pipeline, harmless).
+            getActiveStreamSlot = {
+                if (activePlayer === secondaryPlayer) 1 else 0
+            },
             // WD-01: stuck-playback recovery.
             // retry 1 → re-prepare current item (resets codec pipeline without skipping).
             // retry 2 → skip to next track (permanently bad / undecodable file).
