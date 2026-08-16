@@ -13,7 +13,10 @@
 //
 // Ownership model:
 //   Dart  — owns lifecycle: nar_dsp_pipeline_init(), nar_gain_processor_register_internal(),
-//            all parameter control (set_gain_db, set_bypass, set_enabled), and dispose().
+//            all parameter control (set_gain_db, set_bypass, set_enabled), and dispose()
+//            (pipeline teardown via NativeDspPipeline.dispose(); the runtime-level
+//            native_runtime_dispose() is owned by NativeAudioRuntime.dispose() and is
+//            never called concurrently with pipeline processing).
 //   Kotlin — calls nar_dsp_pipeline_process_raw() on ExoPlayer's audio thread ONLY.
 //
 // Thread safety:

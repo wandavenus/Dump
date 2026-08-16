@@ -234,7 +234,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 7: Crossfeed (slot 5, between compressor and limiter)
+    // Phase 7: Crossfeed (slot 4, between compressor and limiter)
     final crossfeedStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_crossfeed_processor_register_internal(),
     );
@@ -246,7 +246,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Limiter (slot 6)
+    // Phase 6: Limiter (slot 5)
     final limiterStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_limiter_processor_register_internal(),
     );
@@ -258,7 +258,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Soft Clipper (slot 7)
+    // Phase 6: Soft Clipper (slot 6)
     final softClipperStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_soft_clipper_processor_register_internal(),
     );
@@ -396,7 +396,7 @@ class NativeCompressor {
 
 /// Dart facade over the native Limiter processor (`src/limiter_processor.h`).
 ///
-/// Brickwall look-ahead limiter at pipeline slot 3.
+/// Brickwall look-ahead limiter at pipeline slot 5.
 /// Prevents any output sample from exceeding [thresholdDb].
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
@@ -431,7 +431,7 @@ class NativeLimiter {
 /// Dart facade over the native Crossfeed processor
 /// (`src/crossfeed_processor.h`).
 ///
-/// Frequency-dependent headphone crossfeed at pipeline slot 3
+/// Frequency-dependent headphone crossfeed at pipeline slot 4
 /// (after dsp.compressor, before dsp.limiter).
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.

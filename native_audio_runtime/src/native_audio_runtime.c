@@ -33,7 +33,7 @@ typedef enum {
 static _Atomic NarState _state = NAR_STATE_UNINITIALIZED;
 static _Atomic int32_t _last_status = NATIVE_RUNTIME_OK;
 
-static const char* const kVersion = "0.1.0-phase8";
+static const char* const kVersion = "0.1.0-phase8.5";
 
 // ── Capability table ─────────────────────────────────────────────────────────
 //
@@ -50,7 +50,9 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.pipeline",          1},  // Phase 4:   DSP pipeline architecture
     {"dsp.gain",              1},  // Phase 4:   gain processor
     {"dsp.media3_integration",1},  // Phase 4.5: NativeDspAudioProcessor in ExoPlayer chain
-    {"dsp.equalizer",         1},  // Phase 5:   parametric EQ (biquad, 32-band)
+    {"dsp.equalizer",         0},  // Phase 5 REMOVED: 32-band parametric EQ was removed
+                                     //   (Band EQ uses the legacy Android system Equalizer,
+                                     //   not the native pipeline)
     {"dsp.compressor",        1},  // Phase 6:   feed-forward soft-knee compressor
     {"dsp.crossfeed",         1},  // Phase 7:   frequency-dependent headphone crossfeed
     {"dsp.limiter",           1},  // Phase 6:   look-ahead brickwall limiter
@@ -61,7 +63,8 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.resampler",         0},
     {"decoder.flac_hires",    0},
     {"decoder.dsd",           0},
-    {"scan.loudness_ebur128",  0},
+    {"scan.loudness_ebur128",  1},  // loudness_processor.c implements real-time EBU R128 /
+                                     //   BS.1770-4 measurement (dsp.loudness, phase 8.5)
 };
 static const int32_t kCapabilityCount =
     (int32_t)(sizeof(kCapabilities) / sizeof(kCapabilities[0]));
