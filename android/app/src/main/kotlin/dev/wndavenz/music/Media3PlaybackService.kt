@@ -261,12 +261,15 @@ class Media3PlaybackService : MediaSessionService() {
         val initialPlayer = requireNotNull(primaryPlayer)
         activePlayerProxy = ActivePlayerProxy(
         initialPlayer = initialPlayer,
-            onPlay        = { transportCommands.playNative() },
-            onPause       = { transportCommands.pauseNative() },
-            onSkipNext    = { transportCommands.skipNextNative() },
-            onSkipPrev    = { transportCommands.skipPrevNative() },
-            onSeek        = { transportCommands.seekNative(it) },
-            onSetTrack    = { transportCommands.setTrackNative(it) },
+            // K13 fix: any user transport action through the MediaSession
+            // (Bluetooth/headset buttons, lock screen, Android Auto) also exits
+            // preview mode — the flag must not survive the preview session.
+            onPlay        = { leavePreviewMode(); transportCommands.playNative() },
+            onPause       = { leavePreviewMode(); transportCommands.pauseNative() },
+            onSkipNext    = { leavePreviewMode(); transportCommands.skipNextNative() },
+            onSkipPrev    = { leavePreviewMode(); transportCommands.skipPrevNative() },
+            onSeek        = { leavePreviewMode(); transportCommands.seekNative(it) },
+            onSetTrack    = { leavePreviewMode(); transportCommands.setTrackNative(it) },
         )
         // ART-01: artwork cache shared between notification and full-player pipelines.
         // Initialised BEFORE the MediaSession is built so FallbackBitmapLoader (the
@@ -1009,14 +1012,27 @@ class Media3PlaybackService : MediaSessionService() {
 
     // ── MethodChannel entry point ─────────────────────────────────────────────
 
+    /**
+     * K13 fix: leaves preview mode (and un-suppresses the notification) once
+     * anything other than the native overlay drives playback. K3 originally
+     * only cleared the flag on the first MethodChannel call, so a stale
+     * preview left the notification suppressed until Flutter happened to
+     * touch the channel — e.g. controlling the preview via Bluetooth/headset
+     * media buttons never un-suppressed it. Now every real transport entry
+     * point (channel call OR MediaSession callback) exits preview mode.
+     */
+    private fun leavePreviewMode() {
+        if (isPreviewMode) {
+            isPreviewMode = false
+            if (::notificationManager.isInitialized) notificationManager.setSuppressed(false)
+        }
+    }
+
     fun handle(call: MethodCall, result: MethodChannel.Result) {
         // K3 fix: any MethodChannel call means the Flutter app is now driving
         // playback (the native overlay preview never uses this channel) — leave
         // preview mode and allow the notification to be created again.
-        if (isPreviewMode) {
-            isPreviewMode = false
-            notificationManager.setSuppressed(false)
-        }
+        leavePreviewMode()
         // "release" is handled here rather than in TransportCommands because it
         // must call stopSelf() — a service-level operation not available to
         // TransportCommands.  This mirrors the ACTION_STOP notification-button

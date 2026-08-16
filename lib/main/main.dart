@@ -16,6 +16,15 @@ Future<void> main() async {
         );
       }
 
+      // L-4 fix: LogService must be initialized before the permission request
+      // so the 'Permissions' warning it logs on failure is actually recorded
+      // instead of being silently dropped (log() early-returns while
+      // loggingEnabled is still false). Reading prefs here is cheap, and the
+      // order below still resolves the permission BEFORE the first MediaStore
+      // query (MediaStoreService.warmUp) so the first library read is
+      // authoritative on a fresh install.
+      await LogService.init();
+
       // Resolve the audio permission before the first MediaStore query.
       // On a fresh install Android can otherwise return an empty library,
       // which gets consumed by the initial widgets before the permission
@@ -27,7 +36,6 @@ Future<void> main() async {
       await Future.wait([
         LanguageManager.instance.init(),
         ThemeController.init(),
-        LogService.init(),
         LyricsSettings.init(),
         UpNextSettings.init(),
         WatermarkService.init(),

@@ -45,6 +45,17 @@ class AudioEffectsManager(private val effectHandler: Handler) {
 
     private var lastAttachedSessionId = AudioEffect.ERROR_BAD_VALUE
 
+    // K7 fix: monotonically increasing generation counter. Every fresh
+    // attachEffects() request (attempt 0) bumps it; each delayed retry captures
+    // the generation it was scheduled under and bails out if a newer request
+    // bumped it in the meantime. Without this, a retry scheduled against an
+    // OLD session could fire after the active session changed (device output
+    // change → resetAndReattach, crossfade promotion, bit-perfect toggle) and
+    // releaseEffects() the NEW session's effects only to rebuild them against
+    // the old, dead audio session — leaving EQ/bass/loudness attached to a
+    // session nothing plays into.
+    private var attachGeneration = 0L
+
     // ── Persisted intent state ────────────────────────────────────────────────
     var eqEnabled:            Boolean = false;  private set
     var loudnessEnabled:      Boolean = false;  private set
@@ -72,9 +83,21 @@ class AudioEffectsManager(private val effectHandler: Handler) {
      *   attempt 2 → 400 ms delay
      *   attempt 3 → 900 ms delay (final)
      */
-    fun attachEffects(sessionId: Int, attempt: Int = 0) {
+    fun attachEffects(sessionId: Int, attempt: Int = 0, expectedGeneration: Long = -1L) {
         // Ignore invalid or default session IDs
         if (sessionId <= 0 || sessionId == AudioEffect.ERROR_BAD_VALUE) return
+        // K7 fix: a retry only runs if no newer attach request (to any session)
+        // was made since it was scheduled. Checked before the RC-03 guard so a
+        // stale retry can never tear down / re-attach a newer session.
+        if (attempt > 0) {
+            if (expectedGeneration != attachGeneration) {
+                log("verbose", "attachEffects retry dropped — superseded by a newer attach request")
+                return
+            }
+        } else {
+            // Fresh request — any pending retries from older requests are stale.
+            attachGeneration++
+        }
         // RC-03: guard checked at every retry entry
         if (sessionId == lastAttachedSessionId) {
             log("verbose", "attachEffects skipped — already attached to session=$sessionId")
@@ -181,7 +204,13 @@ class AudioEffectsManager(private val effectHandler: Handler) {
                 else -> 900L // final retry (MIUI 12 can be slow)
             }
             log("warn", "attachEffects session=$sessionId eq=$eqOk any=$anyOk, retry in ${delayMs}ms")
-            effectHandler.postDelayed({ attachEffects(sessionId, attempt + 1) }, delayMs)
+            // K7 fix: pin the retry to the generation it belongs to so a stale
+            // delayed retry is dropped if a newer attach supersedes it.
+            val genAtSchedule = attachGeneration
+            effectHandler.postDelayed(
+                { attachEffects(sessionId, attempt + 1, genAtSchedule) },
+                delayMs,
+            )
         } else if (anyOk) {
             // Retries exhausted but at least one effect (not EQ) is live — accept
             // this as the final state so lastAttachedSessionId still guards future

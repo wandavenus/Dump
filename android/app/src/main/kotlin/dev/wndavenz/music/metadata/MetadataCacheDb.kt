@@ -232,6 +232,14 @@ class MetadataCacheDb private constructor(context: Context)
      */
     fun put(songId: Int, path: String, mtime: Long, entry: CachedEntry) {
         try {
+            // K8 fix: keep exactly ONE row per path. A pathId-keyed twin (from
+            // an earlier putByPath, e.g. scan-only flow) would otherwise leave
+            // getByPath() free to serve the older row of the pair. Drop it
+            // before writing the authoritative songId-keyed row.
+            writableDatabase.delete(
+                TABLE, "$COL_PATH = ? AND $COL_ID != ?",
+                arrayOf(path, songId.toString()),
+            )
             val values = ContentValues().apply {
                 put(COL_ID,           songId)
                 put(COL_PATH,         path)
@@ -260,8 +268,15 @@ class MetadataCacheDb private constructor(context: Context)
      */
     fun putByPath(path: String, mtime: Long, entry: CachedEntry) {
         try {
+            // K8 fix: mirror of put() — drop the songId-keyed twin for the same
+            // path (if any) so getByPath() can never serve a stale duplicate.
+            val pathId = pathToId(path)
+            writableDatabase.delete(
+                TABLE, "$COL_PATH = ? AND $COL_ID != ?",
+                arrayOf(path, pathId.toString()),
+            )
             val values = ContentValues().apply {
-                put(COL_ID,           pathToId(path))    // collision-safe 64-bit id from path
+                put(COL_ID,           pathId)    // collision-safe 64-bit id from path
                 put(COL_PATH,         path)
                 put(COL_MTIME,        mtime)
                 put(COL_RG_TRACK_GAIN, entry.rgTrackGain)

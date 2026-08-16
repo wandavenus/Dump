@@ -572,6 +572,12 @@ class TransportCommands(
     }
 
     private fun handleStop(p: ExoPlayer, result: MethodChannel.Result) {
+        // F4 fix: a stop ends the session — cancel the sleep timer here so this
+        // path behaves like ACTION_STOP / setQueue / setTrack / skip / release
+        // (which all cancel). Previously only the notification's ACTION_STOP
+        // cancelled it, so a Dart stop() (transient pause-and-idle) left the
+        // timer armed and it would later pause the NEXT session the user starts.
+        sleepTimerManager.cancel()
         // Stop is not a user "pause" gesture (used for setQueue/teardown paths
         // elsewhere) — no fade here, matches prior instant behavior. Cancel any
         // in-flight play/pause fade so it can't keep writing to a stopped player.

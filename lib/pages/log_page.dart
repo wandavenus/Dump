@@ -35,7 +35,15 @@ class _LogPageState extends State<LogPage> {
 
   final TextEditingController _searchCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
-  final Set<int> _expanded = {};
+  // Expanded stack traces, keyed by the LogEntry itself (not a list index) so
+  // entries stay expanded across new-log insertions; pruned when the entry is
+  // evicted from the ring buffer (L-5 fix).
+  final Set<LogEntry> _expanded = {};
+  // L-2 fix: log bursts (crossfade timeline, restore, prewarm, scans) fire
+  // logCount dozens of times in a row — each one used to trigger a full
+  // rebuild + O(n) filter scans. Debounce into a single rebuild so the page
+  // stays smooth while a burst is landing.
+  Timer? _newLogDebounce;
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -48,6 +56,7 @@ class _LogPageState extends State<LogPage> {
 
   @override
   void dispose() {
+    _newLogDebounce?.cancel();
     LogService.logCount.removeListener(_onNewLog);
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
@@ -56,7 +65,20 @@ class _LogPageState extends State<LogPage> {
 
   void _onNewLog() {
     if (!mounted) return;
-    setState(_expanded.clear);
+    _newLogDebounce?.cancel();
+    _newLogDebounce = Timer(
+      const Duration(milliseconds: 150),
+      _applyNewLog,
+    );
+  }
+
+  void _applyNewLog() {
+    if (!mounted) return;
+    setState(() {
+      // L-5 fix: keep user-expanded stack traces; only drop ones whose entry
+      // was evicted from the ring buffer (they can no longer be shown anyway).
+      _expanded.removeWhere((e) => !LogService.contains(e));
+    });
     if (_liveTail && _scrollCtrl.hasClients) {
       unawaited(
         _scrollCtrl.animateTo(
@@ -354,14 +376,12 @@ class _LogPageState extends State<LogPage> {
         final hasStack = (entry.stackTrace ?? '').isNotEmpty;
         return _LogEntryTile(
           entry: entry,
-          expanded: _expanded.contains(i),
+          expanded: _expanded.contains(entry),
           levelColor: _levelColor,
           onToggleExpand: hasStack
               ? () => setState(() {
-                  if (_expanded.contains(i)) {
-                    _expanded.remove(i);
-                  } else {
-                    _expanded.add(i);
+                  if (!_expanded.remove(entry)) {
+                    _expanded.add(entry);
                   }
                 })
               : null,

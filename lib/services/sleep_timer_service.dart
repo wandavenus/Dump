@@ -62,6 +62,21 @@ class SleepTimerService {
     });
   }
 
+  // F5 fix: the timer lives in the native service — the optimistic UI state
+  // must be rolled back if the MethodChannel call actually fails (e.g. the
+  // service never became ready and _invoke's 5 retries were exhausted). A
+  // failed start provably means no native timer was armed; a failed cancel
+  // means the (dead/not-ready) service had no timer to cancel either — so
+  // resetting to inactive is always the truthful state.
+  static Future<void> _send(Future<void> nativeCall, String action) async {
+    try {
+      await nativeCall;
+    } on Exception catch (e) {
+      LogService.warn('SleepTimer', '$action failed — timer not armed: $e');
+      resetToInactive();
+    }
+  }
+
   // ── Start by duration ─────────────────────────────────────────────────────
 
   static void startDuration(Duration duration) {
@@ -69,7 +84,12 @@ class SleepTimerService {
     isActive.value = true;
     isFading.value = false;
     remaining.value = duration;
-    unawaited(PlaybackManager.setSleepTimer(duration.inMilliseconds));
+    unawaited(
+      _send(
+        PlaybackManager.setSleepTimer(duration.inMilliseconds),
+        'Start timer',
+      ),
+    );
     LogService.log('SleepTimer', 'Started: ${duration.inMinutes} min');
   }
 
@@ -80,7 +100,9 @@ class SleepTimerService {
     isActive.value = true;
     isFading.value = false;
     remaining.value = null;
-    unawaited(PlaybackManager.setSleepTimerEndOfSong());
+    unawaited(
+      _send(PlaybackManager.setSleepTimerEndOfSong(), 'Start end-of-song timer'),
+    );
     LogService.log('SleepTimer', 'End-of-song mode');
   }
 
@@ -91,7 +113,7 @@ class SleepTimerService {
     isActive.value = false;
     isFading.value = false;
     remaining.value = null;
-    unawaited(PlaybackManager.cancelSleepTimer());
+    unawaited(_send(PlaybackManager.cancelSleepTimer(), 'Cancel timer'));
     LogService.log('SleepTimer', 'Cancelled');
   }
 

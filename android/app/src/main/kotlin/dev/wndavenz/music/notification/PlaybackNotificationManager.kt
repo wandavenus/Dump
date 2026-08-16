@@ -145,7 +145,9 @@ class PlaybackNotificationManager(
         startForegroundWith(notification)
         val artUri = track?.get("artworkUri") as? String
         val songId = (track?.get("id") as? Number)?.toInt() ?: 0
-        refreshAsync(artUri, songId)
+        // K10: pass the current track's DATA path so the persistent cache can
+        // validate its entry against the file identity (MediaStore _ID reuse).
+        refreshAsync(artUri, songId, track?.get("path") as? String)
     }
 
     fun refresh() {
@@ -172,7 +174,8 @@ class PlaybackNotificationManager(
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
         if (!hasCached) {
-            refreshAsync(artUri, songId)
+            // K10: pass the current track's DATA path (see ensureMediaForeground).
+            refreshAsync(artUri, songId, track?.get("path") as? String)
         }
     }
 
@@ -219,7 +222,7 @@ class PlaybackNotificationManager(
         return if (id > 0) "song:$id" else null
     }
 
-    private fun refreshAsync(artUri: String?, songId: Int) {
+    private fun refreshAsync(artUri: String?, songId: Int, filePath: String? = null) {
         if (closed) return
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         if (cacheKey == null) return
@@ -228,7 +231,7 @@ class PlaybackNotificationManager(
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
-            val bmp = loadBitmap(artUri, songId)?.let { BitmapUtils.normalizeSquare(it, NOTIF_ART_PX) }
+            val bmp = loadBitmap(artUri, songId, filePath)?.let { BitmapUtils.normalizeSquare(it, NOTIF_ART_PX) }
             handler.post {
                 inFlightLoads.remove(cacheKey)
                 if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
@@ -325,7 +328,7 @@ class PlaybackNotificationManager(
         return if (nightMode == Configuration.UI_MODE_NIGHT_YES) Color.WHITE else Color.BLACK
     }
 
-    private fun loadBitmap(artUri: String?, songId: Int): Bitmap? {
+    private fun loadBitmap(artUri: String?, songId: Int, filePath: String? = null): Bitmap? {
         // 1) Full-resolution embedded artwork decoded straight from the file.
         if (songId > 0) {
             val original = loadOriginalEmbeddedBitmap(songId)
@@ -341,9 +344,12 @@ class PlaybackNotificationManager(
         // 2) App's persistent artwork cache (extracted embedded art, ≤1000 px).
         //    Higher quality than the MediaStore album-art thumbnail, so prefer
         //    it over the URI below.
+        // K10: [filePath] lets the cache validate its entry against the source
+        // file's current size+mtime (stale entry → re-extract instead of showing
+        // the previous song's art after a MediaStore _ID reuse).
         if (artworkCacheManager != null && songId > 0) {
             try {
-                val path = artworkCacheManager.getOrExtract(songId)
+                val path = artworkCacheManager.getOrExtract(songId, filePath)
                 if (path != null) {
                     val bmp = BitmapFactory.decodeFile(path)
                     if (bmp != null) {
