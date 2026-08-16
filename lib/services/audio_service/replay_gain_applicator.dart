@@ -27,9 +27,21 @@ class _ReplayGainApplicator {
   /// [prevSong] is the predecessor track — used by [LoudnessSourceResolver]
   /// in [ReplayGainMode.auto] to decide album-gain vs. track-gain.
   ///
+  /// [streamSlot] optionally scopes the write to ONE DSP stream slot
+  /// (0 = primary, 1 = standby/crossfade player — NAR-4 fix). Pass the slot
+  /// when the caller knows which physical stream [song] is assigned to, so
+  /// the concurrently-playing other stream keeps its own track's gain.
+  /// When `null`, the shared-knob path is used and BOTH streams receive the
+  /// value (correct for mode/preamp/clipping-protection setting changes and
+  /// for single-player sessions).
+  ///
   /// This is a **fail-open** call: any exception is caught, logged, and
   /// swallowed so playback is never interrupted.
-  static Future<void> apply(LocalSong song, {LocalSong? prevSong}) async {
+  static Future<void> apply(
+    LocalSong song, {
+    LocalSong? prevSong,
+    int? streamSlot,
+  }) async {
     try {
       final mode = AudioEffectsService.replayGainMode.value;
 
@@ -49,7 +61,8 @@ class _ReplayGainApplicator {
       if (AudioEffectsService.loudnessNormEnabled.value) {
         final preamp = AudioEffectsService.replayGainPreamp.value;
         if (preamp != 0.0) {
-          PlaybackManager.setNativeReplayGain(
+          _applyGain(
+            streamSlot: streamSlot,
             gainDb: preamp,
             peakLinear: 0.0,
             useClippingProtection: false,
@@ -92,7 +105,8 @@ class _ReplayGainApplicator {
       final gainDb = data.gainDb + preamp;
       final peakLinear = data.peakLinear ?? 0.0;
 
-      PlaybackManager.setNativeReplayGain(
+      _applyGain(
+        streamSlot: streamSlot,
         gainDb: gainDb,
         peakLinear: peakLinear,
         useClippingProtection: useClip,
@@ -111,6 +125,30 @@ class _ReplayGainApplicator {
         'ReplayGainApplicator',
         'Skipped (fail-open): $e',
         stackTrace: st.toString(),
+      );
+    }
+  }
+
+  /// Route the gain write through the per-stream setter when [streamSlot] is
+  /// known, otherwise the shared-knob setter (both streams).
+  static void _applyGain({
+    required int? streamSlot,
+    required double gainDb,
+    required double peakLinear,
+    required bool useClippingProtection,
+  }) {
+    if (streamSlot != null) {
+      PlaybackManager.setNativeReplayGainForStream(
+        streamSlot: streamSlot,
+        gainDb: gainDb,
+        peakLinear: peakLinear,
+        useClippingProtection: useClippingProtection,
+      );
+    } else {
+      PlaybackManager.setNativeReplayGain(
+        gainDb: gainDb,
+        peakLinear: peakLinear,
+        useClippingProtection: useClippingProtection,
       );
     }
   }

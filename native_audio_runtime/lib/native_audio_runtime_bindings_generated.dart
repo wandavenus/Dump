@@ -250,6 +250,23 @@ external int nar_replaygain_set_gain(
   int useClippingProtection,
 );
 
+/// Set the ReplayGain gain for a SPECIFIC stream slot (NAR-4 fix).
+/// [streamSlot]: 0 = primary player, 1 = standby/crossfade player.
+///               Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0.
+/// [gainDb]: gain in dBFS from metadata (clamped to [-24, +24]).
+/// [peakLinear]: track/album peak in linear scale; 0.0 if unknown.
+/// [useClippingProtection]: 1 = cap gain so peak never exceeds 0 dBFS.
+/// Same effective-gain computation as nar_replaygain_set_gain, but stored
+/// per-stream so the two concurrently-playing crossfade streams keep their
+/// own track's gain. Bypass remains shared. Returns 0 (OK).
+@ffi.Native<ffi.Int32 Function(ffi.Int32, ffi.Float, ffi.Float, ffi.Int32)>()
+external int nar_replaygain_set_gain_for_stream(
+  int streamSlot,
+  double gainDb,
+  double peakLinear,
+  int useClippingProtection,
+);
+
 /// Enable (0) or bypass (1) the ReplayGain processor.
 @ffi.Native<ffi.Void Function(ffi.Int32)>()
 external void nar_replaygain_set_bypass(int bypass);
@@ -294,6 +311,15 @@ external double nar_loudness_get_applied_gain_db();
 /// Call on every track change so the new track is measured fresh.
 @ffi.Native<ffi.Void Function()>()
 external void nar_loudness_reset();
+
+/// Reset the loudness analyzer for a SPECIFIC stream slot (NAR-5 fix).
+/// [streamSlot]: 0 = primary player, 1 = standby/crossfade player.
+///               Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0.
+/// Identical to nar_loudness_reset() but target-scoped, so a preloading
+/// standby stream's gating history is never clobbered by a reset aimed at
+/// the promoted stream (and vice-versa).
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_loudness_reset_stream(int streamSlot);
 
 // ── crossfeed_processor.h ─────────────────────────────────────────────────────
 // Phase 7: Frequency-dependent headphone crossfeed.

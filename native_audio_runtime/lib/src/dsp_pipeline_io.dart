@@ -526,6 +526,33 @@ class NativeReplayGain {
     useClippingProtection ? 1 : 0,
   );
 
+  /// Set the gain for ONE stream slot independently (NAR-4 fix).
+  ///
+  /// During crossfade two ExoPlayer instances (slot 0 = primary, slot 1 =
+  /// standby) play concurrently with potentially different ReplayGain
+  /// metadata. This sets the pre-computed linear gain for one slot only, so
+  /// each stream applies its own track's gain instead of the "last-written
+  /// wins" artifact of [setGain] (which writes both slots).
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0
+  ///                by the native layer.
+  ///
+  /// Bypass remains shared — use [setBypass] for the global on/off switch.
+  ///
+  /// Returns the native status code (0 = OK).
+  int setGainForStream({
+    required int streamSlot,
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) => bindings.nar_replaygain_set_gain_for_stream(
+    streamSlot,
+    gainDb,
+    peakLinear,
+    useClippingProtection ? 1 : 0,
+  );
+
   /// Enable (`false`) or bypass (`true`) the ReplayGain processor.
   void setBypass(bool bypass) =>
       bindings.nar_replaygain_set_bypass(bypass ? 1 : 0);
@@ -576,6 +603,19 @@ class NativeLoudnessNorm {
 
   /// Reset analyzer state. Call on every track change.
   void reset() => bindings.nar_loudness_reset();
+
+  /// Reset the analyzer for ONE stream slot independently (NAR-5 fix).
+  ///
+  /// Identical to [reset] but target-scoped: during crossfade the standby
+  /// stream may already be preloading (and accumulating gating history for)
+  /// the incoming track. Resetting only the promoted slot preserves that
+  /// history and vice-versa.
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0
+  ///                by the native layer.
+  void resetStream(int streamSlot) =>
+      bindings.nar_loudness_reset_stream(streamSlot);
 }
 
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────

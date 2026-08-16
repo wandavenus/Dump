@@ -23,6 +23,7 @@ object TrackMapper {
         queue: List<Map<String, Any?>>,
         activeQueueIndex: Int,
         crossfadeDurationSec: Float,
+        streamSlot: Int = 0,
     ): Map<String, Any?>? {
         val p = player ?: return null
         val index = if (crossfadeDurationSec > 0f) activeQueueIndex
@@ -45,6 +46,7 @@ object TrackMapper {
             "artworkUri"     to artUri,
             "artworkSource"  to (songMap["artworkSource"] as? String),
             "nextTrackIndex" to nextTrackIndex,
+            "streamSlot"     to streamSlot,
         )
     }
 }

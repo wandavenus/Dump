@@ -341,6 +341,11 @@ class AudioService {
       nativeNext = null;
     }
 
+    // NAR-4/NAR-5: physical DSP stream slot of the ACTIVE player (0 = primary,
+    // 1 = secondary/standby), reported by the native TrackMapper. Missing on
+    // old native builds → fall back to 0 (single-player sessions).
+    final activeSlot = (trackMap['streamSlot'] as num?)?.toInt() == 1 ? 1 : 0;
+
     // Skip full sync when the current track hasn't changed, but still update
     // nextTrackIndex in state — it changes after queue reorders, shuffle toggles,
     // and repeat-mode changes even if the currently-playing track is the same.
@@ -353,18 +358,70 @@ class AudioService {
             clearNextTrackIndex: nativeNext == null,
           ),
         );
+        // The next track changed while the current one keeps playing —
+        // pre-apply the new next track's ReplayGain gain + loudness reset to
+        // the standby slot so the crossfade preload/fade-in window is already
+        // using the correct gain.
+        _preloadStandbyDsp(nativeNext, activeSlot);
       }
       return;
     }
 
     unawaited(
-      _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext),
+      _syncCurrentTrackFromNative(
+        resolved,
+        nativeNextIndex: nativeNext,
+        activeSlot: activeSlot,
+      ),
+    );
+  }
+
+  /// NAR-4/NAR-5: pre-apply the NEXT track's ReplayGain gain and loudness
+  /// reset to the standby DSP stream slot BEFORE the crossfade preload makes
+  /// it audible. The standby player always lives in the physical slot that is
+  /// not currently active (native `setStandbyPlayer` invariant), so its slot
+  /// is `1 - activeSlot`. No-op when crossfade is off (no standby exists) or
+  /// there is no next track.
+  static void _preloadStandbyDsp(int? nextIndex, int activeSlot) {
+    if (nextIndex == null ||
+        nextIndex < 0 ||
+        nextIndex >= _playlist.length) {
+      return;
+    }
+    if (AudioEffectsService.crossfadeDuration.value <= 0) return;
+
+    final nextSong = _playlist[nextIndex];
+    final current = playbackState.value.currentSong;
+    final standbySlot = 1 - activeSlot;
+
+    // Reset the standby analyzer at preload so the incoming track is measured
+    // fresh from its first gating block — the previous track's history must
+    // not leak into the promoted stream's measurement.
+    if (AudioEffectsService.loudnessNormEnabled.value) {
+      PlaybackManager.resetNativeLoudnessNormForStream(standbySlot);
+    }
+
+    // Fire-and-forget: resolve + apply the next track's gain to the standby
+    // slot. The standby does not become audible until the fade-in starts
+    // (seconds away), so the async resolve always lands in time.
+    unawaited(
+      _ReplayGainApplicator.apply(
+        nextSong,
+        prevSong: current,
+        streamSlot: standbySlot,
+      ).catchError((Object e) {
+        LogService.warn(
+          'AudioService',
+          '_ReplayGainApplicator.apply (standby preload) error: $e',
+        );
+      }),
     );
   }
 
   static Future<void> _syncCurrentTrackFromNative(
     int index, {
     int? nativeNextIndex,
+    int activeSlot = 0,
   }) async {
     final song = _playlist[index];
     final prevIndex = _currentIndex;
@@ -431,23 +488,31 @@ class AudioService {
     // a redundant Dart-side retry unnecessary and wasteful (8-10 MethodChannel
     // calls per track that would all be no-ops on the native side).
     AudioEffectsService.applyAll();
-    // Reset loudness analyzer on each track change so the new track is
-    // measured fresh (prevents stale gain from the previous song carrying over).
+    // Reset loudness analyzer on the stream the new track actually plays on
+    // (NAR-5 fix) so the new track is measured fresh — the other stream
+    // (preloading standby, or primary still fading out) keeps its own history.
     if (AudioEffectsService.loudnessNormEnabled.value) {
-      PlaybackManager.resetNativeLoudnessNorm();
+      PlaybackManager.resetNativeLoudnessNormForStream(activeSlot);
     }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
     unawaited(
-      _ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((
-        Object e,
-      ) {
+      _ReplayGainApplicator.apply(
+        song,
+        prevSong: prevSong,
+        streamSlot: activeSlot,
+      ).catchError((Object e) {
         LogService.warn(
           'AudioService',
           '_ReplayGainApplicator.apply error: $e',
         );
       }),
     );
+
+    // NAR-4/NAR-5: the new current track is now active on [activeSlot]; the
+    // standby slot starts preloading the NEXT track — give it the next
+    // track's gain + loudness reset immediately.
+    _preloadStandbyDsp(nativeNextIndex, activeSlot);
   }
 
   // ── Playback ──────────────────────────────────────────────────────────[...]
