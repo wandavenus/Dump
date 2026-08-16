@@ -36,7 +36,7 @@ void main() {
       final result = Playlist.fromJson({
         'id': 'x',
         'name': 'X',
-        'songIds': [],
+        'songIds': <int>[],
         'createdAt': timestamp,
       });
 
