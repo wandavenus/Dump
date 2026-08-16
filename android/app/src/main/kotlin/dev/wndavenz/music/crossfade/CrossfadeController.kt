@@ -76,6 +76,11 @@ class CrossfadeController(
     // start — the current track plays out to its natural end so the existing
     // STATE_ENDED / transition trigger can fire. See maybeCrossfadeOut().
     private val isEndOfSongSleepTimerActive: () -> Boolean = { false },
+    // BP-06: Bit-Perfect Mode and the dual-player crossfade are mutually exclusive.
+    // Dart already forces the crossfade duration to 0 on mode entry; this native
+    // guard is defence in depth so a stale crossfade setting can never start a fade
+    // on the clean player (or reuse its standby slot) while the mode is active.
+    private val isBitPerfectModeActive: () -> Boolean = { false },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -115,6 +120,8 @@ class CrossfadeController(
      */
     fun maybeCrossfadeOut() {
         if (crossfadeDurationSec <= 0f || promotionTriggered || crossfadeInProgress) return
+        // BP-06: never start a crossfade while Bit-Perfect Mode is active.
+        if (isBitPerfectModeActive()) return
         // F1 (sleep timer): never start a crossfade while the end-of-song timer is armed.
         // During a crossfade the promoted standby's transition is PLAYLIST_CHANGED (not
         // AUTO) and the old player's STATE_ENDED is dropped by the isActiveEvent() guard,
