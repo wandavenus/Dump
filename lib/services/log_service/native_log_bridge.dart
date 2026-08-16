@@ -17,10 +17,15 @@ class NativeLogBridge {
       final category = event['category'] as String? ?? 'Native';
       final message = event['message'] as String? ?? '';
       if (message.isEmpty) return;
+      // L-1 fix: native 'debug' (10 Kotlin emit sites) used to fall through to
+      // INFO, so the in-app level filter could never separate debug detail from
+      // normal info. Map it to verbose — the "show everything" mode — so
+      // verbose-only logging surfaces it and errors-only hides it, matching the
+      // intent of the native level.
       final logLevel = switch (level) {
         'error' => LogLevel.error,
         'warn' => LogLevel.warning,
-        'verbose' => LogLevel.verbose,
+        'verbose' || 'debug' => LogLevel.verbose,
         _ => LogLevel.info,
       };
       LogService.log(category, message, level: logLevel);

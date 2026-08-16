@@ -12,13 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/theme/app_colors.dart';
-import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 
 import '../../services/sleep_timer_service.dart';
 
-part 'sleep_timer_page/page.dart';
-part 'sleep_timer_page/body.dart';
+// F6 fix: the standalone full-page variant (page.dart/body.dart) was dead
+// code — only the bottom sheet is wired to the player 3-dot menu — so its
+// parts were removed.
 part 'sleep_timer_page/active_card.dart';
 part 'sleep_timer_page/presets.dart';
 
@@ -120,8 +120,10 @@ class _SleepTimerSheetWidget extends StatelessWidget {
   }
 }
 
-/// Body variant for the bottom sheet — same structure as [_SleepTimerBody]
-/// but preset taps also dismiss the sheet.
+/// Body for the bottom sheet. F6 fix: the old doc comment claimed preset taps
+/// dismiss the sheet, but [_PresetList] is created with `dismissOnSelect: false`
+/// — the sheet stays open and a snackbar confirms the choice. The comment now
+/// matches the code.
 class _SleepTimerSheetBody extends StatelessWidget {
   const _SleepTimerSheetBody();
 

@@ -109,22 +109,31 @@ class ArtworkCacheManager(private val context: Context) {
      *   non-JPEG art is scaled to MAX_ARTWORK_SIZE and encoded WebP 85.
      * Returns null only when artwork cannot be extracted (song has no embedded art).
      *
+     * [filePath] — optional DATA path of the source audio file. When provided,
+     * the extraction records that file's size+mtime in a sidecar and every
+     * later cache hit validates against the file's CURRENT size+mtime (K10 fix):
+     * if the file was replaced in place or the MediaStore _ID was reused for a
+     * different file, the stale entry is dropped and re-extracted instead of
+     * showing the old song's artwork. When null, behaviour is unchanged from
+     * before (no identity validation).
+     *
      * Thread-safety note: the per-songId lock registry is process-wide because
      * Activity and playback service instances share this directory.
      */
-    fun getOrExtract(songId: Int): String? {
+    fun getOrExtract(songId: Int, filePath: String? = null): String? {
         if (songId <= 0) return null
 
         val target = File(cacheDir, "$songId.webp")
 
-        // Fast path — file already cached.
-        if (isUsableCacheFile(target)) {
+        // Fast path — file already cached (and still matches the song's file).
+        if (isUsableCacheFile(target) && identityStillValid(target, filePath)) {
             touch(target)           // update mtime for LRU ordering
             return target.absolutePath
         }
         if (target.exists()) {
             try { target.delete() } catch (_: Exception) {}
         }
+        deleteIdentityMeta(target)
 
         // Acquire a per-songId lock to serialise concurrent requests for the same song.
         val lock = processGlobalLock.withLock {
@@ -139,13 +148,14 @@ class ArtworkCacheManager(private val context: Context) {
         val result: String? = try {
             lock.withLock {
                 // Re-check after acquiring the lock (another thread may have written it).
-                if (isUsableCacheFile(target)) {
+                if (isUsableCacheFile(target) && identityStillValid(target, filePath)) {
                     touch(target)
                     return@withLock target.absolutePath
                 }
                 if (target.exists()) {
                     try { target.delete() } catch (_: Exception) {}
                 }
+                deleteIdentityMeta(target)
 
                 val raw = extractRawBytes(songId) ?: return@withLock null
 
@@ -162,6 +172,10 @@ class ArtworkCacheManager(private val context: Context) {
 
                 if (ok) {
                     touch(target)
+                    // K10 fix: record the source file identity so a replaced
+                    // file (or MediaStore _ID reuse) invalidates the entry on
+                    // the next hit.
+                    if (filePath != null) saveIdentityMeta(target, filePath)
                     target.absolutePath
                 } else {
                     null
@@ -475,6 +489,64 @@ class ArtworkCacheManager(private val context: Context) {
         // Removing it after unlock races with another ArtworkCacheManager
         // instance acquiring the same song ID and can create two locks.
         processGlobalLock.withLock { processInFlightSongIds.remove(songId) }
+    }
+
+    // ── K10: source-file identity sidecar ────────────────────────────────────
+    //
+    // The cache is keyed by MediaStore _ID, which Android may reuse for a
+    // different file after a rescan/delete without the app's own delete path
+    // firing (A2 covers the app-initiated delete). When the caller knows the
+    // song's DATA path, the extraction records `size + mtime` (the same
+    // identity the ReplayGain cache uses) and later hits are validated
+    // against the file's current size + mtime. All sidecar I/O is
+    // best-effort: a missing or corrupt meta file simply disables the check.
+    private fun metaFileFor(target: File) = File(target.parent, "${target.name}.meta")
+
+    private fun saveIdentityMeta(target: File, filePath: String) {
+        try {
+            val f = File(filePath)
+            if (!f.isFile) return
+            val tmp = File(
+                target.parent,
+                "${target.name}.meta.tmp.${android.os.Process.myPid()}.${Thread.currentThread().id}",
+            )
+            tmp.writeText("${f.length()}\n${f.lastModified()}\n$filePath")
+            if (!tmp.renameTo(metaFileFor(target))) {
+                try { tmp.delete() } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {
+            // Best-effort — a missing meta only disables the identity check.
+        }
+    }
+
+    private fun deleteIdentityMeta(target: File) {
+        try { metaFileFor(target).delete() } catch (_: Exception) {}
+    }
+
+    /**
+     * True when the cached entry may be served for [filePath].
+     * - No [filePath] supplied → always true (legacy behaviour).
+     * - No sidecar recorded → true (legacy entry from before this fix).
+     * - Sidecar present → true only if the file is still at the same path with
+     *   the same size and mtime that produced this artwork.
+     */
+    private fun identityStillValid(target: File, filePath: String?): Boolean {
+        if (filePath == null) return true
+        try {
+            val meta = metaFileFor(target)
+            if (!meta.exists()) return true
+            val parts = meta.readText().split('\n')
+            if (parts.size < 3) return true
+            val storedSize = parts[0].toLongOrNull() ?: return true
+            val storedMtime = parts[1].toLongOrNull() ?: return true
+            val storedPath = parts[2]
+            val cur = File(filePath)
+            if (!cur.isFile) return false
+            if (storedPath != filePath) return false
+            return cur.length() == storedSize && cur.lastModified() == storedMtime
+        } catch (_: Exception) {
+            return true
+        }
     }
 
     private fun isUsableCacheFile(file: File): Boolean {

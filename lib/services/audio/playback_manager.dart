@@ -809,9 +809,13 @@ class PlaybackManager {
   static Future<void> _prefetchPalette(int songId) async {
     if (songId <= 0 || !_prefetchingSongs.add(songId)) return;
 
-    if (_activePrefetches >= _maxConcurrentPrefetches) {
-      _prefetchingSongs.remove(songId);
-      return;
+    // N3 fix: at the concurrency cap the song used to be dropped from
+    // _prefetchingSongs and never retried — the currentTrack guard
+    // (_lastPrefetchedIndex/_lastPrefetchedNextIndex) already returned for
+    // the same track, so the palette stayed a placeholder through rapid
+    // 3+ skips. Keep the song claimed and wait for a free slot instead.
+    while (_activePrefetches >= _maxConcurrentPrefetches) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
 
     _activePrefetches++;

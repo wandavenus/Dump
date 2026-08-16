@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/local_song.dart';
 import 'log_service.dart';
+import 'replay_gain_service.dart';
 
 class MediaStoreService {
   static const MethodChannel _channel = MethodChannel(
@@ -201,6 +202,14 @@ class MediaStoreService {
       _songsCache = parsedSongs;
       _liveRefreshed = true;
       _lastFailedReconcile = null;
+      // N1 fix: a full library re-scan can delete/replace songs whose stale
+      // ReplayGain entries would otherwise linger in the in-memory cache.
+      // (The path+size+mtime identity guard already makes those entries
+      // harmless — this closes the loop so they are gone entirely.) The
+      // SharedPreferences rg_* entries are left intact: they are validated
+      // against the file identity on read, so they remain a valid fast path
+      // for songs that still exist.
+      ReplayGainService.clearCache();
       unawaited(_persist(parsedSongs));
       return parsedSongs;
     } on TimeoutException catch (_) {

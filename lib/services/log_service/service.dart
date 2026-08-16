@@ -115,6 +115,12 @@ class LogService {
   static List<LogEntry> getErrors() => getLogs(level: LogLevel.error);
   static List<LogEntry> getWarnings() => getLogs(level: LogLevel.warning);
 
+  /// True while [entry] is still in the ring buffer (not yet evicted).
+  /// L-5 fix: the log page prunes its expanded-stack-trace set with this so
+  /// an expansion survives new log arrivals and is only dropped when the
+  /// entry itself is evicted past the [_maxEntries] limit.
+  static bool contains(LogEntry entry) => _logs.contains(entry);
+
   // ── Count helpers ────────────────────────────────────────────────────────────
 
   static int countByLevel(LogLevel level) =>

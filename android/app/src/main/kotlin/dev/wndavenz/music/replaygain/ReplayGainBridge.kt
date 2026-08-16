@@ -2,6 +2,7 @@ package dev.wndavenz.music.replaygain
 
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import java.io.File
 import java.util.Locale
@@ -340,33 +341,43 @@ class ReplayGainBridge(
         region: ByteArray?,
         prior: TagSnapshot?,
     ): ReplayGainError {
+        // L-3 fix: these data-integrity failures used to be logcat-only, so the
+        // in-app Log Viewer (Settings → Log Aktivitas) never showed them. Emit
+        // every one through NativeLogger too so a failed write→verify→rollback
+        // cycle is visible to the user/dev without adb. Log.e is kept so logcat
+        // behaviour is unchanged.
         if (region == null) {
-            Log.e(TAG, "songId=$songId mutation failed without a metadata backup")
+            logError("songId=$songId mutation failed without a metadata backup")
             return ReplayGainError.ROLLBACK_FAILED
         }
         val restorePfd = openFd(songId)
             ?: return ReplayGainError.ROLLBACK_FAILED.also {
-                Log.e(TAG, "songId=$songId could not reopen for rollback")
+                logError("songId=$songId could not reopen for rollback")
             }
         val restoreFd = restorePfd.detachFd()
         val restoreError = ReplayGainService.restoreRegionFd(restoreFd, format, region)
         if (restoreError != ReplayGainError.NONE) {
-            Log.e(TAG, "songId=$songId rollback failed: $restoreError")
+            logError("songId=$songId rollback failed: $restoreError")
             return ReplayGainError.ROLLBACK_FAILED
         }
         if (prior == null) return ReplayGainError.NONE
 
         val verifyPfd = openFd(songId)
             ?: return ReplayGainError.ROLLBACK_FAILED.also {
-                Log.e(TAG, "songId=$songId rollback completed but could not verify it")
+                logError("songId=$songId rollback completed but could not verify it")
             }
         val verifyFd = verifyPfd.detachFd()
         val verifyError = ReplayGainService.verifyRestoredFd(verifyFd, format, prior)
         if (verifyError != ReplayGainError.NONE) {
-            Log.e(TAG, "songId=$songId rollback verification failed: $verifyError")
+            logError("songId=$songId rollback verification failed: $verifyError")
             return ReplayGainError.ROLLBACK_FAILED
         }
         return ReplayGainError.NONE
+    }
+
+    private fun logError(msg: String) {
+        Log.e(TAG, msg)
+        NativeLogger.emit("error", "ReplayGain", msg)
     }
 
     private fun dbToLinear(db: Double): Double =
