@@ -94,6 +94,11 @@ class Media3PlaybackService : MediaSessionService() {
     private var bitPerfectPlayer:    ExoPlayer? = null
     private var bitPerfectModeOn:    Boolean = false
     private var preBitPerfectPlayer: ExoPlayer? = null
+    // BP-04: true only while switchTo/switchFromBitPerfectPlayer() is running — used
+    // to distinguish internal playlist-changed transitions (the fresh clean player's
+    // empty timeline receiving the queue) from real user skips, so the end-of-song
+    // sleep timer is not cancelled by the toggle itself.
+    private var bitPerfectSwitching: Boolean = false
 
     // ── Session ───────────────────────────────────────────────────────────────
     private var session: MediaSession? = null
@@ -516,6 +521,12 @@ class Media3PlaybackService : MediaSessionService() {
             isEndOfSongSleepTimerActive = {
                 sleepTimerManager.sleepTimerActive && sleepTimerManager.sleepEndOfSong
             },
+            // BP-06: Bit-Perfect Mode and crossfade are mutually exclusive —
+            // enforce natively (Dart already forces the crossfade duration to 0
+            // on mode entry; this is defence in depth so a stale crossfade
+            // setting can never start a fade on the clean player or reuse its
+            // standby slot while the mode is active).
+            isBitPerfectModeActive = { bitPerfectModeOn },
         )
 
         effectsManager = AudioEffectsManager(handler)
@@ -650,7 +661,10 @@ class Media3PlaybackService : MediaSessionService() {
             // bind Equalizer / BassBoost etc.
             handler.postDelayed({
                 val sessionId = activePlayer?.audioSessionId ?: 0
-                if (sessionId > 0) {
+                // BP-03: never attach AudioEffects while Bit-Perfect Mode is
+                // active — the clean player must stay free of EQ/BassBoost/
+                // LoudnessEnhancer even across output-device changes (BT/HDMI).
+                if (sessionId > 0 && !bitPerfectModeOn) {
                     effectsManager.resetAndReattach(sessionId)
                 }
             }, 500L)
@@ -1436,7 +1450,10 @@ class Media3PlaybackService : MediaSessionService() {
     if (playbackState == Player.STATE_READY) scheduleSessionArtworkRefresh()
 
     if (playbackState == Player.STATE_READY &&
-        crossfadeController.crossfadeDurationSec > 0f) {
+        crossfadeController.crossfadeDurationSec > 0f &&
+        // BP-06: never preload a standby while Bit-Perfect Mode is active —
+        // the standby slot would land on the paused pre-bit-perfect player.
+        !bitPerfectModeOn) {
         preloadManager.preloadNextTrack()
     }
 
@@ -1487,7 +1504,13 @@ class Media3PlaybackService : MediaSessionService() {
                 if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
                         reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) &&
                     sleepTimerManager.sleepTimerActive &&
-                    sleepTimerManager.sleepEndOfSong) {
+                    sleepTimerManager.sleepEndOfSong &&
+                    // BP-04: transitions fired while the bit-perfect switch itself
+                    // is running (fresh clean player's empty timeline receiving the
+                    // queue) are internal artifacts, not a user skip — don't cancel
+                    // the end-of-song timer for them. Real user skips happen outside
+                    // this window and still cancel normally.
+                    !bitPerfectSwitching) {
                     sleepTimerManager.cancel()
                 }
 
@@ -1505,7 +1528,10 @@ class Media3PlaybackService : MediaSessionService() {
                 if (!crossfadeController.crossfadeInProgress && p.currentMediaItemIndex >= 0) {
                     queueManager.setActiveQueueIndex(p.currentMediaItemIndex)
                     crossfadeController.resetPromotionState()
-                    if (crossfadeController.crossfadeDurationSec > 0f) {
+                    // BP-06: also skip the force-preload while Bit-Perfect Mode is
+                    // active — a stale crossfade setting must not create a standby
+                    // player on the paused pre-bit-perfect player's slot.
+                    if (crossfadeController.crossfadeDurationSec > 0f && !bitPerfectModeOn) {
                         preloadManager.preloadNextTrack(force = true)
                     }
                 }
@@ -1983,42 +2009,58 @@ class Media3PlaybackService : MediaSessionService() {
         if (bitPerfectModeOn) return
         val current = activePlayer ?: return
         NativeLogger.emit("info", "Media3", "BitPerfect: enabling — switching to clean player")
-
-        // Dual-player crossfade and Bit-Perfect Mode never run together.
-        crossfadeController.cancel(resetVolume = true)
-        preloadManager.releaseStandbyPlayer()
-
-        val wasPlaying = current.isPlaying
-        val positionMs = current.currentPosition
-        current.pause()
-
-        // No AudioEffects during bit-perfect playback.
-        effectsManager.releaseEffects()
-
-        preBitPerfectPlayer = current
-
-        val clean = bitPerfectPlayer ?: createBitPerfectPlayer().also {
-            bitPerfectPlayer = it
-            attachPlayerListener(it)
-        }
-
-        activePlayer = clean
+        // BP-04: mark the switch window so internal PLAYLIST_CHANGED transitions
+        // (fresh clean player's timeline receiving the queue) are not treated as
+        // user skips by the end-of-song sleep timer.
+        bitPerfectSwitching = true
         try {
-            activePlayerProxy.switchTo(clean)
-        } catch (e: Exception) {
-            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(clean) failed: ${e.message}")
-        }
+            // Dual-player crossfade and Bit-Perfect Mode never run together.
+            crossfadeController.cancel(resetVolume = true)
+            preloadManager.releaseStandbyPlayer()
 
-        if (queueManager.queue.isNotEmpty()) {
-            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
-        }
-        if (wasPlaying) clean.play()
+            val wasPlaying = current.isPlaying
+            val positionMs = current.currentPosition
+            current.pause()
 
-        bitPerfectModeOn = true
-        transportState.emitAll()
-        notificationManager.refresh()
-        NativeLogger.emit("info", "Media3",
-            "BitPerfect: active — session=${clean.audioSessionId} pos=${positionMs}ms playing=$wasPlaying")
+            // No AudioEffects during bit-perfect playback.
+            effectsManager.releaseEffects()
+
+            preBitPerfectPlayer = current
+
+            val clean = bitPerfectPlayer ?: createBitPerfectPlayer().also {
+                bitPerfectPlayer = it
+                attachPlayerListener(it)
+            }
+
+            activePlayer = clean
+            try {
+                activePlayerProxy.switchTo(clean)
+            } catch (e: Exception) {
+                NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(clean) failed: ${e.message}")
+            }
+
+            if (queueManager.queue.isNotEmpty()) {
+                queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+                // BP-02: setQueue() does not carry repeat/shuffle (a fresh player
+                // defaults to REPEAT_OFF + shuffle off) — copy them over so the
+                // clean player behaves exactly like the normal pipeline.
+                clean.repeatMode = current.repeatMode
+                clean.shuffleModeEnabled = current.shuffleModeEnabled
+            }
+            // BP-05: migrate the single tracked offload listener to the clean
+            // player so OS grant/reject events report against the actual active
+            // player during the mode.
+            attachOffloadListenerTo(clean)
+            if (wasPlaying) clean.play()
+
+            bitPerfectModeOn = true
+            transportState.emitAll()
+            notificationManager.refresh()
+            NativeLogger.emit("info", "Media3",
+                "BitPerfect: active — session=${clean.audioSessionId} pos=${positionMs}ms playing=$wasPlaying")
+        } finally {
+            bitPerfectSwitching = false
+        }
     }
 
     /**
@@ -2032,42 +2074,61 @@ class Media3PlaybackService : MediaSessionService() {
         val clean = bitPerfectPlayer
         if (clean == null) { bitPerfectModeOn = false; return }
         NativeLogger.emit("info", "Media3", "BitPerfect: disabling — restoring normal pipeline")
-
-        val wasPlaying = clean.isPlaying
-        val positionMs = clean.currentPosition
-        clean.pause()
-
-        val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
-            primaryPlayer = it
-            attachPlayerListener(it)
-        }
-        preBitPerfectPlayer = null
-
-        activePlayer = restored
+        // BP-04: mark the switch window (see switchToBitPerfectPlayer).
+        bitPerfectSwitching = true
         try {
-            activePlayerProxy.switchTo(restored)
-        } catch (e: Exception) {
-            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
+            // BP-06: if the active player changed during the mode (defensive —
+            // crossfade is now guarded native-side, but never trust it), read the
+            // exit state from the real active player instead of the clean one.
+            val src = if (activePlayer === clean) clean else (activePlayer ?: clean)
+            val wasPlaying = src.isPlaying
+            val positionMs = src.currentPosition
+            clean.pause()
+            if (src !== clean) src.pause()
+
+            val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
+                primaryPlayer = it
+                attachPlayerListener(it)
+            }
+            preBitPerfectPlayer = null
+
+            activePlayer = restored
+            try {
+                activePlayerProxy.switchTo(restored)
+            } catch (e: Exception) {
+                NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
+            }
+
+            if (queueManager.queue.isNotEmpty()) {
+                queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+                // BP-02 (symmetry): carry repeat/shuffle over from the clean player
+                // in case the user changed the mode during bit-perfect playback.
+                restored.repeatMode = clean.repeatMode
+                restored.shuffleModeEnabled = clean.shuffleModeEnabled
+            }
+            // BP-05: migrate the tracked offload listener back to the restored player.
+            attachOffloadListenerTo(restored)
+
+            // Re-attach AudioEffects for the restored session — the
+            // onAudioSessionIdChanged listener only fires when the numeric session
+            // ID actually changes, which is not guaranteed here. Use
+            // resetAndReattach: plain attachEffects() is a no-op when the session
+            // matches lastAttachedSessionId (releaseEffects() on mode entry does
+            // not reset that guard), which would leave EQ/bass/loudness dead after
+            // exiting the mode (BP-01).
+            val sid = restored.audioSessionId
+            if (sid > 0) effectsManager.resetAndReattach(sid)
+
+            if (wasPlaying) restored.play()
+
+            bitPerfectModeOn = false
+            transportState.emitAll()
+            notificationManager.refresh()
+            NativeLogger.emit("info", "Media3",
+                "BitPerfect: deactivated — session=$sid pos=${positionMs}ms playing=$wasPlaying")
+        } finally {
+            bitPerfectSwitching = false
         }
-
-        if (queueManager.queue.isNotEmpty()) {
-            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
-        }
-
-        // Re-attach AudioEffects for the restored session — the
-        // onAudioSessionIdChanged listener only fires when the numeric
-        // session ID actually changes, which is not guaranteed here, so
-        // attach explicitly (mirrors the onCrossfadeComplete callback).
-        val sid = restored.audioSessionId
-        if (sid > 0) effectsManager.attachEffects(sid)
-
-        if (wasPlaying) restored.play()
-
-        bitPerfectModeOn = false
-        transportState.emitAll()
-        notificationManager.refresh()
-        NativeLogger.emit("info", "Media3",
-            "BitPerfect: deactivated — session=$sid pos=${positionMs}ms playing=$wasPlaying")
     }
 
     // ── Item helpers ──────────────────────────────────────────────────────────
@@ -2083,6 +2144,10 @@ class Media3PlaybackService : MediaSessionService() {
         val seen = Collections.newSetFromMap(IdentityHashMap<ExoPlayer, Boolean>())
         primaryPlayer?.let   { if (seen.add(it)) block(it) }
         secondaryPlayer?.let { if (seen.add(it)) block(it) }
+        // BP-03: the bit-perfect player is a live player too — include it so track
+        // re-selection adapts to new output-device capabilities (passthrough /
+        // tunneling) during the mode exactly like the other players.
+        bitPerfectPlayer?.let { if (seen.add(it)) block(it) }
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

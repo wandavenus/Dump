@@ -132,12 +132,6 @@ class TransportCommands(
                 sleepTimerManager.cancel()
                 result.success(null); return
             }
-            "setBitPerfectMode" -> {
-                val enabled = call.argument<Boolean>("enabled") ?: false
-                setBitPerfectMode(enabled)
-                log("info", "setBitPerfectMode: $enabled")
-                result.success(null); return
-            }
         }
 
         val p = getPlayer() ?: run {
@@ -148,6 +142,17 @@ class TransportCommands(
         when (call.method) {
 
             // ── Transport ─────────────────────────────────────────────────────
+
+            // BP-08: the bit-perfect switch requires the engine (active player) to
+            // be ready — handled after the not-ready guard so an early toggle gets
+            // a not_ready error and Media3PlaybackBridge._invoke retries, instead
+            // of silently no-op'ing while Dart already persisted the new mode.
+            "setBitPerfectMode" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                setBitPerfectMode(enabled)
+                log("info", "setBitPerfectMode: $enabled")
+                result.success(null); return
+            }
 
             "play" -> handlePlay(p, result)
             "pause" -> handlePause(p, result)

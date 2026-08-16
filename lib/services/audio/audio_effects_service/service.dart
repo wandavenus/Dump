@@ -276,6 +276,15 @@ class AudioEffectsService {
   static Future<void> _pushEngineSettingsWhenReady() async {
     await PlaybackManager.waitForServiceReady();
 
+    // BP-07: a freshly started native service always has bit-perfect OFF. If the
+    // persisted flag says the mode was on (app was killed while the mode was
+    // active), re-apply the native switch so the pipeline matches the UI. All
+    // processing settings were already force-bypassed (and persisted) when the
+    // mode was enabled, so the pushes below stay consistent with the mode.
+    if (bitPerfectMode.value) {
+      await PlaybackManager.setBitPerfectMode(true);
+    }
+
     // Speed & pitch
     _sendSpeed(playbackSpeed.value);
     _sendPitch(pitchShift.value);
@@ -933,6 +942,7 @@ class AudioEffectsService {
     await prefs.setDouble('bpmSnapCompRatio', compressorRatio.value);
     await prefs.setDouble('bpmSnapLimThreshold', limiterThreshold.value);
     await prefs.setDouble('bpmSnapScThreshold', softClipperThreshold.value);
+    await prefs.setDouble('bpmSnapPreamp', nativePreampDb.value);
     await prefs.setBool('bpmSnapValid', true);
   }
 
@@ -952,10 +962,11 @@ class AudioEffectsService {
     // Bypass ReplayGain on the currently-loaded track immediately, rather
     // than waiting for the next track change to pick up the new mode.
     PlaybackManager.setNativeReplayGainBypass(true);
-    // Native Gain/Preamp is a live DSP stage with no dedicated UI toggle
-    // elsewhere in the app — force it to unity/bypass too so nothing in the
-    // native chain still touches the signal.
-    PlaybackManager.setNativeGainBypass(true);
+    // Native Gain/Preamp is a live DSP stage — force it to unity/bypass too so
+    // nothing in the native chain still touches the signal. Persisted (via
+    // setNativePreampDb(0.0)) so a restart while the mode is active also starts
+    // with the preamp at unity.
+    await setNativePreampDb(0.0);
     // System-level LoudnessEnhancer, in case anything left it engaged.
     unawaited(PlaybackManager.setLoudnessEnabled(false));
     unawaited(PlaybackManager.setLoudnessTargetGain(0.0));
@@ -992,9 +1003,9 @@ class AudioEffectsService {
     await setLimiterThreshold(limThresh);
     await setSoftClipperThreshold(scThresh);
 
-    // Native Gain stage has no user-facing toggle — its normal resting
-    // state is simply "not bypassed" (unity passthrough).
-    PlaybackManager.setNativeGainBypass(false);
+    // Restore the preamp from the snapshot — setNativePreampDb() derives the
+    // gain-stage bypass from the value itself (0.0 = bypassed/unity).
+    await setNativePreampDb(prefs.getDouble('bpmSnapPreamp') ?? 0.0);
 
     await prefs.setBool('bpmSnapValid', false);
   }
