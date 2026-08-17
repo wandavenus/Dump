@@ -131,9 +131,6 @@ class FloatingPillNavBar extends StatelessWidget {
   /// konsisten dengan pill 4 tab (tepi atas/bawah sejajar).
   static const double trailingSize = bodyHeight;
 
-  static const double _blobHeight = 38.0;
-  static const double _blobInset = 5.0;
-  static const double _labelHeight = 14.0;
   static const double _iconSize = 24.0;
 
   @override
