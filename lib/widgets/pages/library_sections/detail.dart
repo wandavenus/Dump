@@ -280,7 +280,7 @@ class _LibraryDetailPageState extends State<_LibraryDetailPage> {
           final songs = snapshot.data ?? const <LocalSong>[];
           if (songs.isEmpty) return _empty(context);
 
-          final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+          final bottomClearance = navBottomClearance(context);
 
           return switch (widget.destination) {
             _LibraryDestination.playlist => _FrequentSongsView(

@@ -109,10 +109,11 @@ class _FirstPageState extends State<FirstPage> {
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
         final c = AppColors.of(context);
-        return ValueListenableBuilder<bool>(
-          valueListenable: ThemeController.glassNavBar,
-          builder: (context, navBarGlass, _) {
-            final useGlassNavBar = isGlass && navBarGlass;
+        return ValueListenableBuilder<NavBarStyle>(
+          valueListenable: ThemeController.navBarStyle,
+          builder: (context, navStyle, _) {
+            final useGlassNavBar = isGlass && navStyle != NavBarStyle.solid;
+            final isPill = useGlassNavBar && navStyle == NavBarStyle.pill;
             final navBar = Theme(
               data: Theme.of(context).copyWith(
                 splashColor: Colors.transparent,
@@ -204,7 +205,15 @@ class _FirstPageState extends State<FirstPage> {
                             // Ikuti jari 1:1: progress = drag_px / (sh × 0.55),
                             // jadi drag_px ≈ progress × sh × 0.55.
                             // Clamp ke tinggi navbar agar tidak melewati bawah layar.
-                            final navH = useGlassNavBar ? 70.0 : 71.5;
+                            // Pill ikut margin bawahnya, jadi slide maksimalnya
+                            // mencakup body + gap + inset agar benar-benar hilang.
+                            final safeBottom =
+                                MediaQuery.paddingOf(context).bottom;
+                            final navH = isPill
+                                ? FloatingPillNavBar.bodyHeight +
+                                    FloatingPillNavBar.bottomGap +
+                                    safeBottom
+                                : (useGlassNavBar ? 70.0 : 71.5);
                             final sh = MediaQuery.sizeOf(context).height;
                             // Kurva deselerasi dua-segmen:
                             // [0, 0.75] : f(p) = p − 0.5p²  → f'(0)=1, f'(0.5)=0.5, f'(0.75)=0.25
@@ -219,11 +228,41 @@ class _FirstPageState extends State<FirstPage> {
                               curved = b75 + 0.25 * e - 0.4 * e * e;
                             }
                             final slide = (curved * sh * 0.17).clamp(0.0, navH);
+                            final Widget bottomChild;
+                            if (isPill) {
+                              bottomChild = FloatingPillNavBar(
+                                selectedIndex: _selectedIndex,
+                                onTap: _navgateBottomBar,
+                                icons: const [
+                                  Icons.home_filled,
+                                  Icons.grid_view_rounded,
+                                  Icons.sensors,
+                                  Icons.subscriptions_rounded,
+                                  Icons.search,
+                                ],
+                                labels: [
+                                  context.l10n.navHome,
+                                  context.l10n.navBrowse,
+                                  context.l10n.navRadio,
+                                  context.l10n.navLibrary,
+                                  null, // Search — tanpa label (konsep iOS 26).
+                                ],
+                                semanticsLabels: [
+                                  context.l10n.navHome,
+                                  context.l10n.navBrowse,
+                                  context.l10n.navRadio,
+                                  context.l10n.navLibrary,
+                                  context.l10n.navSearch,
+                                ],
+                              );
+                            } else {
+                              bottomChild = useGlassNavBar
+                                  ? GlassNavBar(child: column)
+                                  : column;
+                            }
                             return Transform.translate(
                               offset: Offset(0, slide),
-                              child: useGlassNavBar
-                                  ? GlassNavBar(child: column)
-                                  : column,
+                              child: bottomChild,
                             );
                           },
                         ),

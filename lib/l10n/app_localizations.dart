@@ -2000,6 +2000,24 @@ abstract class AppLocalizations {
   /// **'NavBar'**
   String get glassToggleNavBar;
 
+  /// No description provided for @navBarStyleSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get navBarStyleSolid;
+
+  /// No description provided for @navBarStyleGlass.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get navBarStyleGlass;
+
+  /// No description provided for @navBarStylePill.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Pill'**
+  String get navBarStylePill;
+
   /// No description provided for @glassToggleAppBar.
   ///
   /// In en, this message translates to:

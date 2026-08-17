@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Gaya navbar saat Liquid Glass aktif.
+enum NavBarStyle {
+  /// Navbar solid biasa (tanpa efek glass).
+  solid,
+  /// Strip glass selebar layar (tampilan lama).
+  glass,
+  /// Kapsul apung ala iOS 26 (Liquid Glass).
+  pill,
+}
+
 class ThemeController {
   ThemeController._();
 
@@ -9,7 +19,8 @@ class ThemeController {
   static final ValueNotifier<ThemeMode> mode = ValueNotifier(ThemeMode.system);
 
   static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
-  static final ValueNotifier<bool> glassNavBar = ValueNotifier(true);
+  static final ValueNotifier<NavBarStyle> navBarStyle =
+      ValueNotifier(NavBarStyle.glass);
   static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<bool> glassAlbumCard = ValueNotifier(true);
@@ -26,7 +37,17 @@ class ThemeController {
         ThemeMode.values[prefs.getInt('theme_mode') ?? ThemeMode.system.index];
 
     glassTheme.value = prefs.getBool('glass_theme') ?? false;
-    glassNavBar.value = prefs.getBool('glass_navbar') ?? true;
+    final savedStyle = prefs.getInt('navbar_style');
+    if (savedStyle != null &&
+        savedStyle >= 0 &&
+        savedStyle < NavBarStyle.values.length) {
+      navBarStyle.value = NavBarStyle.values[savedStyle];
+    } else {
+      // Migrasi dari toggle lama (glass_navbar).
+      navBarStyle.value = (prefs.getBool('glass_navbar') ?? true)
+          ? NavBarStyle.glass
+          : NavBarStyle.solid;
+    }
     glassAppBar.value = prefs.getBool('glass_appbar') ?? true;
     glassMiniPlayer.value = prefs.getBool('glass_mini_player') ?? true;
     glassAlbumCard.value = prefs.getBool('glass_album_card') ?? true;
@@ -44,14 +65,19 @@ class ThemeController {
   static bool isGlass(ValueNotifier<bool> component) =>
       glassTheme.value && component.value;
 
+  /// Apakah navbar sedang memakai gaya pill (iOS 26) — hanya berlaku saat
+  /// Liquid Glass aktif.
+  static bool get isPillNavBar =>
+      glassTheme.value && navBarStyle.value == NavBarStyle.pill;
+
   static Future<void> setGlassTheme(bool enabled) async {
     glassTheme.value = enabled;
     await _save('glass_theme', enabled);
   }
 
-  static Future<void> setGlassNavBar(bool enabled) async {
-    glassNavBar.value = enabled;
-    await _save('glass_navbar', enabled);
+  static Future<void> setNavBarStyle(NavBarStyle value) async {
+    navBarStyle.value = value;
+    await _save('navbar_style', value.index);
   }
 
   static Future<void> setGlassAppBar(bool enabled) async {

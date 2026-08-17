@@ -97,7 +97,7 @@ class _MusicListState extends State<MusicList> {
             );
           }
 
-          final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+          final bottomClearance = navBottomClearance(context);
           return RefreshIndicator(
             onRefresh: _refreshSongs,
             child: ListView.separated(
