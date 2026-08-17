@@ -207,12 +207,12 @@ class _FirstPageState extends State<FirstPage> {
                             // Clamp ke tinggi navbar agar tidak melewati bawah layar.
                             // Pill ikut margin bawahnya, jadi slide maksimalnya
                             // mencakup body + gap + inset agar benar-benar hilang.
-                            final safeBottom =
-                                MediaQuery.paddingOf(context).bottom;
+                            final safeBottom = MediaQuery.paddingOf(context)
+                                .bottom;
                             final navH = isPill
                                 ? FloatingPillNavBar.bodyHeight +
-                                    FloatingPillNavBar.bottomGap +
-                                    safeBottom
+                                      FloatingPillNavBar.bottomGap +
+                                      safeBottom
                                 : (useGlassNavBar ? 70.0 : 71.5);
                             final sh = MediaQuery.sizeOf(context).height;
                             // Kurva deselerasi dua-segmen:

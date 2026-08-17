@@ -101,7 +101,10 @@ class SleepTimerService {
     isFading.value = false;
     remaining.value = null;
     unawaited(
-      _send(PlaybackManager.setSleepTimerEndOfSong(), 'Start end-of-song timer'),
+      _send(
+        PlaybackManager.setSleepTimerEndOfSong(),
+        'Start end-of-song timer',
+      ),
     );
     LogService.log('SleepTimer', 'End-of-song mode');
   }

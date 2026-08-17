@@ -123,9 +123,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
         // F6 fix: tolerate corrupt/non-int counts instead of throwing.
         final sorted = counts.entries.toList()
           ..sort(
-            (a, b) =>
-                ((b.value as num?)?.toInt() ?? 0)
-                    .compareTo((a.value as num?)?.toInt() ?? 0),
+            (a, b) => ((b.value as num?)?.toInt() ?? 0).compareTo(
+              (a.value as num?)?.toInt() ?? 0,
+            ),
           );
         return sorted
             .map((e) => int.tryParse(e.key) ?? 0)

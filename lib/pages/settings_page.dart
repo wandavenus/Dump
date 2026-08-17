@@ -1,5 +1,6 @@
 import 'dart:async' show unawaited;
 import 'dart:io';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
@@ -22,9 +23,11 @@ import 'package:musicplayer/services/media_capabilities_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 import 'package:musicplayer/services/up_next_settings.dart';
+
 import 'settings/settings_widgets.dart';
 import 'settings/equalizer_page.dart';
 import 'log_page.dart';
+
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 import 'package:musicplayer/widgets/common/swipe_to_dismiss_sheet.dart';
 

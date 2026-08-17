@@ -383,9 +383,7 @@ class AudioService {
   /// is `1 - activeSlot`. No-op when crossfade is off (no standby exists) or
   /// there is no next track.
   static void _preloadStandbyDsp(int? nextIndex, int activeSlot) {
-    if (nextIndex == null ||
-        nextIndex < 0 ||
-        nextIndex >= _playlist.length) {
+    if (nextIndex == null || nextIndex < 0 || nextIndex >= _playlist.length) {
       return;
     }
     if (AudioEffectsService.crossfadeDuration.value <= 0) return;

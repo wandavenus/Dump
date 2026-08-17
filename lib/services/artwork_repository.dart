@@ -28,7 +28,12 @@ class ArtworkRepository {
 
   int resolveTargetPx(double size) {
     final dpr = _cachedDpr ??=
-        SchedulerBinding.instance.platformDispatcher.views.firstOrNull?.devicePixelRatio ??
+        SchedulerBinding
+            .instance
+            .platformDispatcher
+            .views
+            .firstOrNull
+            ?.devicePixelRatio ??
         3.0;
     var target = (size * dpr).round();
     if (size < 80) return target < 460 ? 460 : target;
@@ -145,10 +150,7 @@ class ArtworkRepository {
       final provider = getProviderSync(id, targetSizePx: targetSizePx);
       if (provider == null) continue;
       warmups.add(
-        _decodeIntoImageCache(provider).timeout(
-          timeout,
-          onTimeout: () {},
-        ),
+        _decodeIntoImageCache(provider).timeout(timeout, onTimeout: () {}),
       );
     }
     if (warmups.isNotEmpty) await Future.wait(warmups);
@@ -224,7 +226,9 @@ class ArtworkRepository {
           i,
           i + concurrency > targets.length ? targets.length : i + concurrency,
         );
-        await Future.wait([for (final id in batch) _predecodeOne(id, targetSizePx)]);
+        await Future.wait([
+          for (final id in batch) _predecodeOne(id, targetSizePx),
+        ]);
         await Future<void>.delayed(const Duration(milliseconds: 60));
       }
     } finally {
@@ -267,11 +271,13 @@ class ArtworkRepository {
 
     final deleteFuture = MediaStoreService.deleteArtworkCache(songId);
     _pendingDeletes[songId] = deleteFuture;
-    unawaited(deleteFuture.whenComplete(() {
-      if (identical(_pendingDeletes[songId], deleteFuture)) {
-        unawaited(_pendingDeletes.remove(songId));
-      }
-    }));
+    unawaited(
+      deleteFuture.whenComplete(() {
+        if (identical(_pendingDeletes[songId], deleteFuture)) {
+          unawaited(_pendingDeletes.remove(songId));
+        }
+      }),
+    );
   }
 
   void clearMemory() {

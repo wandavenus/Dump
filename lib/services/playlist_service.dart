@@ -47,8 +47,7 @@ class PlaylistService {
       // D2 fix: ms-epoch alone collides for two playlists created in the same
       // millisecond. Keep the timestamp for debuggability and add a random
       // suffix so ids are unique even under rapid creation.
-      id:
-          '${DateTime.now().millisecondsSinceEpoch}_${_idRandom.nextInt(1 << 32)}',
+      id: '${DateTime.now().millisecondsSinceEpoch}_${_idRandom.nextInt(1 << 32)}',
       name: name,
       songIds: [],
       createdAt: DateTime.now(),

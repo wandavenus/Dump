@@ -98,10 +98,7 @@ class NativeDspBridge implements NativeModule {
       };
     } on Object catch (e, st) {
       // Catches all throwables including FFI errors and platform exceptions.
-      LogService.verbose(
-        'NativeDspBridge',
-        'initialize failed: $e\n$st',
-      );
+      LogService.verbose('NativeDspBridge', 'initialize failed: $e\n$st');
       _status = NativeModuleStatus.error;
     }
   }

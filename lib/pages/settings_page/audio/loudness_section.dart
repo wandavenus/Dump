@@ -37,9 +37,9 @@ class _LoudnessNormSection extends StatelessWidget {
                           l.loudnessTarget(target.toStringAsFixed(1)),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: 6),
@@ -71,9 +71,10 @@ class _LoudnessNormSection extends StatelessWidget {
                           l.loudnessHint,
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withAlpha(160),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withAlpha(160),
                               ),
                         ),
                       ],

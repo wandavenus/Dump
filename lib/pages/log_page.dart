@@ -66,10 +66,7 @@ class _LogPageState extends State<LogPage> {
   void _onNewLog() {
     if (!mounted) return;
     _newLogDebounce?.cancel();
-    _newLogDebounce = Timer(
-      const Duration(milliseconds: 150),
-      _applyNewLog,
-    );
+    _newLogDebounce = Timer(const Duration(milliseconds: 150), _applyNewLog);
   }
 
   void _applyNewLog() {

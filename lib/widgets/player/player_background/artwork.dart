@@ -75,9 +75,7 @@ class _ProceduralFogBackgroundState extends State<ProceduralFogBackground>
     // background while the shader is unavailable.
     ui.FragmentProgram? program;
     try {
-      program = await ui.FragmentProgram.fromAsset(
-        'assets/shaders/fluid.frag',
-      );
+      program = await ui.FragmentProgram.fromAsset('assets/shaders/fluid.frag');
     } on Exception catch (e) {
       debugPrint('fluid.frag failed to load: $e');
       return;
