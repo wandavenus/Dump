@@ -77,7 +77,7 @@ class FloatingPillNavBar extends StatelessWidget {
   /// Label untuk screen reader — harus selalu lengkap walau label visual `null`.
   final List<String>? semanticsLabels;
 
-  /// Ikon tombol bundar terpisah (mis. Search). Indeksnya = [icons.length].
+  /// Ikon tombol trailing terpisah (mis. Search). Indeksnya = [icons.length].
   final IconData? trailingIcon;
 
   /// Nama tombol trailing untuk screen reader.
@@ -174,7 +174,7 @@ class FloatingPillNavBar extends StatelessWidget {
               child: RepaintBoundary(
                 child: ClipRect(
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: const ColoredBox(color: Colors.transparent),
                   ),
                 ),
