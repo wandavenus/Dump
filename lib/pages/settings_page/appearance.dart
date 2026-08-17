@@ -147,12 +147,6 @@ class _AppearanceSection extends StatelessWidget {
                   onChanged: ThemeController.setGlassMiniPlayer,
                 ),
                 const SettingsDivider(indent: 52),
-                _GlassSubToggle(
-                  label: l.glassToggleAlbumCard,
-                  notifier: ThemeController.glassAlbumCard,
-                  onChanged: ThemeController.setGlassAlbumCard,
-                ),
-                const SettingsDivider(indent: 52),
               ],
             ],
           ),

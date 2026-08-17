@@ -5,21 +5,36 @@ import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
+/// Tinggi mini player (mode mini) — dipakai clearance konten scroll dan
+/// geometri mini player di `unified_morph_player.dart`.
+const double kMiniPlayerHeight = 64.5;
+
 /// Ruang kosong di bawah konten scroll agar item terakhir tidak tertutup
-/// mini player. Mode non-pill: mini player beristirahat di navBarH (53.8) +
-/// inset layar, clearance 64.5 memberi buffer ~10.7 px. Mode pill (iOS 26):
-/// mini player mengambang sebagai kapsul di atas navbar (body 62 + gap 10 +
-/// miniPlayerGap 10 + inset), jadi clearance naik dengan buffer yang sama.
+/// mini player. Clearance menghitung sampai TOP mini player (bukan
+/// bottom-nya — mini player setinggi [kMiniPlayerHeight]):
+///
+/// - Mode non-pill: mini player beristirahat di navBarH (53.8 glass /
+///   55.1 solid) + inset layar, jadi clearance = navBarH + miniH + 10.7.
+/// - Mode pill (iOS 26): mini player mengambang sebagai kapsul di atas
+///   navbar (body 62 + gap 10 + miniPlayerGap 10 + inset), jadi clearance
+///   = body + gap + miniPlayerGap + miniH + 10.7.
 double navBottomClearance(BuildContext context) {
   final safeBottom = MediaQuery.paddingOf(context).bottom;
-  if (ThemeController.isPillNavBar) {
+  final isGlass = ThemeController.glassTheme.value;
+  final navStyle = ThemeController.navBarStyle.value;
+  if (isGlass && navStyle == NavBarStyle.pill) {
     return FloatingPillNavBar.bodyHeight +
         FloatingPillNavBar.bottomGap +
         FloatingPillNavBar.miniPlayerGap +
+        kMiniPlayerHeight +
         safeBottom +
         10.7;
   }
-  return 64.5 + safeBottom;
+  // Strip glass menghilangkan separator 1.5px di atas bar (70 vs 71.5),
+  // jadi navBarH turun 1.5px — konsisten dengan _buildMorph di
+  // unified_morph_player.dart.
+  final navBarH = isGlass && navStyle != NavBarStyle.solid ? 53.8 : 55.1;
+  return navBarH + kMiniPlayerHeight + safeBottom + 10.7;
 }
 
 class GlassNavBar extends StatelessWidget {
@@ -189,27 +204,6 @@ class FloatingPillNavBar extends StatelessWidget {
                   children: [
                     // Tint kaca.
                     Positioned.fill(child: ColoredBox(color: c.glassNavTint)),
-                    // Highlight specular di tepi atas — kesan "kaca cair".
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: 28,
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.10),
-                                Colors.white.withValues(alpha: 0.0),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                     // Border kaca tipis.
                     Positioned.fill(
                       child: IgnorePointer(
