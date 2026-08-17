@@ -172,42 +172,40 @@ class FloatingPillNavBar extends StatelessWidget {
     AppThemeExtension c,
     double radius,
   ) {
-    // Ukuran eksplisit WAJIB: Stack berisi hanya Positioned.fill (tanpa child
-    // non-positioned), jadi RenderStack mengembalikan constraints.biggest.
-    // Tanpa SizedBox ini kapsul meledak ke seluruh tinggi layar dan menutupi
-    // seluruh app (tidak bisa disentuh + navbar hilang).
+    // Ukuran eksplisit WAJIB: tanpa SizedBox ini kapsul meledak ke seluruh
+    // tinggi layar dan menutupi seluruh app (tidak bisa disentuh + navbar
+    // hilang).
     return SizedBox(
       width: double.infinity,
       height: FloatingPillNavBar.bodyHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         // Glass = blur backdrop + tint netral penstabil + border hairline.
-        // Tint netral membuat background kapsul tidak meniru warna konten
-        // halaman (konsisten di semua halaman) — berlaku sama di semua pill.
+        // Struktur DISAMAKAN dengan mini player & search circle: StackFit.expand
+        // + tanpa Positioned.fill wrappers agar BackdropFilter dan
+        // ColoredBox(glassFillTint) fill area capsule secara identik.
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: const ColoredBox(color: Colors.transparent),
-                  ),
+            RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  blendMode: BlendMode.srcOver,
+                  child: const ColoredBox(color: Colors.transparent),
                 ),
               ),
             ),
-            // Tint netral penstabil.
-            Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
+            // Tint netral penstabil — sama dengan mini player pill.
+            ColoredBox(color: c.glassFillTint),
             // Border kaca tipis.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(radius),
-                    border: Border.all(
-                      color: c.glassBorderTint,
-                      width: 1,
-                    ),
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  border: Border.all(
+                    color: c.glassBorderTint,
+                    width: 1,
                   ),
                 ),
               ),
