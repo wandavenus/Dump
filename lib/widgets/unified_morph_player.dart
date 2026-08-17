@@ -570,7 +570,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final useGlass =
                                 masterGlass && compGlass && progress < 0.02;
                             if (useGlass) {
-                              final c = AppColors.of(context);
+                              // Kapsul transparan murni: hanya blur backdrop.
+                              // Tanpa tint agar warna pill sama persis dengan
+                              // warna background — konsisten dengan navbar pill.
                               return RepaintBoundary(
                                 child: ClipRect(
                                   child: BackdropFilter(
@@ -579,7 +581,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       sigmaY: 16,
                                     ),
                                     blendMode: BlendMode.srcOver,
-                                    child: ColoredBox(color: c.glassNavTint),
+                                    child: const ColoredBox(
+                                      color: Colors.transparent,
+                                    ),
                                   ),
                                 ),
                               );
