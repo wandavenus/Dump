@@ -444,7 +444,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final safeBottom = mq.padding.bottom;
     final safeTop = mq.padding.top;
 
-    const miniH = 64.5;
+    const miniH = kMiniPlayerHeight;
     // Mode pill (iOS 26): mini player ikut berubah menjadi kapsul apung —
     // margin kiri/kanan sama dengan navbar dan mengambang dengan gap di atas
     // kapsul navbar (tidak menempel). Mode lain: full-width, flush di bar.
@@ -456,9 +456,13 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
+    // useGlassNavBar mengikuti state.dart: glass strip HANYA saat gaya != solid.
+    // Kalau glassTheme on tapi gaya solid, bar tetap kolom solid 71.5px — pakai
+    // navBarH 55.1, kalau tidak mini player menimpa bagian atas bar solid.
+    final useGlassNavBar = isGlass && navStyle != NavBarStyle.solid;
     final navBarH = isPill
         ? FloatingPillNavBar.bodyHeight + FloatingPillNavBar.bottomGap
-        : (isGlass ? 53.8 : 55.1);
+        : (useGlassNavBar ? 53.8 : 55.1);
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);

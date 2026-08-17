@@ -2030,12 +2030,6 @@ abstract class AppLocalizations {
   /// **'Mini Player'**
   String get glassToggleMiniPlayer;
 
-  /// No description provided for @glassToggleAlbumCard.
-  ///
-  /// In en, this message translates to:
-  /// **'Album Card'**
-  String get glassToggleAlbumCard;
-
   /// No description provided for @logLevelTitle.
   ///
   /// In en, this message translates to:
