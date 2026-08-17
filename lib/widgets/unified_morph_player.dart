@@ -446,16 +446,22 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final safeTop = mq.padding.top;
 
     const miniH = 64.5;
-    const miniHorizMargin = 0.0;
+    // Mode pill (iOS 26): mini player ikut berubah menjadi kapsul apung —
+    // margin kiri/kanan sama dengan navbar dan mengambang dengan gap di atas
+    // kapsul navbar (tidak menempel). Mode lain: full-width, flush di bar.
+    final isPill = isGlass && navStyle == NavBarStyle.pill;
+    final miniHorizMargin =
+        isPill ? FloatingPillNavBar.horizMargin : 0.0;
+    final miniBottomGap =
+        isPill ? FloatingPillNavBar.miniPlayerGap : 0.0;
+    // Kapsul penuh saat mini (mode pill); 0 = persegi (mode lain / full player).
+    final miniRadius = isPill ? miniH / 2 : 0.0;
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
-    // Pill mode (iOS 26): mini player beristirahat tepat di atas tepi atas
-    // kapsul (body 62 + gap 10), tidak menenggelamkan diri ke dalam bar.
-    final navBarH = navStyle == NavBarStyle.pill && isGlass
+    final navBarH = isPill
         ? FloatingPillNavBar.bodyHeight + FloatingPillNavBar.bottomGap
         : (isGlass ? 53.8 : 55.1);
-    const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
@@ -482,8 +488,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
-    // Border radius: linear so corners snap crisply at 0
-    final radius = lerpDouble(0.0, 0.0, progress)!;
+    // Border radius: kapsul penuh saat mini (mode pill), menyusut ke 0
+    // mengikuti ekspansi sheet (full player = layar penuh persegi).
+    final radius = lerpDouble(miniRadius, 0.0, t)!;
 
     // Cross-fade timing
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
@@ -776,7 +783,25 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           ),
                         ),
 
-                      // ── Collapse chevron (top-left of full player) ─────────────────
+                      // ── Border kaca (mode pill) — menyatu dengan navbar ────────────
+                      // Hanya saat mini state; memudar saat sheet membuka sehingga
+                      // full player tetap tanpa border.
+                      if (isPill && miniAlpha > 0)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(radius),
+                                border: Border.all(
+                                  color: AppColors.of(context)
+                                      .glassBorderTint
+                                      .withValues(alpha: miniAlpha),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

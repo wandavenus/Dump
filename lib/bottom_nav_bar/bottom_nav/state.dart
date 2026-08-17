@@ -233,27 +233,22 @@ class _FirstPageState extends State<FirstPage> {
                               bottomChild = FloatingPillNavBar(
                                 selectedIndex: _selectedIndex,
                                 onTap: _navgateBottomBar,
+                                // Kapsul utama: 4 tab berlabel. Search terpisah
+                                // sebagai tombol bundar (trailing) di kanan.
                                 icons: const [
                                   Icons.home_filled,
                                   Icons.grid_view_rounded,
                                   Icons.sensors,
                                   Icons.subscriptions_rounded,
-                                  Icons.search,
                                 ],
                                 labels: [
                                   context.l10n.navHome,
                                   context.l10n.navBrowse,
                                   context.l10n.navRadio,
                                   context.l10n.navLibrary,
-                                  null, // Search — tanpa label (konsep iOS 26).
                                 ],
-                                semanticsLabels: [
-                                  context.l10n.navHome,
-                                  context.l10n.navBrowse,
-                                  context.l10n.navRadio,
-                                  context.l10n.navLibrary,
-                                  context.l10n.navSearch,
-                                ],
+                                trailingIcon: Icons.search,
+                                trailingLabel: context.l10n.navSearch,
                               );
                             } else {
                               bottomChild = useGlassNavBar
