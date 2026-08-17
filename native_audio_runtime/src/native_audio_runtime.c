@@ -50,9 +50,7 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.pipeline",          1},  // Phase 4:   DSP pipeline architecture
     {"dsp.gain",              1},  // Phase 4:   gain processor
     {"dsp.media3_integration",1},  // Phase 4.5: NativeDspAudioProcessor in ExoPlayer chain
-    {"dsp.equalizer",         0},  // Phase 5 REMOVED: 32-band parametric EQ was removed
-                                     //   (Band EQ uses the legacy Android system Equalizer,
-                                     //   not the native pipeline)
+    {"dsp.equalizer",         1},  // Phase 5: Equalizer capability
     {"dsp.compressor",        1},  // Phase 6:   feed-forward soft-knee compressor
     {"dsp.crossfeed",         1},  // Phase 7:   frequency-dependent headphone crossfeed
     {"dsp.limiter",           1},  // Phase 6:   look-ahead brickwall limiter
