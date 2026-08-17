@@ -11,6 +11,7 @@ import '../../pages/playlist_page.dart';
 import '../../services/artwork_repository.dart';
 import '../../services/audio_service.dart';
 import '../../services/log_service.dart';
+import '../../themes/glass_navbar.dart';
 import '../../services/media_store_service.dart';
 import '../../services/playlist_service.dart';
 import '../../theme/app_colors.dart';

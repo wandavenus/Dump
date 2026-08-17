@@ -46,7 +46,7 @@ class _LibraryContentState extends State<LibraryContent> {
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
 
-    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+    final bottomClearance = navBottomClearance(context);
     return SingleChildScrollView(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),

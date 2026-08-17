@@ -370,6 +370,9 @@
   "bitrateUnknownLossless": "Lossless",
 
   "glassToggleNavBar": "NavBar",
+  "navBarStyleSolid": "Solid",
+  "navBarStyleGlass": "Kaca",
+  "navBarStylePill": "Pill Melayang",
   "glassToggleAppBar": "AppBar",
   "glassToggleMiniPlayer": "Mini Player",
   "glassToggleAlbumCard": "Album Card",

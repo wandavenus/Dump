@@ -8,6 +8,7 @@ import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
 import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
+import '../themes/glass_navbar.dart';
 import '../themes/theme_controller.dart';
 import 'player/player_background.dart';
 import 'player/player_content.dart';
@@ -405,13 +406,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
-        return AnimatedBuilder(
-          animation: _entryAnim,
-          builder: (context, _) {
-            return ValueListenableBuilder<double>(
-              valueListenable: PlayerSheetController.progress,
-              builder: (context, progress, _) {
-                return _buildMorph(context, song, progress, isGlass);
+        return ValueListenableBuilder<NavBarStyle>(
+          valueListenable: ThemeController.navBarStyle,
+          builder: (context, navStyle, _) {
+            return AnimatedBuilder(
+              animation: _entryAnim,
+              builder: (context, _) {
+                return ValueListenableBuilder<double>(
+                  valueListenable: PlayerSheetController.progress,
+                  builder: (context, progress, _) {
+                    return _buildMorph(
+                      context,
+                      song,
+                      progress,
+                      isGlass,
+                      navStyle,
+                    );
+                  },
+                );
               },
             );
           },
@@ -425,6 +437,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     LocalSong song,
     double progress,
     bool isGlass,
+    NavBarStyle navStyle,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -437,7 +450,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
-    final navBarH = isGlass ? 53.8 : 55.1;
+    // Pill mode (iOS 26): mini player beristirahat tepat di atas tepi atas
+    // kapsul (body 62 + gap 10), tidak menenggelamkan diri ke dalam bar.
+    final navBarH = navStyle == NavBarStyle.pill && isGlass
+        ? FloatingPillNavBar.bodyHeight + FloatingPillNavBar.bottomGap
+        : (isGlass ? 53.8 : 55.1);
     const miniBottomGap = 0.0;
 
     // Eased curve for Apple-Music–like deceleration

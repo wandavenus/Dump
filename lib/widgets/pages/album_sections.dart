@@ -6,6 +6,7 @@ import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
 import '../../services/song_metadata_service.dart';
 import '../../theme/app_colors.dart';
+import '../../themes/glass_navbar.dart';
 import '../../utils/duration_text.dart';
 import '../song_artwork.dart';
 import 'detail_sections.dart';
@@ -18,7 +19,7 @@ class AlbumPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+    final bottomClearance = navBottomClearance(context);
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
