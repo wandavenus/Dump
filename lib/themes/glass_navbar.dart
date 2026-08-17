@@ -58,13 +58,13 @@ class GlassNavBar extends StatelessWidget {
                 // disproportionately expensive on the target Snapdragon 730.
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 blendMode: BlendMode.srcOver,
-                // Transparan murni — hanya blur backdrop, tanpa tint, agar
-                // konsisten dengan pill navbar & mini player pill.
                 child: const ColoredBox(color: Colors.transparent),
               ),
             ),
           ),
         ),
+        // Tint netral penstabil — bg glass tidak meniru warna konten halaman.
+        Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
         Positioned(
           top: 0,
           left: 0,
@@ -181,9 +181,9 @@ class FloatingPillNavBar extends StatelessWidget {
       height: FloatingPillNavBar.bodyHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        // Kapsul transparan murni: blur backdrop + border hairline saja.
-        // Tanpa tint dan tanpa saturasi supaya warna pill sama persis dengan
-        // warna background di belakangnya — konsisten dengan mini player pill.
+        // Glass = blur backdrop + tint netral penstabil + border hairline.
+        // Tint netral membuat background kapsul tidak meniru warna konten
+        // halaman (konsisten di semua halaman) — berlaku sama di semua pill.
         child: Stack(
           children: [
             Positioned.fill(
@@ -196,6 +196,8 @@ class FloatingPillNavBar extends StatelessWidget {
                 ),
               ),
             ),
+            // Tint netral penstabil.
+            Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
             // Border kaca tipis.
             Positioned.fill(
               child: IgnorePointer(
@@ -432,6 +434,8 @@ class _TrailingButton extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Tint netral penstabil — sama dengan kapsul.
+                ColoredBox(color: c.glassFillTint),
                 // Lens aktif — SAMA dengan blob kapsul 4 item (38px,
                 // primary 0.15), bukan disc penuh, supaya treatment warna
                 // aktif konsisten dengan pill (gaya lens iOS 26).

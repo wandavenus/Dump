@@ -570,20 +570,27 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final useGlass =
                                 masterGlass && compGlass && progress < 0.02;
                             if (useGlass) {
-                              // Kapsul transparan murni: hanya blur backdrop.
-                              // Tanpa tint agar warna pill sama persis dengan
-                              // warna background — konsisten dengan navbar pill.
+                              // Glass = blur backdrop + tint netral penstabil
+                              // (sama dengan navbar pill): background pill
+                              // tidak meniru warna konten halaman.
+                              final c = AppColors.of(context);
                               return RepaintBoundary(
                                 child: ClipRect(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                      sigmaX: 16,
-                                      sigmaY: 16,
-                                    ),
-                                    blendMode: BlendMode.srcOver,
-                                    child: const ColoredBox(
-                                      color: Colors.transparent,
-                                    ),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 16,
+                                          sigmaY: 16,
+                                        ),
+                                        blendMode: BlendMode.srcOver,
+                                        child: const ColoredBox(
+                                          color: Colors.transparent,
+                                        ),
+                                      ),
+                                      ColoredBox(color: c.glassFillTint),
+                                    ],
                                   ),
                                 ),
                               );
