@@ -812,8 +812,16 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(radius),
                                 border: Border.all(
+                                  // Kalikan alpha token, bukan replace: dulu
+                                  // withValues(alpha: miniAlpha) menimpa alpha
+                                  // ke 1.0 → outline mini player SOLID dan
+                                  // tidak konsisten dengan navbar pill.
                                   color: AppColors.of(context).glassBorderTint
-                                      .withValues(alpha: miniAlpha),
+                                      .withValues(
+                                    alpha:
+                                        AppColors.of(context).glassBorderTint.a *
+                                            miniAlpha,
+                                  ),
                                   width: 1,
                                 ),
                               ),
