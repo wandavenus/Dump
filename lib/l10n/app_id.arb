@@ -5,7 +5,7 @@
   "navHome": "Beranda",
   "navBrowse": "Baru",
   "navRadio": "Radio",
-  "navLibrary": "Perpustakaan",
+  "navLibrary": "Pustaka",
   "navSearch": "Cari",
 
   "cancel": "Batal",
@@ -261,7 +261,7 @@
   "lastPlayedLabel": "Diputar Terakhir",
   "mostPlayedLabel": "Paling Sering",
 
-  "libraryTitle": "Perpustakaan",
+  "libraryTitle": "Pustaka",
   "playlists": "Daftar Putar",
   "artists": "Artis",
   "albums": "Album",

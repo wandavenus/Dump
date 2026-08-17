@@ -21,7 +21,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get navRadio => 'Radio';
 
   @override
-  String get navLibrary => 'Perpustakaan';
+  String get navLibrary => 'Pustaka';
 
   @override
   String get navSearch => 'Cari';
@@ -725,7 +725,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get mostPlayedLabel => 'Paling Sering';
 
   @override
-  String get libraryTitle => 'Perpustakaan';
+  String get libraryTitle => 'Pustaka';
 
   @override
   String get playlists => 'Daftar Putar';
