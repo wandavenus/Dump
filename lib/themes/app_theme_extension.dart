@@ -25,6 +25,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     required this.subtleSeparator,
     required this.hairlineSeparator,
     // ── Glass components ─────────────────────────────────────────────────────
+    required this.glassFillTint,
     required this.glassBorderTint,
     // ── Drag handle ──────────────────────────────────────────────────────────
     required this.dragHandle,
@@ -79,6 +80,11 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color hairlineSeparator;
 
   // Glass components
+  /// Lapisan netral penstabil di atas blur — membuat background glass tidak
+  /// meniru warna konten di belakangnya (konsisten di semua halaman) tanpa
+  /// menambah warna.
+  final Color glassFillTint;
+
   /// Top/bottom border on glass surfaces.
   final Color glassBorderTint;
 
@@ -112,6 +118,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     Color? separator,
     Color? subtleSeparator,
     Color? hairlineSeparator,
+    Color? glassFillTint,
     Color? glassBorderTint,
     Color? dragHandle,
     Color? eqTrackBg,
@@ -133,6 +140,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     separator: separator ?? this.separator,
     subtleSeparator: subtleSeparator ?? this.subtleSeparator,
     hairlineSeparator: hairlineSeparator ?? this.hairlineSeparator,
+    glassFillTint: glassFillTint ?? this.glassFillTint,
     glassBorderTint: glassBorderTint ?? this.glassBorderTint,
     dragHandle: dragHandle ?? this.dragHandle,
     eqTrackBg: eqTrackBg ?? this.eqTrackBg,
@@ -163,6 +171,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
         other.hairlineSeparator,
         t,
       )!,
+      glassFillTint: Color.lerp(glassFillTint, other.glassFillTint, t)!,
       glassBorderTint: Color.lerp(glassBorderTint, other.glassBorderTint, t)!,
       dragHandle: Color.lerp(dragHandle, other.dragHandle, t)!,
       eqTrackBg: Color.lerp(eqTrackBg, other.eqTrackBg, t)!,

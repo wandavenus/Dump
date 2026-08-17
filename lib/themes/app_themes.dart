@@ -103,8 +103,12 @@ class AppThemes {
               : const Color(0xFFE5E5EA),
 
           // ── Glass components ───────────────────────────────────────────────
-          // Material glass = blur backdrop transparan murni (tanpa tint);
-          // satu-satunya pewarna adalah border hairline di bawah ini.
+          // Tint netral penstabil di atas blur: mencegah background glass
+          // meniru warna konten halaman di belakangnya (kapsul terlihat
+          // konsisten di semua halaman) tanpa menambah warna.
+          glassFillTint: isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.35),
           glassBorderTint: isDark
               // Abu netral (secondaryLabel) + alpha lebih rendah — bukan putih
               // murni, jadi outline pill mini player & navbar tidak lagi terbaca
