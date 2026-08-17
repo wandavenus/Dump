@@ -557,37 +557,34 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       // does not re-composite when the rest of the player animates.
                       ValueListenableBuilder<bool>(
                         valueListenable: ThemeController.glassTheme,
-                        builder: (_, masterGlass, _) =>
-                            ValueListenableBuilder<bool>(
-                              valueListenable: ThemeController.glassMiniPlayer,
-                              builder: (_, compGlass, _) {
-                                // Use glass only when fully at rest in mini state.
-                                // Threshold 0.05 collapses the glass before drag starts
-                                // so BackdropFilter never runs during the morph animation.
-                                final useGlass =
-                                    masterGlass && compGlass && progress < 0.02;
-                                if (useGlass) {
-                                  final c = AppColors.of(context);
-                                  return RepaintBoundary(
-                                    child: ClipRect(
-                                      child: BackdropFilter(
-                                        filter: ImageFilter.blur(
-                                          sigmaX: 24,
-                                          sigmaY: 24,
-                                        ),
-                                        blendMode: BlendMode.srcOver,
-                                        child: ColoredBox(
-                                          color: c.glassNavTint,
-                                        ),
-                                      ),
+                        builder: (_, masterGlass, _) => ValueListenableBuilder<bool>(
+                          valueListenable: ThemeController.glassMiniPlayer,
+                          builder: (_, compGlass, _) {
+                            // Use glass only when fully at rest in mini state.
+                            // Threshold 0.05 collapses the glass before drag starts
+                            // so BackdropFilter never runs during the morph animation.
+                            final useGlass =
+                                masterGlass && compGlass && progress < 0.02;
+                            if (useGlass) {
+                              final c = AppColors.of(context);
+                              return RepaintBoundary(
+                                child: ClipRect(
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(
+                                      sigmaX: 16,
+                                      sigmaY: 16,
                                     ),
-                                  );
-                                }
-                                return ColoredBox(
-                                  color: AppColors.of(context).surface,
-                                );
-                              },
-                            ),
+                                    blendMode: BlendMode.srcOver,
+                                    child: ColoredBox(color: c.glassNavTint),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ColoredBox(
+                              color: AppColors.of(context).surface,
+                            );
+                          },
+                        ),
                       ),
 
                       // ── Pre-blurred artwork background (fades in with progress) ────
