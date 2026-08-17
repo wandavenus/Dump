@@ -110,8 +110,13 @@ class AppThemes {
               ? Colors.white.withValues(alpha: 0.02)
               : Colors.white.withValues(alpha: 0.45),
           glassBorderTint: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.08),
+              // Abu netral (secondaryLabel) + alpha lebih rendah — bukan putih
+              // murni, jadi outline pill mini player & navbar tidak lagi terbaca
+              // sebagai garis putih di dark mode.
+              ? const Color(0xFF8E8E93).withValues(alpha: 0.12)
+              // Light mode: abu netral (secondaryLabel light) pengganti hitam
+              // murni — outline tidak lagi terbaca sebagai garis hitam mencolok.
+              : const Color(0xFF6C6C70).withValues(alpha: 0.18),
 
           // ── Drag handle ────────────────────────────────────────────────────
           dragHandle: isDark
