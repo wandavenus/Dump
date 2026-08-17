@@ -818,10 +818,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   // tidak konsisten dengan navbar pill.
                                   color: AppColors.of(context).glassBorderTint
                                       .withValues(
-                                    alpha:
-                                        AppColors.of(context).glassBorderTint.a *
+                                        alpha:
+                                            AppColors.of(
+                                              context,
+                                            ).glassBorderTint.a *
                                             miniAlpha,
-                                  ),
+                                      ),
                                   width: 1,
                                 ),
                               ),

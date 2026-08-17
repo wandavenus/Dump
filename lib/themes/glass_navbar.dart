@@ -200,10 +200,7 @@ class FloatingPillNavBar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(radius),
-                  border: Border.all(
-                    color: c.glassBorderTint,
-                    width: 1,
-                  ),
+                  border: Border.all(color: c.glassBorderTint, width: 1),
                 ),
               ),
             ),
@@ -366,10 +363,7 @@ class _TrailingButton extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: c.glassBorderTint,
-                      width: 1,
-                    ),
+                    border: Border.all(color: c.glassBorderTint, width: 1),
                   ),
                 ),
                 Center(
