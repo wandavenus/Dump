@@ -499,7 +499,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // ── Artwork morph positions ──────────────────────────────────────────────
     const miniArtSize = 46.3;
-    const miniArtLeft = 12.0;
+    // Mode pill: artwork digeser 10px ke kanan (12 → 22) agar sejajar dengan
+    // judul yang ikut bergeser di _buildMiniOverlay. Mode lain tetap 12.
+    final miniArtLeft = isPill ? 22.0 : 12.0;
     const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
 
     final largeCoverSize = (screenW - 44.0).clamp(260.0, 390.0);
@@ -779,7 +781,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           opacity: miniAlpha,
                           child: IgnorePointer(
                             ignoring: progress > 0.08,
-                            child: _buildMiniOverlay(context, song, progress),
+                            child: _buildMiniOverlay(
+                            context,
+                            song,
+                            progress,
+                            isPill,
+                          ),
                           ),
                         ),
 
@@ -820,6 +827,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     BuildContext context,
     LocalSong song,
     double progress,
+    bool isPill,
   ) {
     final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
@@ -834,8 +842,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              // Spacer untuk morphing artwork (46 px lebar + 10 px gap)
-              const SizedBox(width: 56),
+              // Spacer untuk morphing artwork (46 px lebar + 10 px gap).
+              // Mode pill: +10px agar judul mengikuti artwork yang digeser.
+              SizedBox(width: isPill ? 66 : 56),
 
               // Judul lagu dengan Hero tag
               Expanded(
