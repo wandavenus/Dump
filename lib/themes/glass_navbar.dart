@@ -243,7 +243,7 @@ class _PillItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final c = AppColors.of(context);
     final count = icons.length;
     return SizedBox(
       height: FloatingPillNavBar.bodyHeight,
@@ -281,7 +281,7 @@ class _PillItems extends StatelessWidget {
                   child: _ActiveLens(
                     width: blobW,
                     height: FloatingPillNavBar._blobHeight,
-                    color: primary.withValues(alpha: 0.15),
+                    color: c.glassActiveLens,
                   ),
                 ),
               ),
@@ -437,8 +437,8 @@ class _TrailingButton extends StatelessWidget {
                 // Tint netral penstabil — sama dengan kapsul.
                 ColoredBox(color: c.glassFillTint),
                 // Lens aktif — SAMA dengan blob kapsul 4 item (38px,
-                // primary 0.15), bukan disc penuh, supaya treatment warna
-                // aktif konsisten dengan pill (gaya lens iOS 26).
+                // glassActiveLens netral), bukan disc penuh, supaya treatment
+                // warna aktif konsisten dengan pill (gaya lens iOS 26).
                 AnimatedOpacity(
                   opacity: active ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -446,7 +446,7 @@ class _TrailingButton extends StatelessWidget {
                     child: _ActiveLens(
                       width: FloatingPillNavBar.trailingSize - 12,
                       height: FloatingPillNavBar._blobHeight,
-                      color: primary.withValues(alpha: 0.15),
+                      color: c.glassActiveLens,
                     ),
                   ),
                 ),

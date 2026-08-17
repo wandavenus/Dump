@@ -117,6 +117,14 @@ class AppThemes {
               // Light mode: abu netral (secondaryLabel light) pengganti hitam
               // murni — outline tidak lagi terbaca sebagai garis hitam mencolok.
               : const Color(0xFF6C6C70).withValues(alpha: 0.18),
+          // Lens tab aktif (blob apung iOS 26) — netral, bukan warna aksen.
+          // Putih lembut di dark mode / hitam tipis di light mode: memberikan
+          // highlight kaca tanpa menambah hue, jadi background kapsul tetap
+          // netral di halaman mana pun (search & 4 tab lain) dan konsisten
+          // dengan mini player pill.
+          glassActiveLens: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.08),
 
           // ── Drag handle ────────────────────────────────────────────────────
           dragHandle: isDark
