@@ -25,7 +25,6 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     required this.subtleSeparator,
     required this.hairlineSeparator,
     // ── Glass components ─────────────────────────────────────────────────────
-    required this.glassNavTint,
     required this.glassBorderTint,
     // ── Drag handle ──────────────────────────────────────────────────────────
     required this.dragHandle,
@@ -80,9 +79,6 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color hairlineSeparator;
 
   // Glass components
-  /// Color wash rendered inside the glass BackdropFilter container.
-  final Color glassNavTint;
-
   /// Top/bottom border on glass surfaces.
   final Color glassBorderTint;
 
@@ -116,7 +112,6 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     Color? separator,
     Color? subtleSeparator,
     Color? hairlineSeparator,
-    Color? glassNavTint,
     Color? glassBorderTint,
     Color? dragHandle,
     Color? eqTrackBg,
@@ -138,7 +133,6 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     separator: separator ?? this.separator,
     subtleSeparator: subtleSeparator ?? this.subtleSeparator,
     hairlineSeparator: hairlineSeparator ?? this.hairlineSeparator,
-    glassNavTint: glassNavTint ?? this.glassNavTint,
     glassBorderTint: glassBorderTint ?? this.glassBorderTint,
     dragHandle: dragHandle ?? this.dragHandle,
     eqTrackBg: eqTrackBg ?? this.eqTrackBg,
@@ -169,7 +163,6 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
         other.hairlineSeparator,
         t,
       )!,
-      glassNavTint: Color.lerp(glassNavTint, other.glassNavTint, t)!,
       glassBorderTint: Color.lerp(glassBorderTint, other.glassBorderTint, t)!,
       dragHandle: Color.lerp(dragHandle, other.dragHandle, t)!,
       eqTrackBg: Color.lerp(eqTrackBg, other.eqTrackBg, t)!,

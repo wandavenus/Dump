@@ -69,7 +69,8 @@ class FadingTitleAppBar extends StatelessWidget implements PreferredSizeWidget {
                   // seluruh material glass punya tingkat blur yang sama.
                   filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                   blendMode: BlendMode.srcOver,
-                  child: Container(color: c.glassNavTint),
+                  // Transparan murni — hanya blur backdrop, tanpa tint.
+                  child: const ColoredBox(color: Colors.transparent),
                 ),
               ),
             )

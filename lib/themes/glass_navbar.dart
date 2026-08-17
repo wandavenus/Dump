@@ -58,7 +58,9 @@ class GlassNavBar extends StatelessWidget {
                 // disproportionately expensive on the target Snapdragon 730.
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 blendMode: BlendMode.srcOver,
-                child: Container(color: c.glassNavTint),
+                // Transparan murni — hanya blur backdrop, tanpa tint, agar
+                // konsisten dengan pill navbar & mini player pill.
+                child: const ColoredBox(color: Colors.transparent),
               ),
             ),
           ),
@@ -179,10 +181,9 @@ class FloatingPillNavBar extends StatelessWidget {
       height: FloatingPillNavBar.bodyHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        // BackdropFilter HARUS di luar ColorFiltered: layer yang dibuat
-        // ColorFiltered membatasi sampling backdrop sehingga blur tidak pernah
-        // tersampling (pill tampak solid — jelas terlihat di dark mode).
-        // Urutan: blur backdrop dulu, lalu lapisan kaca tersaturasi di atasnya.
+        // Kapsul transparan murni: blur backdrop + border hairline saja.
+        // Tanpa tint dan tanpa saturasi supaya warna pill sama persis dengan
+        // warna background di belakangnya — konsisten dengan mini player pill.
         child: Stack(
           children: [
             Positioned.fill(
@@ -195,56 +196,31 @@ class FloatingPillNavBar extends StatelessWidget {
                 ),
               ),
             ),
+            // Border kaca tipis.
             Positioned.fill(
-              child: ColorFiltered(
-                // Saturasi ringan — ciri khas Liquid Glass iOS 26 (konten kaca
-                // + ikon; backdrop blur tidak ikut disaturasi).
-                colorFilter: ColorFilter.matrix(_saturationMatrix(1.5)),
-                child: Stack(
-                  children: [
-                    // Tint kaca.
-                    Positioned.fill(child: ColoredBox(color: c.glassNavTint)),
-                    // Border kaca tipis.
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(radius),
-                            border: Border.all(
-                              color: c.glassBorderTint,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                      ),
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(
+                      color: c.glassBorderTint,
+                      width: 1,
                     ),
-                    _PillItems(
-                      selectedIndex: selectedIndex,
-                      onTap: onTap,
-                      icons: icons,
-                      labels: labels,
-                      semanticsLabels: semanticsLabels,
-                    ),
-                  ],
+                  ),
                 ),
               ),
+            ),
+            _PillItems(
+              selectedIndex: selectedIndex,
+              onTap: onTap,
+              icons: icons,
+              labels: labels,
+              semanticsLabels: semanticsLabels,
             ),
           ],
         ),
       ),
     );
-  }
-
-  /// Matriks saturasi (luminance-weighted) untuk efek Liquid Glass.
-  static List<double> _saturationMatrix(double s) {
-    const lr = 0.2126, lg = 0.7152, lb = 0.0722;
-    final sr = (1 - s) * lr, sg = (1 - s) * lg, sb = (1 - s) * lb;
-    return [
-      sr + s, sg, sb, 0, 0, //
-      sr, sg + s, sb, 0, 0, //
-      sr, sg, sb + s, 0, 0, //
-      0, 0, 0, 1, 0,
-    ];
   }
 }
 
@@ -416,8 +392,7 @@ class _TrailingButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: ClipOval(
-          // Sama seperti kapsul: BackdropFilter di luar ColorFiltered agar
-          // blur tersampling dengan benar.
+          // Sama seperti kapsul: transparan murni (blur backdrop + border).
           // SizedBox eksplisit juga wajib di sini — Stack tanpa ukuran
           // mengembalikan constraints.biggest dan tombol meledak ke layar
           // penuh (regresi yang sama dengan kapsul).
@@ -435,42 +410,31 @@ class _TrailingButton extends StatelessWidget {
                     ),
                   ),
                 ),
-                ColorFiltered(
-                  colorFilter: ColorFilter.matrix(
-                    FloatingPillNavBar._saturationMatrix(1.5),
+                // Fill aktif — membulat penuh.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: active
+                        ? primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ColoredBox(color: c.glassNavTint),
-                      // Fill aktif — membulat penuh.
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: active
-                              ? primary.withValues(alpha: 0.15)
-                              : Colors.transparent,
-                        ),
-                      ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: c.glassBorderTint,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Icon(
-                          icon,
-                          size: FloatingPillNavBar._iconSize,
-                          color: active ? primary : c.secondaryLabel,
-                        ),
-                      ),
-                    ],
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: c.glassBorderTint,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Icon(
+                    icon,
+                    size: FloatingPillNavBar._iconSize,
+                    color: active ? primary : c.secondaryLabel,
                   ),
                 ),
               ],

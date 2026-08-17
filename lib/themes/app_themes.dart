@@ -103,12 +103,8 @@ class AppThemes {
               : const Color(0xFFE5E5EA),
 
           // ── Glass components ───────────────────────────────────────────────
-          // Lighter tint so the backdrop reads as clear glass instead of a
-          // filled surface. Both the pill navbar and mini player consume these
-          // same tokens, keeping their glass material visually consistent.
-          glassNavTint: isDark
-              ? Colors.white.withValues(alpha: 0.02)
-              : Colors.white.withValues(alpha: 0.45),
+          // Material glass = blur backdrop transparan murni (tanpa tint);
+          // satu-satunya pewarna adalah border hairline di bawah ini.
           glassBorderTint: isDark
               // Abu netral (secondaryLabel) + alpha lebih rendah — bukan putih
               // murni, jadi outline pill mini player & navbar tidak lagi terbaca
