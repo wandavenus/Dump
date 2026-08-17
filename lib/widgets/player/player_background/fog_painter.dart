@@ -274,13 +274,25 @@ class _ShaderPainter extends CustomPainter {
     final p = (progress * 0.333333) % 1.0 * 3.0; // fract(progress / 3) * 3
     if (p < 1.0) {
       final f = _smoothstep(0.0, 1.0, p);
-      return [_lerp(colA[0], colB[0], f), _lerp(colA[1], colB[1], f), _lerp(colA[2], colB[2], f)];
+      return [
+        _lerp(colA[0], colB[0], f),
+        _lerp(colA[1], colB[1], f),
+        _lerp(colA[2], colB[2], f),
+      ];
     }
     if (p < 2.0) {
       final f = _smoothstep(0.0, 1.0, p - 1.0);
-      return [_lerp(colB[0], colC[0], f), _lerp(colB[1], colC[1], f), _lerp(colB[2], colC[2], f)];
+      return [
+        _lerp(colB[0], colC[0], f),
+        _lerp(colB[1], colC[1], f),
+        _lerp(colB[2], colC[2], f),
+      ];
     }
     final f = _smoothstep(0.0, 1.0, p - 2.0);
-    return [_lerp(colC[0], colA[0], f), _lerp(colC[1], colA[1], f), _lerp(colC[2], colA[2], f)];
+    return [
+      _lerp(colC[0], colA[0], f),
+      _lerp(colC[1], colA[1], f),
+      _lerp(colC[2], colA[2], f),
+    ];
   }
 }

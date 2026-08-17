@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum NavBarStyle {
   /// Navbar solid biasa (tanpa efek glass).
   solid,
+
   /// Strip glass selebar layar (tampilan lama).
   glass,
+
   /// Kapsul apung ala iOS 26 (Liquid Glass).
   pill,
 }
@@ -19,8 +21,9 @@ class ThemeController {
   static final ValueNotifier<ThemeMode> mode = ValueNotifier(ThemeMode.system);
 
   static final ValueNotifier<bool> glassTheme = ValueNotifier(false);
-  static final ValueNotifier<NavBarStyle> navBarStyle =
-      ValueNotifier(NavBarStyle.glass);
+  static final ValueNotifier<NavBarStyle> navBarStyle = ValueNotifier(
+    NavBarStyle.glass,
+  );
   static final ValueNotifier<bool> glassAppBar = ValueNotifier(true);
   static final ValueNotifier<bool> glassMiniPlayer = ValueNotifier(true);
   static final ValueNotifier<bool> glassAlbumCard = ValueNotifier(true);

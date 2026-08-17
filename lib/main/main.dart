@@ -76,20 +76,26 @@ Future<void> main() async {
             timeout: priorityPrewarmTimeout,
           ),
         ]);
-        unawaited(ArtworkRepository.instance.prewarmImageCache(
-          recentIds.skip(4).take(12).toList(growable: false),
-          targetSizePx: smallPx,
-          timeout: const Duration(milliseconds: 2000),
-        ));
-        unawaited(ArtworkRepository.instance.prewarmImageCache(
-          albumCoverIds.skip(4).take(8).toList(growable: false),
-          timeout: const Duration(milliseconds: 2000),
-        ));
-        unawaited(ArtworkRepository.instance.prewarmImageCache(
-          artistCoverIds.skip(4).take(8).toList(growable: false),
-          targetSizePx: smallPx,
-          timeout: const Duration(milliseconds: 2000),
-        ));
+        unawaited(
+          ArtworkRepository.instance.prewarmImageCache(
+            recentIds.skip(4).take(12).toList(growable: false),
+            targetSizePx: smallPx,
+            timeout: const Duration(milliseconds: 2000),
+          ),
+        );
+        unawaited(
+          ArtworkRepository.instance.prewarmImageCache(
+            albumCoverIds.skip(4).take(8).toList(growable: false),
+            timeout: const Duration(milliseconds: 2000),
+          ),
+        );
+        unawaited(
+          ArtworkRepository.instance.prewarmImageCache(
+            artistCoverIds.skip(4).take(8).toList(growable: false),
+            targetSizePx: smallPx,
+            timeout: const Duration(milliseconds: 2000),
+          ),
+        );
       }
       NativeLogBridge.init();
       FlutterError.onError = (FlutterErrorDetails details) {
@@ -101,7 +107,11 @@ Future<void> main() async {
         );
       };
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-        LogService.error('Dart', error.toString(), stackTrace: stack.toString());
+        LogService.error(
+          'Dart',
+          error.toString(),
+          stackTrace: stack.toString(),
+        );
         return true;
       };
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -123,7 +133,11 @@ Future<void> main() async {
     },
     (Object error, StackTrace stack) {
       if (LogService.isInitialized) {
-        LogService.error('Zone', error.toString(), stackTrace: stack.toString());
+        LogService.error(
+          'Zone',
+          error.toString(),
+          stackTrace: stack.toString(),
+        );
       } else {
         debugPrint('[Zone/pre-init] $error\n$stack');
       }

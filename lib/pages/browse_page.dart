@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/services/scroll_to_top_service.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
+
 import '../widgets/common/scrolling_page_chrome.dart';
 import '../widgets/pages/browse_sections.dart';
 

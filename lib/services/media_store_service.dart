@@ -478,10 +478,14 @@ class MediaStoreService {
   static Future<void> deleteArtworkCache(int songId) async {
     if (songId <= 0) return;
     try {
-      await _channel
-          .invokeMethod<void>('deleteArtworkCache', {'songId': songId});
+      await _channel.invokeMethod<void>('deleteArtworkCache', {
+        'songId': songId,
+      });
     } on Exception catch (e) {
-      LogService.error('MediaStore', 'deleteArtworkCache error songId=$songId: $e');
+      LogService.error(
+        'MediaStore',
+        'deleteArtworkCache error songId=$songId: $e',
+      );
     }
   }
 

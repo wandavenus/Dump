@@ -129,9 +129,8 @@ class AppleMusicProvider implements LyricsProvider {
     int trackId,
     CancellationToken cancelToken,
   ) async {
-    final uri = Uri.parse(
-      _lyricsUrl,
-    ).replace(queryParameters: {'id': trackId.toString()});
+    final uri = Uri.parse(_lyricsUrl)
+        .replace(queryParameters: {'id': trackId.toString()});
 
     final response = await ProviderHttp.get(uri, name, cancelToken);
     if (response == null) return null;

@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+
 import '../models/local_song.dart';
 import '../theme/app_colors.dart';
 import '../services/audio_playback_state.dart';
@@ -111,10 +113,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final repo = ArtworkRepository.instance;
     final targetPx = repo.resolveTargetPx(46.3);
 
-    final provider = repo.getProviderSync(
-      song.id,
-      targetSizePx: targetPx,
-    );
+    final provider = repo.getProviderSync(song.id, targetSizePx: targetPx);
 
     if (provider == null) return;
 
@@ -450,10 +449,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // margin kiri/kanan sama dengan navbar dan mengambang dengan gap di atas
     // kapsul navbar (tidak menempel). Mode lain: full-width, flush di bar.
     final isPill = isGlass && navStyle == NavBarStyle.pill;
-    final miniHorizMargin =
-        isPill ? FloatingPillNavBar.horizMargin : 0.0;
-    final miniBottomGap =
-        isPill ? FloatingPillNavBar.miniPlayerGap : 0.0;
+    final miniHorizMargin = isPill ? FloatingPillNavBar.horizMargin : 0.0;
+    final miniBottomGap = isPill ? FloatingPillNavBar.miniPlayerGap : 0.0;
     // Kapsul penuh saat mini (mode pill); 0 = persegi (mode lain / full player).
     final miniRadius = isPill ? miniH / 2 : 0.0;
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
@@ -560,34 +557,37 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                       // does not re-composite when the rest of the player animates.
                       ValueListenableBuilder<bool>(
                         valueListenable: ThemeController.glassTheme,
-                        builder: (_, masterGlass, _) => ValueListenableBuilder<bool>(
-                          valueListenable: ThemeController.glassMiniPlayer,
-                          builder: (_, compGlass, _) {
-                            // Use glass only when fully at rest in mini state.
-                            // Threshold 0.05 collapses the glass before drag starts
-                            // so BackdropFilter never runs during the morph animation.
-                            final useGlass =
-                                masterGlass && compGlass && progress < 0.02;
-                            if (useGlass) {
-                              final c = AppColors.of(context);
-                              return RepaintBoundary(
-                                child: ClipRect(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                      sigmaX: 24,
-                                      sigmaY: 24,
+                        builder: (_, masterGlass, _) =>
+                            ValueListenableBuilder<bool>(
+                              valueListenable: ThemeController.glassMiniPlayer,
+                              builder: (_, compGlass, _) {
+                                // Use glass only when fully at rest in mini state.
+                                // Threshold 0.05 collapses the glass before drag starts
+                                // so BackdropFilter never runs during the morph animation.
+                                final useGlass =
+                                    masterGlass && compGlass && progress < 0.02;
+                                if (useGlass) {
+                                  final c = AppColors.of(context);
+                                  return RepaintBoundary(
+                                    child: ClipRect(
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 24,
+                                          sigmaY: 24,
+                                        ),
+                                        blendMode: BlendMode.srcOver,
+                                        child: ColoredBox(
+                                          color: c.glassNavTint,
+                                        ),
+                                      ),
                                     ),
-                                    blendMode: BlendMode.srcOver,
-                                    child: ColoredBox(color: c.glassNavTint),
-                                  ),
-                                ),
-                              );
-                            }
-                            return ColoredBox(
-                              color: AppColors.of(context).surface,
-                            );
-                          },
-                        ),
+                                  );
+                                }
+                                return ColoredBox(
+                                  color: AppColors.of(context).surface,
+                                );
+                              },
+                            ),
                       ),
 
                       // ── Pre-blurred artwork background (fades in with progress) ────
@@ -782,11 +782,11 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           child: IgnorePointer(
                             ignoring: progress > 0.08,
                             child: _buildMiniOverlay(
-                            context,
-                            song,
-                            progress,
-                            isPill,
-                          ),
+                              context,
+                              song,
+                              progress,
+                              isPill,
+                            ),
                           ),
                         ),
 
@@ -800,8 +800,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(radius),
                                 border: Border.all(
-                                  color: AppColors.of(context)
-                                      .glassBorderTint
+                                  color: AppColors.of(context).glassBorderTint
                                       .withValues(alpha: miniAlpha),
                                   width: 1,
                                 ),

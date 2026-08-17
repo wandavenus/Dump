@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+
 import 'package:flutter/rendering.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+
 import '../../models/lyric_line.dart';
 import '../../models/lyrics_settings.dart';
 import '../../services/audio_service.dart';

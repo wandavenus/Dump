@@ -4,6 +4,7 @@ import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/l10n/app_localizations.dart';
 
 import 'package:musicplayer/themes/app_theme_extension.dart';
+
 import '../../theme/app_colors.dart';
 import '../../pages/settings/sleep_timer_page.dart';
 import '../../services/audio_playback_state.dart';

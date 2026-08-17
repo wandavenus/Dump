@@ -13,9 +13,9 @@ class _AboutSection extends StatelessWidget {
         const SizedBox(height: 6),
         SettingsActionRow(
           title: l.reportBug,
-          onTap: () => Navigator.of(
-            context,
-          ).push(ZoomFadeRoute<void>(page: const BugReportPage())),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(ZoomFadeRoute<void>(page: const BugReportPage())),
         ),
         SettingsActionRow(
           title: l.support,
@@ -45,9 +45,9 @@ class _AboutSection extends StatelessWidget {
         ),
         SettingsActionRow(
           title: l.aboutApp,
-          onTap: () => Navigator.of(
-            context,
-          ).push(ZoomFadeRoute<void>(page: const AboutAppPage())),
+          onTap: () =>
+              Navigator.of(context)
+                  .push(ZoomFadeRoute<void>(page: const AboutAppPage())),
         ),
         const SettingsDivider(),
         const _AboutFooter(),

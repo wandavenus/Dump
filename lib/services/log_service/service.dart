@@ -130,22 +130,19 @@ class LogService {
   /// How many ring-buffer entries match [level], optionally restricted to the
   /// active [category] / [search] filters so the log page's per-level chips
   /// stay consistent with the filtered list (L-6 fix).
-  static int countByLevel(
-    LogLevel level, {
-    String? category,
-    String? search,
-  }) => _logs.where((e) {
-    if (e.level != level) return false;
-    if (category != null && e.category != category) return false;
-    if (search != null && search.isNotEmpty) {
-      final q = search.toLowerCase();
-      if (!e.message.toLowerCase().contains(q) &&
-          !e.category.toLowerCase().contains(q)) {
-        return false;
-      }
-    }
-    return true;
-  }).length;
+  static int countByLevel(LogLevel level, {String? category, String? search}) =>
+      _logs.where((e) {
+        if (e.level != level) return false;
+        if (category != null && e.category != category) return false;
+        if (search != null && search.isNotEmpty) {
+          final q = search.toLowerCase();
+          if (!e.message.toLowerCase().contains(q) &&
+              !e.category.toLowerCase().contains(q)) {
+            return false;
+          }
+        }
+        return true;
+      }).length;
 
   static const int _maxStackTraceChars = 3000;
 

@@ -262,10 +262,7 @@ class LyricsFetchManager {
       if (!allDoneCompleter.isCompleted) allDoneCompleter.complete();
     });
     try {
-      await Future.any([
-        allDoneCompleter.future,
-        upgradeCompleter.future,
-      ]);
+      await Future.any([allDoneCompleter.future, upgradeCompleter.future]);
     } finally {
       deadlineTimer.cancel();
     }
