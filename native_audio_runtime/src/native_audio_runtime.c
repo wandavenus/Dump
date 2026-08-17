@@ -61,8 +61,7 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.resampler",         0},
     {"decoder.flac_hires",    0},
     {"decoder.dsd",           0},
-    {"scan.loudness_ebur128",  1},  // loudness_processor.c implements real-time EBU R128 /
-                                     //   BS.1770-4 measurement (dsp.loudness, phase 8.5)
+    {"scan.loudness_ebur128",  0},  // placeholder
 };
 static const int32_t kCapabilityCount =
     (int32_t)(sizeof(kCapabilities) / sizeof(kCapabilities[0]));
