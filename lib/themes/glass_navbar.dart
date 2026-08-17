@@ -1,18 +1,20 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/theme/app_colors.dart';
+import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
 /// Ruang kosong di bawah konten scroll agar item terakhir tidak tertutup
 /// mini player. Mode non-pill: mini player beristirahat di navBarH (53.8) +
 /// inset layar, clearance 64.5 memberi buffer ~10.7 px. Mode pill (iOS 26):
-/// mini player duduk tepat di atas tepi atas kapsul (body 62 + gap 10 +
-/// inset), jadi clearance naik dengan buffer yang sama.
+/// mini player mengambang sebagai kapsul di atas navbar (body 62 + gap 10 +
+/// miniPlayerGap 10 + inset), jadi clearance naik dengan buffer yang sama.
 double navBottomClearance(BuildContext context) {
   final safeBottom = MediaQuery.paddingOf(context).bottom;
   if (ThemeController.isPillNavBar) {
     return FloatingPillNavBar.bodyHeight +
         FloatingPillNavBar.bottomGap +
+        FloatingPillNavBar.miniPlayerGap +
         safeBottom +
         10.7;
   }
@@ -60,20 +62,25 @@ class GlassNavBar extends StatelessWidget {
 
 /// Navbar kapsul apung gaya iOS 26 (Liquid Glass).
 ///
-/// Berbeda dari [GlassNavBar] (strip penuh selebar layar), kapsul ini
-/// mengambang dengan margin kiri/kanan/bawah, berbentuk kapsul penuh, blur +
-/// saturasi kaca cair, dan blob apung yang meluncur di belakang ikon tab
-/// aktif. Item dengan label `null` (mis. ikon Search) tidak menampilkan label.
+/// Kapsul utama berisi item navigasi dengan blob apung di belakang ikon tab
+/// aktif, dan opsional sebuah tombol bundar terpisah (trailing, mis. ikon
+/// Search) yang mengambang di sebelah kanan dengan material glass yang sama.
 class FloatingPillNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final List<IconData> icons;
 
-  /// Label visual per item; `null` = tanpa label (mis. ikon Search).
+  /// Label visual per item; `null` = tanpa label.
   final List<String?> labels;
 
   /// Label untuk screen reader — harus selalu lengkap walau label visual `null`.
   final List<String>? semanticsLabels;
+
+  /// Ikon tombol bundar terpisah (mis. Search). Indeksnya = [icons.length].
+  final IconData? trailingIcon;
+
+  /// Nama tombol trailing untuk screen reader.
+  final String? trailingLabel;
 
   const FloatingPillNavBar({
     super.key,
@@ -82,6 +89,8 @@ class FloatingPillNavBar extends StatelessWidget {
     required this.icons,
     required this.labels,
     this.semanticsLabels,
+    this.trailingIcon,
+    this.trailingLabel,
   });
 
   /// Tinggi badan kapsul (area ikon + label).
@@ -92,6 +101,16 @@ class FloatingPillNavBar extends StatelessWidget {
 
   /// Jarak apung dari tepi bawah layar (di atas home indicator).
   static const double bottomGap = 10.0;
+
+  /// Jarak vertikal antara mini player (mode pill) dan tepi atas kapsul
+  /// navbar — mini player mengambang, tidak menempel ke navbar.
+  static const double miniPlayerGap = 10.0;
+
+  /// Jarak antara kapsul utama dan tombol bundar terpisah.
+  static const double trailingGap = 10.0;
+
+  /// Diameter tombol bundar terpisah.
+  static const double trailingSize = 50.0;
 
   static const double _blobHeight = 38.0;
   static const double _blobInset = 5.0;
@@ -111,68 +130,86 @@ class FloatingPillNavBar extends StatelessWidget {
         horizMargin,
         bottomGap + safeBottom,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: ColorFiltered(
-          // Saturasi ringan — ciri khas Liquid Glass iOS 26.
-          colorFilter: ColorFilter.matrix(_saturationMatrix(1.5)),
-          child: Stack(
-            children: [
-              // Backdrop blur diisolasi dalam RepaintBoundary agar tidak
-              // recomposite saat item tab berubah.
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-                      child: const ColoredBox(color: Colors.transparent),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(child: _buildCapsule(context, c, radius)),
+          if (trailingIcon != null) ...[
+            const SizedBox(width: trailingGap),
+            _TrailingButton(
+              icon: trailingIcon!,
+              label: trailingLabel,
+              active: selectedIndex == icons.length,
+              onTap: () => onTap(icons.length),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCapsule(BuildContext context, AppThemeExtension c, double radius) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: ColorFiltered(
+        // Saturasi ringan — ciri khas Liquid Glass iOS 26.
+        colorFilter: ColorFilter.matrix(_saturationMatrix(1.5)),
+        child: Stack(
+          children: [
+            // Backdrop blur diisolasi dalam RepaintBoundary agar tidak
+            // recomposite saat item tab berubah.
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                    child: const ColoredBox(color: Colors.transparent),
+                  ),
+                ),
+              ),
+            ),
+            // Tint kaca.
+            Positioned.fill(child: ColoredBox(color: c.glassNavTint)),
+            // Highlight specular di tepi atas — kesan "kaca cair".
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 28,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.10),
+                        Colors.white.withValues(alpha: 0.0),
+                      ],
                     ),
                   ),
                 ),
               ),
-              // Tint kaca.
-              Positioned.fill(child: ColoredBox(color: c.glassNavTint)),
-              // Highlight specular di tepi atas — kesan "kaca cair".
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                height: 28,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.10),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
+            ),
+            // Border kaca tipis.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(color: c.glassBorderTint, width: 1),
                   ),
                 ),
               ),
-              // Border kaca tipis.
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(radius),
-                      border: Border.all(color: c.glassBorderTint, width: 1),
-                    ),
-                  ),
-                ),
-              ),
-              _PillItems(
-                selectedIndex: selectedIndex,
-                onTap: onTap,
-                icons: icons,
-                labels: labels,
-                semanticsLabels: semanticsLabels,
-              ),
-            ],
-          ),
+            ),
+            _PillItems(
+              selectedIndex: selectedIndex,
+              onTap: onTap,
+              icons: icons,
+              labels: labels,
+              semanticsLabels: semanticsLabels,
+            ),
+          ],
         ),
       ),
     );
@@ -217,8 +254,9 @@ class _PillItems extends StatelessWidget {
           final itemW = constraints.maxWidth / count;
           final blobW = itemW - FloatingPillNavBar._blobInset * 2;
           // Posisi vertikal blob mengikuti pusat ikon: item berlabel punya
-          // area label di bawah, item tanpa label (Search) terpusat penuh.
-          final hasLabel = labels[selectedIndex] != null;
+          // area label di bawah, item tanpa label terpusat penuh.
+          final hasLabel = selectedIndex < labels.length &&
+              labels[selectedIndex] != null;
           final blobTop = hasLabel
               ? (FloatingPillNavBar.bodyHeight -
                       FloatingPillNavBar._labelHeight -
@@ -227,21 +265,28 @@ class _PillItems extends StatelessWidget {
               : (FloatingPillNavBar.bodyHeight -
                       FloatingPillNavBar._blobHeight) /
                   2;
+          // Saat tab trailing (Search) aktif, blob memudar di slot terakhir.
+          final blobSlot = selectedIndex < count ? selectedIndex : count - 1;
           return Stack(
             children: [
               // Blob apung di belakang ikon tab aktif — meluncur antar tab.
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
-                left: selectedIndex * itemW + FloatingPillNavBar._blobInset,
-                top: blobTop,
-                width: blobW,
-                height: FloatingPillNavBar._blobHeight,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(
-                      FloatingPillNavBar._blobHeight / 2,
+              AnimatedOpacity(
+                opacity: selectedIndex < count ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: AnimatedPositioned(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  left:
+                      blobSlot * itemW + FloatingPillNavBar._blobInset,
+                  top: blobTop,
+                  width: blobW,
+                  height: FloatingPillNavBar._blobHeight,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(
+                        FloatingPillNavBar._blobHeight / 2,
+                      ),
                     ),
                   ),
                 ),
@@ -301,18 +346,100 @@ class _PillItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: FloatingPillNavBar._iconSize, color: color),
-            if (label != null) ...[const SizedBox(height: 3), Text(
-                  label!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: color,
-                    fontWeight:
-                        active ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                )],
+            if (label != null) ...[
+              const SizedBox(height: 3),
+              Text(
+                label!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tombol bundar terpisah (mis. ikon Search) dengan material glass yang sama
+/// dengan kapsul utama. Saat aktif, terisi fill blob dan ikon menyala.
+class _TrailingButton extends StatelessWidget {
+  final IconData icon;
+  final String? label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _TrailingButton({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ClipOval(
+          child: ColorFiltered(
+            colorFilter: ColorFilter.matrix(
+              FloatingPillNavBar._saturationMatrix(1.5),
+            ),
+            child: SizedBox(
+              width: FloatingPillNavBar.trailingSize,
+              height: FloatingPillNavBar.trailingSize,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RepaintBoundary(
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                        child: const ColoredBox(color: Colors.transparent),
+                      ),
+                    ),
+                  ),
+                  ColoredBox(color: c.glassNavTint),
+                  // Fill aktif — membulat penuh.
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active
+                          ? primary.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.glassBorderTint, width: 1),
+                    ),
+                  ),
+                  Center(
+                    child: Icon(
+                      icon,
+                      size: FloatingPillNavBar._iconSize,
+                      color: active ? primary : c.secondaryLabel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
