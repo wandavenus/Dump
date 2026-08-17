@@ -109,7 +109,7 @@ class AppThemes {
               ? Colors.white.withValues(alpha: 0.035)
               : Colors.white.withValues(alpha: 0.70),
           glassBorderTint: isDark
-              ? Colors.white.withValues(alpha: 0.18)
+              ? Colors.white.withValues(alpha: 0.10)
               : Colors.black.withValues(alpha: 0.10),
 
           // ── Drag handle ────────────────────────────────────────────────────
