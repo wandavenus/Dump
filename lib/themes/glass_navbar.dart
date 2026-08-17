@@ -276,13 +276,10 @@ class _PillItems extends StatelessWidget {
                   top: blobTop,
                   width: blobW,
                   height: FloatingPillNavBar._blobHeight,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(
-                        FloatingPillNavBar._blobHeight / 2,
-                      ),
-                    ),
+                  child: _ActiveLens(
+                    width: blobW,
+                    height: FloatingPillNavBar._blobHeight,
+                    color: primary.withValues(alpha: 0.15),
                   ),
                 ),
               ),
@@ -365,8 +362,33 @@ class _PillItem extends StatelessWidget {
   }
 }
 
+/// Lens aktif gaya iOS 26 — pill rounded yang SAMA untuk semua tab (kapsul
+/// 4 item & tombol search), agar warna/treatment aktif konsisten.
+class _ActiveLens extends StatelessWidget {
+  final double width;
+  final double height;
+  final Color color;
+
+  const _ActiveLens({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(height / 2),
+      ),
+    );
+  }
+}
+
 /// Tombol bundar terpisah (mis. ikon Search) dengan material glass yang sama
-/// dengan kapsul utama. Saat aktif, terisi fill blob dan ikon menyala.
+/// dengan kapsul utama. Saat aktif, lens (blob) tampil di belakang ikon dan
+/// ikon menyala — treatment identik dengan tab di kapsul utama.
 class _TrailingButton extends StatelessWidget {
   final IconData icon;
   final String? label;
@@ -410,15 +432,18 @@ class _TrailingButton extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Fill aktif — membulat penuh.
-                AnimatedContainer(
+                // Lens aktif — SAMA dengan blob kapsul 4 item (38px,
+                // primary 0.15), bukan disc penuh, supaya treatment warna
+                // aktif konsisten dengan pill (gaya lens iOS 26).
+                AnimatedOpacity(
+                  opacity: active ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: active
-                        ? primary.withValues(alpha: 0.15)
-                        : Colors.transparent,
+                  child: Center(
+                    child: _ActiveLens(
+                      width: FloatingPillNavBar.trailingSize - 12,
+                      height: FloatingPillNavBar._blobHeight,
+                      color: primary.withValues(alpha: 0.15),
+                    ),
                   ),
                 ),
                 DecoratedBox(
