@@ -61,8 +61,6 @@ void main() {
       'dsp.pipeline',
       'dsp.gain',
       'dsp.media3_integration',
-      // Phase 5
-      'dsp.equalizer',
       // Phase 6
       'dsp.compressor',
       'dsp.limiter',
@@ -71,6 +69,7 @@ void main() {
       'dsp.crossfeed',
       // Phase 8
       'dsp.replaygain',
+      'scan.loudness_ebur128',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere(
@@ -82,12 +81,12 @@ void main() {
 
     // Everything else is a placeholder (supported = false).
     final unsupportedKeys = [
+      'dsp.equalizer',
       'dsp.bass_boost',
       'dsp.virtualizer',
       'dsp.resampler',
       'decoder.flac_hires',
       'decoder.dsd',
-      'scan.loudness_ebur128',
     ];
     for (final key in unsupportedKeys) {
       final cap = caps.firstWhere(
