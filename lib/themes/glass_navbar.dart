@@ -131,9 +131,6 @@ class FloatingPillNavBar extends StatelessWidget {
   /// konsisten dengan pill 4 tab (tepi atas/bawah sejajar).
   static const double trailingSize = bodyHeight;
 
-  static const double _blobHeight = 38.0;
-  static const double _blobInset = 5.0;
-  static const double _labelHeight = 14.0;
   static const double _iconSize = 24.0;
 
   @override
@@ -241,67 +238,24 @@ class _PillItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     final count = icons.length;
     return SizedBox(
       height: FloatingPillNavBar.bodyHeight,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemW = constraints.maxWidth / count;
-          final blobW = itemW - FloatingPillNavBar._blobInset * 2;
-          // Posisi vertikal blob mengikuti pusat ikon: item berlabel punya
-          // area label di bawah, item tanpa label terpusat penuh.
-          final hasLabel =
-              selectedIndex < labels.length && labels[selectedIndex] != null;
-          final blobTop = hasLabel
-              ? (FloatingPillNavBar.bodyHeight -
-                        FloatingPillNavBar._labelHeight -
-                        FloatingPillNavBar._blobHeight) /
-                    2
-              : (FloatingPillNavBar.bodyHeight -
-                        FloatingPillNavBar._blobHeight) /
-                    2;
-          // Saat tab trailing (Search) aktif, blob memudar di slot terakhir.
-          final blobSlot = selectedIndex < count ? selectedIndex : count - 1;
-          return Stack(
-            children: [
-              // Blob apung di belakang ikon tab aktif — meluncur antar tab.
-              AnimatedOpacity(
-                opacity: selectedIndex < count ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: AnimatedPositioned(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                  left: blobSlot * itemW + FloatingPillNavBar._blobInset,
-                  top: blobTop,
-                  width: blobW,
-                  height: FloatingPillNavBar._blobHeight,
-                  child: _ActiveLens(
-                    width: blobW,
-                    height: FloatingPillNavBar._blobHeight,
-                    color: c.glassActiveLens,
-                  ),
-                ),
+      child: Row(
+        children: [
+          for (var i = 0; i < count; i++)
+            Expanded(
+              child: _PillItem(
+                icon: icons[i],
+                label: labels[i],
+                semanticsLabel: semanticsLabels != null
+                    ? semanticsLabels![i]
+                    : labels[i],
+                active: i == selectedIndex,
+                onTap: () => onTap(i),
               ),
-              Row(
-                children: [
-                  for (var i = 0; i < count; i++)
-                    Expanded(
-                      child: _PillItem(
-                        icon: icons[i],
-                        label: labels[i],
-                        semanticsLabel: semanticsLabels != null
-                            ? semanticsLabels![i]
-                            : labels[i],
-                        active: i == selectedIndex,
-                        onTap: () => onTap(i),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          );
-        },
+            ),
+        ],
       ),
     );
   }
@@ -362,33 +316,8 @@ class _PillItem extends StatelessWidget {
   }
 }
 
-/// Lens aktif gaya iOS 26 — pill rounded yang SAMA untuk semua tab (kapsul
-/// 4 item & tombol search), agar warna/treatment aktif konsisten.
-class _ActiveLens extends StatelessWidget {
-  final double width;
-  final double height;
-  final Color color;
-
-  const _ActiveLens({
-    required this.width,
-    required this.height,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(height / 2),
-      ),
-    );
-  }
-}
-
 /// Tombol bundar terpisah (mis. ikon Search) dengan material glass yang sama
-/// dengan kapsul utama. Saat aktif, lens (blob) tampil di belakang ikon dan
-/// ikon menyala — treatment identik dengan tab di kapsul utama.
+/// dengan kapsul utama.
 class _TrailingButton extends StatelessWidget {
   final IconData icon;
   final String? label;
@@ -434,20 +363,6 @@ class _TrailingButton extends StatelessWidget {
                 ),
                 // Tint netral penstabil — sama dengan kapsul.
                 ColoredBox(color: c.glassFillTint),
-                // Lens aktif — SAMA dengan blob kapsul 4 item (38px,
-                // glassActiveLens netral), bukan disc penuh, supaya treatment
-                // warna aktif konsisten dengan pill (gaya lens iOS 26).
-                AnimatedOpacity(
-                  opacity: active ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Center(
-                    child: _ActiveLens(
-                      width: FloatingPillNavBar.trailingSize - 12,
-                      height: FloatingPillNavBar._blobHeight,
-                      color: c.glassActiveLens,
-                    ),
-                  ),
-                ),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
