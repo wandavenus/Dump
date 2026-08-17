@@ -3,6 +3,12 @@
 # =========================
 
 android/local.properties
+android_compose/local.properties
+android_compose/build/
+android_compose/app/build/
+android_compose/.gradle/
+android_compose/.idea/
+android_compose/*.iml
 
 .github/
 .android/

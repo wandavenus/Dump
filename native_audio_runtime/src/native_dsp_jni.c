@@ -30,8 +30,38 @@
 
 #include "dsp_pipeline.h"
 #include "native_audio_runtime.h"
+#include "gain_processor.h"
+#include "replaygain_processor.h"
+#include "crossfeed_processor.h"
+#include "comp_processor.h"
+#include "loudness_processor.h"
+#include "soft_clipper_processor.h"
+#include "limiter_processor.h"
 
 // Java class: dev.wndavenz.music.effects.NativeDspAudioProcessor
+JNIEXPORT jint JNICALL
+Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeInitializeRuntime(
+    JNIEnv* env, jclass clazz) {
+  (void)env;
+  (void)clazz;
+  int32_t status = native_runtime_init();
+  if (status != NATIVE_RUNTIME_OK && status != NATIVE_RUNTIME_ERROR_ALREADY_INITIALIZED) {
+    return (jint)status;
+  }
+  status = nar_dsp_pipeline_init();
+  if (status != NATIVE_RUNTIME_OK) {
+    return (jint)status;
+  }
+  nar_gain_processor_register_internal();
+  nar_replaygain_processor_register_internal();
+  nar_crossfeed_processor_register_internal();
+  nar_comp_processor_register_internal();
+  nar_loudness_processor_register_internal();
+  nar_soft_clipper_processor_register_internal();
+  nar_limiter_processor_register_internal();
+  return (jint)NATIVE_RUNTIME_OK;
+}
+
 // JNI name mangling: '.' → '_', no underscores in any component.
 
 // Process frame_count * channel_count float32 samples in `buffer` in-place,
