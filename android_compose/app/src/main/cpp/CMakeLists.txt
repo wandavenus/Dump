@@ -37,8 +37,6 @@ target_link_libraries(native_audio_runtime PRIVATE
     aaudio
 )
 
-# Compose builds arm64-v8a. AArch64 already enables NEON; the ARMv7-only
-# -mfpu and -mfloat-abi flags are invalid for the aarch64 Android target.
 target_compile_options(native_audio_runtime PRIVATE -Wall -O3)
 
 # ── libebur128 & TagLib for ReplayGain ───────────────────────────────────────
