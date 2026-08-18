@@ -37,7 +37,7 @@ target_link_libraries(native_audio_runtime PRIVATE
     aaudio
 )
 
-target_compile_options(native_audio_runtime PRIVATE -Wall -O3 -mfpu=neon -mfloat-abi=softfp)
+target_compile_options(native_audio_runtime PRIVATE -Wall -O3)
 
 # ── libebur128 & TagLib for ReplayGain ───────────────────────────────────────
 FetchContent_Declare(
