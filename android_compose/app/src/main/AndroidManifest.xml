@@ -16,7 +16,7 @@
         android:label="Music Player"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MusicPlayer">
+        android:theme="@android:style/Theme.Material.NoTitleBar">
 
         <activity
             android:name=".MainActivity"

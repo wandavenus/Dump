@@ -70,9 +70,6 @@ set(WITH_VORBIS      ON  CACHE BOOL "Needed for FLAC / Ogg Vorbis / Opus" FORCE)
 set(WITH_ZLIB        OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(taglib)
 
-# CMakeLists.txt lives under android_compose/app/src/main/cpp.
-# The native ReplayGain/Stretch sources remain under the repository's
-# android/app module, so five parent traversals are required to reach repo root.
 set(ANDROID_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../android/app/src/main/cpp")
 
 add_library(replaygain_native SHARED
