@@ -204,6 +204,16 @@ class TransportCommands(
                 val item = call.argument<Map<String, Any?>>("item")
                     ?: run { result.success(null); return }
                 queueManager.insertNext(item)
+                // Play-Next stale-preload fix: inserting at activeQueueIndex + 1 shifts
+                // the next-track position while the standby player still holds the OLD
+                // next track under a coincidentally matching preloadedQueueIndex.
+                // Mirror appendToQueue and force a re-preload so crossfade promotes the
+                // inserted track, not the stale one. Safe mid-promotion: preloadNextTrack
+                // early-returns while the promoted player owns its one-item timeline
+                // (< queue.size guard).
+                if (crossfadeController.crossfadeDurationSec > 0f) {
+                    preloadManager.preloadNextTrack(force = true)
+                }
                 result.success(null)
             }
 

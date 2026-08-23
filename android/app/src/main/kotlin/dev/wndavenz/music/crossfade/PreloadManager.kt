@@ -70,7 +70,20 @@ class PreloadManager(
             clearStandbyQueue()
             return
         }
-        if (!force && standby.mediaItemCount > 0 && preloadedQueueIndex == nextIndex) return
+        // Content-identity staleness check (play-next bug): an index match alone is not
+        // proof the preload is current — a queue mutation (e.g. insertNext) can shift
+        // positions so a STALE preload's index equals the new next index. Verify the
+        // standby actually holds queue[nextIndex] via mediaId, mirroring
+        // MediaItemFactory's "id ?: path" convention.
+        val expectedMediaId =
+            (queue[nextIndex]["id"] ?: queue[nextIndex]["path"])?.toString()
+        val standbyHoldsExpected =
+            expectedMediaId != null && standby.currentMediaItem?.mediaId == expectedMediaId
+        if (!force && standby.mediaItemCount > 0 && preloadedQueueIndex == nextIndex &&
+            standbyHoldsExpected
+        ) {
+            return
+        }
 
         try {
             try { standby.stop() } catch (_: Exception) {}
