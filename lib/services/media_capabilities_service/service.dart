@@ -32,9 +32,18 @@ class MediaCapabilitiesService {
     0.5,
   );
 
+  /// 8D Audio: software rotating effect (LFO pan + Haas delay sweep).
+  ///
+  /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
+  /// correctly to both players during a crossfade overlap. intensity = 0
+  /// is fully transparent (effect off).
+  static final ValueNotifier<bool> eightDEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> eightDIntensity = ValueNotifier(0.5);
+
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
+  static StreamSubscription<Map<dynamic, dynamic>>? _eightDSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
 
@@ -47,6 +56,9 @@ class MediaCapabilitiesService {
         prefs.getBool('${_kPrefix}stereoEnabled') ?? false;
     stereoWideningStrength.value =
         prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
+    eightDEnabled.value = prefs.getBool('${_kPrefix}eightDEnabled') ?? false;
+    eightDIntensity.value =
+        prefs.getDouble('${_kPrefix}eightDIntensity') ?? 0.5;
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -64,13 +76,29 @@ class MediaCapabilitiesService {
       }
     });
 
+    // ── 8D Audio ─────────────────────────────────────────────────────────────
+    // Mirrors the engine confirmation after the effect parameters are applied,
+    // so the UI always shows what the engine is actually using.
+    _eightDSub?.cancel();
+    _eightDSub = PlaybackManager.eightDStream.listen((map) {
+      final enabled = map['enabled'] as bool? ?? false;
+      final intensity = (map['intensity'] as num?)?.toDouble() ?? 0.5;
+      if (eightDEnabled.value != enabled) {
+        eightDEnabled.value = enabled;
+      }
+      if (eightDIntensity.value != intensity) {
+        eightDIntensity.value = intensity;
+      }
+    });
+
     // Push all settings to active engine on startup.
     unawaited(_applyAll());
 
     LogService.log(
       'MediaCap',
       'Initialized — '
-          'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value}',
+          'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value} '
+          'eightD=${eightDEnabled.value}@${eightDIntensity.value}',
     );
   }
 
@@ -86,6 +114,12 @@ class MediaCapabilitiesService {
       PlaybackManager.setStereoWidening(
         enabled: stereoWideningEnabled.value,
         strength: stereoWideningStrength.value,
+      ),
+    );
+    unawaited(
+      PlaybackManager.setEightD(
+        enabled: eightDEnabled.value,
+        intensity: eightDIntensity.value,
       ),
     );
   }
@@ -119,6 +153,33 @@ class MediaCapabilitiesService {
     LogService.log('MediaCap', 'stereoStrength: $v');
   }
 
+  /// 8D Audio: Toggle the rotating effect. Sends current [eightDIntensity]
+  /// alongside the enable flag so the engine can apply both atomically.
+  static Future<void> setEightD(bool value) async {
+    eightDEnabled.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('${_kPrefix}eightDEnabled', value);
+    unawaited(
+      PlaybackManager.setEightD(
+        enabled: value,
+        intensity: eightDIntensity.value,
+      ),
+    );
+    LogService.log('MediaCap', 'eightD: $value');
+  }
+
+  /// 8D Audio: Adjust rotation intensity. [value] is clamped to [0.0, 1.0].
+  static Future<void> setEightDIntensity(double value) async {
+    final v = value.clamp(0.0, 1.0);
+    eightDIntensity.value = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('${_kPrefix}eightDIntensity', v);
+    if (eightDEnabled.value) {
+      unawaited(PlaybackManager.setEightD(enabled: true, intensity: v));
+    }
+    LogService.log('MediaCap', 'eightDIntensity: $v');
+  }
+
   // ── Query ─────────────────────────────────────────────────────────────────
 
   /// Item 6: Fetch accumulated [PlaybackStats] for the active player session.
@@ -139,5 +200,7 @@ class MediaCapabilitiesService {
   static void dispose() {
     (_stereoWideningSub?.cancel())?.ignore();
     _stereoWideningSub = null;
+    (_eightDSub?.cancel())?.ignore();
+    _eightDSub = null;
   }
 }

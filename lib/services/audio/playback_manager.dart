@@ -111,6 +111,8 @@ class PlaybackManager {
       Media3PlaybackBridge.audioFormatStream;
   static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
       Media3PlaybackBridge.stereoWideningStream;
+  static Stream<Map<dynamic, dynamic>> get eightDStream =>
+      Media3PlaybackBridge.eightDStream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -300,6 +302,14 @@ class PlaybackManager {
   }) => Media3PlaybackBridge.setStereoWidening(
     enabled: enabled,
     strength: strength,
+  );
+
+  static Future<void> setEightD({
+    required bool enabled,
+    required double intensity,
+  }) => Media3PlaybackBridge.setEightD(
+    enabled: enabled,
+    intensity: intensity,
   );
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>

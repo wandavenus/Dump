@@ -1355,4 +1355,11 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get madeByShort => 'Dibuat Oleh';
+
+  @override
+  String get eightDAudio => '8D Audio';
+
+  @override
+  String get eightDAudioDescription =>
+      'Memutar suara mengelilingi kepala (pan + delay berputar lambat). Paling enak dengan headphone.';
 }

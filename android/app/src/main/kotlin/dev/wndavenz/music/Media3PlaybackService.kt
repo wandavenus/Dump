@@ -59,6 +59,8 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.session.CommandButton
 import dev.wndavenz.music.effects.StereoWidthManager
+import dev.wndavenz.music.effects.EightDManager
+import dev.wndavenz.music.effects.EightDAudioProcessor
 
 /**
  * Thin orchestration layer.
@@ -154,6 +156,7 @@ class Media3PlaybackService : MediaSessionService() {
     @Volatile private var activeDecoderIsHardware: Boolean = false
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
+    private val playerEightDProcessors = IdentityHashMap<ExoPlayer, EightDAudioProcessor>() // 8D Audio
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
@@ -164,6 +167,9 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
+
+    // ── 8D Audio: rotating-effect manager (same pattern as StereoWidthManager)
+    private lateinit var eightDManager: EightDManager
 
     // Signalsmith Stretch — playback speed + pitch shift, replacing Sonic.
     // See StretchManager doc for why this needs its own manager (per-instance
@@ -235,6 +241,9 @@ class Media3PlaybackService : MediaSessionService() {
         // createConfiguredPlayer() call so the primary player's processor is
         // correctly tracked from the start.
         stereoWidthManager = StereoWidthManager()
+        // 8D Audio: same requirement — the primary player's 8D processor must
+        // be tracked from the very first createConfiguredPlayer() call.
+        eightDManager = EightDManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
 
         // Create primary player — always physical stream slot 0.
@@ -636,6 +645,15 @@ class Media3PlaybackService : MediaSessionService() {
                 EventEmitter.emit(
                     "stereoWidening",
                     mapOf("enabled" to enabled, "strength" to strength),
+                )
+            },
+
+            // 8D Audio — same atomic-update + echo pattern via EightDManager.
+            onEightDChanged = { enabled, intensity ->
+                eightDManager.setEightD(enabled, intensity)
+                EventEmitter.emit(
+                    "eightD",
+                    mapOf("enabled" to enabled, "intensity" to intensity),
                 )
             },
 
@@ -1202,6 +1220,13 @@ class Media3PlaybackService : MediaSessionService() {
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
             else StereoWideningAudioProcessor()
 
+        // 8D Audio: one EightDAudioProcessor per player, tracked by
+        // EightDManager so a single setEightD() call updates both active and
+        // standby players atomically during a crossfade overlap.
+        val eightDProc: EightDAudioProcessor =
+            if (::eightDManager.isInitialized) eightDManager.createProcessor()
+            else EightDAudioProcessor()
+
         // Signalsmith Stretch — replaces Sonic for both playback speed and
         // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
         // docs). Placed last in the chain, exactly where Sonic used to sit.
@@ -1245,7 +1270,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,8D,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1256,8 +1281,8 @@ class Media3PlaybackService : MediaSessionService() {
                     .setEnableFloatOutput(false)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
-                    // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
-                    // the custom DSP/widening/stretch stages always see PCM_FLOAT
+                    // 8D → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
+                    // the custom DSP/widening/8D/stretch stages always see PCM_FLOAT
                     // (transparent no-op if the decoder already emits float); ToInt16
                     // converts back before Media3's own internal SilenceSkipping/Sonic
                     // stage so nothing downstream has to reason about float input.
@@ -1275,7 +1300,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, eightDProc, stretchProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1367,6 +1392,10 @@ class Media3PlaybackService : MediaSessionService() {
         // StereoWidthManager when the player is released (via detachPlayerListener).
         if (::stereoWidthManager.isInitialized) {
             playerProcessors[player] = channelMixingProc
+        }
+        // 8D Audio: same tracking for the rotating-effect processor.
+        if (::eightDManager.isInitialized) {
+            playerEightDProcessors[player] = eightDProc
         }
         if (::stretchManager.isInitialized) {
             playerStretchProcessors[player] = stretchProc
@@ -2005,6 +2034,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
+        // 8D Audio: same rationale, for the rotating-effect processor.
+        playerEightDProcessors.remove(p)?.let { eightDManager.removeProcessor(it) }
         // Signalsmith Stretch: same rationale, for the speed/pitch processor.
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.

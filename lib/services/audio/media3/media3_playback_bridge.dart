@@ -65,6 +65,9 @@ class Media3PlaybackBridge {
   static const EventChannel _stereoWideningEvents = EventChannel(
     'musicplayer/media3_stereoWidening',
   );
+  static const EventChannel _eightDEvents = EventChannel(
+    'musicplayer/media3_eightD',
+  );
   // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
   // Media3PlaybackService.onCreate() has fully finished wiring; replays
   // immediately to a listener that subscribes after that already happened.
@@ -196,6 +199,18 @@ class Media3PlaybackBridge {
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
+
+  /// Live 8D-audio state — emitted after [EightDManager] applies the effect
+  /// to all live [EightDAudioProcessor] instances.
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with two keys:
+  ///   `enabled`   — bool: whether the rotating effect is active.
+  ///   `intensity` — double: rotation strength in [0.0, 1.0].
+  static final Stream<Map<dynamic, dynamic>> eightDStream = _eightDEvents
+      .receiveBroadcastStream()
+      .where((e) => e is Map)
+      .cast<Map<dynamic, dynamic>>()
+      .asBroadcastStream();
 
   /// Cold-start race fix (see ServiceReadyGate.kt / MainActivity.kt).
   /// Emits `true` once — either immediately (service already finished
@@ -363,6 +378,16 @@ class Media3PlaybackBridge {
   }) => _invoke<void>('setStereoWidening', {
     'enabled': enabled,
     'strength': strength,
+  });
+
+  // ── 8D Audio ──────────────────────────────────────────────────────────────
+
+  static Future<void> setEightD({
+    required bool enabled,
+    required double intensity,
+  }) => _invoke<void>('setEightD', {
+    'enabled': enabled,
+    'intensity': intensity,
   });
 
   // ── Playback stats (Item 6) ───────────────────────────────────────────────

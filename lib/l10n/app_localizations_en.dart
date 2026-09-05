@@ -1353,4 +1353,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get madeByShort => 'Made by';
+
+  @override
+  String get eightDAudio => '8D Audio';
+
+  @override
+  String get eightDAudioDescription =>
+      'Rotates the sound around your head (slow pan + delay sweep). Best experienced with headphones.';
 }
