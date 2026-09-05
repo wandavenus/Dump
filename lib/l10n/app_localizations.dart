@@ -2575,6 +2575,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Made by'**
   String get madeByShort;
+
+  /// No description provided for @eightDAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'8D Audio'**
+  String get eightDAudio;
+
+  /// No description provided for @eightDAudioDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotates the sound around your head (slow pan + delay sweep). Best experienced with headphones.'**
+  String get eightDAudioDescription;
 }
 
 class _AppLocalizationsDelegate

@@ -318,6 +318,9 @@ class MainActivity : FlutterActivity() {
             // Item 8: stereo widening state — emitted when setStereoWidening() is called
             // Map payload: { enabled: Boolean, strength: Double }
             "stereoWidening",
+            // 8D Audio state — emitted when setEightD() is called
+            // Map payload: { enabled: Boolean, intensity: Double }
+            "eightD",
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))

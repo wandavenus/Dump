@@ -1,13 +1,11 @@
 {
   "@@locale": "id",
-
   "appName": "Music Player",
   "navHome": "Beranda",
   "navBrowse": "Baru",
   "navRadio": "Radio",
   "navLibrary": "Pustaka",
   "navSearch": "Cari",
-
   "cancel": "Batal",
   "save": "Simpan",
   "delete": "Hapus",
@@ -24,9 +22,7 @@
   "activate": "Aktifkan",
   "view": "Lihat",
   "testNow": "Uji Sekarang",
-
   "settings": "Pengaturan",
-
   "sectionAppearance": "TAMPILAN",
   "themeTitle": "Tema",
   "themeLight": "Terang",
@@ -36,13 +32,11 @@
   "showUpNextSubtitle": "Kartu lagu berikutnya di player",
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Efek blur transparan pada seluruh UI",
-
   "sectionLanguage": "BAHASA",
   "languageTitle": "Bahasa",
   "languageSystem": "Sistem Default",
   "languageEnglish": "English",
   "languageIndonesian": "Bahasa Indonesia",
-
   "sectionAudio": "AUDIO",
   "audioNormalize": "Normalisasi Audio",
   "modeLabel": "Mode",
@@ -64,7 +58,6 @@
   "replayGainTitle": "Normalisasi Audio",
   "replayGainModeLabel": "Mode",
   "replayGainPreampLabel": "Preamp",
-
   "replayGainOff": "Off",
   "replayGainAuto": "Otomatis",
   "replayGainTrack": "Track Gain",
@@ -104,15 +97,22 @@
   "lyricsColorYellow": "Kuning",
   "sleepPresetMinutes": "{minutes} menit",
   "@sleepPresetMinutes": {
-    "placeholders": { "minutes": { "type": "int" } }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "sleepPresetHour": "{hours} jam",
   "@sleepPresetHour": {
-    "placeholders": { "hours": { "type": "String" } }
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
   },
   "sleepPresetEndOfSong": "Akhir lagu",
   "sleepPresetSection": "PILIH DURASI",
-
   "scanLibrary": "Pindai Perpustakaan",
   "scanLibrarySubtitle": "Hitung dan Tanamkan ReplayGain untuk lagu yang belum punya data",
   "scanLibraryConfirmTitle": "Pindai Perpustakaan?",
@@ -124,35 +124,40 @@
   "scanSuccess": "{count} lagu berhasil dipindai",
   "scanPartial": "{succeeded} berhasil, {failed} gagal",
   "scanFailed": "Gagal memindai lagu",
-
   "rgRemoveTagsAction": "Hapus Tag ReplayGain",
   "rgRemoveConfirmTitle": "Hapus Tag ReplayGain?",
   "rgRemoveConfirmBody": "Tag ReplayGain/R128 akan dihapus dari semua lagu di library. Metadata lain tetap utuh.",
   "rgRemoveRunning": "Menghapus tag ReplayGain...",
   "rgRemoveLibrarySuccess": "{count} lagu dibersihkan",
   "@rgRemoveLibrarySuccess": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "rgRemoveLibraryPartial": "{removed} dibersihkan, {failed} gagal",
   "@rgRemoveLibraryPartial": {
     "placeholders": {
-      "removed": { "type": "int" },
-      "failed": { "type": "int" }
+      "removed": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
     }
   },
   "rgRemoveFailed": "Gagal menghapus tag ReplayGain",
-
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",
   "equalizerBitPerfect": "Audio Bersih",
   "playbackSpeed": "Kecepatan Putar",
   "pitchShift": "Pergeseran Nada",
-  "bassBoost": "Penguatan Bass",
+  "bassBoost": "Bass Boost",
   "compressor": "Kompresor",
   "limiter": "Pembatas",
   "softClipper": "Kliping Halus",
-
   "sectionBitPerfect": "PEMUTAR",
   "bitPerfectMode": "Mode Pemutar Bersih",
   "bitPerfectActiveSubtitle": "Aktif — semua pemrosesan audio dinonaktifkan",
@@ -160,11 +165,9 @@
   "bitPerfectDescription": "Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.",
   "bitPerfectConfirmTitle": "Aktifkan Mode Audio Bersih?",
   "bitPerfectConfirmBody": "Semua efek dan pemrosesan audio di seluruh aplikasi akan dinonaktifkan paksa. Pengaturan yang sedang aktif akan disimpan dan dikembalikan otomatis saat mode ini dimatikan lagi.",
-
   "sectionSystem": "SISTEM",
   "activityLog": "Log Aktivitas",
   "logEntryCount": "{count} entri",
-
   "sectionAbout": "TENTANG",
   "reportBug": "Laporkan Bug",
   "support": "Dukungan",
@@ -182,7 +185,6 @@
   "aaudioTestFailed": "Gagal menguji AAudio",
   "debugModeEnabled": "Mode Debug aktif",
   "cantOpenLink": "Tidak bisa membuka link",
-
   "qrisSaveTitle": "Simpan QR Code",
   "qrisSavePrompt": "Simpan gambar QRIS ke galeri?",
   "qrisGalleryDenied": "Izin galeri ditolak — aktifkan di Pengaturan › Izin Aplikasi",
@@ -193,9 +195,12 @@
   "qrisUnexpectedError": "Error tidak terduga dari galeri",
   "qrisSaveFailed": "Gagal menyimpan: {reason}",
   "@qrisSaveFailed": {
-    "placeholders": { "reason": { "type": "String" } }
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   },
-
   "sleepTimerTitle": "Sleep Timer",
   "cancelTimer": "Batalkan",
   "sleepTimerActive": "Sleep Timer Aktif",
@@ -204,7 +209,6 @@
   "sleepFadingOut": "Memudar…",
   "timerAfterSong": "Timer: berhenti setelah lagu ini",
   "timerDuration": "Timer: {label}",
-
   "upNextLabel": "BERIKUTNYA",
   "shuffleOn": "Shuffle On",
   "shuffleOff": "Shuffle Off",
@@ -222,7 +226,6 @@
   "karaokeHighlight": "Highlight Karaoke",
   "karaokeHighlightSubtitle": "Animasi karakter per karakter",
   "showLyricsSource": "Tampilkan Sumber Lirik",
-
   "playNow": "Putar Sekarang",
   "playNext": "Putar Selanjutnya",
   "addToQueue": "Tambah ke Antrian",
@@ -239,7 +242,6 @@
   "fieldArtist": "Artis",
   "fieldAlbum": "Album",
   "fieldDuration": "Durasi",
-
   "addToPlaylistTitle": "Tambah ke Daftar Putar",
   "createNewPlaylist": "Buat Daftar Putar Baru",
   "noPlaylistsYet": "Belum ada daftar putar",
@@ -250,7 +252,6 @@
   "renamePlaylist": "Ganti Nama",
   "deletePlaylistConfirm": "Hapus Daftar Lagu?",
   "deletePlaylist": "Hapus Playlist",
-
   "radioTitle": "Radio",
   "recentlyPlayed": "Baru Dimainkan",
   "noSongsYet": "Belum ada lagu",
@@ -260,7 +261,6 @@
   "favoritesLabel": "Favorit",
   "lastPlayedLabel": "Diputar Terakhir",
   "mostPlayedLabel": "Paling Sering",
-
   "libraryTitle": "Pustaka",
   "playlists": "Daftar Putar",
   "artists": "Artis",
@@ -272,27 +272,27 @@
   "searchSongs": "Cari Lagu",
   "noLocalSongs": "Tidak ada lagu lokal ditemukan",
   "noSongsInList": "Belum ada lagu",
-
   "searchTitle": "Cari",
   "searchHint": "Artis, Lagu, Album, dan lainnya",
   "noResults": "Tidak ada hasil untuk \"{query}\"",
-
   "browseTitle": "Baru",
   "homeTitle": "Beranda",
   "noRecentSongs": "Belum ada lagu yang diputar",
   "noRecentlyPlayed": "Belum ada lagu yang baru diputar",
   "searchNoResults": "Tidak ada hasil untuk \"{query}\"",
   "@searchNoResults": {
-    "placeholders": { "query": { "type": "String" } }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "noArtistsFound": "Tidak ada artis ditemukan",
   "favoriteArtists": "Artis Favorit",
   "topSongs": "Top Songs",
-
   "play": "Putar",
   "shuffle": "Acak",
   "playAll": "Putar Semua",
-
   "aboutTitle": "Tentang App",
   "musicPlayerName": "Music Player",
   "appVersion": "Versi {version}",
@@ -300,12 +300,10 @@
   "madeBy": "Dibuat dengan dedikasi oleh",
   "appDescription": "Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.",
   "releaseNotes": "Catatan Pembaruan",
-
   "bugReportTitle": "Laporkan Bug",
   "thankYouSupport": "Terima kasih atas dukunganmu.",
   "sendReportGmail": "Kirim laporan kamu ke",
   "orSocialMedia": "atau ke akun sosial media di halaman Tentang.",
-
   "playbackStatsTitle": "Statistik Sesi Pemutaran",
   "playbackStatsEngine": "Engine: Native Media3",
   "playTimeLabel": "Waktu Putar",
@@ -315,12 +313,9 @@
   "statsNotAvailable": "Data tidak tersedia — mulai pemutaran terlebih dahulu.",
   "timesUnit": "kali",
   "secondsZero": "0 dtk",
-
   "goToSettings": "Pengaturan",
-
   "deletePlaylistBody": "Playlist \"{name}\" akan dihapus permanen.",
   "timerEndOfSong": "Akhir lagu",
-
   "sectionDetails": "DETAIL",
   "sectionAudioQuality": "KUALITAS AUDIO",
   "sectionLoudness": "KENYARINGAN",
@@ -328,7 +323,6 @@
   "sectionStatistics": "STATISTIK",
   "sectionFile": "FILE",
   "sectionAdditionalInfo": "INFO TAMBAHAN",
-
   "fieldAlbumArtist": "Artis Album",
   "fieldGenre": "Genre",
   "fieldYear": "Tahun",
@@ -361,21 +355,18 @@
   "fieldRgAlbumPeak": "RG Album Peak",
   "fieldR128TrackGain": "R128 Track Gain",
   "fieldR128AlbumGain": "R128 Album Gain",
-
   "channelMono": "Mono",
   "channelStereo": "Stereo",
   "channelQuad": "Quad",
   "channel51Surround": "5.1 Surround",
   "channel71Surround": "7.1 Surround",
   "bitrateUnknownLossless": "Lossless",
-
   "glassToggleNavBar": "NavBar",
   "navBarStyleSolid": "Solid",
   "navBarStyleGlass": "Kaca",
   "navBarStylePill": "Pill Melayang",
   "glassToggleAppBar": "AppBar",
   "glassToggleMiniPlayer": "Mini Player",
-
   "logLevelTitle": "Level Log",
   "logLevelOff": "Nonaktif",
   "logLevelOffDesc": "Logging dimatikan",
@@ -393,27 +384,22 @@
   "logEmpty": "belum ada log",
   "logCopiedEntries": "{count} entri disalin",
   "logCopiedEntry": "Entri disalin",
-
   "songsFoundMsg": "Ditemukan {count} lagu",
   "rescanSongs": "Scan Ulang Lagu",
   "cantOpenEmail": "Tidak bisa membuka aplikasi email",
   "audioEngineInfo": "Info Audio Engine",
   "activeEffectsStatus": "Status Efek Aktif",
-
   "weRecommend": "Kami Rekomendasikan",
   "newMusicSection": "Musik Baru",
   "dailyTop100": "Top Harian",
   "tvAndFilm": "TV & Film",
-
   "reset": "Reset",
   "normal": "Normal",
   "notSupportedDevice": "Tidak didukung perangkat ini",
   "hardKnee": "Hard knee",
   "noPlaylists": "Belum ada daftar putar",
-
   "bugReportParagraph1": "Kalau kamu menemukan bug, error, crash, atau ada fitur yang tidak bekerja sebagaimana mestinya, mohon laporkan agar bisa segera diperbaiki.",
   "bugReportParagraph2": "Kamu juga bisa mengirimkan saran, masukan, atau permintaan fitur baru. Setiap laporan sangat membantu dalam meningkatkan kualitas aplikasi.",
-
   "speedDesc": "Mengatur kecepatan pemutaran lagu. Nilai di bawah 1x memperlambat, di atas 1x mempercepat, tanpa mengubah pitch suara.",
   "pitchDesc": "Menaikkan atau menurunkan nada lagu dalam satuan semitone, tanpa mengubah kecepatan putar.",
   "bassBoostDesc": "Menguatkan frekuensi bass agar suara dentum/rendah terasa lebih tebal. Semakin besar persentase, semakin kuat efeknya.",
@@ -431,28 +417,42 @@
   "limiterReleaseTitle": "Limiter Release",
   "limiterReleaseDesc": "Seberapa cepat limiter melepas setelah menahan puncak suara. Terlalu cepat bisa terdengar tidak alami.",
   "softClipperDesc": "Melunakkan puncak suara yang terlalu keras secara halus, sebagai lapisan pengaman terakhir sebelum output, sehingga distorsi lebih tidak terasa dibanding limiter.",
-
   "dspPipeline": "DSP Pipeline",
   "androidDsp": "Android DSP",
   "webFallback": "Web / Fallback",
-  "bassBoost": "Bass Boost",
   "supported": "Didukung",
   "unavailable": "Tidak tersedia",
   "durationSeconds": "{seconds} dtk",
-  "@durationSeconds": { "placeholders": { "seconds": { "type": "int" } } },
+  "@durationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutesSeconds": "{minutes}m {seconds}s",
   "@durationMinutesSeconds": {
     "placeholders": {
-      "minutes": { "type": "int" },
-      "seconds": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "durationHoursMinutesSeconds": "{hours}j {minutes}m {seconds}d",
   "@durationHoursMinutesSeconds": {
     "placeholders": {
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" },
-      "seconds": { "type": "int" }
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "lyricsNotFound": "Lirik tidak ditemukan",
@@ -462,31 +462,77 @@
   "bandEq": "BAND EQ",
   "preset": "PRESET",
   "pitchSemitone": "{value} semitone",
-  "@pitchSemitone": { "placeholders": { "value": { "type": "String" } } },
+  "@pitchSemitone": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "decibelValue": "{value} dB",
-  "@decibelValue": { "placeholders": { "value": { "type": "String" } } },
+  "@decibelValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "millisecondsValue": "{value} ms",
-  "@millisecondsValue": { "placeholders": { "value": { "type": "String" } } },
+  "@millisecondsValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "crossfadeOptionOff": "Mati",
   "crossfadeOptionSeconds": "{seconds}d",
-  "@crossfadeOptionSeconds": { "placeholders": { "seconds": { "type": "String" } } },
+  "@crossfadeOptionSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
   "listenAgain": "Dengarkan Lagi",
   "moreFromArtist": "Lainnya dari {artist}",
-  "@moreFromArtist": { "placeholders": { "artist": { "type": "String" } } },
+  "@moreFromArtist": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      }
+    }
+  },
   "topPicks": "Pilihan Teratas Untukmu",
   "songsByArtist": "{songs} lagu • {albums} album",
   "@songsByArtist": {
     "placeholders": {
-      "songs": { "type": "int" },
-      "albums": { "type": "int" }
+      "songs": {
+        "type": "int"
+      },
+      "albums": {
+        "type": "int"
+      }
     }
   },
   "lossless": "Lossless",
   "contentUnavailable": "Belum ada konten",
   "playedCount": "Diputar {count}x",
-  "@playedCount": { "placeholders": { "count": { "type": "int" } } },
+  "@playedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "copyrightFooter": "© {year} Flutter Music App dengan Media3 ExoPlayer",
-  "@copyrightFooter": { "placeholders": { "year": { "type": "int" } } },
+  "@copyrightFooter": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
   "logFilterAll": "SEMUA",
   "logFilterError": "ERR",
   "logFilterWarning": "WRN",
@@ -497,81 +543,165 @@
   "logBadgeVerbose": "VRB",
   "logBadgeNormal": "LOG",
   "songsCount": "{count} lagu",
-  "@songsCount": { "placeholders": { "count": { "type": "int" } } },
-
+  "@songsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHoursMinutes": "{hours} jam {minutes} menit",
   "@durationHoursMinutes": {
     "placeholders": {
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" }
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "durationOnlyMinutes": "{minutes} menit",
   "@durationOnlyMinutes": {
-    "placeholders": { "minutes": { "type": "int" } }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "albumSongsAndDuration": "{count} lagu, {duration}",
   "@albumSongsAndDuration": {
     "placeholders": {
-      "count": { "type": "int" },
-      "duration": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "madeByShort": "Dibuat Oleh",
-
-  "@appName": { "description": "Nama aplikasi" },
+  "@appName": {
+    "description": "Nama aplikasi"
+  },
   "@crossfadeSeconds": {
-    "placeholders": { "secs": { "type": "String" } }
+    "placeholders": {
+      "secs": {
+        "type": "String"
+      }
+    }
   },
   "@loudnessTarget": {
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "@scanLibraryLoadFailed": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "@scanCancelled": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@scanSuccess": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@scanPartial": {
     "placeholders": {
-      "succeeded": { "type": "int" },
-      "failed": { "type": "int" }
+      "succeeded": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
     }
   },
   "@logEntryCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@timerDuration": {
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
   "@addedToPlaylist": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "@songCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@noResults": {
-    "placeholders": { "query": { "type": "String" } }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "@appVersion": {
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "@deletePlaylistBody": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "@trackDiscValue": {
     "placeholders": {
-      "track": { "type": "String" },
-      "disc": { "type": "String" }
+      "track": {
+        "type": "String"
+      },
+      "disc": {
+        "type": "String"
+      }
     }
   },
   "@logCopiedEntries": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "@songsFoundMsg": {
-    "placeholders": { "count": { "type": "int" } }
-  }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eightDAudio": "8D Audio",
+  "eightDAudioDescription": "Memutar suara mengelilingi kepala (pan + delay berputar lambat). Paling enak dengan headphone."
 }

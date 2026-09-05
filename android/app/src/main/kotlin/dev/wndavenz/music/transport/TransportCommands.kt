@@ -61,6 +61,13 @@ class TransportCommands(
      */
     private val onStereoWideningChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
+     * 8D Audio — Called when the user changes the 8D rotating-effect setting.
+     * Delegates to EightDManager which updates all live EightDAudioProcessor
+     * instances atomically, so both active and standby players (during
+     * crossfade) are updated simultaneously without a race condition.
+     */
+    private val onEightDChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    /**
      * Item 6 — Returns a snapshot of PlaybackStats for the active player,
      * or null when no session is in progress.
      */
@@ -366,6 +373,24 @@ class TransportCommands(
                 val strength = call.argument<Number>("strength")?.toFloat() ?: 0.5f
                 onStereoWideningChanged(enabled, strength.coerceIn(0f, 1f))
                 log("info", "setStereoWidening: enabled=$enabled strength=$strength")
+                result.success(null)
+            }
+
+            // ── 8D Audio ──────────────────────────────────────────────────────
+
+            /**
+             * Enables/disables the software 8D rotating effect.
+             *
+             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum rotation).
+             * Applied atomically to all live ExoPlayer instances via EightDManager;
+             * no race between active and standby players during crossfade.
+             * Incompatible with tunneling (audio bypasses the pipeline entirely).
+             */
+            "setEightD" -> {
+                val enabled   = call.argument<Boolean>("enabled") ?: false
+                val intensity = call.argument<Number>("intensity")?.toFloat() ?: 0.5f
+                onEightDChanged(enabled, intensity.coerceIn(0f, 1f))
+                log("info", "setEightD: enabled=$enabled intensity=$intensity")
                 result.success(null)
             }
 

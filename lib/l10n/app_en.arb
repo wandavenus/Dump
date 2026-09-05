@@ -1,15 +1,14 @@
 {
   "@@locale": "en",
-
   "appName": "Music Player",
-  "@appName": { "description": "App name" },
-
+  "@appName": {
+    "description": "App name"
+  },
   "navHome": "Home",
   "navBrowse": "Browse",
   "navRadio": "Radio",
   "navLibrary": "Library",
   "navSearch": "Search",
-
   "cancel": "Cancel",
   "save": "Save",
   "delete": "Delete",
@@ -26,9 +25,7 @@
   "activate": "Activate",
   "view": "View",
   "testNow": "Test Now",
-
   "settings": "Settings",
-
   "sectionAppearance": "APPEARANCE",
   "themeTitle": "Theme",
   "themeLight": "Light",
@@ -38,13 +35,11 @@
   "showUpNextSubtitle": "Next song card in player",
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Transparent blur effect on the entire UI",
-
   "sectionLanguage": "LANGUAGE",
   "languageTitle": "Language",
   "languageSystem": "System Default",
   "languageEnglish": "English",
   "languageIndonesian": "Bahasa Indonesia",
-
   "sectionAudio": "AUDIO",
   "audioNormalize": "Audio Normalize",
   "modeLabel": "Mode",
@@ -55,7 +50,11 @@
   "crossfadeTitle": "Crossfade",
   "crossfadeSeconds": "{secs} seconds",
   "@crossfadeSeconds": {
-    "placeholders": { "secs": { "type": "String" } }
+    "placeholders": {
+      "secs": {
+        "type": "String"
+      }
+    }
   },
   "stereoWidening": "Stereo Widening",
   "loudnessNormalization": "Loudness Normalization",
@@ -63,7 +62,11 @@
   "loudnessNormInactiveSubtitle": "Normalize loudness during playback",
   "loudnessTarget": "Target: {value} LUFS",
   "@loudnessTarget": {
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "loudnessHint": "Streaming −14, Podcast −16, Broadcast −23",
   "preamp": "Preamp",
@@ -72,7 +75,6 @@
   "replayGainTitle": "Audio Normalize",
   "replayGainModeLabel": "Mode",
   "replayGainPreampLabel": "Preamp",
-
   "replayGainOff": "Off",
   "replayGainAuto": "Auto",
   "replayGainTrack": "Track Gain",
@@ -112,15 +114,22 @@
   "lyricsColorYellow": "Yellow",
   "sleepPresetMinutes": "{minutes} minutes",
   "@sleepPresetMinutes": {
-    "placeholders": { "minutes": { "type": "int" } }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "sleepPresetHour": "{hours} hour",
   "@sleepPresetHour": {
-    "placeholders": { "hours": { "type": "String" } }
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
   },
   "sleepPresetEndOfSong": "End of song",
   "sleepPresetSection": "CHOOSE DURATION",
-
   "scanLibrary": "Scan Library",
   "scanLibrarySubtitle": "Calculate ReplayGain for songs without data",
   "scanLibraryConfirmTitle": "Scan Library?",
@@ -129,42 +138,64 @@
   "noSongsInLibrary": "No songs found in library.",
   "scanLibraryLoadFailed": "Failed to load library: {error}",
   "@scanLibraryLoadFailed": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "scanCancelled": "Cancelled · {count} songs succeeded",
   "@scanCancelled": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "scanSuccess": "{count} songs scanned successfully",
   "@scanSuccess": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "scanPartial": "{succeeded} succeeded, {failed} failed",
   "@scanPartial": {
     "placeholders": {
-      "succeeded": { "type": "int" },
-      "failed": { "type": "int" }
+      "succeeded": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
     }
   },
   "scanFailed": "Failed to scan songs",
-
   "rgRemoveTagsAction": "Remove ReplayGain Tags",
   "rgRemoveConfirmTitle": "Remove ReplayGain Tags?",
   "rgRemoveConfirmBody": "ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.",
   "rgRemoveRunning": "Removing ReplayGain tags...",
   "rgRemoveLibrarySuccess": "{count} songs cleaned",
   "@rgRemoveLibrarySuccess": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "rgRemoveLibraryPartial": "{removed} cleaned, {failed} failed",
   "@rgRemoveLibraryPartial": {
     "placeholders": {
-      "removed": { "type": "int" },
-      "failed": { "type": "int" }
+      "removed": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
     }
   },
   "rgRemoveFailed": "Failed to remove ReplayGain tags",
-
   "sectionEqualizer": "EQUALIZER",
   "equalizerTitle": "Equalizer",
   "equalizerCustom": "Custom",
@@ -175,7 +206,6 @@
   "compressor": "Compressor",
   "limiter": "Limiter",
   "softClipper": "Soft Clipper",
-
   "sectionBitPerfect": "PLAYER",
   "bitPerfectMode": "Pure Audio Mode",
   "bitPerfectActiveSubtitle": "Active — all audio processing disabled",
@@ -183,14 +213,16 @@
   "bitPerfectDescription": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
   "bitPerfectConfirmTitle": "Activate Pure Audio Mode?",
   "bitPerfectConfirmBody": "All effects and audio processing throughout the app will be forcibly disabled. Active settings will be saved and automatically restored when this mode is turned off.",
-
   "sectionSystem": "SYSTEM",
   "activityLog": "Activity Log",
   "logEntryCount": "{count} entries",
   "@logEntryCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "sectionAbout": "ABOUT",
   "reportBug": "Report Bug",
   "support": "Support",
@@ -208,7 +240,6 @@
   "aaudioTestFailed": "Failed to test AAudio",
   "debugModeEnabled": "Debug mode enabled",
   "cantOpenLink": "Cannot open link",
-
   "qrisSaveTitle": "Save QR Code",
   "qrisSavePrompt": "Save the QRIS image to your gallery?",
   "qrisGalleryDenied": "Gallery permission denied — enable it in Settings › App Permissions",
@@ -219,9 +250,12 @@
   "qrisUnexpectedError": "Unexpected gallery error",
   "qrisSaveFailed": "Failed to save: {reason}",
   "@qrisSaveFailed": {
-    "placeholders": { "reason": { "type": "String" } }
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   },
-
   "sleepTimerTitle": "Sleep Timer",
   "cancelTimer": "Cancel",
   "sleepTimerActive": "Sleep Timer Active",
@@ -231,9 +265,12 @@
   "timerAfterSong": "Timer: stop after this song",
   "timerDuration": "Timer: {label}",
   "@timerDuration": {
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
-
   "upNextLabel": "UP NEXT",
   "shuffleOn": "Shuffle On",
   "shuffleOff": "Shuffle Off",
@@ -251,7 +288,6 @@
   "karaokeHighlight": "Karaoke Highlight",
   "karaokeHighlightSubtitle": "Character-by-character animation",
   "showLyricsSource": "Show Lyrics Source",
-
   "playNow": "Play Now",
   "playNext": "Play Next",
   "addToQueue": "Add to Queue",
@@ -268,24 +304,30 @@
   "fieldArtist": "Artist",
   "fieldAlbum": "Album",
   "fieldDuration": "Duration",
-
   "addToPlaylistTitle": "Add to Playlist",
   "createNewPlaylist": "Create New Playlist",
   "noPlaylistsYet": "No playlists yet",
   "addedToPlaylist": "Added to {name}",
   "@addedToPlaylist": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "newPlaylistDialogTitle": "New Playlist",
   "playlistNameHint": "Playlist name",
   "songCount": "{count} songs",
   "@songCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "renamePlaylist": "Rename",
   "deletePlaylistConfirm": "Delete Playlist?",
   "deletePlaylist": "Delete Playlist",
-
   "radioTitle": "Radio",
   "recentlyPlayed": "Recently Played",
   "noSongsYet": "No songs yet",
@@ -295,7 +337,6 @@
   "favoritesLabel": "Favorites",
   "lastPlayedLabel": "Last Played",
   "mostPlayedLabel": "Most Played",
-
   "libraryTitle": "Library",
   "playlists": "Playlists",
   "artists": "Artists",
@@ -307,46 +348,52 @@
   "searchSongs": "Search Songs",
   "noLocalSongs": "No local songs found",
   "noSongsInList": "No songs yet",
-
   "searchTitle": "Search",
   "searchHint": "Artists, Songs, Albums, and more",
   "noResults": "No results for \"{query}\"",
   "@noResults": {
-    "placeholders": { "query": { "type": "String" } }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
-
   "browseTitle": "Browse",
   "homeTitle": "Home",
   "noRecentSongs": "No songs played yet",
   "noRecentlyPlayed": "No recently played songs",
   "searchNoResults": "No results for \"{query}\"",
   "@searchNoResults": {
-    "placeholders": { "query": { "type": "String" } }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "noArtistsFound": "No artists found",
   "favoriteArtists": "Favorite Artists",
   "topSongs": "Top Songs",
-
   "play": "Play",
   "shuffle": "Shuffle",
   "playAll": "Play All",
-
   "aboutTitle": "About App",
   "musicPlayerName": "Music Player",
   "appVersion": "Version {version}",
   "@appVersion": {
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "debugModeActiveLabel": "Debug Mode Active",
   "madeBy": "Made with dedication by",
   "appDescription": "Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.",
   "releaseNotes": "Release Notes",
-
   "bugReportTitle": "Report Bug",
   "thankYouSupport": "Thank you for your support.",
   "sendReportGmail": "Send your report to",
   "orSocialMedia": "or to the social media accounts on the About page.",
-
   "playbackStatsTitle": "Playback Session Statistics",
   "playbackStatsEngine": "Engine: Native Media3",
   "playTimeLabel": "Play Time",
@@ -356,13 +403,16 @@
   "statsNotAvailable": "Data not available — start playback first.",
   "timesUnit": "times",
   "secondsZero": "0 sec",
-
   "goToSettings": "Settings",
-
   "deletePlaylistBody": "Playlist \"{name}\" will be permanently deleted.",
-  "@deletePlaylistBody": { "placeholders": { "name": { "type": "String" } } },
+  "@deletePlaylistBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "timerEndOfSong": "End of song",
-
   "sectionDetails": "DETAILS",
   "sectionAudioQuality": "AUDIO QUALITY",
   "sectionLoudness": "LOUDNESS",
@@ -370,13 +420,21 @@
   "sectionStatistics": "STATISTICS",
   "sectionFile": "FILE",
   "sectionAdditionalInfo": "ADDITIONAL INFO",
-
   "fieldAlbumArtist": "Album Artist",
   "fieldGenre": "Genre",
   "fieldYear": "Year",
   "fieldTrack": "Track",
   "trackDiscValue": "{track} (Disc {disc})",
-  "@trackDiscValue": { "placeholders": { "track": { "type": "String" }, "disc": { "type": "String" } } },
+  "@trackDiscValue": {
+    "placeholders": {
+      "track": {
+        "type": "String"
+      },
+      "disc": {
+        "type": "String"
+      }
+    }
+  },
   "fieldFormat": "Format",
   "fieldBitDepth": "Bit Depth",
   "fieldSampleRate": "Sample Rate",
@@ -404,21 +462,18 @@
   "fieldRgAlbumPeak": "RG Album Peak",
   "fieldR128TrackGain": "R128 Track Gain",
   "fieldR128AlbumGain": "R128 Album Gain",
-
   "channelMono": "Mono",
   "channelStereo": "Stereo",
   "channelQuad": "Quad",
   "channel51Surround": "5.1 Surround",
   "channel71Surround": "7.1 Surround",
   "bitrateUnknownLossless": "Lossless",
-
   "glassToggleNavBar": "NavBar",
   "navBarStyleSolid": "Solid",
   "navBarStyleGlass": "Glass",
   "navBarStylePill": "Floating Pill",
   "glassToggleAppBar": "AppBar",
   "glassToggleMiniPlayer": "Mini Player",
-
   "logLevelTitle": "Log Level",
   "logLevelOff": "Off",
   "logLevelOffDesc": "Logging disabled",
@@ -436,33 +491,36 @@
   "logEmpty": "no logs yet",
   "logCopiedEntries": "{count} entries copied",
   "@logCopiedEntries": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "logCopiedEntry": "Entry copied",
-
   "songsFoundMsg": "Found {count} songs",
   "@songsFoundMsg": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "rescanSongs": "Rescan Songs",
   "cantOpenEmail": "Cannot open email app",
   "audioEngineInfo": "Audio Engine Info",
   "activeEffectsStatus": "Active Effects Status",
-
   "weRecommend": "We Recommend",
   "newMusicSection": "New Music",
   "dailyTop100": "Daily Top 100",
   "tvAndFilm": "TV & Film",
-
   "reset": "Reset",
   "normal": "Normal",
   "notSupportedDevice": "Not supported on this device",
   "hardKnee": "Hard knee",
   "noPlaylists": "No playlists yet",
-
   "bugReportParagraph1": "If you find a bug, error, crash, or something not working as expected, please report it so it can be fixed quickly.",
   "bugReportParagraph2": "You can also send suggestions, feedback, or new feature requests. Every report helps improve the app quality.",
-
   "speedDesc": "Adjusts song playback speed. Below 1x slows down, above 1x speeds up, without changing pitch.",
   "pitchDesc": "Raises or lowers the song pitch in semitones, without changing playback speed.",
   "bassBoostDesc": "Boosts bass frequencies for a deeper, thicker low-end sound. Higher percentage = stronger effect.",
@@ -480,28 +538,42 @@
   "limiterReleaseTitle": "Limiter Release",
   "limiterReleaseDesc": "How quickly the limiter releases after capping a peak. Too fast can sound unnatural.",
   "softClipperDesc": "Gently rounds off excessively loud peaks as a final safety layer before output, making distortion less noticeable than a limiter.",
-
   "dspPipeline": "DSP Pipeline",
   "androidDsp": "Android DSP",
   "webFallback": "Web / Fallback",
-  "bassBoost": "Bass Boost",
   "supported": "Supported ✓",
   "unavailable": "Unavailable ✗",
   "durationSeconds": "{seconds} sec",
-  "@durationSeconds": { "placeholders": { "seconds": { "type": "int" } } },
+  "@durationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutesSeconds": "{minutes}m {seconds}s",
   "@durationMinutesSeconds": {
     "placeholders": {
-      "minutes": { "type": "int" },
-      "seconds": { "type": "int" }
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "durationHoursMinutesSeconds": "{hours}h {minutes}m {seconds}s",
   "@durationHoursMinutesSeconds": {
     "placeholders": {
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" },
-      "seconds": { "type": "int" }
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "lyricsNotFound": "Lyrics not found",
@@ -511,31 +583,77 @@
   "bandEq": "BAND EQ",
   "preset": "PRESET",
   "pitchSemitone": "{value} semitone",
-  "@pitchSemitone": { "placeholders": { "value": { "type": "String" } } },
+  "@pitchSemitone": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "decibelValue": "{value} dB",
-  "@decibelValue": { "placeholders": { "value": { "type": "String" } } },
+  "@decibelValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "millisecondsValue": "{value} ms",
-  "@millisecondsValue": { "placeholders": { "value": { "type": "String" } } },
+  "@millisecondsValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "crossfadeOptionOff": "Off",
   "crossfadeOptionSeconds": "{seconds}s",
-  "@crossfadeOptionSeconds": { "placeholders": { "seconds": { "type": "String" } } },
+  "@crossfadeOptionSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
   "listenAgain": "Listen Again",
   "moreFromArtist": "More from {artist}",
-  "@moreFromArtist": { "placeholders": { "artist": { "type": "String" } } },
+  "@moreFromArtist": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      }
+    }
+  },
   "topPicks": "Top Picks For You",
   "songsByArtist": "{songs} songs • {albums} albums",
   "@songsByArtist": {
     "placeholders": {
-      "songs": { "type": "int" },
-      "albums": { "type": "int" }
+      "songs": {
+        "type": "int"
+      },
+      "albums": {
+        "type": "int"
+      }
     }
   },
   "lossless": "Lossless",
   "contentUnavailable": "No content yet",
   "playedCount": "Played {count}x",
-  "@playedCount": { "placeholders": { "count": { "type": "int" } } },
+  "@playedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "copyrightFooter": "© {year} Flutter Music App with Media3 ExoPlayer",
-  "@copyrightFooter": { "placeholders": { "year": { "type": "int" } } },
+  "@copyrightFooter": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
   "logFilterAll": "ALL",
   "logFilterError": "ERR",
   "logFilterWarning": "WRN",
@@ -546,25 +664,44 @@
   "logBadgeVerbose": "VRB",
   "logBadgeNormal": "LOG",
   "songsCount": "{count} songs",
-  "@songsCount": { "placeholders": { "count": { "type": "int" } } },
-
+  "@songsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHoursMinutes": "{hours} hr {minutes} min",
   "@durationHoursMinutes": {
     "placeholders": {
-      "hours": { "type": "int" },
-      "minutes": { "type": "int" }
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
     }
   },
   "durationOnlyMinutes": "{minutes} min",
   "@durationOnlyMinutes": {
-    "placeholders": { "minutes": { "type": "int" } }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "albumSongsAndDuration": "{count} songs, {duration}",
   "@albumSongsAndDuration": {
     "placeholders": {
-      "count": { "type": "int" },
-      "duration": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
     }
   },
-  "madeByShort": "Made by"
+  "madeByShort": "Made by",
+  "eightDAudio": "8D Audio",
+  "eightDAudioDescription": "Rotates the sound around your head (slow pan + delay sweep). Best experienced with headphones."
 }
