@@ -1355,9 +1355,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get madeByShort => 'Made by';
 
   @override
-  String get eightDAudio => '8D Audio';
+  String get echo => 'Echo';
 
   @override
-  String get eightDAudioDescription =>
-      'Rotates the sound around your head (slow pan + delay sweep). Best experienced with headphones.';
+  String get echoDescription =>
+      'Adds a decaying echo tail (gema) to the sound. Best experienced with headphones.';
 }

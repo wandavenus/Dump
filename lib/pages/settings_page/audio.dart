@@ -68,17 +68,17 @@ class _AudioSection extends StatelessWidget {
               ),
               const SettingsDivider(),
 
-              // ── 8D Audio ───────────────────────────────────────────────────
-              // Rotating effect, same enable-via-slider pattern as stereo
+              // ── Echo (gema) ────────────────────────────────────────────────
+              // Feedback-delay effect, same enable-via-slider pattern as stereo
               // widening: intensity 0 = off, moving the slider > 0 enables.
               ValueListenableBuilder<bool>(
-                valueListenable: MediaCapabilitiesService.eightDEnabled,
+                valueListenable: MediaCapabilitiesService.echoEnabled,
                 builder: (_, enabled, _) => ValueListenableBuilder<double>(
-                  valueListenable: MediaCapabilitiesService.eightDIntensity,
+                  valueListenable: MediaCapabilitiesService.echoIntensity,
                   builder: (_, v, _) {
                     final pct = (v * 100).round();
                     return SettingsSliderRow(
-                      title: l.eightDAudio,
+                      title: l.echo,
                       subtitle: enabled ? '$pct%' : l.disabled,
                       value: enabled ? v : 0.0,
                       min: 0.0,
@@ -86,20 +86,20 @@ class _AudioSection extends StatelessWidget {
                       divisions: 20,
                       onChanged: (val) async {
                         if (val > 0) {
-                          await MediaCapabilitiesService.setEightD(true);
-                          await MediaCapabilitiesService.setEightDIntensity(
+                          await MediaCapabilitiesService.setEcho(true);
+                          await MediaCapabilitiesService.setEchoIntensity(
                             val,
                           );
                         } else {
-                          await MediaCapabilitiesService.setEightD(false);
+                          await MediaCapabilitiesService.setEcho(false);
                         }
                       },
                       showReset: enabled,
                       onReset: () async {
-                        await MediaCapabilitiesService.setEightD(false);
+                        await MediaCapabilitiesService.setEcho(false);
                       },
                       expandable: true,
-                      description: l.eightDAudioDescription,
+                      description: l.echoDescription,
                     );
                   },
                 ),

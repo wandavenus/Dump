@@ -2576,17 +2576,17 @@ abstract class AppLocalizations {
   /// **'Made by'**
   String get madeByShort;
 
-  /// No description provided for @eightDAudio.
+  /// No description provided for @echo.
   ///
   /// In en, this message translates to:
-  /// **'8D Audio'**
-  String get eightDAudio;
+  /// **'Echo'**
+  String get echo;
 
-  /// No description provided for @eightDAudioDescription.
+  /// No description provided for @echoDescription.
   ///
   /// In en, this message translates to:
-  /// **'Rotates the sound around your head (slow pan + delay sweep). Best experienced with headphones.'**
-  String get eightDAudioDescription;
+  /// **'Adds a decaying echo tail (gema) to the sound. Best experienced with headphones.'**
+  String get echoDescription;
 }
 
 class _AppLocalizationsDelegate

@@ -32,18 +32,18 @@ class MediaCapabilitiesService {
     0.5,
   );
 
-  /// 8D Audio: software rotating effect (LFO pan + Haas delay sweep).
+  /// Echo (gema): software feedback-delay effect (echo tail with low-pass).
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
   /// correctly to both players during a crossfade overlap. intensity = 0
   /// is fully transparent (effect off).
-  static final ValueNotifier<bool> eightDEnabled = ValueNotifier(false);
-  static final ValueNotifier<double> eightDIntensity = ValueNotifier(0.5);
+  static final ValueNotifier<bool> echoEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> echoIntensity = ValueNotifier(0.5);
 
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
-  static StreamSubscription<Map<dynamic, dynamic>>? _eightDSub;
+  static StreamSubscription<Map<dynamic, dynamic>>? _echoSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
 
@@ -56,9 +56,9 @@ class MediaCapabilitiesService {
         prefs.getBool('${_kPrefix}stereoEnabled') ?? false;
     stereoWideningStrength.value =
         prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
-    eightDEnabled.value = prefs.getBool('${_kPrefix}eightDEnabled') ?? false;
-    eightDIntensity.value =
-        prefs.getDouble('${_kPrefix}eightDIntensity') ?? 0.5;
+    echoEnabled.value = prefs.getBool('${_kPrefix}echoEnabled') ?? false;
+    echoIntensity.value =
+        prefs.getDouble('${_kPrefix}echoIntensity') ?? 0.5;
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -76,18 +76,18 @@ class MediaCapabilitiesService {
       }
     });
 
-    // ── 8D Audio ─────────────────────────────────────────────────────────────
+    // ── Echo (gema) ──────────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the effect parameters are applied,
     // so the UI always shows what the engine is actually using.
-    _eightDSub?.cancel();
-    _eightDSub = PlaybackManager.eightDStream.listen((map) {
+    _echoSub?.cancel();
+    _echoSub = PlaybackManager.echoStream.listen((map) {
       final enabled = map['enabled'] as bool? ?? false;
       final intensity = (map['intensity'] as num?)?.toDouble() ?? 0.5;
-      if (eightDEnabled.value != enabled) {
-        eightDEnabled.value = enabled;
+      if (echoEnabled.value != enabled) {
+        echoEnabled.value = enabled;
       }
-      if (eightDIntensity.value != intensity) {
-        eightDIntensity.value = intensity;
+      if (echoIntensity.value != intensity) {
+        echoIntensity.value = intensity;
       }
     });
 
@@ -98,7 +98,7 @@ class MediaCapabilitiesService {
       'MediaCap',
       'Initialized — '
           'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value} '
-          'eightD=${eightDEnabled.value}@${eightDIntensity.value}',
+          'echo=${echoEnabled.value}@${echoIntensity.value}',
     );
   }
 
@@ -117,9 +117,9 @@ class MediaCapabilitiesService {
       ),
     );
     unawaited(
-      PlaybackManager.setEightD(
-        enabled: eightDEnabled.value,
-        intensity: eightDIntensity.value,
+      PlaybackManager.setEcho(
+        enabled: echoEnabled.value,
+        intensity: echoIntensity.value,
       ),
     );
   }
@@ -153,31 +153,31 @@ class MediaCapabilitiesService {
     LogService.log('MediaCap', 'stereoStrength: $v');
   }
 
-  /// 8D Audio: Toggle the rotating effect. Sends current [eightDIntensity]
+  /// Echo (gema): Toggle the echo effect. Sends current [echoIntensity]
   /// alongside the enable flag so the engine can apply both atomically.
-  static Future<void> setEightD(bool value) async {
-    eightDEnabled.value = value;
+  static Future<void> setEcho(bool value) async {
+    echoEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${_kPrefix}eightDEnabled', value);
+    await prefs.setBool('${_kPrefix}echoEnabled', value);
     unawaited(
-      PlaybackManager.setEightD(
+      PlaybackManager.setEcho(
         enabled: value,
-        intensity: eightDIntensity.value,
+        intensity: echoIntensity.value,
       ),
     );
-    LogService.log('MediaCap', 'eightD: $value');
+    LogService.log('MediaCap', 'echo: $value');
   }
 
-  /// 8D Audio: Adjust rotation intensity. [value] is clamped to [0.0, 1.0].
-  static Future<void> setEightDIntensity(double value) async {
+  /// Echo (gema): Adjust echo strength. [value] is clamped to [0.0, 1.0].
+  static Future<void> setEchoIntensity(double value) async {
     final v = value.clamp(0.0, 1.0);
-    eightDIntensity.value = v;
+    echoIntensity.value = v;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('${_kPrefix}eightDIntensity', v);
-    if (eightDEnabled.value) {
-      unawaited(PlaybackManager.setEightD(enabled: true, intensity: v));
+    await prefs.setDouble('${_kPrefix}echoIntensity', v);
+    if (echoEnabled.value) {
+      unawaited(PlaybackManager.setEcho(enabled: true, intensity: v));
     }
-    LogService.log('MediaCap', 'eightDIntensity: $v');
+    LogService.log('MediaCap', 'echoIntensity: $v');
   }
 
   // ── Query ─────────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ class MediaCapabilitiesService {
   static void dispose() {
     (_stereoWideningSub?.cancel())?.ignore();
     _stereoWideningSub = null;
-    (_eightDSub?.cancel())?.ignore();
-    _eightDSub = null;
+    (_echoSub?.cancel())?.ignore();
+    _echoSub = null;
   }
 }
