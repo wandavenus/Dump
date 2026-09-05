@@ -57,20 +57,30 @@ class _CrossfadePickerState extends State<_CrossfadePicker>
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   child: Row(
                     children: [
-                      Text(
-                        l.crossfadeTitle,
-                        style: TextStyle(color: c.primaryLabel, fontSize: 16),
-                      ),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          current == 0
-                              ? l.off
-                              : l.crossfadeSeconds(current.toStringAsFixed(0)),
-                          style: TextStyle(
-                            color: c.secondaryLabel,
-                            fontSize: 13,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.crossfadeTitle,
+                              style: TextStyle(
+                                color: c.primaryLabel,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              current == 0
+                                  ? l.off
+                                  : l.crossfadeSeconds(
+                                      current.toStringAsFixed(0),
+                                    ),
+                              style: TextStyle(
+                                color: c.secondaryLabel,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       AnimatedRotation(
