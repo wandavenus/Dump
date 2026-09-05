@@ -29,7 +29,8 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         private const val OUTPUT_CEILING = 0.98
         private const val LIMIT_CEILING = 0.98
         private const val LIMIT_RANGE = 0.02
-        private const val GAIN_RELEASE = 0.0025
+        private const val GAIN_ATTACK = 0.15
+        private const val GAIN_RELEASE = 0.005
 
         private fun limitSample(x: Double): Double {
             val ax = abs(x)
@@ -182,12 +183,12 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
             frame += 2
         }
 
-        // Smooth the recovery path instead of resetting the entire block to unity.
-        // This avoids audible gain pumping while still responding immediately to
-        // a new peak that would exceed digital full scale.
+        // Use a slow envelope follower for both attack and recovery. This avoids
+        // block-to-block gain jumps that can make the reverb tail sound like it
+        // is breathing, while still pulling gain down quickly when a peak grows.
         val targetGain = if (peak > OUTPUT_CEILING && peak.isFinite()) OUTPUT_CEILING / peak else 1.0
         outputGain = if (targetGain < outputGain) {
-            targetGain
+            outputGain + (targetGain - outputGain) * GAIN_ATTACK
         } else {
             outputGain + (targetGain - outputGain) * GAIN_RELEASE
         }
