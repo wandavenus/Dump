@@ -702,6 +702,6 @@
       }
     }
   },
-  "eightDAudio": "8D Audio",
-  "eightDAudioDescription": "Memutar suara mengelilingi kepala (pan + delay berputar lambat). Paling enak dengan headphone."
+  "echo": "Echo",
+  "echoDescription": "Membuat suara menggema (echo meluruh). Paling enak dengan headphone."
 }

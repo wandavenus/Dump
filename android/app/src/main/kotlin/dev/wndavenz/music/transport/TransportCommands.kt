@@ -61,12 +61,12 @@ class TransportCommands(
      */
     private val onStereoWideningChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
-     * 8D Audio — Called when the user changes the 8D rotating-effect setting.
-     * Delegates to EightDManager which updates all live EightDAudioProcessor
+     * Echo (gema) — Called when the user changes the echo-effect setting.
+     * Delegates to EchoManager which updates all live EchoAudioProcessor
      * instances atomically, so both active and standby players (during
      * crossfade) are updated simultaneously without a race condition.
      */
-    private val onEightDChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    private val onEchoChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
      * Item 6 — Returns a snapshot of PlaybackStats for the active player,
      * or null when no session is in progress.
@@ -376,21 +376,21 @@ class TransportCommands(
                 result.success(null)
             }
 
-            // ── 8D Audio ──────────────────────────────────────────────────────
+            // ── Echo (gema) ───────────────────────────────────────────────────
 
             /**
-             * Enables/disables the software 8D rotating effect.
+             * Enables/disables the software echo (feedback-delay) effect.
              *
-             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum rotation).
-             * Applied atomically to all live ExoPlayer instances via EightDManager;
+             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum echo).
+             * Applied atomically to all live ExoPlayer instances via EchoManager;
              * no race between active and standby players during crossfade.
              * Incompatible with tunneling (audio bypasses the pipeline entirely).
              */
-            "setEightD" -> {
+            "setEcho" -> {
                 val enabled   = call.argument<Boolean>("enabled") ?: false
                 val intensity = call.argument<Number>("intensity")?.toFloat() ?: 0.5f
-                onEightDChanged(enabled, intensity.coerceIn(0f, 1f))
-                log("info", "setEightD: enabled=$enabled intensity=$intensity")
+                onEchoChanged(enabled, intensity.coerceIn(0f, 1f))
+                log("info", "setEcho: enabled=$enabled intensity=$intensity")
                 result.success(null)
             }
 
