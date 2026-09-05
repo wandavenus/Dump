@@ -101,7 +101,29 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
     private var allpassSizesL16: IntArray? = null
 
     fun setParams(enabled: Boolean, intensity: Float) {
-        this.intensity = if (enabled) intensity.coerceIn(0f, 1f) else 0f
+        // MethodChannel values are normally finite, but an invalid value must
+        // never reach the feedback loop: a single NaN would contaminate the
+        // delay lines and produce NaN PCM until the processor is recreated.
+        this.intensity = if (enabled && intensity.isFinite()) {
+            intensity.coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    }
+
+    /**
+     * Drops delayed samples after a seek, track transition, or sink flush.
+     *
+     * Keeping the old delay lines would leak a previous track's reverb tail
+     * into the next track and keeps sizeable buffers allocated after the sink
+     * is flushed. State is allocated lazily on the next input buffer.
+     */
+    override fun onFlush() {
+        clearState()
+    }
+
+    override fun onReset() {
+        clearState()
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -365,5 +387,33 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         allpassR16 = Array(aSizeR.size) { i -> ShortArray(aSizeR[i]) }
         allpassPosL16 = IntArray(aSizeL.size)
         allpassPosR16 = IntArray(aSizeR.size)
+    }
+
+    private fun clearState() {
+        sampleRate = -1
+        combL = null
+        combR = null
+        combPosL = null
+        combPosR = null
+        combFilterL = null
+        combFilterR = null
+        allpassL = null
+        allpassR = null
+        allpassPosL = null
+        allpassPosR = null
+        combSizesL = null
+        allpassSizesL = null
+        combL16 = null
+        combR16 = null
+        combPosL16 = null
+        combPosR16 = null
+        combFilterL16 = null
+        combFilterR16 = null
+        allpassL16 = null
+        allpassR16 = null
+        allpassPosL16 = null
+        allpassPosR16 = null
+        combSizesL16 = null
+        allpassSizesL16 = null
     }
 }

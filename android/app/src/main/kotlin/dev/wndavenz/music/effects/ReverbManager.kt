@@ -45,7 +45,11 @@ class ReverbManager {
 
     fun setReverb(enabled: Boolean, intensity: Float = reverbIntensity) {
         reverbEnabled = enabled
-        reverbIntensity = intensity.coerceIn(0f, 1f)
+        reverbIntensity = if (intensity.isFinite()) {
+            intensity.coerceIn(0f, 1f)
+        } else {
+            0f
+        }
         val snapshot: List<ReverbAudioProcessor>
         synchronized(lock) { snapshot = processors.toList() }
         snapshot.forEach { it.setParams(reverbEnabled, reverbIntensity) }

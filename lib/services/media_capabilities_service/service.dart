@@ -60,12 +60,15 @@ class MediaCapabilitiesService {
     // Reverb is stored under its own keys. The legacy echo (feedback-delay)
     // keys are read as a one-time migration fallback so existing users keep
     // their previously saved setting across upgrades.
-    reverbEnabled.value = prefs.getBool('${_kPrefix}reverbEnabled') ??
+    reverbEnabled.value =
+        prefs.getBool('${_kPrefix}reverbEnabled') ??
         prefs.getBool('${_kPrefix}echoEnabled') ??
         false;
-    reverbIntensity.value = prefs.getDouble('${_kPrefix}reverbIntensity') ??
-        prefs.getDouble('${_kPrefix}echoIntensity') ??
-        0.5;
+    reverbIntensity.value = _normalizeReverbIntensity(
+      prefs.getDouble('${_kPrefix}reverbIntensity') ??
+          prefs.getDouble('${_kPrefix}echoIntensity') ??
+          0.5,
+    );
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -89,7 +92,9 @@ class MediaCapabilitiesService {
     _reverbSub?.cancel();
     _reverbSub = PlaybackManager.reverbStream.listen((map) {
       final enabled = map['enabled'] as bool? ?? false;
-      final intensity = (map['intensity'] as num?)?.toDouble() ?? 0.5;
+      final intensity = _normalizeReverbIntensity(
+        (map['intensity'] as num?)?.toDouble() ?? 0.5,
+      );
       if (reverbEnabled.value != enabled) {
         reverbEnabled.value = enabled;
       }
@@ -177,7 +182,7 @@ class MediaCapabilitiesService {
 
   /// Reverb: Adjust reverb strength. [value] is clamped to [0.0, 1.0].
   static Future<void> setReverbIntensity(double value) async {
-    final v = value.clamp(0.0, 1.0);
+    final v = _normalizeReverbIntensity(value);
     reverbIntensity.value = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('${_kPrefix}reverbIntensity', v);
@@ -186,6 +191,12 @@ class MediaCapabilitiesService {
     }
     LogService.log('MediaCap', 'reverbIntensity: $v');
   }
+
+  /// Keeps persisted, event-stream, and UI values safe for the native
+  /// feedback processor. `clamp` alone preserves NaN, which would otherwise
+  /// poison the reverb delay buffers through the platform channel.
+  static double _normalizeReverbIntensity(double value) =>
+      value.isFinite ? value.clamp(0.0, 1.0).toDouble() : 0.0;
 
   // ── Query ─────────────────────────────────────────────────────────────────
 
