@@ -89,6 +89,23 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
     ),
   );
 
+  Widget _buildTitleWithSubtitle(AppThemeExtension c) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        widget.title,
+        style: TextStyle(color: c.primaryLabel, fontSize: 16),
+        overflow: TextOverflow.ellipsis,
+      ),
+      const SizedBox(height: 2),
+      Text(
+        widget.subtitle,
+        style: TextStyle(color: c.secondaryLabel, fontSize: 13),
+        overflow: TextOverflow.ellipsis,
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
@@ -102,10 +119,7 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    widget.title,
-                    style: TextStyle(color: c.primaryLabel, fontSize: 16),
-                  ),
+                  child: _buildTitleWithSubtitle(c),
                 ),
                 if (widget.showReset && widget.onReset != null)
                   GestureDetector(
@@ -119,11 +133,6 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
                     ),
                   ),
               ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.subtitle,
-              style: TextStyle(color: c.secondaryLabel, fontSize: 12),
             ),
             _buildSlider(c),
             if (widget.description != null) ...[
@@ -155,21 +164,9 @@ class _SettingsSliderRowState extends State<SettingsSliderRow>
               padding: const EdgeInsets.symmetric(vertical: 13),
               child: Row(
                 children: [
-                  Flexible(
-                    child: Text(
-                      widget.title,
-                      style: TextStyle(color: c.primaryLabel, fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  Expanded(child: _buildTitleWithSubtitle(c)),
                   const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      widget.subtitle,
-                      style: TextStyle(color: c.secondaryLabel, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  const Icon(Icons.chevron_right, size: 18),
                 ],
               ),
             ),
