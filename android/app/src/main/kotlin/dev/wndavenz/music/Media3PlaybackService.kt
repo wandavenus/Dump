@@ -653,7 +653,10 @@ class Media3PlaybackService : MediaSessionService() {
                 reverbManager.setReverb(enabled, intensity)
                 EventEmitter.emit(
                     "reverb",
-                    mapOf("enabled" to enabled, "intensity" to intensity),
+                    mapOf(
+                        "enabled" to reverbManager.reverbEnabled,
+                        "intensity" to reverbManager.reverbIntensity,
+                    ),
                 )
             },
 
