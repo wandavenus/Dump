@@ -6,16 +6,17 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import java.nio.ByteBuffer
+import kotlin.math.abs
 import kotlin.math.tanh
 
 private const val LOG_TAG = "ReverbProc"
 
 /**
- * Software Schroeder-style reverb with protected output gain.
+ * Software Schroeder-style reverb.
  *
- * The wet path keeps the original reverb character, while the final mix uses
- * a gentle peak limiter. This is important because dry + wet summation can
- * exceed 0 dBFS, especially when combined with stereo widening.
+ * Reverb is mixed with explicit dry/wet gain staging instead of relying on
+ * a limiter as the normal operating level control. The limiter remains only
+ * as a final safety ceiling for exceptional peaks.
  */
 @UnstableApi
 class ReverbAudioProcessor : BaseAudioProcessor() {
@@ -25,24 +26,21 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         private val COMB_DELAYS_R = intArrayOf(1139, 1211, 1300, 1379)
         private val ALLPASS_DELAYS_L = intArrayOf(556, 441)
         private val ALLPASS_DELAYS_R = intArrayOf(579, 464)
-        private const val MAX_FEEDBACK = 0.82f
+        private const val MAX_FEEDBACK = 0.76f
         private const val DAMPING = 0.4f
         private const val ALLPASS_COEFF = 0.5f
-        private const val WET_MAX = 0.55f
+        private const val WET_MAX = 0.30f
+        private const val DRY_MIN = 0.70f
         private const val REF_SAMPLE_RATE = 44100
 
-        /** Ceiling below full scale leaves a small safety margin for downstream DSP. */
-        private const val LIMIT_CEILING = 0.94
-
-        /** Softness of the final limiter transition. */
-        private const val LIMIT_RANGE = 0.06
+        private const val LIMIT_CEILING = 0.98
+        private const val LIMIT_RANGE = 0.02
 
         private fun limitSample(x: Double): Double {
-            val ax = kotlin.math.abs(x)
+            val ax = abs(x)
             if (!ax.isFinite()) return 0.0
             if (ax <= LIMIT_CEILING) return x
-            val compressed = LIMIT_CEILING +
-                LIMIT_RANGE * tanh((ax - LIMIT_CEILING) / LIMIT_RANGE)
+            val compressed = LIMIT_CEILING + LIMIT_RANGE * tanh((ax - LIMIT_CEILING) / LIMIT_RANGE)
             return if (x < 0.0) -compressed else compressed
         }
     }
@@ -112,6 +110,8 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
     private fun scaledDelay(refSamples: Int, sr: Int): Int =
         (refSamples.toLong() * sr / REF_SAMPLE_RATE).toInt().coerceAtLeast(1) + 1
 
+    private fun dryGain(inten: Float): Double = 1.0 - (1.0 - DRY_MIN) * inten
+
     private fun processFloat(inputBuffer: ByteBuffer, output: ByteBuffer, inten: Float) {
         val sr = inputAudioFormat.sampleRate
         ensureFloatState(sr)
@@ -124,6 +124,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         val numCombs = cbL.size; val numAllpass = apL.size
         val fb = MAX_FEEDBACK * inten.toDouble()
         val wet = WET_MAX * inten.toDouble()
+        val dry = dryGain(inten)
         val damp = DAMPING.toDouble(); val apCoeff = ALLPASS_COEFF.toDouble()
         val combScale = 1.0 / numCombs
 
@@ -142,7 +143,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
                 buf[pos] = (acc + apCoeff * bufOut).toFloat(); acc = bufOut - apCoeff * acc
                 apPL[i] = (pos + 1) % buf.size
             }
-            val outL = limitSample(lIn + wet * acc)
+            val outL = limitSample(dry * lIn + wet * acc)
 
             var accR = 0.0
             for (i in 0 until numCombs) {
@@ -157,7 +158,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
                 buf[pos] = (accR + apCoeff * bufOut).toFloat(); accR = bufOut - apCoeff * accR
                 apPR[i] = (pos + 1) % buf.size
             }
-            val outR = limitSample(rIn + wet * accR)
+            val outR = limitSample(dry * rIn + wet * accR)
             output.putFloat(outL.toFloat()); output.putFloat(outR.toFloat())
         }
     }
@@ -173,6 +174,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         val cSizeL = combSizesL16!!
         val numCombs = cbL.size; val numAllpass = apL.size
         val fb = MAX_FEEDBACK * inten.toDouble(); val wet = WET_MAX * inten.toDouble()
+        val dry = dryGain(inten)
         val damp = DAMPING.toDouble(); val apCoeff = ALLPASS_COEFF.toDouble()
         val combScale = 1.0 / numCombs
 
@@ -191,7 +193,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
                 buf[pos] = (acc + apCoeff * bufOut).coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()).toInt().toShort()
                 acc = bufOut - apCoeff * acc; apPL[i] = (pos + 1) % buf.size
             }
-            val outL = limitSample((lIn + wet * acc) / Short.MAX_VALUE) * Short.MAX_VALUE
+            val outL = limitSample((dry * lIn + wet * acc) / Short.MAX_VALUE) * Short.MAX_VALUE
 
             var accR = 0.0
             for (i in 0 until numCombs) {
@@ -206,7 +208,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
                 buf[pos] = (accR + apCoeff * bufOut).coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()).toInt().toShort()
                 accR = bufOut - apCoeff * accR; apPR[i] = (pos + 1) % buf.size
             }
-            val outR = limitSample((rIn + wet * accR) / Short.MAX_VALUE) * Short.MAX_VALUE
+            val outR = limitSample((dry * rIn + wet * accR) / Short.MAX_VALUE) * Short.MAX_VALUE
             output.putShort(outL.coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()).toInt().toShort())
             output.putShort(outR.coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()).toInt().toShort())
         }
@@ -240,7 +242,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         combPosL16 = IntArray(combL16!!.size); combPosR16 = IntArray(combR16!!.size)
         combFilterL16 = DoubleArray(combL16!!.size); combFilterR16 = DoubleArray(combR16!!.size)
         allpassL16 = Array(allpassSizesL16!!.size) { ShortArray(allpassSizesL16!![it]) }
-        allpassR16 = Array(aSizeR.size) { ShortArray(aSizeR[it]) }
+        allpassR16 = Array(aSizeR.size) { ShortArray(aSizeR.size) { 0 }.toShortArray() }
         allpassPosL16 = IntArray(allpassL16!!.size); allpassPosR16 = IntArray(allpassR16!!.size)
     }
 
