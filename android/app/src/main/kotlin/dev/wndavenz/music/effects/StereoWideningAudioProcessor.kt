@@ -6,21 +6,33 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
+import kotlin.math.abs
+import kotlin.math.tanh
 
 private const val LOG_TAG = "StereoWideningProc"
 
 /**
  * Custom AudioProcessor implementing stereo widening via a 2×2 mixing matrix.
  *
- * The widening curve remains unchanged, with constant headroom compensation
- * while the effect is active so the matrix cannot add unnecessary peak level.
+ * The matrix is peak-safe for float and PCM16 paths. Active widening reserves
+ * headroom and applies a final soft limiter so correlated/full-scale material
+ * cannot clip when this processor follows another DSP stage.
  */
 @UnstableApi
 class StereoWideningAudioProcessor : BaseAudioProcessor() {
 
     companion object {
-        /** Peak headroom reserved for the widening matrix. */
         private const val HEADROOM = 0.80f
+        private const val LIMIT_CEILING = 0.94
+        private const val LIMIT_RANGE = 0.06
+
+        private fun limitSample(x: Double): Double {
+            val ax = abs(x)
+            if (!ax.isFinite()) return 0.0
+            if (ax <= LIMIT_CEILING) return x
+            val compressed = LIMIT_CEILING + LIMIT_RANGE * tanh((ax - LIMIT_CEILING) / LIMIT_RANGE)
+            return if (x < 0.0) -compressed else compressed
+        }
     }
 
     @Volatile private var diag: Float = 1f
@@ -62,20 +74,22 @@ class StereoWideningAudioProcessor : BaseAudioProcessor() {
         if (inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT) {
             val frameCount = remaining / 8
             repeat(frameCount) {
-                val l = inputBuffer.float
-                val r = inputBuffer.float
-                output.putFloat(d * l + c * r)
-                output.putFloat(c * l + d * r)
+                val l = inputBuffer.float.toDouble()
+                val r = inputBuffer.float.toDouble()
+                val lOut = limitSample(d * l + c * r)
+                val rOut = limitSample(c * l + d * r)
+                output.putFloat(lOut.toFloat())
+                output.putFloat(rOut.toFloat())
             }
         } else {
             val frameCount = remaining / 4
             repeat(frameCount) {
-                val l = inputBuffer.short.toFloat()
-                val r = inputBuffer.short.toFloat()
-                val lOut = (d * l + c * r).toInt()
-                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-                val rOut = (c * l + d * r).toInt()
-                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                val l = inputBuffer.short.toDouble()
+                val r = inputBuffer.short.toDouble()
+                val lOut = (limitSample((d * l + c * r) / Short.MAX_VALUE) * Short.MAX_VALUE)
+                    .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                val rOut = (limitSample((c * l + d * r) / Short.MAX_VALUE) * Short.MAX_VALUE)
+                    .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
                 output.putShort(lOut)
                 output.putShort(rOut)
             }
