@@ -702,6 +702,6 @@
       }
     }
   },
-  "echo": "Echo",
-  "echoDescription": "Membuat suara menggema (echo meluruh). Paling enak dengan headphone."
+  "reverb": "Reverb",
+  "reverbDescription": "Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone."
 }

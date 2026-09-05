@@ -702,6 +702,6 @@
     }
   },
   "madeByShort": "Made by",
-  "echo": "Echo",
-  "echoDescription": "Adds a decaying echo tail (gema) to the sound. Best experienced with headphones."
+  "reverb": "Reverb",
+  "reverbDescription": "Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones."
 }

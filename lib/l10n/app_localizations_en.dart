@@ -1355,9 +1355,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get madeByShort => 'Made by';
 
   @override
-  String get echo => 'Echo';
+  String get reverb => 'Reverb';
 
   @override
-  String get echoDescription =>
-      'Adds a decaying echo tail (gema) to the sound. Best experienced with headphones.';
+  String get reverbDescription =>
+      'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.';
 }

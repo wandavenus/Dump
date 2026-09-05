@@ -32,18 +32,19 @@ class MediaCapabilitiesService {
     0.5,
   );
 
-  /// Echo (gema): software feedback-delay effect (echo tail with low-pass).
+  /// Reverb: software Schroeder room-reverb effect (damped comb + all-pass
+  /// tail).
   ///
   /// Works in ExoPlayer's pipeline — not in AudioFlinger — so it applies
   /// correctly to both players during a crossfade overlap. intensity = 0
   /// is fully transparent (effect off).
-  static final ValueNotifier<bool> echoEnabled = ValueNotifier(false);
-  static final ValueNotifier<double> echoIntensity = ValueNotifier(0.5);
+  static final ValueNotifier<bool> reverbEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> reverbIntensity = ValueNotifier(0.5);
 
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
-  static StreamSubscription<Map<dynamic, dynamic>>? _echoSub;
+  static StreamSubscription<Map<dynamic, dynamic>>? _reverbSub;
 
   // ── Initialize ────────────────────────────────────────────────────────────
 
@@ -56,9 +57,15 @@ class MediaCapabilitiesService {
         prefs.getBool('${_kPrefix}stereoEnabled') ?? false;
     stereoWideningStrength.value =
         prefs.getDouble('${_kPrefix}stereoStrength') ?? 0.5;
-    echoEnabled.value = prefs.getBool('${_kPrefix}echoEnabled') ?? false;
-    echoIntensity.value =
-        prefs.getDouble('${_kPrefix}echoIntensity') ?? 0.5;
+    // Reverb is stored under its own keys. The legacy echo (feedback-delay)
+    // keys are read as a one-time migration fallback so existing users keep
+    // their previously saved setting across upgrades.
+    reverbEnabled.value = prefs.getBool('${_kPrefix}reverbEnabled') ??
+        prefs.getBool('${_kPrefix}echoEnabled') ??
+        false;
+    reverbIntensity.value = prefs.getDouble('${_kPrefix}reverbIntensity') ??
+        prefs.getDouble('${_kPrefix}echoIntensity') ??
+        0.5;
 
     // ── Stereo widening ───────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the processor matrix is applied.
@@ -76,18 +83,18 @@ class MediaCapabilitiesService {
       }
     });
 
-    // ── Echo (gema) ──────────────────────────────────────────────────────────
+    // ── Reverb ───────────────────────────────────────────────────────────────
     // Mirrors the engine confirmation after the effect parameters are applied,
     // so the UI always shows what the engine is actually using.
-    _echoSub?.cancel();
-    _echoSub = PlaybackManager.echoStream.listen((map) {
+    _reverbSub?.cancel();
+    _reverbSub = PlaybackManager.reverbStream.listen((map) {
       final enabled = map['enabled'] as bool? ?? false;
       final intensity = (map['intensity'] as num?)?.toDouble() ?? 0.5;
-      if (echoEnabled.value != enabled) {
-        echoEnabled.value = enabled;
+      if (reverbEnabled.value != enabled) {
+        reverbEnabled.value = enabled;
       }
-      if (echoIntensity.value != intensity) {
-        echoIntensity.value = intensity;
+      if (reverbIntensity.value != intensity) {
+        reverbIntensity.value = intensity;
       }
     });
 
@@ -98,7 +105,7 @@ class MediaCapabilitiesService {
       'MediaCap',
       'Initialized — '
           'stereo=${stereoWideningEnabled.value}@${stereoWideningStrength.value} '
-          'echo=${echoEnabled.value}@${echoIntensity.value}',
+          'reverb=${reverbEnabled.value}@${reverbIntensity.value}',
     );
   }
 
@@ -117,9 +124,9 @@ class MediaCapabilitiesService {
       ),
     );
     unawaited(
-      PlaybackManager.setEcho(
-        enabled: echoEnabled.value,
-        intensity: echoIntensity.value,
+      PlaybackManager.setReverb(
+        enabled: reverbEnabled.value,
+        intensity: reverbIntensity.value,
       ),
     );
   }
@@ -153,31 +160,31 @@ class MediaCapabilitiesService {
     LogService.log('MediaCap', 'stereoStrength: $v');
   }
 
-  /// Echo (gema): Toggle the echo effect. Sends current [echoIntensity]
+  /// Reverb: Toggle the reverb effect. Sends current [reverbIntensity]
   /// alongside the enable flag so the engine can apply both atomically.
-  static Future<void> setEcho(bool value) async {
-    echoEnabled.value = value;
+  static Future<void> setReverb(bool value) async {
+    reverbEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('${_kPrefix}echoEnabled', value);
+    await prefs.setBool('${_kPrefix}reverbEnabled', value);
     unawaited(
-      PlaybackManager.setEcho(
+      PlaybackManager.setReverb(
         enabled: value,
-        intensity: echoIntensity.value,
+        intensity: reverbIntensity.value,
       ),
     );
-    LogService.log('MediaCap', 'echo: $value');
+    LogService.log('MediaCap', 'reverb: $value');
   }
 
-  /// Echo (gema): Adjust echo strength. [value] is clamped to [0.0, 1.0].
-  static Future<void> setEchoIntensity(double value) async {
+  /// Reverb: Adjust reverb strength. [value] is clamped to [0.0, 1.0].
+  static Future<void> setReverbIntensity(double value) async {
     final v = value.clamp(0.0, 1.0);
-    echoIntensity.value = v;
+    reverbIntensity.value = v;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('${_kPrefix}echoIntensity', v);
-    if (echoEnabled.value) {
-      unawaited(PlaybackManager.setEcho(enabled: true, intensity: v));
+    await prefs.setDouble('${_kPrefix}reverbIntensity', v);
+    if (reverbEnabled.value) {
+      unawaited(PlaybackManager.setReverb(enabled: true, intensity: v));
     }
-    LogService.log('MediaCap', 'echoIntensity: $v');
+    LogService.log('MediaCap', 'reverbIntensity: $v');
   }
 
   // ── Query ─────────────────────────────────────────────────────────────────
@@ -200,7 +207,7 @@ class MediaCapabilitiesService {
   static void dispose() {
     (_stereoWideningSub?.cancel())?.ignore();
     _stereoWideningSub = null;
-    (_echoSub?.cancel())?.ignore();
-    _echoSub = null;
+    (_reverbSub?.cancel())?.ignore();
+    _reverbSub = null;
   }
 }

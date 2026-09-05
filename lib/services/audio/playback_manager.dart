@@ -111,8 +111,8 @@ class PlaybackManager {
       Media3PlaybackBridge.audioFormatStream;
   static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
       Media3PlaybackBridge.stereoWideningStream;
-  static Stream<Map<dynamic, dynamic>> get echoStream =>
-      Media3PlaybackBridge.echoStream;
+  static Stream<Map<dynamic, dynamic>> get reverbStream =>
+      Media3PlaybackBridge.reverbStream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -304,10 +304,10 @@ class PlaybackManager {
     strength: strength,
   );
 
-  static Future<void> setEcho({
+  static Future<void> setReverb({
     required bool enabled,
     required double intensity,
-  }) => Media3PlaybackBridge.setEcho(
+  }) => Media3PlaybackBridge.setReverb(
     enabled: enabled,
     intensity: intensity,
   );

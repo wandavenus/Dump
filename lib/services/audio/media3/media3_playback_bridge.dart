@@ -65,8 +65,8 @@ class Media3PlaybackBridge {
   static const EventChannel _stereoWideningEvents = EventChannel(
     'musicplayer/media3_stereoWidening',
   );
-  static const EventChannel _echoEvents = EventChannel(
-    'musicplayer/media3_echo',
+  static const EventChannel _reverbEvents = EventChannel(
+    'musicplayer/media3_reverb',
   );
   // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
   // Media3PlaybackService.onCreate() has fully finished wiring; replays
@@ -200,13 +200,13 @@ class Media3PlaybackBridge {
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
 
-  /// Live echo (gema) state — emitted after [EchoManager] applies the effect
-  /// to all live [EchoAudioProcessor] instances.
+  /// Live reverb state — emitted after [ReverbManager] applies the effect
+  /// to all live [ReverbAudioProcessor] instances.
   ///
   /// Each event is a `Map<dynamic, dynamic>` with two keys:
-  ///   `enabled`   — bool: whether the echo effect is active.
-  ///   `intensity` — double: echo strength in [0.0, 1.0].
-  static final Stream<Map<dynamic, dynamic>> echoStream = _echoEvents
+  ///   `enabled`   — bool: whether the reverb effect is active.
+  ///   `intensity` — double: reverb strength in [0.0, 1.0].
+  static final Stream<Map<dynamic, dynamic>> reverbStream = _reverbEvents
       .receiveBroadcastStream()
       .where((e) => e is Map)
       .cast<Map<dynamic, dynamic>>()
@@ -380,12 +380,12 @@ class Media3PlaybackBridge {
     'strength': strength,
   });
 
-  // ── Echo (gema) ───────────────────────────────────────────────────────────
+  // ── Reverb ────────────────────────────────────────────────────────────────
 
-  static Future<void> setEcho({
+  static Future<void> setReverb({
     required bool enabled,
     required double intensity,
-  }) => _invoke<void>('setEcho', {
+  }) => _invoke<void>('setReverb', {
     'enabled': enabled,
     'intensity': intensity,
   });

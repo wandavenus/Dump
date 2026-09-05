@@ -61,12 +61,12 @@ class TransportCommands(
      */
     private val onStereoWideningChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
-     * Echo (gema) — Called when the user changes the echo-effect setting.
-     * Delegates to EchoManager which updates all live EchoAudioProcessor
+     * Reverb — Called when the user changes the reverb-effect setting.
+     * Delegates to ReverbManager which updates all live ReverbAudioProcessor
      * instances atomically, so both active and standby players (during
      * crossfade) are updated simultaneously without a race condition.
      */
-    private val onEchoChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    private val onReverbChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
      * Item 6 — Returns a snapshot of PlaybackStats for the active player,
      * or null when no session is in progress.
@@ -376,21 +376,21 @@ class TransportCommands(
                 result.success(null)
             }
 
-            // ── Echo (gema) ───────────────────────────────────────────────────
+            // ── Reverb ────────────────────────────────────────────────────────
 
             /**
-             * Enables/disables the software echo (feedback-delay) effect.
+             * Enables/disables the software reverb (Schroeder room) effect.
              *
-             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum echo).
-             * Applied atomically to all live ExoPlayer instances via EchoManager;
+             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum reverb).
+             * Applied atomically to all live ExoPlayer instances via ReverbManager;
              * no race between active and standby players during crossfade.
              * Incompatible with tunneling (audio bypasses the pipeline entirely).
              */
-            "setEcho" -> {
+            "setReverb" -> {
                 val enabled   = call.argument<Boolean>("enabled") ?: false
                 val intensity = call.argument<Number>("intensity")?.toFloat() ?: 0.5f
-                onEchoChanged(enabled, intensity.coerceIn(0f, 1f))
-                log("info", "setEcho: enabled=$enabled intensity=$intensity")
+                onReverbChanged(enabled, intensity.coerceIn(0f, 1f))
+                log("info", "setReverb: enabled=$enabled intensity=$intensity")
                 result.success(null)
             }
 
