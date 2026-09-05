@@ -59,8 +59,8 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.session.CommandButton
 import dev.wndavenz.music.effects.StereoWidthManager
-import dev.wndavenz.music.effects.EchoManager
-import dev.wndavenz.music.effects.EchoAudioProcessor
+import dev.wndavenz.music.effects.ReverbManager
+import dev.wndavenz.music.effects.ReverbAudioProcessor
 
 /**
  * Thin orchestration layer.
@@ -156,7 +156,7 @@ class Media3PlaybackService : MediaSessionService() {
     @Volatile private var activeDecoderIsHardware: Boolean = false
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
-    private val playerEchoProcessors = IdentityHashMap<ExoPlayer, EchoAudioProcessor>() // Echo (gema)
+    private val playerReverbProcessors = IdentityHashMap<ExoPlayer, ReverbAudioProcessor>() // Reverb
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
@@ -168,8 +168,8 @@ class Media3PlaybackService : MediaSessionService() {
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
 
-    // ── Echo (gema): feedback-delay effect manager (same pattern as StereoWidthManager)
-    private lateinit var echoManager: EchoManager
+    // ── Reverb: Schroeder room-reverb effect manager (same pattern as StereoWidthManager)
+    private lateinit var reverbManager: ReverbManager
 
     // Signalsmith Stretch — playback speed + pitch shift, replacing Sonic.
     // See StretchManager doc for why this needs its own manager (per-instance
@@ -241,9 +241,9 @@ class Media3PlaybackService : MediaSessionService() {
         // createConfiguredPlayer() call so the primary player's processor is
         // correctly tracked from the start.
         stereoWidthManager = StereoWidthManager()
-        // Echo (gema): same requirement — the primary player's echo processor
+        // Reverb: same requirement — the primary player's reverb processor
         // must be tracked from the very first createConfiguredPlayer() call.
-        echoManager = EchoManager()
+        reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
 
         // Create primary player — always physical stream slot 0.
@@ -648,11 +648,11 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
 
-            // Echo (gema) — same atomic-update + echo pattern via EchoManager.
-            onEchoChanged = { enabled, intensity ->
-                echoManager.setEcho(enabled, intensity)
+            // Reverb — same atomic-update + mirror-back pattern via ReverbManager.
+            onReverbChanged = { enabled, intensity ->
+                reverbManager.setReverb(enabled, intensity)
                 EventEmitter.emit(
-                    "echo",
+                    "reverb",
                     mapOf("enabled" to enabled, "intensity" to intensity),
                 )
             },
@@ -1220,12 +1220,12 @@ class Media3PlaybackService : MediaSessionService() {
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
             else StereoWideningAudioProcessor()
 
-        // Echo (gema): one EchoAudioProcessor per player, tracked by
-        // EchoManager so a single setEcho() call updates both active and
+        // Reverb: one ReverbAudioProcessor per player, tracked by
+        // ReverbManager so a single setReverb() call updates both active and
         // standby players atomically during a crossfade overlap.
-        val echoProc: EchoAudioProcessor =
-            if (::echoManager.isInitialized) echoManager.createProcessor()
-            else EchoAudioProcessor()
+        val reverbProc: ReverbAudioProcessor =
+            if (::reverbManager.isInitialized) reverbManager.createProcessor()
+            else ReverbAudioProcessor()
 
         // Signalsmith Stretch — replaces Sonic for both playback speed and
         // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
@@ -1270,7 +1270,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Echo,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1281,8 +1281,8 @@ class Media3PlaybackService : MediaSessionService() {
                     .setEnableFloatOutput(false)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
-                    // Echo → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
-                    // the custom DSP/widening/echo/stretch stages always see PCM_FLOAT
+                    // Reverb → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
+                    // the custom DSP/widening/reverb/stretch stages always see PCM_FLOAT
                     // (transparent no-op if the decoder already emits float); ToInt16
                     // converts back before Media3's own internal SilenceSkipping/Sonic
                     // stage so nothing downstream has to reason about float input.
@@ -1300,7 +1300,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, echoProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1393,9 +1393,9 @@ class Media3PlaybackService : MediaSessionService() {
         if (::stereoWidthManager.isInitialized) {
             playerProcessors[player] = channelMixingProc
         }
-        // Echo (gema): same tracking for the feedback-delay processor.
-        if (::echoManager.isInitialized) {
-            playerEchoProcessors[player] = echoProc
+        // Reverb: same tracking for the room-reverb processor.
+        if (::reverbManager.isInitialized) {
+            playerReverbProcessors[player] = reverbProc
         }
         if (::stretchManager.isInitialized) {
             playerStretchProcessors[player] = stretchProc
@@ -2034,8 +2034,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
-        // Echo (gema): same rationale, for the feedback-delay processor.
-        playerEchoProcessors.remove(p)?.let { echoManager.removeProcessor(it) }
+        // Reverb: same rationale, for the room-reverb processor.
+        playerReverbProcessors.remove(p)?.let { reverbManager.removeProcessor(it) }
         // Signalsmith Stretch: same rationale, for the speed/pitch processor.
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.

@@ -68,17 +68,17 @@ class _AudioSection extends StatelessWidget {
               ),
               const SettingsDivider(),
 
-              // ── Echo (gema) ────────────────────────────────────────────────
-              // Feedback-delay effect, same enable-via-slider pattern as stereo
-              // widening: intensity 0 = off, moving the slider > 0 enables.
+              // ── Reverb ─────────────────────────────────────────────────────
+              // Schroeder room-reverb effect, same enable-via-slider pattern as
+              // stereo widening: intensity 0 = off, moving the slider > 0 enables.
               ValueListenableBuilder<bool>(
-                valueListenable: MediaCapabilitiesService.echoEnabled,
+                valueListenable: MediaCapabilitiesService.reverbEnabled,
                 builder: (_, enabled, _) => ValueListenableBuilder<double>(
-                  valueListenable: MediaCapabilitiesService.echoIntensity,
+                  valueListenable: MediaCapabilitiesService.reverbIntensity,
                   builder: (_, v, _) {
                     final pct = (v * 100).round();
                     return SettingsSliderRow(
-                      title: l.echo,
+                      title: l.reverb,
                       subtitle: enabled ? '$pct%' : l.disabled,
                       value: enabled ? v : 0.0,
                       min: 0.0,
@@ -86,20 +86,20 @@ class _AudioSection extends StatelessWidget {
                       divisions: 20,
                       onChanged: (val) async {
                         if (val > 0) {
-                          await MediaCapabilitiesService.setEcho(true);
-                          await MediaCapabilitiesService.setEchoIntensity(
+                          await MediaCapabilitiesService.setReverb(true);
+                          await MediaCapabilitiesService.setReverbIntensity(
                             val,
                           );
                         } else {
-                          await MediaCapabilitiesService.setEcho(false);
+                          await MediaCapabilitiesService.setReverb(false);
                         }
                       },
                       showReset: enabled,
                       onReset: () async {
-                        await MediaCapabilitiesService.setEcho(false);
+                        await MediaCapabilitiesService.setReverb(false);
                       },
                       expandable: true,
-                      description: l.echoDescription,
+                      description: l.reverbDescription,
                     );
                   },
                 ),

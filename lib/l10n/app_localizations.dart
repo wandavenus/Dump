@@ -2576,17 +2576,17 @@ abstract class AppLocalizations {
   /// **'Made by'**
   String get madeByShort;
 
-  /// No description provided for @echo.
+  /// No description provided for @reverb.
   ///
   /// In en, this message translates to:
-  /// **'Echo'**
-  String get echo;
+  /// **'Reverb'**
+  String get reverb;
 
-  /// No description provided for @echoDescription.
+  /// No description provided for @reverbDescription.
   ///
   /// In en, this message translates to:
-  /// **'Adds a decaying echo tail (gema) to the sound. Best experienced with headphones.'**
-  String get echoDescription;
+  /// **'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.'**
+  String get reverbDescription;
 }
 
 class _AppLocalizationsDelegate

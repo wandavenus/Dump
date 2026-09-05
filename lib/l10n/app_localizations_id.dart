@@ -1357,9 +1357,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get madeByShort => 'Dibuat Oleh';
 
   @override
-  String get echo => 'Echo';
+  String get reverb => 'Reverb';
 
   @override
-  String get echoDescription =>
-      'Membuat suara menggema (echo meluruh). Paling enak dengan headphone.';
+  String get reverbDescription =>
+      'Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone.';
 }

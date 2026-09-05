@@ -318,9 +318,9 @@ class MainActivity : FlutterActivity() {
             // Item 8: stereo widening state — emitted when setStereoWidening() is called
             // Map payload: { enabled: Boolean, strength: Double }
             "stereoWidening",
-            // Echo (gema) state — emitted when setEcho() is called
+            // Reverb state — emitted when setReverb() is called
             // Map payload: { enabled: Boolean, intensity: Double }
-            "echo",
+            "reverb",
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))

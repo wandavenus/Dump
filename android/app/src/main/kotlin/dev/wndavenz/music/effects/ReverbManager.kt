@@ -4,12 +4,12 @@ import androidx.media3.common.util.UnstableApi
 import dev.wndavenz.music.events.NativeLogger
 
 /**
- * Manages [EchoAudioProcessor] instances for the software echo (gema) effect.
+ * Manages [ReverbAudioProcessor] instances for the software reverb effect.
  *
  * Same design as [StereoWidthManager]: every ExoPlayer instance (primary +
- * secondary for crossfade) gets its own [EchoAudioProcessor] embedded in its
+ * secondary for crossfade) gets its own [ReverbAudioProcessor] embedded in its
  * DefaultAudioSink pipeline, and this manager tracks all live instances so a
- * single [setEcho] call updates every active player simultaneously — no race
+ * single [setReverb] call updates every active player simultaneously — no race
  * between active and standby players during a crossfade overlap.
  *
  * Runs inside ExoPlayer's software audio pipeline (like stereo widening), so
@@ -17,41 +17,41 @@ import dev.wndavenz.music.events.NativeLogger
  * AudioSession publication delays.
  *
  * MONO / multi-channel audio: the processor reports NOT_SET in
- * [EchoAudioProcessor.onConfigure], so the effect is a transparent no-op.
+ * [ReverbAudioProcessor.onConfigure], so the effect is a transparent no-op.
  * TUNNELING: audio bypasses the software pipeline entirely — effects off.
  */
 @UnstableApi
-class EchoManager {
+class ReverbManager {
 
-    var echoEnabled: Boolean = false
+    var reverbEnabled: Boolean = false
         private set
 
-    var echoIntensity: Float = 0.5f
+    var reverbIntensity: Float = 0.5f
         private set
 
-    private val processors = mutableListOf<EchoAudioProcessor>()
+    private val processors = mutableListOf<ReverbAudioProcessor>()
     private val lock = Any()
 
-    fun createProcessor(): EchoAudioProcessor {
-        val p = EchoAudioProcessor()
-        p.setParams(echoEnabled, echoIntensity)
+    fun createProcessor(): ReverbAudioProcessor {
+        val p = ReverbAudioProcessor()
+        p.setParams(reverbEnabled, reverbIntensity)
         synchronized(lock) { processors.add(p) }
         return p
     }
 
-    fun removeProcessor(p: EchoAudioProcessor) {
+    fun removeProcessor(p: ReverbAudioProcessor) {
         synchronized(lock) { processors.remove(p) }
     }
 
-    fun setEcho(enabled: Boolean, intensity: Float = echoIntensity) {
-        echoEnabled = enabled
-        echoIntensity = intensity.coerceIn(0f, 1f)
-        val snapshot: List<EchoAudioProcessor>
+    fun setReverb(enabled: Boolean, intensity: Float = reverbIntensity) {
+        reverbEnabled = enabled
+        reverbIntensity = intensity.coerceIn(0f, 1f)
+        val snapshot: List<ReverbAudioProcessor>
         synchronized(lock) { snapshot = processors.toList() }
-        snapshot.forEach { it.setParams(echoEnabled, echoIntensity) }
+        snapshot.forEach { it.setParams(reverbEnabled, reverbIntensity) }
         NativeLogger.emit(
-            "info", "Echo",
-            "echo=$enabled intensity=$echoIntensity " +
+            "info", "Reverb",
+            "reverb=$enabled intensity=$reverbIntensity " +
             "(active processors=${snapshot.size})",
         )
     }
