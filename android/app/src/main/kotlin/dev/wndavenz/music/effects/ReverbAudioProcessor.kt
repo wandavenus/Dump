@@ -19,10 +19,10 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         private val COMB_DELAYS_R = intArrayOf(1139, 1211, 1300, 1379)
         private val ALLPASS_DELAYS_L = intArrayOf(556, 441)
         private val ALLPASS_DELAYS_R = intArrayOf(579, 464)
-        private const val MAX_FEEDBACK = 0.79f
+        private const val MAX_FEEDBACK = 0.77f
         private const val DAMPING = 0.4f
         private const val ALLPASS_COEFF = 0.5f
-        private const val WET_MAX = 0.42f
+        private const val WET_MAX = 0.36f
         private const val DRY_MIN = 0.72f
         private const val REF_SAMPLE_RATE = 44100
         private const val LIMIT_CEILING = 0.98
