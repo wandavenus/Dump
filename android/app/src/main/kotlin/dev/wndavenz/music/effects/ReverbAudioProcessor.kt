@@ -12,7 +12,7 @@ import kotlin.math.tanh
 
 private const val LOG_TAG = "ReverbProc"
 
-/** Software Schroeder-style reverb with float internal state and automatic output headroom. */
+/** Software Schroeder-style reverb with float internal state and smooth peak control. */
 @UnstableApi
 class ReverbAudioProcessor : BaseAudioProcessor() {
     companion object {
@@ -29,6 +29,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         private const val OUTPUT_CEILING = 0.98
         private const val LIMIT_CEILING = 0.98
         private const val LIMIT_RANGE = 0.02
+        private const val GAIN_RELEASE = 0.0025
 
         private fun limitSample(x: Double): Double {
             val ax = abs(x)
@@ -52,6 +53,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
     private var allpassPosL: IntArray? = null
     private var allpassPosR: IntArray? = null
     private var combSizesL: IntArray? = null
+    private var outputGain = 1.0
 
     fun setParams(enabled: Boolean, intensity: Float) {
         this.intensity = if (enabled && intensity.isFinite()) intensity.coerceIn(0f, 1f) else 0f
@@ -180,11 +182,21 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
             frame += 2
         }
 
-        val outputScale = if (peak > OUTPUT_CEILING && peak.isFinite()) OUTPUT_CEILING / peak else 1.0
+        // Smooth the recovery path instead of resetting the entire block to unity.
+        // This avoids audible gain pumping while still responding immediately to
+        // a new peak that would exceed digital full scale.
+        val targetGain = if (peak > OUTPUT_CEILING && peak.isFinite()) OUTPUT_CEILING / peak else 1.0
+        outputGain = if (targetGain < outputGain) {
+            targetGain
+        } else {
+            outputGain + (targetGain - outputGain) * GAIN_RELEASE
+        }
+        outputGain = outputGain.coerceIn(0.0, 1.0)
+
         frame = 0
         while (frame < samples.size) {
-            samples[frame] = limitSample(samples[frame] * outputScale)
-            samples[frame + 1] = limitSample(samples[frame + 1] * outputScale)
+            samples[frame] = limitSample(samples[frame] * outputGain)
+            samples[frame + 1] = limitSample(samples[frame + 1] * outputGain)
             frame += 2
         }
     }
@@ -206,6 +218,7 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         allpassR = Array(aSizeR.size) { FloatArray(aSizeR[it]) }
         allpassPosL = IntArray(allpassL!!.size)
         allpassPosR = IntArray(allpassR!!.size)
+        outputGain = 1.0
     }
 
     private fun clearState() {
@@ -221,5 +234,6 @@ class ReverbAudioProcessor : BaseAudioProcessor() {
         allpassPosL = null
         allpassPosR = null
         combSizesL = null
+        outputGain = 1.0
     }
 }
