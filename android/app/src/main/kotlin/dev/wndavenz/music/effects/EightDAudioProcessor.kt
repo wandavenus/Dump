@@ -168,8 +168,8 @@ class EightDAudioProcessor : BaseAudioProcessor() {
             val outL = delayRead16(bufL, cap, writeIdx, dL) * panGain(+sinP, inten)
             val outR = delayRead16(bufR, cap, writeIdx, dR) * panGain(-sinP, inten)
 
-            bufL[writeIdx] = l.toShort()
-            bufR[writeIdx] = r.toShort()
+            bufL[writeIdx] = l.toInt().toShort()
+            bufR[writeIdx] = r.toInt().toShort()
             writeIdx = (writeIdx + 1) % cap
             phase += step
 
