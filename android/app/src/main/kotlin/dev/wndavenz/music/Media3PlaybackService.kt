@@ -82,8 +82,20 @@ class Media3PlaybackService : MediaSessionService() {
     private var secondaryPlayer: ExoPlayer? = null
     private var activePlayer:    ExoPlayer? = null
     private val player: ExoPlayer? get() = activePlayer
-    private fun standbyPlayer(): ExoPlayer? =
-        if (activePlayer === primaryPlayer) secondaryPlayer else primaryPlayer
+    private fun standbyPlayer(): ExoPlayer? {
+        // BP-10: while Bit-Perfect Mode is active the standby slot must resolve to
+        // nothing. The parked pre-bit-perfect player (usually primaryPlayer) sits
+        // exactly where the standby logic would look, so without this guard ANY
+        // crossfade-teardown call made during the mode (pause, skip, setTrack,
+        // stop, setQueue of a new playlist, handlePlayUri, …) would stop/clear or
+        // fully release it via clearStandbyQueue()/releaseStandbyPlayer() — silently
+        // destroying the very player switchFromBitPerfectPlayer() must restore.
+        // Toggling OFF would then resurrect a released ExoPlayer: playback dies
+        // instantly and every transport command is a silent no-op until the app
+        // (and with it the native service) is restarted.
+        if (bitPerfectModeOn) return null
+        return if (activePlayer === primaryPlayer) secondaryPlayer else primaryPlayer
+    }
 
     // ── Bit-Perfect Mode: dedicated processing-free player ────────────────────
     // A third ExoPlayer instance with zero custom AudioProcessors and zero
@@ -2118,9 +2130,28 @@ class Media3PlaybackService : MediaSessionService() {
             }
             preBitPerfectPlayer = null
 
-            activePlayer = restored
+            // BP-10 hardening: never hand the pipeline a player that is no longer a
+            // live slot object. If the parked pre-bit-perfect player was cleared or
+            // released while the mode was active (pre-fix standby-slot hazard —
+            // standbyPlayer() now resolves to null during the mode), fall back to
+            // the current primary or a freshly created player instead of
+            // resurrecting a dead ExoPlayer, which would silently swallow every
+            // transport command until the app is restarted.
+            val restoredPlayer: ExoPlayer = run {
+                val candidate = restored
+                when {
+                    candidate === primaryPlayer || candidate === secondaryPlayer -> candidate
+                    primaryPlayer != null -> primaryPlayer!!
+                    else -> createConfiguredPlayer(streamSlot = 0).also {
+                        primaryPlayer = it
+                        attachPlayerListener(it)
+                    }
+                }
+            }
+
+            activePlayer = restoredPlayer
             try {
-                activePlayerProxy.switchTo(restored)
+                activePlayerProxy.switchTo(restoredPlayer)
             } catch (e: Exception) {
                 NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
             }
@@ -2129,11 +2160,11 @@ class Media3PlaybackService : MediaSessionService() {
                 queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
                 // BP-02 (symmetry): carry repeat/shuffle over from the clean player
                 // in case the user changed the mode during bit-perfect playback.
-                restored.repeatMode = clean.repeatMode
-                restored.shuffleModeEnabled = clean.shuffleModeEnabled
+                restoredPlayer.repeatMode = clean.repeatMode
+                restoredPlayer.shuffleModeEnabled = clean.shuffleModeEnabled
             }
             // BP-05: migrate the tracked offload listener back to the restored player.
-            attachOffloadListenerTo(restored)
+            attachOffloadListenerTo(restoredPlayer)
 
             // Re-attach AudioEffects for the restored session — the
             // onAudioSessionIdChanged listener only fires when the numeric session
@@ -2142,10 +2173,10 @@ class Media3PlaybackService : MediaSessionService() {
             // matches lastAttachedSessionId (releaseEffects() on mode entry does
             // not reset that guard), which would leave EQ/bass/loudness dead after
             // exiting the mode (BP-01).
-            val sid = restored.audioSessionId
+            val sid = restoredPlayer.audioSessionId
             if (sid > 0) effectsManager.resetAndReattach(sid)
 
-            if (wasPlaying) restored.play()
+            if (wasPlaying) restoredPlayer.play()
 
             bitPerfectModeOn = false
             transportState.emitAll()
