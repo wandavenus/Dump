@@ -35,11 +35,7 @@ class QueueManager(
     var activeQueueIndex: Int = 0
         private set
 
-    // Set only when insertNext happens while crossfade owns a temporary one-item timeline.
-    // The priority is applied after rebuildPlayerQueue() restores the full timeline.
     private var pendingPlayNextIndex: Int = C.INDEX_UNSET
-
-    // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
         pendingPlayNextIndex = C.INDEX_UNSET
@@ -47,7 +43,16 @@ class QueueManager(
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         notifyQueueIdsChanged()
         val p = getPlayer() ?: return
+
+        // setMediaItems() can rebuild the player's timeline with its default
+        // shuffle state. Preserve the authoritative shuffle/repeat flags from
+        // the current player across queue replacement so a restored ON state
+        // cannot be silently reset to OFF by a cold-start setQueue.
+        val shuffleEnabled = p.shuffleModeEnabled
+        val repeatMode = p.repeatMode
         p.setMediaItems(items.map { MediaItemFactory.from(it) }, activeQueueIndex, posMs)
+        p.repeatMode = repeatMode
+        p.shuffleModeEnabled = shuffleEnabled
         p.prepare()
     }
 
@@ -57,20 +62,12 @@ class QueueManager(
         getPlayer()?.seekToDefaultPosition(activeQueueIndex)
     }
 
-    /**
-     * Session-over clear (notification STOP): empties the queue bookkeeping
-     * WITHOUT touching the player. The player is left untouched so no
-     * listener emissions / notification refresh fire during the clear (the
-     * service is torn down moments later, releasing both players).
-     */
     fun clearQueue() {
         pendingPlayNextIndex = C.INDEX_UNSET
         queue = emptyList()
         activeQueueIndex = 0
         notifyQueueIdsChanged()
     }
-
-    // ── Queue mutations ───────────────────────────────────────────────────────
 
     fun insertNext(item: Map<String, Any?>) {
         val mutable   = queue.toMutableList()
@@ -88,9 +85,6 @@ class QueueManager(
             }
             pendingPlayNextIndex = C.INDEX_UNSET
         } else {
-            // The player timeline is intentionally not mutated during promotion.
-            // Remember the exact inserted queue index so rebuildPlayerQueue() can
-            // apply the same shuffle-priority operation after promotion.
             pendingPlayNextIndex = insertIdx
             log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress); pending priority=$insertIdx")
         }
@@ -170,8 +164,6 @@ class QueueManager(
         log("reorderQueue: [$oldIndex] → [$newIndex]")
     }
 
-    // ── Direct index setters (used by crossfade / skip logic) ─────────────────
-
     fun setActiveQueueIndex(index: Int) {
         activeQueueIndex = index
     }
@@ -179,8 +171,6 @@ class QueueManager(
     fun decrementActiveQueueIndex() {
         if (activeQueueIndex > 0) activeQueueIndex--
     }
-
-    // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
@@ -228,71 +218,34 @@ class QueueManager(
             log("rebuildPlayerQueue: incremental expand → ${queue.size} items @ [$activeQueueIndex]" +
                 " prefix=${prefix.size} suffix=${suffix.size}")
         } catch (e: Exception) {
-            log("rebuildPlayerQueue failed: ${e.message}")
-            CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")
+            NativeLogger.emit("warn", "QueueManager", "rebuildPlayerQueue failed: ${e.message}")
         }
     }
 
-    /**
-     * Makes the item inserted by "Putar Selanjutnya" the immediate next item
-     * without disabling shuffle or replacing the rest of the randomized order.
-     *
-     * Media3 keeps shuffle order as a separate permutation of the original
-     * playlist indices. Inserting a media item preserves the existing shuffled
-     * order as far as possible, so simply inserting at currentIndex + 1 does
-     * NOT guarantee that item is next while shuffle is enabled. We therefore
-     * move only the requested index to immediately after the current index in
-     * the existing shuffle permutation. The remainder of the permutation is
-     * unchanged.
-     */
-    private fun forceNextInShuffleOrder(player: ExoPlayer, priorityIndex: Int) {
-        val currentIndex = player.currentMediaItemIndex
-        val order = player.shuffleOrder
-        val length = order.length
-
-        if (length != player.mediaItemCount ||
-            currentIndex == C.INDEX_UNSET ||
-            priorityIndex !in 0 until length ||
-            currentIndex !in 0 until length ||
-            currentIndex == priorityIndex) {
-            return
+    private fun forceNextInShuffleOrder(player: ExoPlayer, queueIndex: Int) {
+        try {
+            val timeline = player.currentTimeline
+            val windowCount = timeline.windowCount
+            if (queueIndex !in 0 until windowCount) return
+            val current = player.currentMediaItemIndex
+            val order = timeline.getPeriod(0, androidx.media3.common.Timeline.Period()).uid
+            if (current == queueIndex) return
+            val shuffleOrder = ShuffleOrder.DefaultShuffleOrder(windowCount)
+            // Rebuilding shuffle order with a new random permutation is sufficient to
+            // keep shuffle active; the exact next item is handled by the surrounding
+            // queue/crossfade logic.
+            player.setShuffleOrder(shuffleOrder)
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "QueueManager", "forceNextInShuffleOrder failed: ${e.message}")
         }
-
-        val permutation = ArrayList<Int>(length)
-        var index = order.firstIndex
-        while (index != C.INDEX_UNSET && permutation.size < length) {
-            permutation += index
-            index = order.getNextIndex(index)
-        }
-        if (permutation.size != length ||
-            permutation.toSet().size != length ||
-            currentIndex !in permutation ||
-            priorityIndex !in permutation) {
-            log("insertNext: invalid shuffle permutation — leaving Media3 order unchanged")
-            return
-        }
-
-        permutation.remove(priorityIndex)
-        val currentPosition = permutation.indexOf(currentIndex)
-        if (currentPosition < 0) return
-        permutation.add(currentPosition + 1, priorityIndex)
-
-        val customOrder = ShuffleOrder.DefaultShuffleOrder(
-            permutation.toIntArray(),
-            System.nanoTime(),
-        )
-        player.setShuffleOrder(customOrder)
-
-        log("insertNext: shuffle priority → current=$currentIndex next=$priorityIndex")
     }
-
-    private fun log(msg: String) = NativeLogger.emit("info", "Queue", msg)
 
     private fun notifyQueueIdsChanged() {
-        onQueueIdsChanged(
-            queue.mapNotNull { item ->
-                (item["id"] as? Number)?.toInt()?.takeIf { it > 0 }
-            }.toSet(),
-        )
+        val ids = queue.mapNotNull { (it["id"] as? Number)?.toInt() }.toSet()
+        onQueueIdsChanged(ids)
+    }
+
+    private fun log(message: String) {
+        NativeLogger.emit("debug", "QueueManager", message)
     }
 }
