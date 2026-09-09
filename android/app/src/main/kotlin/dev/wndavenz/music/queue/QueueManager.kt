@@ -4,6 +4,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ShuffleOrder
+import dev.wndavenz.music.Media3PlaybackService
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.utils.MediaItemFactory
@@ -13,14 +14,6 @@ import dev.wndavenz.music.utils.MediaItemFactory
  *
  * Applies mutations both to the in-memory list and to ExoPlayer's internal playlist,
  * skipping ExoPlayer mutations safely when crossfade is in progress.
- *
- * Fixes:
- * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to the in-memory list.
- *   After crossfade promotion completes, rebuildPlayerQueue() is called to expand the
- *   single-item promoted player queue to the full N-item queue via addMediaItems().
- *   See CROSSFADE_OPTION_B_DESIGN.md for the rationale.
- *
- * reorderQueue activeQueueIndex adjustment logic is preserved exactly from the original.
  */
 @UnstableApi
 class QueueManager(
@@ -44,12 +37,23 @@ class QueueManager(
         notifyQueueIdsChanged()
         val p = getPlayer() ?: return
 
-        // setMediaItems() can rebuild the player's timeline with its default
-        // shuffle state. Preserve the authoritative shuffle/repeat flags from
-        // the current player across queue replacement so a restored ON state
-        // cannot be silently reset to OFF by a cold-start setQueue.
-        val shuffleEnabled = p.shuffleModeEnabled
+        // Queue replacement must not reset the user's persisted shuffle preference.
+        // This path is also used when Flutter creates a fresh native service after
+        // an app/process kill, so the current ExoPlayer instance starts with its
+        // default shuffle=false even though QueueSync has the user's last choice.
+        // Read the durable preference before replacing the timeline, then restore
+        // both mode flags after setMediaItems(). Existing live-player state wins
+        // whenever it is already enabled; an explicit OFF is represented by the
+        // persisted value and is restored as such.
+        val prefs = Media3PlaybackService.instance?.getSharedPreferences(
+            QueueSync.PREFS_NAME,
+            android.content.Context.MODE_PRIVATE,
+        )
+        val persistedShuffle = prefs?.getBoolean(QueueSync.KEY_SHUFFLE, p.shuffleModeEnabled)
+            ?: p.shuffleModeEnabled
+        val shuffleEnabled = p.shuffleModeEnabled || persistedShuffle
         val repeatMode = p.repeatMode
+
         p.setMediaItems(items.map { MediaItemFactory.from(it) }, activeQueueIndex, posMs)
         p.repeatMode = repeatMode
         p.shuffleModeEnabled = shuffleEnabled
@@ -228,12 +232,8 @@ class QueueManager(
             val windowCount = timeline.windowCount
             if (queueIndex !in 0 until windowCount) return
             val current = player.currentMediaItemIndex
-            val order = timeline.getPeriod(0, androidx.media3.common.Timeline.Period()).uid
             if (current == queueIndex) return
             val shuffleOrder = ShuffleOrder.DefaultShuffleOrder(windowCount)
-            // Rebuilding shuffle order with a new random permutation is sufficient to
-            // keep shuffle active; the exact next item is handled by the surrounding
-            // queue/crossfade logic.
             player.setShuffleOrder(shuffleOrder)
         } catch (e: Exception) {
             NativeLogger.emit("warn", "QueueManager", "forceNextInShuffleOrder failed: ${e.message}")
