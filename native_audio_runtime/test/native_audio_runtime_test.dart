@@ -36,6 +36,43 @@ void main() {
     expect(NativeAudioRuntime.instance, isNotNull);
   });
 
+  test(
+    'Acoustic Engine is transparent in bypass and safe across streams',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      final pipeline = NativeDspPipeline.instance;
+      expect([
+        for (var i = 0; i < pipeline.processorCount; i++)
+          pipeline.processorIdAt(i),
+      ], contains('dsp.acoustic_engine'));
+
+      final buffer = NativeAudioBuffer.create(
+        capacityFrames: 32,
+        channelCount: 2,
+        sampleRate: 48000,
+      )!;
+      addTearDown(buffer.destroy);
+      for (var i = 0; i < buffer.data.length; i++) {
+        buffer.data[i] = (i.isEven ? 0.25 : -0.25);
+      }
+      final original = List<double>.from(buffer.data);
+      NativeAcousticEngine.instance.setBypass(true);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data, orderedEquals(original));
+
+      NativeAcousticEngine.instance.setIntensity(1.0);
+      NativeAcousticEngine.instance.setBypass(false);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data.every((sample) => sample.isFinite), isTrue);
+      // A reset/bypass must leave a following silent buffer silent (no stale DC).
+      NativeAcousticEngine.instance.setBypass(true);
+      buffer.data.fillRange(0, buffer.data.length, 0.0);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data.every((sample) => sample == 0.0), isTrue);
+    },
+  );
+
   test('initialize is idempotent and sets isAvailable', () async {
     await NativeAudioRuntime.instance.initialize();
     expect(NativeAudioRuntime.instance.isAvailable, isTrue);
@@ -71,6 +108,7 @@ void main() {
       'dsp.crossfeed',
       // Phase 8
       'dsp.replaygain',
+      'dsp.acoustic_engine',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere(

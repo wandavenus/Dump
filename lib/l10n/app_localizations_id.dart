@@ -1362,4 +1362,11 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get reverbDescription =>
       'Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone.';
+
+  @override
+  String get acousticEngine => 'Acoustic Engine';
+
+  @override
+  String get acousticEngineDescription =>
+      'Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam.';
 }

@@ -56,6 +56,7 @@ void main(List<String> args) async {
         'src/limiter_processor.c', // Look-ahead limiter processor (Phase 6)
         'src/soft_clipper_processor.c', // Soft clipper processor (Phase 6)
         'src/loudness_processor.c', // Loudness Normalization (Phase 8.5)
+        'src/acoustic_engine_processor.c', // Speaker-oriented perceptual enhancement
         'src/aaudio_probe.c', // AAudio exclusive/MMAP diagnostic probe
         // JNI bridge — NativeDspAudioProcessor.kt calls into this .so via
         // System.loadLibrary("native_audio_runtime") on Android; it is the
