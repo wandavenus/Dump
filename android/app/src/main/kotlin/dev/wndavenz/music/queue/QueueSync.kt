@@ -98,7 +98,7 @@ class QueueSync(
             }
         }
 
-        val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode, shuffle) }
+        val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode) }
         pendingSave.set(task)
         saveExecutor.execute {
             val t = pendingSave.getAndSet(null) ?: return@execute
@@ -135,7 +135,6 @@ class QueueSync(
         idx: Int,
         posMs: Long,
         repeatMode: Int,
-        shuffle: Boolean,
     ) {
         try {
             val arr = JSONArray()
@@ -151,13 +150,17 @@ class QueueSync(
                 }
                 arr.put(obj)
             }
+            // IMPORTANT: KEY_SHUFFLE is intentionally NOT written here.
+            // A background snapshot can be stale relative to a just-completed
+            // shuffle toggle. The toggle is persisted synchronously in save(),
+            // and allowing this writer to touch the same key would reintroduce
+            // the exact race where a stale `false` overwrites a newer `true`.
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_QUEUE, arr.toString())
                 .putInt(KEY_INDEX, idx)
                 .putLong(KEY_POS_MS, posMs)
                 .putInt(KEY_REPEAT_MODE, repeatMode)
-                .putBoolean(KEY_SHUFFLE, shuffle)
                 .apply()
         } catch (e: Exception) {
             handler.post {
