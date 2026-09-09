@@ -52,6 +52,11 @@ class QueueSync(
      * Captures the current queue state on the calling (main) thread, then
      * schedules a write on the single background executor. If an earlier
      * write is still pending, it is superseded by this newer snapshot.
+     *
+     * Shuffle is persisted synchronously before the background snapshot write.
+     * The shuffle toggle is a small critical state value, and writing it with
+     * commit() closes the process-kill window where the daemon writer could be
+     * terminated before it persisted the newly enabled mode.
      */
     fun save() {
         val queue = getQueue()
@@ -77,6 +82,21 @@ class QueueSync(
         val shuffle    = p?.shuffleModeEnabled ?: false
         val snapshot   = queue.map { HashMap(it) }
         val boundedIdx = idx.coerceIn(0, (snapshot.size - 1).coerceAtLeast(0))
+
+        // Critical persistence: unlike the full queue snapshot, the shuffle
+        // flag must survive an immediate process kill after the user toggles it.
+        // SharedPreferences.commit() blocks only for this single boolean and
+        // guarantees the value is durably written before save() returns.
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_SHUFFLE, shuffle)
+                .commit()
+        } catch (e: Exception) {
+            handler.post {
+                NativeLogger.emit("warn", "QueueSync", "shuffle critical save failed: ${e.message}")
+            }
+        }
 
         val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode, shuffle) }
         pendingSave.set(task)
