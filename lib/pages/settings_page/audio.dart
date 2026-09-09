@@ -23,6 +23,9 @@ class _AudioSection extends StatelessWidget {
               const _LoudnessNormSection(),
               const SettingsDivider(),
 
+              const _AcousticEngineSection(),
+              const SettingsDivider(),
+
               const _CrossfeedSection(),
               const SettingsDivider(),
 

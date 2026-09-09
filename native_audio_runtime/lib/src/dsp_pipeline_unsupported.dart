@@ -102,6 +102,17 @@ class NativeLoudnessNorm {
   void resetStream(int streamSlot) {}
 }
 
+/// Unsupported-platform stub for [NativeAcousticEngine].
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  void setIntensity(double intensity) {}
+  double get intensity => 0.0;
+  void setBypass(bool bypass) {}
+  bool get bypass => true;
+}
+
 // ── NativeReplayGain stub ─────────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeReplayGain]. All methods are no-ops.

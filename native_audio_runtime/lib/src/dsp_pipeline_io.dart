@@ -220,7 +220,20 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Compressor (slot 3; Parametric EQ removed — legacy system
+    // Acoustic Engine (slot 3): after loudness/replay gain and before
+    // compressor, limiter, and soft clipper safety stages.
+    final acousticEngineStatus = NativeRuntimeStatus.fromCode(
+      bindings.nar_acoustic_engine_processor_register_internal(),
+    );
+    if (acousticEngineStatus != NativeRuntimeStatus.ok &&
+        acousticEngineStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+        'NativeDspPipeline.initialize (acoustic engine)',
+        acousticEngineStatus,
+      );
+    }
+
+    // Phase 6: Compressor (slot 4; Parametric EQ removed — legacy system
     // Equalizer is the sole EQ backend, see MEMORY.md "EQ silent attach
     // failure").
     final compStatus = NativeRuntimeStatus.fromCode(
@@ -343,6 +356,29 @@ class NativeDspPipeline {
 
   /// `true` if the gain processor is in bypass mode.
   bool get gainBypass => bindings.nar_gain_processor_get_bypass() != 0;
+}
+
+// ── NativeAcousticEngine ─────────────────────────────────────────────────────
+
+/// Dart facade for the native speaker-focused Acoustic Engine processor.
+///
+/// It exposes only an on/off state and a single intensity control. The native
+/// C processor performs the spectral and adaptive protection stages.
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  /// Set enhancement intensity; native code clamps it to [0, 100].
+  void setIntensity(double intensity) =>
+      bindings.nar_acoustic_engine_set_intensity(intensity);
+
+  double get intensity => bindings.nar_acoustic_engine_get_intensity();
+
+  /// Enable (`false`) or transparent-bypass (`true`) the processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_acoustic_engine_set_bypass(bypass ? 1 : 0);
+
+  bool get bypass => bindings.nar_acoustic_engine_get_bypass() != 0;
 }
 
 // ── NativeCompressor ──────────────────────────────────────────────────────────

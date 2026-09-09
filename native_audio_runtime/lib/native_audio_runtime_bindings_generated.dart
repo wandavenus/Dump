@@ -312,6 +312,23 @@ external double nar_loudness_get_applied_gain_db();
 @ffi.Native<ffi.Void Function()>()
 external void nar_loudness_reset();
 
+// ── acoustic_engine_processor.h ─────────────────────────────────────────────
+
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_processor_register_internal();
+
+@ffi.Native<ffi.Void Function(ffi.Float)>()
+external void nar_acoustic_engine_set_intensity(double intensity);
+
+@ffi.Native<ffi.Float Function()>()
+external double nar_acoustic_engine_get_intensity();
+
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_acoustic_engine_set_bypass(int bypass);
+
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_get_bypass();
+
 /// Reset the loudness analyzer for a SPECIFIC stream slot (NAR-5 fix).
 /// [streamSlot]: 0 = primary player, 1 = standby/crossfade player.
 ///               Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0.

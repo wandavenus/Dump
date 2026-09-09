@@ -42,6 +42,7 @@ part 'settings_page/glass_toggle.dart';
 part 'settings_page/audio.dart';
 part 'settings_page/audio/replaygain_section.dart';
 part 'settings_page/audio/loudness_section.dart';
+part 'settings_page/audio/acoustic_engine_section.dart';
 part 'settings_page/audio/crossfeed_section.dart';
 part 'settings_page/audio/crossfade_picker.dart';
 part 'settings_page/audio/batch_scan_section.dart';

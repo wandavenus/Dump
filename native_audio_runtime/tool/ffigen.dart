@@ -27,6 +27,7 @@ void main() {
     packageRoot.resolve('src/crossfeed_processor.h'),
     packageRoot.resolve('src/limiter_processor.h'),
     packageRoot.resolve('src/loudness_processor.h'),
+    packageRoot.resolve('src/acoustic_engine_processor.h'),
     packageRoot.resolve('src/replaygain_processor.h'),
     packageRoot.resolve('src/soft_clipper_processor.h'),
     packageRoot.resolve('src/aaudio_probe.h'),
@@ -104,6 +105,12 @@ void main() {
     'nar_loudness_get_measured_lufs',
     'nar_loudness_get_applied_gain_db',
     'nar_loudness_reset',
+    // acoustic_engine_processor.h
+    'nar_acoustic_engine_processor_register_internal',
+    'nar_acoustic_engine_set_intensity',
+    'nar_acoustic_engine_get_intensity',
+    'nar_acoustic_engine_set_bypass',
+    'nar_acoustic_engine_get_bypass',
     // replaygain_processor.h
     'nar_replaygain_processor_register_internal',
     'nar_replaygain_set_gain',
@@ -166,7 +173,7 @@ void main() {
 //
 // Bindings for the native_audio_runtime C DSP library.
 // Covers: native_audio_runtime.h, audio_buffer.h, dsp_pipeline.h,
-//         gain/comp/crossfeed/limiter/loudness/replaygain/soft_clipper
+//         gain/comp/crossfeed/limiter/loudness/acoustic-engine/replaygain/soft_clipper
 //         processors, and aaudio_probe.h.
 //
 // ignore_for_file: type=lint, unused_import, unused_element,

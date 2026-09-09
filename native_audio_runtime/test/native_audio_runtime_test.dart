@@ -71,6 +71,7 @@ void main() {
       'dsp.crossfeed',
       // Phase 8
       'dsp.replaygain',
+      'dsp.acoustic_engine',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere(
@@ -166,15 +167,15 @@ void main() {
   });
 
   test(
-    'pipeline registers all 7 processors (Phase 4–8.5, PEQ removed) in order',
+    'pipeline registers all 8 processors (Phase 4–8.5, PEQ removed) in order',
     () async {
       await NativeAudioRuntime.instance.initialize();
       await NativeDspPipeline.instance.initialize();
 
-      // [0]gain → [1]replaygain → [2]loudness → [3]compressor →
-      // [4]crossfeed → [5]limiter → [6]soft_clipper
+      // [0]gain → [1]replaygain → [2]loudness → [3]acoustic engine →
+      // [4]compressor → [5]crossfeed → [6]limiter → [7]soft_clipper
       // (Parametric EQ removed — legacy system Equalizer is the sole EQ backend.)
-      expect(NativeDspPipeline.instance.processorCount, equals(7));
+      expect(NativeDspPipeline.instance.processorCount, equals(8));
       expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
       expect(
         NativeDspPipeline.instance.processorIdAt(1),
@@ -186,20 +187,50 @@ void main() {
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(3),
-        equals('dsp.compressor'),
+        equals('dsp.acoustic_engine'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(4),
-        equals('dsp.crossfeed'),
+        equals('dsp.compressor'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(5),
-        equals('dsp.limiter'),
+        equals('dsp.crossfeed'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(6),
+        equals('dsp.limiter'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(7),
         equals('dsp.soft_clipper'),
       );
+    },
+  );
+
+  test(
+    'Acoustic Engine bypass is transparent and intensity is bounded',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      NativeAcousticEngine.instance.setIntensity(250);
+      expect(NativeAcousticEngine.instance.intensity, equals(100));
+      NativeAcousticEngine.instance.setIntensity(-1);
+      expect(NativeAcousticEngine.instance.intensity, equals(0));
+      NativeAcousticEngine.instance.setBypass(true);
+
+      final buffer = NativeAudioBuffer.create(
+        capacityFrames: 2,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(buffer, isNotNull);
+      final data = buffer!.data;
+      addTearDown(buffer.destroy);
+      data.setAll(0, [0.3, -0.3, 0.9, -0.9]);
+      final input = List<double>.from(data);
+      NativeDspPipeline.instance.processBuffer(buffer);
+      expect(data, orderedEquals(input));
     },
   );
 

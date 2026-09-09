@@ -340,6 +340,23 @@ external double nar_loudness_get_applied_gain_db();
 @ffi.Native<ffi.Void Function()>(isLeaf: true)
 external void nar_loudness_reset();
 
+// ── acoustic_engine_processor.h ─────────────────────────────────────────────
+
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_processor_register_internal();
+
+@ffi.Native<ffi.Void Function(ffi.Float)>()
+external void nar_acoustic_engine_set_intensity(double intensity);
+
+@ffi.Native<ffi.Float Function()>()
+external double nar_acoustic_engine_get_intensity();
+
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_acoustic_engine_set_bypass(int bypass);
+
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_get_bypass();
+
 /// Register the ReplayGain processor with the DSP pipeline.
 /// Must be called after nar_dsp_pipeline_init() and before any playback.
 /// Returns NATIVE_RUNTIME_OK (0) on success, or

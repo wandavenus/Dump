@@ -36,6 +36,12 @@ class AudioEffectsService {
   /// Typical: −23.0 (EBU R128 broadcast), −16.0 (podcast), −14.0 (streaming).
   static final ValueNotifier<double> loudnessNormTarget = ValueNotifier(-23.0);
 
+  // ── Acoustic Engine ──────────────────────────────────────────────────────
+  static final ValueNotifier<bool> acousticEngineEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> acousticEngineIntensity = ValueNotifier(
+    50.0,
+  );
+
   // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────
   //
   // Native pipeline defaults this processor to bypass=false (i.e. active)
@@ -201,6 +207,10 @@ class AudioEffectsService {
     clippingProtection.value = prefs.getBool('rgClipProtect') ?? true;
     loudnessNormEnabled.value = prefs.getBool('lnEnabled') ?? false;
     loudnessNormTarget.value = prefs.getDouble('lnTarget') ?? -23.0;
+    acousticEngineEnabled.value =
+        prefs.getBool('acousticEngineEnabled') ?? false;
+    acousticEngineIntensity.value =
+        (prefs.getDouble('acousticEngineIntensity') ?? 50.0).clamp(0.0, 100.0);
     crossfeedEnabled.value = prefs.getBool('crossfeedEnabled') ?? false;
     crossfeedAmount.value = prefs.getDouble('crossfeedAmount') ?? 0.3;
     compressorEnabled.value = prefs.getBool('compEnabled') ?? false;
@@ -404,6 +414,26 @@ class AudioEffectsService {
       'AudioEffects',
       'Loudness target: ${v.toStringAsFixed(1)} LUFS',
     );
+  }
+
+  // ── Acoustic Engine ──────────────────────────────────────────────────────
+
+  static Future<void> setAcousticEngineEnabled(bool enabled) async {
+    acousticEngineEnabled.value = enabled;
+    await _saveBool('acousticEngineEnabled', enabled);
+    PlaybackManager.setNativeAcousticEngineBypass(!enabled);
+    if (enabled) {
+      PlaybackManager.setNativeAcousticEngineIntensity(
+        acousticEngineIntensity.value,
+      );
+    }
+  }
+
+  static Future<void> setAcousticEngineIntensity(double intensity) async {
+    final value = intensity.clamp(0.0, 100.0);
+    acousticEngineIntensity.value = value;
+    await _saveDouble('acousticEngineIntensity', value);
+    PlaybackManager.setNativeAcousticEngineIntensity(value);
   }
 
   // ── Crossfeed (Phase 7) ─────────────────────────────────────────────────────

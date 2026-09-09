@@ -228,6 +228,15 @@ class AudioService {
       );
     }
 
+    if (PlaybackManager.nativeAcousticEngineAvailable) {
+      PlaybackManager.setNativeAcousticEngineIntensity(
+        AudioEffectsService.acousticEngineIntensity.value,
+      );
+      PlaybackManager.setNativeAcousticEngineBypass(
+        !AudioEffectsService.acousticEngineEnabled.value,
+      );
+    }
+
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
   }
 

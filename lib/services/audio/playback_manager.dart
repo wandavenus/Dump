@@ -307,10 +307,7 @@ class PlaybackManager {
   static Future<void> setReverb({
     required bool enabled,
     required double intensity,
-  }) => Media3PlaybackBridge.setReverb(
-    enabled: enabled,
-    intensity: intensity,
-  );
+  }) => Media3PlaybackBridge.setReverb(enabled: enabled, intensity: intensity);
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
       Media3PlaybackBridge.getPlaybackStats();
@@ -750,6 +747,28 @@ class PlaybackManager {
     if (!_dspGuard('resetNativeLoudnessNormForStream')) return;
     NativeLoudnessNorm.instance.resetStream(streamSlot);
   }
+
+  // ── Acoustic Engine ──────────────────────────────────────────────────────
+
+  /// Whether the native speaker-focused Acoustic Engine is available.
+  static bool get nativeAcousticEngineAvailable =>
+      NativeDspPipeline.instance.isInitialized;
+
+  /// Update the engine's single user-facing intensity control ([0, 100]).
+  static void setNativeAcousticEngineIntensity(double intensity) {
+    if (!_dspGuard('setNativeAcousticEngineIntensity')) return;
+    NativeAcousticEngine.instance.setIntensity(intensity);
+  }
+
+  /// Bypass (`true`) or engage (`false`) Acoustic Engine transparently.
+  static void setNativeAcousticEngineBypass(bool bypass) {
+    if (!_dspGuard('setNativeAcousticEngineBypass')) return;
+    NativeAcousticEngine.instance.setBypass(bypass);
+  }
+
+  static bool get nativeAcousticEngineBypassed =>
+      !_dspGuard('nativeAcousticEngineBypassed') ||
+      NativeAcousticEngine.instance.bypass;
 
   // ── Soft Clipper ────────────────────────────────────────────────────────
 
