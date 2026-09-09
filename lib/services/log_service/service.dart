@@ -11,6 +11,7 @@ class LogService {
   static final ValueNotifier<bool> loggingEnabled = ValueNotifier(false);
   static final ValueNotifier<bool> errorsOnly = ValueNotifier(false);
   static final ValueNotifier<bool> verboseEnabled = ValueNotifier(false);
+  static final ValueNotifier<bool> liveTailEnabled = ValueNotifier(true);
 
   /// True setelah [init] selesai. Digunakan oleh zone handler di main()
   /// untuk memutuskan apakah aman memanggil [error] atau harus fallback
@@ -24,6 +25,7 @@ class LogService {
     loggingEnabled.value = prefs.getBool('log_enabled') ?? false;
     errorsOnly.value = prefs.getBool('log_errors_only') ?? false;
     verboseEnabled.value = prefs.getBool('log_verbose') ?? false;
+    liveTailEnabled.value = prefs.getBool('log_live_tail') ?? true;
     isInitialized = true;
   }
 
@@ -46,6 +48,12 @@ class LogService {
     verboseEnabled.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('log_verbose', value);
+  }
+
+  static Future<void> setLiveTailEnabled(bool value) async {
+    liveTailEnabled.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('log_live_tail', value);
   }
 
   // ── Logging ─────────────────────────────────────────────────────────────────
