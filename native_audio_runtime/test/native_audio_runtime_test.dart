@@ -61,8 +61,6 @@ void main() {
       'dsp.pipeline',
       'dsp.gain',
       'dsp.media3_integration',
-      // Phase 5
-      'dsp.equalizer',
       // Phase 6
       'dsp.compressor',
       'dsp.limiter',
@@ -72,6 +70,8 @@ void main() {
       // Phase 8
       'dsp.replaygain',
       'dsp.acoustic_engine',
+      // Phase 8.5 — loudness_processor.c implements real-time EBU R128.
+      'scan.loudness_ebur128',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere(
@@ -83,12 +83,14 @@ void main() {
 
     // Everything else is a placeholder (supported = false).
     final unsupportedKeys = [
+      // Phase 5 — Parametric EQ removed; the legacy Android system Equalizer
+      // is the sole EQ backend, so this native capability is intentionally 0.
+      'dsp.equalizer',
       'dsp.bass_boost',
       'dsp.virtualizer',
       'dsp.resampler',
       'decoder.flac_hires',
       'decoder.dsd',
-      'scan.loudness_ebur128',
     ];
     for (final key in unsupportedKeys) {
       final cap = caps.firstWhere(
@@ -231,6 +233,63 @@ void main() {
       final input = List<double>.from(data);
       NativeDspPipeline.instance.processBuffer(buffer);
       expect(data, orderedEquals(input));
+    },
+  );
+
+  test(
+    'Acoustic Engine shapes audio when engaged and is transparent at zero '
+    'intensity',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+
+      // 2000 Hz sine, both channels — inside the presence band (2200 Hz), so
+      // an engaged engine produces a clearly measurable level change that is
+      // orders of magnitude above float32 rounding noise.
+      const frameCount = 480;
+      const amplitude = 0.25;
+      final input = List<double>.generate(
+        frameCount * 2,
+        (i) => amplitude * math.sin(2 * math.pi * 2000 * (i ~/ 2) / 48000),
+      );
+
+      // Engaged at 100%: output must differ from input (presence + harmonics).
+      NativeAcousticEngine.instance.setIntensity(100);
+      NativeAcousticEngine.instance.setBypass(false);
+      final activeBuffer = NativeAudioBuffer.create(
+        capacityFrames: frameCount,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(activeBuffer, isNotNull);
+      final activeData = activeBuffer!.data;
+      addTearDown(activeBuffer.destroy);
+      activeData.setAll(0, input);
+      // Baseline is read back from the buffer (Float32List) so the comparison
+      // is immune to double→float32 rounding in `setAll`.
+      final activeBaseline = List<double>.from(activeData);
+      NativeDspPipeline.instance.processBuffer(activeBuffer);
+      var maxDiff = 0.0;
+      for (var i = 0; i < activeData.length; i++) {
+        final diff = (activeData[i] - activeBaseline[i]).abs();
+        if (diff > maxDiff) maxDiff = diff;
+      }
+      expect(maxDiff, greaterThan(1e-5));
+
+      // Zero intensity while still engaged: pass-through must be exact.
+      NativeAcousticEngine.instance.setIntensity(0);
+      final transparentBuffer = NativeAudioBuffer.create(
+        capacityFrames: frameCount,
+        channelCount: 2,
+        sampleRate: 48000,
+      );
+      expect(transparentBuffer, isNotNull);
+      final transparentData = transparentBuffer!.data;
+      addTearDown(transparentBuffer.destroy);
+      transparentData.setAll(0, input);
+      final transparentBaseline = List<double>.from(transparentData);
+      NativeDspPipeline.instance.processBuffer(transparentBuffer);
+      expect(transparentData, orderedEquals(transparentBaseline));
     },
   );
 

@@ -28,9 +28,10 @@ class _AcousticEngineSection extends StatelessWidget {
                 min: 0,
                 max: 100,
                 divisions: 20,
-                onChanged: (value) => unawaited(
-                  AudioEffectsService.setAcousticEngineIntensity(value),
-                ),
+                onChanged: AudioEffectsService.setAcousticEngineIntensity,
+                showReset: intensity != 50,
+                onReset: () =>
+                    AudioEffectsService.setAcousticEngineIntensity(50),
                 expandable: true,
               ),
             ),
