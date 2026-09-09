@@ -191,6 +191,7 @@ class TransportState(
         EventEmitter.emit("duration",       p.duration.coerceAtLeast(0L))
         EventEmitter.emit("currentTrack",   currentTrackMap())
         EventEmitter.emit("audioSessionId", p.audioSessionId)
+        EventEmitter.emit("shuffleMode",    p.shuffleModeEnabled)
 
         // DE-06 fix: deduplicate repeatMode — only emit when it changes.
         if (repeatStr != lastEmittedRepeatMode) {
@@ -240,7 +241,7 @@ class TransportState(
         }
     }
 
-    fun currentTrackMap(): Map<String, Any?>? = TrackMapper.currentTrackMap(
+    currentTrackMap(): Map<String, Any?>? = TrackMapper.currentTrackMap(
         player               = getPlayer(),
         queue                = queueManager.queue,
         activeQueueIndex     = queueManager.activeQueueIndex,
