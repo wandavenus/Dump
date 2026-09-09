@@ -30,6 +30,7 @@ typedef struct {
   _Atomic int32_t dirty[NAR_DSP_MAX_STREAMS];
   _Atomic uint32_t intensity_bits;
   _Atomic int32_t bypass;
+  _Atomic int32_t reset_requested[NAR_DSP_MAX_STREAMS];
   int32_t sample_rate[NAR_DSP_MAX_STREAMS];
   NarBiquadState sub_hp[NAR_DSP_MAX_STREAMS];
   NarBiquadState bass_lp[NAR_DSP_MAX_STREAMS];
@@ -101,6 +102,7 @@ static int32_t _ae_init(void* self) {
     _ae.active[s] = defaults;
     _ae.sample_rate[s] = 0;
     atomic_store(&_ae.dirty[s], 0);
+    atomic_store(&_ae.reset_requested[s], 0);
     _reset_stream(s);
   }
   return NATIVE_RUNTIME_OK;
@@ -109,12 +111,25 @@ static int32_t _ae_init(void* self) {
 static int32_t _ae_process(void* self, NarAudioBuffer* buffer, int32_t stream_slot) {
   (void)self;
   const int32_t s = nar_dsp_clamp_stream(stream_slot);
+
+  // Control-thread bypass changes only request a reset. The audio thread owns
+  // all filter/envelope state, so no control API ever mutates live DSP state.
+  if (atomic_load_explicit(&_ae.reset_requested[s], memory_order_acquire)) {
+    _reset_stream(s);
+    atomic_store_explicit(&_ae.reset_requested[s], 0, memory_order_release);
+  }
   if (atomic_load_explicit(&_ae.bypass, memory_order_relaxed)) return NATIVE_RUNTIME_OK;
+
   if (atomic_load_explicit(&_ae.dirty[s], memory_order_acquire)) {
+    // `pending` is published by the control thread before dirty=1 (release),
+    // and consumed here (acquire), so the audio thread sees a complete params
+    // snapshot rather than racing a partially-written struct.
     _ae.active[s] = _ae.pending;
     _ae.sample_rate[s] = 0;
-    atomic_store_explicit(&_ae.dirty[s], 0, memory_order_relaxed);
+    atomic_store_explicit(&_ae.dirty[s], 0, memory_order_release);
+    _reset_stream(s);
   }
+
   float* data = nar_audio_buffer_data(buffer);
   if (data == NULL) return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   const int32_t frames = nar_audio_buffer_frame_count(buffer);
@@ -136,8 +151,6 @@ static int32_t _ae_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
       if (a > peak) peak = a;
     }
     level = peak > level ? peak : envelope_release * level + (1.0f - envelope_release) * peak;
-    // Fade enrichment as the signal approaches full scale, leaving final
-    // protection to the existing compressor/limiter/soft-clipper stages.
     const float protection = _clampf((level - 0.45f) * 1.6f, 0.0f, 1.0f);
     const float enhancement = p->intensity * (1.0f - 0.72f * protection);
     const float harmonic_mix = 0.055f * enhancement;
@@ -148,8 +161,6 @@ static int32_t _ae_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
           &_ae.sub_hp[s].s1[c], &_ae.sub_hp[s].s2[c], x);
       const float bass = nar_biquad_process_sample(&p->bass_low_pass,
           &_ae.bass_lp[s].s1[c], &_ae.bass_lp[s].s2[c], tight);
-      // x*abs(x) is a soft, bounded harmonic generator. Removing its low
-      // component avoids DC/sub-bass build-up and keeps it speaker-friendly.
       const float harmonic_source = bass * fabsf(bass);
       const float harmonic_low = nar_biquad_process_sample(&p->bass_low_pass,
           &_ae.harmonic_lp[s].s1[c], &_ae.harmonic_lp[s].s2[c], harmonic_source);
@@ -158,7 +169,7 @@ static int32_t _ae_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
       const float harsh = nar_biquad_process_sample(&p->harsh_high_pass,
           &_ae.harsh_hp[s].s1[c], &_ae.harsh_hp[s].s2[c], presence);
       float y = presence + harmonic_mix * (harmonic_source - harmonic_low) - harsh_cut * harsh;
-      data[base + c] = isfinite(y) ? y : x;  // fail-open for invalid math.
+      data[base + c] = isfinite(y) ? y : x;
     }
   }
   _ae.level[s] = isfinite(level) ? level : 0.0f;
@@ -167,6 +178,8 @@ static int32_t _ae_process(void* self, NarAudioBuffer* buffer, int32_t stream_sl
 
 static void _ae_reset(void* self) {
   (void)self;
+  // Reset is invoked by pipeline lifecycle on the audio side; do not use this
+  // as a cross-thread control mechanism. User-facing toggles use reset_requested.
   for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; ++s) _reset_stream(s);
 }
 static void _ae_dispose(void* self) { (void)self; _ae_reset(NULL); atomic_store(&_ae.bypass, 1); }
@@ -183,7 +196,7 @@ FFI_PLUGIN_EXPORT int32_t nar_acoustic_engine_processor_register_internal(void) 
 FFI_PLUGIN_EXPORT void nar_acoustic_engine_set_intensity(float intensity) {
   intensity = _clampf(isfinite(intensity) ? intensity : 0.0f, 0.0f, 100.0f);
   AeParams p;
-  _build_params(&p, intensity, 48000);  // per-stream rate is rebuilt on adoption.
+  _build_params(&p, intensity, 48000);
   _ae.pending = p;
   atomic_store(&_ae.intensity_bits, _float_to_bits(intensity));
   for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; ++s)
@@ -194,6 +207,7 @@ FFI_PLUGIN_EXPORT float nar_acoustic_engine_get_intensity(void) {
 }
 FFI_PLUGIN_EXPORT void nar_acoustic_engine_set_bypass(int32_t bypass) {
   atomic_store(&_ae.bypass, bypass ? 1 : 0);
-  _ae_reset(NULL);  // no stale filter/envelope history crosses a toggle.
+  for (int32_t s = 0; s < NAR_DSP_MAX_STREAMS; ++s)
+    atomic_store_explicit(&_ae.reset_requested[s], 1, memory_order_release);
 }
 FFI_PLUGIN_EXPORT int32_t nar_acoustic_engine_get_bypass(void) { return atomic_load(&_ae.bypass); }
