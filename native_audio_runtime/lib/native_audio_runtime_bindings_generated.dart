@@ -321,6 +321,29 @@ external void nar_loudness_reset();
 @ffi.Native<ffi.Void Function(ffi.Int32)>()
 external void nar_loudness_reset_stream(int streamSlot);
 
+// ── acoustic_engine_processor.h ─────────────────────────────────────────────
+/// Register the speaker-oriented Acoustic Engine processor. Returns status.
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_processor_register_internal();
+
+/// Set/get overall Acoustic Engine intensity in [0, 1].
+@ffi.Native<ffi.Void Function(ffi.Float)>()
+external void nar_acoustic_engine_set_intensity(double intensity);
+@ffi.Native<ffi.Float Function()>()
+external double nar_acoustic_engine_get_intensity();
+
+/// Enable (0) or transparent-bypass (1) Acoustic Engine.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_acoustic_engine_set_bypass(int bypass);
+@ffi.Native<ffi.Int32 Function()>()
+external int nar_acoustic_engine_get_bypass();
+
+/// Recompute coefficients for a format change and reset processor state.
+@ffi.Native<ffi.Void Function(ffi.Int32)>()
+external void nar_acoustic_engine_set_sample_rate(int sampleRate);
+@ffi.Native<ffi.Void Function()>()
+external void nar_acoustic_engine_reset();
+
 // ── crossfeed_processor.h ─────────────────────────────────────────────────────
 // Phase 7: Frequency-dependent headphone crossfeed.
 

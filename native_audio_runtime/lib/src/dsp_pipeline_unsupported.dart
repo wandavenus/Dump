@@ -127,6 +127,19 @@ class NativeReplayGain {
   bool get bypass => true;
 }
 
+/// Unsupported-platform stub for [NativeAcousticEngine].
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  void setIntensity(double intensity) {}
+  double get intensity => 0.0;
+  void setBypass(bool bypass) {}
+  bool get bypass => true;
+  void setSampleRate(int sampleRate) {}
+  void reset() {}
+}
+
 // ── NativeCompressor stub ─────────────────────────────────────────────────────
 
 /// Unsupported-platform stub for [NativeCompressor]. All methods are no-ops.
