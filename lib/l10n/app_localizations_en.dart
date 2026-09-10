@@ -1360,4 +1360,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get reverbDescription =>
       'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.';
+
+  @override
+  String get acousticEngine => 'Acoustic Engine';
+
+  @override
+  String get acousticEngineDescription =>
+      'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.';
 }

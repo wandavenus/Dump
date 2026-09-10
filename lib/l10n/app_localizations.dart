@@ -2587,6 +2587,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.'**
   String get reverbDescription;
+
+  /// No description provided for @acousticEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'Acoustic Engine'**
+  String get acousticEngine;
+
+  /// No description provided for @acousticEngineDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.'**
+  String get acousticEngineDescription;
 }
 
 class _AppLocalizationsDelegate

@@ -41,6 +41,13 @@ class MediaCapabilitiesService {
   static final ValueNotifier<bool> reverbEnabled = ValueNotifier(false);
   static final ValueNotifier<double> reverbIntensity = ValueNotifier(0.5);
 
+  /// Native speaker enhancement. It is intentionally a one-toggle/one-slider
+  /// feature rather than exposing its internal filter controls.
+  static final ValueNotifier<bool> acousticEngineEnabled = ValueNotifier(false);
+  static final ValueNotifier<double> acousticEngineIntensity = ValueNotifier(
+    0.5,
+  );
+
   // ── Stream subscriptions (engine → Dart mirror) ───────────────────────────
 
   static StreamSubscription<Map<dynamic, dynamic>>? _stereoWideningSub;
@@ -68,6 +75,11 @@ class MediaCapabilitiesService {
       prefs.getDouble('${_kPrefix}reverbIntensity') ??
           prefs.getDouble('${_kPrefix}echoIntensity') ??
           0.5,
+    );
+    acousticEngineEnabled.value =
+        prefs.getBool('${_kPrefix}acousticEngineEnabled') ?? false;
+    acousticEngineIntensity.value = _normalizeReverbIntensity(
+      prefs.getDouble('${_kPrefix}acousticEngineIntensity') ?? 0.5,
     );
 
     // ── Stereo widening ───────────────────────────────────────────────────────
@@ -134,6 +146,10 @@ class MediaCapabilitiesService {
         intensity: reverbIntensity.value,
       ),
     );
+    PlaybackManager.setNativeAcousticEngine(
+      enabled: acousticEngineEnabled.value,
+      intensity: acousticEngineIntensity.value,
+    );
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────
@@ -190,6 +206,28 @@ class MediaCapabilitiesService {
       unawaited(PlaybackManager.setReverb(enabled: true, intensity: v));
     }
     LogService.log('MediaCap', 'reverbIntensity: $v');
+  }
+
+  static Future<void> setAcousticEngine(bool value) async {
+    acousticEngineEnabled.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('${_kPrefix}acousticEngineEnabled', value);
+    PlaybackManager.setNativeAcousticEngine(
+      enabled: value,
+      intensity: acousticEngineIntensity.value,
+    );
+    LogService.log('MediaCap', 'acousticEngine: $value');
+  }
+
+  static Future<void> setAcousticEngineIntensity(double value) async {
+    final v = _normalizeReverbIntensity(value);
+    acousticEngineIntensity.value = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('${_kPrefix}acousticEngineIntensity', v);
+    if (acousticEngineEnabled.value) {
+      PlaybackManager.setNativeAcousticEngine(enabled: true, intensity: v);
+    }
+    LogService.log('MediaCap', 'acousticEngineIntensity: $v');
   }
 
   /// Keeps persisted, event-stream, and UI values safe for the native

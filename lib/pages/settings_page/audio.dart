@@ -26,6 +26,45 @@ class _AudioSection extends StatelessWidget {
               const _CrossfeedSection(),
               const SettingsDivider(),
 
+              ValueListenableBuilder<bool>(
+                valueListenable: MediaCapabilitiesService.acousticEngineEnabled,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable:
+                      MediaCapabilitiesService.acousticEngineIntensity,
+                  builder: (_, v, _) {
+                    final pct = (v * 100).round();
+                    return SettingsSliderRow(
+                      title: l.acousticEngine,
+                      subtitle: enabled ? '$pct%' : l.disabled,
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) async {
+                        if (val > 0) {
+                          await MediaCapabilitiesService.setAcousticEngine(
+                            true,
+                          );
+                          await MediaCapabilitiesService.setAcousticEngineIntensity(
+                            val,
+                          );
+                        } else {
+                          await MediaCapabilitiesService.setAcousticEngine(
+                            false,
+                          );
+                        }
+                      },
+                      showReset: enabled,
+                      onReset: () async =>
+                          MediaCapabilitiesService.setAcousticEngine(false),
+                      expandable: true,
+                      description: l.acousticEngineDescription,
+                    );
+                  },
+                ),
+              ),
+              const SettingsDivider(),
+
               const _CrossfadePicker(),
               const SettingsDivider(),
 

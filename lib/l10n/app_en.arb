@@ -704,4 +704,6 @@
   "madeByShort": "Made by",
   "reverb": "Reverb",
   "reverbDescription": "Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones."
+  ,"acousticEngine": "Acoustic Engine"
+  ,"acousticEngineDescription": "Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection."
 }

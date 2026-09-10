@@ -220,7 +220,20 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Compressor (slot 3; Parametric EQ removed — legacy system
+    // Acoustic Engine (slot 3): after ReplayGain/Loudness and before the
+    // compressor, limiter, and soft-clipper safety stages.
+    final acousticEngineStatus = NativeRuntimeStatus.fromCode(
+      bindings.nar_acoustic_engine_processor_register_internal(),
+    );
+    if (acousticEngineStatus != NativeRuntimeStatus.ok &&
+        acousticEngineStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+        'NativeDspPipeline.initialize (acoustic_engine)',
+        acousticEngineStatus,
+      );
+    }
+
+    // Phase 6: Compressor (slot 4; Parametric EQ removed — legacy system
     // Equalizer is the sole EQ backend, see MEMORY.md "EQ silent attach
     // failure").
     final compStatus = NativeRuntimeStatus.fromCode(
@@ -234,7 +247,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 7: Crossfeed (slot 4, between compressor and limiter)
+    // Phase 7: Crossfeed (slot 5, between compressor and limiter)
     final crossfeedStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_crossfeed_processor_register_internal(),
     );
@@ -246,7 +259,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Limiter (slot 5)
+    // Phase 6: Limiter (slot 6)
     final limiterStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_limiter_processor_register_internal(),
     );
@@ -258,7 +271,7 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Soft Clipper (slot 6)
+    // Phase 6: Soft Clipper (slot 7)
     final softClipperStatus = NativeRuntimeStatus.fromCode(
       bindings.nar_soft_clipper_processor_register_internal(),
     );
@@ -396,7 +409,7 @@ class NativeCompressor {
 
 /// Dart facade over the native Limiter processor (`src/limiter_processor.h`).
 ///
-/// Brickwall look-ahead limiter at pipeline slot 5.
+/// Brickwall look-ahead limiter at pipeline slot 6.
 /// Prevents any output sample from exceeding [thresholdDb].
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
@@ -431,7 +444,7 @@ class NativeLimiter {
 /// Dart facade over the native Crossfeed processor
 /// (`src/crossfeed_processor.h`).
 ///
-/// Frequency-dependent headphone crossfeed at pipeline slot 4
+/// Frequency-dependent headphone crossfeed at pipeline slot 5
 /// (after dsp.compressor, before dsp.limiter).
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
@@ -618,12 +631,43 @@ class NativeLoudnessNorm {
       bindings.nar_loudness_reset_stream(streamSlot);
 }
 
+/// Dart control facade for the native Acoustic Engine processor.
+///
+/// The DSP itself runs only in C on Media3's audio thread. This class exposes
+/// the intentionally small control surface: bypass and overall intensity.
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  /// Sets overall enhancement strength in [0.0, 1.0]. Non-finite values are
+  /// converted to 0 to keep invalid UI data out of the native control plane.
+  void setIntensity(double intensity) =>
+      bindings.nar_acoustic_engine_set_intensity(
+        intensity.isFinite ? intensity.clamp(0.0, 1.0).toDouble() : 0.0,
+      );
+
+  double get intensity => bindings.nar_acoustic_engine_get_intensity();
+
+  /// Enables (`false`) or transparently bypasses (`true`) the processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_acoustic_engine_set_bypass(bypass ? 1 : 0);
+
+  bool get bypass => bindings.nar_acoustic_engine_get_bypass() != 0;
+
+  /// Rebuilds native filter coefficients for a playback format transition.
+  void setSampleRate(int sampleRate) =>
+      bindings.nar_acoustic_engine_set_sample_rate(sampleRate);
+
+  /// Clears filter and detector state for all stream slots.
+  void reset() => bindings.nar_acoustic_engine_reset();
+}
+
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────
 
 /// Dart facade over the native Soft Clipper processor
 /// (`src/soft_clipper_processor.h`).
 ///
-/// Tanh waveshaper at pipeline slot 7 (last in the dynamics chain).
+/// Tanh waveshaper at pipeline slot 8 (last in the dynamics chain).
 /// Samples below [thresholdDb] pass through unchanged; samples above are
 /// smoothly limited asymptotically toward 0 dBFS.
 ///
