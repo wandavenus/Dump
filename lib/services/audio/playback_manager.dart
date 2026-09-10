@@ -307,10 +307,23 @@ class PlaybackManager {
   static Future<void> setReverb({
     required bool enabled,
     required double intensity,
-  }) => Media3PlaybackBridge.setReverb(
-    enabled: enabled,
-    intensity: intensity,
-  );
+  }) => Media3PlaybackBridge.setReverb(enabled: enabled, intensity: intensity);
+
+  /// Configures the native, speaker-focused Acoustic Engine. The audio path
+  /// remains C/JNI; this method only publishes lock-free control parameters.
+  static void setNativeAcousticEngine({
+    required bool enabled,
+    required double intensity,
+  }) {
+    if (!_dspGuard('setNativeAcousticEngine')) return;
+    NativeAcousticEngine.instance.setIntensity(intensity);
+    NativeAcousticEngine.instance.setBypass(!enabled);
+  }
+
+  static void setNativeAcousticEngineSampleRate(int sampleRate) {
+    if (!_dspGuard('setNativeAcousticEngineSampleRate')) return;
+    NativeAcousticEngine.instance.setSampleRate(sampleRate);
+  }
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
       Media3PlaybackBridge.getPlaybackStats();

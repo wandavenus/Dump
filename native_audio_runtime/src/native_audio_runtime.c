@@ -58,6 +58,7 @@ static const NarCapabilityEntry kCapabilities[] = {
     {"dsp.limiter",           1},  // Phase 6:   look-ahead brickwall limiter
     {"dsp.soft_clipper",      1},  // Phase 6:   tanh soft clipper
     {"dsp.replaygain",        1},  // Phase 8:   metadata-driven ReplayGain gain stage
+    {"dsp.acoustic_engine",   1},  // Speaker-focused perceptual enhancement
     {"dsp.bass_boost",        0},
     {"dsp.virtualizer",       0},
     {"dsp.resampler",         0},

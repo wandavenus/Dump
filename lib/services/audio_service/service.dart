@@ -180,6 +180,7 @@ class AudioService {
           final sr = (event['sampleRate'] as num?)?.toInt() ?? 0;
           if (sr > 0 && PlaybackManager.nativeLoudnessNormAvailable) {
             PlaybackManager.setNativeLoudnessSampleRate(sr);
+            PlaybackManager.setNativeAcousticEngineSampleRate(sr);
           }
           if (sr > 0) {
             AudioEffectsService.setNativeDspSampleRate(sr);
