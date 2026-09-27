@@ -109,7 +109,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 ### Frontend
 | Teknologi | Versi | Peran |
 |---|---|---|
-| **Flutter** | SDK `>=3.12.2 <4.0.0` (teruji di 3.47.3) | Framework UI |
+| **Flutter** | SDK `>=3.12.2 <4.0.0` (teruji di **3.47.5**, Dart 3.13.4) | Framework UI |
 | **Dart** | — | Bahasa |
 | `flutter_localizations` + `intl` ^0.20.2 | — | i18n (EN + ID) |
 | `shared_preferences` ^2.5.3 | — | Persistensi key-value |
@@ -124,7 +124,7 @@ Yang membuat Dump berbeda dari pemutar musik rata-rata adalah **mesin audio-nya 
 | `native_audio_runtime` | path (lokal) | Plugin FFI DSP |
 
 ### Native Android (Kotlin, package `dev.wndavenz.music`)
-- **Media3 / ExoPlayer 1.11.0** — engine playback.
+- **Media3 / ExoPlayer 1.11.1** — engine playback.
 - **FFmpeg decoder** — `org.jellyfin.media3:media3-ffmpeg-decoder` (AAR prebuilt, GPL v3) untuk format uncommon.
 - **Kotlin JVM toolchain 21**, `compileSdk 36`, `ndkVersion 28.2.13676358`.
 - **AndroidX** — `palette` (MMCQ color quantization), `media3-*`.
@@ -742,7 +742,11 @@ Semua workflow pakai `concurrency` cancel-in-progress.
 - `native_audio_runtime_test.dart` — **60 test** yang memanggil C DSP lewat FFI (pipeline, kapabilitas, kapabiltas 8 processor & urutannya, loudness BS.1770-4, gate, NaN guard, bypass, dll).
 - `native_benchmark.dart` — benchmark throughput DSP.
 
-**Status verifikasi saat ini (clone bersih, `main` @ `bf16fcb`):** `dart test` **60/60 lulus**, `dart analyze lib test` **No issues**, `gcc -std=c11 -Wall -Wextra -Werror` bersih.
+**Status verifikasi saat ini (clone bersih, `main` @ `bf16fcb`, Flutter 3.47.5):**
+- `flutter test` (root) — **63/63 lulus**.
+- `dart test` (native_audio_runtime) — **60/60 lulus**.
+- `flutter analyze lib test` & `dart analyze lib test` — **No issues found**.
+- `gcc -std=c11 -Wall -Wextra -Werror` — bersih.
 
 ---
 
