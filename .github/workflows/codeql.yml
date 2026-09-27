@@ -52,7 +52,6 @@ jobs:
         with:
           fetch-depth: 0
 
-
       ##################################################
       # Environment Setup
       ##################################################
@@ -73,7 +72,7 @@ jobs:
 
       - name: Setup Android SDK
         if: matrix.build-mode == 'manual'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # The Android module declares these exact native tool versions.
       # setup-android does not guarantee that CMake 3.22.1 / NDK 28.2 are
@@ -88,7 +87,6 @@ jobs:
         if: matrix.build-mode == 'manual'
         uses: gradle/actions/setup-gradle@v4
 
-
       ##################################################
       # CodeQL Initialization
       ##################################################
@@ -100,7 +98,6 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended,security-and-quality
 
-
       ##################################################
       # Flutter Dependencies
       ##################################################
@@ -109,7 +106,6 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: |
           flutter pub get
-
 
       ##################################################
       # Manual Build
@@ -122,14 +118,12 @@ jobs:
           cd android
           ./gradlew clean assembleDebug --no-build-cache --no-daemon --stacktrace
 
-
       - name: Build Native C++ Code
         if: matrix.language == 'c-cpp'
         run: |
           chmod +x android/gradlew
           cd android
           ./gradlew externalNativeBuildDebug --no-daemon --stacktrace
-
 
       ##################################################
       # CodeQL Analysis
