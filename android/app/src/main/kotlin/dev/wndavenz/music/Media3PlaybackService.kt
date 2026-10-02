@@ -721,7 +721,7 @@ class Media3PlaybackService : MediaSessionService() {
 
         shutdownCoordinator = ServiceShutdownCoordinator(
             cancelCrossfade        = { rv -> crossfadeController.cancel(resetVolume = rv) },
-            cancelSleepTimer       = { sleepTimerManager.cancel() },
+            cancelSleepTimer       = { sleepTimerManager.cancelIfActive() },
             stopPositionTicker     = { transportState.stopPositionTicker() },
             emitAll                = { transportState.emitAll() },
             abandonAudioFocus      = { audioFocusManager.abandon() },
@@ -1132,7 +1132,7 @@ class Media3PlaybackService : MediaSessionService() {
             ACTION_STOP -> {
                 // STOP is not a standard TransportCommands flow — it tears down the
                 // foreground service.  Keep the inline logic here.
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 crossfadeController.cancel(resetVolume = true)
                 primaryPlayer?.pause();   primaryPlayer?.seekTo(0)
                 secondaryPlayer?.pause(); secondaryPlayer?.seekTo(0)

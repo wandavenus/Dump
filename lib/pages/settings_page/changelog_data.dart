@@ -20,6 +20,16 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.31',
+    date: '3 Oktober 2026',
+    changes: [
+      'Log "cancelSleepTimer called but no active timer or fade" tidak lagi muncul pada setiap tindakan playback biasa (tap lagu, next/prev, stop, service ke-destroy) — jalur reset sesi sekarang senyap, dan baris tersebut hanya tercatat saat cancel benar-benar datang dari halaman Sleep Timer.',
+      'Audit Acoustic Engine: push ke native di-debounce 120 ms, satu slider tick hanya mengirim satu setter, sampel NaN/Inf tidak lagi membuat pemrosesan buffer terhenti di tengah, dan dokumentasi latency 0 frame ditambahkan pada processor C.',
+      'Fitur "Up Next" dihapus sepenuhnya — kartu pada player, pengaturan tampilan, dan seluruh kunci terjemahannya ikut dibersihkan.',
+      'Pembaruan dependency aman (29 paket, tanpa naik versi mayor) dan Flutter channel dikembalikan ke stable 3.47.6.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.30',
     date: '14 Agustus 2026',
     changes: [

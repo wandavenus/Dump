@@ -153,6 +153,26 @@ class SleepTimerManager(
         log("Sleep timer cancelled")
     }
 
+    /**
+     * Silent variant of [cancel] for the "session reset" callers — queue or
+     * track replacement, skip, stop, service teardown.
+     *
+     * Those callers must cancel unconditionally so a timer can never survive a
+     * queue change, but the user did not necessarily arm one: every song tap
+     * (setQueue), every skip, and every service destroy then hit [cancel]'s
+     * no-op branch and emitted a [VRB] line even though the Sleep Timer was
+     * never touched. This early-returns in that case, and otherwise delegates
+     * to [cancel] so the reset semantics (fade abort, runnable removal, event
+     * emission) stay in one place.
+     *
+     * Functionally identical to [cancel] — the no-op branch is what makes the
+     * difference, and skipping it only skips the log line.
+     */
+    fun cancelIfActive() {
+        if (!sleepTimerActive && fadeRunnable == null) return
+        cancel()
+    }
+
     fun emitSleepTimer() {
         val remaining = if (sleepTimerActive && !sleepEndOfSong)
             (sleepTimerEndMs - System.currentTimeMillis()).coerceAtLeast(0L)
