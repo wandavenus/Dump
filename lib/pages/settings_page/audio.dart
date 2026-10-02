@@ -41,18 +41,13 @@ class _AudioSection extends StatelessWidget {
                       max: 1.0,
                       divisions: 20,
                       onChanged: (val) async {
-                        if (val > 0) {
-                          await MediaCapabilitiesService.setAcousticEngine(
-                            true,
-                          );
-                          await MediaCapabilitiesService.setAcousticEngineIntensity(
-                            val,
-                          );
-                        } else {
-                          await MediaCapabilitiesService.setAcousticEngine(
-                            false,
-                          );
-                        }
+                        // One service call: the slider's intensity already
+                        // encodes the on/off state (0 = off, > 0 = on), so a
+                        // drag no longer issues an enable write plus an
+                        // intensity write on every tick.
+                        await MediaCapabilitiesService.setAcousticEngineIntensity(
+                          val,
+                        );
                       },
                       showReset: enabled,
                       onReset: () async =>
