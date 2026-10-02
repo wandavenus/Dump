@@ -37,7 +37,6 @@ Future<void> main() async {
         LanguageManager.instance.init(),
         ThemeController.init(),
         LyricsSettings.init(),
-        UpNextSettings.init(),
         WatermarkService.init(),
         ArtworkRepository.instance.warmUp(),
         NativePaletteService.warmUp(),

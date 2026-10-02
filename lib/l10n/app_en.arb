@@ -31,8 +31,7 @@
   "themeLight": "Light",
   "themeAutomatic": "Automatic",
   "themeDark": "Dark",
-  "showUpNext": "Show Up Next",
-  "showUpNextSubtitle": "Next song card in player",
+  
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Transparent blur effect on the entire UI",
   "sectionLanguage": "LANGUAGE",
@@ -271,7 +270,7 @@
       }
     }
   },
-  "upNextLabel": "UP NEXT",
+  
   "shuffleOn": "Shuffle On",
   "shuffleOff": "Shuffle Off",
   "loopOff": "Loop Off",

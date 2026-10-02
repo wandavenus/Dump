@@ -58,16 +58,6 @@ class _AppearanceSection extends StatelessWidget {
         ),
         const SettingsDivider(),
         ValueListenableBuilder<bool>(
-          valueListenable: UpNextSettings.showUpNextCard,
-          builder: (_, show, _) => SettingsToggleRow(
-            title: l.showUpNext,
-            subtitle: l.showUpNextSubtitle,
-            value: show,
-            onChanged: UpNextSettings.setShowUpNextCard,
-          ),
-        ),
-        const SettingsDivider(),
-        ValueListenableBuilder<bool>(
           valueListenable: ThemeController.glassTheme,
           builder: (context, isGlass, _) => Column(
             children: [

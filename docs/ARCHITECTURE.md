@@ -200,7 +200,7 @@ Struktur khas plugin FFI: `src/` (C), `lib/` (Dart), `hook/build.dart` (build ho
 2. **Edge-to-edge** system UI (kecuali web).
 3. **`LogService.init()`** — harus pertama agar log permission failure tercatat (sebelum `loggingEnabled` false, `log()` early-return).
 4. **Permission audio** (`storage`, `audio`) — Android fresh install bisa mengembalikan library kosong; menunggu di sini membuat query pertama otoritatif.
-5. **Warm-up paralel** (`Future.wait`): `LanguageManager`, `ThemeController`, `LyricsSettings`, `UpNextSettings`, `WatermarkService`, `ArtworkRepository`, `NativePaletteService`, `MediaStoreService`, `HistoryService`.
+5. **Warm-up paralel** (`Future.wait`): `LanguageManager`, `ThemeController`, `LyricsSettings`, `WatermarkService`, `ArtworkRepository`, `NativePaletteService`, `MediaStoreService`, `HistoryService`.
 6. **Prewarm artwork** dua tahap: 4 item prioritas (3s timeout) lalu sisanya (2s, background).
 7. `NativeLogBridge.init()` — subscribe log native.
 8. **Global error handler**: `FlutterError.onError` + `PlatformDispatcher.instance.onError` → `LogService`.
@@ -339,7 +339,6 @@ Semua memakai `detail_sections/songs.dart`, `song_row.dart`, `top_bar.dart`.
 | Favorite | `player_favorite_button.dart` |
 | Hero art | `player_hero_tags.dart` |
 | More menu | `player_more_menu.dart` |
-| Up Next card | `player_up_next_card.dart` (dimatikan default, `UpNextSettings.showUpNextCard=false`) |
 
 **Background:** artwork difog-blur di belakang (shader `assets/shaders/fluid.frag` untuk efek fluid), dengan `fallback` bila artwork tidak ada. `Hero` tag menghubungkan artwork album-list ↔ artwork player.
 
@@ -631,7 +630,6 @@ Semua di `lib/services/`. 22 service utama:
 | `MediaCapabilitiesService` | Kapabilitas advanced (stereo widening, reverb). |
 | `PlayerSheetController` | Animasi bottom-sheet player. |
 | `ScrollToTopService` | Scroll-to-top per tab. |
-| `UpNextSettings` | Setting kartu "Up Next" (default mati). |
 | `SongMetadataService` | Metadata lagu. |
 | `MediaStoreService` | (tersebut di atas). |
 | `Native/bridges/*` | `NativeDspBridge`, `FfmpegDecoderBridge`, `NativeLogBridge`. |

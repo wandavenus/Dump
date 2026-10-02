@@ -28,8 +28,7 @@
   "themeLight": "Terang",
   "themeAutomatic": "Otomatis",
   "themeDark": "Gelap",
-  "showUpNext": "Tampilkan Up Next",
-  "showUpNextSubtitle": "Kartu lagu berikutnya di player",
+  
   "liquidGlass": "Liquid Glass",
   "liquidGlassSubtitle": "Efek blur transparan pada seluruh UI",
   "sectionLanguage": "BAHASA",
@@ -209,7 +208,7 @@
   "sleepFadingOut": "Memudar…",
   "timerAfterSong": "Timer: berhenti setelah lagu ini",
   "timerDuration": "Timer: {label}",
-  "upNextLabel": "BERIKUTNYA",
+  
   "shuffleOn": "Shuffle On",
   "shuffleOff": "Shuffle Off",
   "loopOff": "Loop Mati",

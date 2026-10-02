@@ -266,18 +266,6 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
-  /// No description provided for @showUpNext.
-  ///
-  /// In en, this message translates to:
-  /// **'Show Up Next'**
-  String get showUpNext;
-
-  /// No description provided for @showUpNextSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Next song card in player'**
-  String get showUpNextSubtitle;
-
   /// No description provided for @liquidGlass.
   ///
   /// In en, this message translates to:
@@ -1123,12 +1111,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Timer: {label}'**
   String timerDuration(String label);
-
-  /// No description provided for @upNextLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'UP NEXT'**
-  String get upNextLabel;
 
   /// No description provided for @shuffleOn.
   ///
