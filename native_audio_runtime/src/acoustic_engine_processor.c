@@ -174,11 +174,18 @@ static int32_t _process(void* self, NarAudioBuffer* buffer, int32_t stream_slot)
 
   const AeParams* p = &_ae.active[s];
   const int channels = buffer->channel_count;
+  // Non-finite input is silenced in place rather than aborting the buffer, so
+  // a single bad sample can never truncate a frame or hand the downstream
+  // limiter/soft-clipper stages a half-rendered buffer. The condition is still
+  // reported at the end (first non-OK code wins in the pipeline) so diagnostics
+  // keep seeing that hostile data reached the DSP.
+  int32_t sanitized = 0;
   for (int32_t f = 0; f < buffer->frame_count; ++f) {
     float peak = 0.0f;
     for (int c = 0; c < channels; ++c) {
-      const float x = buffer->data[f * channels + c];
-      if (!isfinite(x)) { buffer->data[f * channels + c] = 0.0f; return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT; }
+      const int n = f * channels + c;
+      float x = buffer->data[n];
+      if (!isfinite(x)) { x = 0.0f; buffer->data[n] = 0.0f; sanitized = 1; }
       const float a = fabsf(x); if (a > peak) peak = a;
     }
     // Stereo-linked detector: no left/right image movement. Fast attack,
@@ -203,7 +210,7 @@ static int32_t _process(void* self, NarAudioBuffer* buffer, int32_t stream_slot)
       buffer->data[n] = _clampf(y, -4.0f, 4.0f);
     }
   }
-  return NATIVE_RUNTIME_OK;
+  return sanitized ? NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT : NATIVE_RUNTIME_OK;
 }
 
 // Called by the pipeline (same thread that drives process()): clearing every
@@ -213,6 +220,12 @@ static void _reset(void* self) {
   for (int s = 0; s < NAR_DSP_MAX_STREAMS; ++s) _clear_stream(s);
 }
 static void _dispose(void* self) { (void)self; _reset(NULL); }
+// All five stages are direct-form-II biquads plus a memoryless waveshaper
+// (x*abs(x)) and a one-pole envelope follower: none of them look ahead or
+// buffer a future sample, so the algorithmic latency is genuinely 0 frames.
+// Note for callers: nar_dsp_pipeline_total_latency_frames() sums this across
+// the chain, but nothing consumes that total yet (see dsp_processor.h) — the
+// limiter in this same chain is the only stage that does add look-ahead.
 static int32_t _latency(void* self) { (void)self; return 0; }
 static const NarDspProcessorVTable _vtable = {_init, _process, _reset, _dispose, _latency};
 

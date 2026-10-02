@@ -18,6 +18,7 @@
 // own clang, so this is not a project or CI requirement.
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 import 'package:test/test.dart';
@@ -70,6 +71,54 @@ void main() {
       buffer.data.fillRange(0, buffer.data.length, 0.0);
       expect(pipeline.processBuffer(buffer), 0);
       expect(buffer.data.every((sample) => sample == 0.0), isTrue);
+    },
+  );
+
+  test(
+    'Acoustic Engine renders the whole buffer when a sample is non-finite',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      final pipeline = NativeDspPipeline.instance;
+
+      final buffer = NativeAudioBuffer.create(
+        capacityFrames: 64,
+        channelCount: 2,
+        sampleRate: 48000,
+      )!;
+      addTearDown(buffer.destroy);
+      NativeAcousticEngine.instance.setIntensity(1.0);
+      NativeAcousticEngine.instance.setBypass(false);
+      // dsp.gain sits at slot 0 and sanitises non-finite samples itself, so
+      // leaving it on would hide the Acoustic Engine behind it. Disable it for
+      // this test so the Acoustic Engine is the first stage that sees the NaN.
+      pipeline.setProcessorEnabled('dsp.gain', enabled: false);
+      addTearDown(
+        () => pipeline.setProcessorEnabled('dsp.gain', enabled: true),
+      );
+
+      // Reference render: identical input except the one poisoned sample is a
+      // clean 0.0. Both renders start from a known pipeline state so the two
+      // outputs are bit-comparable.
+      int renderWith(void Function(Float32List data) poison) {
+        buffer.data.fillRange(0, buffer.data.length, 0.25);
+        poison(buffer.data);
+        pipeline.reset();
+        return pipeline.processBuffer(buffer);
+      }
+
+      renderWith((data) => data[64] = 0.0);
+      final reference = List<double>.from(buffer.data);
+
+      // The same buffer, but with NaN at the same position. The processor must
+      // neutralise it in place and still render every remaining frame, so the
+      // output matches the reference exactly instead of stopping dead at the
+      // bad sample. The condition is still reported for diagnostics.
+      final status = renderWith((data) => data[64] = double.nan);
+
+      expect(buffer.data.every((sample) => sample.isFinite), isTrue);
+      expect(buffer.data, orderedEquals(reference));
+      expect(status, isNot(0));
     },
   );
 
