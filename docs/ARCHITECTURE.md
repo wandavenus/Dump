@@ -2,7 +2,7 @@
 
 > **Music player lokal untuk Android, ditulis dengan Flutter, dengan seluruh pemrosesan audio berat dijalankan di lapisan native (Kotlin + C/DSP FFI).**
 >
-> Versi aplikasi: **1.5.30** · Package: `musicplayer` · Bundle ID: `dev.wndavenz.music`
+> Versi aplikasi: **1.5.31** · Package: `musicplayer` · Bundle ID: `dev.wndavenz.music`
 > Repo: `github.com/wandavenus/Dump` · Lisensi: lihat `LICENSE`
 
 Dokumen ini adalah peta lengkap codebase: apa yang dibangun, bagaimana setiap bagian bekerja, dan mengapa arsitekturnya seperti itu.
@@ -425,7 +425,7 @@ Urutan sumber: **embedded** → file `.lrc` lokal → memory cache → disk cach
 7. **Debug** (`debug.dart`, `debug_state.dart`) — hanya tampil bila `_DebugState.enabled`.
 8. **About** (`about.dart`, `about_app_page.dart`) — versi, kredit, `qris_support.webp` (donasi), `bug_report_page.dart`, `changelog_page.dart` + `changelog_data.dart`.
 
-**Changelog** wajib diisi tiap perubahan — entri terbaru di paling atas, berisi versi (dari `pubspec.yaml`) + tanggal. Versi saat ini `1.5.30` (14 Agustus 2026).
+**Changelog** wajib diisi tiap perubahan — entri terbaru di paling atas, berisi versi (dari `pubspec.yaml`) + tanggal. Versi saat ini `1.5.31` (3 Oktober 2026).
 
 ---
 

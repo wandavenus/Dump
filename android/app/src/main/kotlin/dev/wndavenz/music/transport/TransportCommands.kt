@@ -178,7 +178,7 @@ class TransportCommands(
             // ── Queue management ──────────────────────────────────────────────
 
             "setQueue" -> {
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 val items = call.argument<List<Map<String, Any?>>>("queue") ?: emptyList()
                 val index = call.argument<Number>("index")?.toInt() ?: 0
 
@@ -197,7 +197,7 @@ class TransportCommands(
             }
 
             "setTrack" -> {
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 crossfadeController.cancel(resetVolume = true)
                 preloadManager.clearStandbyQueue()
                 queueManager.setTrack(call.argument<Number>("index")?.toInt() ?: 0)
@@ -612,7 +612,7 @@ class TransportCommands(
         // (which all cancel). Previously only the notification's ACTION_STOP
         // cancelled it, so a Dart stop() (transient pause-and-idle) left the
         // timer armed and it would later pause the NEXT session the user starts.
-        sleepTimerManager.cancel()
+        sleepTimerManager.cancelIfActive()
         // Stop is not a user "pause" gesture (used for setQueue/teardown paths
         // elsewhere) — no fade here, matches prior instant behavior. Cancel any
         // in-flight play/pause fade so it can't keep writing to a stopped player.
@@ -656,9 +656,9 @@ class TransportCommands(
             log("verbose", "skipPrevious dropped (rapid repeat)")
             result.success(null); return
         }
-        sleepTimerManager.cancel()
+        sleepTimerManager.cancelIfActive()
 
-        // Capture before cancel() + clearStandbyQueue() erase this information.
+        // Capture before cancelIfActive() + clearStandbyQueue() erase this information.
         val wasCrossfading = crossfadeController.crossfadeInProgress
         val promotedIndex  = preloadManager.preloadedQueueIndex
 
@@ -707,9 +707,9 @@ class TransportCommands(
             log("verbose", "skipNext dropped (rapid repeat)")
             result.success(null); return
         }
-        sleepTimerManager.cancel()
+        sleepTimerManager.cancelIfActive()
 
-        // Capture before cancel() + clearStandbyQueue() erase this information.
+        // Capture before cancelIfActive() + clearStandbyQueue() erase this information.
         val wasCrossfading = crossfadeController.crossfadeInProgress
         val promotedIndex  = preloadManager.preloadedQueueIndex
 
@@ -807,7 +807,7 @@ class TransportCommands(
      * non-INDEX_UNSET mediaItemIndex. Mirrors the "setTrack" MethodChannel branch.
      */
     fun setTrackNative(index: Int) {
-        sleepTimerManager.cancel()
+        sleepTimerManager.cancelIfActive()
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
         queueManager.setTrack(index)
