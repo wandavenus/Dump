@@ -38,7 +38,7 @@
 │   AudioEffectsService   EQ · ReplayGain · Loudness · Crossfeed · Bass · BitPerfect│
 │   MediaCapabilitiesService  stereo widening · reverb · skip-silence (prefix mcap_) │
 │   DeviceDsp  ·  AudioFocusService  ·  SleepTimerService  ·  AudioSessionHandler   │
-│   UpNextSettings  ·  LyricsSettings (models/)                                     │
+│   LyricsSettings (models/)                                                        │
 │                                                                                   │
 │  CONTENT / LIBRARY                                                               │
 │   MediaStoreService  (scan pustaka, warm-up cache sinkron, rescanNotifier)        │
@@ -180,7 +180,7 @@ lib/
 │   │            player_transport_controls · player_progress_section
 │   │            player_song_header · player_song_info_sheet/
 │   │            synced_lyrics_view/ (state_*, karaoke_*, elrc_word, view)
-│   │            player_hero_tags · player_more_menu · player_up_next_card · …
+│   │            player_hero_tags · player_more_menu · …
 │   ├── pages/  home_sections/ · browse_sections/ · library_sections/detail/
 │   │           detail_sections/ · search_sections/ · radio_sections/ · artist_list_sections/
 │   ├── common/  scrolling_page_chrome/ · swipe_to_dismiss_sheet
@@ -236,7 +236,7 @@ services/
 ├── native/  bridges/{native_dsp_bridge, ffmpeg_decoder_bridge}.dart
 │            contracts/native_module.dart · models/native_module_status.dart
 │            native_module_registry.dart      ← lifecycle dimiliki PlaybackManager
-└── (util) player_sheet_controller · scroll_to_top_service · up_next_settings
+└── (util) player_sheet_controller · scroll_to_top_service
          watermark_service · language_manager
 ```
 

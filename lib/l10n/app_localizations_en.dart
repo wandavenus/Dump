@@ -93,12 +93,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
-  String get showUpNext => 'Show Up Next';
-
-  @override
-  String get showUpNextSubtitle => 'Next song card in player';
-
-  @override
   String get liquidGlass => 'Liquid Glass';
 
   @override
@@ -562,9 +556,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String timerDuration(String label) {
     return 'Timer: $label';
   }
-
-  @override
-  String get upNextLabel => 'UP NEXT';
 
   @override
   String get shuffleOn => 'Shuffle On';

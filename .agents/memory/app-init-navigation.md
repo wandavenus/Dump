@@ -16,7 +16,6 @@ runZonedGuarded {
      - ThemeController.init()
      - LogService.init()
      - LyricsSettings.init()
-     - UpNextSettings.init()
      - WatermarkService.init()
      - ArtworkRepository.instance.warmUp()      ← resolves cache dir
      - PaletteExtractor.warmUp()                ← hydrates persisted palette
