@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:musicplayer/pages/settings_page.dart';
+import 'package:musicplayer/pages/app_update_settings_page.dart';
 import 'package:musicplayer/services/app_update_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/utils/zoom_fade_route.dart';
@@ -181,12 +181,9 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
                 widget.onOpenChangelog!();
               } else if (value == 'settings') {
                 unawaited(
-                  Navigator.of(
-                    context,
-                    rootNavigator: true,
-                  ).push(
+                  Navigator.of(context).push(
                     ZoomFadeRoute<void>(
-                      page: const SettingsPage(),
+                      page: const AppUpdateSettingsPage(),
                     ),
                   ),
                 );
