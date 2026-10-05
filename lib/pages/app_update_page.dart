@@ -40,7 +40,9 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
     try {
       final version = await AppUpdateService.getCurrentVersion();
       if (mounted) setState(() => _currentVersion = version);
-    } on Object {}
+    } on Object catch (exception) {
+      debugPrint('Failed to read current app version: $exception');
+    }
 
     if (_update == null) await _check();
   }
