@@ -54,8 +54,6 @@ class AppUpdateService {
       // Update checks are best-effort and must never affect app startup.
       debugPrint('Update check failed: $exception');
     }
-      // Update checks are best-effort and must never affect app startup.
-    }
   }
 
   static Future<AppUpdateInfo?> checkForUpdate() async {
