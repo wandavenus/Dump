@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
+import 'package:musicplayer/pages/app_update_page.dart';
 import 'package:musicplayer/services/language_manager.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
