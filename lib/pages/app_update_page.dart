@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:musicplayer/pages/settings_page.dart';
 import 'package:musicplayer/services/app_update_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
+import 'package:musicplayer/utils/zoom_fade_route.dart';
 import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 
 class AppUpdaterPage extends StatefulWidget {
@@ -167,16 +169,41 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
           ),
         ),
         actions: [
-          if (widget.onOpenChangelog != null)
-            CupertinoButton(
-              padding: const EdgeInsets.only(right: 8),
-              onPressed: widget.onOpenChangelog,
-              child: const Icon(
-                CupertinoIcons.ellipsis,
-                color: Color(0xFFF92D48),
-                size: 28,
-              ),
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            icon: const Icon(
+              CupertinoIcons.ellipsis_vertical,
+              color: Color(0xFFF92D48),
+              size: 23,
             ),
+            onSelected: (value) {
+              if (value == 'changelog' && widget.onOpenChangelog != null) {
+                widget.onOpenChangelog!();
+              } else if (value == 'settings') {
+                unawaited(
+                  Navigator.of(
+                    context,
+                    rootNavigator: true,
+                  ).push(
+                    ZoomFadeRoute<void>(
+                      page: const SettingsPage(),
+                    ),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              if (widget.onOpenChangelog != null)
+                const PopupMenuItem<String>(
+                  value: 'changelog',
+                  child: Text('Catatan Pembaruan'),
+                ),
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Text('Pengaturan Pembaruan'),
+              ),
+            ],
+          ),
         ],
       ),
       body: SingleChildScrollView(
