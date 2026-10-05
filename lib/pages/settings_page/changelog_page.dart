@@ -85,61 +85,110 @@ class _ChangelogPageState extends State<ChangelogPage> {
   }
 }
 
-class _ChangelogEntryTile extends StatelessWidget {
+class _ChangelogEntryTile extends StatefulWidget {
   final _ChangelogEntry entry;
   const _ChangelogEntryTile({required this.entry});
 
   @override
+  State<_ChangelogEntryTile> createState() => _ChangelogEntryTileState();
+}
+
+class _ChangelogEntryTileState extends State<_ChangelogEntryTile> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+    final entry = widget.entry;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'v${entry.version}',
-                style: TextStyle(
-                  color: c.primaryLabel,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                entry.date,
-                style: TextStyle(color: c.secondaryLabel, fontSize: 14),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final change in entry.changes)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    '•  ',
-                    style: TextStyle(color: c.secondaryLabel, fontSize: 15),
-                  ),
                   Expanded(
                     child: Text(
-                      change,
+                      'v${entry.version}',
                       style: TextStyle(
-                        color: c.primaryLabel.withValues(alpha: 0.87),
-                        fontSize: 15,
-                        height: 1.35,
+                        color: c.primaryLabel,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: Icon(
+                      CupertinoIcons.chevron_right,
+                      color: c.secondaryLabel,
+                      size: 17,
                     ),
                   ),
                 ],
               ),
-            ),
-        ],
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: !_expanded
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.date,
+                              style: TextStyle(
+                                color: c.secondaryLabel,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            for (final change in entry.changes)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '•  ',
+                                      style: TextStyle(
+                                        color: c.secondaryLabel,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        change,
+                                        style: TextStyle(
+                                          color: c.primaryLabel.withValues(
+                                            alpha: 0.87,
+                                          ),
+                                          fontSize: 15,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
