@@ -39,6 +39,51 @@ Future<void> showAppUpdateDialog(
   );
 }
 
+class AppUpdateDialogRoute extends StatelessWidget {
+  final AppUpdateInfo update;
+  final VoidCallback? onOpenChangelog;
+
+  const AppUpdateDialogRoute({
+    super.key,
+    required this.update,
+    this.onOpenChangelog,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          const ModalBarrier(
+            dismissible: true,
+            color: Color(0x99000000),
+          ),
+          SafeArea(
+            child: Center(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0.94, end: 1),
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: child,
+                  );
+                },
+                child: _AppUpdateDialog(
+                  update: update,
+                  onOpenChangelog: onOpenChangelog,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppUpdateDialog extends StatelessWidget {
   final AppUpdateInfo update;
   final VoidCallback? onOpenChangelog;
@@ -131,7 +176,7 @@ class _AppUpdateDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Versi \${update.version}',
+                        'Versi ${update.version}',
                         style: TextStyle(
                           color: colors.primaryLabel,
                           fontSize: 36,
