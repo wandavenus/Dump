@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:musicplayer/services/app_update_service.dart';
 import 'package:musicplayer/theme/app_colors.dart';
+import 'package:musicplayer/widgets/common/scrolling_page_chrome.dart';
 
 class AppUpdaterPage extends StatefulWidget {
   final VoidCallback? onOpenChangelog;
@@ -153,29 +154,28 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
+      appBar: FadingTitleAppBar(
+        title: 'Pembaruan',
+        scrollOffset: 100,
+        leading: CupertinoButton(
+          padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(CupertinoIcons.arrow_left),
-          color: const Color(0xFFF92D48),
+          child: const Icon(
+            CupertinoIcons.arrow_left,
+            color: Color(0xFFF92D48),
+            size: 28,
+          ),
         ),
-        title: const Text('Pembaruan'),
         actions: [
           if (widget.onOpenChangelog != null)
-            PopupMenuButton<String>(
-              icon: const Icon(CupertinoIcons.ellipsis),
-              color: c.surface,
-              onSelected: (value) {
-                if (value == 'changelog') widget.onOpenChangelog!();
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'changelog',
-                  child: Text('Catatan Pembaruan'),
-                ),
-              ],
+            CupertinoButton(
+              padding: const EdgeInsets.only(right: 8),
+              onPressed: widget.onOpenChangelog,
+              child: const Icon(
+                CupertinoIcons.ellipsis,
+                color: Color(0xFFF92D48),
+                size: 28,
+              ),
             ),
         ],
       ),
