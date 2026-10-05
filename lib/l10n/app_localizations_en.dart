@@ -818,6 +818,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get releaseNotes => 'Release Notes';
 
   @override
+  String get checkForUpdates => 'Check for Updates';
+
+  @override
   String get bugReportTitle => 'Report Bug';
 
   @override
