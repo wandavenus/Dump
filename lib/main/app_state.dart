@@ -10,8 +10,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         unawaited(
           AppUpdateService.checkOnStartup(
             context,
-            (_, update) => AppUpdaterPage(
-              initialUpdate: update,
+            (_, update) => AppUpdateDialogRoute(
+              update: update,
               onOpenChangelog: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const ChangelogPage(),
@@ -67,7 +67,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               theme: AppThemes.light,
               darkTheme: AppThemes.dark,
               themeMode: mode,
-              // ── Localization ──────────────────────────────────────────────
               locale: locale,
               localizationsDelegates: const [
                 AppLocalizations.delegate,
@@ -77,10 +76,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               ],
               supportedLocales: const [Locale('en'), Locale('id')],
               localeResolutionCallback: (deviceLocale, supported) {
-                // If user chose explicit locale, honour it (already set via
-                // LanguageManager.locale above).
                 if (locale != null) return locale;
-                // Otherwise follow device locale, falling back to English.
                 if (deviceLocale != null) {
                   final match = supported.where(
                     (l) => l.languageCode == deviceLocale.languageCode,
@@ -89,7 +85,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 }
                 return const Locale('en');
               },
-              // ─────────────────────────────────────────────────────────────
               builder: (context, child) {
                 applyEdgeToEdge();
                 return ValueListenableBuilder<bool>(
