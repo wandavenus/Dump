@@ -90,7 +90,8 @@ jobs:
           git log -1 --pretty=%B >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Upload APK to Draft Release
+      - name: Publish APK Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.version.outputs.name }}
