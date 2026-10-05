@@ -819,6 +819,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get releaseNotes => 'Catatan Pembaruan';
 
   @override
+  String get checkForUpdates => 'Periksa Pembaruan';
+
+  @override
   String get bugReportTitle => 'Laporkan Bug';
 
   @override
