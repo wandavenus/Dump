@@ -7,7 +7,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(AppUpdateService.checkOnStartup(context));
+        unawaited(
+          AppUpdateService.checkOnStartup(
+            context,
+            (_, update) => AppUpdaterPage(
+              initialUpdate: update,
+              onOpenChangelog: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ChangelogPage(),
+                ),
+              ),
+            ),
+          ),
+        );
       }
     });
   }
