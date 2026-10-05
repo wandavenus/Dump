@@ -185,11 +185,19 @@ class _AboutAppPageState extends State<AboutAppPage> {
                         // ── Catatan Pembaruan ──────────────────────────
                         GestureDetector(
                           onTap: () => Navigator.of(context).push(
-                            ZoomFadeRoute<void>(page: const ChangelogPage()),
+                            ZoomFadeRoute<void>(
+                              page: AppUpdaterPage(
+                                onOpenChangelog: () => Navigator.of(context).push(
+                                  ZoomFadeRoute<void>(
+                                    page: const ChangelogPage(),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                           child: Text(
-                            l.releaseNotes,
-                            style: TextStyle(
+                            l.checkForUpdates,
+                            style: const TextStyle(
                               color: Color(0xFFF92D48),
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
