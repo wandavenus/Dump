@@ -50,7 +50,7 @@ class AppUpdateService {
           builder: (pageContext) => pageBuilder(pageContext, update),
         ),
       );
-    } catch (_) {
+    } catch (Object _) {
       // Update checks are best-effort and must never affect app startup.
     }
   }
@@ -108,6 +108,43 @@ class AppUpdateService {
       apkUrl: apkUrl,
       apkName: apkName,
     );
+  }
+
+  static Future<String?> getCurrentVersion() async {
+    final versionInfo = await _channel.invokeMapMethod<String, dynamic>(
+      'getVersionInfo',
+    );
+    return versionInfo?['versionName'] as String?;
+  }
+
+  static Future<int?> startApkDownload(AppUpdateInfo update) {
+    return _channel.invokeMethod<int>(
+      'startApkDownload',
+      {'url': update.apkUrl, 'fileName': update.apkName},
+    );
+  }
+
+  static Future<Map<String, dynamic>?> getDownloadStatus(int id) {
+    return _channel.invokeMapMethod<String, dynamic>(
+      'getDownloadStatus',
+      {'id': id},
+    );
+  }
+
+  static Future<bool> canInstallPackages() async {
+    return await _channel.invokeMethod<bool>('canInstallPackages') ?? false;
+  }
+
+  static Future<void> openInstallPermissionSettings() {
+    return _channel.invokeMethod<void>('openInstallPermissionSettings');
+  }
+
+  static Future<bool> installDownloadedApk(int id) async {
+    return await _channel.invokeMethod<bool>(
+          'installDownloadedApk',
+          {'id': id},
+        ) ??
+        false;
   }
 
   static String? _normalizeVersion(String raw) {
