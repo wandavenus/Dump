@@ -40,7 +40,7 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
     try {
       final version = await AppUpdateService.getCurrentVersion();
       if (mounted) setState(() => _currentVersion = version);
-    } catch (_) {}
+    } on Object {}
 
     if (_update == null) await _check();
   }
@@ -59,7 +59,7 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
         _update = update;
         _checking = false;
       });
-    } catch (_) {
+    } on Object {
       if (!mounted) return;
       setState(() {
         _checking = false;
@@ -82,7 +82,7 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
       if (id == null) throw StateError('Download tidak dapat dimulai.');
       _downloadId = id;
       await _pollDownload();
-    } catch (_) {
+    } on Object {
       if (!mounted) return;
       setState(() {
         _downloading = false;
@@ -196,7 +196,7 @@ class _AppUpdaterPageState extends State<AppUpdaterPage> {
             Text(
               _currentVersion == null
                   ? 'Periksa versi terbaru dari GitHub.'
-                  : 'Versi saat ini v' + _currentVersion!,
+                  : 'Versi saat ini v$_currentVersion',
               style: TextStyle(
                 color: c.secondaryLabel,
                 fontSize: 15,
@@ -291,7 +291,7 @@ class _LatestState extends StatelessWidget {
         ),
         if (currentVersion != null) ...[
           const SizedBox(height: 6),
-          Text('v' + currentVersion!, style: TextStyle(color: c.secondaryLabel, fontSize: 14)),
+          Text('v$currentVersion', style: TextStyle(color: c.secondaryLabel, fontSize: 14)),
         ],
         const SizedBox(height: 20),
         OutlinedButton(onPressed: onCheck, child: const Text('Periksa Lagi')),
@@ -348,7 +348,7 @@ class _UpdateAvailable extends StatelessWidget {
                     style: TextStyle(color: c.primaryLabel, fontSize: 19, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 3),
-                  Text('v' + update.version, style: TextStyle(color: c.secondaryLabel, fontSize: 14)),
+                  Text('v${update.version}', style: TextStyle(color: c.secondaryLabel, fontSize: 14)),
                 ],
               ),
             ),
@@ -370,7 +370,7 @@ class _UpdateAvailable extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             total > 0
-                ? (downloaded ~/ 1024 ~/ 1024).toString() + ' / ' + (total ~/ 1024 ~/ 1024).toString() + ' MB'
+                ? '${downloaded ~/ 1024 ~/ 1024} / ${total ~/ 1024 ~/ 1024} MB'
                 : 'Mengunduh...',
             style: TextStyle(color: c.secondaryLabel, fontSize: 13),
           ),
