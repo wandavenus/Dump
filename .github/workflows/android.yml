@@ -69,7 +69,7 @@ jobs:
           changelog = Path("lib/pages/settings_page/changelog_data.dart")
 
           text = pubspec.read_text(encoding="utf-8")
-          match = re.search(r"^version:\\s*(\\d+)\\.(\\d+)\\.(\\d+)(?:\\+(\\d+))?\\s*$", text, re.MULTILINE)
+          match = re.search(r"^version:\s*(\d+)\.(\d+)\.(\d+)(?:\+(\d+))?\s*$", text, re.MULTILINE)
           if not match:
               raise SystemExit("Could not parse version from pubspec.yaml")
 
