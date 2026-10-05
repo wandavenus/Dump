@@ -91,14 +91,33 @@ jobs:
 
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
 
-          if ! keytool -list \
+          echo "Keystore SHA-256:"
+          sha256sum android/app/release-keystore.jks
+
+          echo "Validating keystore password..."
+          if ! STORE_CHECK=$(keytool -list \
+            -keystore android/app/release-keystore.jks \
+            -storetype PKCS12 \
+            -storepass "$ANDROID_STORE_PASSWORD" 2>&1); then
+            echo "$STORE_CHECK"
+            echo "::error::ANDROID_STORE_PASSWORD does not unlock the decoded keystore."
+            exit 1
+          fi
+
+          echo "Keystore password: OK"
+
+          echo "Validating alias..."
+          if ! ALIAS_CHECK=$(keytool -list \
             -keystore android/app/release-keystore.jks \
             -storetype PKCS12 \
             -storepass "$ANDROID_STORE_PASSWORD" \
-            -alias "$ANDROID_KEY_ALIAS" > /dev/null 2>&1; then
-            echo "::error::Decoded keystore cannot be opened with the configured store password/alias."
+            -alias "$ANDROID_KEY_ALIAS" 2>&1); then
+            echo "$ALIAS_CHECK"
+            echo "::error::ANDROID_KEY_ALIAS does not exist in the decoded keystore."
             exit 1
           fi
+
+          echo "Keystore alias: OK"
 
           rm -f /tmp/release-key-validation.jks
 
