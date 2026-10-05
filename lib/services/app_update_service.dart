@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -31,12 +32,30 @@ class AppUpdateService {
       'https://api.github.com/repos/wandavenus/Dump/releases/latest';
 
   static bool _startupCheckStarted = false;
+  static const _autoCheckKey = 'app_update_auto_check';
+  static bool autoCheckOnStartup = true;
+  static bool _settingsLoaded = false;
+
+  static Future<void> loadSettings() async {
+    if (_settingsLoaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    autoCheckOnStartup = prefs.getBool(_autoCheckKey) ?? true;
+    _settingsLoaded = true;
+  }
+
+  static Future<void> setAutoCheckOnStartup(bool value) async {
+    autoCheckOnStartup = value;
+    _settingsLoaded = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoCheckKey, value);
+  }
 
   static Future<void> checkOnStartup(
     BuildContext context,
     Widget Function(BuildContext, AppUpdateInfo) pageBuilder,
   ) async {
-    if (_startupCheckStarted) return;
+    await loadSettings();
+    if (!autoCheckOnStartup || _startupCheckStarted) return;
     _startupCheckStarted = true;
 
     await Future<void>.delayed(const Duration(seconds: 2));
