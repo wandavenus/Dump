@@ -54,6 +54,68 @@ jobs:
           channel : stable
           cache: true
 
+      - name: Bump app version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        shell: python
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.workflow }}
+        run: |
+          import re
+          import subprocess
+          from datetime import datetime, timezone, timedelta
+          from pathlib import Path
+
+          pubspec = Path("pubspec.yaml")
+          changelog = Path("lib/pages/settings_page/changelog_data.dart")
+
+          text = pubspec.read_text(encoding="utf-8")
+          match = re.search(r"^version:\\s*(\\d+)\\.(\\d+)\\.(\\d+)(?:\\+(\\d+))?\\s*$", text, re.MULTILINE)
+          if not match:
+              raise SystemExit("Could not parse version from pubspec.yaml")
+
+          major, minor, patch = map(int, match.group(1, 2, 3))
+          new_version = f"{major}.{minor}.{patch + 1}"
+          build_number = major * 10000 + minor * 100 + patch + 1
+          full_version = f"{new_version}+{build_number}"
+
+          pubspec.write_text(
+              re.sub(
+                  r"^version:.*$",
+                  f"version: {full_version}",
+                  text,
+                  count=1,
+                  flags=re.MULTILINE,
+              ),
+              encoding="utf-8",
+          )
+
+          local_now = datetime.now(timezone.utc) + timedelta(hours=7)
+          date = f"{local_now.day} {['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][local_now.month - 1]} {local_now.year}"
+
+          raw_message = (subprocess.check_output(
+              ["git", "log", "-1", "--pretty=%s"], text=True
+          ).strip() or "Pembaruan aplikasi.")
+          raw_message = raw_message.replace("\\", "\\\\").replace("'", "\\'")
+          if len(raw_message) > 180:
+              raw_message = raw_message[:177].rstrip() + "..."
+
+          entry = f"""  _ChangelogEntry(\n    version: '{new_version}',\n    date: '{date}',\n    changes: [\n      '{raw_message}',\n    ],\n  ),\n\n"""
+
+          anchor = "const List<_ChangelogEntry> _changelogEntries = [\n"
+          changelog_text = changelog.read_text(encoding="utf-8")
+          if anchor not in changelog_text:
+              raise SystemExit("Could not find changelog list.")
+          changelog_text = changelog_text.replace(anchor, anchor + entry, 1)
+          changelog.write_text(changelog_text, encoding="utf-8")
+
+          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+          subprocess.run(["git", "add", "pubspec.yaml", "lib/pages/settings_page/changelog_data.dart"], check=True)
+          subprocess.run(["git", "commit", "-m", f"chore(release): v{new_version} [skip ci]"], check=True)
+          subprocess.run(["git", "push", "origin", "HEAD:main"], check=True)
+
+          print(f"Version bumped to {full_version}")
+
       - name: Install dependencies
         run: flutter pub get
 
