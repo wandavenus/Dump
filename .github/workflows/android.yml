@@ -62,7 +62,7 @@ jobs:
 
       - name: Set Android version
         run: |
-          VERSION_NAME=$(sed -n 's/^version: *\\([^+]*\\).*/\\1/p' pubspec.yaml)
+          VERSION_NAME=$(sed -n 's/^version: *//p' pubspec.yaml | cut -d+ -f1 | tr -d '\\r')
           VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
 
           if [ -z "$VERSION_NAME" ]; then
