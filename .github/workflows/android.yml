@@ -87,7 +87,7 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: "Android Build #${{ github.run_number }}"
-          draft: true
+          draft: false
           body: |
             Run: #${{ github.run_number }}
             Commit: ${{ steps.commit.outputs.sha }}
