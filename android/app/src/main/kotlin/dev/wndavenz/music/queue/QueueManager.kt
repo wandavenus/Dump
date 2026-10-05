@@ -51,7 +51,16 @@ class QueueManager(
         )
         val persistedShuffle = prefs?.getBoolean(QueueSync.KEY_SHUFFLE, p.shuffleModeEnabled)
             ?: p.shuffleModeEnabled
-        val shuffleEnabled = p.shuffleModeEnabled || persistedShuffle
+        // A fresh player starts with an empty timeline, so persistence is the
+        // source of truth only for that cold-start case. For an existing player,
+        // keep its live shuffle state. Using live || persisted here is wrong:
+        // after the user explicitly turns shuffle OFF, a stale persisted TRUE
+        // would silently turn it back on whenever the queue is rebuilt.
+        val shuffleEnabled = if (p.mediaItemCount == 0) {
+            persistedShuffle
+        } else {
+            p.shuffleModeEnabled
+        }
         val repeatMode = p.repeatMode
 
         p.setMediaItems(items.map { MediaItemFactory.from(it) }, activeQueueIndex, posMs)
