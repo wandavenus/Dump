@@ -25,6 +25,14 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
 // Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
 // androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
 // maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
@@ -120,9 +128,20 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig keystorePropertiesFile.exists()
+                ? signingConfigs.release
+                : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             crunchPngs true
