@@ -27,6 +27,10 @@ if (flutterVersionName == null) {
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
+def ciSigningConfigured = System.getenv('ANDROID_KEYSTORE_PATH') != null &&
+    System.getenv('ANDROID_KEY_ALIAS') != null &&
+    System.getenv('ANDROID_KEY_PASSWORD') != null &&
+    System.getenv('ANDROID_STORE_PASSWORD') != null
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.withInputStream { stream ->
         keystoreProperties.load(stream)
@@ -141,7 +145,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig keystorePropertiesFile.exists()
+            signingConfig (ciSigningConfigured || keystorePropertiesFile.exists())
                 ? signingConfigs.release
                 : signingConfigs.debug
             minifyEnabled true
