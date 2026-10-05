@@ -32,7 +32,10 @@ class AppUpdateService {
 
   static bool _startupCheckStarted = false;
 
-  static Future<void> checkOnStartup(BuildContext context) async {
+  static Future<void> checkOnStartup(
+    BuildContext context,
+    Widget Function(BuildContext, AppUpdateInfo) pageBuilder,
+  ) async {
     if (_startupCheckStarted) return;
     _startupCheckStarted = true;
 
@@ -42,7 +45,11 @@ class AppUpdateService {
     try {
       final update = await checkForUpdate();
       if (update == null || !context.mounted) return;
-      await showUpdateDialog(context, update);
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (pageContext) => pageBuilder(pageContext, update),
+        ),
+      );
     } catch (_) {
       // Update checks are best-effort and must never affect app startup.
     }
@@ -103,54 +110,6 @@ class AppUpdateService {
     );
   }
 
-  static Future<void> showUpdateDialog(
-    BuildContext context,
-    AppUpdateInfo update,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _UpdateDialog(update: update),
-    );
-  }
-
-  static Future<String?> getCurrentVersion() async {
-    final versionInfo = await _channel.invokeMapMethod<String, dynamic>(
-      'getVersionInfo',
-    );
-    return versionInfo?['versionName'] as String?;
-  }
-
-  static Future<int?> startApkDownload(AppUpdateInfo update) {
-    return _channel.invokeMethod<int>(
-      'startApkDownload',
-      {'url': update.apkUrl, 'fileName': update.apkName},
-    );
-  }
-
-  static Future<Map<String, dynamic>?> getDownloadStatus(int id) {
-    return _channel.invokeMapMethod<String, dynamic>(
-      'getDownloadStatus',
-      {'id': id},
-    );
-  }
-
-  static Future<bool> canInstallPackages() async {
-    return await _channel.invokeMethod<bool>('canInstallPackages') ?? false;
-  }
-
-  static Future<void> openInstallPermissionSettings() {
-    return _channel.invokeMethod<void>('openInstallPermissionSettings');
-  }
-
-  static Future<bool> installDownloadedApk(int id) async {
-    return await _channel.invokeMethod<bool>(
-          'installDownloadedApk',
-          {'id': id},
-        ) ??
-        false;
-  }
-
   static String? _normalizeVersion(String raw) {
     final value = raw.trim().replaceFirst(RegExp(r'^[vV]'), '');
     final match =
@@ -177,174 +136,3 @@ class AppUpdateService {
   }
 }
 
-class _UpdateDialog extends StatefulWidget {
-  final AppUpdateInfo update;
-
-  const _UpdateDialog({required this.update});
-
-  @override
-  State<_UpdateDialog> createState() => _UpdateDialogState();
-}
-
-class _UpdateDialogState extends State<_UpdateDialog> {
-  int? _downloadId;
-  int _downloaded = 0;
-  int _total = 0;
-  String? _error;
-  bool _downloading = false;
-
-  Future<void> _startDownload() async {
-    setState(() {
-      _downloading = true;
-      _error = null;
-    });
-
-    try {
-      final id = await AppUpdateService._channel.invokeMethod<int>(
-        'startApkDownload',
-        {
-          'url': widget.update.apkUrl,
-          'fileName': widget.update.apkName,
-        },
-      );
-
-      if (id == null) throw StateError('Download tidak dapat dimulai.');
-      _downloadId = id;
-      await _pollDownload();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _downloading = false;
-        _error = 'Gagal mengunduh pembaruan.';
-      });
-    }
-  }
-
-  Future<void> _pollDownload() async {
-    final id = _downloadId;
-    if (id == null) return;
-
-    while (mounted) {
-      final status =
-          await AppUpdateService._channel.invokeMapMethod<String, dynamic>(
-        'getDownloadStatus',
-        {'id': id},
-      );
-
-      if (status == null) throw StateError('Status download tidak tersedia.');
-
-      final state = status['status'] as String? ?? 'unknown';
-      final downloaded = (status['downloaded'] as num?)?.toInt() ?? 0;
-      final total = (status['total'] as num?)?.toInt() ?? 0;
-
-      if (!mounted) return;
-      setState(() {
-        _downloaded = downloaded;
-        _total = total;
-      });
-
-      if (state == 'successful') {
-        await _install();
-        return;
-      }
-
-      if (state == 'failed') {
-        throw StateError('Download gagal.');
-      }
-
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-    }
-  }
-
-  Future<void> _install() async {
-    final id = _downloadId;
-    if (id == null) return;
-
-    final canInstall = await AppUpdateService._channel.invokeMethod<bool>(
-          'canInstallPackages',
-        ) ??
-        false;
-
-    if (!canInstall) {
-      await AppUpdateService._channel.invokeMethod<void>(
-        'openInstallPermissionSettings',
-      );
-      if (!mounted) return;
-      setState(() {
-        _downloading = false;
-        _error = 'Izinkan instalasi dari aplikasi ini, lalu tekan Update lagi.';
-      });
-      return;
-    }
-
-    final installed = await AppUpdateService._channel.invokeMethod<bool>(
-          'installDownloadedApk',
-          {'id': id},
-        ) ??
-        false;
-
-    if (!installed && mounted) {
-      setState(() {
-        _downloading = false;
-        _error = 'Installer tidak dapat dibuka.';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final progress = _total > 0
-        ? (_downloaded / _total).clamp(0.0, 1.0)
-        : null;
-
-    return AlertDialog(
-      title: const Text('Pembaruan tersedia'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Versi ${widget.update.version}',
-              style: theme.textTheme.titleMedium,
-            ),
-            if (widget.update.changelog.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(widget.update.changelog.trim()),
-            ],
-            if (_downloading) ...[
-              const SizedBox(height: 20),
-              LinearProgressIndicator(value: progress),
-              const SizedBox(height: 8),
-              Text(
-                _total > 0
-                    ? '${_downloaded ~/ 1024 ~/ 1024} / ${_total ~/ 1024 ~/ 1024} MB'
-                    : 'Mengunduh...',
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        if (!_downloading)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Nanti'),
-          ),
-        if (!_downloading)
-          FilledButton(
-            onPressed: _startDownload,
-            child: const Text('Update'),
-          ),
-      ],
-    );
-  }
-}
