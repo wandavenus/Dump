@@ -50,7 +50,10 @@ class AppUpdateService {
           builder: (pageContext) => pageBuilder(pageContext, update),
         ),
       );
-    } catch (Object _) {
+    } on Object catch (exception) {
+      // Update checks are best-effort and must never affect app startup.
+      debugPrint('Update check failed: $exception');
+    }
       // Update checks are best-effort and must never affect app startup.
     }
   }
