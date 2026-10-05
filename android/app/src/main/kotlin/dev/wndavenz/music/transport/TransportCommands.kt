@@ -278,8 +278,14 @@ class TransportCommands(
                 val promotedIndex  = preloadManager.preloadedQueueIndex
                 crossfadeController.cancel(resetVolume = true)
                 preloadManager.clearStandbyQueue()
-                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
+
+                // Set the authoritative mode before restoring a promoted queue.
+                // rebuildPlayerQueue() preserves the player's current shuffle
+                // order, so changing this only after the rebuild can publish the
+                // old mode and briefly overwrite the Dart state with a stale
+                // shuffle=false snapshot.
                 p.shuffleModeEnabled = enabled
+                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
                 if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
                 queueSync.save()
                 transportState.emitAll(emitQueue = true)
