@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.34',
+    date: '5 Oktober 2026',
+    changes: [
+      'fix(ci): correct version bump regex',
+    ],
+  ),
+
+  _ChangelogEntry(
     version: '1.5.33',
     date: '5 Oktober 2026',
     changes: [
