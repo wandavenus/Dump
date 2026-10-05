@@ -91,14 +91,40 @@ jobs:
 
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
 
-          cat > android/key.properties <<EOF
-          storePassword=$ANDROID_STORE_PASSWORD
-          keyPassword=$ANDROID_KEY_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          storeFile=release-keystore.jks
-          EOF
+          if ! keytool -list \
+            -keystore android/app/release-keystore.jks \
+            -storetype PKCS12 \
+            -storepass "$ANDROID_STORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "::error::Decoded keystore cannot be opened with the configured store password/alias."
+            exit 1
+          fi
+
+          rm -f /tmp/release-key-validation.jks
+
+          if ! keytool -importkeystore \
+            -srckeystore android/app/release-keystore.jks \
+            -srcstoretype PKCS12 \
+            -srcstorepass "$ANDROID_STORE_PASSWORD" \
+            -srcalias "$ANDROID_KEY_ALIAS" \
+            -srckeypass "$ANDROID_KEY_PASSWORD" \
+            -destkeystore /tmp/release-key-validation.jks \
+            -deststoretype PKCS12 \
+            -deststorepass "ci-validation-only" \
+            -destkeypass "ci-validation-only" \
+            -noprompt > /dev/null 2>&1; then
+            echo "::error::Configured key password cannot unlock the private key."
+            exit 1
+          fi
+
+          rm -f /tmp/release-key-validation.jks
 
       - name: Build release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release-keystore.jks
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: >
           flutter build apk
           --release
