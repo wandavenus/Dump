@@ -145,9 +145,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig (ciSigningConfigured || keystorePropertiesFile.exists())
-                ? signingConfigs.release
-                : signingConfigs.debug
+            if (ciSigningConfigured || keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled true
             shrinkResources true
             crunchPngs true
