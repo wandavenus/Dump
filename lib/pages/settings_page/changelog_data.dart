@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.33',
+    date: '5 Oktober 2026',
+    changes: [
+      'Redesign halaman pembaruan dengan pemeriksaan versi manual dan akses Catatan Pembaruan dari menu tiga titik.',
+    ],
+  ),
+
+  _ChangelogEntry(
     version: '1.5.32',
     date: '5 Oktober 2026',
     changes: [
