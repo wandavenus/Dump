@@ -298,6 +298,7 @@
   "debugModeActiveLabel": "Mode Debug Aktif",
   "madeBy": "Dibuat dengan dedikasi oleh",
   "appDescription": "Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.",
+  "checkForUpdates": "Periksa Pembaruan",
   "releaseNotes": "Catatan Pembaruan",
   "bugReportTitle": "Laporkan Bug",
   "thankYouSupport": "Terima kasih atas dukunganmu.",
