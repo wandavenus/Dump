@@ -77,18 +77,53 @@ jobs:
           name="${version%%+*}"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
+      - name: Generate release notes from changelog
+        id: release_notes
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+
+          text = Path("lib/pages/settings_page/changelog_data.dart").read_text(
+              encoding="utf-8"
+          )
+
+          entry_match = re.search(
+              r"_ChangelogEntry\(\s*"
+              r"version:\s*'([^']+)'\s*,\s*"
+              r"date:\s*'([^']+)'\s*,\s*"
+              r"changes:\s*\[(.*?)\]\s*,\s*"
+              r"\)",
+              text,
+              re.DOTALL,
+          )
+          if not entry_match:
+              raise SystemExit("Could not parse the latest changelog entry.")
+
+          version, date, changes_block = entry_match.groups()
+          changes = re.findall(r"'((?:\\'|[^'])*)'", changes_block)
+
+          if not changes:
+              raise SystemExit("Latest changelog entry has no changes.")
+
+          body_lines = [
+              f"## Music Player v{version}",
+              "",
+              f"**Tanggal:** {date}",
+              "",
+              "### Perubahan",
+              "",
+          ]
+          body_lines.extend(f"- {change.replace("\\'", "'")}" for change in changes)
+          body = "\n".join(body_lines).strip() + "\n"
+
+          Path("release-notes.md").write_text(body, encoding="utf-8")
+          print(body)
+
       - name: Rename APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
              build/app/outputs/flutter-apk/Dump-${{ steps.version.outputs.name }}.apk
-
-      - name: Get commit info
-        id: commit
-        run: |
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          echo "message<<EOF" >> "$GITHUB_OUTPUT"
-          git log -1 --pretty=%B >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Publish APK Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -97,9 +132,5 @@ jobs:
           tag_name: v${{ steps.version.outputs.name }}
           name: "Music Player v${{ steps.version.outputs.name }}"
           draft: false
-          body: |
-            Version: ${{ steps.version.outputs.name }}
-            Commit: ${{ steps.commit.outputs.sha }}
-
-            ${{ steps.commit.outputs.message }}
+          body_path: release-notes.md
           files: build/app/outputs/flutter-apk/Dump-${{ steps.version.outputs.name }}.apk
