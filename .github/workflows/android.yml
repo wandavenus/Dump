@@ -114,7 +114,7 @@ jobs:
               "### Perubahan",
               "",
           ]
-          body_lines.extend(f"- {change.replace("\\'", "'")}" for change in changes)
+          body_lines.extend("- " + change for change in changes)
           body = "\n".join(body_lines).strip() + "\n"
 
           Path("release-notes.md").write_text(body, encoding="utf-8")
