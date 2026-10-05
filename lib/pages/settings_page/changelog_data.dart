@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.32',
+    date: '6 Oktober 2026',
+    changes: [
+      'Fix mode shuffle agar tetap tersimpan dan tombol shuffle di full player tetap sesuai state-nya setelah playback dihentikan lewat tombol stop di notifikasi (termasuk saat app di-kill sistem).',
+      'Fix shuffle yang bisa aktif kembali sendiri setelah dimatikan user ketika queue dibangun ulang.',
+      'Fix state shuffle yang sempat tertimpa nilai lama saat crossfade dipulihkan.',
+    ],
+  ),
+  _ChangelogEntry(
     version: '1.5.31',
     date: '3 Oktober 2026',
     changes: [
