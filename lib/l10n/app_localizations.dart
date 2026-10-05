@@ -1610,6 +1610,9 @@ abstract class AppLocalizations {
   /// **'Release Notes'**
   String get releaseNotes;
 
+  /// No description provided for @checkForUpdates.
+  String get checkForUpdates;
+
   /// No description provided for @bugReportTitle.
   ///
   /// In en, this message translates to:
