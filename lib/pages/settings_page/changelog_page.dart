@@ -49,6 +49,13 @@ class _ChangelogPageState extends State<ChangelogPage> {
         centerTitle: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.9),
+          child: Container(
+            height: 0.9,
+            color: c.separator,
+          ),
+        ),
       ),
       body: _changelogEntries.isEmpty
           ? Center(
