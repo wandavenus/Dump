@@ -54,6 +54,23 @@ jobs:
           channel : stable
           cache: true
 
+      - name: Set Android version
+        run: |
+          VERSION_NAME=$(sed -n 's/^version: *\\([^+]*\\).*/\\1/p' pubspec.yaml)
+          VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
+
+          if [ -z "$VERSION_NAME" ]; then
+            echo "::error::Unable to read app version from pubspec.yaml"
+            exit 1
+          fi
+
+          echo "Android versionName: $VERSION_NAME"
+          echo "Android versionCode: $VERSION_CODE"
+
+          sed -i "s/^version: .*/version: $VERSION_NAME/" pubspec.yaml
+          echo "flutter.versionName=$VERSION_NAME" >> android/local.properties
+          echo "flutter.versionCode=$VERSION_CODE" >> android/local.properties
+
       - name: Install dependencies
         run: flutter pub get
 
