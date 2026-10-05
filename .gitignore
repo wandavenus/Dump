@@ -107,3 +107,8 @@ attached_assets/
 .svn/
 
 migrate_working_dir/
+
+# Release signing
+*.jks
+*.keystore
+android/key.properties
