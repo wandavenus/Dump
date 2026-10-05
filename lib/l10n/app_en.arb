@@ -388,6 +388,7 @@
   "debugModeActiveLabel": "Debug Mode Active",
   "madeBy": "Made with dedication by",
   "appDescription": "Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.",
+  "checkForUpdates": "Check for Updates",
   "releaseNotes": "Release Notes",
   "bugReportTitle": "Report Bug",
   "thankYouSupport": "Thank you for your support.",
