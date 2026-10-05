@@ -157,6 +157,7 @@ class MainActivity : FlutterActivity() {
         setupFfmpegDecoderChannel(flutterEngine)
         setupOpenFileChannel(flutterEngine)
         setupNativePaletteChannel(flutterEngine)
+        AppUpdateBridge.register(this, flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
