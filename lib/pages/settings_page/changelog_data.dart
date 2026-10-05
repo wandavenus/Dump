@@ -20,6 +20,14 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.32',
+    date: '5 Oktober 2026',
+    changes: [
+      'Tambah pemeriksa pembaruan otomatis dari GitHub Release beserta unduhan APK dan instalasi langsung dari aplikasi.',
+    ],
+  ),
+
+  _ChangelogEntry(
     version: '1.5.31',
     date: '3 Oktober 2026',
     changes: [
