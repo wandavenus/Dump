@@ -129,8 +129,8 @@ class _AboutAppPageState extends State<AboutAppPage> {
                               ),
                               child: Text(
                                 debug
-                                    ? '${l.appVersion('1.4.4')} [${l.debugModeActiveLabel}]'
-                                    : l.appVersion('1.4.4'),
+                                    ? '${l.appVersion('1.5.33')} [${l.debugModeActiveLabel}]'
+                                    : l.appVersion('1.5.33'),
                                 style: TextStyle(
                                   color: debug
                                       ? const Color(0xFFF92D48)
