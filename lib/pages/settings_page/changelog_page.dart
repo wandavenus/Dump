@@ -50,9 +50,9 @@ class _ChangelogPageState extends State<ChangelogPage> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.9),
+          preferredSize: const Size.fromHeight(0.5),
           child: Container(
-            height: 0.9,
+            height: 0.5,
             color: c.separator,
           ),
         ),
