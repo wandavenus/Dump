@@ -63,14 +63,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 // If user chose explicit locale, honour it (already set via
                 // LanguageManager.locale above).
                 if (locale != null) return locale;
-                // Otherwise follow device locale, falling back to English.
+                // Otherwise follow device locale, falling back to Indonesian.
                 if (deviceLocale != null) {
                   final match = supported.where(
                     (l) => l.languageCode == deviceLocale.languageCode,
                   );
                   if (match.isNotEmpty) return match.first;
                 }
-                return const Locale('en');
+                return const Locale('id');
               },
               // ─────────────────────────────────────────────────────────────
               builder: (context, child) {
