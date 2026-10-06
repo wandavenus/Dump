@@ -813,7 +813,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get appDescription =>
-      'Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.';
+      'Pemutar musik offline berbasis Flutter dengan sistem audio Native Media3.';
 
   @override
   String get releaseNotes => 'Catatan Pembaruan';
