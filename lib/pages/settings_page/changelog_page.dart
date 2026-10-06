@@ -109,8 +109,8 @@ class _ChangelogEntryTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       'v${entry.version}',
@@ -120,7 +120,15 @@ class _ChangelogEntryTile extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(width: 8),
+                    Text(
+                      '|',
+                      style: TextStyle(
+                        color: c.secondaryLabel,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       entry.date,
                       style: TextStyle(
