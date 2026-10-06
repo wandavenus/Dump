@@ -34,9 +34,6 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
           final TextAlign align = LyricsSettings.resolvedTextAlign;
           final bool karaokeOn = LyricsSettings.karaokeMode.value;
           final Color dim = Colors.white.withValues(alpha: 0.35);
-          final t = Curves.easeOutBack.transform(
-            _lineTransitionController.value,
-          );
           final direction = _currentIndex >= _previousIndex ? 1.0 : -1.0;
 
           return ScrollablePositionedList.builder(
@@ -72,26 +69,9 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
                   lead *
                   (isActive ? 0.18 : 1.0);
 
-              // Scale pulse follows the same movement order: lines closer to
-              // the active line reach their peak earlier; farther lines lag
-              // behind. Every line returns to its original 1.0x size.
-              final distanceFromActive = (index - _currentIndex).abs();
-              final stagger = (distanceFromActive * 0.10).clamp(0.0, 0.45);
-              final scaleProgress = ((t - stagger) / (1.0 - stagger)).clamp(
-                0.0,
-                1.0,
-              );
-              final scalePulse = math.sin(
-                math.pi * Curves.easeOut.transform(scaleProgress),
-              );
-              final scale = 1.0 + (0.045 * scalePulse);
-
               return Transform.translate(
                 offset: Offset(0, lineOffset),
-                child: Transform.scale(
-                  scale: scale,
-                  alignment: Alignment.center,
-                  child: GestureDetector(
+                child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
                       final targetPos = widget.lyrics[index].timestamp;
