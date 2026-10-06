@@ -56,7 +56,8 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               final phase = Curves.easeOut.transform(
                 _lineTransitionController.value,
               );
-              final rubber = 11.0 * math.sin(math.pi * phase) * distanceFactor;
+              final rubber =
+                  11.0 * math.sin(math.pi * phase) * distanceFactor;
               final settle = Curves.easeOutBack.transform(
                 _lineTransitionController.value,
               );
@@ -72,51 +73,50 @@ extension _SyncedLyricsViewBuildState on _SyncedLyricsViewState {
               return Transform.translate(
                 offset: Offset(0, lineOffset),
                 child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      final targetPos = widget.lyrics[index].timestamp;
-                      _pendingSeekPos = targetPos;
-                      _anchorPos = targetPos;
-                      _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
-                      _maybeUpdateCurrentLine(
-                        targetPos,
-                        allowBinarySearch: true,
-                      );
-                      _karaokeController.updatePosition(targetPos);
-                      unawaited(AudioService.seek(targetPos));
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: lineSpacing),
-                      child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        style: TextStyle(
-                          fontSize: fs,
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? active : dim,
-                          height: 1.4,
-                        ),
-                        child: isActive && karaokeOn
-                            ? _UnifiedKaraokeLine(
-                                key: ValueKey(_currentIndex),
-                                text: widget.lyrics[index].text,
-                                timeline: _wordTimelines[index],
-                                controller: _karaokeController,
-                                activeColor: active,
-                                dimColor: dim,
-                                fontSize: fs,
-                                textAlign: lineAlign,
-                                textScaleFactor: MediaQuery.textScalerOf(
-                                  context,
-                                ).scale(1.0),
-                                textDirection: lineDirection,
-                              )
-                            : Text(
-                                widget.lyrics[index].text,
-                                textAlign: lineAlign,
-                                textDirection: lineDirection,
-                              ),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    final targetPos = widget.lyrics[index].timestamp;
+                    _pendingSeekPos = targetPos;
+                    _anchorPos = targetPos;
+                    _anchorWallMs = DateTime.now().millisecondsSinceEpoch;
+                    _maybeUpdateCurrentLine(
+                      targetPos,
+                      allowBinarySearch: true,
+                    );
+                    _karaokeController.updatePosition(targetPos);
+                    unawaited(AudioService.seek(targetPos));
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: lineSpacing),
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      style: TextStyle(
+                        fontSize: fs,
+                        fontWeight: FontWeight.bold,
+                        color: isActive ? active : dim,
+                        height: 1.4,
                       ),
+                      child: isActive && karaokeOn
+                          ? _UnifiedKaraokeLine(
+                              key: ValueKey(_currentIndex),
+                              text: widget.lyrics[index].text,
+                              timeline: _wordTimelines[index],
+                              controller: _karaokeController,
+                              activeColor: active,
+                              dimColor: dim,
+                              fontSize: fs,
+                              textAlign: lineAlign,
+                              textScaleFactor: MediaQuery.textScalerOf(
+                                context,
+                              ).scale(1.0),
+                              textDirection: lineDirection,
+                            )
+                          : Text(
+                              widget.lyrics[index].text,
+                              textAlign: lineAlign,
+                              textDirection: lineDirection,
+                            ),
                     ),
                   ),
                 ),
