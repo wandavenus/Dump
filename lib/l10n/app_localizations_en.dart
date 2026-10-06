@@ -812,7 +812,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appDescription =>
-      'Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.';
+      'Offline music player based on Flutter with a Native Media3 audio system.';
 
   @override
   String get releaseNotes => 'Release Notes';
