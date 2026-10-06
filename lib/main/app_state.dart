@@ -15,6 +15,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeLocales(List<Locale>? locales) {
+    final deviceLocale = locales != null && locales.isNotEmpty
+        ? locales.first
+        : null;
+    LanguageManager.instance.didChangeSystemLocale(deviceLocale);
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       applyEdgeToEdge();
