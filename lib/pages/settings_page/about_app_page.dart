@@ -20,7 +20,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
   @override
   void initState() {
     super.initState();
-    _loadAppVersion();
+    unawaited(_loadAppVersion());
   }
 
   Future<void> _loadAppVersion() async {
