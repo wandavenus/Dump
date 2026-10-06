@@ -43,28 +43,27 @@ class _LoudnessNormSection extends StatelessWidget {
                               ),
                         ),
                         const SizedBox(height: 6),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: List.generate(_lufsTargets.length, (i) {
-                              final selected =
-                                  (target - _lufsTargets[i]).abs() < 0.1;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(_lufsLabels[i]),
-                                  selected: selected,
-                                  onSelected: (_) {
-                                    unawaited(
-                                      AudioEffectsService.setLoudnessNormTarget(
-                                        _lufsTargets[i],
-                                      ),
-                                    );
-                                  },
-                                ),
+                        CupertinoSlidingSegmentedControl<double>(
+                          groupValue: target,
+                          onValueChanged: (value) {
+                            if (value != null) {
+                              unawaited(
+                                AudioEffectsService.setLoudnessNormTarget(value),
                               );
-                            }),
-                          ),
+                            }
+                          },
+                          children: {
+                            for (var i = 0; i < _lufsTargets.length; i++)
+                              _lufsTargets[i]: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  _lufsLabels[i],
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                          },
                         ),
                         const SizedBox(height: 4),
                         Text(
