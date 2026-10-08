@@ -5,7 +5,7 @@ import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
-const double kMiniPlayerHeight = 64.5;
+const double kMiniPlayerHeight = 62.0;
 
 double navBottomClearance(BuildContext context) {
   final safeBottom = MediaQuery.paddingOf(context).bottom;
