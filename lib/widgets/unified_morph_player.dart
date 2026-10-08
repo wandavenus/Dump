@@ -575,14 +575,15 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                               // tidak meniru warna konten halaman.
                               final c = AppColors.of(context);
                               return RepaintBoundary(
-                                child: ClipRect(
-                                  child: Stack(
-                                    fit: StackFit.expand,
+                                child: BackdropGroup(
+                                  child: ClipRect(
+                                    child: Stack(
+                                      fit: StackFit.expand,
                                     children: [
-                                      BackdropFilter(
+                                      BackdropFilter.grouped(
                                         filterConfig: const ImageFilterConfig.blur(
-                                          sigmaX: 16,
-                                          sigmaY: 16,
+                                          sigmaX: 6,
+                                          sigmaY: 6,
                                           bounded: true,
                                         ),
                                         blendMode: BlendMode.srcOver,
@@ -593,6 +594,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       ColoredBox(color: c.glassFillTint),
                                     ],
                                   ),
+                                ),
                                 ),
                               );
                             }
