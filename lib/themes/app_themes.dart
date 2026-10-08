@@ -107,13 +107,13 @@ class AppThemes {
           // meniru warna konten halaman di belakangnya (kapsul terlihat
           // konsisten di semua halaman) tanpa menambah warna.
           glassFillTint: isDark
-              ? Colors.black.withValues(alpha: 0.25)
-              : Colors.white.withValues(alpha: 0.35),
+              ? Colors.black.withValues(alpha: 0.10)
+              : Colors.white.withValues(alpha: 0.10),
           glassBorderTint: isDark
               // Abu netral (secondaryLabel) + alpha lebih rendah — bukan putih
               // murni, jadi outline pill mini player & navbar tidak lagi terbaca
               // sebagai garis putih di dark mode.
-              ? const Color(0xFF8E8E93).withValues(alpha: 0.12)
+              ? const Color(0xFF6C6C70).withValues(alpha: 0.18)
               // Light mode: abu netral (secondaryLabel light) pengganti hitam
               // murni — outline tidak lagi terbaca sebagai garis hitam mencolok.
               : const Color(0xFF6C6C70).withValues(alpha: 0.18),
