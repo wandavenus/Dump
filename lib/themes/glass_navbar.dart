@@ -118,9 +118,9 @@ class FloatingPillNavBar extends StatelessWidget {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      Colors.transparent,
-                      shadowColor.withValues(alpha: 0.10),
                       shadowColor.withValues(alpha: 0.18),
+                      shadowColor.withValues(alpha: 0.10),
+                      Colors.transparent,
                     ],
                     stops: const [0.0, 0.42, 1.0],
                   ),
