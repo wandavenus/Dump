@@ -175,7 +175,7 @@ class FloatingPillNavBar extends StatelessWidget {
   }
 }
 
-class _PillItems extends StatelessWidget {
+class _PillItems extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final List<IconData> icons;
@@ -191,26 +191,99 @@ class _PillItems extends StatelessWidget {
   });
 
   @override
+  State<_PillItems> createState() => _PillItemsState();
+}
+
+class _PillItemsState extends State<_PillItems> {
+  double? _dragIndex;
+
+  void _updateDrag(DragUpdateDetails details, double width) {
+    final count = widget.icons.length;
+    if (count == 0 || width <= 0) return;
+
+    final segment = width / count;
+    final next = ((_dragIndex ?? widget.selectedIndex.toDouble()) +
+            details.delta.dx / segment)
+        .clamp(0.0, count - 1.0);
+
+    setState(() => _dragIndex = next);
+  }
+
+  void _finishDrag() {
+    final dragIndex = _dragIndex;
+    if (dragIndex == null) return;
+    final index = dragIndex.round().clamp(0, widget.icons.length - 1);
+    setState(() => _dragIndex = null);
+    if (index != widget.selectedIndex) {
+      widget.onTap(index);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PillItems oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex && _dragIndex == null) {
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final count = icons.length;
-    return SizedBox(
-      height: FloatingPillNavBar.bodyHeight,
-      child: Row(
-        children: [
-          for (var i = 0; i < count; i++)
-            Expanded(
-              child: _PillItem(
-                icon: icons[i],
-                label: labels[i],
-                semanticsLabel: semanticsLabels != null
-                    ? semanticsLabels![i]
-                    : labels[i],
-                active: i == selectedIndex,
-                onTap: () => onTap(i),
-              ),
+    final count = widget.icons.length;
+    if (count == 0) return const SizedBox.shrink();
+
+    final activeIndex = _dragIndex ?? widget.selectedIndex.toDouble();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final segment = constraints.maxWidth / count;
+        final lensWidth = segment - 10;
+        final left = segment * activeIndex + 5;
+
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragUpdate: (details) =>
+              _updateDrag(details, constraints.maxWidth),
+          onHorizontalDragEnd: (_) => _finishDrag(),
+          child: SizedBox(
+            height: FloatingPillNavBar.bodyHeight,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: left,
+                  top: 4,
+                  width: lensWidth,
+                  height: FloatingPillNavBar.bodyHeight - 8,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.of(context).glassActiveLens,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    for (var i = 0; i < count; i++)
+                      Expanded(
+                        child: _PillItem(
+                          icon: widget.icons[i],
+                          label: widget.labels[i],
+                          semanticsLabel: widget.semanticsLabels != null
+                              ? widget.semanticsLabels![i]
+                              : widget.labels[i],
+                          active: i == widget.selectedIndex,
+                          onTap: () => widget.onTap(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
