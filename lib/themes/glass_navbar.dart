@@ -104,32 +104,6 @@ class FloatingPillNavBar extends StatelessWidget {
     return BackdropGroup(
       child: Stack(
         children: [
-          // Full-width floating shadow beneath the entire navigation area.
-          // It spans edge-to-edge rather than following the outer pill shape.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 150,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      shadowColor.withValues(alpha: 0.18),
-                      shadowColor.withValues(alpha: 0.16),
-                      shadowColor.withValues(alpha: 0.08),
-                      shadowColor.withValues(alpha: 0.025),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.18, 0.48, 0.72, 1.0],
-                  ),
-                ),
-              ),
-            ),
-          ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               horizMargin,
