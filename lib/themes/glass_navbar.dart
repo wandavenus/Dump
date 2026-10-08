@@ -56,7 +56,7 @@ class GlassNavBar extends StatelessWidget {
                 // Keep the backdrop radius modest: this filter is recomputed
                 // while content scrolls behind the navbar. A large sigma is
                 // disproportionately expensive on the target Snapdragon 730.
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
@@ -137,8 +137,8 @@ class FloatingPillNavBar extends StatelessWidget {
   // renderer sample the backdrop once for the pill + trailing button instead
   // of running two independent blur passes on every translated frame.
   static final ImageFilter _pillBlur = ImageFilter.blur(
-    sigmaX: 16,
-    sigmaY: 16,
+    sigmaX: 12,
+    sigmaY: 12,
   );
 
   @override
