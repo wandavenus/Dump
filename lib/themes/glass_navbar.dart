@@ -108,7 +108,7 @@ class FloatingPillNavBar extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            height: bottomGap + safeBottom + 96,
+            height: bottomGap + safeBottom + 140,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -117,12 +117,14 @@ class FloatingPillNavBar extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       shadowColor.withValues(alpha: 0.0),
-                      shadowColor.withValues(alpha: 0.035),
-                      shadowColor.withValues(alpha: 0.12),
-                      shadowColor.withValues(alpha: 0.28),
+                      shadowColor.withValues(alpha: 0.0),
+                      shadowColor.withValues(alpha: 0.015),
+                      shadowColor.withValues(alpha: 0.055),
+                      shadowColor.withValues(alpha: 0.15),
+                      shadowColor.withValues(alpha: 0.30),
                       shadowColor.withValues(alpha: 0.45),
                     ],
-                    stops: const [0.0, 0.32, 0.56, 0.78, 1.0],
+                    stops: const [0.0, 0.18, 0.34, 0.49, 0.66, 0.84, 1.0],
                   ),
                 ),
               ),
