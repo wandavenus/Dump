@@ -249,20 +249,38 @@ class _PillItemsState extends State<_PillItems> {
             height: FloatingPillNavBar.bodyHeight,
             child: Stack(
               children: [
-                Positioned(
-                  left: left,
-                  top: 4,
-                  width: lensWidth,
-                  height: FloatingPillNavBar.bodyHeight - 8,
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).glassActiveLens,
-                        borderRadius: BorderRadius.circular(999),
+                if (_dragIndex == null)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    left: left,
+                    top: 4,
+                    width: lensWidth,
+                    height: FloatingPillNavBar.bodyHeight - 8,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.of(context).glassActiveLens,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Positioned(
+                    left: left,
+                    top: 4,
+                    width: lensWidth,
+                    height: FloatingPillNavBar.bodyHeight - 8,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.of(context).glassActiveLens,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
                   ),
-                ),
                 Row(
                   children: [
                     for (var i = 0; i < count; i++)
@@ -320,7 +338,7 @@ class _PillItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 5),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: active ? c.glassActiveLens : Colors.transparent,
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Center(
