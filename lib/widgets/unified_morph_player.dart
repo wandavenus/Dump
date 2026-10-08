@@ -579,7 +579,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                   child: ClipRect(
                                     child: Stack(
                                       fit: StackFit.expand,
-                                    children: [
+                                      children: [
                                       BackdropFilter.grouped(
                                         filterConfig: const ImageFilterConfig.blur(
                                           sigmaX: 6,
@@ -595,8 +595,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     ],
                                   ),
                                 ),
-                                ),
-                              );
+                              ),
+                            );
                             }
                             return ColoredBox(
                               color: AppColors.of(context).surface,
