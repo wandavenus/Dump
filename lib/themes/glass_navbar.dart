@@ -133,20 +133,29 @@ class FloatingPillNavBar extends StatelessWidget {
 
   static const double _iconSize = 24.0;
 
+  // Shared by the two glass surfaces. BackdropFilter.grouped() lets the
+  // renderer sample the backdrop once for the pill + trailing button instead
+  // of running two independent blur passes on every translated frame.
+  static final ImageFilter _pillBlur = ImageFilter.blur(
+    sigmaX: 16,
+    sigmaY: 16,
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final radius = bodyHeight / 2;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        horizMargin,
-        0,
-        horizMargin,
-        bottomGap + safeBottom,
-      ),
-      child: Row(
+    return BackdropGroup(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizMargin,
+          0,
+          horizMargin,
+          bottomGap + safeBottom,
+        ),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(child: _buildCapsule(context, c, radius)),
@@ -160,6 +169,7 @@ class FloatingPillNavBar extends StatelessWidget {
             ),
           ],
         ],
+        ),
       ),
     );
   }
@@ -184,13 +194,11 @@ class FloatingPillNavBar extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            RepaintBoundary(
-              child: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  blendMode: BlendMode.srcOver,
-                  child: const ColoredBox(color: Colors.transparent),
-                ),
+            ClipRect(
+              child: BackdropFilter.grouped(
+                filter: FloatingPillNavBar._pillBlur,
+                blendMode: BlendMode.srcOver,
+                child: const ColoredBox(color: Colors.transparent),
               ),
             ),
             // Tint netral penstabil — sama dengan mini player pill.
@@ -350,12 +358,11 @@ class _TrailingButton extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                RepaintBoundary(
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: const ColoredBox(color: Colors.transparent),
-                    ),
+                ClipRect(
+                  child: BackdropFilter.grouped(
+                    filter: FloatingPillNavBar._pillBlur,
+                    blendMode: BlendMode.srcOver,
+                    child: const ColoredBox(color: Colors.transparent),
                   ),
                 ),
                 // Tint netral penstabil — sama dengan kapsul.
