@@ -423,6 +423,8 @@ class _TrailingButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final primary = Theme.of(context).colorScheme.primary;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final inactiveColor = isLight ? Colors.black : Colors.white;
     return Semantics(
       button: true,
       selected: active,
@@ -455,7 +457,7 @@ class _TrailingButton extends StatelessWidget {
                   child: Icon(
                     icon,
                     size: FloatingPillNavBar._iconSize,
-                    color: active ? primary : c.secondaryLabel,
+                    color: active ? primary : inactiveColor,
                   ),
                 ),
               ],
