@@ -108,7 +108,7 @@ class FloatingPillNavBar extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            height: bottomGap + safeBottom + 72,
+            height: bottomGap + safeBottom + 82,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
