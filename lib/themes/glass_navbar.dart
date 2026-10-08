@@ -241,7 +241,7 @@ class _PillItem extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: active ? c.glassActiveLens : Colors.transparent,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Center(
               child: Column(
