@@ -237,7 +237,7 @@ class _PillItem extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(5, 3, 5, 9),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 5),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: active ? c.glassActiveLens : Colors.transparent,
