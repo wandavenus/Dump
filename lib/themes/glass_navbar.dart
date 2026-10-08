@@ -104,6 +104,29 @@ class FloatingPillNavBar extends StatelessWidget {
     return BackdropGroup(
       child: Stack(
         children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: bottomGap + safeBottom + 96,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      shadowColor.withValues(alpha: 0.0),
+                      shadowColor.withValues(alpha: 0.08),
+                      shadowColor.withValues(alpha: 0.22),
+                      shadowColor.withValues(alpha: 0.45),
+                    ],
+                    stops: const [0.0, 0.34, 0.68, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               horizMargin,
