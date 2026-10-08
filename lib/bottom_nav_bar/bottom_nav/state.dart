@@ -243,20 +243,12 @@ class _FirstPageState extends State<FirstPage> {
                                     : (useGlassNavBar ? 70.0 : 71.5);
                                 final sh = MediaQuery.sizeOf(context).height;
 
-                                // Same motion curve as before; only the
-                                // translation is recomputed during the drag.
-                                const double b75 =
-                                    0.75 - 0.5 * 0.75 * 0.75;
-                                final double curved;
-                                if (progress < 0.75) {
-                                  curved =
-                                      progress - 0.5 * progress * progress;
-                                } else {
-                                  final e = progress - 0.75;
-                                  curved = b75 + 0.25 * e - 0.4 * e * e;
-                                }
+                                // Direct-manipulation path: keep the navbar
+                                // spatially linear with sheet progress. A curved
+                                // mapping changes velocity while the finger moves,
+                                // which is perceived as jitter/stutter.
                                 final slide =
-                                    (curved * sh * 0.17).clamp(0.0, navH);
+                                    (progress * navH).clamp(0.0, navH);
 
                                 return Transform.translate(
                                   offset: Offset(0, slide),
