@@ -2,6 +2,7 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
+
 import '../../utils/constants.dart';
 import '../../utils/zoom_fade_route.dart';
 
@@ -11,6 +12,7 @@ import '../../pages/playlist_page.dart';
 import '../../services/artwork_repository.dart';
 import '../../services/audio_service.dart';
 import '../../services/log_service.dart';
+import '../../themes/glass_navbar.dart';
 import '../../services/media_store_service.dart';
 import '../../services/playlist_service.dart';
 import '../../theme/app_colors.dart';

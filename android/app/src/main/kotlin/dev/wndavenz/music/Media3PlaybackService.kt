@@ -59,6 +59,8 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.flac.FlacExtractor
 import androidx.media3.session.CommandButton
 import dev.wndavenz.music.effects.StereoWidthManager
+import dev.wndavenz.music.effects.ReverbManager
+import dev.wndavenz.music.effects.ReverbAudioProcessor
 
 /**
  * Thin orchestration layer.
@@ -82,8 +84,20 @@ class Media3PlaybackService : MediaSessionService() {
     private var secondaryPlayer: ExoPlayer? = null
     private var activePlayer:    ExoPlayer? = null
     private val player: ExoPlayer? get() = activePlayer
-    private fun standbyPlayer(): ExoPlayer? =
-        if (activePlayer === primaryPlayer) secondaryPlayer else primaryPlayer
+    private fun standbyPlayer(): ExoPlayer? {
+        // BP-10: while Bit-Perfect Mode is active the standby slot must resolve to
+        // nothing. The parked pre-bit-perfect player (usually primaryPlayer) sits
+        // exactly where the standby logic would look, so without this guard ANY
+        // crossfade-teardown call made during the mode (pause, skip, setTrack,
+        // stop, setQueue of a new playlist, handlePlayUri, …) would stop/clear or
+        // fully release it via clearStandbyQueue()/releaseStandbyPlayer() — silently
+        // destroying the very player switchFromBitPerfectPlayer() must restore.
+        // Toggling OFF would then resurrect a released ExoPlayer: playback dies
+        // instantly and every transport command is a silent no-op until the app
+        // (and with it the native service) is restarted.
+        if (bitPerfectModeOn) return null
+        return if (activePlayer === primaryPlayer) secondaryPlayer else primaryPlayer
+    }
 
     // ── Bit-Perfect Mode: dedicated processing-free player ────────────────────
     // A third ExoPlayer instance with zero custom AudioProcessors and zero
@@ -94,6 +108,11 @@ class Media3PlaybackService : MediaSessionService() {
     private var bitPerfectPlayer:    ExoPlayer? = null
     private var bitPerfectModeOn:    Boolean = false
     private var preBitPerfectPlayer: ExoPlayer? = null
+    // BP-04: true only while switchTo/switchFromBitPerfectPlayer() is running — used
+    // to distinguish internal playlist-changed transitions (the fresh clean player's
+    // empty timeline receiving the queue) from real user skips, so the end-of-song
+    // sleep timer is not cancelled by the toggle itself.
+    private var bitPerfectSwitching: Boolean = false
 
     // ── Session ───────────────────────────────────────────────────────────────
     private var session: MediaSession? = null
@@ -119,6 +138,9 @@ class Media3PlaybackService : MediaSessionService() {
     // artworkData bytes published into the MediaSession metadata — SystemUI
     // renders the session's ART bytes, NOT the notification largeIcon.
     private lateinit var sessionArtworkProvider: SessionArtworkProvider
+    // Media3 session BitmapLoader (Bluetooth / lock-screen artwork). Kept as a
+    // field so onDestroy can shut its executor down with the other artwork I/O.
+    private lateinit var fallbackBitmapLoader:   FallbackBitmapLoader
 
     // Single-thread executor for off-main-thread I/O (URI metadata reads, etc.).
     // Shut down in onDestroy() so tasks don't outlive the service.
@@ -134,6 +156,7 @@ class Media3PlaybackService : MediaSessionService() {
     @Volatile private var activeDecoderIsHardware: Boolean = false
     private val statsListeners       = IdentityHashMap<ExoPlayer, PlaybackStatsListener>()  // Item 6
     private val playerProcessors     = IdentityHashMap<ExoPlayer, StereoWideningAudioProcessor>() // Item 8
+    private val playerReverbProcessors = IdentityHashMap<ExoPlayer, ReverbAudioProcessor>() // Reverb
     private val playerStretchProcessors = IdentityHashMap<ExoPlayer, dev.wndavenz.music.effects.SignalsmithStretchAudioProcessor>()
 
     // Phase 9 — last audio MIME per player, tracked from onAudioInputFormatChanged
@@ -144,6 +167,9 @@ class Media3PlaybackService : MediaSessionService() {
     // ── Item 3 & 8: capability receiver and stereo width manager ─────────────
     private var audioCapReceiver: AudioCapabilitiesReceiver? = null
     private lateinit var stereoWidthManager: StereoWidthManager
+
+    // ── Reverb: Schroeder room-reverb effect manager (same pattern as StereoWidthManager)
+    private lateinit var reverbManager: ReverbManager
 
     // Signalsmith Stretch — playback speed + pitch shift, replacing Sonic.
     // See StretchManager doc for why this needs its own manager (per-instance
@@ -215,6 +241,9 @@ class Media3PlaybackService : MediaSessionService() {
         // createConfiguredPlayer() call so the primary player's processor is
         // correctly tracked from the start.
         stereoWidthManager = StereoWidthManager()
+        // Reverb: same requirement — the primary player's reverb processor
+        // must be tracked from the very first createConfiguredPlayer() call.
+        reverbManager = ReverbManager()
         stretchManager = dev.wndavenz.music.effects.StretchManager()
 
         // Create primary player — always physical stream slot 0.
@@ -230,7 +259,7 @@ class Media3PlaybackService : MediaSessionService() {
             // Read crossfadeDurationSec directly from the controller so
             // onCrossfadeComplete() always gets the live, authoritative value.
             getCrossfadeDurationSec  = { crossfadeController.crossfadeDurationSec },
-            // Media3 1.10.1: experimentalSetOffloadSchedulingEnabled removed;
+            // Media3 1.1.0: experimentalSetOffloadSchedulingEnabled removed;
             // scheduling is now managed internally.  Only osGranted is reported.
             onOffloadStateChanged    = { osGranted ->
                 EventEmitter.emit(
@@ -239,12 +268,10 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
         )
-        // LOW-07 fix: track the initial offload listener so it can be removed before
-        // adding a new one on crossfade completion (prevents listener accumulation).
-        activeOffloadListener = offloadManager.makeOffloadListener()
-        val initialPlayer   = primaryPlayer   ?: return
-        val offloadListener = activeOffloadListener ?: return
-        initialPlayer.addAudioOffloadListener(offloadListener)
+        // K2 fix: attach the single tracked offload listener to the initial active
+        // player. attachOffloadListenerTo() keeps exactly one AudioOffloadListener
+        // in the whole service and migrates it whenever the active player changes.
+        attachOffloadListenerTo(primaryPlayer)
 
         // Build MediaSession
         // CRIT-01 fix: MediaSession always uses activePlayerProxy — never replaced by a raw
@@ -252,14 +279,18 @@ class Media3PlaybackService : MediaSessionService() {
         // new player on crossfade promotion so lock-screen and BT controllers remain in sync.
         // transportCommands is lateinit but fully initialised before any external controller
         // can connect (connections only happen after onCreate() returns).
+        val initialPlayer = requireNotNull(primaryPlayer)
         activePlayerProxy = ActivePlayerProxy(
-            initialPlayer = initialPlayer,
-            onPlay        = { transportCommands.playNative() },
-            onPause       = { transportCommands.pauseNative() },
-            onSkipNext    = { transportCommands.skipNextNative() },
-            onSkipPrev    = { transportCommands.skipPrevNative() },
-            onSeek        = { transportCommands.seekNative(it) },
-            onSetTrack    = { transportCommands.setTrackNative(it) },
+        initialPlayer = initialPlayer,
+            // K13 fix: any user transport action through the MediaSession
+            // (Bluetooth/headset buttons, lock screen, Android Auto) also exits
+            // preview mode — the flag must not survive the preview session.
+            onPlay        = { leavePreviewMode(); transportCommands.playNative() },
+            onPause       = { leavePreviewMode(); transportCommands.pauseNative() },
+            onSkipNext    = { leavePreviewMode(); transportCommands.skipNextNative() },
+            onSkipPrev    = { leavePreviewMode(); transportCommands.skipPrevNative() },
+            onSeek        = { leavePreviewMode(); transportCommands.seekNative(it) },
+            onSetTrack    = { leavePreviewMode(); transportCommands.setTrackNative(it) },
         )
         // ART-01: artwork cache shared between notification and full-player pipelines.
         // Initialised BEFORE the MediaSession is built so FallbackBitmapLoader (the
@@ -271,6 +302,7 @@ class Media3PlaybackService : MediaSessionService() {
         // bytes published as MediaSession metadata (artworkData) so SystemUI /
         // MIUI render sharp art instead of the low-res MediaStore albumart URI.
         sessionArtworkProvider = SessionArtworkProvider(this, serviceArtworkCache)
+        fallbackBitmapLoader = FallbackBitmapLoader(this, serviceArtworkCache)
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val sessionBuilder = MediaSession.Builder(this, activePlayerProxy)
@@ -283,7 +315,7 @@ class Media3PlaybackService : MediaSessionService() {
             // by MediaStore (e.g. FLAC files from Telegram).  The loader tries the standard
             // albumart content URI first, then falls back to the shared artwork cache
             // (extract + persist on miss — raw-copied JPEG since 1.5.19).
-            .setBitmapLoader(FallbackBitmapLoader(this, serviceArtworkCache))
+            .setBitmapLoader(fallbackBitmapLoader)
         if (launchIntent != null) {
             sessionBuilder.setSessionActivity(
                 PendingIntent.getActivity(
@@ -351,6 +383,8 @@ class Media3PlaybackService : MediaSessionService() {
             getPlayer  = { activePlayer },
             stopTicker = { transportState.stopPositionTicker() },
             emitAll    = { transportState.emitAll() },
+            // F2: sleep fade must never write volume during a crossfade.
+            isCrossfadeActive = { crossfadeController.crossfadeInProgress },
         )
 
         queueManager = QueueManager(
@@ -406,6 +440,18 @@ class Media3PlaybackService : MediaSessionService() {
                 catch (e: Exception) {
                     NativeLogger.emit("warn", "Media3", "ActivePlayerProxy.switchTo failed: ${e.message}")
                 }
+                // ART-REFRESH-02: republish the session artworkData on EVERY active-
+                // player promotion, not just at onCrossfadeComplete. The promoted
+                // standby fired its READY/transition while still inactive and those
+                // were dropped by the isActiveEvent() guard, so without this the
+                // MediaSession keeps the PREVIOUS track's artwork whenever the fade
+                // never completes — e.g. a mid-fade cancel (headphones unplugged /
+                // audio focus lost) leaves the promoted player active and paused with
+                // stale session art indefinitely. Publishing at promotion time also
+                // makes SystemUI/MIUI show the incoming track's art from fade start
+                // instead of waiting for the fade to finish. refreshSessionArtwork()
+                // re-checks activePlayer + mediaId, so a stale publish is dropped.
+                scheduleSessionArtworkRefresh()
             },
             preloadManager      = preloadManager,
             getVolumeBeforeDuck = { audioFocusManager.volumeBeforeDuck },
@@ -415,6 +461,14 @@ class Media3PlaybackService : MediaSessionService() {
             getQueue            = { queueManager.queue },
             getActiveQueueIndex = { queueManager.activeQueueIndex },
             setActiveQueueIndex = { idx -> queueManager.setActiveQueueIndex(idx) },
+            // K1 fix: restores the full queue on the promoted player after a mid-fade
+            // cancel (headphones unplugged / audio focus lost). Without this, the
+            // promoted standby's one-item timeline stays active and next/prev
+            // navigation is locked to a single track until the queue is mutated.
+            // rebuildPlayerQueue() is a no-op when the timeline is already full, so
+            // paths that restore explicitly (TransportCommands pause/stop/skip,
+            // setQueue, shutdown) are unaffected.
+            rebuildPromotedQueue = { queueManager.rebuildPlayerQueue() },
             onCrossfadeComplete = {
                 // ── Dropout investigation: snapshot player state at the start of this callback.
                 // Everything from here through the end of the lambda is a potential dropout cause.
@@ -453,13 +507,23 @@ class Media3PlaybackService : MediaSessionService() {
                 // Also attach the offload listener to the new active player so OS
                 // grant/reject events are still reported after player promotion.
                 offloadManager.onCrossfadeComplete()
-                // LOW-07 fix: remove the old offload listener before adding the new one.
-                // Previously a new listener was added on every crossfade without removing
-                // the previous one, causing accumulation across many crossfades.
-                val newOffloadListener = offloadManager.makeOffloadListener()
-                activeOffloadListener?.let { activePlayer?.removeAudioOffloadListener(it) }
-                activeOffloadListener = newOffloadListener
-                activePlayer?.addAudioOffloadListener(newOffloadListener)
+                // K2 fix: migrate the single tracked offload listener to the promoted
+                // player. The old LOW-07 swap only removed the tracked listener from the
+                // NEW active player — a no-op, because it was attached to the previous
+                // active player — while createConfiguredPlayer() kept adding an untracked
+                // listener to every standby, so the active player accumulated one
+                // listener per crossfade (duplicate offloadState events + linear growth).
+                // attachOffloadListenerTo() removes the old listener from every live
+                // player and attaches exactly one fresh listener to the target.
+                attachOffloadListenerTo(activePlayer)
+
+                // ART-REFRESH-01: the promoted player already fired its
+                // STATE_READY / transition while still "standby", and those were
+                // dropped by the isActiveEvent() guard — so no listener callback
+                // will republish the session artwork after promotion. Refresh it
+                // explicitly so SystemUI / MIUI never keep the previous track's
+                // artworkData after a crossfade.
+                scheduleSessionArtworkRefresh()
 
                 CrossfadeTimelineLogger.stamp(
                     "onCrossfadeComplete CB: EXIT (offload listener swapped)", activePlayer)
@@ -474,6 +538,19 @@ class Media3PlaybackService : MediaSessionService() {
             prewarmNotificationArtwork = { songId, artUri ->
                 notificationManager.prewarmArtwork(songId, artUri)
             },
+            // F1 (sleep timer): while the end-of-song timer is armed, block
+            // crossfade so the current track plays out to its natural end and
+            // the existing STATE_ENDED / transition trigger can fire. See
+            // CrossfadeController.maybeCrossfadeOut() for the full rationale.
+            isEndOfSongSleepTimerActive = {
+                sleepTimerManager.sleepTimerActive && sleepTimerManager.sleepEndOfSong
+            },
+            // BP-06: Bit-Perfect Mode and crossfade are mutually exclusive —
+            // enforce natively (Dart already forces the crossfade duration to 0
+            // on mode entry; this is defence in depth so a stale crossfade
+            // setting can never start a fade on the clean player or reuse its
+            // standby slot while the mode is active).
+            isBitPerfectModeActive = { bitPerfectModeOn },
         )
 
         effectsManager = AudioEffectsManager(handler)
@@ -493,6 +570,16 @@ class Media3PlaybackService : MediaSessionService() {
             queueManager        = queueManager,
             crossfadeController = crossfadeController,
             sleepTimerManager   = sleepTimerManager,
+            // NAR-4/NAR-5: report which DSP stream slot the ACTIVE player is
+            // bound to. Slot is by physical variable (primaryPlayer = 0,
+            // secondaryPlayer = 1) and never changes for a given ExoPlayer
+            // instance — active/standby role flips on every crossfade
+            // promotion while the player object does not. The bit-perfect
+            // clean player is a third instance with no DSP chain; it reports
+            // slot 0 (matching the DSP-less pipeline, harmless).
+            getActiveStreamSlot = {
+                if (activePlayer === secondaryPlayer) 1 else 0
+            },
             // WD-01: stuck-playback recovery.
             // retry 1 → re-prepare current item (resets codec pipeline without skipping).
             // retry 2 → skip to next track (permanently bad / undecodable file).
@@ -511,9 +598,12 @@ class Media3PlaybackService : MediaSessionService() {
                         p.prepare()
                     } else {
                         // Attempt 2: the file itself is undecodable — skip it.
+                        // force = true bypasses the rapid-skip guard (SKIP-01): a
+                        // stuck decoder must always recover, even if the user just
+                        // pressed next within the throttle window.
                         NativeLogger.emit("warn", "Watchdog",
                             "Re-prepare had no effect — skipping to next track")
-                        transportCommands.skipNextNative()
+                        transportCommands.skipNextNative(force = true)
                     }
                 }
             },
@@ -558,12 +648,25 @@ class Media3PlaybackService : MediaSessionService() {
                 )
             },
 
+            // Reverb — same atomic-update + mirror-back pattern via ReverbManager.
+            onReverbChanged = { enabled, intensity ->
+                reverbManager.setReverb(enabled, intensity)
+                EventEmitter.emit(
+                    "reverb",
+                    mapOf(
+                        "enabled" to reverbManager.reverbEnabled,
+                        "intensity" to reverbManager.reverbIntensity,
+                    ),
+                )
+            },
+
             // Item 6: return current PlaybackStats for the active player session.
             getPlaybackStats = {
                 val statsListener = statsListeners[activePlayer]
                 statsListener?.getPlaybackStats()?.let { stats ->
-                    // totalBufferingTimeMs and totalErrorCount were removed in Media3 1.10.1;
-                    // return 0 so the Flutter UI still renders the stats sheet correctly.
+                    // PlaybackStats has no totalBufferingTimeMs/totalErrorCount fields
+                    // (buffering is getTotalRebufferTimeMs(), errors are fatalErrorCount/
+                    // nonFatalErrorCount); report 0 so the Flutter stats sheet renders.
                     mapOf(
                         "totalPlayTimeMs"      to stats.totalPlayTimeMs,
                         "totalBufferingTimeMs" to 0L,
@@ -604,7 +707,10 @@ class Media3PlaybackService : MediaSessionService() {
             // bind Equalizer / BassBoost etc.
             handler.postDelayed({
                 val sessionId = activePlayer?.audioSessionId ?: 0
-                if (sessionId > 0) {
+                // BP-03: never attach AudioEffects while Bit-Perfect Mode is
+                // active — the clean player must stay free of EQ/BassBoost/
+                // LoudnessEnhancer even across output-device changes (BT/HDMI).
+                if (sessionId > 0 && !bitPerfectModeOn) {
                     effectsManager.resetAndReattach(sessionId)
                 }
             }, 500L)
@@ -615,7 +721,7 @@ class Media3PlaybackService : MediaSessionService() {
 
         shutdownCoordinator = ServiceShutdownCoordinator(
             cancelCrossfade        = { rv -> crossfadeController.cancel(resetVolume = rv) },
-            cancelSleepTimer       = { sleepTimerManager.cancel() },
+            cancelSleepTimer       = { sleepTimerManager.cancelIfActive() },
             stopPositionTicker     = { transportState.stopPositionTicker() },
             emitAll                = { transportState.emitAll() },
             abandonAudioFocus      = { audioFocusManager.abandon() },
@@ -637,11 +743,17 @@ class Media3PlaybackService : MediaSessionService() {
 
         instance = this
 
-        restoreQueueFromPrefs()
+        // Plan A: the persisted queue is no longer restored here. A normal
+        // user-initiated launch must start with an empty queue ("killed app =
+        // fresh state") instead of resurrecting the previous session's tracks
+        // in native memory and the UI. restoreQueueFromPrefs() is now invoked
+        // only from onStartCommand() when the intent is null, i.e. the system
+        // restarted the service after killing the process (START_STICKY).
 
         // Publish the restored track's high-res square artwork to the session
         // metadata (SystemUI/MIUI media card) — no transition may fire until
-        // the user resumes, so refresh explicitly.
+        // the user resumes, so refresh explicitly. No-op when the queue is
+        // empty (user-initiated launch).
         scheduleSessionArtworkRefresh()
 
         NativeLogger.emit(
@@ -651,8 +763,8 @@ class Media3PlaybackService : MediaSessionService() {
         transportState.emitAll()
 
         // Cold-start race fix: everything above (player, session, managers,
-        // transportCommands, queue restore) is fully wired at this point — only
-        // now is it safe for Dart to push settings that reach into effectsManager /
+        // transportCommands) is fully wired at this point — only now is it safe
+        // for Dart to push settings that reach into effectsManager /
         // queueManager / crossfadeController. See ServiceReadyGate doc comment.
         ServiceReadyGate.markReady()
     }
@@ -666,11 +778,12 @@ class Media3PlaybackService : MediaSessionService() {
      * WHY: SystemUI / MIUI media surfaces (notification shade card, lock screen
      * media controls) render artwork from the MediaSession metadata — not from
      * the notification's setLargeIcon and not through Media3's BitmapLoader.
-     * MediaItemFactory only sets artworkUri = content://media/.../albumart/{id}
-     * (the low-res MediaStore thumbnail), which SystemUI upscales + center-crops
-     * → zoomed & pixelated art. Publishing full-res square letterboxed bytes
-     * makes every consumer (SystemUI, MIUI, MediaStyleNotificationHelper,
-     * MediaSessionLegacyStub/Bluetooth) render the same sharp square.
+     * MediaItemFactory no longer sets artworkUri (the low-res albumart
+     * thumbnail caused upscale + center-crop zoom, ZOOM-01), so artworkData is
+     * the only artwork source in the metadata. Publishing full-res square
+     * letterboxed bytes makes every consumer (SystemUI, MIUI,
+     * MediaStyleNotificationHelper, MediaSessionLegacyStub/Bluetooth) render
+     * the same sharp square.
      */
     private fun scheduleSessionArtworkRefresh() {
         handler.post { refreshSessionArtwork() }
@@ -716,8 +829,21 @@ class Media3PlaybackService : MediaSessionService() {
         runCatching {
             val item = p.currentMediaItem ?: return@runCatching
             if (item.mediaId != mediaId) return@runCatching
-            val meta = item.mediaMetadata.buildUpon().setArtworkData(bytes).build()
-            if (meta.artworkData == item.mediaMetadata.artworkData) return@runCatching
+            val metaBuilder = item.mediaMetadata.buildUpon()
+                .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            if (bytes == null) {
+                // ZOOM-01: never leave the low-res MediaStore album-art URI
+                // (≤512 px, non-square) as the ONLY artwork source. Renderers
+                // that fall back to ART_URI upscale + center-crop it — exactly
+                // the "artwork zooms / pixelates when playing" bug. No art is
+                // better than zoomed art; a later successful refresh
+                // repopulates artworkData (and the URI stays for sources that
+                // can still resolve, e.g. embedded art via BitmapLoader).
+                metaBuilder.setArtworkUri(null)
+            }
+            val meta = metaBuilder.build()
+            if (meta.artworkData.contentEquals(item.mediaMetadata.artworkData) &&
+                meta.artworkUri == item.mediaMetadata.artworkUri) return@runCatching
             val index = p.currentMediaItemIndex
             if (index == C.INDEX_UNSET) return@runCatching
             val updated = item.buildUpon().setMediaMetadata(meta).build()
@@ -732,6 +858,30 @@ class Media3PlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    /**
+     * K2 fix: keeps exactly ONE AudioOffloadListener in the entire service.
+     *
+     * Removes the previously tracked listener from every live player (whichever
+     * physical slot it was attached to — primary, secondary or bit-perfect),
+     * then attaches a fresh listener to [player].
+     *
+     * Why this is safe: AudioOffloadManager.makeOffloadListener() is a pure
+     * observer of onOffloadedPlayback(Boolean) — listener identity only matters
+     * for add/remove bookkeeping. Re-creating the listener on migration keeps
+     * the OS grant/reject callback surface intact on the active player while
+     * guaranteeing zero accumulation across crossfades (K2 audit finding).
+     */
+    private fun attachOffloadListenerTo(player: ExoPlayer?) {
+        activeOffloadListener?.let { old ->
+            primaryPlayer?.removeAudioOffloadListener(old)
+            secondaryPlayer?.removeAudioOffloadListener(old)
+            bitPerfectPlayer?.removeAudioOffloadListener(old)
+        }
+        val fresh = offloadManager.makeOffloadListener()
+        activeOffloadListener = fresh
+        player?.addAudioOffloadListener(fresh)
+    }
 
     /**
      * Block Media3's DefaultMediaNotificationProvider from managing the foreground
@@ -751,9 +901,25 @@ class Media3PlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+
+        // Plan A: restore the persisted queue only on a system restart.
+        // START_STICKY redelivers a null intent when the system recreates the
+        // service after killing the process. Every non-null start is
+        // user/app initiated (Flutter play/setQueue, notification/BT action,
+        // ACTION_PLAY_URI) and builds its own queue, so restoring here would
+        // re-show the previous session's song in a fresh launch.
+        if (intent == null) {
+            restoreQueueFromPrefs()
+        }
         
         // 2. Cek apakah ini panggilan dari overlay preview
         isPreviewMode = intent?.getBooleanExtra("IS_OVERLAY_PREVIEW", false) ?: false
+        // K3 fix: propagate preview mode to the notification manager so
+        // playNative()/player listeners can never start a foreground
+        // notification during the file-manager preview (previously only the
+        // first ensureMediaForeground() in handlePlayUri was guarded, while
+        // handlePlay and every listener refresh() still created it).
+        notificationManager.setSuppressed(isPreviewMode)
 
         if (intent?.action == ACTION_PLAY_URI) {
             val uriStr = intent.getStringExtra(EXTRA_URI)
@@ -837,6 +1003,7 @@ class Media3PlaybackService : MediaSessionService() {
             "album"    to album,
             "albumId"  to 0,
             "path"     to uriStr,
+            "artworkSource" to uriStr,
             "duration" to durationMs,
         )
     }
@@ -875,12 +1042,40 @@ class Media3PlaybackService : MediaSessionService() {
         bitPerfectModeOn     = false
         activePlayer         = null
         session              = null
+        // Shut down the artwork executors (notification largeIcon loader, session
+        // artworkData provider, Bluetooth/lock-screen BitmapLoader) so queued I/O
+        // cannot outlive service teardown. close() is idempotent; each component
+        // also guards its completion callbacks against a null session / closed
+        // state, so late results are dropped instead of posted to a dead session.
+        notificationManager.close()
+        sessionArtworkProvider.close()
+        fallbackBitmapLoader.close()
         super.onDestroy()
     }
 
     // ── MethodChannel entry point ─────────────────────────────────────────────
 
+    /**
+     * K13 fix: leaves preview mode (and un-suppresses the notification) once
+     * anything other than the native overlay drives playback. K3 originally
+     * only cleared the flag on the first MethodChannel call, so a stale
+     * preview left the notification suppressed until Flutter happened to
+     * touch the channel — e.g. controlling the preview via Bluetooth/headset
+     * media buttons never un-suppressed it. Now every real transport entry
+     * point (channel call OR MediaSession callback) exits preview mode.
+     */
+    private fun leavePreviewMode() {
+        if (isPreviewMode) {
+            isPreviewMode = false
+            if (::notificationManager.isInitialized) notificationManager.setSuppressed(false)
+        }
+    }
+
     fun handle(call: MethodCall, result: MethodChannel.Result) {
+        // K3 fix: any MethodChannel call means the Flutter app is now driving
+        // playback (the native overlay preview never uses this channel) — leave
+        // preview mode and allow the notification to be created again.
+        leavePreviewMode()
         // "release" is handled here rather than in TransportCommands because it
         // must call stopSelf() — a service-level operation not available to
         // TransportCommands.  This mirrors the ACTION_STOP notification-button
@@ -937,14 +1132,24 @@ class Media3PlaybackService : MediaSessionService() {
             ACTION_STOP -> {
                 // STOP is not a standard TransportCommands flow — it tears down the
                 // foreground service.  Keep the inline logic here.
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 crossfadeController.cancel(resetVolume = true)
                 primaryPlayer?.pause();   primaryPlayer?.seekTo(0)
                 secondaryPlayer?.pause(); secondaryPlayer?.seekTo(0)
                 transportState.stopPositionTicker()
                 audioFocusManager.abandon()
                 notificationManager.stopForeground()
-                transportState.emitAll()
+                // Session-over semantics: drop the in-memory queue and publish a
+                // cleared snapshot (empty queue + null current track) so Flutter
+                // collapses the mini player with its reverse entry animation
+                // instead of keeping stale transport state whose commands are
+                // no-ops against an empty ExoPlayer. performTeardown()'s
+                // saveQueue() then also clears the persisted queue, so neither
+                // the UI nor a later START_STICKY restart resurrects the
+                // finished session. The mini player returns only when the user
+                // starts a new queue from the library.
+                queueManager.clearQueue()
+                transportState.emitAll(emitQueue = true)
                 NativeLogger.emit("info", "Media3", "transport: stop (notification/BT)")
                 stopSelf()
             }
@@ -1005,7 +1210,7 @@ class Media3PlaybackService : MediaSessionService() {
         // no-op when the input is already PCM_FLOAT). ToInt16PcmAudioProcessor converts
         // back to 16-bit before Media3's internal SilenceSkipping/Sonic stage, so the
         // custom chain's float-domain assumptions never leak downstream. Both are
-        // public @UnstableApi BaseAudioProcessor subclasses (Media3 1.10.1,
+        // public @UnstableApi BaseAudioProcessor subclasses (Media3 1.11.0,
         // androidx.media3.exoplayer.audio / androidx.media3.common.audio) — stateful,
         // so a fresh instance is required per ExoPlayer/player build, same as the
         // other processors in this chain.
@@ -1017,6 +1222,13 @@ class Media3PlaybackService : MediaSessionService() {
         val channelMixingProc: StereoWideningAudioProcessor =
             if (::stereoWidthManager.isInitialized) stereoWidthManager.createProcessor()
             else StereoWideningAudioProcessor()
+
+        // Reverb: one ReverbAudioProcessor per player, tracked by
+        // ReverbManager so a single setReverb() call updates both active and
+        // standby players atomically during a crossfade overlap.
+        val reverbProc: ReverbAudioProcessor =
+            if (::reverbManager.isInitialized) reverbManager.createProcessor()
+            else ReverbAudioProcessor()
 
         // Signalsmith Stretch — replaces Sonic for both playback speed and
         // pitch shift (see StretchManager / SignalsmithStretchAudioProcessor
@@ -1050,7 +1262,7 @@ class Media3PlaybackService : MediaSessionService() {
         // DefaultRenderersFactory for injecting custom AudioProcessors.
         //
         // DefaultAudioSink.DefaultAudioProcessorChain is the official public API in
-        // Media3 1.10.1. It accepts a vararg of user AudioProcessors to insert BEFORE
+        // Media3 1.11.0. It accepts a vararg of user AudioProcessors to insert BEFORE
         // its own SilenceSkippingAudioProcessor and SonicAudioProcessor. All features
         // — native DSP, stereo widening, skip-silence, and playback speed — are preserved.
         val renderersFactory = object : DefaultRenderersFactory(this) {
@@ -1061,7 +1273,7 @@ class Media3PlaybackService : MediaSessionService() {
             ): DefaultAudioSink {
                 NativeLogger.emit(
                     "info", "Stretch",
-                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
+                    "[Stretch] audio sink processor chain created order=[ToFloat,NativeDsp,StereoWiden,Reverb,Stretch,ToInt16(+SilenceSkip,Sonic)] " +
                         "floatOutputEnabled=$enableFloatOutput audioTrackPlaybackParamsEnabled=$enableAudioTrackPlaybackParams " +
                         "stretchHash=${System.identityHashCode(stretchProc)} chain=StretchAwareAudioProcessorChain",
                 )
@@ -1072,8 +1284,8 @@ class Media3PlaybackService : MediaSessionService() {
                     .setEnableFloatOutput(false)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     // Chain order (Option B): ToFloat → NativeDsp → StereoWiden →
-                    // Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
-                    // the custom DSP/widening/stretch stages always see PCM_FLOAT
+                    // Reverb → Stretch (speed+pitch) → ToInt16 → SilenceSkip. ToFloat guarantees
+                    // the custom DSP/widening/reverb/stretch stages always see PCM_FLOAT
                     // (transparent no-op if the decoder already emits float); ToInt16
                     // converts back before Media3's own internal SilenceSkipping/Sonic
                     // stage so nothing downstream has to reason about float input.
@@ -1091,7 +1303,7 @@ class Media3PlaybackService : MediaSessionService() {
                     .setAudioProcessorChain(
                         dev.wndavenz.music.effects.StretchAwareAudioProcessorChain(
                             stretchProc,
-                            toFloatProc, nativeDspProc, channelMixingProc, stretchProc, toInt16Proc
+                            toFloatProc, nativeDspProc, channelMixingProc, reverbProc, stretchProc, toInt16Proc
                         )
                     )
                     .build()
@@ -1156,12 +1368,13 @@ class Media3PlaybackService : MediaSessionService() {
                 // Critical on MIUI 12: the aggressive battery manager may suspend the CPU
                 // mid-track without this, causing playback to stall while the screen is off.
                 setWakeMode(C.WAKE_MODE_LOCAL)
-                // Attach the offload listener when available (offloadManager is initialised
-                // after the primary player in onCreate; secondary players are always created
-                // after that point so the guard below covers the race-free case).
-                if (::offloadManager.isInitialized) {
-                    addAudioOffloadListener(offloadManager.makeOffloadListener())
-                }
+                // K2 fix: no offload listener is attached here. createConfiguredPlayer()
+                // previously attached an untracked listener to every player it created
+                // (primary + every crossfade standby), which the promoted player never
+                // shed — accumulating one listener per crossfade. The single tracked
+                // listener now lives only in attachOffloadListenerTo(), called whenever
+                // the active player changes (onCreate, onCrossfadeComplete, bit-perfect
+                // switches).
             }
 
         val ffmpegStatus = dev.wndavenz.music.ffmpeg.FfmpegCapabilityProbe.queryStatus()
@@ -1182,6 +1395,10 @@ class Media3PlaybackService : MediaSessionService() {
         // StereoWidthManager when the player is released (via detachPlayerListener).
         if (::stereoWidthManager.isInitialized) {
             playerProcessors[player] = channelMixingProc
+        }
+        // Reverb: same tracking for the room-reverb processor.
+        if (::reverbManager.isInitialized) {
+            playerReverbProcessors[player] = reverbProc
         }
         if (::stretchManager.isInitialized) {
             playerStretchProcessors[player] = stretchProc
@@ -1303,7 +1520,10 @@ class Media3PlaybackService : MediaSessionService() {
     if (playbackState == Player.STATE_READY) scheduleSessionArtworkRefresh()
 
     if (playbackState == Player.STATE_READY &&
-        crossfadeController.crossfadeDurationSec > 0f) {
+        crossfadeController.crossfadeDurationSec > 0f &&
+        // BP-06: never preload a standby while Bit-Perfect Mode is active —
+        // the standby slot would land on the paused pre-bit-perfect player.
+        !bitPerfectModeOn) {
         preloadManager.preloadNextTrack()
     }
 
@@ -1323,6 +1543,16 @@ class Media3PlaybackService : MediaSessionService() {
                 else           transportState.stopPositionTicker()
                 transportState.emitAll()
                 notificationManager.refresh()
+                // ZOOM-01: pressing play can make SystemUI / MIUI switch the
+                // shade media card to session-driven rendering. If artworkData
+                // is missing at that moment (async publish still in flight,
+                // item rebuilt by queue rebuild, cold start), the renderer
+                // falls back to the low-res ART_URI → zoom + pixelation. Play
+                // also never fired a READY/transition event, so nothing else
+                // would heal it. Re-publish the current track's square art on
+                // every play press — a cache hit resolves synchronously, so
+                // this is effectively free in the steady state.
+                if (isPlaying) scheduleSessionArtworkRefresh()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -1338,15 +1568,25 @@ class Media3PlaybackService : MediaSessionService() {
                 }
                 if (!isActiveEvent()) return
 
-                // Manual skip cancels end-of-song sleep timer
-                if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                // Manual skip (seek to another item) or playlist rebuild cancels
+                // the end-of-song sleep timer; automatic advances (AUTO) and
+                // repeat-one loops (REPEAT) fire it instead.
+                if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
+                        reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) &&
                     sleepTimerManager.sleepTimerActive &&
-                    sleepTimerManager.sleepEndOfSong) {
+                    sleepTimerManager.sleepEndOfSong &&
+                    // BP-04: transitions fired while the bit-perfect switch itself
+                    // is running (fresh clean player's empty timeline receiving the
+                    // queue) are internal artifacts, not a user skip — don't cancel
+                    // the end-of-song timer for them. Real user skips happen outside
+                    // this window and still cancel normally.
+                    !bitPerfectSwitching) {
                     sleepTimerManager.cancel()
                 }
 
-                // End-of-song sleep timer fires on auto-transition
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                // End-of-song sleep timer fires on auto-advance or repeat-one loop
+                if ((reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                        reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) &&
                     sleepTimerManager.sleepEndOfSong &&
                     sleepTimerManager.sleepTimerActive) {
                     NativeLogger.emit("info", "Media3",
@@ -1358,7 +1598,10 @@ class Media3PlaybackService : MediaSessionService() {
                 if (!crossfadeController.crossfadeInProgress && p.currentMediaItemIndex >= 0) {
                     queueManager.setActiveQueueIndex(p.currentMediaItemIndex)
                     crossfadeController.resetPromotionState()
-                    if (crossfadeController.crossfadeDurationSec > 0f) {
+                    // BP-06: also skip the force-preload while Bit-Perfect Mode is
+                    // active — a stale crossfade setting must not create a standby
+                    // player on the paused pre-bit-perfect player's slot.
+                    if (crossfadeController.crossfadeDurationSec > 0f && !bitPerfectModeOn) {
                         preloadManager.preloadNextTrack(force = true)
                     }
                 }
@@ -1416,7 +1659,7 @@ class Media3PlaybackService : MediaSessionService() {
                 transportState.emitAll()
             }
 
-            // ── Media3 1.10.1 — additional Player.Listener callbacks ──────────
+            // ── Media3 1.11.0 — additional Player.Listener callbacks ──────────
 
             /**
              * Fired whenever ExoPlayer's software volume changes (e.g. during
@@ -1698,7 +1941,7 @@ class Media3PlaybackService : MediaSessionService() {
              * pipeline was fully recreated — the platform must fill the new
              * AudioTrack's buffer before audio resumes, which is the dropout gap.
              *
-             * Verified against Media3 1.10.1 source:
+             * Verified against Media3 1.11.0 source:
              *   AnalyticsListener.java line 1148–1150
              *   AudioSink.AudioTrackConfig fields: encoding, sampleRate, offload, bufferSize
              */
@@ -1726,7 +1969,7 @@ class Media3PlaybackService : MediaSessionService() {
              * pinpoints which operation in the post-crossfade callback chain forced an
              * AudioTrack recreation.
              *
-             * Verified against Media3 1.10.1 source:
+             * Verified against Media3 1.11.0 source:
              *   AnalyticsListener.java line 1159–1161
              */
             override fun onAudioTrackReleased(
@@ -1794,6 +2037,8 @@ class Media3PlaybackService : MediaSessionService() {
         // Item 8: remove processor from StereoWidthManager so it is no longer updated
         // (prevents updating a ChannelMixingAudioProcessor belonging to a released player).
         playerProcessors.remove(p)?.let { stereoWidthManager.removeProcessor(it) }
+        // Reverb: same rationale, for the room-reverb processor.
+        playerReverbProcessors.remove(p)?.let { reverbManager.removeProcessor(it) }
         // Signalsmith Stretch: same rationale, for the speed/pitch processor.
         playerStretchProcessors.remove(p)?.let { stretchManager.removeProcessor(it) }
         // Phase 9: drop the cached MIME type for this player.
@@ -1836,42 +2081,58 @@ class Media3PlaybackService : MediaSessionService() {
         if (bitPerfectModeOn) return
         val current = activePlayer ?: return
         NativeLogger.emit("info", "Media3", "BitPerfect: enabling — switching to clean player")
-
-        // Dual-player crossfade and Bit-Perfect Mode never run together.
-        crossfadeController.cancel(resetVolume = true)
-        preloadManager.releaseStandbyPlayer()
-
-        val wasPlaying = current.isPlaying
-        val positionMs = current.currentPosition
-        current.pause()
-
-        // No AudioEffects during bit-perfect playback.
-        effectsManager.releaseEffects()
-
-        preBitPerfectPlayer = current
-
-        val clean = bitPerfectPlayer ?: createBitPerfectPlayer().also {
-            bitPerfectPlayer = it
-            attachPlayerListener(it)
-        }
-
-        activePlayer = clean
+        // BP-04: mark the switch window so internal PLAYLIST_CHANGED transitions
+        // (fresh clean player's timeline receiving the queue) are not treated as
+        // user skips by the end-of-song sleep timer.
+        bitPerfectSwitching = true
         try {
-            activePlayerProxy.switchTo(clean)
-        } catch (e: Exception) {
-            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(clean) failed: ${e.message}")
-        }
+            // Dual-player crossfade and Bit-Perfect Mode never run together.
+            crossfadeController.cancel(resetVolume = true)
+            preloadManager.releaseStandbyPlayer()
 
-        if (queueManager.queue.isNotEmpty()) {
-            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
-        }
-        if (wasPlaying) clean.play()
+            val wasPlaying = current.isPlaying
+            val positionMs = current.currentPosition
+            current.pause()
 
-        bitPerfectModeOn = true
-        transportState.emitAll()
-        notificationManager.refresh()
-        NativeLogger.emit("info", "Media3",
-            "BitPerfect: active — session=${clean.audioSessionId} pos=${positionMs}ms playing=$wasPlaying")
+            // No AudioEffects during bit-perfect playback.
+            effectsManager.releaseEffects()
+
+            preBitPerfectPlayer = current
+
+            val clean = bitPerfectPlayer ?: createBitPerfectPlayer().also {
+                bitPerfectPlayer = it
+                attachPlayerListener(it)
+            }
+
+            activePlayer = clean
+            try {
+                activePlayerProxy.switchTo(clean)
+            } catch (e: Exception) {
+                NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(clean) failed: ${e.message}")
+            }
+
+            if (queueManager.queue.isNotEmpty()) {
+                queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+                // BP-02: setQueue() does not carry repeat/shuffle (a fresh player
+                // defaults to REPEAT_OFF + shuffle off) — copy them over so the
+                // clean player behaves exactly like the normal pipeline.
+                clean.repeatMode = current.repeatMode
+                clean.shuffleModeEnabled = current.shuffleModeEnabled
+            }
+            // BP-05: migrate the single tracked offload listener to the clean
+            // player so OS grant/reject events report against the actual active
+            // player during the mode.
+            attachOffloadListenerTo(clean)
+            if (wasPlaying) clean.play()
+
+            bitPerfectModeOn = true
+            transportState.emitAll()
+            notificationManager.refresh()
+            NativeLogger.emit("info", "Media3",
+                "BitPerfect: active — session=${clean.audioSessionId} pos=${positionMs}ms playing=$wasPlaying")
+        } finally {
+            bitPerfectSwitching = false
+        }
     }
 
     /**
@@ -1885,42 +2146,80 @@ class Media3PlaybackService : MediaSessionService() {
         val clean = bitPerfectPlayer
         if (clean == null) { bitPerfectModeOn = false; return }
         NativeLogger.emit("info", "Media3", "BitPerfect: disabling — restoring normal pipeline")
-
-        val wasPlaying = clean.isPlaying
-        val positionMs = clean.currentPosition
-        clean.pause()
-
-        val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
-            primaryPlayer = it
-            attachPlayerListener(it)
-        }
-        preBitPerfectPlayer = null
-
-        activePlayer = restored
+        // BP-04: mark the switch window (see switchToBitPerfectPlayer).
+        bitPerfectSwitching = true
         try {
-            activePlayerProxy.switchTo(restored)
-        } catch (e: Exception) {
-            NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
+            // BP-06: if the active player changed during the mode (defensive —
+            // crossfade is now guarded native-side, but never trust it), read the
+            // exit state from the real active player instead of the clean one.
+            val src = if (activePlayer === clean) clean else (activePlayer ?: clean)
+            val wasPlaying = src.isPlaying
+            val positionMs = src.currentPosition
+            clean.pause()
+            if (src !== clean) src.pause()
+
+            val restored = preBitPerfectPlayer ?: primaryPlayer ?: createConfiguredPlayer(streamSlot = 0).also {
+                primaryPlayer = it
+                attachPlayerListener(it)
+            }
+            preBitPerfectPlayer = null
+
+            // BP-10 hardening: never hand the pipeline a player that is no longer a
+            // live slot object. If the parked pre-bit-perfect player was cleared or
+            // released while the mode was active (pre-fix standby-slot hazard —
+            // standbyPlayer() now resolves to null during the mode), fall back to
+            // the current primary or a freshly created player instead of
+            // resurrecting a dead ExoPlayer, which would silently swallow every
+            // transport command until the app is restarted.
+            val restoredPlayer: ExoPlayer = run {
+                val candidate = restored
+                when {
+                    candidate === primaryPlayer || candidate === secondaryPlayer -> candidate
+                    primaryPlayer != null -> primaryPlayer!!
+                    else -> createConfiguredPlayer(streamSlot = 0).also {
+                        primaryPlayer = it
+                        attachPlayerListener(it)
+                    }
+                }
+            }
+
+            activePlayer = restoredPlayer
+            try {
+                activePlayerProxy.switchTo(restoredPlayer)
+            } catch (e: Exception) {
+                NativeLogger.emit("warn", "Media3", "BitPerfect: switchTo(restored) failed: ${e.message}")
+            }
+
+            if (queueManager.queue.isNotEmpty()) {
+                queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
+                // BP-02 (symmetry): carry repeat/shuffle over from the clean player
+                // in case the user changed the mode during bit-perfect playback.
+                restoredPlayer.repeatMode = clean.repeatMode
+                restoredPlayer.shuffleModeEnabled = clean.shuffleModeEnabled
+            }
+            // BP-05: migrate the tracked offload listener back to the restored player.
+            attachOffloadListenerTo(restoredPlayer)
+
+            // Re-attach AudioEffects for the restored session — the
+            // onAudioSessionIdChanged listener only fires when the numeric session
+            // ID actually changes, which is not guaranteed here. Use
+            // resetAndReattach: plain attachEffects() is a no-op when the session
+            // matches lastAttachedSessionId (releaseEffects() on mode entry does
+            // not reset that guard), which would leave EQ/bass/loudness dead after
+            // exiting the mode (BP-01).
+            val sid = restoredPlayer.audioSessionId
+            if (sid > 0) effectsManager.resetAndReattach(sid)
+
+            if (wasPlaying) restoredPlayer.play()
+
+            bitPerfectModeOn = false
+            transportState.emitAll()
+            notificationManager.refresh()
+            NativeLogger.emit("info", "Media3",
+                "BitPerfect: deactivated — session=$sid pos=${positionMs}ms playing=$wasPlaying")
+        } finally {
+            bitPerfectSwitching = false
         }
-
-        if (queueManager.queue.isNotEmpty()) {
-            queueManager.setQueue(queueManager.queue, queueManager.activeQueueIndex, positionMs)
-        }
-
-        // Re-attach AudioEffects for the restored session — the
-        // onAudioSessionIdChanged listener only fires when the numeric
-        // session ID actually changes, which is not guaranteed here, so
-        // attach explicitly (mirrors the onCrossfadeComplete callback).
-        val sid = restored.audioSessionId
-        if (sid > 0) effectsManager.attachEffects(sid)
-
-        if (wasPlaying) restored.play()
-
-        bitPerfectModeOn = false
-        transportState.emitAll()
-        notificationManager.refresh()
-        NativeLogger.emit("info", "Media3",
-            "BitPerfect: deactivated — session=$sid pos=${positionMs}ms playing=$wasPlaying")
     }
 
     // ── Item helpers ──────────────────────────────────────────────────────────
@@ -1936,6 +2235,10 @@ class Media3PlaybackService : MediaSessionService() {
         val seen = Collections.newSetFromMap(IdentityHashMap<ExoPlayer, Boolean>())
         primaryPlayer?.let   { if (seen.add(it)) block(it) }
         secondaryPlayer?.let { if (seen.add(it)) block(it) }
+        // BP-03: the bit-perfect player is a live player too — include it so track
+        // re-selection adapts to new output-device capabilities (passthrough /
+        // tunneling) during the mode exactly like the other players.
+        bitPerfectPlayer?.let { if (seen.add(it)) block(it) }
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

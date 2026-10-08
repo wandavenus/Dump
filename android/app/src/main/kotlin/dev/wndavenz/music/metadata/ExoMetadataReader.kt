@@ -27,7 +27,7 @@ import java.util.concurrent.TimeoutException
  *     • R128_TRACK_GAIN / R128_ALBUM_GAIN → EBU R128
  *     • ITUNNORM / ITUN NORM            → iTunes normalisation
  *
- *   M4A — mdta atoms (androidx.media3:media3-container:1.10.1)
+ *   M4A — mdta atoms (androidx.media3:media3-container:1.11.0)
  *     • ©lyr (MdtaMetadataEntry, key = "\u00a9lyr") → lyrics (UTF-8)
  *
  * Architecture:

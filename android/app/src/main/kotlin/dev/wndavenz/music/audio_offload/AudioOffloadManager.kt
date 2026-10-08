@@ -8,10 +8,10 @@ import dev.wndavenz.music.events.NativeLogger
  * Observes and reports Audio Offload state on the active ExoPlayer instance.
  *
  * ════════════════════════════════════════════════════════════════════
- * MEDIA3 1.10.1 API AUDIT — WHAT CHANGED
+ * MEDIA3 1.1.0 API AUDIT — WHAT CHANGED
  * ════════════════════════════════════════════════════════════════════
  *
- * REMOVED (no longer exist in Media3 1.10.1):
+ * REMOVED (no longer exist since Media3 1.1.0):
  *   • ExoPlayer.experimentalSetOffloadSchedulingEnabled(Boolean)
  *     → Removed from the public API surface entirely.  Media3 now manages
  *       CPU scheduling internally when the OS grants hardware offload.
@@ -22,16 +22,16 @@ import dev.wndavenz.music.events.NativeLogger
  *     → Removed alongside the scheduling control API.  Implementing this
  *       override causes a "overrides nothing" compile error.
  *
- * AVAILABLE (still exists in Media3 1.10.1):
+ * AVAILABLE (still exists in Media3 1.11.0):
  *   • ExoPlayer.AudioOffloadListener.onOffloadedPlayback(Boolean)
  *     → Called whenever the OS grants or revokes hardware offload for a
  *       specific audio session.  This is the only offload callback surface
- *       available in 1.10.1.
+ *       available in 1.11.0.
  *
  *   • ExoPlayer.addAudioOffloadListener(AudioOffloadListener)
  *     → Still valid for attaching a listener to any ExoPlayer instance.
  *
- * SCHEDULING BEHAVIOUR IN 1.10.1:
+ * SCHEDULING BEHAVIOUR IN 1.11.0:
  *   When the OS grants hardware offload (onOffloadedPlayback = true), Media3
  *   automatically manages CPU scheduling — the render loop sleeps between
  *   audio writes without any explicit API call.  This is not configurable.
@@ -91,7 +91,7 @@ class AudioOffloadManager(
      *
      * Media3PlaybackService wires this to EventEmitter so Flutter can react in
      * real time.  The former `scheduling` parameter has been removed because
-     * Media3 1.10.1 no longer exposes scheduling control.
+     * Media3 no longer exposes scheduling control (API removed in 1.1.0).
      */
     private val onOffloadStateChanged: (osGranted: Boolean) -> Unit = {},
 ) {
@@ -102,14 +102,14 @@ class AudioOffloadManager(
 
     /**
      * Retained for MethodChannel backward compatibility.
-     * In Media3 1.10.1 this is a NO-OP: there is no public API to force
+     * In Media3 1.11.0 this is a NO-OP: there is no public API to force
      * offload scheduling on or off.  The call is logged so the developer can
      * observe that the setting was received but cannot be applied.
      */
     fun setForceDisabled(disabled: Boolean) {
         NativeLogger.emit(
             "info", "AudioOffload",
-            "setForceDisabled($disabled) received — NOTE: Media3 1.10.1 removed " +
+            "setForceDisabled($disabled) received — NOTE: Media3 1.1.0 removed " +
             "experimentalSetOffloadSchedulingEnabled(); scheduling is now managed " +
             "internally by Media3 when the OS grants offload.  This call has no effect.",
         )
@@ -179,10 +179,10 @@ class AudioOffloadManager(
     /**
      * Build an AudioOffloadListener for attaching to any ExoPlayer instance.
      *
-     * Media3 1.10.1 AudioOffloadListener surface:
+     * Media3 1.11.0 AudioOffloadListener surface:
      *   • onOffloadedPlayback(Boolean) — only valid callback; reports OS grant / revoke.
      *
-     * Removed in 1.10.1 (not implemented here):
+     * Removed in 1.1.0 (not implemented here):
      *   • onOffloadSchedulingEnabledChanged(Boolean) — removed from the interface.
      */
     fun makeOffloadListener(): ExoPlayer.AudioOffloadListener =

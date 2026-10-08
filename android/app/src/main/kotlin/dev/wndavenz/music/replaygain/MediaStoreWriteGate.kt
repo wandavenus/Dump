@@ -313,6 +313,26 @@ class MediaStoreWriteGate {
         return true
     }
 
+    /**
+     * K6 fix: resolves every outstanding grant request as denied. Called from
+     * `Activity.onDestroy` — without this, callers (ReplayGain write/remove
+     * channel requests) queued behind a system dialog would wait forever for
+     * an `onActivityResult` that will never arrive, leaving their
+     * MethodChannel results (and the awaiting Dart futures) hanging.
+     */
+    fun failPending() {
+        val cb = pendingCallback
+        pendingCallback = null
+        dialogInFlight = false
+        cb?.invoke(false)
+        while (true) {
+            when (val item = queue.removeFirstOrNull() ?: break) {
+                is QueueItem.Single -> item.onResult(false)
+                is QueueItem.Batch -> item.onResult(item.uris.associateWith { false })
+            }
+        }
+    }
+
     private fun tryOpenForWrite(resolver: ContentResolver, uri: Uri): OpenAttempt {
         return try {
             resolver.openFileDescriptor(uri, "rw")?.use { OpenAttempt.Granted } ?: OpenAttempt.Denied

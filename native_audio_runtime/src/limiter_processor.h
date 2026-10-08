@@ -1,7 +1,8 @@
 // Limiter Processor — Phase 6.
 //
 // Brickwall look-ahead limiter with per-sample linear-domain processing.
-// Registers as "dsp.limiter" at pipeline slot 3 (after dsp.compressor).
+// Registers as "dsp.limiter" at pipeline slot 5 (0-indexed; after
+// dsp.crossfeed at slot 4, before dsp.soft_clipper at slot 6).
 //
 // Algorithm:
 //   - For each frame, the current input samples are pushed into a

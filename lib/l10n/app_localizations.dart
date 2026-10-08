@@ -266,18 +266,6 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
-  /// No description provided for @showUpNext.
-  ///
-  /// In en, this message translates to:
-  /// **'Show Up Next'**
-  String get showUpNext;
-
-  /// No description provided for @showUpNextSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Next song card in player'**
-  String get showUpNextSubtitle;
-
   /// No description provided for @liquidGlass.
   ///
   /// In en, this message translates to:
@@ -758,6 +746,48 @@ abstract class AppLocalizations {
   /// **'Failed to scan songs'**
   String get scanFailed;
 
+  /// No description provided for @rgRemoveTagsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove ReplayGain Tags'**
+  String get rgRemoveTagsAction;
+
+  /// No description provided for @rgRemoveConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove ReplayGain Tags?'**
+  String get rgRemoveConfirmTitle;
+
+  /// No description provided for @rgRemoveConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.'**
+  String get rgRemoveConfirmBody;
+
+  /// No description provided for @rgRemoveRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing ReplayGain tags...'**
+  String get rgRemoveRunning;
+
+  /// No description provided for @rgRemoveLibrarySuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs cleaned'**
+  String rgRemoveLibrarySuccess(int count);
+
+  /// No description provided for @rgRemoveLibraryPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{removed} cleaned, {failed} failed'**
+  String rgRemoveLibraryPartial(int removed, int failed);
+
+  /// No description provided for @rgRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove ReplayGain tags'**
+  String get rgRemoveFailed;
+
   /// No description provided for @sectionEqualizer.
   ///
   /// In en, this message translates to:
@@ -1064,6 +1094,12 @@ abstract class AppLocalizations {
   /// **'Music will fade out slowly when the timer ends'**
   String get sleepFadeOut;
 
+  /// No description provided for @sleepFadingOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Fading out…'**
+  String get sleepFadingOut;
+
   /// No description provided for @timerAfterSong.
   ///
   /// In en, this message translates to:
@@ -1075,12 +1111,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Timer: {label}'**
   String timerDuration(String label);
-
-  /// No description provided for @upNextLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'UP NEXT'**
-  String get upNextLabel;
 
   /// No description provided for @shuffleOn.
   ///
@@ -1952,6 +1982,24 @@ abstract class AppLocalizations {
   /// **'NavBar'**
   String get glassToggleNavBar;
 
+  /// No description provided for @navBarStyleSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid'**
+  String get navBarStyleSolid;
+
+  /// No description provided for @navBarStyleGlass.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get navBarStyleGlass;
+
+  /// No description provided for @navBarStylePill.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Pill'**
+  String get navBarStylePill;
+
   /// No description provided for @glassToggleAppBar.
   ///
   /// In en, this message translates to:
@@ -1963,12 +2011,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mini Player'**
   String get glassToggleMiniPlayer;
-
-  /// No description provided for @glassToggleAlbumCard.
-  ///
-  /// In en, this message translates to:
-  /// **'Album Card'**
-  String get glassToggleAlbumCard;
 
   /// No description provided for @logLevelTitle.
   ///
@@ -2515,6 +2557,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Made by'**
   String get madeByShort;
+
+  /// No description provided for @reverb.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverb'**
+  String get reverb;
+
+  /// No description provided for @reverbDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.'**
+  String get reverbDescription;
+
+  /// No description provided for @acousticEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'Acoustic Engine'**
+  String get acousticEngine;
+
+  /// No description provided for @acousticEngineDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.'**
+  String get acousticEngineDescription;
 }
 
 class _AppLocalizationsDelegate

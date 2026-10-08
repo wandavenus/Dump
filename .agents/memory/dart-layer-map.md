@@ -40,7 +40,7 @@ description: Every file in lib/models/, lib/services/, lib/pages/, lib/widgets/ 
 | `scroll_to_top_service.dart` | `ScrollToTopService` | Cross-tab scroll-to-top event coordination |
 | `sleep_timer_service.dart` | `SleepTimerMode` (enum), `SleepTimerService` | Delegates to native Handler; subscribes sleepTimerStream for UI ValueNotifiers |
 | `song_metadata_service.dart` | — | Read/write file tags entry point |
-| `up_next_settings.dart` | `UpNextSettings` | "Up Next" queue visualisation settings |
+
 | `watermark_service.dart` | `WatermarkService` | UI watermark visibility/content |
 
 ## lib/services/audio/
@@ -133,7 +133,7 @@ Multi-provider system: `LyricsFetchManager` orchestrates local (Embedded, LocalF
 | `player_progress_section.dart` | `PlayerProgressSection` | Seek bar + time indicators |
 | `synced_lyrics_view/view.dart` | `SyncedLyricsView` | Auto-scrolling synced lyrics; rawLrc param; ELRC word-level support |
 | `player_transport_controls.dart` | `PlayerTransportControls` | Play/pause/skip/repeat controls |
-| `player_up_next_card.dart` | `PlayerUpNextCard` | Next track preview |
+
 
 ### lib/widgets/pages/
 | File | Widget | Role |

@@ -26,6 +26,40 @@ class _AudioSection extends StatelessWidget {
               const _CrossfeedSection(),
               const SettingsDivider(),
 
+              ValueListenableBuilder<bool>(
+                valueListenable: MediaCapabilitiesService.acousticEngineEnabled,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable:
+                      MediaCapabilitiesService.acousticEngineIntensity,
+                  builder: (_, v, _) {
+                    final pct = (v * 100).round();
+                    return SettingsSliderRow(
+                      title: l.acousticEngine,
+                      subtitle: enabled ? '$pct%' : l.disabled,
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) async {
+                        // One service call: the slider's intensity already
+                        // encodes the on/off state (0 = off, > 0 = on), so a
+                        // drag no longer issues an enable write plus an
+                        // intensity write on every tick.
+                        await MediaCapabilitiesService.setAcousticEngineIntensity(
+                          val,
+                        );
+                      },
+                      showReset: enabled,
+                      onReset: () async =>
+                          MediaCapabilitiesService.setAcousticEngine(false),
+                      expandable: true,
+                      description: l.acousticEngineDescription,
+                    );
+                  },
+                ),
+              ),
+              const SettingsDivider(),
+
               const _CrossfadePicker(),
               const SettingsDivider(),
 
@@ -62,6 +96,44 @@ class _AudioSection extends StatelessWidget {
                         await MediaCapabilitiesService.setStereoWidening(false);
                       },
                       expandable: true,
+                    );
+                  },
+                ),
+              ),
+              const SettingsDivider(),
+
+              // ── Reverb ─────────────────────────────────────────────────────
+              // Schroeder room-reverb effect, same enable-via-slider pattern as
+              // stereo widening: intensity 0 = off, moving the slider > 0 enables.
+              ValueListenableBuilder<bool>(
+                valueListenable: MediaCapabilitiesService.reverbEnabled,
+                builder: (_, enabled, _) => ValueListenableBuilder<double>(
+                  valueListenable: MediaCapabilitiesService.reverbIntensity,
+                  builder: (_, v, _) {
+                    final pct = (v * 100).round();
+                    return SettingsSliderRow(
+                      title: l.reverb,
+                      subtitle: enabled ? '$pct%' : l.disabled,
+                      value: enabled ? v : 0.0,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      onChanged: (val) async {
+                        if (val > 0) {
+                          await MediaCapabilitiesService.setReverb(true);
+                          await MediaCapabilitiesService.setReverbIntensity(
+                            val,
+                          );
+                        } else {
+                          await MediaCapabilitiesService.setReverb(false);
+                        }
+                      },
+                      showReset: enabled,
+                      onReset: () async {
+                        await MediaCapabilitiesService.setReverb(false);
+                      },
+                      expandable: true,
+                      description: l.reverbDescription,
                     );
                   },
                 ),

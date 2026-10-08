@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+
 import 'audio/playback_manager.dart';
 
 import '../models/local_song.dart';
@@ -21,7 +22,7 @@ import 'media_store_service.dart';
 import 'history_service.dart';
 import 'log_service.dart';
 import 'loudness_source_resolver.dart';
-import 'boot_trace.dart';
+import 'sleep_timer_service.dart';
 
 part 'audio_service/service.dart';
 part 'audio_service/replay_gain_applicator.dart';

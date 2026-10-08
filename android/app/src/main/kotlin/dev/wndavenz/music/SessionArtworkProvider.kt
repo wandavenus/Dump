@@ -26,12 +26,14 @@ import java.util.concurrent.Executors
  *   SystemUI / MIUI media surfaces (notification shade media card, lock screen
  *   media controls) do NOT render `Notification.Builder.setLargeIcon()`. They
  *   connect to the MediaSession and decode `METADATA_KEY_ART` (artworkData)
- *   or `METADATA_KEY_ART_URI` themselves. MediaItemFactory only sets
+ *   or `METADATA_KEY_ART_URI` themselves. MediaItemFactory used to set
  *   artworkUri = `content://media/external/audio/albumart/{albumId}` — the
- *   low-res MediaStore thumbnail (often ≤512 px, non-square). SystemUI then
- *   upscales + center-crops it to fill the large media-artwork slot →
- *   the zoomed & pixelated art the user sees. Large-icon letterboxing can
- *   never fix that path because it is bypassed entirely.
+ *   low-res MediaStore thumbnail (often ≤512 px, non-square) — and SystemUI
+ *   upscaled + center-cropped it to fill the large media-artwork slot → the
+ *   zoomed & pixelated art the user sees. artworkUri is therefore NO LONGER
+ *   set in the metadata (ZOOM-01); artworkData is the only artwork source.
+ *   Large-icon letterboxing can never fix this path because it is bypassed
+ *   entirely.
  *
  * Fix: publish `artworkData` = the full-resolution embedded picture,
  * letterboxed onto a square (so no renderer ever center-crops it) and capped
@@ -69,33 +71,106 @@ class SessionArtworkProvider(
     private val bytesCache = LruCache<Int, ByteArray>(MAX_CACHED_TRACKS)
 
     /**
+     * LruCache is not thread-safe. Calls to [provide] normally originate on the
+     * service handler while the actual extraction runs on [executor], so both
+     * cache access and the in-flight registry use this lock.
+     */
+    private val cacheLock = Any()
+
+    /**
+     * Requests currently being resolved, keyed by songId (or the artwork URI
+     * when no songId is available). Multiple refresh callbacks for the same
+     * artwork share one extraction and all receive the same result.
+     */
+    private val inFlight = mutableMapOf<String, MutableList<(ByteArray?) -> Unit>>()
+
+    /**
      * Resolves square artwork bytes for [songId] / [artUri] and invokes
      * [onResult] (possibly synchronously on a cache hit). [onResult] is always
      * called exactly once; null means no artwork could be resolved.
      */
     fun provide(songId: Int, artUri: String?, onResult: (ByteArray?) -> Unit) {
-        if (songId > 0) {
-            bytesCache.get(songId)?.let { cached ->
-                onResult(cached)
-                return
-            }
+        if (executor.isShutdown) {
+            // Teardown: never enqueue new work after close(). Resolve with null
+            // so the "onResult is always called exactly once" contract holds.
+            onResult(null)
+            return
         }
-        executor.execute {
-            val bytes = if (songId > 0) {
-                bytesCache.get(songId) ?: buildBytes(songId, artUri).also { hit ->
-                    if (hit != null) bytesCache.put(songId, hit)
+        val requestKey = requestKey(songId, artUri)
+        var cached: ByteArray? = null
+        var shouldStart = false
+        synchronized(cacheLock) {
+            if (songId > 0) {
+                cached = bytesCache.get(songId)
+            }
+            if (cached == null) {
+                val waiters = inFlight[requestKey]
+                if (waiters != null) {
+                    waiters += onResult
+                } else {
+                    inFlight[requestKey] = mutableListOf(onResult)
+                    shouldStart = true
                 }
-            } else {
-                buildBytes(songId, artUri)
             }
-            onResult(bytes)
         }
+
+        cached?.let {
+            onResult(it)
+            return
+        }
+        if (!shouldStart) return
+
+        executor.execute {
+            val bytes = try {
+                val existing = if (songId > 0) {
+                    synchronized(cacheLock) { bytesCache.get(songId) }
+                } else {
+                    null
+                }
+                existing ?: buildBytes(songId, artUri).also { hit ->
+                    if (hit != null && songId > 0) {
+                        synchronized(cacheLock) { bytesCache.put(songId, hit) }
+                    }
+                }
+            } catch (e: Exception) {
+                NativeLogger.emit(
+                    "debug",
+                    "SessionArt",
+                    "artwork request failed songId=$songId: ${e.message}",
+                )
+                null
+            }
+
+            val waiters = synchronized(cacheLock) {
+                inFlight.remove(requestKey).orEmpty().toList()
+            }
+            waiters.forEach { waiter ->
+                runCatching { waiter(bytes) }
+            }
+        }
+    }
+
+    private fun requestKey(songId: Int, artUri: String?): String =
+        if (songId > 0) "song:$songId" else "uri:${artUri.orEmpty()}"
+
+    /**
+     * Shuts down the executor and rejects new requests. Idempotent; called from
+     * the service's onDestroy so queued extraction cannot outlive teardown.
+     */
+    fun close() {
+        executor.shutdown()
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private fun buildBytes(songId: Int, artUri: String?): ByteArray? {
         val raw = (if (songId > 0) rawEmbedded(songId) else null)
+            // A1 fix: files played outside the MediaStore library (opened via
+            // the overlay / ACTION_PLAY_URI) carry songId = 0 but a real audio
+            // URI in artworkSource — read the embedded picture straight from
+            // that URI so notification / lock screen / SystemUI surfaces get
+            // artwork instead of none.
+            ?: (if (songId <= 0) rawEmbeddedFromUri(artUri) else null)
             ?: rawFromCache(songId)
             ?: rawFromUri(artUri)
             ?: return null
@@ -125,6 +200,30 @@ class SessionArtworkProvider(
             mmr.embeddedPicture
         } catch (e: Exception) {
             NativeLogger.emit("debug", "SessionArt", "embedded extraction failed songId=$songId: ${e.message}")
+            null
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // Cleanup must not mask the original result/error.
+            }
+        }
+    }
+
+    /**
+     * Reads the full-resolution embedded picture from an arbitrary audio URI
+     * (content:// or file://) — used for external files that have no MediaStore
+     * song ID (A1 fix). Returns null when the URI is not an audio file or has
+     * no embedded picture.
+     */
+    private fun rawEmbeddedFromUri(uriStr: String?): ByteArray? {
+        if (uriStr.isNullOrBlank()) return null
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(context, Uri.parse(uriStr))
+            mmr.embeddedPicture
+        } catch (e: Exception) {
+            NativeLogger.emit("debug", "SessionArt", "embedded extraction failed for uri=$uriStr: ${e.message}")
             null
         } finally {
             try {
@@ -176,29 +275,30 @@ class SessionArtworkProvider(
 
     /**
      * Letterboxes [source] onto a [maxPx]×[maxPx] square with a black
-     * background so SystemUI / MIUI never center-crops the art. Mirrors
-     * PlaybackNotificationManager.normalizeNotificationArtwork so every
-     * surface renders the same shape.
+     * background so SystemUI / MIUI never center-crops the art.
      */
     private fun letterboxSquare(source: Bitmap, maxPx: Int): Bitmap {
         if (source.width <= 0 || source.height <= 0) return source
-        if (source.width == maxPx && source.height == maxPx &&
-            source.config == Bitmap.Config.ARGB_8888) {
+        // Never upscale a low-resolution URI fallback. SystemUI performs the
+        // final display scaling; enlarging a small MediaStore thumbnail here
+        // only preserves its pixelation in a larger payload.
+        val target = minOf(maxPx, maxOf(source.width, source.height))
+        if (source.width == target && source.height == target) {
             return source
         }
 
-        val out = Bitmap.createBitmap(maxPx, maxPx, Bitmap.Config.ARGB_8888)
+        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         canvas.drawColor(Color.BLACK)
 
         val scale = minOf(
-            maxPx.toFloat() / source.width.toFloat(),
-            maxPx.toFloat() / source.height.toFloat(),
+            target.toFloat() / source.width.toFloat(),
+            target.toFloat() / source.height.toFloat(),
         )
         val drawnW = source.width * scale
         val drawnH = source.height * scale
-        val left = (maxPx - drawnW) / 2f
-        val top = (maxPx - drawnH) / 2f
+        val left = (target - drawnW) / 2f
+        val top = (target - drawnH) / 2f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
         return out

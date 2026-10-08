@@ -23,14 +23,18 @@ object TrackMapper {
         queue: List<Map<String, Any?>>,
         activeQueueIndex: Int,
         crossfadeDurationSec: Float,
+        streamSlot: Int = 0,
     ): Map<String, Any?>? {
         val p = player ?: return null
         val index = if (crossfadeDurationSec > 0f) activeQueueIndex
                     else p.currentMediaItemIndex
         val songMap = queue.getOrNull(index) ?: return null
         val albumId = (songMap["albumId"] as? Number)?.toLong() ?: 0L
-        val artUri = if (albumId > 0)
-            "content://media/external/audio/albumart/$albumId" else null
+        val artUri = if (albumId > 0) {
+            "content://media/external/audio/albumart/$albumId"
+        } else {
+            songMap["artworkSource"] as? String
+        }
 
         // nextMediaItemIndex respects shuffle order and repeat mode.
         // Returns a negative sentinel (C.INDEX_UNSET = -1) when no next item exists.
@@ -40,7 +44,9 @@ object TrackMapper {
         return songMap + mapOf(
             "index"          to index,
             "artworkUri"     to artUri,
+            "artworkSource"  to (songMap["artworkSource"] as? String),
             "nextTrackIndex" to nextTrackIndex,
+            "streamSlot"     to streamSlot,
         )
     }
 }

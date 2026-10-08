@@ -70,8 +70,125 @@ class _BatchScanSectionState extends State<_BatchScanSection> {
             onScanAgain: () => _confirmAndStartScan(context),
           );
         }
-        return _ScanIdleRow(onTap: () => _confirmAndStartScan(context));
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ScanIdleRow(onTap: () => _confirmAndStartScan(context)),
+            const _RemoveRgRow(),
+          ],
+        );
       },
+    );
+  }
+}
+
+/// Explicit "remove ReplayGain tags from the whole library" action — the only
+/// surviving tag-mutation UI, deliberately placed in Settings (Audio Normalize).
+class _RemoveRgRow extends StatefulWidget {
+  const _RemoveRgRow();
+
+  @override
+  State<_RemoveRgRow> createState() => _RemoveRgRowState();
+}
+
+class _RemoveRgRowState extends State<_RemoveRgRow> {
+  bool _busy = false;
+
+  Future<void> _confirmAndRemove(BuildContext context) async {
+    final l = context.l10n;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: Text(l.rgRemoveConfirmTitle),
+        content: Text(l.rgRemoveConfirmBody),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.cancel),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l.rgRemoveTagsAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await _removeAll(context);
+    }
+  }
+
+  Future<void> _removeAll(BuildContext context) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l.rgRemoveRunning),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    try {
+      final songs = await MediaStoreService.getSongs();
+      if (!context.mounted) return;
+      final result = await ReplayGainService.removeReplayGainFromLibrary(songs);
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      final Text message;
+      if (result.failed == 0) {
+        message = Text(l.rgRemoveLibrarySuccess(result.removed));
+      } else if (result.removed == 0) {
+        message = Text(l.rgRemoveFailed);
+      } else {
+        message = Text(l.rgRemoveLibraryPartial(result.removed, result.failed));
+      }
+      messenger.showSnackBar(SnackBar(content: message));
+    } on Exception catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.scanLibraryLoadFailed(e.toString()))),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final c = AppColors.of(context);
+    return InkWell(
+      onTap: _busy ? null : () => _confirmAndRemove(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              _busy
+                  ? Icons.hourglass_top_rounded
+                  : Icons.delete_outline_rounded,
+              color: c.primaryLabel.withValues(alpha: 0.38),
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l.rgRemoveTagsAction,
+                style: TextStyle(color: c.primaryLabel, fontSize: 15),
+              ),
+            ),
+            if (_busy)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

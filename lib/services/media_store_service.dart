@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/local_song.dart';
 import 'log_service.dart';
+import 'replay_gain_service.dart';
 
 class MediaStoreService {
   static const MethodChannel _channel = MethodChannel(
@@ -201,6 +202,14 @@ class MediaStoreService {
       _songsCache = parsedSongs;
       _liveRefreshed = true;
       _lastFailedReconcile = null;
+      // N1 fix: a full library re-scan can delete/replace songs whose stale
+      // ReplayGain entries would otherwise linger in the in-memory cache.
+      // (The path+size+mtime identity guard already makes those entries
+      // harmless — this closes the loop so they are gone entirely.) The
+      // SharedPreferences rg_* entries are left intact: they are validated
+      // against the file identity on read, so they remain a valid fast path
+      // for songs that still exist.
+      ReplayGainService.clearCache();
       unawaited(_persist(parsedSongs));
       return parsedSongs;
     } on TimeoutException catch (_) {
@@ -460,6 +469,23 @@ class MediaStoreService {
       await _channel.invokeMethod<void>('setActiveQueueIds', {'ids': songIds});
     } on Exception catch (e) {
       LogService.error('MediaStore', 'setActiveQueueIds error: $e');
+    }
+  }
+
+  /// Deletes the native persistent artwork cache entry for [songId]
+  /// (A2 fix — see ArtworkRepository.evict). Fire-and-forget: errors are
+  /// logged, never thrown.
+  static Future<void> deleteArtworkCache(int songId) async {
+    if (songId <= 0) return;
+    try {
+      await _channel.invokeMethod<void>('deleteArtworkCache', {
+        'songId': songId,
+      });
+    } on Exception catch (e) {
+      LogService.error(
+        'MediaStore',
+        'deleteArtworkCache error songId=$songId: $e',
+      );
     }
   }
 

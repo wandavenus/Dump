@@ -2,6 +2,7 @@ package dev.wndavenz.music.replaygain
 
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.metadata.MetadataCacheDb
 import java.io.File
 import java.util.Locale
@@ -38,28 +39,44 @@ class ReplayGainBridge(
 
     /** Handles `scanTrack` (also backs the legacy `scanReplayGain` case name). */
     fun scanTrack(path: String): Map<String, Any?> {
+        // F3 (RG-01): snapshot the file identity BEFORE decoding. If the file
+        // is replaced/edited while the scan runs, the measurement describes the
+        // OLD content — caching it under the new mtime would poison the SQLite
+        // cache (getReplayGainTags would serve the stale measurement until the
+        // file changes again). The Dart caller independently discards the
+        // result via its own before/after identity check, but the cache write
+        // here must be guarded on its own too.
+        val mtimeBefore = MetadataCacheDb.mtime(path)
         val result = ReplayGainService.scanTrack(path)
             ?: return mapOf("success" to false, "error" to "scan_failed")
 
-        // Update SQLite cache immediately so getReplayGainTags() reflects the
-        // fresh measurement even before/without writing tags to the file.
         val mtime = MetadataCacheDb.mtime(path)
-        val existing = metadataCacheDb.getByPath(path, mtime)
-        val gainStr = formatGain(result.recommendedGainDb)
-        val peakStr = formatPeak(dbToLinear(result.samplePeakDbfs))
-        metadataCacheDb.putByPath(
-            path, mtime,
-            MetadataCacheDb.CachedEntry(
-                rgTrackGain = gainStr,
-                rgTrackPeak = peakStr,
-                rgAlbumGain = existing?.rgAlbumGain,
-                rgAlbumPeak = existing?.rgAlbumPeak,
-                r128Track = existing?.r128Track,
-                r128Album = existing?.r128Album,
-                iTunNorm = existing?.iTunNorm,
-                lyrics = existing?.lyrics,
-            ),
-        )
+        if (mtimeBefore != 0L && mtimeBefore == mtime) {
+            // File unchanged across the scan — safe to cache. Update SQLite
+            // cache immediately so getReplayGainTags() reflects the fresh
+            // measurement even before/without writing tags to the file.
+            val existing = metadataCacheDb.getByPath(path, mtime)
+            val gainStr = formatGain(result.recommendedGainDb)
+            val peakStr = formatPeak(dbToLinear(result.samplePeakDbfs))
+            metadataCacheDb.putByPath(
+                path, mtime,
+                MetadataCacheDb.CachedEntry(
+                    rgTrackGain = gainStr,
+                    rgTrackPeak = peakStr,
+                    rgAlbumGain = existing?.rgAlbumGain,
+                    rgAlbumPeak = existing?.rgAlbumPeak,
+                    r128Track = existing?.r128Track,
+                    r128Album = existing?.r128Album,
+                    iTunNorm = existing?.iTunNorm,
+                    lyrics = existing?.lyrics,
+                ),
+            )
+        } else {
+            // F3: file changed (or vanished) mid-scan — do not cache the stale
+            // measurement. Result is still returned; the Dart identity guard
+            // decides whether to discard it.
+            Log.w(TAG, "scanTrack: file changed during scan, not caching: $path")
+        }
 
         return mapOf(
             "success" to true,
@@ -74,6 +91,9 @@ class ReplayGainBridge(
 
     /** Handles `scanAlbum`. [paths] must all belong to the same album. */
     fun scanAlbum(paths: List<String>): Map<String, Any?> {
+        // F3 (RG-01): snapshot every file's identity BEFORE the album decode,
+        // then only cache tracks whose file survived the scan unchanged.
+        val mtimeBefore = paths.associateWith { MetadataCacheDb.mtime(it) }
         val albumResult = ReplayGainService.scanAlbum(paths)
 
         // Cache each successfully-scanned track with both its own track gain
@@ -81,6 +101,11 @@ class ReplayGainBridge(
         // data for every song in the album without a second native round-trip.
         albumResult.trackResults.forEach { (path, trackLoudness) ->
             val mtime = MetadataCacheDb.mtime(path)
+            val before = mtimeBefore[path]
+            if (before == null || before == 0L || before != mtime) {
+                Log.w(TAG, "scanAlbum: file changed during scan, not caching: $path")
+                return@forEach
+            }
             val existing = metadataCacheDb.getByPath(path, mtime)
             metadataCacheDb.putByPath(
                 path, mtime,
@@ -316,33 +341,43 @@ class ReplayGainBridge(
         region: ByteArray?,
         prior: TagSnapshot?,
     ): ReplayGainError {
+        // L-3 fix: these data-integrity failures used to be logcat-only, so the
+        // in-app Log Viewer (Settings → Log Aktivitas) never showed them. Emit
+        // every one through NativeLogger too so a failed write→verify→rollback
+        // cycle is visible to the user/dev without adb. Log.e is kept so logcat
+        // behaviour is unchanged.
         if (region == null) {
-            Log.e(TAG, "songId=$songId mutation failed without a metadata backup")
+            logError("songId=$songId mutation failed without a metadata backup")
             return ReplayGainError.ROLLBACK_FAILED
         }
         val restorePfd = openFd(songId)
             ?: return ReplayGainError.ROLLBACK_FAILED.also {
-                Log.e(TAG, "songId=$songId could not reopen for rollback")
+                logError("songId=$songId could not reopen for rollback")
             }
         val restoreFd = restorePfd.detachFd()
         val restoreError = ReplayGainService.restoreRegionFd(restoreFd, format, region)
         if (restoreError != ReplayGainError.NONE) {
-            Log.e(TAG, "songId=$songId rollback failed: $restoreError")
+            logError("songId=$songId rollback failed: $restoreError")
             return ReplayGainError.ROLLBACK_FAILED
         }
         if (prior == null) return ReplayGainError.NONE
 
         val verifyPfd = openFd(songId)
             ?: return ReplayGainError.ROLLBACK_FAILED.also {
-                Log.e(TAG, "songId=$songId rollback completed but could not verify it")
+                logError("songId=$songId rollback completed but could not verify it")
             }
         val verifyFd = verifyPfd.detachFd()
         val verifyError = ReplayGainService.verifyRestoredFd(verifyFd, format, prior)
         if (verifyError != ReplayGainError.NONE) {
-            Log.e(TAG, "songId=$songId rollback verification failed: $verifyError")
+            logError("songId=$songId rollback verification failed: $verifyError")
             return ReplayGainError.ROLLBACK_FAILED
         }
         return ReplayGainError.NONE
+    }
+
+    private fun logError(msg: String) {
+        Log.e(TAG, msg)
+        NativeLogger.emit("error", "ReplayGain", msg)
     }
 
     private fun dbToLinear(db: Double): Double =

@@ -3,12 +3,9 @@ package dev.wndavenz.music
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.LruCache
@@ -75,7 +72,7 @@ class FallbackBitmapLoader(
         private const val POSITIVE_CACHE_ALBUMS = 4
 
         /**
-         * Session-lifetime negative cache: albumIds confirmed to have NO resolvable
+         * TTL-based negative cache: albumIds confirmed to have NO resolvable
          * artwork (neither MediaStore-indexed nor embedded in the file). Populated
          * only after both [tryUri] and [tryEmbedded] fail for a given albumId.
          *
@@ -84,12 +81,12 @@ class FallbackBitmapLoader(
          * song confirmed to have zero artwork pays a full ContentResolver open +
          * MediaStore query + artwork extraction attempt every single time.
          *
-         * Safe because: cache lives only for the process lifetime (cleared on app
-         * restart), so if MediaStore later indexes new artwork for an albumId
-         * (e.g. after a rescan), the worst case is it stays "no artwork" until the
-         * next cold start — never a permanent or persisted false negative.
+         * Safe because: entries expire after [NO_ARTWORK_TTL_MS], so if MediaStore
+         * later indexes new artwork for an albumId (e.g. after a rescan), the
+         * loader retries without requiring an app restart.
          */
-        private val noArtworkCache = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+        private val noArtworkCache = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+        private const val NO_ARTWORK_TTL_MS = 30_000L
     }
 
     /**
@@ -119,6 +116,10 @@ class FallbackBitmapLoader(
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
+        if (executor.isShutdown) {
+            future.setException(IllegalStateException("FallbackBitmapLoader is closed"))
+            return future
+        }
         executor.execute {
             try {
                 // E-A: cap at MAX_PX like every other path — never allocate a
@@ -135,13 +136,18 @@ class FallbackBitmapLoader(
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
         val future = SettableFuture.create<Bitmap>()
+        if (executor.isShutdown) {
+            future.setException(IllegalStateException("FallbackBitmapLoader is closed"))
+            return future
+        }
         val albumId = parseAlbumId(uri)
 
         // Short-circuit: this albumId was already confirmed to have no artwork
-        // (neither MediaStore-indexed nor embedded) earlier this session — skip
+        // (neither MediaStore-indexed nor embedded) within the negative-cache TTL —
+        // skip
         // the ContentResolver + MediaStore query + artwork extraction work
         // entirely instead of repeating a known-failed lookup.
-        if (albumId != null && noArtworkCache.contains(albumId)) {
+        if (albumId != null && isNoArtworkCached(albumId)) {
             future.setException(Exception("No artwork resolved for: $uri (cached)"))
             return future
         }
@@ -158,7 +164,9 @@ class FallbackBitmapLoader(
                     if (cached == null && albumId != null) albumArtworkCache.put(albumId, bmp)
                     future.set(bmp)
                 } else {
-                    if (albumId != null) noArtworkCache.add(albumId)
+                    if (albumId != null) {
+                        noArtworkCache[albumId] = SystemClock.elapsedRealtime()
+                    }
                     // setException so Media3 knows there is no artwork — it will not
                     // retry, and MediaSessionLegacyStub will simply show no art rather
                     // than logging a fresh warning on every tick.
@@ -169,6 +177,15 @@ class FallbackBitmapLoader(
             }
         }
         return future
+    }
+
+    private fun isNoArtworkCached(albumId: Long): Boolean {
+        val failedAt = noArtworkCache[albumId] ?: return false
+        if (SystemClock.elapsedRealtime() - failedAt > NO_ARTWORK_TTL_MS) {
+            noArtworkCache.remove(albumId, failedAt)
+            return false
+        }
+        return true
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -206,18 +223,22 @@ class FallbackBitmapLoader(
         }
 
         // 2) Persistent cache fallback (raw-copied JPEG for ≤1000 px art, WebP 85
-        //    re-encode beyond that) — same pipeline as the in-app player.
-        val cachedPath = artworkCache.getOrExtract(songIds.first()) ?: run {
-            Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
-            return null
+        //    re-encode beyond that) — same pipeline as the in-app player. Iterate
+        //    every probed songId (not just the first) so a compilation album whose
+        //    only cached art belongs to track 2/3 still resolves instead of being
+        //    reported as no-artwork.
+        for (songId in songIds) {
+            val cachedPath = artworkCache.getOrExtract(songId) ?: continue
+            try {
+                val bytes = File(cachedPath).readBytes()
+                val bmp = decodeCapped(bytes)
+                if (bmp != null) return bmp
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read cached artwork for albumId=$albumId songId=$songId: ${e.message}")
+            }
         }
-        return try {
-            val bytes = File(cachedPath).readBytes()
-            decodeCapped(bytes)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to read cached artwork for albumId=$albumId: ${e.message}")
-            null
-        }
+        Log.d(TAG, "No artwork cached/extracted for albumId=$albumId")
+        return null
     }
 
     /**
@@ -293,7 +314,7 @@ class FallbackBitmapLoader(
 
             // Pass 2: decode at reduced size. ARGB_8888 so already-square art can
             // skip the letterbox copy in normalizeSquare().
-            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
+            val sample = BitmapUtils.computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, MAX_PX)
             val decodeOpts = BitmapFactory.Options().apply {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -301,7 +322,7 @@ class FallbackBitmapLoader(
             val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOpts)
             } ?: return null
-            normalizeSquare(decoded, MAX_PX)
+            BitmapUtils.normalizeSquare(decoded, MAX_PX)
         } catch (e: Exception) {
             Log.d(TAG, "URI load failed ($uri): ${e.message} — trying embedded fallback")
             null
@@ -309,70 +330,26 @@ class FallbackBitmapLoader(
     }
 
     /**
-     * Two-pass decode capped at [MAX_PX] on the longest side — bounds pass first
-     * (zero pixel allocation), then a sampled decode — then letterboxed onto a
-     * [MAX_PX]×[MAX_PX] square so SystemUI never center-crops non-square art.
+     * Two-pass decode capped at [MAX_PX] on the longest side, then letterboxed
+     * onto a [MAX_PX]×[MAX_PX] square so SystemUI never center-crops non-square
+     * art. Shared helpers live in [BitmapUtils].
      */
-    private fun decodeCapped(bytes: ByteArray): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, MAX_PX)
-        val decoded = BitmapFactory.decodeByteArray(
-            bytes, 0, bytes.size,
-            BitmapFactory.Options().apply {
-                inSampleSize = sample
-                // ARGB_8888 so already-square art hits the fast path in
-                // normalizeSquare() instead of being re-letterboxed.
-                inPreferredConfig = Bitmap.Config.ARGB_8888
-            },
-        ) ?: return null
-        return normalizeSquare(decoded, MAX_PX)
-    }
+    private fun decodeCapped(bytes: ByteArray): Bitmap? =
+        BitmapUtils.decodeCapped(bytes, MAX_PX)?.let { BitmapUtils.normalizeSquare(it, MAX_PX) }
 
-    /**
-     * Letterboxes [source] onto a square with a black background, capped at
-     * [maxPx]×[maxPx]. SystemUI / MIUI media templates fill the artwork area by
-     * center-cropping non-square bitmaps — pre-letterboxing keeps the full image
-     * visible instead of zoomed. Mirrors
-     * PlaybackNotificationManager.normalizeNotificationArtwork.
-     *
-     * Never upscales: the canvas is no larger than the source's longest side
-     * (capped at [maxPx]), so small art stays at native resolution and the
-     * system does the final scaling instead of us adding an upscale pass.
-     */
-    private fun normalizeSquare(source: Bitmap, maxPx: Int): Bitmap {
-        if (source.width <= 0 || source.height <= 0) return source
-        val target = minOf(maxPx, maxOf(source.width, source.height))
-        if (source.width == target && source.height == target) return source
 
-        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(out)
-        canvas.drawColor(Color.BLACK)
-
-        val scale = minOf(
-            target.toFloat() / source.width.toFloat(),
-            target.toFloat() / source.height.toFloat(),
-        )
-        val drawnW = source.width * scale
-        val drawnH = source.height * scale
-        val left = (target - drawnW) / 2f
-        val top = (target - drawnH) / 2f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
-        canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
-        return out
-    }
-
-    /** Smallest power-of-two sample size so neither dimension exceeds [maxPx]. */
-    private fun computeSampleSize(w: Int, h: Int, maxPx: Int): Int {
-        var s = 1
-        while ((w / s) > maxPx || (h / s) > maxPx) s = s shl 1
-        return s
-    }
 
     /**
      * Parses the albumId from an expected `content://media/external/audio/albumart/{albumId}`
      * URI. Returns null if the last path segment is not numeric (unexpected URI shape).
      */
     private fun parseAlbumId(uri: Uri): Long? = uri.lastPathSegment?.toLongOrNull()
+
+    /**
+     * Shuts down the executor and rejects new loads. Idempotent; called from the
+     * service's onDestroy so queued I/O cannot outlive service teardown.
+     */
+    fun close() {
+        executor.shutdown()
+    }
 }

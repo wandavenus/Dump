@@ -41,32 +41,21 @@ class TransportState(
     private val queueManager: QueueManager,
     private val crossfadeController: CrossfadeController,
     private val sleepTimerManager: SleepTimerManager,
-    /**
-     * Called when the watchdog determines playback is stuck.
-     * [retryCount] starts at 1 and increments on each successive stall after recovery.
-     * Wired to Media3PlaybackService which decides whether to re-prepare or skip.
-     */
     private val onStuck: (retryCount: Int) -> Unit = {},
+    private val getActiveStreamSlot: () -> Int = { 0 },
 ) {
     private val positionUpdateMs = 200L
     private var lastEmittedRepeatMode: String? = null
 
-    // ── Watchdog state ────────────────────────────────────────────────────────
-
     companion object {
-        /** Stall duration (ms) before triggering the first recovery attempt. */
         private const val WATCHDOG_STALL_MS  = 5_000L
-        /** Maximum number of recovery attempts before the watchdog gives up. */
         private const val WATCHDOG_MAX_RETRIES = 2
-        /** Guard margin at end of track — don't fire watchdog in final 2 s. */
         private const val WATCHDOG_END_GUARD_MS = 2_000L
     }
 
     private var watchdogLastPositionMs = -1L
     private var watchdogStallAccMs     = 0L
     private var watchdogRetryCount     = 0
-
-    // ── Position ticker ───────────────────────────────────────────────────────
 
     private val positionTicker = object : Runnable {
         override fun run() {
@@ -90,21 +79,6 @@ class TransportState(
         resetWatchdog()
     }
 
-    // ── Watchdog logic ────────────────────────────────────────────────────────
-
-    /**
-     * Called on every 200 ms ticker tick while isPlaying == true.
-     *
-     * Position-movement check: position must advance between consecutive ticks.
-     * At any finite playback speed > 0 the position advances by at least 1 ms per
-     * 200 ms wall-clock interval, so even 0.1× speed is detected as healthy.
-     *
-     * Guards applied before accumulating stall time:
-     *  • crossfade in progress — both players may briefly hold position during promotion.
-     *  • duration unknown (≤ 0) — still in early loading phase.
-     *  • position within final WATCHDOG_END_GUARD_MS of duration — natural deceleration.
-     *  • max retries already reached — watchdog has given up.
-     */
     private fun checkWatchdog(p: ExoPlayer) {
         val pos      = p.currentPosition
         val duration = p.duration
@@ -115,31 +89,27 @@ class TransportState(
         val exhausted    = watchdogRetryCount >= WATCHDOG_MAX_RETRIES
 
         if (crossfading || unknownDur || nearEnd || exhausted) {
-            // Keep the last-position cursor in sync but don't accumulate stall time.
             watchdogLastPositionMs = pos
             return
         }
 
-        // First tick after the watchdog was reset — initialise cursor and return.
         if (watchdogLastPositionMs < 0L) {
             watchdogLastPositionMs = pos
             return
         }
 
         if (pos != watchdogLastPositionMs) {
-            // Position advanced → playback is healthy, clear accumulated stall.
             watchdogLastPositionMs = pos
             watchdogStallAccMs     = 0L
             watchdogRetryCount     = 0
             return
         }
 
-        // Position unchanged this tick — accumulate stall time.
         watchdogStallAccMs += positionUpdateMs
 
         if (watchdogStallAccMs >= WATCHDOG_STALL_MS) {
             watchdogRetryCount++
-            watchdogStallAccMs = 0L   // reset so the next threshold is a fresh 5 s window
+            watchdogStallAccMs = 0L
             NativeLogger.emit(
                 "warn", "Watchdog",
                 "Stuck: pos=${pos}ms dur=${duration}ms retry=$watchdogRetryCount — invoking recovery",
@@ -148,19 +118,12 @@ class TransportState(
         }
     }
 
-    /** Full watchdog reset — call on pause, stop, or explicit track change. */
     fun resetWatchdog() {
         watchdogLastPositionMs = -1L
         watchdogStallAccMs     = 0L
         watchdogRetryCount     = 0
     }
 
-    // ── State emission ────────────────────────────────────────────────────────
-
-    /**
-     * Full state snapshot — emitted on meaningful state changes.
-     * Each mutating handle() branch calls this once.
-     */
     fun emitAll(emitQueue: Boolean = false) {
         val p = getPlayer() ?: return
 
@@ -182,27 +145,17 @@ class TransportState(
         EventEmitter.emit("duration",       p.duration.coerceAtLeast(0L))
         EventEmitter.emit("currentTrack",   currentTrackMap())
         EventEmitter.emit("audioSessionId", p.audioSessionId)
+        EventEmitter.emit("shuffleMode",    p.shuffleModeEnabled)
 
-        // DE-06 fix: deduplicate repeatMode — only emit when it changes.
         if (repeatStr != lastEmittedRepeatMode) {
             lastEmittedRepeatMode = repeatStr
             EventEmitter.emit("repeatMode", repeatStr)
         }
 
         if (emitQueue) EventEmitter.emit("queue", queueManager.queue)
-
-        // sleepTimer: emit on full state snapshots so Flutter stays in sync
-        // on subscription / track change / etc., but NOT on every 200ms tick.
         sleepTimerManager.emitSleepTimer()
     }
 
-    /**
-     * Lightweight emission used by the 200ms position ticker.
-     * Skips sleepTimer, repeatMode, and other rarely-changing fields
-     * to reduce EventChannel traffic.
-     *
-     * UW-01 fix: sleep timer no longer pushed every 200ms.
-     */
     private fun emitPositionOnly() {
         val p = getPlayer() ?: return
         val state = when (p.playbackState) {
@@ -224,7 +177,6 @@ class TransportState(
             Player.REPEAT_MODE_ALL -> "all"
             else                   -> "off"
         }
-        // Guard: don't emit if emitAll() already covered this transition
         if (repeatStr != lastEmittedRepeatMode) {
             lastEmittedRepeatMode = repeatStr
             EventEmitter.emit("repeatMode", repeatStr)
@@ -236,5 +188,6 @@ class TransportState(
         queue                = queueManager.queue,
         activeQueueIndex     = queueManager.activeQueueIndex,
         crossfadeDurationSec = crossfadeController.crossfadeDurationSec,
+        streamSlot           = getActiveStreamSlot(),
     )
 }

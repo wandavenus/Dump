@@ -21,7 +21,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get navRadio => 'Radio';
 
   @override
-  String get navLibrary => 'Perpustakaan';
+  String get navLibrary => 'Pustaka';
 
   @override
   String get navSearch => 'Cari';
@@ -91,12 +91,6 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get themeDark => 'Gelap';
-
-  @override
-  String get showUpNext => 'Tampilkan Up Next';
-
-  @override
-  String get showUpNextSubtitle => 'Kartu lagu berikutnya di player';
 
   @override
   String get liquidGlass => 'Liquid Glass';
@@ -364,6 +358,32 @@ class AppLocalizationsId extends AppLocalizations {
   String get scanFailed => 'Gagal memindai lagu';
 
   @override
+  String get rgRemoveTagsAction => 'Hapus Tag ReplayGain';
+
+  @override
+  String get rgRemoveConfirmTitle => 'Hapus Tag ReplayGain?';
+
+  @override
+  String get rgRemoveConfirmBody =>
+      'Tag ReplayGain/R128 akan dihapus dari semua lagu di library. Metadata lain tetap utuh.';
+
+  @override
+  String get rgRemoveRunning => 'Menghapus tag ReplayGain...';
+
+  @override
+  String rgRemoveLibrarySuccess(int count) {
+    return '$count lagu dibersihkan';
+  }
+
+  @override
+  String rgRemoveLibraryPartial(int removed, int failed) {
+    return '$removed dibersihkan, $failed gagal';
+  }
+
+  @override
+  String get rgRemoveFailed => 'Gagal menghapus tag ReplayGain';
+
+  @override
   String get sectionEqualizer => 'EQUALIZER';
 
   @override
@@ -528,15 +548,15 @@ class AppLocalizationsId extends AppLocalizations {
   String get sleepFadeOut => 'Musik akan memudar perlahan saat timer habis';
 
   @override
+  String get sleepFadingOut => 'Memudar…';
+
+  @override
   String get timerAfterSong => 'Timer: berhenti setelah lagu ini';
 
   @override
   String timerDuration(String label) {
     return 'Timer: $label';
   }
-
-  @override
-  String get upNextLabel => 'BERIKUTNYA';
 
   @override
   String get shuffleOn => 'Shuffle On';
@@ -696,7 +716,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get mostPlayedLabel => 'Paling Sering';
 
   @override
-  String get libraryTitle => 'Perpustakaan';
+  String get libraryTitle => 'Pustaka';
 
   @override
   String get playlists => 'Daftar Putar';
@@ -793,7 +813,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get appDescription =>
-      'Pemutar musik offline berbasis Flutter dengan sistem Audio Native Media3 Dual Exoplayer + Single Exoplayer.';
+      'Pemutar musik offline berbasis Flutter dengan sistem audio Native Media3.';
 
   @override
   String get releaseNotes => 'Catatan Pembaruan';
@@ -990,13 +1010,19 @@ class AppLocalizationsId extends AppLocalizations {
   String get glassToggleNavBar => 'NavBar';
 
   @override
+  String get navBarStyleSolid => 'Solid';
+
+  @override
+  String get navBarStyleGlass => 'Kaca';
+
+  @override
+  String get navBarStylePill => 'Pill Melayang';
+
+  @override
   String get glassToggleAppBar => 'AppBar';
 
   @override
   String get glassToggleMiniPlayer => 'Mini Player';
-
-  @override
-  String get glassToggleAlbumCard => 'Album Card';
 
   @override
   String get logLevelTitle => 'Level Log';
@@ -1320,4 +1346,18 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get madeByShort => 'Dibuat Oleh';
+
+  @override
+  String get reverb => 'Reverb';
+
+  @override
+  String get reverbDescription =>
+      'Membuat suara terasa berada di ruangan yang hangat dan lapang (reverb ruangan). Paling enak dengan headphone.';
+
+  @override
+  String get acousticEngine => 'Acoustic Engine';
+
+  @override
+  String get acousticEngineDescription =>
+      'Peningkatan khusus speaker dengan harmonik bass terkontrol, vokal lebih jelas, dan perlindungan adaptif terhadap suara tajam.';
 }

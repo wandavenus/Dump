@@ -112,6 +112,13 @@ class ReplayGainService {
   static Future<void> invalidate(int songId) async {
     _cache.remove(songId);
     _cacheIdentity.remove(songId);
+    // RG-1 fix: also drop any in-flight resolve() for this song. Otherwise a
+    // resolve that started BEFORE the invalidation (e.g. the song-info sheet
+    // while a batch remove is running) would be re-joined by the next caller
+    // and deliver/refill pre-invalidation data. The stale value it may still
+    // write on completion is bound to the OLD file identity and rejected by
+    // every later resolve(), but the result should not be handed out at all.
+    _inFlight.remove(songId); // ignore: unawaited_futures
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
       prefs.remove('rg_${songId}_gain'),
@@ -496,8 +503,15 @@ class ReplayGainService {
       if (!seenIds.add(song.id)) continue;
       final c = _cache[song.id];
       final identity = await _fileIdentity(song.path);
+      // N2 fix: skip when the CURRENT file version already has a real
+      // loudness value cached (measured by a previous scan or parsed from
+      // the file's own tags). The old `c.gainDb == 0.0` check re-decoded
+      // songs whose cached data happened to be exactly 0 dB (a "+0.00 dB"
+      // tag, or a measurement of exactly −18 LUFS) on every batch scan.
+      // `hasData` (source != none) is the right test: `LoudnessData.none()`
+      // (no tags / nothing cached yet) is still measured, as before.
       if (c == null ||
-          c.gainDb == 0.0 ||
+          !c.hasData ||
           identity == null ||
           _cacheIdentity[song.id] != identity) {
         toScan.add(song);
@@ -656,6 +670,14 @@ class ReplayGainService {
       );
     }
     try {
+      // F3 (RG-01): capture identities BEFORE the scan. A file that changes
+      // mid-scan must never get its (stale) measurement cached under the new
+      // identity — mirror the before/after guard _scanTrackResult already uses.
+      final beforeById = <int, _ReplayGainFileIdentity?>{};
+      for (final s in songs) {
+        beforeById[s.id] = await _fileIdentity(s.path);
+      }
+
       final raw = await _channel.invokeMapMethod<String, dynamic>('scanAlbum', {
         'paths': songs.map((s) => s.path).toList(),
       });
@@ -691,11 +713,13 @@ class ReplayGainService {
           peakLinear: albumPeak,
           source: LoudnessSource.replayGainAlbum,
         );
-        _cache[song.id] = albumData;
-        final identity = await _fileIdentity(song.path);
-        if (identity != null) {
-          _cacheIdentity[song.id] = identity;
-          await _saveToPrefs(song.id, albumData, identity);
+        // Only cache when the file survived the scan unchanged (F3).
+        final after = await _fileIdentity(song.path);
+        final prior = beforeById[song.id];
+        if (prior != null && after != null && after == prior) {
+          _cache[song.id] = albumData;
+          _cacheIdentity[song.id] = after;
+          await _saveToPrefs(song.id, albumData, after);
         }
 
         trackResults[song.id] = TrackLoudnessResult(
@@ -723,6 +747,52 @@ class ReplayGainService {
         failedPaths: songs.map((s) => s.path).toList(),
       );
     }
+  }
+
+  // ── Library-wide tag removal (Settings → Audio Normalize) ──────────────────
+
+  /// Removes REPLAYGAIN_*/R128_* tags from every song in [songs] (the whole
+  /// library, as passed from Settings) with at most one batch write-access
+  /// grant dialog (Android 11+). Per-song failures (declined permission,
+  /// unsupported format, stale scan) never fail the batch; files without any
+  /// loudness tags are no-ops and count as removed.
+  ///
+  /// Returns how many songs were cleaned and how many failed.
+  static Future<RemoveRgResult> removeReplayGainFromLibrary(
+    List<LocalSong> songs,
+  ) async {
+    if (kIsWeb || songs.isEmpty) {
+      return const RemoveRgResult(removed: 0, failed: 0);
+    }
+
+    // Defensive dedup — a duplicated songId must never be removed twice (or
+    // race on the same file through two channel calls).
+    final unique = <LocalSong>[];
+    final seen = <int>{};
+    for (final s in songs) {
+      if (seen.add(s.id)) unique.add(s);
+    }
+
+    // One batch grant for the whole library; declined songs fail per-song.
+    final granted = await requestBatchWriteAccess(
+      unique.map((s) => s.id).toList(),
+    );
+
+    var removed = 0;
+    var failed = 0;
+    for (final song in unique) {
+      if (!(granted[song.id] ?? false)) {
+        failed++;
+        continue;
+      }
+      final ok = await removeReplayGainTags(song);
+      if (ok) {
+        removed++;
+      } else {
+        failed++;
+      }
+    }
+    return RemoveRgResult(removed: removed, failed: failed);
   }
 
   // ── Batch write-access pre-authorization ───────────────────────────────────
@@ -1018,138 +1088,4 @@ class ReplayGainService {
     }
     return failures;
   }
-}
-
-// ── Internal scan + batch-write types ──────────────────────────────────────────
-
-/// Private result of [_scanTrackResult]: the cached [LoudnessData] plus the
-/// raw LUFS value and file identity needed to persist tags later.
-class _TrackScan {
-  const _TrackScan({
-    required this.data,
-    required this.integratedLufs,
-    required this.identity,
-  });
-
-  final LoudnessData data;
-  final double? integratedLufs;
-  final _ReplayGainFileIdentity identity;
-}
-
-/// One song's tag-write request for [ReplayGainService.writeReplayGainBatch].
-class ReplayGainWriteRequest {
-  const ReplayGainWriteRequest({
-    required this.song,
-    required this.trackGainDb,
-    required this.trackPeak,
-    required this.trackIntegratedLufs,
-    this.expectedFileSize,
-    this.expectedFileMtimeMs,
-    this.albumGainDb,
-    this.albumPeak,
-    this.albumIntegratedLufs,
-  });
-
-  final LocalSong song;
-  final double trackGainDb;
-  final double trackPeak;
-  final double trackIntegratedLufs;
-  final int? expectedFileSize;
-  final int? expectedFileMtimeMs;
-  final double? albumGainDb;
-  final double? albumPeak;
-  final double? albumIntegratedLufs;
-}
-
-// ── Album scan result types ────────────────────────────────────────────────────
-
-/// Per-track loudness measurement returned as part of an [AlbumScanResult].
-class TrackLoudnessResult {
-  const TrackLoudnessResult({
-    required this.song,
-    required this.trackGainDb,
-    required this.trackPeak,
-    required this.trackIntegratedLufs,
-  });
-
-  final LocalSong song;
-  final double trackGainDb;
-  final double? trackPeak;
-  final double? trackIntegratedLufs;
-}
-
-/// Result of a [ReplayGainService.scanAlbum] call.
-class AlbumScanResult {
-  const AlbumScanResult({
-    required this.trackResults,
-    required this.albumGainDb,
-    required this.albumPeak,
-    required this.albumIntegratedLufs,
-    required this.failedPaths,
-  });
-
-  /// Keyed by song id.
-  final Map<int, TrackLoudnessResult> trackResults;
-  final double albumGainDb;
-  final double? albumPeak;
-  final double? albumIntegratedLufs;
-  final List<String> failedPaths;
-
-  bool get hasData => trackResults.isNotEmpty;
-}
-
-// ── Batch scan progress snapshot ──────────────────────────────────────────────
-
-/// Immutable state for a [ReplayGainService.scanLibrary] run.
-class BatchScanProgress {
-  const BatchScanProgress({
-    this.done = 0,
-    this.total = 0,
-    this.failed = 0,
-    this.running = false,
-    this.cancelled = false,
-    this.currentTitle = '',
-  });
-
-  /// Songs processed so far (successes + failures combined).
-  final int done;
-
-  /// Total songs queued for this run.
-  final int total;
-
-  /// Songs that failed to decode.
-  final int failed;
-
-  /// Whether a scan is currently in progress.
-  final bool running;
-
-  /// Whether the last scan ended due to user cancellation.
-  final bool cancelled;
-
-  /// Title of the song currently being scanned (empty when idle).
-  final String currentTitle;
-
-  int get succeeded => done - failed;
-
-  /// `true` when no scan has started yet since app launch.
-  bool get idle => !running && total == 0;
-
-  /// `true` after a scan completes (with or without cancellation).
-  bool get finished => !running && total > 0;
-
-  BatchScanProgress copyWith({
-    int? done,
-    int? total,
-    int? failed,
-    bool? running,
-    bool? cancelled,
-    String? currentTitle,
-  }) => BatchScanProgress(
-    done: done ?? this.done,
-    total: total ?? this.total,
-    failed: failed ?? this.failed,
-    running: running ?? this.running,
-    cancelled: cancelled ?? this.cancelled,
-    currentTitle: currentTitle ?? this.currentTitle,
-  );
 }

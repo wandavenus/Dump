@@ -80,11 +80,7 @@ class AudioService {
   // ── Initialization ────────────────────────────────────────────────────────
 
   static void initialize() {
-    BootTrace.log('ENTER AudioService.initialize()');
     if (_initialized) {
-      BootTrace.log(
-        'EXIT  AudioService.initialize() — already initialized, no-op',
-      );
       return;
     }
     _initialized = true;
@@ -184,6 +180,7 @@ class AudioService {
           final sr = (event['sampleRate'] as num?)?.toInt() ?? 0;
           if (sr > 0 && PlaybackManager.nativeLoudnessNormAvailable) {
             PlaybackManager.setNativeLoudnessSampleRate(sr);
+            PlaybackManager.setNativeAcousticEngineSampleRate(sr);
           }
           if (sr > 0) {
             AudioEffectsService.setNativeDspSampleRate(sr);
@@ -233,7 +230,6 @@ class AudioService {
     }
 
     LogService.log('AudioService', 'Initialized — engine: Native Media3');
-    BootTrace.log('EXIT  AudioService.initialize()');
   }
 
   static void _onReplayGainSettingChanged() {
@@ -267,11 +263,29 @@ class AudioService {
           .whereType<Map<dynamic, dynamic>>()
           .map((m) => LocalSong.fromMap(m.cast<dynamic, dynamic>()))
           .toList();
-      // MED-02 fix: propagate empty queue so Flutter state reflects the cleared
-      // playlist rather than keeping a stale list from the previous session.
+      // MED-02 + STOP-session fix: propagate empty queue so Flutter state
+      // reflects the cleared playlist rather than keeping a stale list from the
+      // previous session. A native empty-queue event means the session is over
+      // (notification STOP clears the queue before tearing the service down), so
+      // the FULL mirror is reset — including currentSong — letting the mini/full
+      // player collapse with its reverse entry animation instead of keeping a
+      // stale song whose transport commands are no-ops against an empty player.
       if (songs.isEmpty) {
         _playlist = List<LocalSong>.unmodifiable([]);
-        _setState(playbackState.value.copyWith(currentPlaylist: const []));
+        _currentIndex = 0;
+        _previousSong = null;
+        _setState(
+          playbackState.value.copyWith(
+            currentPlaylist: const [],
+            clearCurrentSong: true,
+            currentIndex: 0,
+            isPlaying: false,
+            processingState: ProcessingState.idle,
+            position: Duration.zero,
+            duration: Duration.zero,
+            clearNextTrackIndex: true,
+          ),
+        );
         unawaited(ArtworkRepository.setActiveQueueIds([]));
         return;
       }
@@ -328,6 +342,11 @@ class AudioService {
       nativeNext = null;
     }
 
+    // NAR-4/NAR-5: physical DSP stream slot of the ACTIVE player (0 = primary,
+    // 1 = secondary/standby), reported by the native TrackMapper. Missing on
+    // old native builds → fall back to 0 (single-player sessions).
+    final activeSlot = (trackMap['streamSlot'] as num?)?.toInt() == 1 ? 1 : 0;
+
     // Skip full sync when the current track hasn't changed, but still update
     // nextTrackIndex in state — it changes after queue reorders, shuffle toggles,
     // and repeat-mode changes even if the currently-playing track is the same.
@@ -340,18 +359,68 @@ class AudioService {
             clearNextTrackIndex: nativeNext == null,
           ),
         );
+        // The next track changed while the current one keeps playing —
+        // pre-apply the new next track's ReplayGain gain + loudness reset to
+        // the standby slot so the crossfade preload/fade-in window is already
+        // using the correct gain.
+        _preloadStandbyDsp(nativeNext, activeSlot);
       }
       return;
     }
 
     unawaited(
-      _syncCurrentTrackFromNative(resolved, nativeNextIndex: nativeNext),
+      _syncCurrentTrackFromNative(
+        resolved,
+        nativeNextIndex: nativeNext,
+        activeSlot: activeSlot,
+      ),
+    );
+  }
+
+  /// NAR-4/NAR-5: pre-apply the NEXT track's ReplayGain gain and loudness
+  /// reset to the standby DSP stream slot BEFORE the crossfade preload makes
+  /// it audible. The standby player always lives in the physical slot that is
+  /// not currently active (native `setStandbyPlayer` invariant), so its slot
+  /// is `1 - activeSlot`. No-op when crossfade is off (no standby exists) or
+  /// there is no next track.
+  static void _preloadStandbyDsp(int? nextIndex, int activeSlot) {
+    if (nextIndex == null || nextIndex < 0 || nextIndex >= _playlist.length) {
+      return;
+    }
+    if (AudioEffectsService.crossfadeDuration.value <= 0) return;
+
+    final nextSong = _playlist[nextIndex];
+    final current = playbackState.value.currentSong;
+    final standbySlot = 1 - activeSlot;
+
+    // Reset the standby analyzer at preload so the incoming track is measured
+    // fresh from its first gating block — the previous track's history must
+    // not leak into the promoted stream's measurement.
+    if (AudioEffectsService.loudnessNormEnabled.value) {
+      PlaybackManager.resetNativeLoudnessNormForStream(standbySlot);
+    }
+
+    // Fire-and-forget: resolve + apply the next track's gain to the standby
+    // slot. The standby does not become audible until the fade-in starts
+    // (seconds away), so the async resolve always lands in time.
+    unawaited(
+      _ReplayGainApplicator.apply(
+        nextSong,
+        prevSong: current,
+        streamSlot: standbySlot,
+      ).catchError((Object e) {
+        LogService.warn(
+          'AudioService',
+          '_ReplayGainApplicator.apply (standby preload) error: $e',
+        );
+      }),
     );
   }
 
   static Future<void> _syncCurrentTrackFromNative(
     int index, {
     int? nativeNextIndex,
+    int activeSlot = 0,
   }) async {
     final song = _playlist[index];
     final prevIndex = _currentIndex;
@@ -418,23 +487,31 @@ class AudioService {
     // a redundant Dart-side retry unnecessary and wasteful (8-10 MethodChannel
     // calls per track that would all be no-ops on the native side).
     AudioEffectsService.applyAll();
-    // Reset loudness analyzer on each track change so the new track is
-    // measured fresh (prevents stale gain from the previous song carrying over).
+    // Reset loudness analyzer on the stream the new track actually plays on
+    // (NAR-5 fix) so the new track is measured fresh — the other stream
+    // (preloading standby, or primary still fading out) keeps its own history.
     if (AudioEffectsService.loudnessNormEnabled.value) {
-      PlaybackManager.resetNativeLoudnessNorm();
+      PlaybackManager.resetNativeLoudnessNormForStream(activeSlot);
     }
     // LOW-06 fix: chain catchError so async errors surface in logs instead of
     // being silently dropped by the unawaited fire-and-forget pattern.
     unawaited(
-      _ReplayGainApplicator.apply(song, prevSong: prevSong).catchError((
-        Object e,
-      ) {
+      _ReplayGainApplicator.apply(
+        song,
+        prevSong: prevSong,
+        streamSlot: activeSlot,
+      ).catchError((Object e) {
         LogService.warn(
           'AudioService',
           '_ReplayGainApplicator.apply error: $e',
         );
       }),
     );
+
+    // NAR-4/NAR-5: the new current track is now active on [activeSlot]; the
+    // standby slot starts preloading the NEXT track — give it the next
+    // track's gain + loudness reset immediately.
+    _preloadStandbyDsp(nativeNextIndex, activeSlot);
   }
 
   // ── Playback ──────────────────────────────────────────────────────────[...]
@@ -630,7 +707,10 @@ class AudioService {
       _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    unawaited(PlaybackManager.insertNext(song));
+    _queueMutationGuard(
+      () => PlaybackManager.insertNext(song),
+      'insertNext "${song.title}"',
+    );
     LogService.log('AudioService', 'Queued next: "${song.title}"');
   }
 
@@ -641,10 +721,34 @@ class AudioService {
       _playlist = List<LocalSong>.unmodifiable(mutable);
       _setState(playbackState.value.copyWith(currentPlaylist: _playlist));
     }
-    unawaited(PlaybackManager.appendToQueue(song));
+    _queueMutationGuard(
+      () => PlaybackManager.appendToQueue(song),
+      'appendToQueue "${song.title}"',
+    );
     LogService.log(
       'AudioService',
       'Queued at end: "${song.title}" (${_playlist.length})',
+    );
+  }
+
+  /// F5 fix: optimistic queue mutations (addToQueueNext / addToQueue /
+  /// reorderQueue) update Dart state first for instant UI feedback. If the
+  /// native call fails, re-sync from the engine so the mirror converges back
+  /// to the authoritative queue instead of staying divergent.
+  static void _queueMutationGuard(
+    Future<void> Function() mutation,
+    String label,
+  ) {
+    unawaited(
+      mutation().catchError((Object e, StackTrace st) {
+        LogService.log(
+          'AudioService',
+          'Queue mutation failed ($label) — re-syncing from native: $e',
+          level: LogLevel.warning,
+          stackTrace: st.toString(),
+        );
+        unawaited(syncFromNative());
+      }),
     );
   }
 
@@ -682,7 +786,10 @@ class AudioService {
       ),
     );
 
-    unawaited(PlaybackManager.reorderQueue(oldIndex, adjustedNew));
+    _queueMutationGuard(
+      () => PlaybackManager.reorderQueue(oldIndex, adjustedNew),
+      'reorderQueue [$oldIndex] → [$adjustedNew]',
+    );
     LogService.log(
       'AudioService',
       'Queue reordered: [$oldIndex] → [$adjustedNew]',
@@ -732,7 +839,20 @@ class AudioService {
         },
       );
 
-      if (snapshot == null) return;
+      if (snapshot == null) {
+        // F3 fix: the sleep timer lives inside the native service, so when the
+        // snapshot is unavailable (service not running / not responding) there
+        // is provably no armed timer. Reset the mirror instead of leaving a
+        // stale "active" state with a frozen countdown.
+        SleepTimerService.resetToInactive();
+        _setState(
+          playbackState.value.copyWith(
+            sleepTimerActive: false,
+            sleepTimerRemainingMs: 0,
+          ),
+        );
+        return;
+      }
 
       final rawQueue = snapshot['queue'];
       if (rawQueue == null) return;
@@ -750,6 +870,23 @@ class AudioService {
         songs.length - 1,
       );
       final isPlaying = snapshot['isPlaying'] as bool? ?? false;
+
+      // B fix: setelah app di-kill, service native me-restore queue lama dalam
+      // keadaan paused/idle (restoreQueueFromPrefs di onCreate / service yang
+      // masih hidup karena stopWithTask=false). Menerbitkan lagu hasil-restore
+      // itu saat cold start membuat mini player tampak "nyangkut" di lagu
+      // sebelumnya. Skip publikasi currentSong HANYA saat (a) UI belum punya
+      // lagu (populasi pertama dari snapshot) dan (b) tidak ada playback
+      // aktif — yaitu queue hasil restore, bukan sesi playback sungguhan.
+      //
+      // _playlist tetap di-mirror supaya jalur resume via notifikasi
+      // (currentTrack event → _onNativeCurrentTrackChanged) bisa me-resolve
+      // lagu begitu user benar-benar melanjutkan (play dari notification /
+      // media button). Kasus lain tidak tersentuh: app resume setelah pause
+      // (currentSong != null) dan resume saat masih playing (isPlaying=true)
+      // tetap memublikasikan lagu seperti biasa.
+      final suppressRestoredSong =
+          playbackState.value.currentSong == null && !isPlaying;
       final stateStr = snapshot['processingState'] as String? ?? 'idle';
       final positionMs = (snapshot['positionMs'] as num?)?.toInt() ?? 0;
       final durationMs = (snapshot['durationMs'] as num?)?.toInt() ?? 0;
@@ -791,7 +928,7 @@ class AudioService {
 
       _setState(
         playbackState.value.copyWith(
-          currentSong: song,
+          currentSong: suppressRestoredSong ? null : song,
           currentIndex: index,
           currentPlaylist: _playlist,
           isPlaying: isPlaying,
@@ -813,23 +950,36 @@ class AudioService {
             'playing=$isPlaying shuffle=$shuffleOn repeat=$repeatStr',
       );
 
-      // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
-      try {
-        await _ReplayGainApplicator.apply(song).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () {
-            LogService.verbose(
-              'AudioService',
-              'syncFromNative: replay gain apply timeout (2s) — skipping',
-            );
-            return;
-          },
-        );
-      } on Exception catch (e) {
-        LogService.verbose(
+      if (suppressRestoredSong) {
+        LogService.log(
           'AudioService',
-          'syncFromNative: replay gain apply error: $e',
+          'syncFromNative: restored queue idle — currentSong suppressed '
+              'until real playback starts',
         );
+      }
+
+      // Skip ReplayGain when the restored song is suppressed — nothing is
+      // playing; the applicator re-runs from _syncCurrentTrackFromNative as
+      // soon as the user resumes or starts a new track.
+      if (!suppressRestoredSong) {
+        // ── STARTUP FIX: Wrap replay gain apply with 2s timeout ──────────────
+        try {
+          await _ReplayGainApplicator.apply(song).timeout(
+            const Duration(seconds: 2),
+            onTimeout: () {
+              LogService.verbose(
+                'AudioService',
+                'syncFromNative: replay gain apply timeout (2s) — skipping',
+              );
+              return;
+            },
+          );
+        } on Exception catch (e) {
+          LogService.verbose(
+            'AudioService',
+            'syncFromNative: replay gain apply error: $e',
+          );
+        }
       }
     } on Object catch (e, st) {
       LogService.warn('AudioService', 'syncFromNative error: $e\n$st');

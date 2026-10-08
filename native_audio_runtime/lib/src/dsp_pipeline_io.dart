@@ -220,7 +220,20 @@ class NativeDspPipeline {
       );
     }
 
-    // Phase 6: Compressor (slot 3; Parametric EQ removed — legacy system
+    // Acoustic Engine (slot 3): after ReplayGain/Loudness and before the
+    // compressor, limiter, and soft-clipper safety stages.
+    final acousticEngineStatus = NativeRuntimeStatus.fromCode(
+      bindings.nar_acoustic_engine_processor_register_internal(),
+    );
+    if (acousticEngineStatus != NativeRuntimeStatus.ok &&
+        acousticEngineStatus != NativeRuntimeStatus.duplicateModule) {
+      throw NativeRuntimeException(
+        'NativeDspPipeline.initialize (acoustic_engine)',
+        acousticEngineStatus,
+      );
+    }
+
+    // Phase 6: Compressor (slot 4; Parametric EQ removed — legacy system
     // Equalizer is the sole EQ backend, see MEMORY.md "EQ silent attach
     // failure").
     final compStatus = NativeRuntimeStatus.fromCode(
@@ -396,7 +409,7 @@ class NativeCompressor {
 
 /// Dart facade over the native Limiter processor (`src/limiter_processor.h`).
 ///
-/// Brickwall look-ahead limiter at pipeline slot 3.
+/// Brickwall look-ahead limiter at pipeline slot 6.
 /// Prevents any output sample from exceeding [thresholdDb].
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
@@ -431,7 +444,7 @@ class NativeLimiter {
 /// Dart facade over the native Crossfeed processor
 /// (`src/crossfeed_processor.h`).
 ///
-/// Frequency-dependent headphone crossfeed at pipeline slot 3
+/// Frequency-dependent headphone crossfeed at pipeline slot 5
 /// (after dsp.compressor, before dsp.limiter).
 ///
 /// **Architecture**: [PlaybackManager] is the only sanctioned caller.
@@ -526,6 +539,33 @@ class NativeReplayGain {
     useClippingProtection ? 1 : 0,
   );
 
+  /// Set the gain for ONE stream slot independently (NAR-4 fix).
+  ///
+  /// During crossfade two ExoPlayer instances (slot 0 = primary, slot 1 =
+  /// standby) play concurrently with potentially different ReplayGain
+  /// metadata. This sets the pre-computed linear gain for one slot only, so
+  /// each stream applies its own track's gain instead of the "last-written
+  /// wins" artifact of [setGain] (which writes both slots).
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0
+  ///                by the native layer.
+  ///
+  /// Bypass remains shared — use [setBypass] for the global on/off switch.
+  ///
+  /// Returns the native status code (0 = OK).
+  int setGainForStream({
+    required int streamSlot,
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) => bindings.nar_replaygain_set_gain_for_stream(
+    streamSlot,
+    gainDb,
+    peakLinear,
+    useClippingProtection ? 1 : 0,
+  );
+
   /// Enable (`false`) or bypass (`true`) the ReplayGain processor.
   void setBypass(bool bypass) =>
       bindings.nar_replaygain_set_bypass(bypass ? 1 : 0);
@@ -576,6 +616,50 @@ class NativeLoudnessNorm {
 
   /// Reset analyzer state. Call on every track change.
   void reset() => bindings.nar_loudness_reset();
+
+  /// Reset the analyzer for ONE stream slot independently (NAR-5 fix).
+  ///
+  /// Identical to [reset] but target-scoped: during crossfade the standby
+  /// stream may already be preloading (and accumulating gating history for)
+  /// the incoming track. Resetting only the promoted slot preserves that
+  /// history and vice-versa.
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Values outside [0, NAR_DSP_MAX_STREAMS) are clamped to 0
+  ///                by the native layer.
+  void resetStream(int streamSlot) =>
+      bindings.nar_loudness_reset_stream(streamSlot);
+}
+
+/// Dart control facade for the native Acoustic Engine processor.
+///
+/// The DSP itself runs only in C on Media3's audio thread. This class exposes
+/// the intentionally small control surface: bypass and overall intensity.
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  /// Sets overall enhancement strength in [0.0, 1.0]. Non-finite values are
+  /// converted to 0 to keep invalid UI data out of the native control plane.
+  void setIntensity(double intensity) =>
+      bindings.nar_acoustic_engine_set_intensity(
+        intensity.isFinite ? intensity.clamp(0.0, 1.0).toDouble() : 0.0,
+      );
+
+  double get intensity => bindings.nar_acoustic_engine_get_intensity();
+
+  /// Enables (`false`) or transparently bypasses (`true`) the processor.
+  void setBypass(bool bypass) =>
+      bindings.nar_acoustic_engine_set_bypass(bypass ? 1 : 0);
+
+  bool get bypass => bindings.nar_acoustic_engine_get_bypass() != 0;
+
+  /// Rebuilds native filter coefficients for a playback format transition.
+  void setSampleRate(int sampleRate) =>
+      bindings.nar_acoustic_engine_set_sample_rate(sampleRate);
+
+  /// Clears filter and detector state for all stream slots.
+  void reset() => bindings.nar_acoustic_engine_reset();
 }
 
 // ── NativeSoftClipper ─────────────────────────────────────────────────────────
@@ -583,7 +667,7 @@ class NativeLoudnessNorm {
 /// Dart facade over the native Soft Clipper processor
 /// (`src/soft_clipper_processor.h`).
 ///
-/// Tanh waveshaper at pipeline slot 7 (last in the dynamics chain).
+/// Tanh waveshaper at pipeline slot 8 (last in the dynamics chain).
 /// Samples below [thresholdDb] pass through unchanged; samples above are
 /// smoothly limited asymptotically toward 0 dBFS.
 ///

@@ -18,6 +18,7 @@
 // own clang, so this is not a project or CI requirement.
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 import 'package:test/test.dart';
@@ -35,6 +36,91 @@ void main() {
   test('reports availability', () {
     expect(NativeAudioRuntime.instance, isNotNull);
   });
+
+  test(
+    'Acoustic Engine is transparent in bypass and safe across streams',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      final pipeline = NativeDspPipeline.instance;
+      expect([
+        for (var i = 0; i < pipeline.processorCount; i++)
+          pipeline.processorIdAt(i),
+      ], contains('dsp.acoustic_engine'));
+
+      final buffer = NativeAudioBuffer.create(
+        capacityFrames: 32,
+        channelCount: 2,
+        sampleRate: 48000,
+      )!;
+      addTearDown(buffer.destroy);
+      for (var i = 0; i < buffer.data.length; i++) {
+        buffer.data[i] = (i.isEven ? 0.25 : -0.25);
+      }
+      final original = List<double>.from(buffer.data);
+      NativeAcousticEngine.instance.setBypass(true);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data, orderedEquals(original));
+
+      NativeAcousticEngine.instance.setIntensity(1.0);
+      NativeAcousticEngine.instance.setBypass(false);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data.every((sample) => sample.isFinite), isTrue);
+      // A reset/bypass must leave a following silent buffer silent (no stale DC).
+      NativeAcousticEngine.instance.setBypass(true);
+      buffer.data.fillRange(0, buffer.data.length, 0.0);
+      expect(pipeline.processBuffer(buffer), 0);
+      expect(buffer.data.every((sample) => sample == 0.0), isTrue);
+    },
+  );
+
+  test(
+    'Acoustic Engine renders the whole buffer when a sample is non-finite',
+    () async {
+      await NativeAudioRuntime.instance.initialize();
+      await NativeDspPipeline.instance.initialize();
+      final pipeline = NativeDspPipeline.instance;
+
+      final buffer = NativeAudioBuffer.create(
+        capacityFrames: 64,
+        channelCount: 2,
+        sampleRate: 48000,
+      )!;
+      addTearDown(buffer.destroy);
+      NativeAcousticEngine.instance.setIntensity(1.0);
+      NativeAcousticEngine.instance.setBypass(false);
+      // dsp.gain sits at slot 0 and sanitises non-finite samples itself, so
+      // leaving it on would hide the Acoustic Engine behind it. Disable it for
+      // this test so the Acoustic Engine is the first stage that sees the NaN.
+      pipeline.setProcessorEnabled('dsp.gain', enabled: false);
+      addTearDown(
+        () => pipeline.setProcessorEnabled('dsp.gain', enabled: true),
+      );
+
+      // Reference render: identical input except the one poisoned sample is a
+      // clean 0.0. Both renders start from a known pipeline state so the two
+      // outputs are bit-comparable.
+      int renderWith(void Function(Float32List data) poison) {
+        buffer.data.fillRange(0, buffer.data.length, 0.25);
+        poison(buffer.data);
+        pipeline.reset();
+        return pipeline.processBuffer(buffer);
+      }
+
+      renderWith((data) => data[64] = 0.0);
+      final reference = List<double>.from(buffer.data);
+
+      // The same buffer, but with NaN at the same position. The processor must
+      // neutralise it in place and still render every remaining frame, so the
+      // output matches the reference exactly instead of stopping dead at the
+      // bad sample. The condition is still reported for diagnostics.
+      final status = renderWith((data) => data[64] = double.nan);
+
+      expect(buffer.data.every((sample) => sample.isFinite), isTrue);
+      expect(buffer.data, orderedEquals(reference));
+      expect(status, isNot(0));
+    },
+  );
 
   test('initialize is idempotent and sets isAvailable', () async {
     await NativeAudioRuntime.instance.initialize();
@@ -61,8 +147,6 @@ void main() {
       'dsp.pipeline',
       'dsp.gain',
       'dsp.media3_integration',
-      // Phase 5
-      'dsp.equalizer',
       // Phase 6
       'dsp.compressor',
       'dsp.limiter',
@@ -71,6 +155,10 @@ void main() {
       'dsp.crossfeed',
       // Phase 8
       'dsp.replaygain',
+      // Speaker enhancement (slot 3)
+      'dsp.acoustic_engine',
+      // Phase 8.5: real-time EBU R128 / BS.1770-4 loudness scan
+      'scan.loudness_ebur128',
     ];
     for (final key in supportedKeys) {
       final cap = caps.firstWhere(
@@ -82,12 +170,14 @@ void main() {
 
     // Everything else is a placeholder (supported = false).
     final unsupportedKeys = [
+      // Parametric EQ was removed — the legacy Android system Equalizer is
+      // the sole EQ backend (see kCapabilities in native_audio_runtime.c).
+      'dsp.equalizer',
       'dsp.bass_boost',
       'dsp.virtualizer',
       'dsp.resampler',
       'decoder.flac_hires',
       'decoder.dsd',
-      'scan.loudness_ebur128',
     ];
     for (final key in unsupportedKeys) {
       final cap = caps.firstWhere(
@@ -109,6 +199,19 @@ void main() {
     expect(
       NativeAudioRuntime.instance.registeredModuleIds,
       contains('native_dsp'),
+    );
+  });
+
+  test('registerModule rejects IDs that would be truncated natively', () async {
+    await NativeAudioRuntime.instance.initialize();
+    final longModuleId = 'm' * 64;
+
+    final status = NativeAudioRuntime.instance.registerModule(longModuleId);
+
+    expect(status, NativeRuntimeStatus.invalidArgument);
+    expect(
+      NativeAudioRuntime.instance.registeredModuleIds,
+      isNot(contains(longModuleId)),
     );
   });
 
@@ -153,15 +256,15 @@ void main() {
   });
 
   test(
-    'pipeline registers all 7 processors (Phase 4–8.5, PEQ removed) in order',
+    'pipeline registers all 8 processors (Phase 4–8.5, PEQ removed) in order',
     () async {
       await NativeAudioRuntime.instance.initialize();
       await NativeDspPipeline.instance.initialize();
 
-      // [0]gain → [1]replaygain → [2]loudness → [3]compressor →
-      // [4]crossfeed → [5]limiter → [6]soft_clipper
+      // [0]gain → [1]replaygain → [2]loudness → [3]acoustic_engine →
+      // [4]compressor → [5]crossfeed → [6]limiter → [7]soft_clipper
       // (Parametric EQ removed — legacy system Equalizer is the sole EQ backend.)
-      expect(NativeDspPipeline.instance.processorCount, equals(7));
+      expect(NativeDspPipeline.instance.processorCount, equals(8));
       expect(NativeDspPipeline.instance.processorIdAt(0), equals('dsp.gain'));
       expect(
         NativeDspPipeline.instance.processorIdAt(1),
@@ -173,18 +276,22 @@ void main() {
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(3),
-        equals('dsp.compressor'),
+        equals('dsp.acoustic_engine'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(4),
-        equals('dsp.crossfeed'),
+        equals('dsp.compressor'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(5),
-        equals('dsp.limiter'),
+        equals('dsp.crossfeed'),
       );
       expect(
         NativeDspPipeline.instance.processorIdAt(6),
+        equals('dsp.limiter'),
+      );
+      expect(
+        NativeDspPipeline.instance.processorIdAt(7),
         equals('dsp.soft_clipper'),
       );
     },

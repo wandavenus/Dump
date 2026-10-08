@@ -58,16 +58,6 @@ class _AppearanceSection extends StatelessWidget {
         ),
         const SettingsDivider(),
         ValueListenableBuilder<bool>(
-          valueListenable: UpNextSettings.showUpNextCard,
-          builder: (_, show, _) => SettingsToggleRow(
-            title: l.showUpNext,
-            subtitle: l.showUpNextSubtitle,
-            value: show,
-            onChanged: UpNextSettings.setShowUpNextCard,
-          ),
-        ),
-        const SettingsDivider(),
-        ValueListenableBuilder<bool>(
           valueListenable: ThemeController.glassTheme,
           builder: (context, isGlass, _) => Column(
             children: [
@@ -79,10 +69,60 @@ class _AppearanceSection extends StatelessWidget {
               ),
               const SettingsDivider(),
               if (isGlass) ...[
-                _GlassSubToggle(
-                  label: l.glassToggleNavBar,
-                  notifier: ThemeController.glassNavBar,
-                  onChanged: ThemeController.setGlassNavBar,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.glassToggleNavBar,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 10),
+                      ValueListenableBuilder<NavBarStyle>(
+                        valueListenable: ThemeController.navBarStyle,
+                        builder: (context, current, _) {
+                          return CupertinoSlidingSegmentedControl<NavBarStyle>(
+                            groupValue: current,
+                            onValueChanged: (v) {
+                              if (v != null) {
+                                unawaited(ThemeController.setNavBarStyle(v));
+                              }
+                            },
+                            children: {
+                              NavBarStyle.solid: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  l.navBarStyleSolid,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              NavBarStyle.glass: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  l.navBarStyleGlass,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              NavBarStyle.pill: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  l.navBarStylePill,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
                 const SettingsDivider(indent: 52),
                 _GlassSubToggle(
@@ -95,12 +135,6 @@ class _AppearanceSection extends StatelessWidget {
                   label: l.glassToggleMiniPlayer,
                   notifier: ThemeController.glassMiniPlayer,
                   onChanged: ThemeController.setGlassMiniPlayer,
-                ),
-                const SettingsDivider(indent: 52),
-                _GlassSubToggle(
-                  label: l.glassToggleAlbumCard,
-                  notifier: ThemeController.glassAlbumCard,
-                  onChanged: ThemeController.setGlassAlbumCard,
                 ),
                 const SettingsDivider(indent: 52),
               ],

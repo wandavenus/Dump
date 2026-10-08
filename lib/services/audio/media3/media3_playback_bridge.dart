@@ -4,35 +4,12 @@ import '../../../models/local_song.dart';
 import '../../../utils/safe_num.dart';
 import '../../log_service.dart';
 
-// ── Equalizer types ────────────────────────────────────────────────────────────
-// Defined here rather than in the legacy media3_audio_player.dart so that the
-// bridge owns its own type definitions without importing dead-code files.
+// AndroidEqualizerParameters / AndroidEqualizerBand live in equalizer_models.dart
+// (Tier 1 split); re-exported so existing importers of this file keep resolving
+// them unchanged.
+export 'equalizer_models.dart';
 
-class AndroidEqualizerParameters {
-  final double minDecibels;
-  final double maxDecibels;
-  final List<AndroidEqualizerBand> bands;
-
-  const AndroidEqualizerParameters({
-    required this.minDecibels,
-    required this.maxDecibels,
-    required this.bands,
-  });
-}
-
-class AndroidEqualizerBand {
-  final int index;
-
-  /// Center frequency of this band in Hz, as reported by
-  /// `android.media.audiofx.Equalizer.getCenterFreq(band)`.
-  /// Falls back to 0 when not available (e.g., before first audio session).
-  final int centerFrequencyHz;
-
-  const AndroidEqualizerBand(this.index, {this.centerFrequencyHz = 0});
-
-  Future<void> setGain(double gainDb) =>
-      Media3PlaybackBridge.setEqualizerBandGain(index, gainDb);
-}
+import 'equalizer_models.dart';
 
 /// Flutter ↔ Android Media3 bridge.
 ///
@@ -88,6 +65,9 @@ class Media3PlaybackBridge {
   static const EventChannel _stereoWideningEvents = EventChannel(
     'musicplayer/media3_stereoWidening',
   );
+  static const EventChannel _reverbEvents = EventChannel(
+    'musicplayer/media3_reverb',
+  );
   // Cold-start race fix — see ServiceReadyGate.kt. Emits `true` once
   // Media3PlaybackService.onCreate() has fully finished wiring; replays
   // immediately to a listener that subscribes after that already happened.
@@ -119,7 +99,7 @@ class Media3PlaybackBridge {
   ///   `osGranted` — whether the OS has granted hardware offload on the active
   ///                 player at this moment.
   ///
-  /// NOTE (Media3 1.10.1): The former `scheduling` key has been removed.
+  /// NOTE (Media3 1.1.0): The former `scheduling` key has been removed.
   /// `experimentalSetOffloadSchedulingEnabled` no longer exists; Media3 now
   /// manages CPU scheduling internally when the OS grants offload.
   static final Stream<Map<dynamic, dynamic>> offloadStateStream =
@@ -219,6 +199,18 @@ class Media3PlaybackBridge {
           .where((e) => e is Map)
           .cast<Map<dynamic, dynamic>>()
           .asBroadcastStream();
+
+  /// Live reverb state — emitted after [ReverbManager] applies the effect
+  /// to all live [ReverbAudioProcessor] instances.
+  ///
+  /// Each event is a `Map<dynamic, dynamic>` with two keys:
+  ///   `enabled`   — bool: whether the reverb effect is active.
+  ///   `intensity` — double: reverb strength in [0.0, 1.0].
+  static final Stream<Map<dynamic, dynamic>> reverbStream = _reverbEvents
+      .receiveBroadcastStream()
+      .where((e) => e is Map)
+      .cast<Map<dynamic, dynamic>>()
+      .asBroadcastStream();
 
   /// Cold-start race fix (see ServiceReadyGate.kt / MainActivity.kt).
   /// Emits `true` once — either immediately (service already finished
@@ -388,6 +380,16 @@ class Media3PlaybackBridge {
     'strength': strength,
   });
 
+  // ── Reverb ────────────────────────────────────────────────────────────────
+
+  static Future<void> setReverb({
+    required bool enabled,
+    required double intensity,
+  }) => _invoke<void>('setReverb', {
+    'enabled': enabled,
+    'intensity': intensity,
+  });
+
   // ── Playback stats (Item 6) ───────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getPlaybackStats() async {
@@ -406,7 +408,7 @@ class Media3PlaybackBridge {
 
   /// Send the user's "Audio Offload Scheduling" preference to native.
   ///
-  /// NOTE (Media3 1.10.1): `experimentalSetOffloadSchedulingEnabled` was removed
+  /// NOTE (Media3 1.1.0): `experimentalSetOffloadSchedulingEnabled` was removed
   /// from ExoPlayer. The native handler acknowledges this call as a no-op and
   /// logs a diagnostic message. The method is retained here so the Dart settings
   /// toggle continues to work without a MethodChannel removal.

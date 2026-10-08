@@ -3,7 +3,7 @@ name: Media3 Option B format-guard processors
 description: Why ToFloatPcmAudioProcessor/ToInt16PcmAudioProcessor bracket the custom audio processor chain, and how they were verified safe to reuse.
 ---
 
-Media3 1.10.1's `ToFloatPcmAudioProcessor` (androidx.media3.exoplayer.audio) and
+Media3 1.11.0's `ToFloatPcmAudioProcessor` (androidx.media3.exoplayer.audio) and
 `ToInt16PcmAudioProcessor` (androidx.media3.common.audio) are `public final class ... extends
 BaseAudioProcessor`, `@UnstableApi`, no `@RestrictTo`, zero-arg constructors, no hidden
 initialization beyond the standard `AudioProcessor` lifecycle. They were deliberately made public

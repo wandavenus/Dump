@@ -1,17 +1,27 @@
 import 'dart:ui';
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+
 import '../models/local_song.dart';
 import '../theme/app_colors.dart';
 import '../services/audio_playback_state.dart';
 import '../services/audio_service.dart';
+import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
+import '../themes/glass_navbar.dart';
 import '../themes/theme_controller.dart';
 import 'player/player_background.dart';
 import 'player/player_content.dart';
 import 'player/player_hero_tags.dart';
 import 'song_artwork.dart';
+
+// Part files (same library — private types shared):
+//   unified_morph_player/playback_content.dart   → _PlaybackContent
+//   unified_morph_player/bottom_reveal_clipper.dart → _BottomRevealClipper
+part 'unified_morph_player/playback_content.dart';
+part 'unified_morph_player/bottom_reveal_clipper.dart';
 
 class UnifiedMorphPlayer extends StatefulWidget {
   const UnifiedMorphPlayer({super.key});
@@ -52,6 +62,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   LocalSong? _currentSong;
   bool _isPlaying = false;
 
+  // True while the reverse entry animation (session end / notification STOP)
+  // is playing. The last song stays rendered until the animation completes
+  // (_entryAnim reaches dismissed), then _currentSong is nulled so the widget
+  // unmounts. A new song arriving mid-exit cancels it and slides back up.
+  bool _exiting = false;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -67,7 +83,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     _entryAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
-    );
+    )..addStatusListener(_onEntryStatusChanged);
     PlayerSheetController.expanded.addListener(_onExpandedChanged);
     // Single listener replaces the old _onSongAppeared + playbackState VLB.
     // Only setState when song identity or isPlaying changes — never on position ticks.
@@ -82,8 +98,46 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     // → bottom is negative → mini player is hidden below the screen until the next
     // playback event fires (which never comes if nothing changes).
     if (_currentSong != null) {
-      unawaited(_entryAnim.forward(from: 0.0));
+      final song = _currentSong!;
+      unawaited(
+        _prewarmEntryArtwork(song).then((_) {
+          if (mounted && _currentSong?.id == song.id) {
+            unawaited(_entryAnim.forward(from: 0.0));
+          }
+        }),
+      );
     }
+  }
+
+  Future<void> _prewarmEntryArtwork(LocalSong song) async {
+    final repo = ArtworkRepository.instance;
+    final targetPx = repo.resolveTargetPx(46.3);
+
+    final provider = repo.getProviderSync(song.id, targetSizePx: targetPx);
+
+    if (provider == null) return;
+
+    final completer = Completer<void>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
+      },
+    );
+
+    stream.addListener(listener);
+
+    await completer.future.timeout(
+      const Duration(milliseconds: 3000),
+      onTimeout: () {},
+    );
   }
 
   @override
@@ -105,20 +159,48 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final song = state.currentSong;
     final isPlaying = state.isPlaying;
 
-    // Entry animation: first song appears (was null, now non-null).
-    if (_currentSong == null && song != null) {
-      unawaited(_entryAnim.forward(from: 0.0));
-    }
-
     var needsRebuild = false;
 
     // Song identity changed (including null → non-null and vice-versa).
     final songChanged =
         (_currentSong == null) != (song == null) ||
         (_currentSong?.id != song?.id);
+
     if (songChanged) {
-      _currentSong = song;
-      needsRebuild = true;
+      final hadPreviousSong = _currentSong != null;
+
+      if (hadPreviousSong && song == null) {
+        // Session ended (notification STOP): keep the last song rendered while
+        // the reverse entry animation plays; _currentSong is nulled on
+        // completion so the mini player unmounts cleanly.
+        _startExitAnimation();
+        needsRebuild = true;
+      } else if (!hadPreviousSong && song != null) {
+        // First song of a session — cancel any in-progress exit and slide up.
+        _cancelExit();
+        _currentSong = song;
+        needsRebuild = true;
+        final appearedSong = song;
+
+        unawaited(
+          _prewarmEntryArtwork(appearedSong).then((_) {
+            if (mounted && _currentSong?.id == appearedSong.id && !_exiting) {
+              unawaited(_entryAnim.forward(from: 0.0));
+            }
+          }),
+        );
+      } else {
+        // Direct song A → song B switch. Also covers a new song interrupting
+        // an in-progress exit — restart the slide-up from zero so the player
+        // doesn't stay at a partially-hidden position.
+        final wasExiting = _exiting;
+        _cancelExit();
+        _currentSong = song;
+        needsRebuild = true;
+        if (wasExiting) {
+          unawaited(_entryAnim.forward(from: 0.0));
+        }
+      }
     }
 
     // Play / Pause state changed.
@@ -127,7 +209,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
       needsRebuild = true;
     }
 
-    if (needsRebuild && mounted) setState(() {});
+    if (needsRebuild && mounted) {
+      setState(() {});
+    }
   }
 
   void _onReleaseAnimTick() {
@@ -136,6 +220,39 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final eased = 1.0 - u * u * u;
     final value = _animStartVal + (_animTarget - _animStartVal) * eased;
     PlayerSheetController.setProgress(value.clamp(0.0, 1.0));
+  }
+
+  // ── Exit animation (session end / notification STOP) ───────────────────────
+
+  /// Plays the reverse of the entry slide-up: the mini player slides back down
+  /// below the nav bar. The widget unmounts only after the animation completes
+  /// (see [_onEntryStatusChanged]).
+  void _startExitAnimation() {
+    _exiting = true;
+    // Collapse any open full player first so the exit is a clean mini-player
+    // slide-down, and the next session starts from the collapsed mini state.
+    PlayerSheetController.setProgress(0.0);
+    unawaited(_entryAnim.reverse());
+  }
+
+  /// Aborts an in-progress exit (e.g. a new song starts). The entry controller
+  /// keeps its current value; callers restart the slide-up explicitly.
+  void _cancelExit() {
+    if (_exiting) {
+      _exiting = false;
+      _entryAnim.stop();
+    }
+  }
+
+  void _onEntryStatusChanged(AnimationStatus status) {
+    // Reverse animation finished → the mini player is fully hidden below the
+    // screen; drop the last song so build() unmounts the widget.
+    if (status == AnimationStatus.dismissed && _exiting) {
+      _exiting = false;
+      if (mounted) {
+        setState(() => _currentSong = null);
+      }
+    }
   }
 
   void _animateTo(double target) {
@@ -288,13 +405,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeController.glassTheme,
       builder: (context, isGlass, _) {
-        return AnimatedBuilder(
-          animation: _entryAnim,
-          builder: (context, _) {
-            return ValueListenableBuilder<double>(
-              valueListenable: PlayerSheetController.progress,
-              builder: (context, progress, _) {
-                return _buildMorph(context, song, progress, isGlass);
+        return ValueListenableBuilder<NavBarStyle>(
+          valueListenable: ThemeController.navBarStyle,
+          builder: (context, navStyle, _) {
+            return AnimatedBuilder(
+              animation: _entryAnim,
+              builder: (context, _) {
+                return ValueListenableBuilder<double>(
+                  valueListenable: PlayerSheetController.progress,
+                  builder: (context, progress, _) {
+                    return _buildMorph(
+                      context,
+                      song,
+                      progress,
+                      isGlass,
+                      navStyle,
+                    );
+                  },
+                );
               },
             );
           },
@@ -308,6 +436,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     LocalSong song,
     double progress,
     bool isGlass,
+    NavBarStyle navStyle,
   ) {
     final mq = MediaQuery.of(context);
     final screenH = mq.size.height;
@@ -315,13 +444,25 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final safeBottom = mq.padding.bottom;
     final safeTop = mq.padding.top;
 
-    const miniH = 64.5;
-    const miniHorizMargin = 0.0;
+    const miniH = kMiniPlayerHeight;
+    // Mode pill (iOS 26): mini player ikut berubah menjadi kapsul apung —
+    // margin kiri/kanan sama dengan navbar dan mengambang dengan gap di atas
+    // kapsul navbar (tidak menempel). Mode lain: full-width, flush di bar.
+    final isPill = isGlass && navStyle == NavBarStyle.pill;
+    final miniHorizMargin = isPill ? FloatingPillNavBar.horizMargin : 0.0;
+    final miniBottomGap = isPill ? FloatingPillNavBar.miniPlayerGap : 0.0;
+    // Kapsul penuh saat mini (mode pill); 0 = persegi (mode lain / full player).
+    final miniRadius = isPill ? miniH / 2 : 0.0;
     // Default mode has a 1.5px separator strip above the navBar (total column = 71.5px).
     // Glass mode omits the separator (total column = 70px), so navBar top sits 1.5px
     // lower — offset navBarH down by the same amount so mini player stays flush.
-    final navBarH = isGlass ? 53.8 : 55.1;
-    const miniBottomGap = 0.0;
+    // useGlassNavBar mengikuti state.dart: glass strip HANYA saat gaya != solid.
+    // Kalau glassTheme on tapi gaya solid, bar tetap kolom solid 71.5px — pakai
+    // navBarH 55.1, kalau tidak mini player menimpa bagian atas bar solid.
+    final useGlassNavBar = isGlass && navStyle != NavBarStyle.solid;
+    final navBarH = isPill
+        ? FloatingPillNavBar.bodyHeight + FloatingPillNavBar.bottomGap
+        : (useGlassNavBar ? 53.8 : 55.1);
 
     // Eased curve for Apple-Music–like deceleration
     final t = Curves.easeOutCubic.transform(progress);
@@ -348,8 +489,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final clipVisibleHeight = t > 0.0 ? screenH : (screenH - baseBottom);
     final horizMargin = lerpDouble(miniHorizMargin, 0.0, t)!;
     final height = lerpDouble(miniH, screenH, t)!;
-    // Border radius: linear so corners snap crisply at 0
-    final radius = lerpDouble(0.0, 0.0, progress)!;
+    // Border radius: kapsul penuh saat mini (mode pill), menyusut ke 0
+    // mengikuti ekspansi sheet (full player = layar penuh persegi).
+    final radius = lerpDouble(miniRadius, 0.0, t)!;
 
     // Cross-fade timing
     final miniAlpha = (1.0 - progress / 0.28).clamp(0.0, 1.0);
@@ -358,7 +500,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
 
     // ── Artwork morph positions ──────────────────────────────────────────────
     const miniArtSize = 46.3;
-    const miniArtLeft = 12.0;
+    // Mode pill: artwork digeser 10px ke kanan (12 → 22) agar sejajar dengan
+    // judul yang ikut bergeser di _buildMiniOverlay. Mode lain tetap 12.
+    final miniArtLeft = isPill ? 22.0 : 12.0;
     const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
 
     final largeCoverSize = (screenW - 44.0).clamp(260.0, 390.0);
@@ -426,16 +570,27 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                             final useGlass =
                                 masterGlass && compGlass && progress < 0.02;
                             if (useGlass) {
+                              // Glass = blur backdrop + tint netral penstabil
+                              // (sama dengan navbar pill): background pill
+                              // tidak meniru warna konten halaman.
                               final c = AppColors.of(context);
                               return RepaintBoundary(
                                 child: ClipRect(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                      sigmaX: 24,
-                                      sigmaY: 24,
-                                    ),
-                                    blendMode: BlendMode.srcOver,
-                                    child: ColoredBox(color: c.glassNavTint),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 12,
+                                          sigmaY: 12,
+                                        ),
+                                        blendMode: BlendMode.srcOver,
+                                        child: const ColoredBox(
+                                          color: Colors.transparent,
+                                        ),
+                                      ),
+                                      ColoredBox(color: c.glassFillTint),
+                                    ],
                                   ),
                                 ),
                               );
@@ -638,11 +793,43 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                           opacity: miniAlpha,
                           child: IgnorePointer(
                             ignoring: progress > 0.08,
-                            child: _buildMiniOverlay(context, song, progress),
+                            child: _buildMiniOverlay(
+                              context,
+                              song,
+                              progress,
+                              isPill,
+                            ),
                           ),
                         ),
 
-                      // ── Collapse chevron (top-left of full player) ─────────────────
+                      // ── Border kaca (mode pill) — menyatu dengan navbar ────────────
+                      // Hanya saat mini state; memudar saat sheet membuka sehingga
+                      // full player tetap tanpa border.
+                      if (isPill && miniAlpha > 0)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(radius),
+                                border: Border.all(
+                                  // Kalikan alpha token, bukan replace: dulu
+                                  // withValues(alpha: miniAlpha) menimpa alpha
+                                  // ke 1.0 → outline mini player SOLID dan
+                                  // tidak konsisten dengan navbar pill.
+                                  color: AppColors.of(context).glassBorderTint
+                                      .withValues(
+                                        alpha:
+                                            AppColors.of(
+                                              context,
+                                            ).glassBorderTint.a *
+                                            miniAlpha,
+                                      ),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -654,13 +841,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     ); // closes Positioned.fill
   }
 
-  // ── Mini player overlay (identik dengan MiniPlayer asli) ─────────────────
+  // ── Mini player overlay (identik dengan MiniPlayer asli) ───────────────────
   // Uses _isPlaying field instead of AudioPlaybackState parameter —
   // only rebuilt on song/isPlaying changes, not on position ticks.
   Widget _buildMiniOverlay(
     BuildContext context,
     LocalSong song,
     double progress,
+    bool isPill,
   ) {
     final miniContentAlpha = (1.0 - progress / 0.01).clamp(0.0, 1.0);
 
@@ -675,8 +863,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              // Spacer untuk morphing artwork (46 px lebar + 10 px gap)
-              const SizedBox(width: 56),
+              // Spacer untuk morphing artwork (46 px lebar + 10 px gap).
+              // Mode pill: +10px agar judul mengikuti artwork yang digeser.
+              SizedBox(width: isPill ? 66 : 56),
 
               // Judul lagu dengan Hero tag
               Expanded(
@@ -746,62 +935,7 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
   }
 }
 
-// ── _PlaybackContent ─────────────────────────────────────────────────────────
-// Narrow VLB wrapper around PlayerContent.
-// Responsibility: subscribe to AudioService.playbackState and pass the full
-// state to PlayerContent — isolating position-tick rebuilds to this subtree
-// only, so the morph layout in _UnifiedMorphPlayerState is NOT rebuilt on
-// every 100 ms position update.
-class _PlaybackContent extends StatelessWidget {
-  final LocalSong song;
-  final String Function(Duration) formatTime;
-  final bool showLyrics;
-  final VoidCallback onLyricsToggle;
-  final bool showQueue;
-  final VoidCallback onQueueToggle;
-  final bool hideArtwork;
-
-  const _PlaybackContent({
-    required this.song,
-    required this.formatTime,
-    required this.showLyrics,
-    required this.onLyricsToggle,
-    required this.showQueue,
-    required this.onQueueToggle,
-    this.hideArtwork = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<AudioPlaybackState>(
-      valueListenable: AudioService.playbackState,
-      builder: (context, playbackState, _) {
-        return PlayerContent(
-          song: song,
-          playbackState: playbackState,
-          formatTime: formatTime,
-          showLyrics: showLyrics,
-          onLyricsToggle: onLyricsToggle,
-          showQueue: showQueue,
-          onQueueToggle: onQueueToggle,
-          hideArtwork: hideArtwork,
-        );
-      },
-    );
-  }
-}
-
-// ── Reveal clipper used by the mini-player entry animation ───────────────────
-// Clips away everything at/below a given height so the mini player appears to
-// rise from behind/inside the bottom nav bar instead of sliding on top of it.
-class _BottomRevealClipper extends CustomClipper<Rect> {
-  final double visibleHeight;
-  const _BottomRevealClipper(this.visibleHeight);
-
-  @override
-  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, visibleHeight);
-
-  @override
-  bool shouldReclip(covariant _BottomRevealClipper oldClipper) =>
-      oldClipper.visibleHeight != visibleHeight;
-}
+// ── _PlaybackContent & _BottomRevealClipper ────────────────────────────────
+// Dipindah ke part file (lihat deklarasi `part` di atas):
+//   unified_morph_player/playback_content.dart
+//   unified_morph_player/bottom_reveal_clipper.dart

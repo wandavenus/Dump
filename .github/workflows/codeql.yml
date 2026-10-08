@@ -1,6 +1,25 @@
 name: "CodeQL Advanced"
 
+# N3 fix: previously dispatch-only — the security scan (security-extended +
+# security-and-quality) never ran automatically. Now runs on push/PR touching
+# native/Android code plus a weekly schedule.
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'native_audio_runtime/**'
+      - 'lib/**'
+      - '.github/workflows/codeql.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - 'native_audio_runtime/**'
+      - 'lib/**'
+      - '.github/workflows/codeql.yml'
+  schedule:
+    - cron: '0 3 * * 1'   # weekly: Monday 03:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -33,7 +52,6 @@ jobs:
         with:
           fetch-depth: 0
 
-
       ##################################################
       # Environment Setup
       ##################################################
@@ -54,12 +72,20 @@ jobs:
 
       - name: Setup Android SDK
         if: matrix.build-mode == 'manual'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+
+      # The Android module declares these exact native tool versions.
+      # setup-android does not guarantee that CMake 3.22.1 / NDK 28.2 are
+      # installed on the runner, while the Gradle externalNativeBuild task
+      # requires them during assembleDebug.
+      - name: Install Android native build tools
+        if: matrix.build-mode == 'manual'
+        run: |
+          sdkmanager "cmake;3.22.1" "ndk;28.2.13676358"
 
       - name: Setup Gradle
         if: matrix.build-mode == 'manual'
         uses: gradle/actions/setup-gradle@v4
-
 
       ##################################################
       # CodeQL Initialization
@@ -72,7 +98,6 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended,security-and-quality
 
-
       ##################################################
       # Flutter Dependencies
       ##################################################
@@ -81,7 +106,6 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: |
           flutter pub get
-
 
       ##################################################
       # Manual Build
@@ -92,16 +116,14 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
-
+          ./gradlew clean assembleDebug --no-build-cache --no-daemon --stacktrace
 
       - name: Build Native C++ Code
         if: matrix.language == 'c-cpp'
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew clean externalNativeBuildDebug --no-daemon --stacktrace
-
+          ./gradlew externalNativeBuildDebug --no-daemon --stacktrace
 
       ##################################################
       # CodeQL Analysis

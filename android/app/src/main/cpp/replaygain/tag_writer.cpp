@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -260,9 +261,18 @@ public:
     }
     // Flushes pending writes to storage. Best-effort: a failure here doesn't
     // change the overall WriteResult (the tag data is still correct in the
-    // page cache and will reach disk eventually).
+    // page cache and will reach disk eventually), but it MUST be visible in
+    // the logs — a silent durability gap after a reported "success" would be
+    // undiagnosable if the device then loses power. RG-3 fix: log the errno
+    // instead of dropping it.
     void Sync() {
-        if (dup_fd_ >= 0) ::fsync(dup_fd_);
+        if (dup_fd_ < 0) return;
+        if (::fsync(dup_fd_) != 0) {
+            std::fprintf(stderr,
+                         "[ReplayGainTagWriter] fsync(%d) failed: %s — "
+                         "write may not be durable if power is lost\n",
+                         dup_fd_, std::strerror(errno));
+        }
     }
     // FIX Temuan #2 (MEDIUM): expose dup'd fd for post-insert header check.
     // Returns -1 if dup() failed at construction time.

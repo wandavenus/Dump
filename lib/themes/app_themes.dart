@@ -53,6 +53,7 @@ class AppThemes {
         ),
       ),
       snackBarTheme: SnackBarThemeData(
+        backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
         contentTextStyle: TextStyle(
           color: isDark ? Colors.white : Colors.black,
         ),
@@ -102,12 +103,28 @@ class AppThemes {
               : const Color(0xFFE5E5EA),
 
           // ── Glass components ───────────────────────────────────────────────
-          glassNavTint: isDark
-              ? Colors.white.withValues(alpha: 0.035)
-              : Colors.white.withValues(alpha: 0.70),
+          // Tint netral penstabil di atas blur: mencegah background glass
+          // meniru warna konten halaman di belakangnya (kapsul terlihat
+          // konsisten di semua halaman) tanpa menambah warna.
+          glassFillTint: isDark
+              ? Colors.black.withValues(alpha: 0.10)
+              : Colors.white.withValues(alpha: 0.10),
           glassBorderTint: isDark
-              ? Colors.white.withValues(alpha: 0.18)
-              : Colors.black.withValues(alpha: 0.10),
+              // Abu netral (secondaryLabel) + alpha lebih rendah — bukan putih
+              // murni, jadi outline pill mini player & navbar tidak lagi terbaca
+              // sebagai garis putih di dark mode.
+              ? const Color(0xFF6C6C70).withValues(alpha: 0.18)
+              // Light mode: abu netral (secondaryLabel light) pengganti hitam
+              // murni — outline tidak lagi terbaca sebagai garis hitam mencolok.
+              : const Color(0xFF6C6C70).withValues(alpha: 0.18),
+          // Lens tab aktif (blob apung iOS 26) — netral, bukan warna aksen.
+          // Putih lembut di dark mode / hitam tipis di light mode: memberikan
+          // highlight kaca tanpa menambah hue, jadi background kapsul tetap
+          // netral di halaman mana pun (search & 4 tab lain) dan konsisten
+          // dengan mini player pill.
+          glassActiveLens: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.08),
 
           // ── Drag handle ────────────────────────────────────────────────────
           dragHandle: isDark

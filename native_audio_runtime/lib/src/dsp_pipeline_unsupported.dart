@@ -99,6 +99,7 @@ class NativeLoudnessNorm {
   double get measuredLufs => -99.0;
   double get appliedGainDb => 0.0;
   void reset() {}
+  void resetStream(int streamSlot) {}
 }
 
 // ── NativeReplayGain stub ─────────────────────────────────────────────────────
@@ -115,8 +116,28 @@ class NativeReplayGain {
     bool useClippingProtection = true,
   }) => NativeRuntimeStatus.unsupportedPlatform.index;
 
+  int setGainForStream({
+    required int streamSlot,
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) => NativeRuntimeStatus.unsupportedPlatform.index;
+
   void setBypass(bool bypass) {}
   bool get bypass => true;
+}
+
+/// Unsupported-platform stub for [NativeAcousticEngine].
+class NativeAcousticEngine {
+  NativeAcousticEngine._();
+  static final NativeAcousticEngine instance = NativeAcousticEngine._();
+
+  void setIntensity(double intensity) {}
+  double get intensity => 0.0;
+  void setBypass(bool bypass) {}
+  bool get bypass => true;
+  void setSampleRate(int sampleRate) {}
+  void reset() {}
 }
 
 // ── NativeCompressor stub ─────────────────────────────────────────────────────

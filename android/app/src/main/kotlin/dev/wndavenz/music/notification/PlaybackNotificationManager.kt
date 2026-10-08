@@ -9,10 +9,7 @@ import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -24,6 +21,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import dev.wndavenz.music.ArtworkCacheManager
+import dev.wndavenz.music.BitmapUtils
 import dev.wndavenz.music.Media3PlaybackService
 import dev.wndavenz.music.R
 import dev.wndavenz.music.events.NativeLogger
@@ -67,7 +65,33 @@ class PlaybackNotificationManager(
      * all access happens on the main thread.
      */
     private val artworkLoadGenerations = HashMap<String, Long>()
-    private var pendingAsyncCacheKey: String? = null
+    /**
+     * Cache keys with an in-flight async load (prewarm or refresh). Unlike the
+     * old single `pendingAsyncCacheKey` slot, one entry per key means a finished
+     * request for key A can never clear the in-flight marker of key B, so the
+     * same key can never be loaded twice concurrently.
+     */
+    private val inFlightLoads = HashSet<String>()
+    /** Set by [close]; rejects new async work after service teardown. */
+    @Volatile
+    private var closed = false
+    /**
+     * K3 fix: while suppressed (file-manager preview mode), the manager never
+     * CREATES a foreground notification. Updates to an already-showing
+     * notification are still allowed, so a preview that overrides active
+     * playback does not leave a stale track on screen.
+     */
+    @Volatile
+    private var suppressed = false
+
+    /**
+     * K3 fix: enable/disable notification suppression. The service wires this
+     * to preview mode (IS_OVERLAY_PREVIEW) and clears it as soon as the
+     * Flutter app starts driving playback through the MethodChannel.
+     */
+    fun setSuppressed(value: Boolean) {
+        suppressed = value
+    }
     private val artworkExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "artwork-loader").also { it.isDaemon = true }
     }
@@ -105,6 +129,8 @@ class PlaybackNotificationManager(
 
     fun ensureMediaForeground() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // K3 fix: never start a foreground notification while suppressed.
+        if (suppressed) return
         if (isForeground) return
         ensureChannel()
 
@@ -117,18 +143,26 @@ class PlaybackNotificationManager(
             bitmap = null,
         )
         startForegroundWith(notification)
-        refreshAsync()
+        val artUri = track?.get("artworkUri") as? String
+        val songId = (track?.get("id") as? Number)?.toInt() ?: 0
+        // K10: pass the current track's DATA path so the persistent cache can
+        // validate its entry against the file identity (MediaStore _ID reuse).
+        refreshAsync(artUri, songId, track?.get("path") as? String)
     }
 
     fun refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // K3 fix: never start a foreground notification while suppressed; an
+        // already-showing notification keeps updating.
+        if (suppressed && !isForeground) return
         val sess = getSession() ?: return
         ensureChannel()
 
         val track = getCurrentTrack()
         val isPlaying = getIsPlaying()
 
-        // Always render our own normalized bitmap via setLargeIcon. An explicit
+        // Always render our own normalized (square letterboxed) bitmap via
+        // setLargeIcon. An explicit
         // largeIcon overrides MediaStyleNotificationHelper's auto-rendered session
         // artwork, which would otherwise decode the low-res MediaStore album-art
         // thumbnail (≤512 px, non-square) → SystemUI center-crop = zoom + pixelation.
@@ -139,8 +173,9 @@ class PlaybackNotificationManager(
         val hasCached = cacheKey == null || cached != null || isInNoArtworkCache(cacheKey)
         postNotification(buildNotification(sess, track, isPlaying, cached))
 
-        if (!hasCached && cacheKey != null) {
-            refreshAsync(artUri, songId, track, isPlaying)
+        if (!hasCached) {
+            // K10: pass the current track's DATA path (see ensureMediaForeground).
+            refreshAsync(artUri, songId, track?.get("path") as? String)
         }
     }
 
@@ -151,19 +186,19 @@ class PlaybackNotificationManager(
     }
 
     fun prewarmArtwork(nextSongId: Int, nextArtUri: String?) {
+        if (closed) return
         val cacheKey = nextArtUri ?: if (nextSongId > 0) "song:$nextSongId" else null
         if (cacheKey == null) return
         if (bitmapCache.get(cacheKey) != null || isInNoArtworkCache(cacheKey)) return
-        if (cacheKey == pendingAsyncCacheKey) return
+        if (!inFlightLoads.add(cacheKey)) return
 
-        pendingAsyncCacheKey = cacheKey
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
-            val bmp = loadBitmap(nextArtUri, nextSongId)?.let(::normalizeNotificationArtwork)
+            val bmp = loadBitmap(nextArtUri, nextSongId)?.let { BitmapUtils.normalizeSquare(it, NOTIF_ART_PX) }
             handler.post {
-                pendingAsyncCacheKey = null
-                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                inFlightLoads.remove(cacheKey)
+                if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
                 artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 NativeLogger.emit("debug", "Notification", "prewarmArtwork done: cacheKey=$cacheKey bmp=${bmp != null}")
@@ -171,7 +206,7 @@ class PlaybackNotificationManager(
                 // (e.g. user hit next), refresh() saw our in-flight key and
                 // skipped its own async load — repost so the artwork appears
                 // immediately instead of waiting for the next refresh cycle.
-                if (cacheKey != null && cacheKey == currentTrackCacheKey()) {
+                if (cacheKey == currentTrackCacheKey()) {
                     val sess = getSession() ?: return@post
                     postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
                 }
@@ -187,29 +222,31 @@ class PlaybackNotificationManager(
         return if (id > 0) "song:$id" else null
     }
 
-    private fun refreshAsync(
-        artUri: String? = getCurrentTrack()?.get("artworkUri") as? String,
-        songId: Int = (getCurrentTrack()?.get("id") as? Number)?.toInt() ?: 0,
-        track: Map<String, Any?>? = getCurrentTrack(),
-        isPlaying: Boolean = getIsPlaying(),
-    ) {
+    private fun refreshAsync(artUri: String?, songId: Int, filePath: String? = null) {
+        if (closed) return
         val cacheKey = artUri ?: if (songId > 0) "song:$songId" else null
         if (cacheKey == null) return
-        if (cacheKey == pendingAsyncCacheKey) return
-        pendingAsyncCacheKey = cacheKey
+        if (!inFlightLoads.add(cacheKey)) return
 
         val generation = (artworkLoadGenerations[cacheKey] ?: 0L) + 1L
         artworkLoadGenerations[cacheKey] = generation
         artworkExecutor.execute {
-            val bmp = loadBitmap(artUri, songId)?.let(::normalizeNotificationArtwork)
+            val bmp = loadBitmap(artUri, songId, filePath)?.let { BitmapUtils.normalizeSquare(it, NOTIF_ART_PX) }
             handler.post {
-                pendingAsyncCacheKey = null
-                if (generation != artworkLoadGenerations[cacheKey]) return@post
+                inFlightLoads.remove(cacheKey)
+                if (closed || generation != artworkLoadGenerations[cacheKey]) return@post
                 artworkLoadGenerations.remove(cacheKey)
                 if (bmp != null) bitmapCache.put(cacheKey, bmp) else markNoArtwork(cacheKey)
                 val sess = getSession() ?: return@post
+                // Never post a stale result: a load for a track the user already
+                // skipped away from must not overwrite the current notification
+                // with old title/artist/art (rapid-skip flicker). The bitmap was
+                // cached above under its own key, so the next play of this track
+                // still gets an instant cache hit — and prewarmArtwork() handles
+                // the "became current while loading" repost case.
+                if (cacheKey != currentTrackCacheKey()) return@post
                 try {
-                    postNotification(buildNotification(sess, track, isPlaying, bmp))
+                    postNotification(buildNotification(sess, getCurrentTrack(), getIsPlaying(), bmp))
                 } catch (e: Exception) {
                     NativeLogger.emit("warn", "Notification", "async refresh failed: ${e.message}")
                 }
@@ -217,7 +254,20 @@ class PlaybackNotificationManager(
         }
     }
 
+    /**
+     * Shuts down the artwork executor and rejects new loads. Idempotent; safe
+     * to call from the service's onDestroy during teardown.
+     */
+    fun close() {
+        closed = true
+        artworkExecutor.shutdown()
+    }
+
     private fun postNotification(notification: android.app.Notification) {
+        // K3 fix: belt-and-suspenders for async refresh()/prewarm completions
+        // that resolve after suppression was enabled — never create a
+        // foreground from an async callback either.
+        if (suppressed && !isForeground) return
         try {
             if (!isForeground) startForegroundWith(notification) else notificationManager.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
@@ -278,19 +328,28 @@ class PlaybackNotificationManager(
         return if (nightMode == Configuration.UI_MODE_NIGHT_YES) Color.WHITE else Color.BLACK
     }
 
-    private fun loadBitmap(artUri: String?, songId: Int): Bitmap? {
+    private fun loadBitmap(artUri: String?, songId: Int, filePath: String? = null): Bitmap? {
         // 1) Full-resolution embedded artwork decoded straight from the file.
         if (songId > 0) {
             val original = loadOriginalEmbeddedBitmap(songId)
+            if (original != null) return original
+        } else {
+            // A1 fix: external files (overlay / ACTION_PLAY_URI) have songId = 0
+            // but carry the audio URI in artUri — read the embedded picture from
+            // that URI so the notification gets artwork for them too.
+            val original = loadOriginalEmbeddedFromUri(artUri)
             if (original != null) return original
         }
 
         // 2) App's persistent artwork cache (extracted embedded art, ≤1000 px).
         //    Higher quality than the MediaStore album-art thumbnail, so prefer
         //    it over the URI below.
+        // K10: [filePath] lets the cache validate its entry against the source
+        // file's current size+mtime (stale entry → re-extract instead of showing
+        // the previous song's art after a MediaStore _ID reuse).
         if (artworkCacheManager != null && songId > 0) {
             try {
-                val path = artworkCacheManager.getOrExtract(songId)
+                val path = artworkCacheManager.getOrExtract(songId, filePath)
                 if (path != null) {
                     val bmp = BitmapFactory.decodeFile(path)
                     if (bmp != null) {
@@ -313,7 +372,29 @@ class PlaybackNotificationManager(
             val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toString())
             mmr.setDataSource(service, uri)
             val raw = mmr.embeddedPicture ?: return null
-            decodeCapped(raw, NOTIF_ART_PX)
+            BitmapUtils.decodeCapped(raw, NOTIF_ART_PX)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Exception) {
+                // ignore
+            }
+        }
+    }
+
+    /**
+     * A1 fix: reads the embedded picture from an arbitrary audio URI
+     * (content:// or file://) for files that have no MediaStore song ID.
+     */
+    private fun loadOriginalEmbeddedFromUri(artUri: String?): Bitmap? {
+        if (artUri.isNullOrBlank()) return null
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(service, Uri.parse(artUri))
+            val raw = mmr.embeddedPicture ?: return null
+            BitmapUtils.decodeCapped(raw, NOTIF_ART_PX)
         } catch (_: Exception) {
             null
         } finally {
@@ -337,7 +418,7 @@ class PlaybackNotificationManager(
             }
             if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
 
-            val sample = computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, NOTIF_ART_PX)
+            val sample = BitmapUtils.computeSampleSize(boundsOpts.outWidth, boundsOpts.outHeight, NOTIF_ART_PX)
             val decodeOpts = BitmapFactory.Options().apply {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -350,48 +431,7 @@ class PlaybackNotificationManager(
         }
     }
 
-    private fun decodeCapped(bytes: ByteArray, maxPx: Int): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = computeSampleSize(bounds.outWidth, bounds.outHeight, maxPx)
-        return BitmapFactory.decodeByteArray(
-            bytes,
-            0,
-            bytes.size,
-            BitmapFactory.Options().apply {
-                inSampleSize = sample
-                // ARGB_8888 so already-square art hits the fast path in
-                // normalizeNotificationArtwork() instead of being re-letterboxed.
-                inPreferredConfig = Bitmap.Config.ARGB_8888
-            },
-        )
-    }
 
-    private fun normalizeNotificationArtwork(source: Bitmap): Bitmap {
-        if (source.width <= 0 || source.height <= 0) return source
-        // Never upscale: letterbox onto a square capped at NOTIF_ART_PX but no
-        // larger than the source, so small art stays native-sharp and the system
-        // does the final scaling instead of a wasted upscale pass.
-        val target = minOf(NOTIF_ART_PX, maxOf(source.width, source.height))
-        if (source.width == target && source.height == target) return source
-
-        val out = Bitmap.createBitmap(target, target, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(out)
-        canvas.drawColor(Color.BLACK)
-
-        val scale = minOf(
-            target.toFloat() / source.width.toFloat(),
-            target.toFloat() / source.height.toFloat(),
-        )
-        val drawnW = source.width * scale
-        val drawnH = source.height * scale
-        val left = (target - drawnW) / 2f
-        val top = (target - drawnH) / 2f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
-        canvas.drawBitmap(source, null, RectF(left, top, left + drawnW, top + drawnH), paint)
-        return out
-    }
 
     private fun isInNoArtworkCache(key: String): Boolean {
         val ts = noArtworkTimestamps[key] ?: return false
@@ -407,12 +447,6 @@ class PlaybackNotificationManager(
             noArtworkTimestamps.keys.firstOrNull()?.let { noArtworkTimestamps.remove(it) }
         }
         noArtworkTimestamps[key] = SystemClock.elapsedRealtime()
-    }
-
-    private fun computeSampleSize(w: Int, h: Int, maxPx: Int): Int {
-        var s = 1
-        while ((w / s) > maxPx || (h / s) > maxPx) s *= 2
-        return s
     }
 
     companion object {

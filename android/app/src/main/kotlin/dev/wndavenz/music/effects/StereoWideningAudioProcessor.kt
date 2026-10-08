@@ -6,45 +6,47 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
+import kotlin.math.abs
+import kotlin.math.tanh
 
 private const val LOG_TAG = "StereoWideningProc"
 
 /**
  * Custom AudioProcessor implementing stereo widening via a 2×2 mixing matrix.
  *
- * Preferred over ChannelMixingAudioProcessor (moved to androidx.media3.common.audio in 1.10.1)
- * because ChannelMixingAudioProcessor only handles PCM-16 and throws UnhandledAudioFormatException
- * for other formats, while this processor gracefully returns NOT_SET (bypass) for unsupported
- * formats and also handles PCM-float (used when DefaultRenderersFactory float output is enabled).
- *
- * Matrix math (identical to the original ChannelMixingAudioProcessor approach):
- *   w      = 1.0 + strength × 0.5          (maps [0, 1] → [1.0, 1.5])
- *   diag   = (1 + w) / 2
- *   cross  = (1 − w) / 2
- *   L_out  = diag × L_in + cross × R_in
- *   R_out  = cross × L_in + diag × R_in
- *
- *   strength = 0.0 → identity (diag=1, cross=0, transparent)
- *   strength = 1.0 → diag=1.25, cross=−0.25 (25 % separation increase)
- *
- * Thread safety: [setMatrix] is called from the main thread; [queueInput] is called from
- * ExoPlayer's audio rendering thread.  The two volatile fields provide visibility without
- * requiring a lock — a torn read is harmless (results in one slightly-off frame).
+ * The matrix is peak-safe for float and PCM16 paths. Active widening reserves
+ * headroom and applies a final soft limiter so correlated/full-scale material
+ * cannot clip when this processor follows another DSP stage.
  */
 @UnstableApi
 class StereoWideningAudioProcessor : BaseAudioProcessor() {
 
-    @Volatile private var diag:  Float = 1f
+    companion object {
+        private const val HEADROOM = 0.80f
+        private const val LIMIT_CEILING = 0.94
+        private const val LIMIT_RANGE = 0.06
+
+        private fun limitSample(x: Double): Double {
+            val ax = abs(x)
+            if (!ax.isFinite()) return 0.0
+            if (ax <= LIMIT_CEILING) return x
+            val compressed = LIMIT_CEILING + LIMIT_RANGE * tanh((ax - LIMIT_CEILING) / LIMIT_RANGE)
+            return if (x < 0.0) -compressed else compressed
+        }
+    }
+
+    @Volatile private var diag: Float = 1f
     @Volatile private var cross: Float = 0f
 
     fun setMatrix(enabled: Boolean, strength: Float) {
-        if (!enabled) {
-            diag  = 1f
+        val s = if (strength.isFinite()) strength.coerceIn(0f, 1f) else 0f
+        if (!enabled || s <= 0f) {
+            diag = 1f
             cross = 0f
         } else {
-            val w = 1f + strength.coerceIn(0f, 1f) * 0.5f
-            diag  = (1f + w) / 2f
-            cross = (1f - w) / 2f
+            val w = 1f + s * 0.5f
+            diag = ((1f + w) / 2f) * HEADROOM
+            cross = ((1f - w) / 2f) * HEADROOM
         }
     }
 
@@ -72,29 +74,27 @@ class StereoWideningAudioProcessor : BaseAudioProcessor() {
         if (inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT) {
             val frameCount = remaining / 8
             repeat(frameCount) {
-                val l = inputBuffer.float
-                val r = inputBuffer.float
-                output.putFloat(d * l + c * r)
-                output.putFloat(c * l + d * r)
+                val l = inputBuffer.float.toDouble()
+                val r = inputBuffer.float.toDouble()
+                val lOut = limitSample(d * l + c * r)
+                val rOut = limitSample(c * l + d * r)
+                output.putFloat(lOut.toFloat())
+                output.putFloat(rOut.toFloat())
             }
         } else {
             val frameCount = remaining / 4
             repeat(frameCount) {
-                val l = inputBuffer.short.toFloat()
-                val r = inputBuffer.short.toFloat()
-                val lOut = (d * l + c * r).toInt()
-                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-                val rOut = (c * l + d * r).toInt()
-                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                val l = inputBuffer.short.toDouble()
+                val r = inputBuffer.short.toDouble()
+                val lOut = (limitSample((d * l + c * r) / Short.MAX_VALUE) * Short.MAX_VALUE)
+                    .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                val rOut = (limitSample((c * l + d * r) / Short.MAX_VALUE) * Short.MAX_VALUE)
+                    .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
                 output.putShort(lOut)
                 output.putShort(rOut)
             }
         }
-        // K-05: Defensive drain for any sub-frame bytes left after the integer
-        // division above (e.g. remaining % 4 != 0 for PCM-16 or remaining % 8 != 0
-        // for PCM-float). In practice ExoPlayer always delivers aligned buffers, so
-        // this loop is never entered; it is kept to avoid silent data loss if an
-        // upstream processor ever produces a misaligned buffer.
+
         while (inputBuffer.hasRemaining()) output.put(inputBuffer.get())
         output.flip()
     }

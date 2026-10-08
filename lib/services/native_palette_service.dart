@@ -159,7 +159,11 @@ class NativePaletteService {
     if (!_dirty) return;
     final path = _cacheFilePath;
     if (path == null) {
-      _saveDebounce = Timer(const Duration(milliseconds: 800), _persist);
+      // D5 fix: nothing can be written without a cache path — clear the dirty
+      // flag and stop instead of self-rescheduling forever. A later extraction
+      // (after warmUp sets the path) calls _schedulePersist() again, so no
+      // pending write is lost; the in-memory _cache keeps the fresh results.
+      _dirty = false;
       return;
     }
     _dirty = false;

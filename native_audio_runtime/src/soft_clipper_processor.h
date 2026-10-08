@@ -1,7 +1,8 @@
 // Soft Clipper Processor — Phase 6.
 //
 // Lightweight hyperbolic-tangent waveshaper that prevents digital clipping.
-// Registers as "dsp.soft_clipper" at pipeline slot 4 (last in the chain).
+// Registers as "dsp.soft_clipper" at pipeline slot 6 (0-indexed, last in the
+// chain: gain=0, replaygain=1, loudness=2, comp=3, crossfeed=4, limiter=5).
 //
 // Algorithm:
 //   - Samples with |x| ≤ threshold pass through UNCHANGED (transparent).

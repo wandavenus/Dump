@@ -254,12 +254,18 @@ class LyricsFetchManager {
       });
     }
 
-    // Tunggu: semua selesai, upgrade window, atau global deadline
-    await Future.any([
-      allDoneCompleter.future,
-      upgradeCompleter.future,
-      Future<void>.delayed(_globalDeadline),
-    ]);
+    // Tunggu: semua selesai, upgrade window, atau global deadline.
+    // Pakai Timer eksplisit (bukan Future.delayed) supaya bisa di-cancel
+    // begitu hasil datang — tidak ada timer menganggur yang tersisa sampai
+    // 15 detik setelah fetch selesai.
+    final deadlineTimer = Timer(_globalDeadline, () {
+      if (!allDoneCompleter.isCompleted) allDoneCompleter.complete();
+    });
+    try {
+      await Future.any([allDoneCompleter.future, upgradeCompleter.future]);
+    } finally {
+      deadlineTimer.cancel();
+    }
 
     upgradeTimer?.cancel();
     return best;
@@ -299,6 +305,7 @@ class LyricsFetchManager {
   }
 }
 
-void unawaited(Future<void> future) {
-  // Intentionally not awaited
-}
+// D7 fix: the local `unawaited` that shadowed dart:async's is removed — it
+// silently swallowed any error escaping _saveToDisk. The dart:async import
+// above now provides `unawaited`; _saveToDisk/putDisk already guard their own
+// I/O with try/catch, so no error can escape.

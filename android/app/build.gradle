@@ -25,6 +25,18 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+def ciSigningConfigured = System.getenv('ANDROID_KEYSTORE_PATH') != null &&
+    System.getenv('ANDROID_KEY_ALIAS') != null &&
+    System.getenv('ANDROID_KEY_PASSWORD') != null &&
+    System.getenv('ANDROID_STORE_PASSWORD') != null
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
 // Phase 9 — FFmpeg decoder extension via Jellyfin's prebuilt AAR.
 // androidx.media3:media3-decoder-ffmpeg is NOT on Google Maven. Jellyfin
 // maintains a fork (org.jellyfin.media3:media3-ffmpeg-decoder) published on
@@ -32,7 +44,7 @@ if (flutterVersionName == null) {
 // arm64-v8a). Their build is based on Media3 1.9.0; we exclude their transitive
 // media3 deps so Gradle resolves everything to our pinned stable versions.
 // License: GPL v3 (https://www.gnu.org/licenses/gpl-3.0.txt).
-def media3_version = "1.11.0"
+def media3_version = "1.11.1"
 
 android {
     namespace "dev.wndavenz.music"
@@ -65,7 +77,7 @@ android {
 
     defaultConfig {
         applicationId "dev.wndavenz.music"
-        minSdk 29
+        minSdk 27
         targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -120,9 +132,24 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: keystoreProperties['keyAlias']
+            keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: keystoreProperties['keyPassword']
+            storeFile System.getenv('ANDROID_KEYSTORE_PATH')
+                ? file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                : (keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null)
+            storePassword System.getenv('ANDROID_STORE_PASSWORD') ?: keystoreProperties['storePassword']
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            if (ciSigningConfigured || keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled true
             shrinkResources true
             crunchPngs true

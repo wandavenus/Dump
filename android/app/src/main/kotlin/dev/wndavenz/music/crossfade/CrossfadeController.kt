@@ -57,6 +57,10 @@ class CrossfadeController(
     private val getQueue:             () -> List<Map<String, Any?>>,
     private val getActiveQueueIndex:  () -> Int,
     private val setActiveQueueIndex:  (Int) -> Unit,
+    // K1 fix: restores the promoted player's one-item timeline after a
+    // mid-fade cancel (headphones unplugged / audio focus lost). Wired to
+    // QueueManager.rebuildPlayerQueue() in Media3PlaybackService.
+    private val rebuildPromotedQueue: () -> Unit = {},
     private val onCrossfadeComplete:  () -> Unit,
     private val emitAll:              () -> Unit,
     private val refreshNotification:  () -> Unit,
@@ -68,6 +72,15 @@ class CrossfadeController(
     // idle for artwork, so this moves the load earlier and eliminates the blank-artwork
     // window at crossfade start.  Nullable to keep the parameter optional/backward-compat.
     private val prewarmNotificationArtwork: ((songId: Int, artUri: String?) -> Unit)? = null,
+    // F1 (sleep timer): while the end-of-song sleep timer is armed, crossfade must not
+    // start — the current track plays out to its natural end so the existing
+    // STATE_ENDED / transition trigger can fire. See maybeCrossfadeOut().
+    private val isEndOfSongSleepTimerActive: () -> Boolean = { false },
+    // BP-06: Bit-Perfect Mode and the dual-player crossfade are mutually exclusive.
+    // Dart already forces the crossfade duration to 0 on mode entry; this native
+    // guard is defence in depth so a stale crossfade setting can never start a fade
+    // on the clean player (or reuse its standby slot) while the mode is active.
+    private val isBitPerfectModeActive: () -> Boolean = { false },
 ) {
     companion object {
         /** How far before the crossfade point we start the standby audio pipeline. */
@@ -107,6 +120,15 @@ class CrossfadeController(
      */
     fun maybeCrossfadeOut() {
         if (crossfadeDurationSec <= 0f || promotionTriggered || crossfadeInProgress) return
+        // BP-06: never start a crossfade while Bit-Perfect Mode is active.
+        if (isBitPerfectModeActive()) return
+        // F1 (sleep timer): never start a crossfade while the end-of-song timer is armed.
+        // During a crossfade the promoted standby's transition is PLAYLIST_CHANGED (not
+        // AUTO) and the old player's STATE_ENDED is dropped by the isActiveEvent() guard,
+        // so the end-of-song trigger would only fire at the end of the LAST queue item
+        // (or never, with repeat-all). Letting the track play out naturally preserves the
+        // "stop at this song's boundary" semantics.
+        if (isEndOfSongSleepTimerActive()) return
         val p = getActivePlayer() ?: return
 
         val dur = p.duration
@@ -162,8 +184,14 @@ class CrossfadeController(
         crossfadeFadeRunnable?.let { handler.removeCallbacks(it) }
         crossfadeFadeRunnable = null
 
+        // K1 fix: capture the mid-fade state BEFORE clearing the flags below. A
+        // promoted standby owns a one-item timeline until the fade completes;
+        // cancelling mid-fade (headphones unplugged, audio focus lost) would
+        // otherwise leave that one-item timeline as the active queue.
+        val wasMidFade = crossfadeInProgress
+
         // Stop the old player if we're mid-fade
-        if (crossfadeInProgress) {
+        if (wasMidFade) {
             CrossfadeTimelineLogger.stamp(
                 "CrossfadeController.cancel(): mid-fade cancel resetVolume=$resetVolume",
                 getActivePlayer())
@@ -182,6 +210,13 @@ class CrossfadeController(
         promotionOwner       = null
 
         if (resetVolume) getActivePlayer()?.volume = getVolumeBeforeDuck().coerceIn(0f, 1f)
+
+        // K1 fix: rebuild the authoritative queue on the promoted player after a
+        // mid-fade cancel so next/prev navigation never stays locked on a single
+        // track. rebuildPlayerQueue() skips when the timeline is already full, so
+        // paths that restore explicitly (TransportCommands pause/stop/skip,
+        // setQueue, shutdown) are unaffected no-ops.
+        if (wasMidFade) rebuildPromotedQueue()
     }
 
     /**

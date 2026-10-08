@@ -92,6 +92,14 @@ class MainActivity : FlutterActivity() {
     // onActivityResult. We park the MethodChannel result here and resolve it
     // when the user dismisses the dialog.
     private var pendingDeleteResult: MethodChannel.Result? = null
+    // A2 fix: remember which song the in-flight delete dialog refers to so the
+    // artwork cache entry can be dropped when the deletion succeeds.
+    private var pendingDeleteSongId: Int? = null
+    // K5 fix (API 29): the RecoverableSecurityException consent dialog only
+    // GRANTS access — it does not delete the file (unlike createDeleteRequest
+    // on API 30+), so onActivityResult must retry the delete after approval.
+    private var pendingDeleteRequiresRetry: Boolean = false
+    private var pendingDeleteContentUri: android.net.Uri? = null
     private val DELETE_REQUEST_CODE = 0x4445 // 'DE' — arbitrary unique code
 
     // Requests a MediaStore write grant (system dialog) before a ReplayGain
@@ -310,6 +318,9 @@ class MainActivity : FlutterActivity() {
             // Item 8: stereo widening state — emitted when setStereoWidening() is called
             // Map payload: { enabled: Boolean, strength: Double }
             "stereoWidening",
+            // Reverb state — emitted when setReverb() is called
+            // Map payload: { enabled: Boolean, intensity: Double }
+            "reverb",
         ).forEach { name ->
             EventChannel(messenger, "musicplayer/media3_$name")
                 .setStreamHandler(Media3PlaybackService.Events.handler(name))
@@ -410,6 +421,15 @@ class MainActivity : FlutterActivity() {
                     "setActiveQueueIds" -> {
                         val ids = call.argument<List<Int>>("ids")?.toSet() ?: emptySet()
                         artworkCacheManager.setActiveQueueIds(ids)
+                        result.success(null)
+                    }
+
+                    "deleteArtworkCache" -> {
+                        // A2 fix: Dart-side ArtworkRepository.evict() (called on
+                        // song delete) also drops the on-disk cache entry so a
+                        // deleted/replaced song's old artwork never resurfaces.
+                        val songId = call.argument<Int>("songId") ?: 0
+                        artworkCacheManager.delete(songId)
                         result.success(null)
                     }
 
@@ -560,10 +580,18 @@ class MainActivity : FlutterActivity() {
                             },
                         ) {
                             try {
+                                // K2 fix: sample mtime BEFORE the read (same ordering as
+                                // getReplayGainTags/getEmbeddedLyrics). If the file changes
+                                // mid-read, the cache stores the OLD mtime with the NEW tag
+                                // bytes, so the next lookup misses and re-reads (self-healing).
+                                // The previous ordering (read then mtime) could bind stale tag
+                                // bytes to the NEW mtime and serve them until the file changed
+                                // again. mtime == 0L means the file does not exist — skip
+                                // caching in that case.
+                                val mtime = MetadataCacheDb.mtime(path)
                                 val tags = ExoMetadataReader.read(this, path)
                                 // Opportunistically populate RG/lyrics cache if not present
-                                val mtime = MetadataCacheDb.mtime(path)
-                                if (File(path).exists() && metadataCacheDb.getByPath(path, mtime) == null) {
+                                if (mtime != 0L && metadataCacheDb.getByPath(path, mtime) == null) {
                                     metadataCacheDb.putByPath(path, mtime, MetadataCacheDb.CachedEntry(
                                         rgTrackGain = tags.rgTrackGain,
                                         rgTrackPeak = tags.rgTrackPeak,
@@ -894,6 +922,7 @@ class MainActivity : FlutterActivity() {
                                         contentResolver, listOf(contentUri),
                                     )
                                     pendingDeleteResult = result
+                                    pendingDeleteSongId = songId
                                     startIntentSenderForResult(
                                         pi.intentSender,
                                         DELETE_REQUEST_CODE,
@@ -912,14 +941,41 @@ class MainActivity : FlutterActivity() {
                                         }
                                     },
                                 ) {
-                                    val deleted = try {
+                                    // null = delete is now pending a system consent dialog;
+                                    // resolved asynchronously via onActivityResult.
+                                    val deleted: Boolean? = try {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                             // Android 10: scoped storage — file milik app lain
                                             // bisa lempar RecoverableSecurityException.
                                             try {
                                                 contentResolver.delete(contentUri, null, null) > 0
                                             } catch (e: android.app.RecoverableSecurityException) {
-                                                false
+                                                // K5 fix: API 29 has no createDeleteRequest
+                                                // (API 30+), so this used to fail silently.
+                                                // Surface the system's own consent dialog via
+                                                // the exception's action intent; onActivityResult
+                                                // retries the actual delete on approval.
+                                                pendingDeleteResult = result
+                                                pendingDeleteSongId = songId
+                                                pendingDeleteContentUri = contentUri
+                                                pendingDeleteRequiresRetry = true
+                                                runOnUiThread {
+                                                    try {
+                                                        startIntentSenderForResult(
+                                                            e.userAction.actionIntent.intentSender,
+                                                            DELETE_REQUEST_CODE,
+                                                            null, 0, 0, 0,
+                                                        )
+                                                    } catch (ex: Exception) {
+                                                        val r = pendingDeleteResult
+                                                        pendingDeleteResult = null
+                                                        pendingDeleteSongId = null
+                                                        pendingDeleteContentUri = null
+                                                        pendingDeleteRequiresRetry = false
+                                                        r?.error("delete_error", ex.message, null)
+                                                    }
+                                                }
+                                                null
                                             }
                                         } else {
                                             // Android < 10: hapus file fisik dulu, lalu update DB.
@@ -933,7 +989,11 @@ class MainActivity : FlutterActivity() {
                                     } catch (e: Exception) {
                                         false
                                     }
+                                    if (deleted == null) return@submitBackground
                                     postToFlutter { result.success(deleted) }
+                                    // A2 fix: drop the persistent artwork entry
+                                    // for the deleted song (pre-API 30 path).
+                                    if (deleted) artworkCacheManager.delete(songId)
                                 }
                             }
                         }
@@ -949,9 +1009,37 @@ class MainActivity : FlutterActivity() {
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == DELETE_REQUEST_CODE) {
-            val deleted = resultCode == android.app.Activity.RESULT_OK
-            pendingDeleteResult?.success(deleted)
+            val granted = resultCode == android.app.Activity.RESULT_OK
+            val pending = pendingDeleteResult
+            val songId  = pendingDeleteSongId
+            val uri     = pendingDeleteContentUri
+            val requiresRetry = pendingDeleteRequiresRetry
             pendingDeleteResult = null
+            pendingDeleteSongId = null
+            pendingDeleteContentUri = null
+            pendingDeleteRequiresRetry = false
+            if (granted && requiresRetry && uri != null) {
+                // K5 fix (API 29): the consent dialog only granted access —
+                // perform the actual delete now, then resolve the caller.
+                submitBackground(metadataExecutor) {
+                    val deleted = try {
+                        contentResolver.delete(uri, null, null) > 0
+                    } catch (_: Exception) {
+                        false
+                    }
+                    postToFlutter {
+                        pending?.success(deleted)
+                        // A2 fix: drop the persistent artwork entry for the
+                        // deleted song (API 29 consent path).
+                        if (deleted) songId?.let { artworkCacheManager.delete(it) }
+                    }
+                }
+                return
+            }
+            pending?.success(granted)
+            // A2 fix: drop the persistent artwork entry for the deleted song
+            // (Android 11+ dialog path).
+            if (granted) songId?.let { artworkCacheManager.delete(it) }
             return
         }
         if (replayGainWriteGate.handleActivityResult(requestCode, resultCode)) return
@@ -1058,9 +1146,12 @@ class MainActivity : FlutterActivity() {
                 }
                 when (call.method) {
                     "attachEffects" -> {
-                        result.success(mapOf(
-                            "bassBoostSupported" to true
-                        ))
+                        // K12 fix: this used to hardcode bassBoostSupported=true,
+                        // lying to any consumer on devices without BassBoost.
+                        // Route through the same "getEffectSupport" method the
+                        // Dart DeviceDsp uses so this legacy channel reports the
+                        // real AudioEffectsManager.effectSupportMap() flags.
+                        service.handle(MethodCall("getEffectSupport", null), result)
                     }
                     "setBassBoost" -> {
                         val strength = call.argument<Int>("strength") ?: 0
@@ -1425,6 +1516,21 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         shuttingDown = true
         MetadataPrescanner.cancel()
+        // K6 fix: complete any MethodChannel result still parked on an
+        // in-flight system dialog so Dart futures never hang forever after the
+        // Activity is destroyed (postToFlutter no-ops once shuttingDown=true,
+        // so queued results would otherwise be lost silently).
+        val pendingDelete = pendingDeleteResult
+        pendingDeleteResult = null
+        pendingDeleteSongId = null
+        pendingDeleteContentUri = null
+        pendingDeleteRequiresRetry = false
+        pendingDelete?.error(
+            "activity_destroyed",
+            "Activity destroyed before the delete dialog completed",
+            null,
+        )
+        replayGainWriteGate.failPending()
         if (::nativePaletteBridge.isInitialized) {
             nativePaletteBridge.dispose()
         }

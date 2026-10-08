@@ -12,6 +12,7 @@ import '../../services/audio_service.dart';
 import '../../services/log_service.dart';
 import '../../services/media_store_service.dart';
 import '../../theme/app_colors.dart';
+import '../../themes/glass_navbar.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';

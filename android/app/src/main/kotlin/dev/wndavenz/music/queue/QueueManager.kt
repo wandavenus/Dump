@@ -4,6 +4,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ShuffleOrder
+import dev.wndavenz.music.Media3PlaybackService
 import dev.wndavenz.music.diagnostics.CrossfadeTimelineLogger
 import dev.wndavenz.music.events.NativeLogger
 import dev.wndavenz.music.utils.MediaItemFactory
@@ -13,14 +14,6 @@ import dev.wndavenz.music.utils.MediaItemFactory
  *
  * Applies mutations both to the in-memory list and to ExoPlayer's internal playlist,
  * skipping ExoPlayer mutations safely when crossfade is in progress.
- *
- * Fixes:
- * QS-02/QS-03: During crossfade, ExoPlayer mutations are deferred to the in-memory list.
- *   After crossfade promotion completes, rebuildPlayerQueue() is called to expand the
- *   single-item promoted player queue to the full N-item queue via addMediaItems().
- *   See CROSSFADE_OPTION_B_DESIGN.md for the rationale.
- *
- * reorderQueue activeQueueIndex adjustment logic is preserved exactly from the original.
  */
 @UnstableApi
 class QueueManager(
@@ -28,24 +21,51 @@ class QueueManager(
     private val isCrossfadeInProgress: () -> Boolean,
     private val saveQueue:             () -> Unit,
     private val emitAll:               (emitQueue: Boolean) -> Unit,
+    private val onQueueIdsChanged:     (Set<Int>) -> Unit = {},
 ) {
     var queue: List<Map<String, Any?>> = emptyList()
         private set
     var activeQueueIndex: Int = 0
         private set
 
-    // Set only when insertNext happens while crossfade owns a temporary one-item timeline.
-    // The priority is applied after rebuildPlayerQueue() restores the full timeline.
     private var pendingPlayNextIndex: Int = C.INDEX_UNSET
-
-    // ── Queue replacement ─────────────────────────────────────────────────────
 
     fun setQueue(items: List<Map<String, Any?>>, startIndex: Int, posMs: Long = 0L) {
         pendingPlayNextIndex = C.INDEX_UNSET
         queue            = items
         activeQueueIndex = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+        notifyQueueIdsChanged()
         val p = getPlayer() ?: return
+
+        // Queue replacement must not reset the user's persisted shuffle preference.
+        // This path is also used when Flutter creates a fresh native service after
+        // an app/process kill, so the current ExoPlayer instance starts with its
+        // default shuffle=false even though QueueSync has the user's last choice.
+        // Read the durable preference before replacing the timeline, then restore
+        // both mode flags after setMediaItems(). Existing live-player state wins
+        // whenever it is already enabled; an explicit OFF is represented by the
+        // persisted value and is restored as such.
+        val prefs = Media3PlaybackService.instance?.getSharedPreferences(
+            QueueSync.PREFS_NAME,
+            android.content.Context.MODE_PRIVATE,
+        )
+        val persistedShuffle = prefs?.getBoolean(QueueSync.KEY_SHUFFLE, p.shuffleModeEnabled)
+            ?: p.shuffleModeEnabled
+        // A fresh player starts with an empty timeline, so persistence is the
+        // source of truth only for that cold-start case. For an existing player,
+        // keep its live shuffle state. Using live || persisted here is wrong:
+        // after the user explicitly turns shuffle OFF, a stale persisted TRUE
+        // would silently turn it back on whenever the queue is rebuilt.
+        val shuffleEnabled = if (p.mediaItemCount == 0) {
+            persistedShuffle
+        } else {
+            p.shuffleModeEnabled
+        }
+        val repeatMode = p.repeatMode
+
         p.setMediaItems(items.map { MediaItemFactory.from(it) }, activeQueueIndex, posMs)
+        p.repeatMode = repeatMode
+        p.shuffleModeEnabled = shuffleEnabled
         p.prepare()
     }
 
@@ -55,13 +75,19 @@ class QueueManager(
         getPlayer()?.seekToDefaultPosition(activeQueueIndex)
     }
 
-    // ── Queue mutations ───────────────────────────────────────────────────────
+    fun clearQueue() {
+        pendingPlayNextIndex = C.INDEX_UNSET
+        queue = emptyList()
+        activeQueueIndex = 0
+        notifyQueueIdsChanged()
+    }
 
     fun insertNext(item: Map<String, Any?>) {
         val mutable   = queue.toMutableList()
         val insertIdx = (activeQueueIndex + 1).coerceIn(0, queue.size)
         mutable.add(insertIdx, item)
         queue = mutable
+        notifyQueueIdsChanged()
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.let { player ->
@@ -72,9 +98,6 @@ class QueueManager(
             }
             pendingPlayNextIndex = C.INDEX_UNSET
         } else {
-            // The player timeline is intentionally not mutated during promotion.
-            // Remember the exact inserted queue index so rebuildPlayerQueue() can
-            // apply the same shuffle-priority operation after promotion.
             pendingPlayNextIndex = insertIdx
             log("insertNext: list updated, skipping p.addMediaItem (crossfade in progress); pending priority=$insertIdx")
         }
@@ -86,6 +109,7 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.add(item)
         queue = mutable
+        notifyQueueIdsChanged()
 
         if (!isCrossfadeInProgress()) {
             getPlayer()?.addMediaItem(MediaItemFactory.from(item))
@@ -101,6 +125,7 @@ class QueueManager(
         val mutable = queue.toMutableList()
         mutable.removeAt(index)
         queue = mutable
+        notifyQueueIdsChanged()
         pendingPlayNextIndex = C.INDEX_UNSET
 
         when {
@@ -129,6 +154,7 @@ class QueueManager(
         val item    = mutable.removeAt(oldIndex)
         mutable.add(newIndex, item)
         queue = mutable
+        notifyQueueIdsChanged()
         pendingPlayNextIndex = C.INDEX_UNSET
 
         if (!isCrossfadeInProgress()) {
@@ -151,8 +177,6 @@ class QueueManager(
         log("reorderQueue: [$oldIndex] → [$newIndex]")
     }
 
-    // ── Direct index setters (used by crossfade / skip logic) ─────────────────
-
     fun setActiveQueueIndex(index: Int) {
         activeQueueIndex = index
     }
@@ -160,8 +184,6 @@ class QueueManager(
     fun decrementActiveQueueIndex() {
         if (activeQueueIndex > 0) activeQueueIndex--
     }
-
-    // ── Post-crossfade queue rebuild ──────────────────────────────────────────
 
     fun rebuildPlayerQueue() {
         val p = getPlayer() ?: return
@@ -209,63 +231,30 @@ class QueueManager(
             log("rebuildPlayerQueue: incremental expand → ${queue.size} items @ [$activeQueueIndex]" +
                 " prefix=${prefix.size} suffix=${suffix.size}")
         } catch (e: Exception) {
-            log("rebuildPlayerQueue failed: ${e.message}")
-            CrossfadeTimelineLogger.stamp("rebuildPlayerQueue: EXCEPTION ${e.message}")
+            NativeLogger.emit("warn", "QueueManager", "rebuildPlayerQueue failed: ${e.message}")
         }
     }
 
-    /**
-     * Makes the item inserted by "Putar Selanjutnya" the immediate next item
-     * without disabling shuffle or replacing the rest of the randomized order.
-     *
-     * Media3 keeps shuffle order as a separate permutation of the original
-     * playlist indices. Inserting a media item preserves the existing shuffled
-     * order as far as possible, so simply inserting at currentIndex + 1 does
-     * NOT guarantee that item is next while shuffle is enabled. We therefore
-     * move only the requested index to immediately after the current index in
-     * the existing shuffle permutation. The remainder of the permutation is
-     * unchanged.
-     */
-    private fun forceNextInShuffleOrder(player: ExoPlayer, priorityIndex: Int) {
-        val currentIndex = player.currentMediaItemIndex
-        val order = player.shuffleOrder
-        val length = order.length
-
-        if (length != player.mediaItemCount ||
-            currentIndex == C.INDEX_UNSET ||
-            priorityIndex !in 0 until length ||
-            currentIndex !in 0 until length ||
-            currentIndex == priorityIndex) {
-            return
+    private fun forceNextInShuffleOrder(player: ExoPlayer, queueIndex: Int) {
+        try {
+            val timeline = player.currentTimeline
+            val windowCount = timeline.windowCount
+            if (queueIndex !in 0 until windowCount) return
+            val current = player.currentMediaItemIndex
+            if (current == queueIndex) return
+            val shuffleOrder = ShuffleOrder.DefaultShuffleOrder(windowCount)
+            player.setShuffleOrder(shuffleOrder)
+        } catch (e: Exception) {
+            NativeLogger.emit("warn", "QueueManager", "forceNextInShuffleOrder failed: ${e.message}")
         }
-
-        val permutation = ArrayList<Int>(length)
-        var index = order.firstIndex
-        while (index != C.INDEX_UNSET && permutation.size < length) {
-            permutation += index
-            index = order.getNextIndex(index)
-        }
-        if (permutation.size != length ||
-            permutation.toSet().size != length ||
-            currentIndex !in permutation ||
-            priorityIndex !in permutation) {
-            log("insertNext: invalid shuffle permutation — leaving Media3 order unchanged")
-            return
-        }
-
-        permutation.remove(priorityIndex)
-        val currentPosition = permutation.indexOf(currentIndex)
-        if (currentPosition < 0) return
-        permutation.add(currentPosition + 1, priorityIndex)
-
-        val customOrder = ShuffleOrder.DefaultShuffleOrder(
-            permutation.toIntArray(),
-            System.nanoTime(),
-        )
-        player.setShuffleOrder(customOrder)
-
-        log("insertNext: shuffle priority → current=$currentIndex next=$priorityIndex")
     }
 
-    private fun log(msg: String) = NativeLogger.emit("info", "Queue", msg)
+    private fun notifyQueueIdsChanged() {
+        val ids = queue.mapNotNull { (it["id"] as? Number)?.toInt() }.toSet()
+        onQueueIdsChanged(ids)
+    }
+
+    private fun log(message: String) {
+        NativeLogger.emit("debug", "QueueManager", message)
+    }
 }

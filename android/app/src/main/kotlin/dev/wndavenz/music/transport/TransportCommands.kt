@@ -1,5 +1,6 @@
 package dev.wndavenz.music.transport
 
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
@@ -60,6 +61,13 @@ class TransportCommands(
      */
     private val onStereoWideningChanged: (Boolean, Float) -> Unit = { _, _ -> },
     /**
+     * Reverb — Called when the user changes the reverb-effect setting.
+     * Delegates to ReverbManager which updates all live ReverbAudioProcessor
+     * instances atomically, so both active and standby players (during
+     * crossfade) are updated simultaneously without a race condition.
+     */
+    private val onReverbChanged: (Boolean, Float) -> Unit = { _, _ -> },
+    /**
      * Item 6 — Returns a snapshot of PlaybackStats for the active player,
      * or null when no session is in progress.
      */
@@ -87,6 +95,34 @@ class TransportCommands(
     private val onSpeedChanged: (Float) -> Unit = {},
     private val onPitchSemitonesChanged: (Float) -> Unit = {},
 ) {
+
+    // ── Rapid skip guard (SKIP-01) ───────────────────────────────────────────
+    // Every next/prev entry point (Flutter UI, notification action, Bluetooth
+    // AVRCP, MediaSession media buttons) funnels through handleSkipNext /
+    // handleSkipPrevious below. Each skip is heavy on the MIUI 12 target:
+    // crossfade cancel + standby rebuild + seekToNext + preloadNextTrack(force)
+    // + session-artwork replaceMediaItems + notification refresh. Rapid same-
+    // direction presses inside the window would cascade all of that within a
+    // few hundred ms — audible stutter and wasted work. Same-direction repeats
+    // inside the window are dropped; switching direction (next → prev "undo")
+    // is always allowed. Automatic paths (watchdog recovery, end-of-track
+    // advancement) bypass the guard via force = true.
+    private companion object {
+        /** Window in which a same-direction next/prev press counts as a rapid repeat. */
+        const val SKIP_THROTTLE_MS = 500L
+    }
+    private var lastSkipDir = 0          // +1 = next, -1 = prev, 0 = none yet
+    private var lastSkipAtMs = 0L        // SystemClock.elapsedRealtime() of last executed skip
+
+    /** True when [dir] repeats the previous skip direction inside the throttle window. */
+    private fun isRapidSkipRepeat(dir: Int): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (dir == lastSkipDir && now - lastSkipAtMs < SKIP_THROTTLE_MS) return true
+        lastSkipDir = dir
+        lastSkipAtMs = now
+        return false
+    }
+
     fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         // Sleep timer methods don't require an active player
         when (call.method) {
@@ -103,12 +139,6 @@ class TransportCommands(
                 sleepTimerManager.cancel()
                 result.success(null); return
             }
-            "setBitPerfectMode" -> {
-                val enabled = call.argument<Boolean>("enabled") ?: false
-                setBitPerfectMode(enabled)
-                log("info", "setBitPerfectMode: $enabled")
-                result.success(null); return
-            }
         }
 
         val p = getPlayer() ?: run {
@@ -119,6 +149,17 @@ class TransportCommands(
         when (call.method) {
 
             // ── Transport ─────────────────────────────────────────────────────
+
+            // BP-08: the bit-perfect switch requires the engine (active player) to
+            // be ready — handled after the not-ready guard so an early toggle gets
+            // a not_ready error and Media3PlaybackBridge._invoke retries, instead
+            // of silently no-op'ing while Dart already persisted the new mode.
+            "setBitPerfectMode" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: false
+                setBitPerfectMode(enabled)
+                log("info", "setBitPerfectMode: $enabled")
+                result.success(null); return
+            }
 
             "play" -> handlePlay(p, result)
             "pause" -> handlePause(p, result)
@@ -137,7 +178,7 @@ class TransportCommands(
             // ── Queue management ──────────────────────────────────────────────
 
             "setQueue" -> {
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 val items = call.argument<List<Map<String, Any?>>>("queue") ?: emptyList()
                 val index = call.argument<Number>("index")?.toInt() ?: 0
 
@@ -156,7 +197,7 @@ class TransportCommands(
             }
 
             "setTrack" -> {
-                sleepTimerManager.cancel()
+                sleepTimerManager.cancelIfActive()
                 crossfadeController.cancel(resetVolume = true)
                 preloadManager.clearStandbyQueue()
                 queueManager.setTrack(call.argument<Number>("index")?.toInt() ?: 0)
@@ -170,6 +211,16 @@ class TransportCommands(
                 val item = call.argument<Map<String, Any?>>("item")
                     ?: run { result.success(null); return }
                 queueManager.insertNext(item)
+                // Play-Next stale-preload fix: inserting at activeQueueIndex + 1 shifts
+                // the next-track position while the standby player still holds the OLD
+                // next track under a coincidentally matching preloadedQueueIndex.
+                // Mirror appendToQueue and force a re-preload so crossfade promotes the
+                // inserted track, not the stale one. Safe mid-promotion: preloadNextTrack
+                // early-returns while the promoted player owns its one-item timeline
+                // (< queue.size guard).
+                if (crossfadeController.crossfadeDurationSec > 0f) {
+                    preloadManager.preloadNextTrack(force = true)
+                }
                 result.success(null)
             }
 
@@ -227,8 +278,14 @@ class TransportCommands(
                 val promotedIndex  = preloadManager.preloadedQueueIndex
                 crossfadeController.cancel(resetVolume = true)
                 preloadManager.clearStandbyQueue()
-                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
+
+                // Set the authoritative mode before restoring a promoted queue.
+                // rebuildPlayerQueue() preserves the player's current shuffle
+                // order, so changing this only after the rebuild can publish the
+                // old mode and briefly overwrite the Dart state with a stale
+                // shuffle=false snapshot.
                 p.shuffleModeEnabled = enabled
+                restoreQueueAfterCrossfadeCancel(p, wasCrossfading, promotedIndex)
                 if (crossfadeController.crossfadeDurationSec > 0f) preloadManager.preloadNextTrack(force = true)
                 queueSync.save()
                 transportState.emitAll(emitQueue = true)
@@ -322,6 +379,24 @@ class TransportCommands(
                 val strength = call.argument<Number>("strength")?.toFloat() ?: 0.5f
                 onStereoWideningChanged(enabled, strength.coerceIn(0f, 1f))
                 log("info", "setStereoWidening: enabled=$enabled strength=$strength")
+                result.success(null)
+            }
+
+            // ── Reverb ────────────────────────────────────────────────────────
+
+            /**
+             * Enables/disables the software reverb (Schroeder room) effect.
+             *
+             * [intensity] range: 0.0 (transparent / off) … 1.0 (maximum reverb).
+             * Applied atomically to all live ExoPlayer instances via ReverbManager;
+             * no race between active and standby players during crossfade.
+             * Incompatible with tunneling (audio bypasses the pipeline entirely).
+             */
+            "setReverb" -> {
+                val enabled   = call.argument<Boolean>("enabled") ?: false
+                val intensity = call.argument<Number>("intensity")?.toFloat() ?: 0.5f
+                onReverbChanged(enabled, intensity.coerceIn(0f, 1f))
+                log("info", "setReverb: enabled=$enabled intensity=$intensity")
                 result.success(null)
             }
 
@@ -453,7 +528,7 @@ class TransportCommands(
                     "sleepTimerRemainingMs" to if (st.sleepTimerActive && !st.sleepEndOfSong)
                         (st.sleepTimerEndMs - System.currentTimeMillis()).coerceAtLeast(0L)
                     else 0L,
-                    // Audio format fields (Media3 1.10.1 — Format.NO_VALUE = -1 sentinel)
+                    // Audio format fields (Media3 1.11.0 — Format.NO_VALUE = -1 sentinel)
                     "audioSampleRate"   to (fmt?.sampleRate?.takeIf   { it != Format.NO_VALUE } ?: 0),
                     "audioChannelCount" to (fmt?.channelCount?.takeIf { it != Format.NO_VALUE } ?: 0),
                     "audioBitrate"      to (fmt?.bitrate?.takeIf      { it != Format.NO_VALUE } ?: 0),
@@ -471,6 +546,11 @@ class TransportCommands(
     // ── Transport helpers ─────────────────────────────────────────────────────
 
     private fun handlePlay(p: ExoPlayer, result: MethodChannel.Result) {
+        // F2 fix: pressing play mid fade-out means "I'm still awake" — cancel the
+        // sleep fade (and the already-fired timer) so the music stays up instead of
+        // being re-paused when the fade would have completed. An armed,
+        // not-yet-fired timer is left untouched.
+        sleepTimerManager.cancelFadeOnly()
         val granted = audioFocusManager.request()
         if (granted) {
             if (p.playbackState == Player.STATE_ENDED && p.mediaItemCount > 0) {
@@ -503,6 +583,10 @@ class TransportCommands(
     }
 
     private fun handlePause(p: ExoPlayer, result: MethodChannel.Result) {
+        // F2 fix: an explicit pause supersedes a running sleep fade-out — stop the
+        // fade so it can't keep writing volume to the paused player for the rest of
+        // the 20-second window (and restore the pre-fade volume).
+        sleepTimerManager.cancelFadeOnly()
         // A promoted player temporarily contains only the incoming item. Cancel
         // first and restore the full queue, otherwise resuming after pause can
         // lock navigation to that one item and the pending fade can continue
@@ -529,6 +613,12 @@ class TransportCommands(
     }
 
     private fun handleStop(p: ExoPlayer, result: MethodChannel.Result) {
+        // F4 fix: a stop ends the session — cancel the sleep timer here so this
+        // path behaves like ACTION_STOP / setQueue / setTrack / skip / release
+        // (which all cancel). Previously only the notification's ACTION_STOP
+        // cancelled it, so a Dart stop() (transient pause-and-idle) left the
+        // timer armed and it would later pause the NEXT session the user starts.
+        sleepTimerManager.cancelIfActive()
         // Stop is not a user "pause" gesture (used for setQueue/teardown paths
         // elsewhere) — no fade here, matches prior instant behavior. Cancel any
         // in-flight play/pause fade so it can't keep writing to a stopped player.
@@ -565,10 +655,16 @@ class TransportCommands(
         queueManager.rebuildPlayerQueue()
     }
 
-    private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result) {
-        sleepTimerManager.cancel()
+    private fun handleSkipPrevious(p: ExoPlayer, result: MethodChannel.Result, force: Boolean = false) {
+        // SKIP-01: drop rapid same-direction repeats BEFORE any side effects
+        // (sleep-timer cancel, crossfade cancel, preload churn).
+        if (!force && isRapidSkipRepeat(-1)) {
+            log("verbose", "skipPrevious dropped (rapid repeat)")
+            result.success(null); return
+        }
+        sleepTimerManager.cancelIfActive()
 
-        // Capture before cancel() + clearStandbyQueue() erase this information.
+        // Capture before cancelIfActive() + clearStandbyQueue() erase this information.
         val wasCrossfading = crossfadeController.crossfadeInProgress
         val promotedIndex  = preloadManager.preloadedQueueIndex
 
@@ -610,10 +706,16 @@ class TransportCommands(
         result.success(null)
     }
 
-    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result) {
-        sleepTimerManager.cancel()
+    private fun handleSkipNext(p: ExoPlayer, result: MethodChannel.Result, force: Boolean = false) {
+        // SKIP-01: drop rapid same-direction repeats BEFORE any side effects
+        // (sleep-timer cancel, crossfade cancel, preload churn).
+        if (!force && isRapidSkipRepeat(+1)) {
+            log("verbose", "skipNext dropped (rapid repeat)")
+            result.success(null); return
+        }
+        sleepTimerManager.cancelIfActive()
 
-        // Capture before cancel() + clearStandbyQueue() erase this information.
+        // Capture before cancelIfActive() + clearStandbyQueue() erase this information.
         val wasCrossfading = crossfadeController.crossfadeInProgress
         val promotedIndex  = preloadManager.preloadedQueueIndex
 
@@ -691,8 +793,12 @@ class TransportCommands(
     fun playNative()     { getPlayer()?.let { handlePlay(it, noopResult) } }
     fun pauseNative()    { getPlayer()?.let { handlePause(it, noopResult) } }
     fun stopNative()     { getPlayer()?.let { handleStop(it, noopResult) } }
-    fun skipNextNative() { getPlayer()?.let { handleSkipNext(it, noopResult) } }
-    fun skipPrevNative() { getPlayer()?.let { handleSkipPrevious(it, noopResult) } }
+    fun skipNextNative(force: Boolean = false) {
+        getPlayer()?.let { handleSkipNext(it, noopResult, force) }
+    }
+    fun skipPrevNative(force: Boolean = false) {
+        getPlayer()?.let { handleSkipPrevious(it, noopResult, force) }
+    }
 
     fun seekNative(posMs: Long) {
         val p = getPlayer() ?: return
@@ -707,7 +813,7 @@ class TransportCommands(
      * non-INDEX_UNSET mediaItemIndex. Mirrors the "setTrack" MethodChannel branch.
      */
     fun setTrackNative(index: Int) {
-        sleepTimerManager.cancel()
+        sleepTimerManager.cancelIfActive()
         crossfadeController.cancel(resetVolume = true)
         preloadManager.clearStandbyQueue()
         queueManager.setTrack(index)

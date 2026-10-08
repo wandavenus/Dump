@@ -52,10 +52,25 @@ class QueueSync(
      * Captures the current queue state on the calling (main) thread, then
      * schedules a write on the single background executor. If an earlier
      * write is still pending, it is superseded by this newer snapshot.
+     *
+     * Shuffle is persisted synchronously before the background snapshot write.
+     * The shuffle toggle is a small critical state value, and writing it with
+     * commit() closes the process-kill window where the daemon writer could be
+     * terminated before it persisted the newly enabled mode. This is also the
+     * path that runs when the user toggles shuffle with an empty queue (e.g. the
+     * library's shuffle shortcut before any playback), via [clearPersistedSnapshot].
      */
     fun save() {
         val queue = getQueue()
-        if (queue.isEmpty()) return
+        if (queue.isEmpty()) {
+            // K3 fix: a session that ends with an empty queue must clear the
+            // persisted snapshot instead of keeping the last non-empty one
+            // forever. Previously the stale snapshot was restored whenever the
+            // system restarted the service (START_STICKY null intent), bringing
+            // back a queue the user had already emptied.
+            clearPersistedSnapshot()
+            return
+        }
 
         // Capture on main thread — ExoPlayer state must not be read off-thread.
         val p          = getPlayer()
@@ -66,11 +81,94 @@ class QueueSync(
 
         val posMs      = p?.currentPosition?.coerceAtLeast(0L) ?: 0L
         val repeatMode = p?.repeatMode ?: Player.REPEAT_MODE_OFF
-        val shuffle    = p?.shuffleModeEnabled ?: false
         val snapshot   = queue.map { HashMap(it) }
         val boundedIdx = idx.coerceIn(0, (snapshot.size - 1).coerceAtLeast(0))
 
-        val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode, shuffle) }
+        // Critical persistence: unlike the full queue snapshot, the shuffle
+        // flag must survive an immediate process kill after the user toggles it.
+        // SharedPreferences.commit() blocks only for this single boolean and
+        // guarantees the value is durably written before save() returns.
+        // A null player (already released) intentionally leaves the stored
+        // preference untouched: synthesizing `false` there would erase the mode
+        // the user actually chose while nothing can still be observed.
+        val shuffle = p?.shuffleModeEnabled
+        if (shuffle != null) {
+            try {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_SHUFFLE, shuffle)
+                    .commit()
+            } catch (e: Exception) {
+                handler.post {
+                    NativeLogger.emit("warn", "QueueSync", "shuffle critical save failed: ${e.message}")
+                }
+            }
+        }
+
+        val task = Runnable { performSave(snapshot, boundedIdx, posMs, repeatMode) }
+        pendingSave.set(task)
+        saveExecutor.execute {
+            val t = pendingSave.getAndSet(null) ?: return@execute
+            t.run()
+        }
+    }
+
+    /**
+     * Clears the persisted queue snapshot (coalesced like [save]) while keeping
+     * the durable shuffle preference.
+     *
+     * [restore] already returns null for an empty snapshot, so an empty write
+     * would have the same effect — clearing the keys outright is simpler and
+     * removes stale repeat/position values too.
+     *
+     * KEY_SHUFFLE is deliberately EXEMPT: shuffle is session-independent user
+     * state ([save] persists it with commit() so it survives a process kill,
+     * and [QueueManager.setQueue] restores it on the next cold-start player).
+     * Clearing it here made the mode the user had set depend on a process-kill
+     * race: the notification STOP button empties the queue in memory and then
+     * tears the service down, so whether the user's shuffle choice survived was
+     * decided by whether the daemon writer happened to run before the system
+     * killed the process — the full player could come back with shuffle OFF (or
+     * ON) instead of deterministically restoring the live mode.
+     */
+    private fun clearPersistedSnapshot() {
+        // Capture the live shuffle mode on the calling (main) thread — the player
+        // is still alive on the STOP path, and ExoPlayer state must not be read
+        // off-thread. A null player leaves the stored preference untouched.
+        val shuffle = getPlayer()?.shuffleModeEnabled
+        if (shuffle != null) {
+            try {
+                // Synchronous, like the critical write in save(): the value must
+                // be durable before an immediate STOP-triggered kill can land.
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_SHUFFLE, shuffle)
+                    .commit()
+            } catch (e: Exception) {
+                handler.post {
+                    NativeLogger.emit("warn", "QueueSync", "shuffle critical save failed: ${e.message}")
+                }
+            }
+        }
+
+        // Session snapshot removal stays on the single writer thread so an
+        // in-flight performSave() (older snapshot) cannot overtake this clear
+        // and resurrect the finished session's queue keys.
+        val task = Runnable {
+            try {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .remove(KEY_QUEUE)
+                    .remove(KEY_INDEX)
+                    .remove(KEY_POS_MS)
+                    .remove(KEY_REPEAT_MODE)
+                    .commit()
+            } catch (e: Exception) {
+                handler.post {
+                    NativeLogger.emit("warn", "QueueSync", "clear failed: ${e.message}")
+                }
+            }
+        }
         pendingSave.set(task)
         saveExecutor.execute {
             val t = pendingSave.getAndSet(null) ?: return@execute
@@ -83,7 +181,6 @@ class QueueSync(
         idx: Int,
         posMs: Long,
         repeatMode: Int,
-        shuffle: Boolean,
     ) {
         try {
             val arr = JSONArray()
@@ -99,13 +196,17 @@ class QueueSync(
                 }
                 arr.put(obj)
             }
+            // IMPORTANT: KEY_SHUFFLE is intentionally NOT written here.
+            // A background snapshot can be stale relative to a just-completed
+            // shuffle toggle. The toggle is persisted synchronously in save(),
+            // and allowing this writer to touch the same key would reintroduce
+            // the exact race where a stale `false` overwrites a newer `true`.
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_QUEUE, arr.toString())
                 .putInt(KEY_INDEX, idx)
                 .putLong(KEY_POS_MS, posMs)
                 .putInt(KEY_REPEAT_MODE, repeatMode)
-                .putBoolean(KEY_SHUFFLE, shuffle)
                 .apply()
         } catch (e: Exception) {
             handler.post {

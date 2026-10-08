@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:musicplayer/extensions/localization_extension.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
+
 import 'player_hero_tags.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:text_scroll/text_scroll.dart';
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+
 import '../../../services/player_sheet_controller.dart';
 import '../../models/local_song.dart';
 import '../../models/lyrics_settings.dart';
@@ -21,7 +25,7 @@ import 'player_progress_section.dart';
 import 'player_secondary_controls.dart';
 import 'player_song_header.dart';
 import 'player_transport_controls.dart';
-import 'player_up_next_card.dart';
+
 import 'synced_lyrics_view.dart';
 
 part 'player_content/content.dart';

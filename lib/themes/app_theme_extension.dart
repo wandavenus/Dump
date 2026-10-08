@@ -25,8 +25,9 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     required this.subtleSeparator,
     required this.hairlineSeparator,
     // ── Glass components ─────────────────────────────────────────────────────
-    required this.glassNavTint,
+    required this.glassFillTint,
     required this.glassBorderTint,
+    required this.glassActiveLens,
     // ── Drag handle ──────────────────────────────────────────────────────────
     required this.dragHandle,
     // ── Equalizer ────────────────────────────────────────────────────────────
@@ -80,11 +81,20 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color hairlineSeparator;
 
   // Glass components
-  /// Color wash rendered inside the glass BackdropFilter container.
-  final Color glassNavTint;
+  /// Lapisan netral penstabil di atas blur — membuat background glass tidak
+  /// meniru warna konten di belakangnya (konsisten di semua halaman) tanpa
+  /// menambah warna.
+  final Color glassFillTint;
 
   /// Top/bottom border on glass surfaces.
   final Color glassBorderTint;
+
+  /// Lens blob di belakang tab aktif (kapsul navbar & tombol search).
+  /// Netral (putih/hitam transparan) — BUKAN warna aksen, supaya warna
+  /// background kapsul TIDAK berubah mengikuti tab yang aktif (dulu merah
+  /// primary 15% hanya muncul di 4 tab kapsul dan hilang di page search,
+  /// sehingga background kapsul terlihat berubah warna antar halaman).
+  final Color glassActiveLens;
 
   // Misc
   /// Pill drag handle on bottom sheets.
@@ -116,8 +126,9 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     Color? separator,
     Color? subtleSeparator,
     Color? hairlineSeparator,
-    Color? glassNavTint,
+    Color? glassFillTint,
     Color? glassBorderTint,
+    Color? glassActiveLens,
     Color? dragHandle,
     Color? eqTrackBg,
     Color? eqCenterTick,
@@ -138,8 +149,9 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     separator: separator ?? this.separator,
     subtleSeparator: subtleSeparator ?? this.subtleSeparator,
     hairlineSeparator: hairlineSeparator ?? this.hairlineSeparator,
-    glassNavTint: glassNavTint ?? this.glassNavTint,
+    glassFillTint: glassFillTint ?? this.glassFillTint,
     glassBorderTint: glassBorderTint ?? this.glassBorderTint,
+    glassActiveLens: glassActiveLens ?? this.glassActiveLens,
     dragHandle: dragHandle ?? this.dragHandle,
     eqTrackBg: eqTrackBg ?? this.eqTrackBg,
     eqCenterTick: eqCenterTick ?? this.eqCenterTick,
@@ -169,8 +181,9 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
         other.hairlineSeparator,
         t,
       )!,
-      glassNavTint: Color.lerp(glassNavTint, other.glassNavTint, t)!,
+      glassFillTint: Color.lerp(glassFillTint, other.glassFillTint, t)!,
       glassBorderTint: Color.lerp(glassBorderTint, other.glassBorderTint, t)!,
+      glassActiveLens: Color.lerp(glassActiveLens, other.glassActiveLens, t)!,
       dragHandle: Color.lerp(dragHandle, other.dragHandle, t)!,
       eqTrackBg: Color.lerp(eqTrackBg, other.eqTrackBg, t)!,
       eqCenterTick: Color.lerp(eqCenterTick, other.eqCenterTick, t)!,

@@ -38,6 +38,13 @@ class ArtworkCacheManager(private val context: Context) {
         private const val CACHE_SUBDIR  = "artwork"
         private const val MAX_BYTES     = 500L * 1024 * 1024   // 500 MB hard cap
         private const val TARGET_BYTES  = 400L * 1024 * 1024   // shrink to 400 MB
+        // K9 fix: orphaned `*.tmp` files older than this are removed by the
+        // cleanup pass. The write path deletes its own tmp in `finally`, but a
+        // process kill / crash mid-write leaves one behind forever. One hour is
+        // far beyond any live write's lifetime, so the age gate is safe even
+        // though Activity and playback service share the dir without a
+        // cross-instance lock.
+        private const val TMP_MAX_AGE_MS = 60L * 60 * 1000
         private const val WEBP_QUALITY  = 85
         private const val MAX_ARTWORK_SIZE = 1000
         // A3 (1.5.21): raw-copy fast path extended beyond JPEG — any decodable
@@ -49,6 +56,21 @@ class ArtworkCacheManager(private val context: Context) {
         // cache dir) runs at most once per this window instead of after every
         // single extraction.
         private const val CLEANUP_THROTTLE_MS = 15_000L
+
+        // MainActivity and Media3PlaybackService intentionally share the same
+        // on-disk cache, so their extraction locks must also be process-wide.
+        private val processGlobalLock = ReentrantLock()
+        private val processSongLocks = HashMap<Int, ReentrantLock>()
+        private val processInFlightSongIds = HashSet<Int>()
+
+        // Active-queue song IDs: never evicted during LRU cleanup.
+        // Written by Flutter via setActiveQueueIds(); read during cleanupIfNeeded().
+        // Process-wide (companion) so the playback service instance sees the same
+        // protected set that the Activity instance was given — otherwise the
+        // service's cleanupIfNeeded() would run with an empty queue set and could
+        // evict a queued song's artwork during a >500 MB LRU pass.
+        @Volatile
+        private var activeQueueIds: Set<Int> = emptySet()
     }
 
     // A1 (1.5.21): monotonic timestamp of the last LRU eviction pass.
@@ -61,25 +83,11 @@ class ArtworkCacheManager(private val context: Context) {
     File(context.filesDir, CACHE_SUBDIR).also { dir ->
         dir.mkdirs()
 
-        dir.listFiles { file ->
-            file.name.endsWith(".tmp")
-        }?.forEach {
-            try {
-                it.delete()
-            } catch (_: Exception) {}
-        }
+        // Do not eagerly delete temp files here. Multiple cache-manager
+        // instances (Activity + playback service) share this directory and a
+        // second instance may otherwise delete an active writer's temp file.
     }
 }
-
-    // Global lock guards the per-songId lock map to prevent map corruption.
-    private val globalLock  = ReentrantLock()
-    // Per-songId locks prevent double-extraction of the same song under concurrency.
-    private val songLocks   = HashMap<Int, ReentrantLock>()
-
-    // Active-queue song IDs: never evicted during LRU cleanup.
-    // Written by Flutter via setActiveQueueIds(); read during cleanupIfNeeded().
-    @Volatile
-    private var activeQueueIds: Set<Int> = emptySet()
 
     // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -101,25 +109,37 @@ class ArtworkCacheManager(private val context: Context) {
      *   non-JPEG art is scaled to MAX_ARTWORK_SIZE and encoded WebP 85.
      * Returns null only when artwork cannot be extracted (song has no embedded art).
      *
-     * Thread-safety note: the per-songId lock is acquired before extraction and
-     * released (by withLock) before cleanupSongLock removes it from the map.
-     * This ensures no concurrent thread ever holds two locks for the same songId.
+     * [filePath] — optional DATA path of the source audio file. When provided,
+     * the extraction records that file's size+mtime in a sidecar and every
+     * later cache hit validates against the file's CURRENT size+mtime (K10 fix):
+     * if the file was replaced in place or the MediaStore _ID was reused for a
+     * different file, the stale entry is dropped and re-extracted instead of
+     * showing the old song's artwork. When null, behaviour is unchanged from
+     * before (no identity validation).
+     *
+     * Thread-safety note: the per-songId lock registry is process-wide because
+     * Activity and playback service instances share this directory.
      */
-    fun getOrExtract(songId: Int): String? {
+    fun getOrExtract(songId: Int, filePath: String? = null): String? {
         if (songId <= 0) return null
 
         val target = File(cacheDir, "$songId.webp")
 
-        // Fast path — file already cached.
-        if (target.exists() && target.length() > 0L) {
+        // Fast path — file already cached (and still matches the song's file).
+        if (isUsableCacheFile(target) && identityStillValid(target, filePath)) {
             touch(target)           // update mtime for LRU ordering
             return target.absolutePath
         }
+        if (target.exists()) {
+            try { target.delete() } catch (_: Exception) {}
+        }
+        deleteIdentityMeta(target)
 
         // Acquire a per-songId lock to serialise concurrent requests for the same song.
-        val lock = globalLock.withLock {
-            songLocks.getOrPut(songId) { ReentrantLock() }
+        val lock = processGlobalLock.withLock {
+            processSongLocks.getOrPut(songId) { ReentrantLock() }
         }
+        processGlobalLock.withLock { processInFlightSongIds.add(songId) }
 
         // NOTE: cleanupSongLock is called in the finally block, AFTER withLock has
         // fully released the lock.  Calling it inside withLock would allow a
@@ -128,10 +148,14 @@ class ArtworkCacheManager(private val context: Context) {
         val result: String? = try {
             lock.withLock {
                 // Re-check after acquiring the lock (another thread may have written it).
-                if (target.exists() && target.length() > 0L) {
+                if (isUsableCacheFile(target) && identityStillValid(target, filePath)) {
                     touch(target)
                     return@withLock target.absolutePath
                 }
+                if (target.exists()) {
+                    try { target.delete() } catch (_: Exception) {}
+                }
+                deleteIdentityMeta(target)
 
                 val raw = extractRawBytes(songId) ?: return@withLock null
 
@@ -148,6 +172,10 @@ class ArtworkCacheManager(private val context: Context) {
 
                 if (ok) {
                     touch(target)
+                    // K10 fix: record the source file identity so a replaced
+                    // file (or MediaStore _ID reuse) invalidates the entry on
+                    // the next hit.
+                    if (filePath != null) saveIdentityMeta(target, filePath)
                     target.absolutePath
                 } else {
                     null
@@ -165,7 +193,7 @@ class ArtworkCacheManager(private val context: Context) {
         // cleanup deletes a file between the fast-path exists() check and the
         // caller consuming the returned path.
         if (result != null) {
-            val lockedIds = globalLock.withLock { songLocks.keys.toSet() }
+            val lockedIds = processGlobalLock.withLock { processInFlightSongIds.toSet() }
             // A1 (1.5.21): throttle the LRU eviction pass to at most once per
             // CLEANUP_THROTTLE_MS. The previous code scanned the whole cache
             // directory (listFiles + size sum) after EVERY successful extraction
@@ -189,6 +217,10 @@ class ArtworkCacheManager(private val context: Context) {
      * Call after a batch of extractions.
      */
     fun cleanupIfNeeded(activeQueueIds: Set<Int> = emptySet()) {
+        // K9 fix: sweep orphaned tmp files on every cleanup pass, before the
+        // size check (they only exist after interrupted writes and never count
+        // toward the webp size budget, so the old code never removed them).
+        sweepStaleTmpFiles()
         val files = cacheDir.listFiles { f -> f.extension == "webp" } ?: return
         val total = files.sumOf { it.length() }
         if (total <= MAX_BYTES) return
@@ -208,6 +240,45 @@ class ArtworkCacheManager(private val context: Context) {
                 remaining -= sz
                 Log.d(TAG, "Evicted ${f.name} (${sz / 1024} KB)")
             }
+        }
+    }
+
+    /**
+     * K9 fix: deletes orphaned `*.tmp` files left by interrupted/failed writes.
+     * Only files older than [TMP_MAX_AGE_MS] are removed — a live writer's tmp
+     * is by definition recent, so this cannot race the "do not delete a second
+     * instance's active temp file" rule documented at cacheDir.
+     */
+    private fun sweepStaleTmpFiles() {
+        val cutoff = System.currentTimeMillis() - TMP_MAX_AGE_MS
+        try {
+            cacheDir.listFiles { f -> f.name.endsWith(".tmp") }?.forEach { f ->
+                if (f.lastModified() < cutoff && f.delete()) {
+                    Log.d(TAG, "Removed stale tmp ${f.name}")
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort sweep — never fail the caller.
+        }
+    }
+
+    /**
+     * Deletes the persistent cache entry for [songId] (e.g. after the song is
+     * removed from the library). The file is re-extracted on the next
+     * [getOrExtract] call. Safe to call concurrently with extraction: worst
+     * case a concurrent writer recreates the file, which is correct for a
+     * song that still exists. A2 fix — previously the on-disk entry could
+     * only ever leave via LRU eviction, so a deleted/replaced song's old
+     * artwork could linger indefinitely.
+     */
+    fun delete(songId: Int) {
+        if (songId <= 0) return
+        try {
+            val target = File(cacheDir, "$songId.webp")
+            if (target.exists()) target.delete()
+        } catch (_: Exception) {
+            // Best-effort: a failed delete only costs a stale file that LRU
+            // cleanup will eventually evict.
         }
     }
 
@@ -281,9 +352,9 @@ class ArtworkCacheManager(private val context: Context) {
      * Decode [raw] → Bitmap → compress to WebP → write atomically to [target].
      * Uses WEBP_LOSSY on API 30+ (Android 11) and the legacy WEBP format below.
      */
-        private fun saveAsWebP(raw: ByteArray, target: File): Boolean {
+    private fun saveAsWebP(raw: ByteArray, target: File): Boolean {
         var bitmap: Bitmap? = null
-        val tmp = File(target.parent, "${target.name}.tmp")
+        val tmp = uniqueTempFile(target)
         var ok = false
 
         return try {
@@ -297,11 +368,11 @@ class ArtworkCacheManager(private val context: Context) {
                     Bitmap.CompressFormat.WEBP
                 }
 
-                bitmap.compress(fmt, WEBP_QUALITY, out)
+                if (!bitmap.compress(fmt, WEBP_QUALITY, out)) return false
                 out.flush()
             }
 
-            ok = tmp.renameTo(target)
+            ok = tmp.length() > 0L && tmp.renameTo(target)
             ok
         } catch (e: Exception) {
             Log.w(TAG, "Failed to save WebP for ${target.name}: ${e.message}")
@@ -379,7 +450,7 @@ class ArtworkCacheManager(private val context: Context) {
      * correctly end-to-end.
      */
     private fun saveRaw(raw: ByteArray, target: File): Boolean {
-        val tmp = File(target.parent, "${target.name}.tmp")
+        val tmp = uniqueTempFile(target)
         var ok = false
         return try {
             FileOutputStream(tmp).use { out ->
@@ -405,7 +476,87 @@ class ArtworkCacheManager(private val context: Context) {
         try { file.setLastModified(System.currentTimeMillis()) } catch (_: Exception) {}
     }
 
+    private fun uniqueTempFile(target: File): File {
+        val threadId = Thread.currentThread().id
+        return File(
+            target.parent,
+            "${target.name}.${android.os.Process.myPid()}.$threadId.tmp",
+        )
+    }
+
     private fun cleanupSongLock(songId: Int) {
-        globalLock.withLock { songLocks.remove(songId) }
+        // Keep the process-wide lock object for the lifetime of the process.
+        // Removing it after unlock races with another ArtworkCacheManager
+        // instance acquiring the same song ID and can create two locks.
+        processGlobalLock.withLock { processInFlightSongIds.remove(songId) }
+    }
+
+    // ── K10: source-file identity sidecar ────────────────────────────────────
+    //
+    // The cache is keyed by MediaStore _ID, which Android may reuse for a
+    // different file after a rescan/delete without the app's own delete path
+    // firing (A2 covers the app-initiated delete). When the caller knows the
+    // song's DATA path, the extraction records `size + mtime` (the same
+    // identity the ReplayGain cache uses) and later hits are validated
+    // against the file's current size + mtime. All sidecar I/O is
+    // best-effort: a missing or corrupt meta file simply disables the check.
+    private fun metaFileFor(target: File) = File(target.parent, "${target.name}.meta")
+
+    private fun saveIdentityMeta(target: File, filePath: String) {
+        try {
+            val f = File(filePath)
+            if (!f.isFile) return
+            val tmp = File(
+                target.parent,
+                "${target.name}.meta.tmp.${android.os.Process.myPid()}.${Thread.currentThread().id}",
+            )
+            tmp.writeText("${f.length()}\n${f.lastModified()}\n$filePath")
+            if (!tmp.renameTo(metaFileFor(target))) {
+                try { tmp.delete() } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {
+            // Best-effort — a missing meta only disables the identity check.
+        }
+    }
+
+    private fun deleteIdentityMeta(target: File) {
+        try { metaFileFor(target).delete() } catch (_: Exception) {}
+    }
+
+    /**
+     * True when the cached entry may be served for [filePath].
+     * - No [filePath] supplied → always true (legacy behaviour).
+     * - No sidecar recorded → true (legacy entry from before this fix).
+     * - Sidecar present → true only if the file is still at the same path with
+     *   the same size and mtime that produced this artwork.
+     */
+    private fun identityStillValid(target: File, filePath: String?): Boolean {
+        if (filePath == null) return true
+        try {
+            val meta = metaFileFor(target)
+            if (!meta.exists()) return true
+            val parts = meta.readText().split('\n')
+            if (parts.size < 3) return true
+            val storedSize = parts[0].toLongOrNull() ?: return true
+            val storedMtime = parts[1].toLongOrNull() ?: return true
+            val storedPath = parts[2]
+            val cur = File(filePath)
+            if (!cur.isFile) return false
+            if (storedPath != filePath) return false
+            return cur.length() == storedSize && cur.lastModified() == storedMtime
+        } catch (_: Exception) {
+            return true
+        }
+    }
+
+    private fun isUsableCacheFile(file: File): Boolean {
+        if (!file.exists() || file.length() <= 0L) return false
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            bounds.outWidth > 0 && bounds.outHeight > 0
+        } catch (_: Exception) {
+            false
+        }
     }
 }

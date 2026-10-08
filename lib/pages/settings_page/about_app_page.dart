@@ -15,6 +15,20 @@ class AboutAppPage extends StatefulWidget {
 }
 
 class _AboutAppPageState extends State<AboutAppPage> {
+  String? _appVersion;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadAppVersion());
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _appVersion = packageInfo.version);
+  }
+
   // Year is constant for the lifetime of the widget — computed once so
   // build() never allocates a DateTime on every frame.
   static final int _currentYear = DateTime.now().year;
@@ -127,10 +141,12 @@ class _AboutAppPageState extends State<AboutAppPage> {
                                 horizontal: 24,
                                 vertical: 4,
                               ),
-                              child: Text(
-                                debug
-                                    ? '${l.appVersion('1.4.4')} [${l.debugModeActiveLabel}]'
-                                    : l.appVersion('1.4.4'),
+                              child: _appVersion == null
+                                  ? const SizedBox(height: 23)
+                                  : Text(
+                                      debug
+                                          ? '${l.appVersion(_appVersion!)} [${l.debugModeActiveLabel}]'
+                                          : l.appVersion(_appVersion!),
                                 style: TextStyle(
                                   color: debug
                                       ? const Color(0xFFF92D48)

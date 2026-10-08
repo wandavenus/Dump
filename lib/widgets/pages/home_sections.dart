@@ -11,6 +11,7 @@ import '../../services/log_service.dart';
 import '../../services/media_store_service.dart';
 import '../../services/native_palette_service.dart';
 import '../../theme/app_colors.dart';
+import '../../themes/glass_navbar.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../local_song_carousel.dart';
 import '../song_artwork.dart';
@@ -29,8 +30,8 @@ class HomePageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Ruang kosong di bawah section terakhir agar tidak tertutup mini player.
-    // Mini player: 64.5 px + system bottom inset (gesture nav bar).
-    final bottomClearance = MediaQuery.paddingOf(context).bottom + 64.5;
+    // Mode pill (iOS 26) menaikkan posisi mini player — clearance menyesuaikan.
+    final bottomClearance = navBottomClearance(context);
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),

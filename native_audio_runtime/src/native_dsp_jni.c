@@ -13,7 +13,10 @@
 //
 // Ownership model:
 //   Dart  — owns lifecycle: nar_dsp_pipeline_init(), nar_gain_processor_register_internal(),
-//            all parameter control (set_gain_db, set_bypass, set_enabled), and dispose().
+//            all parameter control (set_gain_db, set_bypass, set_enabled), and dispose()
+//            (pipeline teardown via NativeDspPipeline.dispose(); the runtime-level
+//            native_runtime_dispose() is owned by NativeAudioRuntime.dispose() and is
+//            never called concurrently with pipeline processing).
 //   Kotlin — calls nar_dsp_pipeline_process_raw() on ExoPlayer's audio thread ONLY.
 //
 // Thread safety:
@@ -23,6 +26,7 @@
 
 #include <jni.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #include "dsp_pipeline.h"
 #include "native_audio_runtime.h"
@@ -52,6 +56,18 @@ Java_dev_wndavenz_music_effects_NativeDspAudioProcessor_nativeProcessFloat(
     jint    stream_slot) {
   (void)clazz;
   if (buffer == NULL) {
+    return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
+  if (frame_count <= 0 || channel_count <= 0 || sample_rate <= 0) {
+    return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
+  const int64_t required_bytes =
+      (int64_t)frame_count * (int64_t)channel_count * (int64_t)sizeof(float);
+  if (required_bytes <= 0) {
+    return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
+  const jlong capacity_bytes = (*env)->GetDirectBufferCapacity(env, buffer);
+  if (capacity_bytes < required_bytes) {
     return (jint)NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
   float* data = (float*)(*env)->GetDirectBufferAddress(env, buffer);

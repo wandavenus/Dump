@@ -4,10 +4,14 @@ import 'dart:async';
 
 import 'package:native_audio_runtime/native_audio_runtime.dart';
 
+// EqualizerParameters lives in its own file; re-exported so existing
+// `import 'playback_manager.dart'` callers keep resolving it here.
+export 'equalizer_parameters.dart';
+
+import 'equalizer_parameters.dart';
 import '../native_palette_service.dart';
 import '../../models/local_song.dart';
 import '../log_service.dart';
-import '../boot_trace.dart';
 import 'media3/media3_playback_bridge.dart';
 import '../native/bridges/native_dsp_bridge.dart';
 import '../native/bridges/ffmpeg_decoder_bridge.dart';
@@ -23,34 +27,13 @@ import '../native/native_module_registry.dart';
 // it would create part files with ~50 lines each and no reduction in coupling.
 //
 // When these sections grow enough to justify extraction, use `part`/`part of`:
-//   1. EqualizerParameters + EQ setters  → playback_manager/equalizer.dart
-//   2. Volume / duck / ReplayGain logic  → playback_manager/volume.dart
-//   3. DSP pipeline wiring               → playback_manager/dsp.dart
-//   4. Queue / shuffle / repeat helpers  → playback_manager/queue.dart
+//   1. Volume / duck / ReplayGain logic  → playback_manager/volume.dart
+//   2. DSP pipeline wiring               → playback_manager/dsp.dart
+//   3. Queue / shuffle / repeat helpers  → playback_manager/queue.dart
 //
 // Prerequisite: each section must be at least ~150 lines and have no cross-
 // section field references that would need to become shared state.
-
-// ─── Equalizer parameter type ─────────────────────────────────────────────────
-
-class EqualizerParameters {
-  final double minDecibels;
-  final double maxDecibels;
-  final int bandCount;
-
-  /// Center frequency (Hz) of each band, in band order. May be shorter than
-  /// [bandCount] or empty when the engine did not report frequencies (e.g.
-  /// before the first audio session) — callers should fall back to a
-  /// standard 5-band frequency set in that case.
-  final List<int> centerFrequenciesHz;
-
-  const EqualizerParameters({
-    required this.minDecibels,
-    required this.maxDecibels,
-    required this.bandCount,
-    this.centerFrequenciesHz = const [],
-  });
-}
+// (EqualizerParameters was already extracted to equalizer_parameters.dart.)
 
 // ─── PlaybackManager ─────────────────────────────────────────────────────────
 
@@ -128,15 +111,13 @@ class PlaybackManager {
       Media3PlaybackBridge.audioFormatStream;
   static Stream<Map<dynamic, dynamic>> get stereoWideningStream =>
       Media3PlaybackBridge.stereoWideningStream;
+  static Stream<Map<dynamic, dynamic>> get reverbStream =>
+      Media3PlaybackBridge.reverbStream;
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
   static Future<void> initialize() async {
-    BootTrace.log('ENTER PlaybackManager.initialize()');
     if (_initialized) {
-      BootTrace.log(
-        'EXIT  PlaybackManager.initialize() — already initialized, no-op',
-      );
       return;
     }
     _initialized = true;
@@ -147,9 +128,7 @@ class PlaybackManager {
     // See lib/services/native/NATIVE_BRIDGES.md and NATIVE_RUNTIME.md.
     NativeModuleRegistry.register(NativeDspBridge.instance);
     NativeModuleRegistry.register(FfmpegDecoderBridge.instance);
-    BootTrace.log('BEFORE await NativeModuleRegistry.initializeAll()');
     await NativeModuleRegistry.initializeAll();
-    BootTrace.log('AFTER  await NativeModuleRegistry.initializeAll()');
 
     // Initialize the Phase 4.5 native DSP pipeline (C-side: dsp_pipeline.c +
     // gain_processor.c). Wired into Media3's audio thread via
@@ -158,29 +137,21 @@ class PlaybackManager {
     // NativeDspAudioProcessor passes audio unchanged when the pipeline has not
     // yet been initialized (fail-open: nar_dsp_pipeline_process_raw returns
     // NATIVE_RUNTIME_ERROR_NOT_INITIALIZED without touching the buffer).
-    BootTrace.log('BEFORE try/await NativeDspPipeline.instance.initialize()');
     try {
       await NativeDspPipeline.instance.initialize();
-      BootTrace.log(
-        'AFTER  await NativeDspPipeline.instance.initialize() — ok',
-      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline initialized'
             ' (${NativeDspPipeline.instance.processorCount} processor(s))',
       );
-    } on Exception catch (e, st) {
+    } on Exception catch (e) {
       // NativeDspPipeline.initialize() may throw from FFI/dlopen failures,
       // MissingPluginException, or other platform-level errors — all non-fatal.
-      BootTrace.log(
-        'CAUGHT exception in NativeDspPipeline.instance.initialize(): $e\n$st',
-      );
       LogService.log(
         'PlaybackManager',
         'Native DSP pipeline unavailable (non-fatal): $e',
       );
     }
-
     // Subscribe to currentTrack: forward events and trigger artwork prefetch.
     _subs.add(
       Media3PlaybackBridge.currentTrackStream.listen((event) {
@@ -332,6 +303,27 @@ class PlaybackManager {
     enabled: enabled,
     strength: strength,
   );
+
+  static Future<void> setReverb({
+    required bool enabled,
+    required double intensity,
+  }) => Media3PlaybackBridge.setReverb(enabled: enabled, intensity: intensity);
+
+  /// Configures the native, speaker-focused Acoustic Engine. The audio path
+  /// remains C/JNI; this method only publishes lock-free control parameters.
+  static void setNativeAcousticEngine({
+    required bool enabled,
+    required double intensity,
+  }) {
+    if (!_dspGuard('setNativeAcousticEngine')) return;
+    NativeAcousticEngine.instance.setIntensity(intensity);
+    NativeAcousticEngine.instance.setBypass(!enabled);
+  }
+
+  static void setNativeAcousticEngineSampleRate(int sampleRate) {
+    if (!_dspGuard('setNativeAcousticEngineSampleRate')) return;
+    NativeAcousticEngine.instance.setSampleRate(sampleRate);
+  }
 
   static Future<Map<String, dynamic>?> getPlaybackStats() =>
       Media3PlaybackBridge.getPlaybackStats();
@@ -648,6 +640,37 @@ class PlaybackManager {
     );
   }
 
+  /// Apply a ReplayGain gain value to ONE DSP stream slot (NAR-4 fix).
+  ///
+  /// During crossfade the two ExoPlayer instances (slot 0 = primary, slot 1 =
+  /// standby) play concurrently with potentially different ReplayGain
+  /// metadata. Use this when the caller knows which physical stream a track
+  /// is assigned to, so each stream keeps its own track's gain during the
+  /// preload + fade-in window instead of "last-writes-wins" on a shared knob.
+  ///
+  /// [streamSlot] : 0 = primary player, 1 = standby/crossfade player.
+  ///                Out-of-range values are clamped to 0 by the native layer.
+  ///
+  /// Identical fail-open contract to [setNativeReplayGain]: returns
+  /// [NativeRuntimeStatus.notInitialized]'s index when the pipeline is
+  /// unavailable, never throws.
+  static int setNativeReplayGainForStream({
+    required int streamSlot,
+    required double gainDb,
+    double peakLinear = 0.0,
+    bool useClippingProtection = true,
+  }) {
+    if (!_dspGuard('setNativeReplayGainForStream')) {
+      return NativeRuntimeStatus.notInitialized.index;
+    }
+    return NativeReplayGain.instance.setGainForStream(
+      streamSlot: streamSlot,
+      gainDb: gainDb,
+      peakLinear: peakLinear,
+      useClippingProtection: useClippingProtection,
+    );
+  }
+
   /// Bypass (`true`) or engage (`false`) the native ReplayGain DSP processor.
   /// Thread-safe atomic store. No-op (never throws) when the pipeline is
   /// unavailable.
@@ -717,12 +740,28 @@ class PlaybackManager {
       ? NativeLoudnessNorm.instance.appliedGainDb
       : 0.0;
 
-  /// Reset the loudness analyzer and smooth gain back to unity.
-  /// Must be called on every track change so each track is measured fresh.
-  /// No-op when the pipeline is unavailable.
+  /// Reset the loudness analyzer for BOTH stream slots and smooth gain back
+  /// to unity. Used when the feature is turned off / torn down — a full
+  /// clean slate is desired. Must not be used on a track change while
+  /// crossfade is active, because it would clobber the concurrently
+  /// preloading standby stream's gating history — use
+  /// [resetNativeLoudnessNormForStream] there instead. No-op when the
+  /// pipeline is unavailable.
   static void resetNativeLoudnessNorm() {
     if (!_dspGuard('resetNativeLoudnessNorm')) return;
-    NativeLoudnessNorm.instance.reset();
+    NativeLoudnessNorm.instance.resetStream(0);
+    NativeLoudnessNorm.instance.resetStream(1);
+  }
+
+  /// Reset the loudness analyzer for ONE stream slot and smooth gain back
+  /// to unity (NAR-5 fix). Must be called on every track change so each
+  /// track is measured fresh, scoped to the physical stream the new track
+  /// actually plays on — the other stream (preloading standby or still-
+  /// fading primary) keeps its own gating history. No-op when the pipeline
+  /// is unavailable.
+  static void resetNativeLoudnessNormForStream(int streamSlot) {
+    if (!_dspGuard('resetNativeLoudnessNormForStream')) return;
+    NativeLoudnessNorm.instance.resetStream(streamSlot);
   }
 
   // ── Soft Clipper ────────────────────────────────────────────────────────
@@ -840,9 +879,13 @@ class PlaybackManager {
   static Future<void> _prefetchPalette(int songId) async {
     if (songId <= 0 || !_prefetchingSongs.add(songId)) return;
 
-    if (_activePrefetches >= _maxConcurrentPrefetches) {
-      _prefetchingSongs.remove(songId);
-      return;
+    // N3 fix: at the concurrency cap the song used to be dropped from
+    // _prefetchingSongs and never retried — the currentTrack guard
+    // (_lastPrefetchedIndex/_lastPrefetchedNextIndex) already returned for
+    // the same track, so the palette stayed a placeholder through rapid
+    // 3+ skips. Keep the song claimed and wait for a free slot instead.
+    while (_activePrefetches >= _maxConcurrentPrefetches) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
 
     _activePrefetches++;

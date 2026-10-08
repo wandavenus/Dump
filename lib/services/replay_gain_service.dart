@@ -13,14 +13,17 @@
 // Public surface: [ReplayGainService] (all static, accessed by PlaybackManager).
 
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+
 import '../models/local_song.dart';
 import '../models/loudness_data.dart';
 import 'log_service.dart';
 
 part 'replay_gain_service/service.dart';
+part 'replay_gain_service/models.dart';
 
 /// File identity used to prevent a cached or scanned value from being applied
 /// to a newer file at the same MediaStore id.

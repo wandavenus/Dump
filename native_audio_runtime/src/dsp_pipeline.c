@@ -92,7 +92,10 @@ FFI_PLUGIN_EXPORT void nar_dsp_pipeline_reset(void) {
   if (!atomic_load(&_initialized)) return;
   int32_t count = atomic_load(&_count);
   for (int32_t i = 0; i < count; i++) {
-    _slots[i].vtable->reset(_slots[i].self);
+    const NarDspProcessorVTable* vtable = _slots[i].vtable;
+    if (vtable != NULL && vtable->reset != NULL) {
+      vtable->reset(_slots[i].self);
+    }
   }
 }
 
@@ -105,7 +108,10 @@ FFI_PLUGIN_EXPORT void nar_dsp_pipeline_dispose(void) {
   {
     int32_t count = atomic_load(&_count);
     for (int32_t i = 0; i < count; i++) {
-      _slots[i].vtable->dispose(_slots[i].self);
+      const NarDspProcessorVTable* vtable = _slots[i].vtable;
+      if (vtable != NULL && vtable->dispose != NULL) {
+        vtable->dispose(_slots[i].self);
+      }
     }
     atomic_store(&_count, 0);
     memset(_slots, 0, sizeof(_slots));
@@ -119,7 +125,11 @@ FFI_PLUGIN_EXPORT void nar_dsp_pipeline_dispose(void) {
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_register_internal(
     const NarDspProcessorDescriptor* desc) {
   if (!atomic_load(&_initialized) || desc == NULL || desc->id == NULL ||
-      desc->vtable == NULL) {
+      desc->id[0] == '\0' || desc->vtable == NULL ||
+      desc->vtable->init == NULL || desc->vtable->process == NULL ||
+      desc->vtable->reset == NULL || desc->vtable->dispose == NULL ||
+      desc->vtable->latency_frames == NULL ||
+      strlen(desc->id) > NAR_PROCESSOR_ID_MAX_LEN) {
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
@@ -131,7 +141,7 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_register_internal(
 
     // Reject duplicate ids.
     for (int32_t i = 0; i < count; i++) {
-      if (strncmp(_slots[i].id, desc->id, NAR_PROCESSOR_ID_MAX_LEN) == 0) {
+      if (strcmp(_slots[i].id, desc->id) == 0) {
         result = NATIVE_RUNTIME_ERROR_DUPLICATE_MODULE;
         goto done;
       }
@@ -193,7 +203,14 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process_stream(
   int32_t first_error = NATIVE_RUNTIME_OK;
   for (int32_t i = 0; i < count; i++) {
     if (!atomic_load(&_slots[i].enabled)) continue;  // skip disabled
-    int32_t r = _slots[i].vtable->process(_slots[i].self, buffer, slot);
+    const NarDspProcessorVTable* vtable = _slots[i].vtable;
+    if (vtable == NULL || vtable->process == NULL) {
+      if (first_error == NATIVE_RUNTIME_OK) {
+        first_error = NATIVE_RUNTIME_ERROR_NOT_INITIALIZED;
+      }
+      continue;
+    }
+    int32_t r = vtable->process(_slots[i].self, buffer, slot);
     if (r != NATIVE_RUNTIME_OK && first_error == NATIVE_RUNTIME_OK) {
       first_error = r;  // remember the first failure but keep going —
                          // a single failing effect must never skip the
@@ -215,14 +232,15 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_process(NarAudioBuffer* buffer) {
 static int32_t _find_slot(const char* id) {
   int32_t count = atomic_load(&_count);
   for (int32_t i = 0; i < count; i++) {
-    if (strncmp(_slots[i].id, id, NAR_PROCESSOR_ID_MAX_LEN) == 0) return i;
+    if (strcmp(_slots[i].id, id) == 0) return i;
   }
   return -1;
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_set_enabled(
     const char* id, int32_t enabled) {
-  if (id == NULL) {
+  if (id == NULL || id[0] == '\0' ||
+      strlen(id) > NAR_PROCESSOR_ID_MAX_LEN) {
     nar_runtime_set_last_status(NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT);
     return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   }
@@ -237,7 +255,10 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_set_enabled(
 }
 
 FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_is_enabled(const char* id) {
-  if (id == NULL) return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  if (id == NULL || id[0] == '\0' ||
+      strlen(id) > NAR_PROCESSOR_ID_MAX_LEN) {
+    return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
+  }
   int32_t idx = _find_slot(id);
   if (idx < 0) return NATIVE_RUNTIME_ERROR_INVALID_ARGUMENT;
   return atomic_load(&_slots[idx].enabled);
@@ -249,7 +270,10 @@ FFI_PLUGIN_EXPORT int32_t nar_dsp_pipeline_total_latency_frames(void) {
   int32_t total = 0;
   int32_t count = atomic_load(&_count);
   for (int32_t i = 0; i < count; i++) {
-    total += _slots[i].vtable->latency_frames(_slots[i].self);
+    const NarDspProcessorVTable* vtable = _slots[i].vtable;
+    if (vtable != NULL && vtable->latency_frames != NULL) {
+      total += vtable->latency_frames(_slots[i].self);
+    }
   }
   return total;
 }

@@ -13,37 +13,23 @@ class ChangelogPage extends StatefulWidget {
 }
 
 class _ChangelogPageState extends State<ChangelogPage> {
-  final _scroll = ScrollController();
-  final _offsetNotifier = ValueNotifier<double>(0.0);
+  final Set<String> _expandedVersions = <String>{};
 
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    final offset = _scroll.offset;
-    if ((offset - _offsetNotifier.value).abs() > 0.5) {
-      _offsetNotifier.value = offset;
-    }
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    _offsetNotifier.dispose();
-    super.dispose();
+  void _toggleVersion(String version) {
+    setState(() {
+      if (!_expandedVersions.add(version)) {
+        _expandedVersions.remove(version);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: FadingTitleAppBar(
-        title: context.l10n.changelogTitle,
-        scrollOffsetListenable: _offsetNotifier,
+      appBar: AppBar(
         leading: CupertinoButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -53,33 +39,47 @@ class _ChangelogPageState extends State<ChangelogPage> {
             size: 28,
           ),
         ),
-        actions: const [],
+        title: Text(
+          context.l10n.changelogTitle,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        centerTitle: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(
+            height: 0.5,
+            color: c.separator,
+          ),
+        ),
       ),
       body: _changelogEntries.isEmpty
           ? Center(
               child: Text(
                 context.l10n.noChangelog,
                 style: TextStyle(
-                  color: AppColors.of(context).secondaryLabel,
+                  color: c.secondaryLabel,
                   fontSize: 15,
                 ),
               ),
             )
-          : SingleChildScrollView(
-              controller: _scroll,
+          : ListView.separated(
               physics: const ClampingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LargePageTitle(title: context.l10n.changelogTitle),
-                  const HeaderDivider(),
-                  const SizedBox(height: 6),
-                  for (final entry in _changelogEntries) ...[
-                    _ChangelogEntryTile(entry: entry),
-                    const SettingsDivider(),
-                  ],
-                ],
-              ),
+              padding: const EdgeInsets.only(top: 6),
+              itemCount: _changelogEntries.length,
+              separatorBuilder: (_, _) => const SettingsDivider(),
+              itemBuilder: (context, index) {
+                final entry = _changelogEntries[index];
+                return _ChangelogEntryTile(
+                  entry: entry,
+                  expanded: _expandedVersions.contains(entry.version),
+                  onToggle: () => _toggleVersion(entry.version),
+                );
+              },
             ),
     );
   }
@@ -87,58 +87,117 @@ class _ChangelogPageState extends State<ChangelogPage> {
 
 class _ChangelogEntryTile extends StatelessWidget {
   final _ChangelogEntry entry;
-  const _ChangelogEntryTile({required this.entry});
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const _ChangelogEntryTile({
+    required this.entry,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'v${entry.version}',
-                style: TextStyle(
-                  color: c.primaryLabel,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'v${entry.version}',
+                      style: TextStyle(
+                        color: c.primaryLabel,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '|',
+                      style: TextStyle(
+                        color: c.secondaryLabel,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      entry.date,
+                      style: TextStyle(
+                        color: c.secondaryLabel,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                entry.date,
-                style: TextStyle(color: c.secondaryLabel, fontSize: 14),
+              CupertinoButton(
+                padding: const EdgeInsets.all(8),
+                minimumSize: Size.zero,
+                onPressed: onToggle,
+                child: AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    CupertinoIcons.chevron_down,
+                    color: c.secondaryLabel,
+                    size: 18,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          for (final change in entry.changes)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '•  ',
-                    style: TextStyle(color: c.secondaryLabel, fontSize: 15),
-                  ),
-                  Expanded(
-                    child: Text(
-                      change,
-                      style: TextStyle(
-                        color: c.primaryLabel.withValues(alpha: 0.87),
-                        fontSize: 15,
-                        height: 1.35,
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: expanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final change in entry.changes)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '•  ',
+                                    style: TextStyle(
+                                      color: c.secondaryLabel,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      change,
+                                      style: TextStyle(
+                                        color: c.primaryLabel.withValues(alpha: 0.87),
+                                        fontSize: 15,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : const SizedBox.shrink(),
             ),
+          ),
         ],
       ),
     );

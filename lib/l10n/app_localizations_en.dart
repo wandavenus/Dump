@@ -93,12 +93,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
-  String get showUpNext => 'Show Up Next';
-
-  @override
-  String get showUpNextSubtitle => 'Next song card in player';
-
-  @override
   String get liquidGlass => 'Liquid Glass';
 
   @override
@@ -363,6 +357,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanFailed => 'Failed to scan songs';
 
   @override
+  String get rgRemoveTagsAction => 'Remove ReplayGain Tags';
+
+  @override
+  String get rgRemoveConfirmTitle => 'Remove ReplayGain Tags?';
+
+  @override
+  String get rgRemoveConfirmBody =>
+      'ReplayGain/R128 tags will be removed from every song in your library. All other metadata is preserved.';
+
+  @override
+  String get rgRemoveRunning => 'Removing ReplayGain tags...';
+
+  @override
+  String rgRemoveLibrarySuccess(int count) {
+    return '$count songs cleaned';
+  }
+
+  @override
+  String rgRemoveLibraryPartial(int removed, int failed) {
+    return '$removed cleaned, $failed failed';
+  }
+
+  @override
+  String get rgRemoveFailed => 'Failed to remove ReplayGain tags';
+
+  @override
   String get sectionEqualizer => 'EQUALIZER';
 
   @override
@@ -527,15 +547,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sleepFadeOut => 'Music will fade out slowly when the timer ends';
 
   @override
+  String get sleepFadingOut => 'Fading out…';
+
+  @override
   String get timerAfterSong => 'Timer: stop after this song';
 
   @override
   String timerDuration(String label) {
     return 'Timer: $label';
   }
-
-  @override
-  String get upNextLabel => 'UP NEXT';
 
   @override
   String get shuffleOn => 'Shuffle On';
@@ -792,7 +812,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appDescription =>
-      'Offline music player based on Flutter with Native Media3 Dual Exoplayer + Single Exoplayer Audio system.';
+      'Offline music player based on Flutter with a Native Media3 audio system.';
 
   @override
   String get releaseNotes => 'Release Notes';
@@ -989,13 +1009,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get glassToggleNavBar => 'NavBar';
 
   @override
+  String get navBarStyleSolid => 'Solid';
+
+  @override
+  String get navBarStyleGlass => 'Glass';
+
+  @override
+  String get navBarStylePill => 'Floating Pill';
+
+  @override
   String get glassToggleAppBar => 'AppBar';
 
   @override
   String get glassToggleMiniPlayer => 'Mini Player';
-
-  @override
-  String get glassToggleAlbumCard => 'Album Card';
 
   @override
   String get logLevelTitle => 'Log Level';
@@ -1318,4 +1344,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get madeByShort => 'Made by';
+
+  @override
+  String get reverb => 'Reverb';
+
+  @override
+  String get reverbDescription =>
+      'Adds a warm, spacious room reverb to the sound — dense and smooth, with no distinct repeats. Best experienced with headphones.';
+
+  @override
+  String get acousticEngine => 'Acoustic Engine';
+
+  @override
+  String get acousticEngineDescription =>
+      'Speaker-focused enhancement with controlled bass harmonics, clearer vocals, and adaptive harshness protection.';
 }

@@ -44,11 +44,6 @@ Play/pause, skip prev/next, repeat, shuffle controls.
 - All actions delegate to `AudioService` / `PlaybackManager`
 - Repeat and shuffle state come from native EventChannel stream
 
-## PlayerUpNextCard (`lib/widgets/player/player_up_next_card.dart`)
-
-Preview of next track in queue.
-- Subscribes to queue EventChannel; refreshes on track change visibility
-
 ## Player Background (`lib/widgets/player/player_background/`)
 
 | File | Role |
