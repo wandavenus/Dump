@@ -115,8 +115,8 @@ class FloatingPillNavBar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
                     colors: [
                       Colors.transparent,
                       shadowColor.withValues(alpha: 0.10),
