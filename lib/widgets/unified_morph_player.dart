@@ -581,8 +581,8 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     children: [
                                       BackdropFilter(
                                         filter: ImageFilter.blur(
-                                          sigmaX: 12,
-                                          sigmaY: 12,
+                                          sigmaX: 8,
+                                          sigmaY: 8,
                                         ),
                                         blendMode: BlendMode.srcOver,
                                         child: const ColoredBox(
