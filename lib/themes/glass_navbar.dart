@@ -140,7 +140,7 @@ class FloatingPillNavBar extends StatelessWidget {
           children: [
             ClipRect(
               child: BackdropFilter.grouped(
-                filter: _pillBlur,
+                filter: FloatingPillNavBar._pillBlur,
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
@@ -303,14 +303,14 @@ class _TrailingButton extends StatelessWidget {
         onTap: onTap,
         child: ClipOval(
           child: SizedBox(
-            width: trailingSize,
-            height: trailingSize,
+            width: FloatingPillNavBar.trailingSize,
+            height: FloatingPillNavBar.trailingSize,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 ClipRect(
                   child: BackdropFilter.grouped(
-                    filter: _pillBlur,
+                    filter: FloatingPillNavBar._pillBlur,
                     blendMode: BlendMode.srcOver,
                     child: const ColoredBox(color: Colors.transparent),
                   ),
