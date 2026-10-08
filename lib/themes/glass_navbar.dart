@@ -173,7 +173,11 @@ class FloatingPillNavBar extends StatelessWidget {
           children: [
             ClipRect(
               child: BackdropFilter.grouped(
-                filter: FloatingPillNavBar._pillBlur,
+                filterConfig: const ImageFilterConfig.blur(
+                  sigmaX: 8,
+                  sigmaY: 8,
+                  bounded: true,
+                ),
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
