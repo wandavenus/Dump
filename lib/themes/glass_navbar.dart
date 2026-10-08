@@ -355,7 +355,8 @@ class _PillItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final primary = Theme.of(context).colorScheme.primary;
-    final color = active ? primary : c.secondaryLabel;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final color = active ? primary : (isLight ? Colors.black : c.secondaryLabel);
 
     return Semantics(
       button: true,
