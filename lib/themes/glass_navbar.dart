@@ -87,9 +87,10 @@ class FloatingPillNavBar extends StatelessWidget {
   static const double trailingSize = bodyHeight;
   static const double _iconSize = 24.0;
 
-  static final ImageFilter _pillBlur = ImageFilter.blur(
+  static const ImageFilterConfig _pillBlurConfig = ImageFilterConfig.blur(
     sigmaX: 16,
     sigmaY: 16,
+    bounded: true,
   );
 
   @override
@@ -441,7 +442,7 @@ class _TrailingButton extends StatelessWidget {
               children: [
                 ClipRect(
                   child: BackdropFilter.grouped(
-                    filter: FloatingPillNavBar._pillBlur,
+                    filterConfig: FloatingPillNavBar._pillBlurConfig,
                     blendMode: BlendMode.srcOver,
                     child: const ColoredBox(color: Colors.transparent),
                   ),
