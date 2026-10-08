@@ -99,28 +99,56 @@ class FloatingPillNavBar extends StatelessWidget {
     final radius = bodyHeight / 2;
 
     return BackdropGroup(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          horizMargin,
-          0,
-          horizMargin,
-          bottomGap + safeBottom,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: _buildCapsule(context, c, radius)),
-            if (trailingIcon != null) ...[
-              const SizedBox(width: trailingGap),
-              _TrailingButton(
-                icon: trailingIcon!,
-                label: trailingLabel,
-                active: selectedIndex == icons.length,
-                onTap: () => onTap(icons.length),
+      child: Stack(
+        children: [
+          // Full-width floating shadow beneath the entire navigation area.
+          // It spans edge-to-edge rather than following the outer pill shape.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 110,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.10),
+                      Colors.black.withValues(alpha: 0.18),
+                    ],
+                    stops: const [0.0, 0.42, 1.0],
+                  ),
+                ),
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizMargin,
+              0,
+              horizMargin,
+              bottomGap + safeBottom,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: _buildCapsule(context, c, radius)),
+                if (trailingIcon != null) ...[
+                  const SizedBox(width: trailingGap),
+                  _TrailingButton(
+                    icon: trailingIcon!,
+                    label: trailingLabel,
+                    active: selectedIndex == icons.length,
+                    onTap: () => onTap(icons.length),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
