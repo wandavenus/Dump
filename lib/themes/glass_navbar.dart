@@ -34,30 +34,30 @@ class GlassNavBar extends StatelessWidget {
     return BackdropGroup(
       child: Stack(
         children: [
-        Positioned.fill(
-          child: RepaintBoundary(
-            child: ClipRect(
-              child: BackdropFilter.grouped(
-                filterConfig: const ImageFilterConfig.blur(
-                  sigmaX: 6,
-                  sigmaY: 6,
-                  bounded: true,
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter.grouped(
+                  filterConfig: const ImageFilterConfig.blur(
+                    sigmaX: 6,
+                    sigmaY: 6,
+                    bounded: true,
+                  ),
+                  blendMode: BlendMode.srcOver,
+                  child: const ColoredBox(color: Colors.transparent),
                 ),
-                blendMode: BlendMode.srcOver,
-                child: const ColoredBox(color: Colors.transparent),
               ),
             ),
           ),
-        ),
-        Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 0.5,
-          child: ColoredBox(color: c.glassBorderTint),
-        ),
-        child,
+          Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 0.5,
+            child: ColoredBox(color: c.glassBorderTint),
+          ),
+          child,
         ],
       ),
     );
