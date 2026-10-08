@@ -97,6 +97,9 @@ class FloatingPillNavBar extends StatelessWidget {
     final c = AppColors.of(context);
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final radius = bodyHeight / 2;
+    final shadowColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.black
+        : Colors.white;
 
     return BackdropGroup(
       child: Stack(
@@ -116,14 +119,8 @@ class FloatingPillNavBar extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      (Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black
-                              : Colors.white)
-                          .withValues(alpha: 0.10),
-                      (Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black
-                              : Colors.white)
-                          .withValues(alpha: 0.18),
+                      shadowColor.withValues(alpha: 0.10),
+                      shadowColor.withValues(alpha: 0.18),
                     ],
                     stops: const [0.0, 0.42, 1.0],
                   ),
