@@ -31,13 +31,18 @@ class GlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    return Stack(
+    return BackdropGroup(
+      child: Stack(
       children: [
         Positioned.fill(
           child: RepaintBoundary(
             child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: BackdropFilter.grouped(
+                filterConfig: const ImageFilterConfig.blur(
+                  sigmaX: 6,
+                  sigmaY: 6,
+                  bounded: true,
+                ),
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
@@ -54,6 +59,7 @@ class GlassNavBar extends StatelessWidget {
         ),
         child,
       ],
+      ),
     );
   }
 }
@@ -88,8 +94,8 @@ class FloatingPillNavBar extends StatelessWidget {
   static const double _iconSize = 24.0;
 
   static const ImageFilterConfig _pillBlurConfig = ImageFilterConfig.blur(
-    sigmaX: 16,
-    sigmaY: 16,
+    sigmaX: 6,
+    sigmaY: 6,
     bounded: true,
   );
 
@@ -175,8 +181,8 @@ class FloatingPillNavBar extends StatelessWidget {
             ClipRect(
               child: BackdropFilter.grouped(
                 filterConfig: const ImageFilterConfig.blur(
-                  sigmaX: 16,
-                  sigmaY: 16,
+                  sigmaX: 6,
+                  sigmaY: 6,
                   bounded: true,
                 ),
                 blendMode: BlendMode.srcOver,
