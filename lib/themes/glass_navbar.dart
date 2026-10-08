@@ -37,7 +37,7 @@ class GlassNavBar extends StatelessWidget {
           child: RepaintBoundary(
             child: ClipRect(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
@@ -88,8 +88,8 @@ class FloatingPillNavBar extends StatelessWidget {
   static const double _iconSize = 24.0;
 
   static final ImageFilter _pillBlur = ImageFilter.blur(
-    sigmaX: 12,
-    sigmaY: 12,
+    sigmaX: 8,
+    sigmaY: 8,
   );
 
   @override
