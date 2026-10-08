@@ -161,19 +161,7 @@ class FloatingPillNavBar extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: bodyHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 20,
-              spreadRadius: 0,
-              offset: const Offset(0, 9),
-            ),
-          ],
-        ),
-        child: ClipRRect(
+      child: ClipRRect(
           borderRadius: BorderRadius.circular(radius),
           child: Stack(
             fit: StackFit.expand,
