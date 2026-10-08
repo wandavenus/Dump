@@ -197,6 +197,7 @@ class FloatingPillNavBar extends StatelessWidget {
       ),
     );
   }
+}
 
 class _PillItems extends StatelessWidget {
   final int selectedIndex;
