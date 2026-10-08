@@ -354,7 +354,6 @@ class _PillItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final color = active ? primary : (isLight ? Colors.black : Colors.white);
