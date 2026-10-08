@@ -165,9 +165,9 @@ class FloatingPillNavBar extends StatelessWidget {
       width: double.infinity,
       height: bodyHeight,
       child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Stack(
-            fit: StackFit.expand,
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
             ClipRect(
               child: BackdropFilter.grouped(
@@ -192,13 +192,11 @@ class FloatingPillNavBar extends StatelessWidget {
               labels: labels,
               semanticsLabels: semanticsLabels,
             ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
-}
 
 class _PillItems extends StatelessWidget {
   final int selectedIndex;
