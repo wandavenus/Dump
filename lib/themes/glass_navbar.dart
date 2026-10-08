@@ -33,7 +33,7 @@ class GlassNavBar extends StatelessWidget {
     final c = AppColors.of(context);
     return BackdropGroup(
       child: Stack(
-      children: [
+        children: [
         Positioned.fill(
           child: RepaintBoundary(
             child: ClipRect(
@@ -58,7 +58,7 @@ class GlassNavBar extends StatelessWidget {
           child: ColoredBox(color: c.glassBorderTint),
         ),
         child,
-      ],
+        ],
       ),
     );
   }
