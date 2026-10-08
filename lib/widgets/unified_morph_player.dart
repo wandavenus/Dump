@@ -580,23 +580,23 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
-                                      BackdropFilter.grouped(
-                                        filterConfig: const ImageFilterConfig.blur(
-                                          sigmaX: 6,
-                                          sigmaY: 6,
-                                          bounded: true,
+                                        BackdropFilter.grouped(
+                                          filterConfig: const ImageFilterConfig.blur(
+                                            sigmaX: 6,
+                                            sigmaY: 6,
+                                            bounded: true,
+                                          ),
+                                          blendMode: BlendMode.srcOver,
+                                          child: const ColoredBox(
+                                            color: Colors.transparent,
+                                          ),
                                         ),
-                                        blendMode: BlendMode.srcOver,
-                                        child: const ColoredBox(
-                                          color: Colors.transparent,
-                                        ),
-                                      ),
-                                      ColoredBox(color: c.glassFillTint),
-                                    ],
+                                        ColoredBox(color: c.glassFillTint),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
+                              );
                             }
                             return ColoredBox(
                               color: AppColors.of(context).surface,
