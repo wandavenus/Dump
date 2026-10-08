@@ -241,8 +241,6 @@ class _FirstPageState extends State<FirstPage> {
                                           FloatingPillNavBar.bottomGap +
                                           safeBottom
                                     : (useGlassNavBar ? 70.0 : 71.5);
-                                final sh = MediaQuery.sizeOf(context).height;
-
                                 // Direct-manipulation path: keep the navbar
                                 // spatially linear with sheet progress. A curved
                                 // mapping changes velocity while the finger moves,
