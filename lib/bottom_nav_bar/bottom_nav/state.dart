@@ -187,9 +187,8 @@ class _FirstPageState extends State<FirstPage> {
                             ),
                           ),
                         ),
-                        bottomNavigationBar: ValueListenableBuilder<double>(
-                          valueListenable: PlayerSheetController.progress,
-                          builder: (context, progress, _) {
+                        bottomNavigationBar: Builder(
+                          builder: (context) {
                             final column = Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -202,40 +201,14 @@ class _FirstPageState extends State<FirstPage> {
                               ],
                             );
 
-                            // Ikuti jari 1:1: progress = drag_px / (sh × 0.55),
-                            // jadi drag_px ≈ progress × sh × 0.55.
-                            // Clamp ke tinggi navbar agar tidak melewati bawah layar.
-                            // Pill ikut margin bawahnya, jadi slide maksimalnya
-                            // mencakup body + gap + inset agar benar-benar hilang.
-                            final safeBottom = MediaQuery.paddingOf(
-                              context,
-                            ).bottom;
-                            final navH = isPill
-                                ? FloatingPillNavBar.bodyHeight +
-                                      FloatingPillNavBar.bottomGap +
-                                      safeBottom
-                                : (useGlassNavBar ? 70.0 : 71.5);
-                            final sh = MediaQuery.sizeOf(context).height;
-                            // Kurva deselerasi dua-segmen:
-                            // [0, 0.75] : f(p) = p − 0.5p²  → f'(0)=1, f'(0.5)=0.5, f'(0.75)=0.25
-                            // [0.75, 1] : kuadratik lebih curam → f'(0.75)=0.25 turun ke 0.05 di p=1
-                            const double b75 =
-                                0.75 - 0.5 * 0.75 * 0.75; // 0.46875
-                            final double curved;
-                            if (progress < 0.75) {
-                              curved = progress - 0.5 * progress * progress;
-                            } else {
-                              final e = progress - 0.75;
-                              curved = b75 + 0.25 * e - 0.4 * e * e;
-                            }
-                            final slide = (curved * sh * 0.17).clamp(0.0, navH);
+                            // Keep the expensive glass widget tree stable while
+                            // the sheet is dragged. Only its transform should
+                            // update per frame.
                             final Widget bottomChild;
                             if (isPill) {
                               bottomChild = FloatingPillNavBar(
                                 selectedIndex: _selectedIndex,
                                 onTap: _navgateBottomBar,
-                                // Kapsul utama: 4 tab berlabel. Search terpisah
-                                // sebagai tombol bundar (trailing) di kanan.
                                 icons: const [
                                   Icons.home_filled,
                                   Icons.grid_view_rounded,
@@ -256,9 +229,40 @@ class _FirstPageState extends State<FirstPage> {
                                   ? GlassNavBar(child: column)
                                   : column;
                             }
-                            return Transform.translate(
-                              offset: Offset(0, slide),
+
+                            return ValueListenableBuilder<double>(
+                              valueListenable: PlayerSheetController.progress,
                               child: bottomChild,
+                              builder: (context, progress, child) {
+                                final safeBottom =
+                                    MediaQuery.paddingOf(context).bottom;
+                                final navH = isPill
+                                    ? FloatingPillNavBar.bodyHeight +
+                                          FloatingPillNavBar.bottomGap +
+                                          safeBottom
+                                    : (useGlassNavBar ? 70.0 : 71.5);
+                                final sh = MediaQuery.sizeOf(context).height;
+
+                                // Same motion curve as before; only the
+                                // translation is recomputed during the drag.
+                                const double b75 =
+                                    0.75 - 0.5 * 0.75 * 0.75;
+                                final double curved;
+                                if (progress < 0.75) {
+                                  curved =
+                                      progress - 0.5 * progress * progress;
+                                } else {
+                                  final e = progress - 0.75;
+                                  curved = b75 + 0.25 * e - 0.4 * e * e;
+                                }
+                                final slide =
+                                    (curved * sh * 0.17).clamp(0.0, navH);
+
+                                return Transform.translate(
+                                  offset: Offset(0, slide),
+                                  child: child,
+                                );
+                              },
                             );
                           },
                         ),
