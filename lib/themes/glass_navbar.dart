@@ -5,19 +5,8 @@ import 'package:musicplayer/theme/app_colors.dart';
 import 'package:musicplayer/themes/app_theme_extension.dart';
 import 'package:musicplayer/themes/theme_controller.dart';
 
-/// Tinggi mini player (mode mini) — dipakai clearance konten scroll dan
-/// geometri mini player di `unified_morph_player.dart`.
 const double kMiniPlayerHeight = 64.5;
 
-/// Ruang kosong di bawah konten scroll agar item terakhir tidak tertutup
-/// mini player. Clearance menghitung sampai TOP mini player (bukan
-/// bottom-nya — mini player setinggi [kMiniPlayerHeight]):
-///
-/// - Mode non-pill: mini player beristirahat di navBarH (53.8 glass /
-///   55.1 solid) + inset layar, jadi clearance = navBarH + miniH + 10.7.
-/// - Mode pill (iOS 26): mini player mengambang sebagai kapsul di atas
-///   navbar (body 62 + gap 10 + miniPlayerGap 10 + inset), jadi clearance
-///   = body + gap + miniPlayerGap + miniH + 10.7.
 double navBottomClearance(BuildContext context) {
   final safeBottom = MediaQuery.paddingOf(context).bottom;
   final isGlass = ThemeController.glassTheme.value;
@@ -30,9 +19,6 @@ double navBottomClearance(BuildContext context) {
         safeBottom +
         10.7;
   }
-  // Strip glass menghilangkan separator 1.5px di atas bar (70 vs 71.5),
-  // jadi navBarH turun 1.5px — konsisten dengan _buildMorph di
-  // unified_morph_player.dart.
   final navBarH = isGlass && navStyle != NavBarStyle.solid ? 53.8 : 55.1;
   return navBarH + kMiniPlayerHeight + safeBottom + 10.7;
 }
@@ -47,15 +33,10 @@ class GlassNavBar extends StatelessWidget {
     final c = AppColors.of(context);
     return Stack(
       children: [
-        // RepaintBoundary isolates the BackdropFilter so it is not
-        // recomposited when navigation items or overlying widgets change.
         Positioned.fill(
           child: RepaintBoundary(
             child: ClipRect(
               child: BackdropFilter(
-                // Keep the backdrop radius modest: this filter is recomputed
-                // while content scrolls behind the navbar. A large sigma is
-                // disproportionately expensive on the target Snapdragon 730.
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
@@ -63,14 +44,13 @@ class GlassNavBar extends StatelessWidget {
             ),
           ),
         ),
-        // Tint netral penstabil — bg glass tidak meniru warna konten halaman.
         Positioned.fill(child: ColoredBox(color: c.glassFillTint)),
         Positioned(
           top: 0,
           left: 0,
           right: 0,
           height: 0.5,
-          child: Container(color: c.glassBorderTint),
+          child: ColoredBox(color: c.glassBorderTint),
         ),
         child,
       ],
@@ -79,25 +59,13 @@ class GlassNavBar extends StatelessWidget {
 }
 
 /// Navbar kapsul apung gaya iOS 26 (Liquid Glass).
-///
-/// Kapsul utama berisi item navigasi dengan blob apung di belakang ikon tab
-/// aktif, dan opsional sebuah tombol bundar terpisah (trailing, mis. ikon
-/// Search) yang mengambang di sebelah kanan dengan material glass yang sama.
 class FloatingPillNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final List<IconData> icons;
-
-  /// Label visual per item; `null` = tanpa label.
   final List<String?> labels;
-
-  /// Label untuk screen reader — harus selalu lengkap walau label visual `null`.
   final List<String>? semanticsLabels;
-
-  /// Ikon tombol trailing terpisah (mis. Search). Indeksnya = [icons.length].
   final IconData? trailingIcon;
-
-  /// Nama tombol trailing untuk screen reader.
   final String? trailingLabel;
 
   const FloatingPillNavBar({
@@ -111,31 +79,14 @@ class FloatingPillNavBar extends StatelessWidget {
     this.trailingLabel,
   });
 
-  /// Tinggi badan kapsul (area ikon + label).
   static const double bodyHeight = 62.0;
-
-  /// Margin kiri/kanan dari tepi layar.
   static const double horizMargin = 14.0;
-
-  /// Jarak apung dari tepi bawah layar (di atas home indicator).
   static const double bottomGap = 10.0;
-
-  /// Jarak vertikal antara mini player (mode pill) dan tepi atas kapsul
-  /// navbar — mini player mengambang, tidak menempel ke navbar.
   static const double miniPlayerGap = 10.0;
-
-  /// Jarak antara kapsul utama dan tombol bundar terpisah.
   static const double trailingGap = 10.0;
-
-  /// Diameter tombol bundar terpisah — disamakan dengan tinggi kapsul agar
-  /// konsisten dengan pill 4 tab (tepi atas/bawah sejajar).
   static const double trailingSize = bodyHeight;
-
   static const double _iconSize = 24.0;
 
-  // Shared by the two glass surfaces. BackdropFilter.grouped() lets the
-  // renderer sample the backdrop once for the pill + trailing button instead
-  // of running two independent blur passes on every translated frame.
   static final ImageFilter _pillBlur = ImageFilter.blur(
     sigmaX: 12,
     sigmaY: 12,
@@ -156,19 +107,19 @@ class FloatingPillNavBar extends StatelessWidget {
           bottomGap + safeBottom,
         ),
         child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(child: _buildCapsule(context, c, radius)),
-          if (trailingIcon != null) ...[
-            const SizedBox(width: trailingGap),
-            _TrailingButton(
-              icon: trailingIcon!,
-              label: trailingLabel,
-              active: selectedIndex == icons.length,
-              onTap: () => onTap(icons.length),
-            ),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: _buildCapsule(context, c, radius)),
+            if (trailingIcon != null) ...[
+              const SizedBox(width: trailingGap),
+              _TrailingButton(
+                icon: trailingIcon!,
+                label: trailingLabel,
+                active: selectedIndex == icons.length,
+                onTap: () => onTap(icons.length),
+              ),
+            ],
           ],
-        ],
         ),
       ),
     );
@@ -179,31 +130,22 @@ class FloatingPillNavBar extends StatelessWidget {
     AppThemeExtension c,
     double radius,
   ) {
-    // Ukuran eksplisit WAJIB: tanpa SizedBox ini kapsul meledak ke seluruh
-    // tinggi layar dan menutupi seluruh app (tidak bisa disentuh + navbar
-    // hilang).
     return SizedBox(
       width: double.infinity,
-      height: FloatingPillNavBar.bodyHeight,
+      height: bodyHeight,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        // Glass = blur backdrop + tint netral penstabil + border hairline.
-        // Struktur DISAMAKAN dengan mini player & search circle: StackFit.expand
-        // + tanpa Positioned.fill wrappers agar BackdropFilter dan
-        // ColoredBox(glassFillTint) fill area capsule secara identik.
         child: Stack(
           fit: StackFit.expand,
           children: [
             ClipRect(
               child: BackdropFilter.grouped(
-                filter: FloatingPillNavBar._pillBlur,
+                filter: _pillBlur,
                 blendMode: BlendMode.srcOver,
                 child: const ColoredBox(color: Colors.transparent),
               ),
             ),
-            // Tint netral penstabil — sama dengan mini player pill.
             ColoredBox(color: c.glassFillTint),
-            // Border kaca tipis.
             IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -286,6 +228,7 @@ class _PillItem extends StatelessWidget {
     final c = AppColors.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     final color = active ? primary : c.secondaryLabel;
+
     return Semantics(
       button: true,
       selected: active,
@@ -293,36 +236,47 @@ class _PillItem extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: FloatingPillNavBar._iconSize, color: color),
-            if (label != null) ...[
-              const SizedBox(height: 3),
-              // Auto-shrink label agar kata panjang (mis. "Perpustakaan") tetap
-              // utuh dan tidak terpotong/ellipsis di slot sempit.
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label!,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: color,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 5),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: active ? c.glassActiveLens : Colors.transparent,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(FloatingPillNavBar._iconSize == 24
+                      ? icon
+                      : icon, size: FloatingPillNavBar._iconSize, color: color),
+                  if (label != null) ...[
+                    const SizedBox(height: 3),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label!,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: color,
+                          fontWeight:
+                              active ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Tombol bundar terpisah (mis. ikon Search) dengan material glass yang sama
-/// dengan kapsul utama.
 class _TrailingButton extends StatelessWidget {
   final IconData icon;
   final String? label;
@@ -348,24 +302,19 @@ class _TrailingButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: ClipOval(
-          // Sama seperti kapsul: transparan murni (blur backdrop + border).
-          // SizedBox eksplisit juga wajib di sini — Stack tanpa ukuran
-          // mengembalikan constraints.biggest dan tombol meledak ke layar
-          // penuh (regresi yang sama dengan kapsul).
           child: SizedBox(
-            width: FloatingPillNavBar.trailingSize,
-            height: FloatingPillNavBar.trailingSize,
+            width: trailingSize,
+            height: trailingSize,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 ClipRect(
                   child: BackdropFilter.grouped(
-                    filter: FloatingPillNavBar._pillBlur,
+                    filter: _pillBlur,
                     blendMode: BlendMode.srcOver,
                     child: const ColoredBox(color: Colors.transparent),
                   ),
                 ),
-                // Tint netral penstabil — sama dengan kapsul.
                 ColoredBox(color: c.glassFillTint),
                 DecoratedBox(
                   decoration: BoxDecoration(
