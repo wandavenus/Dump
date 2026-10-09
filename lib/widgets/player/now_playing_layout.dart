@@ -129,15 +129,22 @@ class NowPlayingPanelMetrics {
 NowPlayingPanelMetrics nowPlayingPanelMetrics(double panelHeight) {
   final available = math.max(panelHeight - kNowPlayingSecondaryStrip, 0.0);
 
-  final double transportScale;
-  if (panelHeight >= 300) {
-    transportScale = 1.0;
-  } else if (panelHeight >= 230) {
-    transportScale = 0.86;
-  } else {
-    transportScale = 0.72;
-  }
+  final preferredScale = panelHeight >= 300
+      ? 1.0
+      : panelHeight >= 230
+      ? 0.86
+      : 0.72;
 
+  // Keep at least 2 px between control groups, then shrink the transport
+  // controls further if a very short window cannot fit the preferred size.
+  final maxTransportHeight = math.max(
+    available - _kPanelHeaderHeight - _kPanelProgressHeight - 4.0,
+    0.0,
+  );
+  final transportScale = math.min(
+    preferredScale,
+    maxTransportHeight / _kPanelTransportHeight,
+  ).clamp(0.0, 1.0);
   final fixed =
       _kPanelHeaderHeight +
       _kPanelProgressHeight +
