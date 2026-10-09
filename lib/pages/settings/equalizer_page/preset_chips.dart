@@ -1,15 +1,9 @@
 part of '../equalizer_page.dart';
 
-// ─── EQ Preset Chips ──────────────────────────────────────────────────────────
+// ─── EQ Presets ────────────────────────────────────────────────────────────────
 //
-// Menampilkan preset EQ sebagai chip horizontal yang bisa di-scroll.
-// Preset didefinisikan di AudioEffectsService.eqPresets (Flat, Classical,
-// Dance, Folk, Heavy Metal, Hip-Hop, Jazz, Pop, Rock, dll.)
-//
-// Audit native: Android Equalizer memiliki getNumberOfPresets()/getPresetName()
-// tetapi variasi antar device sangat besar dan tidak reliable. Project ini
-// menggunakan kurva gain custom (AudioEffectsService.eqPresets) yang dikirim
-// ke native via setBandLevel() — lebih konsisten lintas device.
+// Native Cupertino sliding segmented control. The preset list stays horizontally
+// scrollable because ten segments do not fit comfortably on a phone screen.
 
 class _EqPresetChips extends StatelessWidget {
   const _EqPresetChips();
@@ -24,93 +18,67 @@ class _EqPresetChips extends StatelessWidget {
         _SectionLabel(context.l10n.preset),
         const SizedBox(height: 10),
         SizedBox(
-          height: 36,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            physics: const ClampingScrollPhysics(),
-            itemCount: presets.length,
-            itemBuilder: (_, i) {
-              return Padding(
-                padding: EdgeInsets.only(right: i < presets.length - 1 ? 8 : 0),
-                child: _PresetChip(index: i),
+          height: 38,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: AudioEffectsService.equalizerEnabled,
+            builder: (_, enabled, _) {
+              return ValueListenableBuilder<int>(
+                valueListenable: AudioEffectsService.eqPreset,
+                builder: (_, currentPreset, _) {
+                  final colors = AppColors.of(context);
+                  final children = <int, Widget>{
+                    for (var i = 0; i < presets.length; i++)
+                      i: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          presets[i]['name'] as String,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: currentPreset == i
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: currentPreset == i
+                                ? Colors.white
+                                : enabled
+                                ? colors.primaryLabel
+                                : colors.primaryLabel.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                  };
+
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    physics: const ClampingScrollPhysics(),
+                    child: CupertinoSlidingSegmentedControl<int>(
+                      groupValue: currentPreset >= 0 &&
+                              currentPreset < presets.length
+                          ? currentPreset
+                          : null,
+                      children: children,
+                      onValueChanged: enabled
+                          ? (index) {
+                              if (index != null) {
+                                AudioEffectsService.applyEqPreset(index);
+                              }
+                            }
+                          : null,
+                      thumbColor: const Color(0xFFF92D48),
+                      backgroundColor:
+                          colors.primaryLabel.withValues(alpha: 0.08),
+                      padding: const EdgeInsets.all(3),
+                    ),
+                  );
+                },
               );
             },
           ),
         ),
         const SizedBox(height: 4),
       ],
-    );
-  }
-}
-
-class _PresetChip extends StatelessWidget {
-  const _PresetChip({required this.index});
-
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = AudioEffectsService.eqPresets[index]['name'] as String;
-    final c = AppColors.of(context);
-
-    return ValueListenableBuilder<bool>(
-      valueListenable: AudioEffectsService.equalizerEnabled,
-      builder: (_, enabled, _) {
-        return ValueListenableBuilder<int>(
-          valueListenable: AudioEffectsService.eqPreset,
-          builder: (_, currentPreset, _) {
-            final isSelected = currentPreset == index;
-            final accent = const Color(0xFFF92D48);
-            final backgroundColor = isSelected
-                ? accent
-                : enabled
-                ? c.primaryLabel.withValues(alpha: 0.09)
-                : c.primaryLabel.withValues(alpha: 0.04);
-            final borderColor = isSelected
-                ? accent
-                : enabled
-                ? c.primaryLabel.withValues(alpha: 0.12)
-                : c.primaryLabel.withValues(alpha: 0.05);
-
-            return Container(
-              height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor, width: 1),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(19),
-                child: CupertinoButton(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minSize: 34,
-                  alignment: Alignment.center,
-                  borderRadius: BorderRadius.circular(19),
-                  color: backgroundColor,
-                  disabledColor: backgroundColor,
-                  pressedOpacity: 0.55,
-                  onPressed: enabled
-                      ? () => AudioEffectsService.applyEqPreset(index)
-                      : null,
-                  child: Text(
-                    name,
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : enabled
-                          ? c.primaryLabel.withValues(alpha: 0.85)
-                          : c.primaryLabel.withValues(alpha: 0.35),
-                      fontSize: 13,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }
