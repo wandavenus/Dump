@@ -182,6 +182,7 @@ void main() {
   group('nowPlayingPanelMetrics', () {
     test('header + progress + transport always fit the panel', () {
       for (final size in const [
+        Size(600, 280),
         Size(600, 320),
         Size(640, 360),
         Size(800, 360),
