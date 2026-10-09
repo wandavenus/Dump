@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:musicplayer/extensions/localization_extension.dart';
 
 import '../../models/local_song.dart';
+import '../../utils/responsive.dart';
 import '../../utils/constants.dart';
 import '../../services/artwork_repository.dart';
 import '../../services/audio_service.dart';

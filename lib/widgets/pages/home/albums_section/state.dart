@@ -69,10 +69,18 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
 
   @override
   Widget build(BuildContext context) {
+    // Tinggi kartu mengikuti tinggi window: penuh di potret, menyusut di
+    // window pendek (lanskap) supaya satu baris kartu tidak menghabiskan
+    // seluruh tinggi layar. Lebar kartu ikut menyusut agar proporsinya tetap.
+    final artworkHeight =
+        _AlbumCard.fullArtworkHeight * shortWindowScale(context);
+    final sectionHeight =
+        artworkHeight + _AlbumCard.infoHeight + _AlbumCard.chromeHeight;
+
     if (_isLoading) {
-      return const SizedBox(
-        height: 368,
-        child: Center(child: CircularProgressIndicator()),
+      return SizedBox(
+        height: sectionHeight,
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_albums.isEmpty) return const SizedBox.shrink();
@@ -88,7 +96,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
           ),
         ),
         SizedBox(
-          height: 368,
+          height: sectionHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(kListLeftPadding, 2, 10, 10),
@@ -96,6 +104,7 @@ class _LocalAlbumsSectionState extends State<_LocalAlbumsSection> {
             itemBuilder: (context, index) => _AlbumCard(
               album: _albums[index],
               caption: _captionFor(context, index),
+              artworkHeight: artworkHeight,
             ),
           ),
         ),

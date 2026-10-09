@@ -29,6 +29,9 @@ class _FrequentSongsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Lebar tile dijaga mendekati ukuran potret: 2 kolom di potret, lebih
+    // banyak kolom di window lebar.
+    final columns = responsiveColumns(context, targetTileWidth: 190);
     return FutureBuilder<Map<String, dynamic>>(
       future: countsFuture,
       builder: (context, snapshot) {
@@ -48,17 +51,15 @@ class _FrequentSongsView extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 12, 16, bottomClearance),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, rowIndex) {
-                  final firstIndex = rowIndex * 2;
-                  final first = sorted[firstIndex];
-                  final firstSongIndex = songs.indexOf(first);
-                  final firstCount = (counts[first.id.toString()] ?? 0) as num;
-                  final secondIndex = firstIndex + 1;
+                  final rowStart = rowIndex * columns;
 
-                  Widget tile(LocalSong song, num count, int songIndex) {
+                  Widget tile(LocalSong song, int column) {
+                    final songIndex = songs.indexOf(song);
+                    final count = (counts[song.id.toString()] ?? 0) as num;
                     return _PlaylistBannerCard(
                       song: song,
                       playCount: count.toInt(),
-                      height: _tileHeight(rowIndex, songIndex == secondIndex),
+                      height: _tileHeight(rowIndex, column),
                       onTap: () => onPlay(songs, songIndex),
                       onLongPress: () =>
                           onLongPress(context, song, songs, songIndex),
@@ -70,25 +71,19 @@ class _FrequentSongsView extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: tile(first, firstCount, firstSongIndex),
-                        ),
-                        const SizedBox(width: 12),
-                        if (secondIndex < sorted.length)
-                          Expanded(
-                            child: tile(
-                              sorted[secondIndex],
-                              (counts[sorted[secondIndex].id.toString()] ?? 0)
-                                  as num,
-                              songs.indexOf(sorted[secondIndex]),
-                            ),
-                          )
-                        else
-                          const Expanded(child: SizedBox()),
+                        for (var column = 0; column < columns; column++) ...[
+                          if (column > 0) const SizedBox(width: 12),
+                          if (rowStart + column < sorted.length)
+                            Expanded(
+                              child: tile(sorted[rowStart + column], column),
+                            )
+                          else
+                            const Expanded(child: SizedBox()),
+                        ],
                       ],
                     ),
                   );
-                }, childCount: (sorted.length + 1) ~/ 2),
+                }, childCount: (sorted.length + columns - 1) ~/ columns),
               ),
             ),
           ],
@@ -98,7 +93,9 @@ class _FrequentSongsView extends StatelessWidget {
   }
 
   /// Fixed pattern keeps the "random" tile sizes stable during rebuilds.
-  double _tileHeight(int row, bool secondTile) {
+  /// [column] bergantian antara pola tinggi pertama dan kedua sehingga kolom
+  /// genap selalu lebih tinggi dari kolom ganjil pada baris yang sama.
+  double _tileHeight(int row, int column) {
     const patterns = <List<double>>[
       [196, 148],
       [148, 196],
@@ -106,6 +103,6 @@ class _FrequentSongsView extends StatelessWidget {
       [212, 156],
       [156, 212],
     ];
-    return patterns[row % patterns.length][secondTile ? 1 : 0];
+    return patterns[row % patterns.length][column % 2];
   }
 }

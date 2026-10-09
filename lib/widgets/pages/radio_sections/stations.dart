@@ -9,6 +9,9 @@ enum _SmartType { favorites }
 
 final List<_SmartType> _smartCardTypes = [_SmartType.favorites];
 
+/// Jumlah slot artwork pada grid kartu smart playlist (favorit).
+const int _smartGridItemCount = 6;
+
 // ─── Smart playlist card (loads artwork ids async) ────────────────────────────
 
 class _SmartPlaylistCardWidget extends StatefulWidget {
@@ -90,11 +93,19 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
             ],
           ),
           const SizedBox(height: 12),
-          // ── 3×2 artwork grid ──────────────────────────────────────────────
+          // ── Artwork grid — 3×2 di potret, satu baris penuh di window lebar ──
           LayoutBuilder(
             builder: (ctx, constraints) {
-              const crossCount = 3;
               const spacing = 15.0;
+              // Lebar cell dijaga ~130 px: 3 kolom di potret, hingga 6 kolom
+              // (satu baris) di window lebar sehingga tidak ada ruang kosong
+              // atau tile raksasa.
+              final crossCount = responsiveColumns(
+                context,
+                targetTileWidth: 130,
+                minColumns: 3,
+                maxColumns: 6,
+              );
               final itemSize =
                   (constraints.maxWidth - spacing * (crossCount - 1)) /
                   crossCount;
@@ -119,27 +130,20 @@ class _SmartPlaylistCardWidgetState extends State<_SmartPlaylistCardWidget> {
                 );
               }
 
+              final rowCount = (_smartGridItemCount / crossCount).ceil();
               return Column(
                 children: [
-                  Row(
-                    children: [
-                      cell(0),
-                      const SizedBox(width: spacing),
-                      cell(1),
-                      const SizedBox(width: spacing),
-                      cell(2),
-                    ],
-                  ),
-                  const SizedBox(height: spacing),
-                  Row(
-                    children: [
-                      cell(3),
-                      const SizedBox(width: spacing),
-                      cell(4),
-                      const SizedBox(width: spacing),
-                      cell(5),
-                    ],
-                  ),
+                  for (var row = 0; row < rowCount; row++) ...[
+                    if (row > 0) const SizedBox(height: spacing),
+                    Row(
+                      children: [
+                        for (var col = 0; col < crossCount; col++) ...[
+                          if (col > 0) const SizedBox(width: spacing),
+                          cell(row * crossCount + col),
+                        ],
+                      ],
+                    ),
+                  ],
                 ],
               );
             },

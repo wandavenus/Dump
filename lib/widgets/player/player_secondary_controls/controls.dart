@@ -7,6 +7,10 @@ class PlayerSecondaryControls extends StatelessWidget {
   final bool showQueue;
   final VoidCallback onQueueToggle;
 
+  /// Jarak antara tombol lirik dan tombol antrean. 160 = nilai desain asli;
+  /// tata letak dua kolom pada window sempit memakai nilai lebih kecil.
+  final double spacing;
+
   const PlayerSecondaryControls({
     super.key,
     required this.song,
@@ -14,6 +18,7 @@ class PlayerSecondaryControls extends StatelessWidget {
     required this.onLyricsToggle,
     required this.showQueue,
     required this.onQueueToggle,
+    this.spacing = 160,
   });
 
   @override
@@ -24,7 +29,7 @@ class PlayerSecondaryControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _LyricsToggleButton(active: showLyrics, onTap: onLyricsToggle),
-          const SizedBox(width: 160),
+          SizedBox(width: spacing),
           _QueueToggleButton(active: showQueue, onTap: onQueueToggle),
         ],
       ),

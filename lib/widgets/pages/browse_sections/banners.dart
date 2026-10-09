@@ -6,15 +6,23 @@ class BrowseBannerCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Banner tetap proporsional di window pendek (lanskap): hanya artwork yang
+    // menyusut, ukuran teks tidak berubah sehingga tidak ada judul terpotong.
+    final scale = shortWindowScale(context);
+    final artworkWidth = _kArtworkWidth * scale;
+    final artworkHeight = _kArtworkHeight * scale;
+    final sectionHeight =
+        _kHeaderHeight + artworkHeight + _kVerticalSlack * scale;
+
     if (songs.isEmpty) {
-      return const SizedBox(
-        height: 350,
-        child: Center(child: SizedBox.shrink()),
+      return SizedBox(
+        height: sectionHeight,
+        child: const Center(child: SizedBox.shrink()),
       );
     }
 
     return SizedBox(
-      height: 350,
+      height: sectionHeight,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 6),
@@ -74,8 +82,8 @@ class BrowseBannerCarousel extends StatelessWidget {
                       ),
                       child: _BannerArtwork(
                         songId: song.id,
-                        width: 1080 / 3,
-                        height: 720 / 3,
+                        width: artworkWidth,
+                        height: artworkHeight,
                       ),
                     ),
                   ),
@@ -88,6 +96,16 @@ class BrowseBannerCarousel extends StatelessWidget {
     );
   }
 }
+
+/// Ukuran artwork banner pada layout potret (skala 1.0).
+const double _kArtworkWidth = 1080 / 3;
+const double _kArtworkHeight = 720 / 3;
+
+/// Tinggi blok teks (artis + judul + album + jarak) di atas artwork.
+const double _kHeaderHeight = 70;
+
+/// Ruang kosong proporsional di atas dan bawah banner.
+const double _kVerticalSlack = 40;
 
 // ─── Artwork loader untuk banner — fill ukuran persis seperti Image.asset lama ─
 

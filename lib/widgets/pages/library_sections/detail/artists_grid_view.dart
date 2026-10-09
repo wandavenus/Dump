@@ -36,8 +36,10 @@ class _ArtistsGridView extends StatelessWidget {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(12, 8, 12, bottomClearance),
           sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              // Lebar sel dijaga mendekati ukuran potret; kolom bertambah di
+              // window lebar agar kartu artis tidak menjadi raksasa.
+              crossAxisCount: responsiveColumns(context, targetTileWidth: 190),
               crossAxisSpacing: 8,
               mainAxisSpacing: 16,
               childAspectRatio: 0.78,

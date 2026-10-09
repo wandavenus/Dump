@@ -21,6 +21,7 @@ import '../../services/lyrics_service.dart';
 import '../../theme/app_colors.dart';
 import '../common/swipe_to_dismiss_sheet.dart';
 import '../song_artwork.dart';
+import 'now_playing_layout.dart';
 import 'player_progress_section.dart';
 import 'player_secondary_controls.dart';
 import 'player_song_header.dart';

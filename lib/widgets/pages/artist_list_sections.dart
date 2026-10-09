@@ -5,6 +5,7 @@ import 'package:musicplayer/extensions/localization_extension.dart';
 
 import '../../models/local_song.dart';
 import '../../services/media_store_service.dart';
+import '../../utils/responsive.dart';
 import '../../theme/app_colors.dart';
 import '../common/scrolling_page_chrome.dart';
 import '../song_artwork.dart';
