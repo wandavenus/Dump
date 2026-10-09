@@ -59,13 +59,11 @@ class _EqPresetChips extends StatelessWidget {
                           ? currentPreset
                           : null,
                       children: children,
-                      onValueChanged: enabled
-                          ? (index) {
-                              if (index != null) {
-                                AudioEffectsService.applyEqPreset(index);
-                              }
-                            }
-                          : null,
+                      onValueChanged: (index) {
+                        if (enabled && index != null) {
+                          unawaited(AudioEffectsService.applyEqPreset(index));
+                        }
+                      },
                       thumbColor: const Color(0xFFF92D48),
                       backgroundColor:
                           colors.primaryLabel.withValues(alpha: 0.08),
