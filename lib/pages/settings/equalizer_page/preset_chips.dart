@@ -61,44 +61,49 @@ class _PresetChip extends StatelessWidget {
           valueListenable: AudioEffectsService.eqPreset,
           builder: (_, currentPreset, _) {
             final isSelected = currentPreset == index;
+            final accent = const Color(0xFFF92D48);
+            final backgroundColor = isSelected
+                ? accent
+                : enabled
+                ? c.primaryLabel.withValues(alpha: 0.09)
+                : c.primaryLabel.withValues(alpha: 0.04);
+            final borderColor = isSelected
+                ? accent
+                : enabled
+                ? c.primaryLabel.withValues(alpha: 0.12)
+                : c.primaryLabel.withValues(alpha: 0.05);
 
-            return GestureDetector(
-              onTap: enabled
-                  ? () => AudioEffectsService.applyEqPreset(index)
-                  : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 0,
-                ),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFFF92D48)
-                      : enabled
-                      ? c.primaryLabel.withValues(alpha: 0.09)
-                      : c.primaryLabel.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFF92D48)
-                        : enabled
-                        ? c.primaryLabel.withValues(alpha: 0.12)
-                        : c.primaryLabel.withValues(alpha: 0.05),
-                    width: 1.0,
-                  ),
-                ),
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : enabled
-                        ? c.primaryLabel.withValues(alpha: 0.85)
-                        : c.primaryLabel.withValues(alpha: 0.35),
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            return Container(
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(19),
+                child: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  minSize: 34,
+                  alignment: Alignment.center,
+                  borderRadius: BorderRadius.circular(19),
+                  color: backgroundColor,
+                  disabledColor: c.primaryLabel.withValues(alpha: 0.04),
+                  pressedOpacity: 0.55,
+                  onPressed: enabled
+                      ? () => AudioEffectsService.applyEqPreset(index)
+                      : null,
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : enabled
+                          ? c.primaryLabel.withValues(alpha: 0.85)
+                          : c.primaryLabel.withValues(alpha: 0.35),
+                      fontSize: 13,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ),
