@@ -143,13 +143,34 @@ class _PlayerContentState extends State<PlayerContent> {
   @override
   Widget build(BuildContext context) {
     final progress = PlayerSheetController.progress.value;
-    final width = MediaQuery.sizeOf(context).width;
+    final media = MediaQuery.of(context);
+    final width = media.size.width;
     final largeCoverSize = (width - 44).clamp(260.0, 390.0).toDouble();
     final showLyrics = widget.showLyrics;
     final showQueue = widget.showQueue;
 
     // Both overlay modes share the same artwork-shrink + song-info-fade behaviour.
     final showOverlay = showLyrics || showQueue;
+
+    // Wide window (landscape phone, tablet, desktop, short split-screen pane):
+    // artwork on the left, song info + controls on the right. The stacked
+    // portrait layout below is untouched for every other window.
+    if (useTwoColumnNowPlaying(media.size)) {
+      return Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 25),
+            child: _buildTwoColumn(
+              context,
+              media,
+              progress,
+              showLyrics,
+              showQueue,
+            ),
+          ),
+        ],
+      );
+    }
 
     return Stack(
       children: [
@@ -284,17 +305,7 @@ class _PlayerContentState extends State<PlayerContent> {
                           key: const ValueKey('appearanceButton'),
                           top: 10,
                           right: 27,
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(end: showLyrics ? 1.0 : 0.0),
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOutCubic,
-                            builder: (context, value, child) =>
-                                Opacity(opacity: value, child: child),
-                            child: IgnorePointer(
-                              ignoring: !showLyrics,
-                              child: const _AppearanceButton(),
-                            ),
-                          ),
+                          child: _buildAppearanceButton(showLyrics: showLyrics),
                         ),
 
                         // ── Mini song header — shown next to small artwork ─────────
@@ -302,86 +313,9 @@ class _PlayerContentState extends State<PlayerContent> {
                           key: const ValueKey('miniSongHeader'),
                           top: 4,
                           left: 16 + _smallCoverSize + 25,
-
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOutCubic,
-                            builder: (context, value, child) =>
-                                Opacity(opacity: value, child: child),
-                            child: IgnorePointer(
-                              ignoring: !showOverlay,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 200,
-                                    child: ShaderMask(
-                                      shaderCallback: (rect) {
-                                        return const LinearGradient(
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                          colors: [
-                                            Colors.white,
-                                            Colors.white,
-                                            Colors.white,
-                                            Colors.transparent,
-                                          ],
-                                          stops: [0.0, 0.30, 0.88, 1.0],
-                                        ).createShader(rect);
-                                      },
-                                      blendMode: BlendMode.dstIn,
-                                      child: AnimatedCrossFade(
-                                        duration: const Duration(
-                                          milliseconds: 250,
-                                        ),
-                                        crossFadeState: _showMarquee
-                                            ? CrossFadeState.showSecond
-                                            : CrossFadeState.showFirst,
-                                        firstChild: Text(
-                                          widget.song.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        secondChild: TextScroll(
-                                          widget.song.title,
-                                          mode: TextScrollMode.endless,
-                                          velocity: const Velocity(
-                                            pixelsPerSecond: Offset(25, 0),
-                                          ),
-                                          delayBefore: Duration.zero,
-                                          pauseBetween: const Duration(
-                                            seconds: 2,
-                                          ),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 1),
-                                  Text(
-                                    widget.song.artist,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.55,
-                                      ),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          child: _buildMiniSongHeader(
+                            context,
+                            showOverlay: showOverlay,
                           ),
                         ),
 
@@ -589,7 +523,317 @@ class _PlayerContentState extends State<PlayerContent> {
     );
   }
 
-  Widget _buildLyricsContent() {
+  // ─── Overlay chrome (dipakai kedua tata letak) ─────────────────────────────
+
+  /// Tombol bulat "tampilan lirik" di kanan atas; hanya tampil di mode lirik.
+  Widget _buildAppearanceButton({required bool showLyrics}) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: showLyrics ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
+      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      child: IgnorePointer(
+        ignoring: !showLyrics,
+        child: const _AppearanceButton(),
+      ),
+    );
+  }
+
+  /// Header mini (judul + artis) di samping thumbnail artwork saat overlay
+  /// lirik/antrean aktif.
+  Widget _buildMiniSongHeader(
+    BuildContext context, {
+    required bool showOverlay,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: showOverlay ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
+      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      child: IgnorePointer(
+        ignoring: !showOverlay,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 200,
+              child: ShaderMask(
+                shaderCallback: (rect) {
+                  return const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.white,
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.30, 0.88, 1.0],
+                  ).createShader(rect);
+                },
+                blendMode: BlendMode.dstIn,
+                child: AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 250),
+                  crossFadeState: _showMarquee
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  firstChild: Text(
+                    widget.song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  secondChild: TextScroll(
+                    widget.song.title,
+                    mode: TextScrollMode.endless,
+                    velocity: const Velocity(pixelsPerSecond: Offset(25, 0)),
+                    delayBefore: Duration.zero,
+                    pauseBetween: const Duration(seconds: 2),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              widget.song.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Tata letak dua kolom (lanskap / window lebar) ─────────────────────────
+
+  /// Full player saat window cukup lebar: artwork di kolom kiri, judul lagu +
+  /// kontrol pemutaran di kolom kanan.
+  ///
+  /// Slot artwork di sini hanya memegang Hero + artwork tersembunyi; artwork
+  /// yang terlihat digambar oleh UnifiedMorphPlayer memakai geometri yang sama
+  /// ([nowPlayingColumns]) sehingga posisi keduanya tidak pernah berbeda.
+  Widget _buildTwoColumn(
+    BuildContext context,
+    MediaQueryData media,
+    double progress,
+    bool showLyrics,
+    bool showQueue,
+  ) {
+    final showOverlay = showLyrics || showQueue;
+    final contentTop = media.padding.top + kNowPlayingTopInset;
+    final columns = nowPlayingColumns(
+      size: media.size,
+      safeTop: media.padding.top,
+      safeBottom: media.padding.bottom,
+    );
+    // Koordinat lokal PlayerContent: tepi atasnya persis di [contentTop].
+    final artwork = columns.artwork.shift(Offset(0, -contentTop));
+    final panel = columns.panel.shift(Offset(0, -contentTop));
+    final metrics = nowPlayingPanelMetrics(panel.height);
+
+    // Overlay lirik/antrean memakai lebar penuh di bawah header mini agar baris
+    // lirik tetap terbaca pada window lanskap yang pendek.
+    final overlayTop = _smallCoverSize + 20.0;
+    final overlayBottom = kNowPlayingSecondaryStrip + metrics.spacing;
+    final overlayHeight = (panel.height - overlayTop - overlayBottom).clamp(
+      0.0,
+      double.infinity,
+    );
+    final lyricsPad = (overlayHeight * 0.25).clamp(24.0, 130.0);
+
+    final headerOpacity = ((progress - 0.15) / 0.85).clamp(0.0, 1.0);
+    final progressOpacity = ((progress - 0.2) / 0.8).clamp(0.0, 1.0);
+    final transportOpacity = ((progress - 0.35) / 0.65).clamp(0.0, 1.0);
+    final panelTopInset =
+        ((panel.height - overlayBottom) - metrics.contentHeight).clamp(
+          0.0,
+          400.0,
+        ) /
+        2;
+
+    return Stack(
+      children: [
+        // ── Slot artwork (Hero + animasi shrink) ──
+        Positioned(
+          key: const ValueKey('wideAlbumCover'),
+          left: artwork.left,
+          top: artwork.top,
+          width: artwork.width,
+          height: artwork.height,
+          child: Opacity(
+            opacity: widget.hideArtwork ? 0.0 : 1.0,
+            child: Hero(
+              tag: PlayerHeroTags.artwork(widget.song),
+              child: SongArtwork(
+                songId: widget.song.id,
+                size: artwork.width,
+                borderRadius: BorderRadius.zero,
+                showBorder: false,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Panel kanan: judul, progress, transport, toggle lirik/antrean ──
+        Positioned(
+          key: const ValueKey('wideControlsPanel'),
+          left: panel.left,
+          top: panel.top,
+          width: panel.width,
+          height: panel.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: overlayBottom,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: showOverlay ? 0.0 : 1.0),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOutCubic,
+                  builder: (context, value, child) =>
+                      Opacity(opacity: value, child: child),
+                  child: IgnorePointer(
+                    ignoring: showOverlay,
+                    child: SingleChildScrollView(
+                      // Tidak untuk di-scroll: hanya pengaman agar panel tidak
+                      // pernah memunculkan RenderFlex overflow pada window yang
+                      // sangat pendek. Physics-nya tidak pernah menerima drag,
+                      // jadi tidak ada konflik gesture.
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: EdgeInsets.only(top: panelTopInset),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Opacity(
+                              opacity: headerOpacity,
+                              child: PlayerSongHeader(song: widget.song),
+                            ),
+                            SizedBox(height: metrics.spacing),
+                            Opacity(
+                              opacity: progressOpacity,
+                              child: PlayerProgressSection(
+                                formatTime: widget.formatTime,
+                              ),
+                            ),
+                            SizedBox(height: metrics.spacing),
+                            Opacity(
+                              opacity: transportOpacity,
+                              child: PlayerTransportControls(
+                                playbackState: widget.playbackState,
+                                scale: metrics.transportScale,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Toggle lirik/antrean selalu terlihat — termasuk saat overlay
+              // aktif — sehingga pengguna selalu punya jalan keluar.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: kNowPlayingSecondaryStrip,
+                child: Opacity(
+                  opacity: progress,
+                  child: PlayerSecondaryControls(
+                    song: widget.song,
+                    showLyrics: showLyrics,
+                    onLyricsToggle: widget.onLyricsToggle,
+                    showQueue: showQueue,
+                    onQueueToggle: widget.onQueueToggle,
+                    spacing: (panel.width - 100).clamp(40.0, 160.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Overlay lirik — lebar penuh, di bawah header mini ──
+        Positioned(
+          key: const ValueKey('wideLyricsArea'),
+          left: 16,
+          right: 16,
+          top: overlayTop,
+          bottom: overlayBottom,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: showLyrics ? 1.0 : 0.0),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            builder: (context, value, child) =>
+                Opacity(opacity: value, child: child),
+            child: IgnorePointer(
+              ignoring: !showLyrics,
+              child: _buildLyricsContent(verticalPadding: lyricsPad),
+            ),
+          ),
+        ),
+
+        // ── Overlay antrean — lebar penuh, di bawah header mini ──
+        Positioned(
+          key: const ValueKey('wideQueueArea'),
+          left: 16,
+          right: 16,
+          top: overlayTop,
+          bottom: overlayBottom,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: showQueue ? 1.0 : 0.0),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            builder: (context, value, child) =>
+                Opacity(opacity: value, child: child),
+            child: IgnorePointer(
+              ignoring: !showQueue,
+              child: _QueueOverlayBody(
+                isVisible: showQueue,
+                onClose: widget.onQueueToggle,
+                scrollController: _queueScrollController,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Tombol tampilan lirik (kanan atas) ──
+        Positioned(
+          key: const ValueKey('wideAppearanceButton'),
+          top: 10,
+          right: 27,
+          child: _buildAppearanceButton(showLyrics: showLyrics),
+        ),
+
+        // ── Header mini di samping thumbnail artwork ──
+        Positioned(
+          key: const ValueKey('wideMiniSongHeader'),
+          top: 4,
+          left: 16 + _smallCoverSize + 25,
+          child: _buildMiniSongHeader(context, showOverlay: showOverlay),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLyricsContent({double? verticalPadding}) {
     return FutureBuilder<LyricsResult>(
       future: _lyricsFuture,
       builder: (context, snapshot) {
@@ -612,6 +856,7 @@ class _PlayerContentState extends State<PlayerContent> {
           offsetController: _lyricsOffsetController,
           dragHandle: _lyricsDragHandle,
           isVisible: widget.showLyrics,
+          verticalPadding: verticalPadding,
           onExpandChanged: (expanded) {
             if (_lyricsExpand == (expanded ? 1.0 : 0.0)) return;
             _lyricsDragHandle.preservePositionForViewportResize();

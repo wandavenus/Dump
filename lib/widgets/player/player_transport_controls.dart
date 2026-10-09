@@ -9,30 +9,39 @@ import '../../services/audio_service.dart';
 class PlayerTransportControls extends StatelessWidget {
   final AudioPlaybackState playbackState;
 
-  const PlayerTransportControls({super.key, required this.playbackState});
+  /// Faktor ukuran ikon untuk window pendek (tata letak dua kolom lanskap).
+  /// 1.0 = ukuran asli yang dipakai di potret.
+  final double scale;
+
+  const PlayerTransportControls({
+    super.key,
+    required this.playbackState,
+    this.scale = 1.0,
+  });
 
   @override
   Widget build(BuildContext context) {
     final hasPlaylist = playbackState.currentPlaylist.isNotEmpty;
+    final iconScale = scale.clamp(0.5, 1.0);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: const Icon(
+          icon: Icon(
             CupertinoIcons.backward_fill,
-            size: 48,
+            size: 48 * iconScale,
             color: Colors.white,
           ),
           onPressed: hasPlaylist ? AudioService.skipPrevious : null,
         ),
-        const SizedBox(width: 35),
+        SizedBox(width: 35 * iconScale),
         IconButton(
           icon: Icon(
             playbackState.isPlaying
                 ? CupertinoIcons.pause_fill
                 : CupertinoIcons.play_fill,
-            size: 58,
+            size: 58 * iconScale,
             color: Colors.white,
           ),
           onPressed: () {
@@ -43,11 +52,11 @@ class PlayerTransportControls extends StatelessWidget {
             }
           },
         ),
-        const SizedBox(width: 35),
+        SizedBox(width: 35 * iconScale),
         IconButton(
-          icon: const Icon(
+          icon: Icon(
             CupertinoIcons.forward_fill,
-            size: 48,
+            size: 48 * iconScale,
             color: Colors.white,
           ),
           onPressed: hasPlaylist ? AudioService.skipNext : null,

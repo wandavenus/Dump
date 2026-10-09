@@ -1,9 +1,33 @@
 part of '../../home_sections.dart';
 
+/// Tinggi artwork kartu album pada layout potret (skala 1.0).
+const double _kAlbumArtworkHeight = 269;
+
+/// Tinggi elemen non-artwork di dalam section carousel: caption satu baris,
+/// jarak caption → kartu, dan padding vertikal ListView.
+const double _kAlbumCardChromeHeight = 37;
+
 class _AlbumCard extends StatefulWidget {
   final _AlbumGroup album;
   final String caption;
-  const _AlbumCard({required this.album, required this.caption});
+
+  /// Tinggi artwork kartu pada layout potret (skala penuh).
+  static const double fullArtworkHeight = _kAlbumArtworkHeight;
+
+  /// Tinggi blok info (nama album + artis) di bawah artwork.
+  static const double infoHeight = 68;
+
+  /// Tinggi caption + padding carousel di luar kartu.
+  static const double chromeHeight = _kAlbumCardChromeHeight;
+
+  /// Tinggi artwork kartu — menyusut mengikuti tinggi window.
+  final double artworkHeight;
+
+  const _AlbumCard({
+    required this.album,
+    required this.caption,
+    required this.artworkHeight,
+  });
 
   @override
   State<_AlbumCard> createState() => _AlbumCardState();
@@ -11,8 +35,6 @@ class _AlbumCard extends StatefulWidget {
 
 class _AlbumCardState extends State<_AlbumCard> {
   static const double _cardWidth = 260;
-  static const double _artworkHeight = 269;
-  static const double _infoHeight = 68;
   static const double _cornerRadius = 10;
 
   static const Color _fallbackColor = Color(0xFF2B313A);
@@ -57,6 +79,9 @@ class _AlbumCardState extends State<_AlbumCard> {
   @override
   Widget build(BuildContext context) {
     final album = widget.album;
+    // Lebar kartu mengikuti tinggi artwork agar proporsi kartu tetap terjaga.
+    final cardWidth =
+        widget.artworkHeight * (_cardWidth / _AlbumCard.fullArtworkHeight);
     return GestureDetector(
       onTap: () => Navigator.pushNamed(
         context,
@@ -69,7 +94,7 @@ class _AlbumCardState extends State<_AlbumCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: _cardWidth,
+              width: cardWidth,
               child: Text(
                 widget.caption,
                 maxLines: 1,
@@ -92,24 +117,24 @@ class _AlbumCardState extends State<_AlbumCard> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(_cornerRadius),
                 child: SizedBox(
-                  width: _cardWidth,
-                  height: _artworkHeight + _infoHeight,
+                  width: cardWidth,
+                  height: widget.artworkHeight + _AlbumCard.infoHeight,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        width: _cardWidth,
-                        height: _artworkHeight,
+                        width: cardWidth,
+                        height: widget.artworkHeight,
                         child: SongArtwork(
                           songId: album.coverSongId,
-                          size: _cardWidth,
+                          size: cardWidth,
                           borderRadius: BorderRadius.zero,
                           showBorder: false,
                         ),
                       ),
                       Container(
-                        width: _cardWidth,
-                        height: _infoHeight,
+                        width: cardWidth,
+                        height: _AlbumCard.infoHeight,
                         decoration: BoxDecoration(color: _cardColor),
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                         child: Column(

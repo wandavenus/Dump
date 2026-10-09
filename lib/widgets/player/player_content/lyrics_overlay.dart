@@ -10,6 +10,11 @@ class _LyricsOverlayBody extends StatelessWidget {
   final ValueChanged<bool> onExpandChanged;
   final bool isVisible;
 
+  /// Padding vertikal daftar lirik. Nilai null memakai padding potret
+  /// (130 / 125) yang menempatkan baris aktif di tengah viewport penuh; tata
+  /// letak dua kolom pada window pendek mengirim nilai yang lebih kecil.
+  final double? verticalPadding;
+
   const _LyricsOverlayBody({
     required this.result,
     required this.scrollController,
@@ -17,6 +22,7 @@ class _LyricsOverlayBody extends StatelessWidget {
     required this.dragHandle,
     required this.onExpandChanged,
     this.isVisible = true,
+    this.verticalPadding,
   });
 
   @override
@@ -98,7 +104,12 @@ class _LyricsOverlayBody extends StatelessWidget {
               blendMode: BlendMode.dstIn,
               child: SyncedLyricsView(
                 lyrics: result.lines,
-                padding: const EdgeInsets.fromLTRB(24, 130, 24, 125),
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  verticalPadding ?? 130,
+                  24,
+                  verticalPadding ?? 125,
+                ),
                 controller: scrollController,
                 offsetController: offsetController,
                 dragHandle: dragHandle,
