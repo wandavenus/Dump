@@ -87,7 +87,7 @@ class _PresetChip extends StatelessWidget {
                   alignment: Alignment.center,
                   borderRadius: BorderRadius.circular(19),
                   color: backgroundColor,
-                  disabledColor: c.primaryLabel.withValues(alpha: 0.04),
+                  disabledColor: backgroundColor,
                   pressedOpacity: 0.55,
                   onPressed: enabled
                       ? () => AudioEffectsService.applyEqPreset(index)
