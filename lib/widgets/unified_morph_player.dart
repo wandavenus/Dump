@@ -12,6 +12,7 @@ import '../services/artwork_repository.dart';
 import '../services/player_sheet_controller.dart';
 import '../themes/glass_navbar.dart';
 import '../themes/theme_controller.dart';
+import 'player/now_playing_layout.dart';
 import 'player/player_background.dart';
 import 'player/player_content.dart';
 import 'player/player_hero_tags.dart';
@@ -505,8 +506,24 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final miniArtLeft = isPill ? 22.0 : 12.0;
     const miniArtTop = (miniH - miniArtSize) / 2; // = 9 px
 
-    final largeCoverSize = (screenW - 44.0).clamp(260.0, 390.0);
-    final artFullLeft = (screenW - largeCoverSize) / 2;
+    // ── Full-player artwork target ───────────────────────────────────────────
+    // On a wide window the full player switches to its two-column layout
+    // (artwork left / controls right) and PlayerContent places its artwork slot
+    // via the very same [nowPlayingColumns] geometry, so the morphing artwork
+    // lands exactly on that slot. Narrower windows keep the stacked geometry
+    // below, unchanged.
+    final wideColumns = useTwoColumnNowPlaying(mq.size)
+        ? nowPlayingColumns(
+            size: mq.size,
+            safeTop: safeTop,
+            safeBottom: safeBottom,
+          )
+        : null;
+
+    final largeCoverSize =
+        wideColumns?.artwork.width ?? (screenW - 44.0).clamp(260.0, 390.0);
+    final artFullLeft =
+        wideColumns?.artwork.left ?? (screenW - largeCoverSize) / 2;
 
     // Estimate PlayerContent artwork vertical position at full screen.
     // Layout stack: SafeArea.top + Padding(12) + PlayerContent.Padding(25) = topInset
@@ -516,12 +533,14 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     final shFull = screenH - topInset - bottomCtrlH;
     final rawCoverTop = (shFull - largeCoverSize - 80.0) / 2.0 - 10.0;
     final coverTopLocal = rawCoverTop.clamp(8.0, 60.0);
-    final artFullTop = topInset + coverTopLocal;
+    final artFullTop = wideColumns?.artwork.top ?? (topInset + coverTopLocal);
 
     // Quadratic Bézier arc: artwork swings right then curves up to final pos.
     // Control point pulled right of artFullLeft so the path bulges rightward
     // before settling — keeps the overall diagonal feel ("tetap diagonal").
-    final cpLeft = artFullLeft + screenW * 0.17; // ≈ 67 px on 393-wide screen
+    // The two-column target sits near the left edge, so the bulge is smaller
+    // there to keep the motion a short, natural arc.
+    final cpLeft = artFullLeft + screenW * (wideColumns != null ? 0.06 : 0.17);
     final cpTop = lerpDouble(
       miniArtTop,
       artFullTop,
@@ -581,11 +600,12 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                       fit: StackFit.expand,
                                       children: [
                                         BackdropFilter.grouped(
-                                          filterConfig: const ImageFilterConfig.blur(
-                                            sigmaX: 6,
-                                            sigmaY: 6,
-                                            bounded: true,
-                                          ),
+                                          filterConfig:
+                                              const ImageFilterConfig.blur(
+                                                sigmaX: 6,
+                                                sigmaY: 6,
+                                                bounded: true,
+                                              ),
                                           blendMode: BlendMode.srcOver,
                                           child: const ColoredBox(
                                             color: Colors.transparent,

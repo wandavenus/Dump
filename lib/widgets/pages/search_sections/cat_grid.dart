@@ -13,8 +13,14 @@ class SearchCategoryGrid extends StatelessWidget {
               _SearchCategoryTile(category: searchCategories[index]),
           childCount: searchCategories.length,
         ),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          // 2 kolom di potret; kolom bertambah di window lebar supaya tile
+          // tidak ikut meregang mengikuti lebar layar.
+          crossAxisCount: responsiveColumns(
+            context,
+            targetTileWidth: 190,
+            maxColumns: 4,
+          ),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           childAspectRatio: 2.0,
