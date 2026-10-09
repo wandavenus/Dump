@@ -113,19 +113,27 @@ void main() {
         tester.getSize(find.byType(ArtworkHairlineBorder).first).width;
 
     testWidgets('portrait keeps the 3-column (2-row) grid', (tester) async {
-      await _pump(tester, const Size(393, 852), const RadioPageContent());
+      await _pump(
+        tester,
+        const Size(393, 852),
+        Builder(
+          builder: (context) => MediaQuery(
+            // The test font has wider glyph metrics than the app font. Scale
+            // only this test's text so the unchanged page header does not
+            // create a false overflow unrelated to the responsive grid.
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(0.8),
+            ),
+            child: const RadioPageContent(),
+          ),
+        ),
+      );
       await tester.pump();
       expect(find.byType(ArtworkHairlineBorder), findsNWidgets(6));
       expect(rowCount(tester), 2);
       expect(cellWidth(tester), greaterThan(100));
       expect(cellWidth(tester), lessThan(140));
-      tester.takeException();
-      // Font uji flutter_test menggambar setiap glyph selebar font-size, jadi
-      // header "Daftar Putar Saya" + tombol buat playlist pada halaman ini
-      // (kode yang tidak diubah) terukur ~30 px lebih lebar daripada font asli
-      // dan memicu RenderFlex overflow palsu pada lebar 393 px. Exception-nya
-      // dikonsumsi di sini; assertion geometri di atas tetap memverifikasi
-      // tata letak grid yang diubah.
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('landscape lays the six cells out in a single row', (
