@@ -9,6 +9,7 @@ class BrowseBannerCarousel extends StatelessWidget {
     // Banner tetap proporsional di window pendek (lanskap): hanya artwork yang
     // menyusut, ukuran teks tidak berubah sehingga tidak ada judul terpotong.
     final scale = shortWindowScale(context);
+    final artworkWidth = _kArtworkWidth * scale;
     final artworkHeight = _kArtworkHeight * scale;
     final sectionHeight =
         _kHeaderHeight + artworkHeight + _kVerticalSlack * scale;
@@ -81,7 +82,7 @@ class BrowseBannerCarousel extends StatelessWidget {
                       ),
                       child: _BannerArtwork(
                         songId: song.id,
-                        width: _kArtworkWidth,
+                        width: artworkWidth,
                         height: artworkHeight,
                       ),
                     ),
