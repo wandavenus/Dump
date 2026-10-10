@@ -376,7 +376,7 @@
   "shuffle": "Shuffle",
   "playAll": "Play All",
   "aboutTitle": "About App",
-  "musicPlayerName": "Music Player",
+  "musicPlayerName": "Noisegraph",
   "appVersion": "Version {version}",
   "@appVersion": {
     "placeholders": {
