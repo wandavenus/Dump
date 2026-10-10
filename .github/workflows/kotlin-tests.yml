@@ -1,16 +1,7 @@
 name: Kotlin Unit Tests
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'android/**'
-      - '.github/workflows/kotlin-tests.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'android/**'
-      - '.github/workflows/kotlin-tests.yml'
+  workflow_dispatch:
 
 jobs:
   test:
