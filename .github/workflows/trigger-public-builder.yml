@@ -1,0 +1,30 @@
+name: Trigger Public APK Builder
+
+on:
+  push:
+    branches:
+      - main
+      - hybrid
+    paths:
+      - 'lib/**'
+      - 'assets/**'
+      - 'android/**'
+      - 'native_audio_runtime/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger build in Noisegraph
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          repository: wandavenus/Noisegraph
+          event-type: build-private-source
+          client-payload: '{"sha":"${{ github.sha }}","ref":"${{ github.ref_name }}"}'
