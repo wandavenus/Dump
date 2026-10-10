@@ -1,17 +1,6 @@
 name: Trigger Public APK Builder
 
 on:
-  push:
-    branches:
-      - main
-      - hybrid
-    paths:
-      - 'lib/**'
-      - 'assets/**'
-      - 'android/**'
-      - 'native_audio_runtime/**'
-      - 'pubspec.yaml'
-      - 'pubspec.lock'
   workflow_dispatch:
 
 permissions:
