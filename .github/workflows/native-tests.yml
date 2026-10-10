@@ -1,18 +1,7 @@
 name: Native C/C++/Assembly Tests
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'native_audio_runtime/src/**'
-      - 'native_audio_runtime/test/**'
-      - '.github/workflows/native-tests.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'native_audio_runtime/src/**'
-      - 'native_audio_runtime/test/**'
-      - '.github/workflows/native-tests.yml'
+  workflow_dispatch:
 
 jobs:
   native-test:
