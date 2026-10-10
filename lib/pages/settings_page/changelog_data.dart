@@ -20,6 +20,15 @@ class _ChangelogEntry {
 
 const List<_ChangelogEntry> _changelogEntries = [
   _ChangelogEntry(
+    version: '1.5.33',
+    date: '10 Oktober 2026',
+    changes: [
+      'Ganti nama aplikasi menjadi Noisegraph di launcher dan halaman Tentang.',
+      'Tambah tautan repository GitHub Noisegraph di halaman Tentang.',
+    ],
+  ),
+
+  _ChangelogEntry(
     version: '1.5.32',
     date: '6 Oktober 2026',
     changes: [
