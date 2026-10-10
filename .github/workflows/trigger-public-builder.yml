@@ -1,0 +1,48 @@
+name: Trigger Public APK Builder
+
+on:
+  push:
+    branches:
+      - main
+      - hybrid
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger build in public repository
+        env:
+          DISPATCH_TOKEN: ${{ secrets.BUILDER_DISPATCH_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISPATCH_TOKEN:-}" ]; then
+            echo "::error::BUILDER_DISPATCH_TOKEN secret is missing."
+            exit 1
+          fi
+
+          payload=$(jq -n \
+            --arg sha "$SOURCE_SHA" \
+            --arg ref "$SOURCE_REF" \
+            '{
+              event_type: "build-private-source",
+              client_payload: {
+                sha: $sha,
+                ref: $ref
+              }
+            }')
+
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/wandavenus/music-builder/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $DISPATCH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data "$payload"
