@@ -523,8 +523,18 @@ List<LocalSong> _parseSongsJson(String json) {
   final decoded = jsonDecode(json) as List<dynamic>;
   return decoded
       .map((m) => LocalSong.fromMap(Map<dynamic, dynamic>.from(m as Map)))
-      .where((song) => song.path.isNotEmpty)
+      // Apply the same boundary at cache hydration too: an older persisted cache
+      // must not briefly expose tracks outside /Music before native refresh finishes.
+      .where((song) => _isInsideMusicDirectory(song.path))
       .toList(growable: false);
+}
+
+bool _isInsideMusicDirectory(String path) {
+  final normalized = path.replaceAll(r'\\', '/').toLowerCase();
+  return normalized.startsWith('/storage/emulated/0/music/') ||
+      normalized.startsWith('/storage/self/primary/music/') ||
+      normalized.startsWith('/sdcard/music/');
+
 }
 
 /// Top-level helper for [compute]: serializes [songs] to the JSON cache
