@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
@@ -1335,10 +1336,12 @@ class MainActivity : FlutterActivity() {
 
     private fun isInsideMusicDirectory(path: String): Boolean {
         val normalized = path.replace('\\', '/')
-        // DATA normally resolves to /storage/emulated/0/Music/... on Android.
-        // Accept common aliases for primary shared storage, but not nested folders
-        // named Music elsewhere on the device.
-        return normalized.startsWith("/storage/emulated/0/Music/", ignoreCase = true) ||
+        // Resolve the primary storage root for the current Android user/profile.
+        // Its emulated path can be /storage/emulated/<userId>, not always /0.
+        val primaryRoot = Environment.getExternalStorageDirectory()
+            .absolutePath.replace('\\', '/').trimEnd('/')
+        return normalized.startsWith("$primaryRoot/Music/", ignoreCase = true) ||
+            // MediaStore may expose these aliases for the same primary storage.
             normalized.startsWith("/storage/self/primary/Music/", ignoreCase = true) ||
             normalized.startsWith("/sdcard/Music/", ignoreCase = true)
     }
