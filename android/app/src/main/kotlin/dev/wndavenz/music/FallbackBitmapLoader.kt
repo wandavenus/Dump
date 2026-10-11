@@ -251,8 +251,8 @@ class FallbackBitmapLoader(
      */
     private fun songIdsForAlbum(albumId: Long): List<Int>? {
         val projection = arrayOf(MediaStore.Audio.Media._ID)
-        val selection  = "${MediaStore.Audio.Media.ALBUM_ID} = ?"
-        val args       = arrayOf(albumId.toString())
+        val selection = "${MediaStore.Audio.Media.ALBUM_ID} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+        val args = arrayOf(albumId.toString(), "Music/%")
         return try {
             context.contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
