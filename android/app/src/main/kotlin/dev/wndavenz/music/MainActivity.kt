@@ -1376,11 +1376,15 @@ class MainActivity : FlutterActivity() {
         }
 
         val songs = mutableListOf<Map<String, Any?>>()
+        // Filter at the provider query so rows outside Music are not enumerated
+        // and then discarded one-by-one in this process. RELATIVE_PATH is
+        // available from our minSdk (29) and includes nested Music subfolders.
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
         contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection.toTypedArray(),
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0",
-            null,
+            selection,
+            arrayOf("Music/%"),
             "${MediaStore.Audio.Media.TITLE} ASC",
         )?.use { cursor ->
             val idCol      = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)

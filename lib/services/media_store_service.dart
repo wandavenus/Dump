@@ -516,9 +516,9 @@ class MediaStoreService {
 
 /// Top-level helper for [compute] to parse song list JSON in a background isolate.
 ///
-/// Applies the same `.where((song) => song.path.isNotEmpty)` filter the live
-/// refresh path used before the isolate migration: MediaStore rows without a
-/// resolvable file path cannot be played and must never reach the UI list.
+/// Keeps the cached and live song lists within the primary shared-storage
+/// Music directory, including its subfolders. This prevents stale cache entries
+/// from briefly exposing tracks outside the configured local library.
 List<LocalSong> _parseSongsJson(String json) {
   final decoded = jsonDecode(json) as List<dynamic>;
   return decoded
@@ -530,11 +530,10 @@ List<LocalSong> _parseSongsJson(String json) {
 }
 
 bool _isInsideMusicDirectory(String path) {
-  final normalized = path.replaceAll(r'\', '/').toLowerCase();
+  final normalized = path.replaceAll('\\', '/').toLowerCase();
   return normalized.startsWith('/storage/emulated/0/music/') ||
       normalized.startsWith('/storage/self/primary/music/') ||
       normalized.startsWith('/sdcard/music/');
-
 }
 
 /// Top-level helper for [compute]: serializes [songs] to the JSON cache
