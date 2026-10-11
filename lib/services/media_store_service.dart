@@ -530,7 +530,7 @@ List<LocalSong> _parseSongsJson(String json) {
 }
 
 bool _isInsideMusicDirectory(String path) {
-  final normalized = path.replaceAll(r'\\', '/').toLowerCase();
+  final normalized = path.replaceAll(r'\', '/').toLowerCase();
   return normalized.startsWith('/storage/emulated/0/music/') ||
       normalized.startsWith('/storage/self/primary/music/') ||
       normalized.startsWith('/sdcard/music/');
