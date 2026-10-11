@@ -531,8 +531,16 @@ List<LocalSong> _parseSongsJson(String json) {
 
 bool _isInsideMusicDirectory(String path) {
   final normalized = path.replaceAll('\\', '/').toLowerCase();
-  return normalized.startsWith('/storage/emulated/0/music/') ||
-      normalized.startsWith('/storage/self/primary/music/') ||
+
+  // Android assigns each user/profile its own emulated-storage ID
+  // (for example, /storage/emulated/10). App data/cache is isolated per user,
+  // so accept the emulated primary-storage root without hard-coding user 0.
+  if (RegExp(r'^/storage/emulated/\d+/music/').hasMatch(normalized)) {
+    return true;
+  }
+
+  // Alternate paths that can refer to the current user's primary storage.
+  return normalized.startsWith('/storage/self/primary/music/') ||
       normalized.startsWith('/sdcard/music/');
 }
 
