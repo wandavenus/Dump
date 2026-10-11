@@ -1333,6 +1333,16 @@ class MainActivity : FlutterActivity() {
     // and unpack accordingly.  On API 30+ devices the disc may also be in a
     // separate DISC_NUMBER column — we prefer it when present.
 
+    private fun isInsideMusicDirectory(path: String): Boolean {
+        val normalized = path.replace('\\', '/')
+        // DATA normally resolves to /storage/emulated/0/Music/... on Android.
+        // Accept common aliases for primary shared storage, but not nested folders
+        // named Music elsewhere on the device.
+        return normalized.startsWith("/storage/emulated/0/Music/", ignoreCase = true) ||
+            normalized.startsWith("/storage/self/primary/Music/", ignoreCase = true) ||
+            normalized.startsWith("/sdcard/Music/", ignoreCase = true)
+    }
+
     private fun getSongs(): String {
         if (!hasMediaPermission()) return "[]"
 
@@ -1392,13 +1402,18 @@ class MainActivity : FlutterActivity() {
                 cursor.getColumnIndex("samplerate") else -1
 
             while (cursor.moveToNext()) {
+                val path = cursor.getString(pathCol) ?: continue
+                // The local library is intentionally restricted to /Music and its subfolders.
+                // Filter before mapping so excluded tracks never reach UI caches or pre-scanning.
+                if (!isInsideMusicDirectory(path)) continue
+
                 val map = mutableMapOf<String, Any?>(
                     "id"       to cursor.getLong(idCol).toInt(),
                     "title"    to cursor.getString(titleCol),
                     "artist"   to (cursor.getString(artistCol) ?: "Unknown Artist"),
                     "album"    to (cursor.getString(albumCol)  ?: "Unknown Album"),
                     "albumId"  to cursor.getInt(albumIdCol),
-                    "path"     to cursor.getString(pathCol),
+                    "path"     to path,
                     "duration" to cursor.getLong(durCol),
                 )
 
