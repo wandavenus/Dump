@@ -1,11 +1,22 @@
 name: Native C/C++/Assembly Tests
 
 on:
+  push:
+    branches: [main, backup, modernize/**]
+  pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   native-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -15,6 +26,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Install Native Toolchain
         run: |
@@ -22,18 +34,13 @@ jobs:
           sudo apt-get install -y clang cmake ninja-build
 
       - name: Get Dependencies
-        run: |
-          cd native_audio_runtime
-          flutter pub get
+        working-directory: native_audio_runtime
+        run: flutter pub get
 
       - name: Run Native Unit Tests
-        run: |
-          cd native_audio_runtime
-          # native_toolchain_c akan menggunakan clang untuk kompilasi host
-          flutter test test/native_audio_runtime_test.dart
+        working-directory: native_audio_runtime
+        run: flutter test test/native_audio_runtime_test.dart
 
       - name: Run Performance Benchmarks
-        run: |
-          cd native_audio_runtime
-          flutter test test/native_benchmark.dart
-          
+        working-directory: native_audio_runtime
+        run: flutter test test/native_benchmark.dart
