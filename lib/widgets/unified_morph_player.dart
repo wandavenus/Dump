@@ -34,7 +34,6 @@ class UnifiedMorphPlayer extends StatefulWidget {
 class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     with TickerProviderStateMixin {
   // ── Gesture state ──────────────────────────────────────────────────────────
-  double _panDy = 0;
 
   // ── Full-player sub-view state ─────────────────────────────────────────────
   bool _showLyrics = false;
@@ -327,13 +326,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     PlayerSheetController.cancelAnimation();
     _releaseAnim.stop();
 
-    _panDy = 0;
-    _startProgress = PlayerSheetController.progress.value;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    _panDy += d.delta.dy;
-
     if (_showLyrics || _showQueue) return;
     final sh = MediaQuery.sizeOf(context).height;
     final delta = -d.delta.dy / (sh * 0.55);
@@ -354,7 +349,6 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
         _animateTo(0.0);
       }
     }
-    _panDy = 0;
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
