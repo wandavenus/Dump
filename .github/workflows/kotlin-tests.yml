@@ -1,9 +1,6 @@
 name: Kotlin Unit Tests
 
 on:
-  push:
-    branches: [main, backup, modernize/**]
-  pull_request:
   workflow_dispatch:
 
 permissions:
