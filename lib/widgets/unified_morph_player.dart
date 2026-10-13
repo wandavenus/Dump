@@ -34,12 +34,7 @@ class UnifiedMorphPlayer extends StatefulWidget {
 class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
     with TickerProviderStateMixin {
   // ── Gesture state ──────────────────────────────────────────────────────────
-  double _panDx = 0;
   double _panDy = 0;
-  bool _isHorizontal = false;
-  bool _directionLocked = false;
-  double _swipeOffset = 0;
-  double _startProgress = 0;
 
   // ── Full-player sub-view state ─────────────────────────────────────────────
   bool _showLyrics = false;
