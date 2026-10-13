@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import '../services/artwork_repository.dart';
 import '../theme/app_colors.dart';
 
-/// Hairline border overlaid on every piece of artwork (mirrors Apple Music
-/// Android's thin white stroke around covers), so artwork never visually
-/// merges into a background of similar tone.
-const Color kArtworkHairlineColor = Color(0x29FFFFFF); // white @ ~16% opacity
+/// Hairline border overlaid on every piece of artwork, tuned per brightness
+/// so it stays visible without looking harsh against light or dark covers.
+const Color kArtworkHairlineDarkColor = Color(0x29FFFFFF); // white @ ~16%
+const Color kArtworkHairlineLightColor = Color(0x29000000); // black @ ~16%
 const double kArtworkHairlineWidth = 0.75;
 
 /// Wraps [child] with the shared hairline border, matching [borderRadius].
@@ -26,16 +26,18 @@ class ArtworkHairlineBorder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hairlineColor = isDark
+        ? kArtworkHairlineDarkColor
+        : kArtworkHairlineLightColor;
+
     return Container(
       foregroundDecoration: BoxDecoration(
         borderRadius: borderRadius,
         border: Border.all(
-          color: kArtworkHairlineColor,
+          color: hairlineColor,
           width: kArtworkHairlineWidth,
-          // Inset alignment (matches Apple Music) so the stroke is drawn
-          // fully inside the visible bounds instead of straddling the edge —
-          // stays crisp instead of anti-aliasing/blurring outward, and is
-          // never partially clipped by an outer ClipRRect of the same radius.
+          // Inset alignment keeps the stroke crisp inside the visible bounds.
           strokeAlign: BorderSide.strokeAlignInside,
         ),
       ),
@@ -50,7 +52,7 @@ class ArtworkHairlineBorder extends StatelessWidget {
 ///   Memory cache → Disk WebP file → Native MediaStore extraction.
 ///
 /// After first extraction artwork is served from disk ([FileImage]) with no
-/// MethodChannel calls.  Flutter's own [ImageCache] prevents re-decoding
+/// MethodChannel calls. Flutter's own [ImageCache] prevents re-decoding
 /// already-loaded images during the same session.
 class SongArtwork extends StatefulWidget {
   final int songId;
@@ -79,9 +81,9 @@ class SongArtwork extends StatefulWidget {
 }
 
 /// Deep equality for [ImageProvider] that handles [ResizeImage] wrapping a
-/// [FileImage].  Flutter's built-in [FileImage.==] compares path + scale, but
+/// [FileImage]. Flutter's built-in [FileImage.==] compares path + scale, but
 /// [ResizeImage] does NOT override [==] — two instances with identical
-/// parameters compare as unequal by object identity.  We need value-equality
+/// parameters compare as unequal by object identity. We need value-equality
 /// here so the "skip setState if provider didn't change" guard in [_load] works
 /// correctly for both small (ResizeImage) and full-size (FileImage) artwork.
 bool _providersEqual(ImageProvider? a, ImageProvider? b) {
@@ -103,7 +105,7 @@ class _SongArtworkState extends State<SongArtwork> {
   ImageProvider? _provider;
 
   // _requestedId: ID of the most recent _load() call.
-  // _loading:     whether an async load is currently in flight.
+  // _loading: whether an async load is currently in flight.
   // Together these implement a "latest-wins" strategy: if the widget's songId
   // changes while a load is in flight, the loop picks up the new ID.
   int _requestedId = -1;
@@ -114,8 +116,7 @@ class _SongArtworkState extends State<SongArtwork> {
     super.initState();
     // Synchronous first-frame check: if this artwork is already on disk
     // (cached from a previous session), render it immediately instead of
-    // showing a placeholder while the async lookup resolves. This is what
-    // makes cover art appear instantly after the app is killed/reopened.
+    // showing a placeholder while the async lookup resolves.
     final targetPx = ArtworkRepository.instance.resolveTargetPx(widget.size);
     _provider = ArtworkRepository.instance.getProviderSync(
       widget.songId,
