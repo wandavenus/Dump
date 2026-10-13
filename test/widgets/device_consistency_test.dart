@@ -82,7 +82,7 @@ void main() {
           tester,
           logicalSize: const Size(393, 852),
           devicePixelRatio: dpr,
-          child: const RadioPageContent(),
+          child: RadioPageContent(),
         );
 
         expect(find.byType(ArtworkHairlineBorder), findsNWidgets(6));
