@@ -1,9 +1,6 @@
 name: Flutter Check
 
 on:
-  push:
-    branches: [main, backup, modernize/**]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
