@@ -7,7 +7,7 @@ import 'package:musicplayer/models/local_song.dart';
 import 'package:musicplayer/themes/app_themes.dart';
 import 'package:musicplayer/widgets/pages/browse_sections.dart';
 import 'package:musicplayer/widgets/pages/radio_sections.dart';
-import 'package:musicplayer/themes/artwork_hairline_border.dart';
+import 'package:musicplayer/widgets/song_artwork.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _locales = [Locale('en'), Locale('id')];
