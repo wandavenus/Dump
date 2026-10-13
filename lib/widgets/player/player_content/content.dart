@@ -372,7 +372,9 @@ class _PlayerContentState extends State<PlayerContent> {
                                     // cropped by FittedBox/cover and would
                                     // clip a border drawn on its own edge.
                                     border: Border.all(
-                                      color: kArtworkHairlineColor,
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? kArtworkHairlineDarkColor
+                                          : kArtworkHairlineLightColor,
                                       width: kArtworkHairlineWidth,
                                       // Inset alignment — stays crisp as
                                       // the Transform scales it.
