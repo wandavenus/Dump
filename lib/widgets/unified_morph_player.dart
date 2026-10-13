@@ -786,7 +786,9 @@ class _UnifiedMorphPlayerState extends State<UnifiedMorphPlayer>
                                     finalRadius,
                                   ),
                                   border: Border.all(
-                                    color: kArtworkHairlineColor,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? kArtworkHairlineDarkColor
+                                        : kArtworkHairlineLightColor,
                                     width: kArtworkHairlineWidth,
                                     strokeAlign: BorderSide.strokeAlignInside,
                                   ),
